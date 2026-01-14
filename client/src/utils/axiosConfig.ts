@@ -3,7 +3,7 @@ import type { AxiosRequestConfig, AxiosResponse } from "axios";
 
 // Configure axios base URL for backend API
 const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "https://tm.universalbridge.rw";
+  import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
 axios.defaults.baseURL = API_BASE_URL;
 axios.defaults.timeout = 10000; // 10 second timeout
 

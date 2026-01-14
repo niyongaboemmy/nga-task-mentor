@@ -29,6 +29,7 @@ export interface IUserAttributes {
   email: string;
   password: string;
   role: UserRole;
+  mis_user_id?: number | null;
   profile_image?: string | null;
   reset_password_token?: string | null;
   reset_password_expire?: Date | null;
@@ -114,6 +115,13 @@ export class User extends Model<IUserAttributes, UserCreationAttributes> {
   role!: UserRole;
 
   @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    field: "mis_user_id",
+  })
+  mis_user_id?: number | null;
+
+  @Column({
     type: DataType.STRING,
     allowNull: true,
     field: "profile_image",
@@ -182,13 +190,13 @@ export class User extends Model<IUserAttributes, UserCreationAttributes> {
 
   // Method to generate password reset token
   getResetPasswordToken(): string {
-    const resetToken = crypto.randomBytes(20).toString('hex');
+    const resetToken = crypto.randomBytes(20).toString("hex");
 
     // Hash token and set to resetPasswordToken field
     this.reset_password_token = crypto
-      .createHash('sha256')
+      .createHash("sha256")
       .update(resetToken)
-      .digest('hex');
+      .digest("hex");
 
     // Set expire
     this.reset_password_expire = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes

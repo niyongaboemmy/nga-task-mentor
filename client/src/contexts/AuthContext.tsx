@@ -3,30 +3,87 @@ import axios from "../utils/axiosConfig";
 import { useDispatch } from "react-redux";
 import { loginSuccess, logout } from "../store/slices/authSlice";
 
+// Local API axios instance
+const apiAxios = axios.create({
+  baseURL: "http://localhost:5001/api",
+  timeout: 10000,
+});
+
+// MIS API axios instance for profile operations
+const misAxios = axios.create({
+  baseURL: "https://nga-central-mis.vercel.app",
+  timeout: 10000,
+});
+
+interface Role {
+  role_id: number;
+  name: string;
+  description: string;
+  status: string;
+  permissions: Array<{
+    perm_id: number;
+    name: string;
+    description: string;
+    status: string;
+  }>;
+}
+
+export interface UserProfileResponse {
+  success: boolean;
+  message: string;
+  data: UserProfileData;
+}
+
+export interface UserProfileData {
+  user: {
+    user_id: number;
+    username: string;
+    email: string;
+    phone_number: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+  };
+  profile: {
+    profile_id: number;
+    user_id: number;
+    first_name: string;
+    last_name: string;
+    gender: string;
+    date_of_birth: null | string;
+    address: null | string;
+    user_type: string;
+    external_id: null | string;
+  };
+  roles: Role[];
+  permissions: string[];
+  assignedPrograms: any[];
+  assignedGrades: any[];
+  forcePasswordChange: boolean;
+}
+
 interface User {
   id: string;
   first_name: string;
   last_name: string;
   email: string;
-  role: "student" | "instructor" | "admin";
+  role: string;
+  roles: Array<{ id: number; name: string }>;
+  permissions: string[];
   profile_image?: string;
   department?: string;
-}
-
-interface RegisterData {
-  first_name: string;
-  last_name: string;
-  email: string;
-  password: string;
-  role?: "student" | "instructor" | "admin";
+  user_type?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (userData: RegisterData) => Promise<void>;
+  login: (
+    email: string,
+    password: string,
+    otp?: string
+  ) => Promise<{ needsOtp?: boolean } | void>;
   logoutUser: () => void;
   updateProfile: (userData: Partial<User>) => Promise<void>;
   updateProfileImage: (imageUrl: string) => Promise<void>;
@@ -53,6 +110,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAuthInitializing, setIsAuthInitializing] = useState(false);
+  const [tempToken, setTempToken] = useState<string | null>(null);
   const dispatch = useDispatch();
 
   // Set up axios defaults and check auth on mount
@@ -79,30 +137,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         if (token && token.trim()) {
           try {
             const cleanToken = token.trim();
+            const misToken = localStorage.getItem("misToken");
             axios.defaults.headers.common[
               "Authorization"
             ] = `Bearer ${cleanToken}`;
+            apiAxios.defaults.headers.common[
+              "Authorization"
+            ] = `Bearer ${cleanToken}`;
+            if (misToken) {
+              misAxios.defaults.headers.common[
+                "Authorization"
+              ] = `Bearer ${misToken}`;
+            }
 
             console.log(
-              "🔄 AuthContext: Making auth check request to /api/auth/me"
+              "🔄 AuthContext: Making auth check request to local /auth/me"
             );
-            const response = await axios.get("/api/auth/me");
+            const storedMisToken = localStorage.getItem("misToken");
+            const headers: any = {};
+            if (storedMisToken) {
+              headers["X-MIS-Token"] = `Bearer ${storedMisToken}`;
+            }
+            const response = await apiAxios.get("/auth/me", {
+              headers,
+            });
             console.log(
               "✅ AuthContext: Auth check successful:",
               response.data
             );
 
-            setUser(response.data.data);
+            const responseData = response.data.data;
+            const userData = {
+              id: responseData.user.id.toString(),
+              first_name: responseData.profile.first_name,
+              last_name: responseData.profile.last_name,
+              email: responseData.user.email,
+              role: responseData.profile.user_type,
+              roles: responseData.roles.map((r: Role, i: number) => ({
+                id: r.role_id,
+                name: r.name,
+              })),
+              permissions: responseData.permissions,
+              profile_image: undefined,
+              department: undefined,
+              user_type: responseData.profile.user_type,
+            };
+
+            setUser(userData);
             dispatch(loginSuccess(response.data.data));
 
             const currentPath = window.location.pathname;
-            if (currentPath === "/login" || currentPath === "/register") {
+            if (currentPath === "/login") {
               window.location.href = "/dashboard";
             }
           } catch (error) {
             console.error("❌ AuthContext: Auth check failed:", error);
             localStorage.removeItem("token");
             delete axios.defaults.headers.common["Authorization"];
+            delete apiAxios.defaults.headers.common["Authorization"];
+            delete misAxios.defaults.headers.common["Authorization"];
           }
         } else {
           console.log("🔄 AuthContext: No token found, user not authenticated");
@@ -117,42 +210,86 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     initializeAuth();
   }, []); // Removed dispatch dependency since it's stable
 
-  const login = async (email: string, password: string) => {
+  const login = async (
+    email: string,
+    password: string,
+    otp?: string
+  ): Promise<{ needsOtp?: boolean } | void> => {
     try {
-      console.log("Attempting login for:", email);
-      const response = await axios.post("/api/auth/login", { email, password });
-      const token = response.data.token;
-      const userData = response.data.data;
+      if (otp) {
+        // Verify OTP via local backend
+        console.log("Verifying OTP for:", email);
+        const response = await apiAxios.post<{
+          success: boolean;
+          token: string;
+          misToken: string;
+          user: {
+            id: number;
+            first_name: string;
+            last_name: string;
+            email: string;
+            role: string;
+            mis_user_id: number;
+          };
+          profile: any;
+          permissions: string[];
+          assignedPrograms: any[];
+          assignedGrades: any[];
+          forcePasswordChange: boolean;
+        }>(
+          "/auth/verify-otp",
+          { otp },
+          {
+            headers: { Authorization: `Bearer ${tempToken}` },
+          }
+        );
+        const token = response.data.token;
+        const misToken = response.data.misToken;
+        const userData = {
+          id: response.data.user.id.toString(),
+          first_name: response.data.user.first_name,
+          last_name: response.data.user.last_name,
+          email: response.data.user.email,
+          role: response.data.user.role,
+          roles: [],
+          permissions: response.data.permissions,
+          profile_image: undefined,
+          department: undefined,
+          user_type: response.data.user.role,
+        };
 
-      localStorage.setItem("token", token);
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        localStorage.setItem("token", token);
+        localStorage.setItem("misToken", misToken);
+        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        apiAxios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+        misAxios.defaults.headers.common[
+          "Authorization"
+        ] = `Bearer ${misToken}`;
 
-      setUser(userData);
-      dispatch(loginSuccess(userData));
+        setUser(userData);
+        dispatch(loginSuccess(userData));
+        setTempToken(null);
 
-      window.location.href = "/dashboard";
+        window.location.href = "/dashboard";
+      } else {
+        // Initial login via local backend
+        console.log("Attempting login for:", email);
+        const response = await apiAxios.post<{
+          success: boolean;
+          tempToken: string;
+          requiresOTP: boolean;
+        }>("/auth/login", {
+          email,
+          password,
+        });
+        const tempTokenValue = response.data.tempToken;
+
+        setTempToken(tempTokenValue);
+        return { needsOtp: response.data.requiresOTP };
+      }
     } catch (error) {
       console.error("Login failed:", error);
-      throw error;
-    }
-  };
-
-  const register = async (userData: RegisterData) => {
-    try {
-      console.log("Attempting registration for:", userData.email);
-      const response = await axios.post("/api/auth/register", userData);
-      const token = response.data.token;
-      const newUser = response.data.data;
-
-      localStorage.setItem("token", token);
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-
-      setUser(newUser);
-      dispatch(loginSuccess(newUser));
-
-      window.location.href = "/dashboard";
-    } catch (error) {
-      console.error("Registration failed:", error);
+      setTempToken(null);
       throw error;
     }
   };
@@ -160,8 +297,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const updateProfile = async (userData: Partial<User>) => {
     try {
       console.log("Updating profile for user:", userData);
-      const response = await axios.put("/api/auth/updatedetails", userData);
-      const updatedUser = response.data.data;
+      const response = await misAxios.put("/users/me/profile", userData);
+      const responseData = response.data.data;
+      const updatedUser = {
+        id: responseData.user.user_id.toString(),
+        first_name: responseData.profile.first_name,
+        last_name: responseData.profile.last_name,
+        email: responseData.user.email,
+        role: responseData.profile.user_type,
+        roles: responseData.roles.map((r: Role, i: number) => ({
+          id: r.role_id,
+          name: r.name,
+        })),
+        permissions: responseData.permissions,
+        profile_image: undefined,
+        department: undefined,
+        user_type: responseData.profile.user_type,
+      };
 
       setUser(updatedUser);
       dispatch(loginSuccess(updatedUser));
@@ -207,15 +359,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   ) => {
     try {
       console.log("Changing password for user");
-      const response = await axios.put("/api/auth/updatepassword", {
+      const response = await misAxios.post("/auth/change-password", {
         currentPassword,
         newPassword,
+        confirmPassword: newPassword,
       });
       const token = response.data.token;
-      const userData = response.data.data;
+      const responseData = response.data;
+      const userData = {
+        id: responseData.user.user_id.toString(),
+        first_name: responseData.profile.first_name,
+        last_name: responseData.profile.last_name,
+        email: responseData.user.email,
+        role: responseData.profile.user_type,
+        roles: [],
+        permissions: responseData.permissions,
+        profile_image: undefined,
+        department: undefined,
+        user_type: responseData.profile.user_type,
+      };
 
-      localStorage.setItem("token", token);
-      axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      // Since password change returns new MIS token, we need to get new local token
+      // For now, we'll use the existing local token since user data hasn't changed
+      localStorage.setItem("misToken", token);
+      misAxios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+      // Local token remains the same since local user data is unchanged
 
       setUser(userData);
       dispatch(loginSuccess(userData));
@@ -228,7 +396,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const logoutUser = () => {
     console.log("Logging out user...");
     localStorage.removeItem("token");
+    localStorage.removeItem("misToken");
     delete axios.defaults.headers.common["Authorization"];
+    delete apiAxios.defaults.headers.common["Authorization"];
+    delete misAxios.defaults.headers.common["Authorization"];
     setUser(null);
     dispatch(logout());
     window.location.href = "/login";
@@ -239,7 +410,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     isAuthenticated: !!user,
     loading,
     login,
-    register,
     logoutUser,
     updateProfile,
     updateProfileImage,

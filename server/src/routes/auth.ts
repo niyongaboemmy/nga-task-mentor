@@ -1,7 +1,7 @@
 import { Router } from "express";
 import {
   login,
-  register,
+  verifyOtp,
   refreshToken,
   forgotPassword,
   resetPassword,
@@ -13,7 +13,6 @@ import {
 } from "../controllers/auth.controller";
 import {
   loginSchema,
-  registerSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
 } from "../validations/auth.validation";
@@ -24,9 +23,9 @@ import { handleMulterError } from "../middleware/upload";
 const router = Router();
 
 // Authentication routes
-router.get("/me", protect, getMe);
+router.get("/me", getMe);
 router.post("/login", validate(loginSchema), login);
-router.post("/register", validate(registerSchema), register);
+router.post("/verify-otp", verifyOtp);
 router.post("/refresh-token", refreshToken);
 router.post("/forgot-password", validate(forgotPasswordSchema), forgotPassword);
 router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
@@ -34,7 +33,12 @@ router.post("/reset-password", validate(resetPasswordSchema), resetPassword);
 // Profile management routes
 router.put("/updatedetails", protect, updateProfileDetails);
 router.put("/updatepassword", protect, updatePassword);
-router.post("/upload-profile-image", protect, handleMulterError, uploadProfileImage);
+router.post(
+  "/upload-profile-image",
+  protect,
+  handleMulterError,
+  uploadProfileImage
+);
 router.delete("/delete-profile-image", protect, deleteProfileImage);
 
 export default router;

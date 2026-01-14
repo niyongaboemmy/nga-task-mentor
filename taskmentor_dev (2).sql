@@ -546,42 +546,6 @@ CREATE TABLE `submissions` (
 INSERT INTO `submissions` (`id`, `assignment_id`, `student_id`, `status`, `submitted_at`, `text_submission`, `file_submissions`, `grade`, `feedback`, `resubmissions`, `is_late`, `comments`, `created_at`, `updated_at`) VALUES
 (1, 1, 3, 'graded', '2025-10-21 17:37:17', 'This is the submission', '[{\"filename\":\"Archive (2).zip\",\"originalname\":\"Archive (2).zip\",\"path\":\"/Users/m2pro/dev/projects/AI PROJECTS/NGA-Projects/spwms/server/uploads/file_submission-1761068237753-891925332.zip\",\"size\":146284,\"mimetype\":\"application/zip\"}]', '80/100', 'ok', '[]', 0, '[]', '2025-10-21 17:37:17', '2025-10-23 14:30:29');
 
--- --------------------------------------------------------
-
---
--- Table structure for table `users`
---
-
-CREATE TABLE `users` (
-  `id` int(11) NOT NULL,
-  `first_name` varchar(50) NOT NULL,
-  `last_name` varchar(50) NOT NULL,
-  `email` varchar(100) NOT NULL,
-  `password` varchar(255) NOT NULL,
-  `role` enum('student','instructor','admin') NOT NULL DEFAULT 'student',
-  `profile_image` varchar(255) DEFAULT NULL,
-  `reset_password_token` varchar(255) DEFAULT NULL,
-  `reset_password_expire` datetime DEFAULT NULL,
-  `created_at` datetime NOT NULL,
-  `updated_at` datetime NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
-
---
--- Dumping data for table `users`
---
-
-INSERT INTO `users` (`id`, `first_name`, `last_name`, `email`, `password`, `role`, `profile_image`, `reset_password_token`, `reset_password_expire`, `created_at`, `updated_at`) VALUES
-(1, 'Niyongabo', 'Emmanuel', 'emmanuelniyongabo44@gmail.com', '$2a$10$K3QdagXt7nkZFEnSNET8x.rciv8mgedl8xPbVHv5RXGwKORje.0r.', 'instructor', 'profile-1-1763144624263-328190628.png', NULL, NULL, '2025-10-20 11:14:00', '2025-11-14 18:23:44'),
-(2, 'ISHIMWE', 'Keny kelvin', 'ikennykelvin75@gmail.com', '$2a$10$2nohspCj/oqTN9.4fS28Mu21bkbb57qtAudArO/v1.hMN/91WXhk.', 'student', NULL, NULL, NULL, '2025-10-20 11:55:50', '2025-10-20 11:55:50'),
-(3, 'Doe', 'John', 'johndoe@gmail.com', '$2a$10$Hdr15vHryzSDm8nIkRvXZeG18AxGCHAIM3CW8lE7AaNhx1vFewmRq', 'student', 'profile-3-1761291718198-707527274.png', NULL, NULL, '2025-10-20 13:54:42', '2025-10-24 07:41:58'),
-(4, 'HIRWA', 'Brian', 'bhirwa344@gmail.com', '$2a$10$Hdr15vHryzSDm8nIkRvXZeG18AxGCHAIM3CW8lE7AaNhx1vFewmRq', 'student', NULL, NULL, NULL, '2025-10-20 14:17:50', '2025-10-20 14:17:50'),
-(5, 'Tuyishimire', 'Eric', 'tuyishimireericc@gmail.com', '$2a$10$d4KUZxO96S4OZzCpmlhfveH8gHUopm/6um5MEEFfZWLExOoTmqRdi', 'instructor', NULL, NULL, NULL, '2025-10-20 14:28:30', '2025-10-20 14:28:30'),
-(6, 'Utuje Oceanne', 'Camilla', 'utujeocean@gmail.com', '$2a$10$ZIIFeIkOn5c/NPOtnPlbk.bw9BghNX55Ld/nBaPdtg41jseOOfp6S', 'student', NULL, NULL, NULL, '2025-10-20 17:26:20', '2025-10-20 17:26:20'),
-(7, 'Levi', 'Gatimu', 'getmorelev@gmail.com', '$2a$10$1aNshK8NJLE7QOneHcJMC.RcXXYAWC0T.2plQrglCj.DV7osSZPaG', 'student', NULL, NULL, NULL, '2025-10-20 18:25:38', '2025-10-20 18:25:38'),
-(8, 'TUNGA', 'Tiana', 'tianatunga@gmail.com', '$2a$10$czm6/VJEB0JnL7JzTZTBPu6ADQQMKBDIKRb6SjO9jqN65X8BjvRRK', 'student', NULL, NULL, NULL, '2025-10-21 05:33:34', '2025-10-21 05:33:34'),
-(9, 'Isaro', 'Deborah', 'isarodeborah85@gmail.com', '$2a$10$fpUFmCJTqCGtHTdmkN4TzO7x5f4PeKtOm6PJLjqtRrdiOLbX0J75.', 'student', NULL, NULL, NULL, '2025-10-21 05:43:33', '2025-10-21 05:43:33'),
-(10, 'Kheilla', 'Vera', 'cyusagisa12@gmail.com', '$2a$10$gyBrrzWwnPSyBj.i35BcTeRfg7nsk3WHGbBPDVg2KHoY8lllM3qWK', 'student', NULL, NULL, NULL, '2025-10-21 05:44:48', '2025-10-21 05:44:48'),
-(11, 'Test', 'Instructor', 'instructor@example.com', '$2a$10$l3pMbByOpjy4xQ2IqQ6V0ejPxOArb1bstyTgFYfczRIodZ8lZB962', 'instructor', NULL, NULL, NULL, '2025-11-07 20:17:59', '2025-11-07 20:17:59');
 
 -- --------------------------------------------------------
 

@@ -19,7 +19,6 @@ import Submissions from "./components/Submissions/Submissions";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import Layout from "./components/Layout/Layout";
 import Login from "./components/Auth/Login";
-import Register from "./components/Auth/Register";
 import CourseDetails from "./components/Courses/CourseDetails";
 import AssignInstructor from "./components/Courses/AssignInstructor";
 import AssignmentDetails from "./components/Assignments/AssignmentDetails";
@@ -160,7 +159,6 @@ function AppContent() {
             {/* Public routes */}
             <Route path="/" element={<AuthGuard />} />
             <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
 
             {/* Protected routes */}
             <Route
