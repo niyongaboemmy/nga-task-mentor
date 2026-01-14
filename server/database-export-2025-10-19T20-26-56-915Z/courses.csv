@@ -1,0 +1,3 @@
+id,code,title,description,credits,start_date,end_date,is_active,max_students,instructor_id,createdAt,updatedAt
+1,TEST101,Test Course,A test course for testing,3,2025-01-01,2025-05-01,1,50,1,Sat Oct 18 2025 02:43:54 GMT+0200 (Central Africa Time),Sat Oct 18 2025 02:43:54 GMT+0200 (Central Africa Time)
+2,SPEWI302,Development of web user interface,Development of a web user interface refers to the process of designing and building the part of a website or web application that users interact with directly through their web browser,3,2025-09-29,2025-11-09,1,30,2,Sat Oct 18 2025 13:04:52 GMT+0200 (Central Africa Time),Sat Oct 18 2025 13:04:52 GMT+0200 (Central Africa Time)

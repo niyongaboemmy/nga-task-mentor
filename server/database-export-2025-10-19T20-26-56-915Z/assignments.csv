@@ -1,0 +1,146 @@
+id,title,description,due_date,max_score,submission_type,allowed_file_types,rubric,course_id,created_by,status,createdAt,updatedAt
+1,Test Assignment,This is a test assignment for testing the system,Thu Jan 01 2026 01:59:59 GMT+0200 (Central Africa Time),100,both,,,1,1,published,Sat Oct 18 2025 02:44:26 GMT+0200 (Central Africa Time),Sat Oct 18 2025 02:44:26 GMT+0200 (Central Africa Time)
+2,Develop a Personal Portfolio Website,"<p><span style=""font-size: inherit; font-weight: inherit; color: rgb(0, 0, 0);"">📝 </span><strong style=""font-size: inherit; color: rgb(0, 0, 0);"">Assignment Instructions:</strong></p>
+<p><font color=""#000000"">You are required to design and develop a <strong>Personal Portfolio Website</strong> that introduces you as a developer/designer. The site should showcase your skills, projects, and contact details.</font></p>
+<hr>
+<h3><font color=""#000000"">🧱 <strong>Requirements:</strong></font></h3>
+<h4><strong><font color=""#000000"">1. Structure (HTML):</font></strong></h4>
+<ul>
+<li>
+<p><font color=""#000000"">Create at least <strong>three pages</strong>:</font></p>
+<ol>
+<li>
+<p><font color=""#000000""><strong>Home</strong> – A short introduction and photo/banner.</font></p>
+</li>
+<li>
+<p><font color=""#000000""><strong>About Me</strong> – Education, skills, and interests.</font></p>
+</li>
+<li>
+<p><font color=""#000000""><strong>Projects</strong> – Display 2–3 sample projects with descriptions.</font></p>
+</li>
+<li>
+<p><font color=""#000000""><em>(Optional)</em> Contact page or section with a form.</font></p>
+</li><li><p><font color=""#000000""><br></font></p></li>
+</ol>
+</li>
+</ul>
+<h4><strong><font color=""#000000"">2. Styling (CSS):</font></strong></h4>
+<ul>
+<li>
+<p><font color=""#000000"">Use <strong>an external CSS file</strong> for styling.</font></p>
+</li>
+<li>
+<p><font color=""#000000"">Apply the following concepts:</font></p>
+<ul>
+<li>
+<p><font color=""#000000"">Color scheme and typography consistency.</font></p>
+</li>
+<li>
+<p><font color=""#000000"">CSS layout (Flexbox or Grid).</font></p>
+</li>
+<li>
+<p><font color=""#000000"">Hover effects for buttons or links.</font></p>
+</li>
+<li>
+<p><font color=""#000000"">Responsive design (website should adapt to mobile and desktop screens).</font></p>
+</li><li><p><font color=""#000000""><br></font></p></li>
+</ul>
+</li>
+</ul>
+<h4><strong><font color=""#000000"">3. Interactivity (optional for bonus marks):</font></strong></h4>
+<ul>
+<li>
+<p><font color=""#000000"">Add a <strong>simple JavaScript feature</strong>, e.g.:</font></p>
+<ul>
+<li>
+<p><font color=""#000000"">“Back to top” button.</font></p>
+</li>
+<li>
+<p><font color=""#000000"">Form validation.</font></p>
+</li>
+<li>
+<p><font color=""#000000"">Theme switcher (light/dark mode).</font></p>
+</li>
+</ul>
+</li>
+</ul>
+<hr>
+<h3><font color=""#000000"">💡 <strong>Suggested Tools:</strong></font></h3>
+<ul>
+<li>
+<p><font color=""#000000""><strong>Code editor:</strong> VS Code or any preferred IDE.</font></p>
+</li>
+<li>
+<p><font color=""#000000""><strong>Browser:</strong> Chrome, Firefox, or Edge.</font></p>
+</li>
+<li>
+<p><font color=""#000000""><strong>Frameworks (optional):</strong> Tailwind CSS / Bootstrap (for students familiar with them).</font></p>
+</li>
+</ul>
+<hr>
+<h3><font color=""#000000"">📦 <strong>Submission Guidelines:</strong></font></h3>
+<ul>
+<li>
+<p><font color=""#000000"">Submit all files in a folder named:<br>
+<code inline="""">YourName_Portfolio_UI</code></font></p>
+</li>
+<li>
+<p><font color=""#000000"">Include:</font></p>
+<ul>
+<li>
+<p><code inline=""""><font color=""#000000"">index.html</font></code></p>
+</li>
+<li>
+<p><font color=""#000000""><code inline="""">about.html</code>, <code inline="""">projects.html</code></font></p>
+</li>
+<li>
+<p><code inline=""""><font color=""#000000"">style.css</font></code></p>
+</li>
+<li>
+<p><font color=""#000000"">Any image or script files used.</font></p>
+</li>
+</ul>
+</li>
+<li>
+<p><font color=""#000000"">Compress the folder into <code inline="""">.zip</code> and upload via the platform.</font></p>
+</li>
+</ul>
+<hr>
+<h3><font color=""#000000"">🧮 <strong>Assessment Criteria:</strong></font></h3>
+<table>
+<thead>
+<tr>
+<th style=""text-align: left;""><font color=""#000000"">Criteria</font></th>
+<th style=""text-align: left;""><font color=""#000000"">Description</font></th>
+<th><font color=""#000000"">Marks</font></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><font color=""#000000"">HTML structure</font></td>
+<td><font color=""#000000"">Semantic tags, well-formed code</font></td>
+<td><font color=""#000000"">20</font></td>
+</tr>
+<tr>
+<td><font color=""#000000"">CSS styling &amp; layout</font></td>
+<td><font color=""#000000"">Visual design, use of colors, fonts, spacing&nbsp; &nbsp; &nbsp;&nbsp;</font></td>
+<td><font color=""#000000"">30</font></td>
+</tr>
+<tr>
+<td><font color=""#000000"">Responsiveness</font></td>
+<td><font color=""#000000"">Works well on mobile and desktop</font></td>
+<td><font color=""#000000"">20</font></td>
+</tr>
+<tr>
+<td><font color=""#000000"">Creativity</font></td>
+<td><font color=""#000000"">Aesthetic appeal, originality</font></td>
+<td><font color=""#000000"">20</font></td>
+</tr>
+<tr>
+<td><font color=""#000000"">(Optional) JavaScript interactivity</font></td>
+<td><font color=""#000000"">Bonus feature(s)</font></td>
+<td><font color=""#000000"">+10</font></td>
+</tr>
+</tbody>
+</table>
+<p><font color=""#000000""><strong>Total:</strong> 90 marks (+10 bonus)</font></p>",Sun Oct 19 2025 20:00:00 GMT+0200 (Central Africa Time),100,both,,,2,2,completed,Sat Oct 18 2025 17:07:24 GMT+0200 (Central Africa Time),Sun Oct 19 2025 21:07:27 GMT+0200 (Central Africa Time)
