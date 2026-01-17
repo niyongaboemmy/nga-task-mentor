@@ -11,6 +11,7 @@ import {
   UpdateQuizRequest,
   GradingResult,
 } from "../types/quiz.types";
+import { parseLocalDateTimeToUTC } from "../utils/dateUtils";
 
 // Deep equality comparison for objects
 const deepEqual = (a: any, b: any): boolean => {
@@ -81,7 +82,9 @@ export const getQuizzes = async (req: Request, res: Response) => {
     const quizzesWithStats = quizzes.map((quiz) => ({
       ...quiz.toJSON(),
       totalQuestions: quiz.questions?.length || 0,
-      totalPoints: quiz.questions?.reduce((sum, q) => sum + q.points, 0) || 0,
+      totalPoints:
+        quiz.questions?.reduce((sum, q) => Number(sum) + Number(q.points), 0) ||
+        0,
       isAvailable: quiz.is_available,
       isPublic: quiz.is_public,
     }));
@@ -302,12 +305,14 @@ export const createQuiz = async (req: Request, res: Response) => {
             : true,
         require_manual_grading: quizData.require_manual_grading || false,
         start_date: quizData.start_date
-          ? new Date(quizData.start_date)
+          ? parseLocalDateTimeToUTC(quizData.start_date)
           : undefined,
-        end_date: quizData.end_date ? new Date(quizData.end_date) : undefined,
+        end_date: quizData.end_date
+          ? parseLocalDateTimeToUTC(quizData.end_date)
+          : undefined,
         is_public: quizData.is_public || false,
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();
@@ -394,17 +399,17 @@ export const updateQuiz = async (req: Request, res: Response) => {
             ? updateData.require_manual_grading
             : quiz.require_manual_grading,
         start_date: updateData.start_date
-          ? new Date(updateData.start_date)
+          ? parseLocalDateTimeToUTC(updateData.start_date)
           : undefined,
         end_date: updateData.end_date
-          ? new Date(updateData.end_date)
+          ? parseLocalDateTimeToUTC(updateData.end_date)
           : undefined,
         is_public:
           updateData.is_public !== undefined
             ? updateData.is_public
             : quiz.is_public,
       },
-      { transaction }
+      { transaction },
     );
     await transaction.commit();
 
@@ -543,7 +548,7 @@ export const getQuizStats = async (req: Request, res: Response) => {
               : 0,
           average_points: parseFloat(attemptStat.average_points) || 0,
         };
-      })
+      }),
     );
 
     res.status(200).json({
@@ -609,7 +614,7 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
     });
 
     console.log(
-      `Found ${availableQuizzes.length} available quizzes after date filtering`
+      `Found ${availableQuizzes.length} available quizzes after date filtering`,
     );
 
     // If student, filter out completed quizzes but include in-progress ones with status
@@ -630,15 +635,15 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
         .map((sub: any) => sub.quiz_id);
 
       console.log(
-        `Student ${req.user.id} has completed ${completedQuizIds.length} quizzes`
+        `Student ${req.user.id} has completed ${completedQuizIds.length} quizzes`,
       );
 
       // Filter out completed quizzes, but keep in-progress ones
       filteredQuizzes = availableQuizzes.filter(
-        (quiz) => !completedQuizIds.includes(quiz.id)
+        (quiz) => !completedQuizIds.includes(quiz.id),
       );
       console.log(
-        `Found ${filteredQuizzes.length} available quizzes after filtering completed ones`
+        `Found ${filteredQuizzes.length} available quizzes after filtering completed ones`,
       );
     }
 
@@ -653,7 +658,11 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
       return {
         ...quiz.toJSON(),
         totalQuestions: quiz.questions?.length || 0,
-        totalPoints: quiz.questions?.reduce((sum, q) => sum + q.points, 0) || 0,
+        totalPoints:
+          quiz.questions?.reduce(
+            (sum, q) => Number(sum) + Number(q.points),
+            0,
+          ) || 0,
         isAvailable: quiz.is_available,
         isPublic: quiz.is_public,
         studentStatus: inProgressQuizIds.includes(quiz.id)
@@ -663,7 +672,7 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
     });
 
     console.log(
-      `Returning ${quizzesWithStats.length} available quizzes to student`
+      `Returning ${quizzesWithStats.length} available quizzes to student`,
     );
 
     res.status(200).json({
@@ -745,11 +754,11 @@ export const getPublicQuizzes = async (req: Request, res: Response) => {
         .map((sub: any) => sub.quiz_id);
 
       console.log(
-        `Student ${req.user.id} has completed ${completedQuizIds.length} quizzes`
+        `Student ${req.user.id} has completed ${completedQuizIds.length} quizzes`,
       );
 
       filteredQuizzes = availableQuizzes.filter(
-        (quiz) => !completedQuizIds.includes(quiz.id)
+        (quiz) => !completedQuizIds.includes(quiz.id),
       );
     }
 
@@ -765,7 +774,11 @@ export const getPublicQuizzes = async (req: Request, res: Response) => {
       return {
         ...quiz.toJSON(),
         totalQuestions: quiz.questions?.length || 0,
-        totalPoints: quiz.questions?.reduce((sum, q) => sum + q.points, 0) || 0,
+        totalPoints:
+          quiz.questions?.reduce(
+            (sum, q) => Number(sum) + Number(q.points),
+            0,
+          ) || 0,
         isAvailable: quiz.is_available,
         isPublic: quiz.is_public,
         studentStatus: inProgressQuizIds.includes(quiz.id)
@@ -858,7 +871,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       // Mark as timed_out and return error
       await existingSubmission.update(
         { status: "timed_out", completed_at: new Date() },
-        { transaction }
+        { transaction },
       );
       await transaction.commit();
       return res.status(400).json({
@@ -924,7 +937,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         // Compare normalized answers directly for accurate grading
         const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
           answer.answer,
-          question.question_type
+          question.question_type,
         );
         const normalizedCorrectAnswer =
           AdvancedQuizGrader.normalizeCorrectAnswer(question);
@@ -971,14 +984,14 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
             try {
               const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
                 question,
-                answer.answer
+                answer.answer,
               );
               isCorrect = gradingResult.is_correct;
               pointsEarned = gradingResult.points_earned;
             } catch (error) {
               console.error(
                 `Error grading multiple choice question ${question.id}:`,
-                error
+                error,
               );
               isCorrect = false;
               pointsEarned = 0;
@@ -987,14 +1000,14 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
             try {
               const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
                 question,
-                answer.answer
+                answer.answer,
               );
               isCorrect = gradingResult.is_correct;
               pointsEarned = gradingResult.points_earned;
             } catch (error) {
               console.error(
                 `Error grading coding question ${question.id}:`,
-                error
+                error,
               );
               isCorrect = false;
               pointsEarned = 0;
@@ -1007,13 +1020,13 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
 
       // Check if attempt already exists for this question in this submission
       const existingAttempt = allAttempts.find(
-        (attempt) => attempt.question_id === question.id
+        (attempt) => attempt.question_id === question.id,
       );
 
       // Normalize submitted and correct answers for better comparison
       const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
         answer.answer,
-        question.question_type
+        question.question_type,
       );
       const normalizedCorrectAnswer =
         AdvancedQuizGrader.normalizeCorrectAnswer(question);
@@ -1031,7 +1044,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
             completed_at: new Date(),
             status: questionTimedOut ? "timed_out" : "completed",
           },
-          { transaction }
+          { transaction },
         );
         attempt = existingAttempt;
       } else {
@@ -1050,7 +1063,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
             started_at: new Date(),
             time_taken: answer.time_taken || 0,
           },
-          { transaction }
+          { transaction },
         );
       }
 
@@ -1091,7 +1104,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
             ? finalPercentage >= (quiz.passing_score || 60)
             : false,
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();
@@ -1311,7 +1324,7 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
         // Mark as timed_out and return error
         await existingSubmission.update(
           { status: "timed_out", completed_at: new Date() },
-          { transaction }
+          { transaction },
         );
         await transaction.commit();
         return res.status(400).json({
@@ -1362,7 +1375,7 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
         attempt_number: previousSubmissions + 1,
         passed: false,
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();

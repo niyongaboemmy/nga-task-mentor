@@ -5,7 +5,7 @@ import {
   Quiz,
   User,
   QuizQuestion,
-  Course,
+  // Course, // Model removed - managed by MIS
 } from "../models";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
@@ -33,13 +33,13 @@ export const getPendingSubmissions = async (req: Request, res: Response) => {
         {
           model: Quiz,
           as: "quiz",
-          include: [
+          /* include: [
             {
               model: Course,
               as: "course",
               attributes: ["id", "title", "code"],
             },
-          ],
+          ], */
         },
         {
           model: User,
@@ -63,8 +63,8 @@ export const getPendingSubmissions = async (req: Request, res: Response) => {
         submission_id: submission.id,
         quiz_id: submission.quiz_id,
         quiz_title: submission.quiz?.title,
-        course_name: submission.quiz?.course?.title,
-        course_code: submission.quiz?.course?.code,
+        course_name: (submission.quiz as any)?.course?.title, // Legacy support
+        course_code: (submission.quiz as any)?.course?.code, // Legacy support
         student_name: submission.student?.full_name,
         student_email: submission.student?.email,
         attempt_number: submission.attempt_number,
@@ -99,11 +99,11 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
               as: "questions",
               order: [["order", "ASC"]],
             },
-            {
+            /* {
               model: Course,
               as: "course",
               attributes: ["id", "title", "code"],
-            },
+            }, */
           ],
         },
         {
@@ -148,7 +148,7 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
     // Check authorization - only quiz creator, course instructor, or admin
     if (
       quiz?.created_by !== req.user.id &&
-      quiz?.course?.instructor_id !== req.user.id &&
+      (quiz as any)?.course?.instructor_id !== req.user.id &&
       req.user.role !== "admin"
     ) {
       return res.status(403).json({
@@ -173,7 +173,7 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
         quiz_id: submission.quiz_id,
         quiz_title: quiz?.title,
         quiz_type: quiz?.type,
-        course_name: quiz?.course?.title,
+        course_name: (quiz as any)?.course?.title,
         student_name: (submission as any).submissionStudent?.full_name,
         student_email: (submission as any).submissionStudent?.email,
         attempt_number: submission.attempt_number,
@@ -240,7 +240,7 @@ export const gradeSubmission = async (req: Request, res: Response) => {
     // Check authorization
     if (
       quiz?.created_by !== req.user.id &&
-      quiz?.course?.instructor_id !== req.user.id &&
+      (quiz as any)?.course?.instructor_id !== req.user.id &&
       req.user.role !== "admin"
     ) {
       await transaction.rollback();
@@ -260,7 +260,7 @@ export const gradeSubmission = async (req: Request, res: Response) => {
             points_earned: questionGrade,
             is_correct: questionGrade > 0,
           },
-          { transaction }
+          { transaction },
         );
         totalEarned += questionGrade;
       } else {
@@ -287,7 +287,7 @@ export const gradeSubmission = async (req: Request, res: Response) => {
         graded_by: req.user.id,
         feedback,
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();
@@ -327,7 +327,7 @@ export const getQuizAnalytics = async (req: Request, res: Response) => {
     // Check authorization
     if (
       quiz.created_by !== req.user.id &&
-      quiz.course?.instructor_id !== req.user.id &&
+      (quiz as any).course?.instructor_id !== req.user.id &&
       req.user.role !== "admin"
     ) {
       return res.status(403).json({
@@ -441,7 +441,7 @@ export const getQuizAnalytics = async (req: Request, res: Response) => {
       studentStats[studentId].total_score += submission.percentage;
       studentStats[studentId].best_score = Math.max(
         studentStats[studentId].best_score,
-        submission.percentage
+        submission.percentage,
       );
       studentStats[studentId].total_time += submission.time_taken;
       if (
@@ -497,7 +497,7 @@ export const getQuizSubmissions = async (req: Request, res: Response) => {
     // Check authorization
     if (
       quiz.created_by !== req.user.id &&
-      quiz.course?.instructor_id !== req.user.id &&
+      (quiz as any).course?.instructor_id !== req.user.id &&
       req.user.role !== "admin"
     ) {
       return res.status(403).json({
@@ -602,7 +602,7 @@ export const updateSubmissionFeedback = async (req: Request, res: Response) => {
     // Check authorization
     if (
       quiz?.created_by !== req.user.id &&
-      quiz?.course?.instructor_id !== req.user.id &&
+      (quiz as any)?.course?.instructor_id !== req.user.id &&
       req.user.role !== "admin"
     ) {
       await transaction.rollback();

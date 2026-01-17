@@ -1,10 +1,12 @@
 import React from "react";
 import axios from "axios";
 import { toast } from "react-toastify";
+import { getProfileImageUrl } from "../../utils/imageUrl";
 import SubmissionMarking, {
   type SubmissionItemInterface,
 } from "./SubmissionMarking";
 import type { AssignmentInterface } from "./AssignmentCard";
+import FilePreviewModal from "../Submissions/FilePreviewModal";
 
 interface SubmissionDetailsModalProps {
   isOpen: boolean;
@@ -16,7 +18,7 @@ interface SubmissionDetailsModalProps {
   onGradeSubmission: (
     submissionId: string,
     score: number,
-    feedback: string
+    feedback: string,
   ) => void;
   assignment: AssignmentInterface;
 }
@@ -31,6 +33,10 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
   onGradeSubmission,
 }) => {
   const [isDownloading, setIsDownloading] = React.useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = React.useState<{
+    url: string;
+    name: string;
+  } | null>(null);
 
   const handleDownloadFile = async (fileName: string, filename: string) => {
     setIsDownloading(fileName);
@@ -39,7 +45,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
         `/api/submissions/${submission.id}/files/${fileName}`,
         {
           responseType: "blob",
-        }
+        },
       );
 
       // Create download link
@@ -126,18 +132,17 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   {submission.student.profile_image ? (
                     <div className="relative">
                       <img
-                        src={`${
-                          import.meta.env.VITE_API_BASE_URL ||
-                          "https://tm.universalbridge.rw"
-                        }/uploads/profile-pictures/${
-                          submission.student.profile_image
-                        }`}
+                        src={
+                          getProfileImageUrl(
+                            submission.student.profile_image,
+                          ) || ""
+                        }
                         alt={`${submission.student.first_name} ${submission.student.last_name}`}
                         className="h-11 w-11 rounded-2xl object-cover ring-2 ring-white dark:ring-gray-800 shadow-sm"
                       />
                       <div
                         className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white dark:border-gray-800 ${getSubmissionStatusColor(
-                          submission.status
+                          submission.status,
                         )}`}
                       >
                         <span className="w-1 h-1 rounded-full bg-current block mx-auto mt-0.5"></span>
@@ -151,7 +156,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                       </span>
                       <div
                         className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white dark:border-gray-800 ${getSubmissionStatusColor(
-                          submission.status
+                          submission.status,
                         )}`}
                       >
                         <span className="w-1 h-1 rounded-full bg-current block mx-auto mt-0.5"></span>
@@ -171,7 +176,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
 
                 <div
                   className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${getSubmissionStatusColor(
-                    submission.status
+                    submission.status,
                   )}`}
                 >
                   <span className="w-1.5 h-1.5 rounded-full bg-current mr-2"></span>
@@ -303,7 +308,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                       Files (
                       {
                         JSON.parse(
-                          submission.file_submissions as unknown as string
+                          submission.file_submissions as unknown as string,
                         ).length
                       }
                       )
@@ -311,7 +316,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   </div>
                   <div className="space-y-2">
                     {JSON.parse(
-                      submission.file_submissions as unknown as string
+                      submission.file_submissions as unknown as string,
                     ).map((file: any, index: number) => (
                       <div
                         key={index}
@@ -350,13 +355,14 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                                 file.path.split("/").pop() ||
                                 file.path.split("\\").pop() ||
                                 file.filename;
-                              window.open(
-                                `${
-                                  import.meta.env.VITE_API_BASE_URL ||
-                                  "https://tm.universalbridge.rw"
-                                }/uploads/${fileName}`,
-                                "_blank"
-                              );
+                              const url = `${
+                                import.meta.env.VITE_API_BASE_URL ||
+                                "https://tm.universalbridge.rw"
+                              }/uploads/${fileName}`;
+                              setSelectedFile({
+                                url,
+                                name: file.originalname || fileName,
+                              });
                             }}
                             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-all duration-200 hover:scale-105 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
                           >
@@ -389,7 +395,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                                 file.filename;
                               handleDownloadFile(
                                 fileName,
-                                file.originalname || fileName
+                                file.originalname || fileName,
                               );
                             }}
                             disabled={
@@ -528,6 +534,13 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
           </div>
         </div>
       </div>
+
+      <FilePreviewModal
+        isOpen={!!selectedFile}
+        onClose={() => setSelectedFile(null)}
+        fileUrl={selectedFile?.url || ""}
+        fileName={selectedFile?.name || ""}
+      />
     </div>
   );
 };

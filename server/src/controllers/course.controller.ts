@@ -17,12 +17,19 @@ export const getCourses = async (req: Request, res: Response) => {
         .json({ success: false, message: "Authentication required" });
     }
 
+    // Build query parameters
     let endpoint = "/academics/subjects"; // Default for admin
+    let params: any = {};
 
     if (req.user?.role === "instructor") {
       endpoint = "/academics/my-assigned-subjects";
+      params.termId = 4; // Default to active term
     } else if (req.user?.role === "student" && req.user.mis_user_id) {
       endpoint = `/academics/students/${req.user.mis_user_id}/enrolled-subjects`;
+      // Students usually only get their current enrollments from this endpoint
+    } else if (req.user?.role === "admin") {
+      endpoint = "/academics/subjects";
+      params.termId = 4;
     }
 
     // Call NGA MIS API
@@ -30,10 +37,11 @@ export const getCourses = async (req: Request, res: Response) => {
       `${process.env.NGA_MIS_BASE_URL}${endpoint}`,
       {
         headers: {
-          Authorization: token,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-      }
+        params,
+      },
     );
 
     if (response.data.success) {
@@ -41,7 +49,7 @@ export const getCourses = async (req: Request, res: Response) => {
       const subjects = response.data.data || [];
       const courses = subjects.map((subject: any) => ({
         id: subject.id || subject.subject_id,
-        title: subject.name || subject.subject_name,
+        title: subject.name || subject.subject_name || subject.title,
         code: subject.code || subject.subject_code,
         description: subject.description,
         credits: 3, // Default credits
@@ -89,31 +97,9 @@ export const getCourse = async (req: Request, res: Response) => {
         .json({ success: false, message: "Authentication required" });
     }
 
-    // Call NGA MIS API to get subject details
-    const subjectResponse = await axios.get(
-      `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    const courseId = parseInt(req.params.id);
 
-    if (!subjectResponse.data.success) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    const subject = subjectResponse.data.data;
-    if (!subject) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    // Get enrolled students for this subject and term 4
+    // Get enrolled students for this subject and term 4 from MIS
     let enrolledStudents = [];
     try {
       const studentsResponse = await axios.get(
@@ -123,7 +109,7 @@ export const getCourse = async (req: Request, res: Response) => {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (studentsResponse.data.success) {
@@ -131,164 +117,43 @@ export const getCourse = async (req: Request, res: Response) => {
       }
     } catch (enrollmentError: any) {
       console.warn(
-        "Could not fetch enrolled students:",
-        enrollmentError.message
+        `Could not fetch enrolled students for course ${req.params.id}:`,
+        enrollmentError.message,
       );
-      // Continue without enrolled students data
     }
 
-    // Get assignments statistics for this course
-    let assignmentsStats = {
-      total: 0,
-      by_status: { draft: 0, published: 0, completed: 0, removed: 0 },
-      total_submissions: 0,
-      average_submissions_per_assignment: 0,
-    };
+    // Get local statistics (assignments, quizzes)
+    const statistics = await getCourseLocalStatistics(courseId);
 
-    try {
-      // Get all assignments for this course
-      const assignments = await Assignment.findAll({
-        where: { course_id: parseInt(req.params.id) },
-        include: [
-          {
-            model: Submission,
-            required: false,
-          },
-        ],
-      });
-
-      assignmentsStats.total = assignments.length;
-
-      // Count assignments by status
-      assignments.forEach((assignment) => {
-        assignmentsStats.by_status[assignment.status] =
-          (assignmentsStats.by_status[assignment.status] || 0) + 1;
-      });
-
-      // Calculate total submissions
-      assignmentsStats.total_submissions = assignments.reduce(
-        (total, assignment) => total + (assignment.submissions?.length || 0),
-        0
-      );
-
-      // Calculate average submissions per assignment
-      assignmentsStats.average_submissions_per_assignment =
-        assignmentsStats.total > 0
-          ? Math.round(
-              (assignmentsStats.total_submissions / assignmentsStats.total) *
-                100
-            ) / 100
-          : 0;
-    } catch (assignmentError: any) {
-      console.warn(
-        "Could not fetch assignments statistics:",
-        assignmentError.message
-      );
-      // Continue with empty stats
-    }
-
-    // Get quizzes statistics for this course
-    let quizzesStats = {
-      total: 0,
-      by_status: { draft: 0, published: 0, completed: 0 },
-      by_type: { practice: 0, graded: 0, exam: 0 },
-      total_submissions: 0,
-      average_score: 0,
-      pass_rate: 0,
-    };
-
-    try {
-      // Get all quizzes for this course
-      const quizzes = await Quiz.findAll({
-        where: { course_id: parseInt(req.params.id) },
-      });
-
-      quizzesStats.total = quizzes.length;
-
-      // Count quizzes by status and type
-      quizzes.forEach((quiz) => {
-        quizzesStats.by_status[quiz.status] =
-          (quizzesStats.by_status[quiz.status] || 0) + 1;
-        quizzesStats.by_type[quiz.type] =
-          (quizzesStats.by_type[quiz.type] || 0) + 1;
-      });
-
-      // Get all quiz submissions for this course's quizzes
-      const quizIds = quizzes.map((quiz) => quiz.id);
-      if (quizIds.length > 0) {
-        const quizSubmissions = await QuizSubmission.findAll({
-          where: { quiz_id: { [Op.in]: quizIds } },
-        });
-
-        // Calculate submission statistics
-        let totalScore = 0;
-        let totalSubmissions = 0;
-        let passedCount = 0;
-
-        quizSubmissions.forEach((submission: any) => {
-          totalSubmissions++;
-          totalScore += submission.percentage;
-          if (submission.passed) {
-            passedCount++;
-          }
-        });
-
-        quizzesStats.total_submissions = totalSubmissions;
-        quizzesStats.average_score =
-          totalSubmissions > 0
-            ? Math.round((totalScore / totalSubmissions) * 100) / 100
-            : 0;
-        quizzesStats.pass_rate =
-          totalSubmissions > 0
-            ? Math.round((passedCount / totalSubmissions) * 100)
-            : 0;
-      }
-    } catch (quizError: any) {
-      console.warn("Could not fetch quizzes statistics:", quizError.message);
-      // Continue with empty stats
-    }
-
-    // Map subject to course format with statistics
-    const course = {
-      id: subject.id,
-      title: subject.name,
-      code: subject.code,
-      description: subject.description,
-      credits: 3,
-      start_date: null,
-      end_date: null,
-      is_active: true,
-      max_students: 50,
-      instructor_id: null,
-      created_at: subject.created_at || new Date().toISOString(),
-      updated_at: subject.updated_at || new Date().toISOString(),
-      courseInstructor: null,
-      enrolledStudents: enrolledStudents,
-      // Add statistics
-      statistics: {
-        assignments: assignmentsStats,
-        quizzes: quizzesStats,
+    // Return statistics and enrollment to complement Redux list data
+    res.status(200).json({
+      success: true,
+      data: {
+        id: courseId,
+        statistics,
+        enrolledStudents,
       },
-    };
-
-    res.status(200).json({ success: true, data: course });
+    });
   } catch (error: any) {
     console.error("Get course error:", error.response?.data || error.message);
     if (error.response?.status === 404) {
       res.status(404).json({ success: false, message: "Course not found" });
     } else if (error.response?.status === 403) {
-      // For 403 errors, still return course data but with empty statistics
-      // This allows the frontend to show the course exists but user may not have access to detailed MIS data
+      // For 403 errors, still return course data but with local statistics
       console.warn(
-        `MIS API returned 403 for course ${req.params.id}, returning basic course data`
+        `MIS API returned 403 for course ${req.params.id}, returning local course data and statistics`,
       );
 
-      // Return course data with empty statistics since MIS access failed
+      const statistics = await getCourseLocalStatistics(
+        parseInt(req.params.id),
+      );
+
+      // Return course data with local statistics since MIS access failed
       const course = {
         id: req.params.id,
         title: `Course ${req.params.id}`,
         code: `COURSE${req.params.id}`,
-        description: "Course details unavailable - access restricted",
+        description: "Course details restricted in MIS - using local data",
         credits: 3,
         start_date: null,
         end_date: null,
@@ -299,22 +164,7 @@ export const getCourse = async (req: Request, res: Response) => {
         updated_at: new Date().toISOString(),
         courseInstructor: null,
         enrolledStudents: [],
-        statistics: {
-          assignments: {
-            total: 0,
-            by_status: { draft: 0, published: 0, completed: 0, removed: 0 },
-            total_submissions: 0,
-            average_submissions_per_assignment: 0,
-          },
-          quizzes: {
-            total: 0,
-            by_status: { draft: 0, published: 0, completed: 0 },
-            by_type: { practice: 0, graded: 0, exam: 0 },
-            total_submissions: 0,
-            average_score: 0,
-            pass_rate: 0,
-          },
-        },
+        statistics,
       };
 
       res.status(200).json({ success: true, data: course });
@@ -323,6 +173,124 @@ export const getCourse = async (req: Request, res: Response) => {
     }
   }
 };
+
+/**
+ * Helper to calculate local statistics for a course
+ */
+async function getCourseLocalStatistics(courseId: number) {
+  // Get assignments statistics for this course
+  let assignmentsStats = {
+    total: 0,
+    by_status: { draft: 0, published: 0, completed: 0, removed: 0 } as any,
+    total_submissions: 0,
+    average_submissions_per_assignment: 0,
+  };
+
+  try {
+    // Get all assignments for this course
+    const assignments = await Assignment.findAll({
+      where: { course_id: courseId },
+      include: [
+        {
+          model: Submission,
+          required: false,
+        },
+      ],
+    });
+
+    assignmentsStats.total = assignments.length;
+
+    // Count assignments by status
+    assignments.forEach((assignment) => {
+      assignmentsStats.by_status[assignment.status] =
+        (assignmentsStats.by_status[assignment.status] || 0) + 1;
+    });
+
+    // Calculate total submissions
+    assignmentsStats.total_submissions = assignments.reduce(
+      (total, assignment) => total + (assignment.submissions?.length || 0),
+      0,
+    );
+
+    // Calculate average submissions per assignment
+    assignmentsStats.average_submissions_per_assignment =
+      assignmentsStats.total > 0
+        ? Math.round(
+            (assignmentsStats.total_submissions / assignmentsStats.total) * 100,
+          ) / 100
+        : 0;
+  } catch (assignmentError: any) {
+    console.warn(
+      "Could not fetch assignments statistics:",
+      assignmentError.message,
+    );
+  }
+
+  // Get quizzes statistics for this course
+  let quizzesStats = {
+    total: 0,
+    by_status: { draft: 0, published: 0, completed: 0 } as any,
+    by_type: { practice: 0, graded: 0, exam: 0 } as any,
+    total_submissions: 0,
+    average_score: 0,
+    pass_rate: 0,
+  };
+
+  try {
+    // Get all quizzes for this course
+    const quizzes = await Quiz.findAll({
+      where: { course_id: courseId },
+    });
+
+    quizzesStats.total = quizzes.length;
+
+    // Count quizzes by status and type
+    quizzes.forEach((quiz) => {
+      quizzesStats.by_status[quiz.status] =
+        (quizzesStats.by_status[quiz.status] || 0) + 1;
+      quizzesStats.by_type[quiz.type] =
+        (quizzesStats.by_type[quiz.type] || 0) + 1;
+    });
+
+    // Get all quiz submissions for this course's quizzes
+    const quizIds = quizzes.map((quiz) => quiz.id);
+    if (quizIds.length > 0) {
+      const quizSubmissions = await QuizSubmission.findAll({
+        where: { quiz_id: { [Op.in]: quizIds } },
+      });
+
+      // Calculate submission statistics
+      let totalScore = 0;
+      let totalSubmissions = 0;
+      let passedCount = 0;
+
+      quizSubmissions.forEach((submission: any) => {
+        totalSubmissions++;
+        totalScore += submission.percentage;
+        if (submission.passed) {
+          passedCount++;
+        }
+      });
+
+      quizzesStats.total_submissions = totalSubmissions;
+      quizzesStats.average_score =
+        totalSubmissions > 0
+          ? Math.round((totalScore / totalSubmissions) * 100) / 100
+          : 0;
+      quizzesStats.pass_rate =
+        totalSubmissions > 0
+          ? Math.round((passedCount / totalSubmissions) * 100)
+          : 0;
+    }
+  } catch (quizError: any) {
+    console.warn("Could not fetch quizzes statistics:", quizError.message);
+  }
+
+  return {
+    assignments: assignmentsStats,
+    quizzes: quizzesStats,
+  };
+}
 
 // @desc    Create course
 // @route   POST /api/courses
@@ -357,10 +325,10 @@ export const createCourse = async (req: Request, res: Response) => {
       },
       {
         headers: {
-          Authorization: token,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     if (response.data.success) {
@@ -391,7 +359,7 @@ export const createCourse = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(
       "Create course error:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -424,10 +392,10 @@ export const updateCourse = async (req: Request, res: Response) => {
       },
       {
         headers: {
-          Authorization: token,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     if (response.data.success) {
@@ -455,7 +423,7 @@ export const updateCourse = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(
       "Update course error:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     if (error.response?.status === 404) {
       res.status(404).json({ success: false, message: "Course not found" });
@@ -488,7 +456,7 @@ export const getCourseStudents = async (req: Request, res: Response) => {
             Authorization: token,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (studentsResponse.data.success) {
@@ -497,7 +465,7 @@ export const getCourseStudents = async (req: Request, res: Response) => {
     } catch (enrollmentError: any) {
       console.warn(
         "Could not fetch enrolled students:",
-        enrollmentError.message
+        enrollmentError.message,
       );
       // Continue with empty array
     }
@@ -506,7 +474,7 @@ export const getCourseStudents = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(
       "Get course students error:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -534,7 +502,7 @@ export const deleteCourse = async (req: Request, res: Response) => {
           Authorization: token,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
 
     if (response.data.success) {
@@ -545,7 +513,7 @@ export const deleteCourse = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(
       "Delete course error:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     if (error.response?.status === 404) {
       res.status(404).json({ success: false, message: "Course not found" });

@@ -5,8 +5,8 @@
 
 /**
  * Converts a date string from local timezone to UTC Date object
- * @param dateString - Date string in format "YYYY-MM-DDTHH:mm" (from datetime-local input)
- * @param timezone - Optional timezone offset in minutes (defaults to user's local timezone)
+ * @param dateString - Date string (format "YYYY-MM-DDTHH:mm" or ISO)
+ * @param timezone - Optional timezone offset in minutes
  * @returns Date object in UTC
  */
 export function parseLocalDateTimeToUTC(dateString: string, timezone?: number): Date {
@@ -14,28 +14,42 @@ export function parseLocalDateTimeToUTC(dateString: string, timezone?: number): 
     throw new Error('Date string is required');
   }
 
+  // If the string already looks like an ISO UTC string or has an offset, 
+  // don't attempt to manually shift it again.
+  if (dateString.includes('Z') || (dateString.includes('T') && dateString.match(/[+-]\d{2}:?\d{2}$/))) {
+    return new Date(dateString);
+  }
+
   // Create date object from the local datetime string
-  // This will be interpreted as local time initially
   const localDate = new Date(dateString);
 
   if (isNaN(localDate.getTime())) {
     throw new Error('Invalid date string format');
   }
 
-  // Get the timezone offset in minutes
+  // Get the timezone offset in minutes (UTC - Local)
+  // getTimezoneOffset() returns -120 for UTC+2, 300 for UTC-5
   const tzOffset = timezone ?? localDate.getTimezoneOffset();
 
-  // Convert to UTC by subtracting the timezone offset
-  const utcDate = new Date(localDate.getTime() - (tzOffset * 60 * 1000));
+  // Convert to UTC: UTC = Local + offset
+  // Note: new Date(dateString) already parses as local time in most JS environments
+  // if no timezone is specified. We only need manual adjustment if we want to 
+  // override the environment's timezone with a specific 'timezone' argument.
+  if (timezone !== undefined) {
+    const localTimestamp = localDate.getTime();
+    // Re-adjust from environment's offset to the Target offset
+    const envOffset = localDate.getTimezoneOffset();
+    return new Date(localTimestamp + (timezone - envOffset) * 60 * 1000);
+  }
 
-  return utcDate;
+  return localDate;
 }
 
 /**
- * Converts a UTC Date object to local timezone string for display
+ * Converts a UTC Date object to local timezone string for display in datetime-local
  * @param utcDate - UTC Date object
- * @param timezone - Optional timezone offset in minutes (defaults to user's local timezone)
- * @returns Formatted date string in local timezone
+ * @param timezone - Optional timezone offset in minutes (defaults to current environment's timezone)
+ * @returns Formatted date string in local timezone (YYYY-MM-DDTHH:mm)
  */
 export function formatUTCToLocal(utcDate: Date, timezone?: number): string {
   if (!utcDate || isNaN(utcDate.getTime())) {
@@ -44,8 +58,9 @@ export function formatUTCToLocal(utcDate: Date, timezone?: number): string {
 
   const tzOffset = timezone ?? new Date().getTimezoneOffset();
 
-  // Convert UTC to local time
-  const localDate = new Date(utcDate.getTime() + (tzOffset * 60 * 1000));
+  // Convert UTC to local time: Local = UTC - offset
+  const localTimestamp = utcDate.getTime() - (tzOffset * 60 * 1000);
+  const localDate = new Date(localTimestamp);
 
   return localDate.toISOString().slice(0, 16); // Format: "YYYY-MM-DDTHH:mm"
 }

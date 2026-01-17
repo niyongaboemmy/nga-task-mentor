@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "../../store";
+import { fetchCourses } from "../../store/slices/courseSlice";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
 import SubmissionModal from "./SubmissionModal";
@@ -8,6 +11,7 @@ import SubmissionList from "./SubmissionList";
 import AssignmentForm from "./AssignmentForm";
 import SubmissionDetailsModal from "./SubmissionDetailsModal";
 import { type SubmissionItemInterface } from "./SubmissionSummaryItem";
+import { formatDateTimeLocal, parseLocalDateTimeToUTC, formatUTCToLocalDateTime } from "../../utils/dateUtils";
 
 export const getSubmissionStatusColor = (status: string) => {
   switch (status) {
@@ -51,6 +55,7 @@ interface Assignment {
 
 const AssignmentDetails = () => {
   const { assignmentId } = useParams<{ assignmentId: string }>();
+  const dispatch = useDispatch<AppDispatch>();
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [submissions, setSubmissions] = useState<SubmissionItemInterface[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +63,18 @@ const AssignmentDetails = () => {
     "submissions"
   );
   const { user } = useAuth();
+  const { courses } = useSelector((state: RootState) => state.course);
+
+  // Find course in redux if not provided by assignment object
+  const reduxCourse = courses.find(
+    (c) => c.id.toString() === assignment?.course_id.toString()
+  );
+
+  const displayCourse = assignment?.course || (reduxCourse ? {
+    id: reduxCourse.id.toString(),
+    code: reduxCourse.code,
+    title: reduxCourse.title
+  } : undefined);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
@@ -84,23 +101,21 @@ const AssignmentDetails = () => {
   };
 
   const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(date.getUTCDate()).padStart(2, "0");
-    const hours = String(date.getUTCHours()).padStart(2, "0");
-    const minutes = String(date.getUTCMinutes()).padStart(2, "0");
-    const seconds = String(date.getUTCSeconds()).padStart(2, "0");
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return formatDateTimeLocal(dateString);
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!assignment) return;
     try {
+      const utcDueDate = parseLocalDateTimeToUTC(editFormData.due_date);
+      const submissionData = {
+        ...editFormData,
+        due_date: utcDueDate.toISOString(),
+      };
       const response = await axios.put(
         `/api/assignments/${assignment.id}`,
-        editFormData
+        submissionData
       );
       setAssignment(response.data.data);
       setIsEditing(false);
@@ -131,7 +146,19 @@ const AssignmentDetails = () => {
   const fetchAssignment = useCallback(async () => {
     try {
       const response = await axios.get(`/api/assignments/${assignmentId}`);
-      setAssignment(response.data.data || response.data);
+      const data = response.data.data || response.data;
+      setAssignment(data);
+      // Initialize edit form data
+      setEditFormData({
+        title: data.title,
+        description: data.description,
+        due_date: data.due_date ? formatUTCToLocalDateTime(data.due_date) : "",
+        max_score: data.max_score.toString(),
+        submission_type: data.submission_type,
+        allowed_file_types: data.allowed_file_types || "",
+        rubric: data.rubric || "",
+        status: data.status || "draft",
+      });
     } catch (error) {
       console.error("Error fetching assignment:", error);
     } finally {
@@ -192,7 +219,10 @@ const AssignmentDetails = () => {
   useEffect(() => {
     fetchAssignment();
     fetchSubmissions();
-  }, [assignmentId, fetchAssignment, fetchSubmissions]);
+    if (courses.length === 0) {
+      dispatch(fetchCourses());
+    }
+  }, [assignmentId, fetchAssignment, fetchSubmissions, dispatch, courses.length]);
 
   // Modern Loading State
   if (isLoading) {
@@ -279,7 +309,10 @@ const AssignmentDetails = () => {
         {/* Clean Header */}
         <div className="bg-white dark:bg-gray-900 rounded-3xl border border-white dark:border-gray-800 overflow-hidden">
           <AssignmentHeader
-            assignment={assignment}
+            assignment={{
+              ...assignment,
+              course: displayCourse
+            }}
             formatDate={formatDate}
             isOverdue={isOverdue}
             canManageAssignment={canManageAssignment}

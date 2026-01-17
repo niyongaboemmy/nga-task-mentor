@@ -1,6 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
-import axios from "axios";
+import axios from "../../utils/axiosConfig";
+import { useAuth } from "../../contexts/AuthContext";
+import { useSelector, useDispatch } from "react-redux";
+import type { RootState, AppDispatch } from "../../store";
+import { fetchCourses } from "../../store/slices/courseSlice";
+import { getProfileImageUrl } from "../../utils/imageUrl";
 
 interface Student {
   id: string;
@@ -16,32 +21,52 @@ type SortField = "first_name" | "last_name" | "email" | "createdAt";
 type SortDirection = "asc" | "desc";
 
 const Students: React.FC = () => {
+  const { user } = useAuth();
+  const dispatch = useDispatch<AppDispatch>();
+  const { courses } = useSelector((state: RootState) => state.course);
+
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>("createdAt");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [roleFilter, setRoleFilter] = useState<string>("all");
+  const [selectedCourse, setSelectedCourse] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
+  // Fetch courses for instructors on mount
+  useEffect(() => {
+    if (user?.role === "instructor" && courses.length === 0) {
+      dispatch(fetchCourses());
+    }
+  }, [user, courses.length, dispatch]);
+
   useEffect(() => {
     const fetchStudents = async () => {
+      setLoading(true);
       try {
-        const response = await axios.get("/api/users", {
-          params: { role: "student" },
-        });
+        const params: any = { role: "student" };
+        if (searchTerm) {
+          params.search = searchTerm;
+        }
+        if (selectedCourse) {
+          params.subjectId = selectedCourse;
+          params.termId = 4; // Default term as requested
+        }
+
+        const response = await axios.get("/api/users", { params });
         setStudents(response.data.data);
       } catch (error) {
         console.error("Error fetching students:", error);
-        alert("Failed to load students");
+        // Don't alert here to avoid spamming 403s before course selection
       } finally {
         setLoading(false);
       }
     };
 
     fetchStudents();
-  }, []);
+  }, [searchTerm, selectedCourse]);
 
   // Filter and sort students
   const filteredAndSortedStudents = useMemo(() => {
@@ -85,7 +110,7 @@ const Students: React.FC = () => {
   const startIndex = (currentPage - 1) * itemsPerPage;
   const paginatedStudents = filteredAndSortedStudents.slice(
     startIndex,
-    startIndex + itemsPerPage
+    startIndex + itemsPerPage,
   );
 
   const handleSort = (field: SortField) => {
@@ -174,6 +199,24 @@ const Students: React.FC = () => {
             <option value="admin">Admins</option>
           </select>
         </div>
+
+        {/* Course Filter for Instructors */}
+        {user?.role === "instructor" && (
+          <div className="w-full lg:w-64">
+            <select
+              value={selectedCourse}
+              onChange={(e) => setSelectedCourse(e.target.value)}
+              className="w-full px-4 py-2.5 bg-white/50 border border-gray-200 text-sm rounded-xl focus:outline-none dark:border-gray-800 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+            >
+              <option value="">Select Course...</option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.code} - {course.title}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
 
         {/* Reset Filters */}
         <button
@@ -278,12 +321,9 @@ const Students: React.FC = () => {
                         <div className="flex-shrink-0">
                           {student.profile_image ? (
                             <img
-                              src={`${
-                                import.meta.env.VITE_API_BASE_URL ||
-                                "https://tm.universalbridge.rw"
-                              }/uploads/profile-pictures/${
-                                student.profile_image
-                              }`}
+                              src={
+                                getProfileImageUrl(student.profile_image) || ""
+                              }
                               alt={`${student.first_name} ${student.last_name}`}
                               className="w-8 h-8 rounded-full object-cover"
                             />
@@ -333,7 +373,7 @@ const Students: React.FC = () => {
                   Showing {startIndex + 1} to{" "}
                   {Math.min(
                     startIndex + itemsPerPage,
-                    filteredAndSortedStudents.length
+                    filteredAndSortedStudents.length,
                   )}{" "}
                   of {filteredAndSortedStudents.length} results
                 </div>

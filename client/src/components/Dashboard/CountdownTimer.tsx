@@ -25,9 +25,9 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
 
   useEffect(() => {
     const calculateTimeLeft = () => {
-      const now = new Date().getTime();
-      const deadlineTime = new Date(deadline).getTime();
-      const difference = deadlineTime - now;
+      const due = new Date(deadline);
+      const now = new Date();
+      const difference = due.getTime() - now.getTime();
 
       if (difference <= 0) {
         setIsExpired(true);
@@ -36,7 +36,7 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
 
       const days = Math.floor(difference / (1000 * 60 * 60 * 24));
       const hours = Math.floor(
-        (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
+        (difference % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60),
       );
       const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
       const seconds = Math.floor((difference % (1000 * 60)) / 1000);
@@ -72,7 +72,7 @@ const CountdownTimer: React.FC<CountdownTimerProps> = ({
             newTimeLeft.hours === 0 &&
             newTimeLeft.minutes === 0 &&
             newTimeLeft.seconds === 0,
-        })
+        }),
       );
     }, 1000);
 

@@ -17,19 +17,21 @@ interface Course {
 
 interface AssignmentsProps {
   courseId?: string;
+  courseData?: Course | null;
   showCreateButton?: boolean;
   compact?: boolean;
 }
 
 const Assignments: React.FC<AssignmentsProps> = ({
   courseId,
+  courseData = null,
   showCreateButton = true,
   compact = false,
 }) => {
   const { courseId: paramCourseId } = useParams<{ courseId: string }>();
   const currentCourseId = courseId || paramCourseId;
   const [assignments, setAssignments] = useState<AssignmentInterface[]>([]);
-  const [course, setCourse] = useState<Course | null>(null);
+  const [course, setCourse] = useState<Course | null>(courseData);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<
     "all" | "published" | "draft" | "completed" | "removed"
@@ -62,7 +64,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
       // For students, filter out deleted assignments
       if (user?.role === "student") {
         assignmentsData = assignmentsData.filter(
-          (assignment: AssignmentInterface) => assignment.status !== "removed"
+          (assignment: AssignmentInterface) => assignment.status !== "removed",
         );
       }
 
@@ -107,15 +109,19 @@ const Assignments: React.FC<AssignmentsProps> = ({
 
   useEffect(() => {
     fetchAssignments();
-    if (currentCourseId) {
+    // Only fetch course if it wasn't provided or if ID changed
+    if (
+      currentCourseId &&
+      (!course || String(course.id) !== String(currentCourseId))
+    ) {
       fetchCourse();
     }
-  }, [currentCourseId, fetchAssignments, fetchCourse]);
+  }, [currentCourseId, fetchAssignments, fetchCourse, course]);
 
   const handleStatusChange = useCallback(
     async (
       assignmentId: string,
-      status: "draft" | "published" | "completed" | "removed"
+      status: "draft" | "published" | "completed" | "removed",
     ) => {
       try {
         await axios.patch(`/api/assignments/${assignmentId}/status`, {
@@ -126,7 +132,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
         console.error("Error updating assignment status:", error);
       }
     },
-    [fetchAssignments]
+    [fetchAssignments],
   );
 
   const filteredAssignments = useMemo(() => {
@@ -247,15 +253,15 @@ const Assignments: React.FC<AssignmentsProps> = ({
               {user?.role === "student"
                 ? "No assignments available"
                 : filter === "all"
-                ? "No assignments yet"
-                : `No ${filter} assignments`}
+                  ? "No assignments yet"
+                  : `No ${filter} assignments`}
             </h3>
             <p className="mt-1 text-sm text-gray-500">
               {user?.role === "student"
                 ? "You need to be enrolled in courses to see assignments."
                 : filter === "all"
-                ? "Assignments will appear here once they're created."
-                : `${filter} assignments will appear here.`}
+                  ? "Assignments will appear here once they're created."
+                  : `${filter} assignments will appear here.`}
             </p>
             {filter === "all" && showCreateButton && canManageAssignments && (
               <div className="mt-4">

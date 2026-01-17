@@ -43,7 +43,7 @@ export interface MultipleChoiceData {
 }
 
 export interface TrueFalseData {
-  correct_answer: boolean;
+  correct_answer?: boolean;
 }
 
 export interface MatchingData {
@@ -70,7 +70,7 @@ export interface DropdownData {
 }
 
 export interface NumericalData {
-  correct_answer: number;
+  correct_answer: number; // Required to match backend validation
   tolerance?: number;
   precision?: number;
   units?: string;

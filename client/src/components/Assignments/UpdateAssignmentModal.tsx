@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button } from "../ui/Button";
 import { motion } from "framer-motion";
 import axios from "axios";
+import { formatUTCToLocalDateTime, parseLocalDateTimeToUTC } from "../../utils/dateUtils";
 
 interface UpdateAssignmentProps {
   assignment: {
@@ -25,7 +26,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
   const [formData, setFormData] = useState({
     title: assignment.title,
     description: assignment.description,
-    due_date: assignment.due_date, // Keep original UTC datetime as-is
+    due_date: formatUTCToLocalDateTime(assignment.due_date),
     max_score: assignment.max_score,
     submission_type: assignment.submission_type,
     status: assignment.status,
@@ -54,11 +55,13 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
       // Get final content from editor
       const finalContent = editorRef.current?.innerHTML || "";
 
-      // Send due_date exactly as entered (no timezone conversion)
+      // Convert local input to UTC for API
+      const utcDueDate = parseLocalDateTimeToUTC(formData.due_date);
+
       const updatedData = {
         ...formData,
         description: finalContent,
-        due_date: formData.due_date, // Send exactly as entered
+        due_date: utcDueDate.toISOString(),
       };
 
       await axios.put(`/api/assignments/${assignment.id}`, updatedData);

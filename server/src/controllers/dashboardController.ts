@@ -3,9 +3,12 @@ import { Op, Sequelize } from "sequelize";
 import { User } from "../models/User.model";
 import { Assignment } from "../models/Assignment.model";
 import { Submission } from "../models/Submission.model";
+import axios from "axios";
+import { getMisToken } from "../utils/misUtils";
 
 // Interface for dashboard statistics
 interface DashboardStats {
+  totalCourses: number;
   totalAssignments: number;
   pendingSubmissions: number;
   completedAssignments: number;
@@ -25,6 +28,29 @@ interface RecentActivity {
 export const getStudentStats = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
+
+    // Get total courses from MIS API
+    let totalCourses = 0;
+    try {
+      const token = getMisToken(req);
+      if (token && req.user.mis_user_id) {
+        const coursesResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/students/${req.user.mis_user_id}/enrolled-subjects`,
+          {
+            headers: {
+              Authorization: token,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        if (coursesResponse.data.success) {
+          totalCourses = coursesResponse.data.data?.length || 0;
+        }
+      }
+    } catch (courseError) {
+      console.warn("Could not fetch courses count:", courseError);
+      // Continue with 0 courses
+    }
 
     // Get all published assignments
     const totalAssignments = await Assignment.count({
@@ -52,6 +78,7 @@ export const getStudentStats = async (req: Request, res: Response) => {
     });
 
     const stats: DashboardStats = {
+      totalCourses,
       totalAssignments,
       pendingSubmissions,
       completedAssignments,
@@ -73,7 +100,7 @@ export const getStudentStats = async (req: Request, res: Response) => {
 // Student Pending Assignments
 export const getStudentPendingAssignments = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   try {
     const userId = req.user.id;
@@ -152,6 +179,29 @@ export const getInstructorStats = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
 
+    // Get total courses from MIS API
+    let totalCourses = 0;
+    try {
+      const token = getMisToken(req);
+      if (token) {
+        const coursesResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
+          {
+            headers: {
+              Authorization: token,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        if (coursesResponse.data.success) {
+          totalCourses = coursesResponse.data.data?.length || 0;
+        }
+      }
+    } catch (courseError) {
+      console.warn("Could not fetch courses count:", courseError);
+      // Continue with 0 courses
+    }
+
     // Get assignments created by instructor
     const totalAssignments = await Assignment.count({
       where: { created_by: userId },
@@ -188,6 +238,7 @@ export const getInstructorStats = async (req: Request, res: Response) => {
     });
 
     const stats: DashboardStats = {
+      totalCourses,
       totalAssignments,
       pendingSubmissions: totalPendingSubmissions,
       completedAssignments,
@@ -227,7 +278,7 @@ export const getInstructorCourses = async (req: Request, res: Response) => {
 // Instructor Pending Grading Assignments
 export const getInstructorPendingGrading = async (
   req: Request,
-  res: Response
+  res: Response,
 ) => {
   try {
     const userId = req.user.id;
@@ -314,6 +365,29 @@ export const getInstructorPendingGrading = async (
 // Admin Dashboard Statistics
 export const getAdminStats = async (req: Request, res: Response) => {
   try {
+    // Get total courses from MIS API
+    let totalCourses = 0;
+    try {
+      const token = getMisToken(req);
+      if (token) {
+        const coursesResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/subjects`,
+          {
+            headers: {
+              Authorization: token,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        if (coursesResponse.data.success) {
+          totalCourses = coursesResponse.data.data?.length || 0;
+        }
+      }
+    } catch (courseError) {
+      console.warn("Could not fetch courses count:", courseError);
+      // Continue with 0 courses
+    }
+
     // Get total assignments in the system
     const totalAssignments = await Assignment.count();
 
@@ -332,6 +406,7 @@ export const getAdminStats = async (req: Request, res: Response) => {
     });
 
     const stats: DashboardStats = {
+      totalCourses,
       totalAssignments,
       pendingSubmissions: totalPendingSubmissions,
       completedAssignments,
@@ -442,7 +517,7 @@ export const getRecentActivity = async (req: Request, res: Response) => {
     // Sort all activities by timestamp
     activities.sort(
       (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
     );
 
     const recentActivities = activities.slice(0, 15);

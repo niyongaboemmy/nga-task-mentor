@@ -2,6 +2,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import { ThemeToggle } from "./ThemeToggle";
 import Logo from "./Logo";
+import { getProfileImageUrl } from "../utils/imageUrl";
 
 const HomeNavbar = () => {
   const { isAuthenticated, user } = useAuth();
@@ -21,7 +22,7 @@ const HomeNavbar = () => {
                   <div className="flex items-center space-x-2">
                     {user.profile_image && (
                       <img
-                        src={user.profile_image}
+                        src={getProfileImageUrl(user.profile_image) || ""}
                         alt={`${user.first_name} ${user.last_name}`}
                         className="w-6 h-6 rounded-full object-cover"
                       />
@@ -64,12 +65,14 @@ const HomeNavbar = () => {
                 >
                   Sign In
                 </NavLink>
-                <NavLink
-                  to="/register"
+                <a
+                  href="https://nga.ac.rw/mis/contact"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-full text-sm font-medium transition-colors duration-200"
                 >
                   Get Started
-                </NavLink>
+                </a>
               </>
             )}
           </div>

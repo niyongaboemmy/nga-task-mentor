@@ -23,30 +23,31 @@ interface AssignmentHeaderProps {
   canManageAssignment: boolean;
   onStatusChange: (
     assignmentId: string,
-    status: "draft" | "published" | "completed" | "removed"
+    status: "draft" | "published" | "completed" | "removed",
   ) => void;
 }
 
 const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
   assignment,
+  formatDate,
   isOverdue,
   canManageAssignment,
   onStatusChange,
 }) => {
-  const getStatusColor = (status?: string) => {
-    switch (status) {
-      case "published":
-        return "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800";
-      case "completed":
-        return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800";
-      case "removed":
-        return "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800";
-      case "draft":
-        return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800";
-      default:
-        return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
-    }
-  };
+  // const getStatusColor = (status?: string) => {
+  //   switch (status) {
+  //     case "published":
+  //       return "bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800";
+  //     case "completed":
+  //       return "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800";
+  //     case "removed":
+  //       return "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800";
+  //     case "draft":
+  //       return "bg-yellow-50 text-yellow-700 border-yellow-200 dark:bg-yellow-900/20 dark:text-yellow-400 dark:border-yellow-800";
+  //     default:
+  //       return "bg-gray-50 text-gray-700 border-gray-200 dark:bg-gray-800 dark:text-gray-300 dark:border-gray-700";
+  //   }
+  // };
 
   const getSubmissionTypeIcon = (type: string) => {
     switch (type) {
@@ -126,27 +127,41 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
               <Link
                 to={`/courses/${assignment.course_id}`}
-                className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                className="inline-flex items-center gap-2 md:gap-4 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M10 19l-7-7m0 0l7-7m-7 7h18"
-                  />
-                </svg>
-                <span className="truncate">
-                  {assignment.course?.code || "Unknown Course"}
-                </span>
+                <div>
+                  <svg
+                    className="w-4 h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M10 19l-7-7m0 0l7-7m-7 7h18"
+                    />
+                  </svg>
+                </div>
+                <div>
+                  {assignment.course && (
+                    <div className="text-lg font-bold text-black dark:text-white hover:text-gray-900 dark:hover:text-gray-100 transition-colors">
+                      {assignment.course.title}
+                    </div>
+                  )}
+                  <div>
+                    <span className="truncate text-sm font-light">
+                      Code:{" "}
+                      {assignment.course
+                        ? `${assignment.course.code}`
+                        : "Unknown Course"}
+                    </span>
+                  </div>
+                </div>
               </Link>
 
-              <div className="flex items-center gap-2">
+              {/* <div className="flex items-center gap-2">
                 <span className="text-gray-400 dark:text-gray-600">•</span>
                 <div
                   className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border ${getStatusColor(
@@ -158,7 +173,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
                     {assignment.status || "Draft"}
                   </span>
                 </div>
-              </div>
+              </div> */}
             </div>
 
             {/* Management Actions */}
@@ -256,7 +271,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
                         : "text-gray-900 dark:text-gray-100"
                     }`}
                   >
-                    {new Date(assignment.due_date).toLocaleString()}
+                    {formatDate(assignment.due_date)}
                   </p>
                 </div>
               </div>

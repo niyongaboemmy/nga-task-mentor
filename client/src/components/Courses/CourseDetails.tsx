@@ -1,104 +1,68 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useLocation, Link } from "react-router-dom";
+import { useParams, Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
-import axios from "../../utils/axiosConfig";
 import Assignments from "../Assignments/Assignments";
 import { QuizList } from "../Quizzes/QuizList";
-import { fetchCourse } from "../../store/slices/courseSlice";
+import { fetchCourse, fetchCourses } from "../../store/slices/courseSlice";
 import type { RootState, AppDispatch } from "../../store";
 import type { Course } from "../../types/course.types";
 
 const CourseDetails: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
-  const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
-  const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [activeTab, setActiveTab] = useState<
     "overview" | "assignments" | "quizzes" | "students" | "submissions"
   >("overview");
 
-  // Get courses from Redux store
-  const { courses, currentCourse, loading } = useSelector(
+  // Get courses and loading state from Redux store
+  const { currentCourse, courses, loading } = useSelector(
     (state: RootState) => ({
-      courses: state.course.courses,
       currentCourse: state.course.currentCourse,
+      courses: state.course.courses,
       loading: state.course.loading.course,
-    })
+    }),
   );
 
-  useEffect(() => {
-    const fetchEnrolledStudents = async (courseId: string) => {
-      try {
-        const response = await axios.get(`/api/courses/${courseId}/students`);
-        return response.data.data || [];
-      } catch (error) {
-        console.warn("Could not fetch enrolled students:", error);
-        return [];
-      }
-    };
+  // Derive course data - prioritize currentCourse if it matches the ID, otherwise fallback to list
+  const course = React.useMemo<Course | null>(() => {
+    if (currentCourse && String(currentCourse.id) === String(courseId)) {
+      return currentCourse;
+    }
+    return courses.find((c) => String(c.id) === String(courseId)) || null;
+  }, [currentCourse, courses, courseId]);
 
+  useEffect(() => {
     const initializeCourse = async () => {
       if (!courseId) return;
-
       const courseIdNum = parseInt(courseId);
 
-      // First check if course data was passed from navigation state
-      const courseFromState = (location.state as any)?.course;
-      if (courseFromState) {
-        // Use the course data from navigation state
-        const enrolledStudents = await fetchEnrolledStudents(courseId);
-        setCourse({
-          ...courseFromState,
-          enrolledStudents,
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      // Check if course exists in Redux store
-      const courseFromRedux = courses.find((c) => c.id === courseIdNum);
-      if (courseFromRedux) {
-        // Use course from Redux, but fetch enrolled students if not present
-        if (!courseFromRedux.enrolledStudents) {
-          const enrolledStudents = await fetchEnrolledStudents(courseId);
-          setCourse({
-            ...courseFromRedux,
-            enrolledStudents,
-          });
-        } else {
-          setCourse(courseFromRedux);
-        }
-        setIsLoading(false);
-        return;
-      }
-
-      // Check if course is currently being fetched (in currentCourse)
-      if (currentCourse && currentCourse.id === courseIdNum) {
-        setCourse(currentCourse);
-        setIsLoading(false);
-        return;
-      }
-
-      // If not in Redux and not passed via state, fetch from API
+      setIsLoading(true);
       try {
-        const result = await dispatch(fetchCourse(courseIdNum));
-        if (result.payload) {
-          setCourse(result.payload as Course);
-        } else {
-          setErrorMessage("Course not found");
+        // 1. Ensure course list is loaded for basic info
+        if (courses.length === 0) {
+          await dispatch(fetchCourses()).unwrap();
         }
-      } catch (error) {
-        console.error("Error fetching course:", error);
-        setErrorMessage("Failed to load course");
+
+        // 2. Fetch stats and enrollment (merges into Redux)
+        await dispatch(fetchCourse(courseIdNum)).unwrap();
+      } catch (error: any) {
+        console.error("Error fetching course details:", error);
+        // Only set error if we don't have ANY info about this course
+        if (
+          !course &&
+          !courses.find((c) => String(c.id) === String(courseId))
+        ) {
+          setErrorMessage(error.message || "Failed to load course details");
+        }
       } finally {
         setIsLoading(false);
       }
     };
 
     initializeCourse();
-  }, [courseId, location.state, courses, dispatch, isLoading]);
+  }, [courseId, dispatch]); // Removed courses.length as we handle it inside
 
   if (isLoading || loading) {
     return (
@@ -223,7 +187,7 @@ const CourseDetails: React.FC = () => {
                 Assignments
               </p>
               <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                0
+                {course.statistics?.assignments?.total || 0}
               </p>
             </div>
           </div>
@@ -253,7 +217,7 @@ const CourseDetails: React.FC = () => {
                 Quizzes
               </p>
               <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                0
+                {course.statistics?.quizzes?.total || 0}
               </p>
             </div>
           </div>
@@ -302,12 +266,12 @@ const CourseDetails: React.FC = () => {
               },
               {
                 id: "assignments",
-                label: `Assignments (0)`,
+                label: `Assignments (${course.statistics?.assignments?.total || 0})`,
                 icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
               },
               {
                 id: "quizzes",
-                label: "Quizzes",
+                label: `Quizzes (${course.statistics?.quizzes?.total || 0})`,
                 icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
               },
               {
@@ -381,6 +345,7 @@ const CourseDetails: React.FC = () => {
           {activeTab === "assignments" && (
             <Assignments
               courseId={courseId}
+              courseData={course as any}
               showCreateButton={true}
               compact={false}
             />

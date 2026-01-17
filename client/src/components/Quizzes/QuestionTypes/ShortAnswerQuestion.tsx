@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from "react";
-import {
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
-} from "lucide-react";
+import { CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 import type {
   QuestionComponentProps,
   ShortAnswerData,
-  ShortAnswerAnswer
+  ShortAnswerAnswer,
 } from "../../../types/quiz.types";
+import { CharacterCounter } from "./shared";
 
 export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
   question,
@@ -18,7 +15,8 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
   showCorrectAnswer = false,
   timeRemaining: _, // Timer functionality for future implementation
 }) => {
-  const shortAnswerData: ShortAnswerData = question.question_data as ShortAnswerData;
+  const shortAnswerData: ShortAnswerData =
+    question.question_data as ShortAnswerData;
 
   const [text, setText] = useState((answer as ShortAnswerAnswer)?.answer || "");
   const [wordCount, setWordCount] = useState(0);
@@ -42,7 +40,10 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
   const handleTextChange = (value: string) => {
     if (disabled) return;
 
-    if (shortAnswerData.max_length && value.length > shortAnswerData.max_length) {
+    if (
+      shortAnswerData.max_length &&
+      value.length > shortAnswerData.max_length
+    ) {
       return;
     }
 
@@ -60,34 +61,28 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
     onAnswerChange({ answer: "" } as ShortAnswerAnswer);
   };
 
-  const canSubmit =
-    text.trim().length > 0;
+  const canSubmit = text.trim().length > 0;
 
   return (
     <div className="space-y-6">
       {/* Question Text */}
       <div className="bg-white border border-gray-200 rounded-lg p-4">
         <h3 className="font-semibold text-lg mb-2">Short Answer Question</h3>
-        <p className="text-gray-700 mb-3">
-          {question.question_text}
-        </p>
+        <p className="text-gray-700 mb-3">{question.question_text}</p>
       </div>
 
       {/* Text Input Area */}
       <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
         <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
           <span className="text-sm font-medium text-gray-700">Your Answer</span>
-          <div className="flex items-center gap-4 text-xs text-gray-500">
-            <span>{wordCount} words</span>
-            <span>
-              {charCount}
-              {shortAnswerData.max_length &&
-                ` / ${shortAnswerData.max_length}`}{" "}
-              characters
-            </span>
+          <div className="flex items-center gap-4">
+            <span className="text-xs text-gray-500">{wordCount} words</span>
+            <CharacterCounter
+              current={charCount}
+              max={shortAnswerData.max_length}
+            />
           </div>
         </div>
-
         <textarea
           value={text}
           onChange={(e) => handleTextChange(e.target.value)}
@@ -96,7 +91,6 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
           className="w-full p-4 bg-white border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none disabled:bg-gray-50 disabled:cursor-not-allowed"
           style={{ minHeight: "200px" }}
         />
-
         {/* Character/Length Warnings */}
         {shortAnswerData.max_length &&
           text.length > 0 &&
@@ -104,7 +98,8 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
             <div className="px-4 py-2 bg-red-50 border-t border-red-200">
               <p className="text-xs text-red-800 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" />
-                Answer is too long. Maximum {shortAnswerData.max_length} characters allowed.
+                Answer is too long. Maximum {shortAnswerData.max_length}{" "}
+                characters allowed.
               </p>
             </div>
           )}
@@ -134,24 +129,23 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
       </div>
 
       {/* Keywords */}
-      {shortAnswerData.keywords &&
-        shortAnswerData.keywords.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-semibold text-sm mb-2 text-blue-900">
-              Key Concepts to Include:
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {shortAnswerData.keywords.map((keyword: string, idx: number) => (
-                <span
-                  key={idx}
-                  className="px-3 py-1 bg-white border border-blue-300 text-blue-800 rounded text-sm"
-                >
-                  {keyword}
-                </span>
-              ))}
-            </div>
+      {shortAnswerData.keywords && shortAnswerData.keywords.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <h3 className="font-semibold text-sm mb-2 text-blue-900">
+            Key Concepts to Include:
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {shortAnswerData.keywords.map((keyword: string, idx: number) => (
+              <span
+                key={idx}
+                className="px-3 py-1 bg-white border border-blue-300 text-blue-800 rounded text-sm"
+              >
+                {keyword}
+              </span>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
       {/* Sample Answer */}
       {showCorrectAnswer && shortAnswerData.sample_answer && (

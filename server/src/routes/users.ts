@@ -1,40 +1,44 @@
-import { Router } from 'express';
-import { 
-  getUsers, 
-  getUser, 
-  createUser, 
-  updateUser, 
-  deleteUser, 
-  enrollInCourse, 
+import { Router } from "express";
+import {
+  getUsers,
+  getUser,
+  createUser,
+  updateUser,
+  deleteUser,
+  enrollInCourse,
   withdrawFromCourse,
-  getUserCourses
-} from '../controllers/user.controller';
-import { protect, authorize } from '../middleware/auth';
+  getUserCourses,
+  getProfilePicture,
+} from "../controllers/user.controller";
+import { protect, authorize } from "../middleware/auth";
 
 const router = Router();
 
-// All routes are protected
+// Public route for profile pictures
+router.get("/profile-picture/:filename", getProfilePicture);
+
+// All other routes are protected
 router.use(protect);
 
 // Admin routes
 router
-  .route('/')
-  .get(authorize('admin', 'instructor'), getUsers)
-  .post(authorize('admin'), createUser);
+  .route("/")
+  .get(authorize("admin", "instructor"), getUsers)
+  .post(authorize("admin"), createUser);
 
 router
-  .route('/:id')
+  .route("/:id")
   .get(getUser)
-  .put(authorize('admin'), updateUser)
-  .delete(authorize('admin'), deleteUser);
+  .put(authorize("admin"), updateUser)
+  .delete(authorize("admin"), deleteUser);
 
 // Enroll/withdraw from course
 router
-  .route('/:userId/enroll/:courseId')
+  .route("/:userId/enroll/:courseId")
   .post(enrollInCourse)
   .delete(withdrawFromCourse);
 
 // Get user's courses
-router.get('/:userId/courses', getUserCourses);
+router.get("/:userId/courses", getUserCourses);
 
 export default router;

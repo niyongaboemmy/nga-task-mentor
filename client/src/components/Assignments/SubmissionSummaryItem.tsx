@@ -1,4 +1,5 @@
 import React from "react";
+import { getProfileImageUrl } from "../../utils/imageUrl";
 
 export interface SubmissionItemInterface {
   id: string;
@@ -61,12 +62,9 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
             {submission.student?.profile_image ? (
               <div className="relative">
                 <img
-                  src={`${
-                    import.meta.env.VITE_API_BASE_URL ||
-                    "https://tm.universalbridge.rw"
-                  }/uploads/profile-pictures/${
-                    submission.student.profile_image
-                  }`}
+                  src={
+                    getProfileImageUrl(submission.student.profile_image) || ""
+                  }
                   alt={`${submission.student.first_name} ${submission.student.last_name}`}
                   className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl object-cover border border-gray-200 dark:border-gray-600 group-hover:border-gray-300 dark:group-hover:border-gray-500 transition-colors"
                 />
@@ -148,7 +146,11 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
                     />
                   </svg>
                   <span>
-                    {isPlaceholder ? "Not submitted" : submission.submitted_at ? formatDate(submission.submitted_at) : "No submission date"}
+                    {isPlaceholder
+                      ? "Not submitted"
+                      : submission.submitted_at
+                        ? formatDate(submission.submitted_at)
+                        : "No submission date"}
                   </span>
                 </div>
 
@@ -190,7 +192,7 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
           {/* Status Badge */}
           <div
             className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border ${getSubmissionStatusColor(
-              submission.status
+              submission.status,
             )}`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-current mr-2"></span>

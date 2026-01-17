@@ -168,7 +168,8 @@ export const createQuestion = async (req: Request, res: Response) => {
     // Validate question data
     const validation = QuestionValidator.validateQuestionData(
       questionData.question_type,
-      questionData.question_data
+      questionData.question_data,
+      questionData.correct_answer,
     );
 
     if (!validation.isValid) {
@@ -216,7 +217,7 @@ export const createQuestion = async (req: Request, res: Response) => {
         order: nextOrder,
         created_by: req.user.id,
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();
@@ -302,7 +303,8 @@ export const updateQuestion = async (req: Request, res: Response) => {
 
       const validation = QuestionValidator.validateQuestionData(
         questionType,
-        questionDataToUpdate
+        questionDataToUpdate,
+        correctAnswer,
       );
 
       if (!validation.isValid) {
@@ -318,7 +320,7 @@ export const updateQuestion = async (req: Request, res: Response) => {
 
     await question.update(
       { ...questionData, correct_answer: correctAnswer },
-      { transaction }
+      { transaction },
     );
     await transaction.commit();
 
@@ -394,7 +396,7 @@ export const deleteQuestion = async (req: Request, res: Response) => {
         actualCourseInstructorId = parseInt(String(course?.instructor_id));
         console.log(
           "Fetched course instructor directly:",
-          actualCourseInstructorId
+          actualCourseInstructorId,
         );
       } catch (error) {
         console.error("Failed to fetch course:", error);
@@ -465,7 +467,7 @@ export const deleteQuestion = async (req: Request, res: Response) => {
     await reorderQuestionsAfterDelete(
       question.quiz_id,
       question.order,
-      transaction
+      transaction,
     );
 
     await transaction.commit();
@@ -520,7 +522,7 @@ export const reorderQuestions = async (req: Request, res: Response) => {
         {
           where: { id, quiz_id: quizId },
           transaction,
-        }
+        },
       );
     }
 
@@ -584,7 +586,8 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
     questions.forEach((question, index) => {
       const validation = QuestionValidator.validateQuestionData(
         question.question_type,
-        question.question_data
+        question.question_data,
+        question.correct_answer,
       );
 
       if (!validation.isValid) {
@@ -621,7 +624,7 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
           order: (maxOrder || 0) + i + 1,
           created_by: req.user.id,
         },
-        { transaction }
+        { transaction },
       );
 
       createdQuestions.push(question);
@@ -645,7 +648,7 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
 async function reorderQuestionsAfterDelete(
   quizId: number,
   deletedOrder: number,
-  transaction: Transaction
+  transaction: Transaction,
 ) {
   await QuizQuestion.update(
     { order: sequelize.literal("`order` - 1") },
@@ -655,6 +658,6 @@ async function reorderQuestionsAfterDelete(
         order: { [Op.gt]: deletedOrder },
       },
       transaction,
-    }
+    },
   );
 }

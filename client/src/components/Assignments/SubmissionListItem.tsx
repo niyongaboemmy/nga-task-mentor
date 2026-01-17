@@ -1,8 +1,10 @@
 import React from "react";
 import axios from "axios";
+import { getProfileImageUrl } from "../../utils/imageUrl";
 import SubmissionDetailsModal from "./SubmissionDetailsModal";
 import { toast } from "react-toastify";
 import type { AssignmentInterface } from "./AssignmentCard";
+import FilePreviewModal from "../Submissions/FilePreviewModal";
 
 export interface SubmissionItemInterface {
   id: string;
@@ -45,7 +47,7 @@ interface SubmissionListItemProps {
   onGradeSubmission: (
     submissionId: string,
     score: number,
-    feedback: string
+    feedback: string,
   ) => void;
   onDeleteSuccess: () => void;
   canRemove: boolean;
@@ -67,6 +69,10 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
   const [isDetailsModalOpen, setIsDetailsModalOpen] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
   const [isDownloading, setIsDownloading] = React.useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = React.useState<{
+    url: string;
+    name: string;
+  } | null>(null);
 
   const handleDeleteSubmission = async () => {
     if (!submission) return;
@@ -74,7 +80,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
     // Check if assignment is published before allowing deletion
     if (assignment.status !== "published") {
       toast.error(
-        "Cannot remove submission. Assignment is no longer accepting submissions."
+        "Cannot remove submission. Assignment is no longer accepting submissions.",
       );
       return;
     }
@@ -87,7 +93,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
     } catch (error: any) {
       console.error("Error deleting submission:", error);
       toast.error(
-        error.response?.data?.message || "Failed to remove submission."
+        error.response?.data?.message || "Failed to remove submission.",
       );
     } finally {
       setIsDeleting(false);
@@ -105,7 +111,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
         `/api/submissions/${submission.id}/files/${extractedFileName}`,
         {
           responseType: "blob",
-        }
+        },
       );
 
       // Create download link
@@ -138,12 +144,9 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
             <div className="flex-shrink-0">
               {submission.student?.profile_image ? (
                 <img
-                  src={`${
-                    import.meta.env.VITE_API_BASE_URL ||
-                    "https://tm.universalbridge.rw"
-                  }/uploads/profile-pictures/${
-                    submission.student.profile_image
-                  }`}
+                  src={
+                    getProfileImageUrl(submission.student.profile_image) || ""
+                  }
                   alt={`${submission.student.first_name} ${submission.student.last_name}`}
                   className="h-11 w-11 rounded-full object-cover shadow-lg"
                 />
@@ -169,7 +172,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
           </div>
           <div
             className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border-2 ${getSubmissionStatusColor(
-              submission.status
+              submission.status,
             )}`}
           >
             <span className="w-2 h-2 rounded-full bg-current mr-2"></span>
@@ -298,7 +301,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
             <div className="space-y-2">
               {(
                 JSON.parse(
-                  submission.file_submissions as unknown as string
+                  submission.file_submissions as unknown as string,
                 ) as {
                   path: string;
                   size: number;
@@ -343,13 +346,14 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
                           file.path.split("/").pop() ||
                           file.path.split("\\").pop() ||
                           file.filename;
-                        window.open(
-                          `${
-                            import.meta.env.VITE_API_BASE_URL ||
-                            "https://tm.universalbridge.rw"
-                          }/uploads/${fileName}`,
-                          "_blank"
-                        );
+                        const url = `${
+                          import.meta.env.VITE_API_BASE_URL ||
+                          "https://tm.universalbridge.rw"
+                        }/uploads/${fileName}`;
+                        setSelectedFile({
+                          url,
+                          name: file.originalname || fileName,
+                        });
                       }}
                       className="px-3 py-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 hover:bg-blue-50 dark:text-blue-400 dark:hover:text-blue-300 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
                     >
@@ -363,7 +367,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
                           file.filename;
                         handleDownloadFile(
                           fileName,
-                          file.originalname || fileName
+                          file.originalname || fileName,
                         );
                       }}
                       disabled={
@@ -444,7 +448,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
                       position: "top-center",
                       className:
                         "border border-red-200 dark:border-red-800 rounded-2xl dark:bg-gray-900",
-                    }
+                    },
                   );
                 }}
                 disabled={isDeleting}
@@ -482,6 +486,13 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
         getSubmissionStatusColor={getSubmissionStatusColor}
         canManageAssignment={canManageAssignment}
         onGradeSubmission={onGradeSubmission}
+      />
+
+      <FilePreviewModal
+        isOpen={!!selectedFile}
+        onClose={() => setSelectedFile(null)}
+        fileUrl={selectedFile?.url || ""}
+        fileName={selectedFile?.name || ""}
       />
     </>
   );

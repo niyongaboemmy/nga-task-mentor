@@ -21,7 +21,7 @@ interface JwtPayload {
 export const protect = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     let token;
@@ -68,39 +68,6 @@ export const protect = async (
       next();
     } catch (error) {
       console.error("Token verification error:", error);
-      // For testing purposes, create a mock user if token is invalid
-      if (token === "test-token") {
-        req.user = {
-          id: 1,
-          email: "test@example.com",
-          role: "admin",
-        };
-        return next();
-      }
-      if (token === "admin-token") {
-        req.user = {
-          id: 1,
-          email: "admin@example.com",
-          role: "instructor",
-        };
-        return next();
-      }
-      if (token === "instructor-token") {
-        req.user = {
-          id: 2,
-          email: "instructor@example.com",
-          role: "instructor",
-        };
-        return next();
-      }
-      if (token === "student-token") {
-        req.user = {
-          id: 3,
-          email: "student@example.com",
-          role: "student",
-        };
-        return next();
-      }
       return res.status(401).json({
         success: false,
         message: "Not authorized to access this route",
@@ -158,7 +125,7 @@ export const checkEnrollment = (courseIdParam = "courseId") => {
 export const isCourseInstructor = async (
   req: Request,
   res: Response,
-  next: NextFunction
+  next: NextFunction,
 ) => {
   try {
     const { Course, Assignment } = require("../models");

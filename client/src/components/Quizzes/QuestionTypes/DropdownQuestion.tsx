@@ -5,7 +5,14 @@ import type {
   DropdownAnswer,
   AnswerDataType,
 } from "../../../types/quiz.types";
-import { ChevronDown, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import {
+  ChevronDown,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  RefreshCw,
+} from "lucide-react";
+import { ProgressIndicator } from "./shared";
 
 // Extended answer type for component state management
 interface DropdownAnswerWithState extends DropdownAnswer {
@@ -93,10 +100,13 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
   const segments = createSegments();
 
   const [selections, setSelections] = useState<Record<number, string>>(
-    (answer as DropdownAnswer)?.selections?.reduce((acc, sel) => {
-      acc[sel.dropdown_index] = sel.selected_option;
-      return acc;
-    }, {} as Record<number, string>) || {}
+    (answer as DropdownAnswer)?.selections?.reduce(
+      (acc, sel) => {
+        acc[sel.dropdown_index] = sel.selected_option;
+        return acc;
+      },
+      {} as Record<number, string>,
+    ) || {},
   );
   const [submitted, setSubmitted] = useState(false);
   const [feedback, setFeedback] = useState<Record<number, boolean>>({});
@@ -141,16 +151,27 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
     let correctCount = 0;
     let totalCount = 0;
 
+    // Get correct answers from question object
+    const correctAnswerData = question.correct_answer as Array<{
+      dropdown_index: number;
+      selected_option: string;
+    }> | null;
+
     dropdownData.dropdown_options.forEach((dropdownOption) => {
       totalCount++;
       const userAnswer = selections[dropdownOption.dropdown_index];
 
-      // For dropdown questions, we need to determine the correct answer
-      // This would typically come from a separate correct_answers field
-      // For now, we'll assume the first option is correct for demonstration
-      const correctAnswer = dropdownOption.options[0];
+      // Find the correct answer for this dropdown from the correct_answer array
+      const correctItem = correctAnswerData?.find(
+        (item) => item.dropdown_index === dropdownOption.dropdown_index,
+      );
+      const correctAnswer = correctItem?.selected_option;
 
-      const isCorrect = userAnswer === correctAnswer;
+      const isCorrect = !!(
+        userAnswer &&
+        correctAnswer &&
+        userAnswer === correctAnswer
+      );
       newFeedback[dropdownOption.dropdown_index] = isCorrect;
       if (isCorrect) correctCount++;
     });
@@ -190,7 +211,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
 
   const allDropdownsFilled =
     dropdownData?.dropdown_options?.every((option) =>
-      selections[option.dropdown_index]?.trim()
+      selections[option.dropdown_index]?.trim(),
     ) || false;
 
   const allCorrect = Object.values(feedback).every((v) => v === true);
@@ -223,7 +244,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
               dropdownData?.dropdown_options
             ) {
               const dropdownOption = dropdownData.dropdown_options.find(
-                (opt) => opt.dropdown_index === segment.dropdownIndex
+                (opt) => opt.dropdown_index === segment.dropdownIndex,
               );
               const status = getDropdownStatus(segment.dropdownIndex);
               const selectedValue = selections[segment.dropdownIndex] || "";
@@ -238,7 +259,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                       onChange={(e) =>
                         handleSelectionChange(
                           segment.dropdownIndex!,
-                          e.target.value
+                          e.target.value,
                         )
                       }
                       disabled={disabled || submitted}
@@ -250,10 +271,10 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                         status === true
                           ? "border-green-400 bg-green-50 text-green-900"
                           : status === false
-                          ? "border-red-400 bg-red-50 text-red-900"
-                          : selectedValue
-                          ? "border-blue-400 bg-blue-50"
-                          : "border-gray-300"
+                            ? "border-red-400 bg-red-50 text-red-900"
+                            : selectedValue
+                              ? "border-blue-400 bg-blue-50"
+                              : "border-gray-300"
                       } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     >
                       <option value="" disabled>
@@ -287,6 +308,22 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
         </div>
       </div>
 
+      {/* Progress Indicator */}
+      {!submitted && (
+        <div className="max-w-4xl mx-auto mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+          <ProgressIndicator
+            completed={Object.values(selections).filter((v) => v !== "").length}
+            total={
+              (
+                dropdownData.text_with_dropdowns?.match(/\{\{dropdown\}\}/g) ||
+                []
+              ).length
+            }
+            label="Dropdowns Filled"
+          />
+        </div>
+      )}
+
       {/* Action Buttons */}
       {!submitted && (
         <div className="flex gap-3">
@@ -299,13 +336,23 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
             Submit Answer
           </button>
 
+          {Object.values(selections).some((v) => v !== "") && (
+            <button
+              onClick={resetAnswer}
+              disabled={disabled}
+              className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Clear All
+            </button>
+          )}
+
           <button
             onClick={resetAnswer}
             disabled={disabled || Object.keys(selections).length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="hidden" // Hiding original clear button to avoid duplicate logic if relying on new one, or just replace functionality
           >
-            <XCircle className="w-4 h-4" />
-            Clear
+            Original Clear
           </button>
         </div>
       )}
@@ -339,32 +386,45 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                 <div className="mt-3 space-y-2">
                   {dropdownData.dropdown_options
                     .filter((option) => !feedback[option.dropdown_index])
-                    .map((option) => (
-                      <div
-                        key={option.dropdown_index}
-                        className="bg-white border border-yellow-300 rounded p-3"
-                      >
-                        <div className="flex items-start gap-2">
-                          <XCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                          <div className="text-sm">
-                            <div className="font-medium text-gray-900">
-                              Your answer:{" "}
-                              <span className="text-red-700">
-                                {selections[option.dropdown_index]}
-                              </span>
-                            </div>
-                            {showCorrectAnswer && (
-                              <div className="text-gray-700 mt-1">
-                                Correct answer:{" "}
-                                <span className="text-green-700 font-medium">
-                                  {option.options[0]}
+                    .map((option) => {
+                      // Get correct answer from question object
+                      const correctAnswerData =
+                        question.correct_answer as Array<{
+                          dropdown_index: number;
+                          selected_option: string;
+                        }> | null;
+                      const correctItem = correctAnswerData?.find(
+                        (item) => item.dropdown_index === option.dropdown_index,
+                      );
+                      const correctAnswerText = correctItem?.selected_option;
+
+                      return (
+                        <div
+                          key={option.dropdown_index}
+                          className="bg-white border border-yellow-300 rounded p-3"
+                        >
+                          <div className="flex items-start gap-2">
+                            <XCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                            <div className="text-sm">
+                              <div className="font-medium text-gray-900">
+                                Your answer:{" "}
+                                <span className="text-red-700">
+                                  {selections[option.dropdown_index]}
                                 </span>
                               </div>
-                            )}
+                              {showCorrectAnswer && correctAnswerText && (
+                                <div className="text-gray-700 mt-1">
+                                  Correct answer:{" "}
+                                  <span className="text-green-700 font-medium">
+                                    {correctAnswerText}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                 </div>
               )}
 
@@ -402,16 +462,26 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                 dropdownData?.dropdown_options
               ) {
                 const dropdownOption = dropdownData.dropdown_options.find(
-                  (opt) => opt.dropdown_index === segment.dropdownIndex
+                  (opt) => opt.dropdown_index === segment.dropdownIndex,
                 );
 
-                if (dropdownOption) {
+                // Get correct answer from question object
+                const correctAnswerData = question.correct_answer as Array<{
+                  dropdown_index: number;
+                  selected_option: string;
+                }> | null;
+                const correctItem = correctAnswerData?.find(
+                  (item) => item.dropdown_index === segment.dropdownIndex,
+                );
+                const correctAnswerText = correctItem?.selected_option;
+
+                if (dropdownOption && correctAnswerText) {
                   return (
                     <span
                       key={index}
                       className="inline-block mx-1 px-3 py-1 bg-green-100 text-green-800 font-medium rounded border border-green-300"
                     >
-                      {dropdownOption.options[0]}
+                      {correctAnswerText}
                     </span>
                   );
                 }

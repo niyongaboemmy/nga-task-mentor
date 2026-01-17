@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { getProfileImageUrl } from "../../utils/imageUrl";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "../ThemeToggle";
 import { CheckCircle, AlertTriangle } from "lucide-react";
@@ -12,7 +13,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isTimezoneCorrect, setIsTimezoneCorrect] = useState<boolean | null>(
-    null
+    null,
   );
   const dropdownRef = useRef<HTMLDivElement>(null);
 
@@ -37,7 +38,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           (tz) =>
             systemTimezone === tz ||
             systemTimezone.includes("Kigali") ||
-            systemTimezone.includes("Nairobi")
+            systemTimezone.includes("Nairobi"),
         );
 
         // Also check if the time difference matches Kigali timezone (UTC+2)
@@ -293,10 +294,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                   >
                     {user?.profile_image ? (
                       <img
-                        src={`${
-                          import.meta.env.VITE_API_BASE_URL ||
-                          "https://tm.universalbridge.rw"
-                        }/uploads/profile-pictures/${user.profile_image}`}
+                        src={getProfileImageUrl(user.profile_image) || ""}
                         alt={`${user.first_name} ${user.last_name}`}
                         className="w-9 h-9 rounded-xl object-cover border-2 border-gray-200 dark:border-gray-700 shadow-sm"
                       />

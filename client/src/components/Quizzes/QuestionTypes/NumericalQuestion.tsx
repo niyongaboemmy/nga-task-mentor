@@ -4,6 +4,7 @@ import type {
   NumericalAnswer,
   QuestionComponentProps,
 } from "../../../types/quiz.types";
+import { ValidationMessage } from "./shared";
 
 export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
   question,
@@ -17,10 +18,10 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
   const currentAnswer = answer as NumericalAnswer | undefined;
 
   const [numericAnswer, setNumericAnswer] = useState<string>(
-    currentAnswer?.answer?.toString() ?? ""
+    currentAnswer?.answer?.toString() ?? "",
   );
   const [selectedUnit, setSelectedUnit] = useState<string>(
-    currentAnswer?.units ?? ""
+    currentAnswer?.units ?? "",
   );
 
   useEffect(() => {
@@ -79,6 +80,7 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
   const currentNumValue = parseFloat(numericAnswer);
   const isWithinTolerance =
     !isNaN(currentNumValue) &&
+    typeof correctAnswer === "number" &&
     Math.abs(currentNumValue - correctAnswer) <= tolerance;
 
   return (
@@ -87,7 +89,7 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
         <div className="space-y-4">
           {/* Number input */}
           <div>
-            <label className="block text-sm sm:text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+            <label className="text-sm sm:text-base font-semibold text-gray-800 mb-2 flex items-center gap-2">
               <svg
                 className="w-5 h-5 text-blue-600"
                 fill="currentColor"
@@ -101,6 +103,15 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
               </svg>
               Enter your answer:
             </label>
+            {questionData.tolerance !== undefined &&
+              questionData.tolerance > 0 && (
+                <div className="mb-3">
+                  <ValidationMessage
+                    type="info"
+                    message={`Tolerance: ±${questionData.tolerance}`}
+                  />
+                </div>
+              )}
             <div className="relative">
               <input
                 type="text"
@@ -112,12 +123,12 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
                   disabled
                     ? "bg-gray-100 border-gray-200 cursor-not-allowed"
                     : showCorrectAnswer
-                    ? isWithinTolerance
-                      ? "border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 focus:border-green-600 focus:ring-green-200 shadow-md"
-                      : "border-red-500 bg-gradient-to-r from-red-50 to-pink-50 focus:border-red-600 focus:ring-red-200 shadow-md"
-                    : numericAnswer
-                    ? "border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 focus:border-blue-600 focus:ring-blue-200 shadow-md"
-                    : "border-gray-300 focus:border-blue-500 focus:ring-blue-200 hover:border-blue-400"
+                      ? isWithinTolerance
+                        ? "border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 focus:border-green-600 focus:ring-green-200 shadow-md"
+                        : "border-red-500 bg-gradient-to-r from-red-50 to-pink-50 focus:border-red-600 focus:ring-red-200 shadow-md"
+                      : numericAnswer
+                        ? "border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 focus:border-blue-600 focus:ring-blue-200 shadow-md"
+                        : "border-gray-300 focus:border-blue-500 focus:ring-blue-200 hover:border-blue-400"
                 } ${numericAnswer ? "scale-[1.02]" : ""}`}
               />
               {showCorrectAnswer && !isNaN(currentNumValue) && (
@@ -164,7 +175,7 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
               className="animate-slideInLeft"
               style={{ animationDelay: "100ms" }}
             >
-              <label className="block text-sm sm:text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
+              <label className="text-sm sm:text-base font-semibold text-gray-800 mb-3 flex items-center gap-2">
                 <svg
                   className="w-5 h-5 text-blue-600"
                   fill="currentColor"

@@ -9,12 +9,6 @@ const apiAxios = axios.create({
   timeout: 10000,
 });
 
-// MIS API axios instance for profile operations
-const misAxios = axios.create({
-  baseURL: "https://nga-central-mis.vercel.app",
-  timeout: 10000,
-});
-
 interface Role {
   role_id: number;
   name: string;
@@ -73,6 +67,13 @@ interface User {
   department?: string;
   user_type?: string;
   mis_user_id?: number;
+  // New fields
+  gender?: string;
+  date_of_birth?: string | null;
+  address?: string | null;
+  external_id?: string | null;
+  assigned_programs?: any[];
+  assigned_grades?: any[];
 }
 
 interface AuthContextType {
@@ -82,16 +83,12 @@ interface AuthContextType {
   login: (
     email: string,
     password: string,
-    otp?: string
+    otp?: string,
   ) => Promise<{ needsOtp?: boolean } | void>;
   logoutUser: () => void;
   updateProfile: (userData: Partial<User>) => Promise<void>;
   updateProfileImage: (imageUrl: string) => Promise<void>;
   removeProfileImage: () => Promise<void>;
-  changePassword: (
-    currentPassword: string,
-    newPassword: string
-  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -113,108 +110,78 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [tempToken, setTempToken] = useState<string | null>(null);
   const dispatch = useDispatch();
 
-  // Set up axios defaults and check auth on mount
+  // Check auth on mount
   useEffect(() => {
     const initializeAuth = async () => {
       // Prevent multiple simultaneous auth checks
       if (isAuthInitializing) {
-        console.log(
-          "🔄 AuthContext: Auth already initializing, skipping duplicate call"
-        );
         return;
       }
 
-      console.log("🔄 AuthContext: Starting auth initialization");
       setIsAuthInitializing(true);
 
       try {
-        const token = localStorage.getItem("token");
         console.log(
-          "🔄 AuthContext: Initializing auth, token from localStorage:",
-          token
+          "🔄 AuthContext: Making auth check request to local /auth/me",
         );
 
-        if (token && token.trim()) {
-          try {
-            const cleanToken = token.trim();
-            const misToken = localStorage.getItem("misToken");
-            axios.defaults.headers.common[
-              "Authorization"
-            ] = `Bearer ${cleanToken}`;
-            apiAxios.defaults.headers.common[
-              "Authorization"
-            ] = `Bearer ${cleanToken}`;
-            if (misToken) {
-              misAxios.defaults.headers.common[
-                "Authorization"
-              ] = `Bearer ${misToken}`;
-            }
+        // Cookies are automatically sent withCredentials: true
+        const response = await apiAxios.get("/auth/me");
 
-            console.log(
-              "🔄 AuthContext: Making auth check request to local /auth/me"
-            );
-            const storedMisToken = localStorage.getItem("misToken");
-            const headers: any = {};
-            if (storedMisToken) {
-              headers["X-MIS-Token"] = `Bearer ${storedMisToken}`;
-            }
-            const response = await apiAxios.get("/auth/me", {
-              headers,
-            });
-            console.log(
-              "✅ AuthContext: Auth check successful:",
-              response.data
-            );
+        console.log("✅ AuthContext: Auth check successful:", response.data);
 
-            const responseData = response.data.data;
-            const userData = {
-              id: responseData.user.id.toString(),
-              first_name: responseData.user.first_name,
-              last_name: responseData.user.last_name,
-              email: responseData.user.email,
-              role: responseData.user.role,
-              roles: responseData.roles.map((r: Role, _i: number) => ({
-                id: r.role_id,
-                name: r.name,
-              })),
-              permissions: responseData.permissions,
-              profile_image: undefined,
-              department: undefined,
-              user_type: responseData.profile.user_type,
-              mis_user_id: responseData.user.mis_user_id,
-            };
+        const responseData = response.data.data;
+        const userData: User = {
+          id: responseData.user.id.toString(),
+          first_name: responseData.user.first_name,
+          last_name: responseData.user.last_name,
+          email: responseData.user.email,
+          role: responseData.user.role,
+          roles: responseData.roles.map((r: Role, _i: number) => ({
+            id: r.role_id,
+            name: r.name,
+          })),
+          permissions: responseData.permissions,
+          profile_image: responseData.user.profile_image,
+          department: undefined,
+          user_type: responseData.profile?.user_type,
+          mis_user_id: responseData.user.mis_user_id,
+          // Map new fields
+          gender: responseData.profile?.gender,
+          date_of_birth: responseData.profile?.date_of_birth,
+          address: responseData.profile?.address,
+          external_id: responseData.profile?.external_id,
+          assigned_programs: responseData.assignedPrograms,
+          assigned_grades: responseData.assignedGrades,
+        };
 
-            setUser(userData);
-            dispatch(loginSuccess(response.data.data));
+        setUser(userData);
+        dispatch(loginSuccess(response.data.data));
 
-            const currentPath = window.location.pathname;
-            if (currentPath === "/login") {
-              window.location.href = "/dashboard";
-            }
-          } catch (error) {
-            console.error("❌ AuthContext: Auth check failed:", error);
-            localStorage.removeItem("token");
-            delete axios.defaults.headers.common["Authorization"];
-            delete apiAxios.defaults.headers.common["Authorization"];
-            delete misAxios.defaults.headers.common["Authorization"];
-          }
-        } else {
-          console.log("🔄 AuthContext: No token found, user not authenticated");
+        const currentPath = window.location.pathname;
+        if (currentPath === "/login") {
+          window.location.href = "/dashboard";
         }
+      } catch (error) {
+        console.error(
+          "❌ AuthContext: Auth check failed (Not authenticated)",
+          error,
+        );
+        // No need to clear localStorage as we don't use it.
+        // Cookies handle session directly.
       } finally {
         setIsAuthInitializing(false);
         setLoading(false);
-        console.log("🔄 AuthContext: Auth initialization complete");
       }
     };
 
     initializeAuth();
-  }, []); // Removed dispatch dependency since it's stable
+  }, []);
 
   const login = async (
     email: string,
     password: string,
-    otp?: string
+    otp?: string,
   ): Promise<{ needsOtp?: boolean } | void> => {
     try {
       if (otp) {
@@ -242,31 +209,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           { otp },
           {
             headers: { Authorization: `Bearer ${tempToken}` },
-          }
+          },
         );
-        const token = response.data.token;
-        const misToken = response.data.misToken;
-        const userData = {
-          id: response.data.user.id.toString(),
-          first_name: response.data.user.first_name,
-          last_name: response.data.user.last_name,
-          email: response.data.user.email,
-          role: response.data.user.role,
-          roles: [],
-          permissions: response.data.permissions,
+        // Cookies are set by server automatically
+        const data = response.data;
+        const userData: User = {
+          id: data.user.id.toString(),
+          first_name: data.user.first_name,
+          last_name: data.user.last_name,
+          email: data.user.email,
+          role: data.user.role,
+          roles: [], // roles might need to be fetched or passed if verify-otp returns them
+          permissions: data.permissions,
           profile_image: undefined,
           department: undefined,
-          user_type: response.data.user.role,
-          mis_user_id: response.data.user.mis_user_id,
+          user_type: data.user.role,
+          mis_user_id: data.user.mis_user_id,
+          // Map new fields
+          gender: data.profile?.gender,
+          date_of_birth: data.profile?.date_of_birth,
+          address: data.profile?.address,
+          external_id: data.profile?.external_id,
+          assigned_programs: data.assignedPrograms,
+          assigned_grades: data.assignedGrades,
         };
-
-        localStorage.setItem("token", token);
-        localStorage.setItem("misToken", misToken);
-        axios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-        apiAxios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-        misAxios.defaults.headers.common[
-          "Authorization"
-        ] = `Bearer ${misToken}`;
 
         setUser(userData);
         dispatch(loginSuccess(userData));
@@ -299,22 +265,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const updateProfile = async (userData: Partial<User>) => {
     try {
       console.log("Updating profile for user:", userData);
-      const response = await misAxios.put("/users/me/profile", userData);
+      // Use local proxy instead of direct MIS call
+      const response = await apiAxios.put("/auth/updatedetails", userData);
       const responseData = response.data.data;
+
+      // Update local state with returned data
       const updatedUser = {
-        id: responseData.user.user_id.toString(),
-        first_name: responseData.profile.first_name,
-        last_name: responseData.profile.last_name,
-        email: responseData.user.email,
-        role: responseData.profile.user_type,
-        roles: responseData.roles.map((r: Role, _i: number) => ({
-          id: r.role_id,
-          name: r.name,
-        })),
-        permissions: responseData.permissions,
-        profile_image: undefined,
-        department: undefined,
-        user_type: responseData.profile.user_type,
+        ...user!, // preserve existing fields
+        id: responseData.id.toString(),
+        first_name: responseData.first_name,
+        last_name: responseData.last_name,
+        email: responseData.email,
+        // Update other fields as returned by profile update response
       };
 
       setUser(updatedUser);
@@ -328,7 +290,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const updateProfileImage = async (imageUrl: string) => {
     try {
       setUser((prevUser) =>
-        prevUser ? { ...prevUser, profile_image: imageUrl } : null
+        prevUser ? { ...prevUser, profile_image: imageUrl } : null,
       );
       // Also update in Redux store
       if (user) {
@@ -343,7 +305,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const removeProfileImage = async () => {
     try {
       setUser((prevUser) =>
-        prevUser ? { ...prevUser, profile_image: undefined } : null
+        prevUser ? { ...prevUser, profile_image: undefined } : null,
       );
       // Also update in Redux store
       if (user) {
@@ -355,53 +317,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  const changePassword = async (
-    currentPassword: string,
-    newPassword: string
-  ) => {
-    try {
-      console.log("Changing password for user");
-      const response = await misAxios.post("/auth/change-password", {
-        currentPassword,
-        newPassword,
-        confirmPassword: newPassword,
-      });
-      const token = response.data.token;
-      const responseData = response.data;
-      const userData = {
-        id: responseData.user.user_id.toString(),
-        first_name: responseData.profile.first_name,
-        last_name: responseData.profile.last_name,
-        email: responseData.user.email,
-        role: responseData.profile.user_type,
-        roles: [],
-        permissions: responseData.permissions,
-        profile_image: undefined,
-        department: undefined,
-        user_type: responseData.profile.user_type,
-      };
-
-      // Since password change returns new MIS token, we need to get new local token
-      // For now, we'll use the existing local token since user data hasn't changed
-      localStorage.setItem("misToken", token);
-      misAxios.defaults.headers.common["Authorization"] = `Bearer ${token}`;
-      // Local token remains the same since local user data is unchanged
-
-      setUser(userData);
-      dispatch(loginSuccess(userData));
-    } catch (error) {
-      console.error("Password change failed:", error);
-      throw error;
-    }
-  };
-
-  const logoutUser = () => {
+  const logoutUser = async () => {
     console.log("Logging out user...");
-    localStorage.removeItem("token");
-    localStorage.removeItem("misToken");
-    delete axios.defaults.headers.common["Authorization"];
-    delete apiAxios.defaults.headers.common["Authorization"];
-    delete misAxios.defaults.headers.common["Authorization"];
+    try {
+      await apiAxios.post("/auth/logout");
+    } catch (err) {
+      console.error("Logout failed", err);
+    }
     setUser(null);
     dispatch(logout());
     window.location.href = "/login";
@@ -416,7 +338,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     updateProfile,
     updateProfileImage,
     removeProfileImage,
-    changePassword,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -5,41 +5,33 @@
 
 /**
  * Converts a datetime-local string (local time) to a UTC Date object.
- * Uses the browser's detected timezone for accurate conversion.
  * Example:
- *   "2025-10-24T08:30" (user's local time) → Date(2025-10-24T06:30:00.000Z)
+ *   "2025-10-24T08:30" (user's local time) → Date object representing that instant
  */
 export function parseLocalDateTimeToUTC(dateTimeLocal: string): Date {
   if (!dateTimeLocal) throw new Error("Date string is required");
 
-  // Parse the input as local datetime
+  // new Date() parses "YYYY-MM-DDTHH:mm" strings as local time in the browser's timezone.
   const localDate = new Date(dateTimeLocal);
   if (isNaN(localDate.getTime())) throw new Error("Invalid date string format");
 
-  // Use browser's timezone offset to convert to UTC
-  // getTimezoneOffset() returns negative for timezones ahead of UTC (e.g., -120 for UTC+2)
-  // We need to subtract the absolute offset to convert local time to UTC
-  const tzOffset = localDate.getTimezoneOffset(); // in minutes
-  const utcDate = new Date(localDate.getTime() - Math.abs(tzOffset) * 60 * 1000);
-
-  return utcDate;
+  return localDate;
 }
 
 /**
  * Converts a UTC date to local timezone string (for datetime-local inputs)
- * Uses the browser's detected timezone for accurate conversion.
  * Example:
- *   "2025-10-24T06:30:00.000Z" → "2025-10-24T08:30" (user's local time)
+ *   "2025-10-24T06:30:00.000Z" → "2025-10-24T08:30" (if user's local time is GMT+2)
  */
 export function formatUTCToLocalDateTime(utcDate: Date | string): string {
   const date = typeof utcDate === "string" ? new Date(utcDate) : utcDate;
   if (!date || isNaN(date.getTime())) throw new Error("Invalid UTC date");
 
-  // Use browser's timezone offset to convert from UTC to local
-  // getTimezoneOffset() returns negative for timezones ahead of UTC (e.g., -120 for UTC+2)
-  // We need to add the absolute offset to convert UTC to local time
+  // To get the local "face time" for datetime-local, we need to adjust by the offset
+  // Local = UTC - offset
   const tzOffset = date.getTimezoneOffset(); // in minutes
-  const localDate = new Date(date.getTime() + Math.abs(tzOffset) * 60 * 1000);
+  const localTimestamp = date.getTime() - tzOffset * 60 * 1000;
+  const localDate = new Date(localTimestamp);
 
   return localDate.toISOString().slice(0, 16);
 }

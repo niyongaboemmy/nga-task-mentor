@@ -7,7 +7,7 @@ const sequelize = new Sequelize({
   host: process.env.DB_HOST!,
   port: parseInt(process.env.DB_PORT || "3306"),
   dialect: "mysql",
-  logging: process.env.NODE_ENV === "development" ? console.log : false,
+  logging: false,
   timezone: "+00:00", // Ensure all dates are handled in UTC
   dialectOptions: {
     // Ensure MySQL connection uses UTC

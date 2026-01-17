@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import AssignmentStatusToggle from "./AssignmentStatusToggle";
 import { Clock, Calendar, Timer } from "lucide-react";
+import { formatDateTimeLocal } from "../../utils/dateUtils";
+import { getProfileImageUrl } from "../../utils/imageUrl";
 
 export interface AssignmentInterface {
   id: string;
@@ -38,7 +40,7 @@ interface AssignmentCardProps {
   canManage?: boolean;
   onStatusChange?: (
     assignmentId: string,
-    status: "draft" | "published" | "completed" | "removed"
+    status: "draft" | "published" | "completed" | "removed",
   ) => void;
 }
 
@@ -57,14 +59,9 @@ const LiveCountdown: React.FC<{ dueDate: string; isOverdue: boolean }> = ({
 
   useEffect(() => {
     const updateCountdown = () => {
-      // Parse the formatted UTC datetime string (YYYY-MM-DD HH:MM:SS)
       const due = new Date(dueDate);
-
-      // Ensure consistent UTC calculation
-      const nowUTC = Date.now();
-      const dueUTC = due.getTime();
-
-      const diff = dueUTC - nowUTC;
+      const now = new Date();
+      const diff = due.getTime() - now.getTime();
 
       if (diff <= 0) {
         setTimeRemaining({
@@ -176,16 +173,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
   onStatusChange,
 }) => {
   const formatDate = (dateString: string) => {
-    // Use UTC methods to ensure exact time without conversions - same as AssignmentDetails
-    const date = new Date(dateString);
-    const year = date.getUTCFullYear();
-    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-    const day = String(date.getUTCDate()).padStart(2, "0");
-    const hours = String(date.getUTCHours()).padStart(2, "0");
-    const minutes = String(date.getUTCMinutes()).padStart(2, "0");
-    const seconds = String(date.getUTCSeconds()).padStart(2, "0");
-
-    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
+    return formatDateTimeLocal(dateString);
   };
 
   const getSubmissionTypeColor = (type: string) => {
@@ -207,7 +195,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
 
   const handleStatusChange = async (
     assignmentId: string,
-    newStatus: "draft" | "published" | "completed" | "removed"
+    newStatus: "draft" | "published" | "completed" | "removed",
   ) => {
     if (onStatusChange) {
       await onStatusChange(assignmentId, newStatus);
@@ -306,7 +294,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
             {/* Live countdown - Responsive sizing */}
             <div className="min-w-0 flex-shrink-0">
               <LiveCountdown
-                dueDate={formatDate(assignment.due_date)}
+                dueDate={assignment.due_date}
                 isOverdue={isOverdue}
               />
             </div>
@@ -330,7 +318,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
 
             <div
               className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium border ${getSubmissionTypeColor(
-                assignment.submission_type
+                assignment.submission_type,
               )} min-w-0`}
             >
               <span className="truncate">{assignment.submission_type}</span>
@@ -358,10 +346,11 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
                       >
                         {submission.user?.profile_image ? (
                           <img
-                            src={`${
-                              import.meta.env.VITE_API_BASE_URL ||
-                              "https://tm.universalbridge.rw"
-                            }/uploads/profile-pictures/${submission.user.profile_image}`}
+                            src={
+                              getProfileImageUrl(
+                                submission.user.profile_image,
+                              ) || ""
+                            }
                             alt={`${submission.user.first_name} ${submission.user.last_name}`}
                             className="w-full h-full object-cover"
                           />

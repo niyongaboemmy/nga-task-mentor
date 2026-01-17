@@ -1,15 +1,15 @@
 import React, { useEffect, useState, useMemo } from "react";
-import { 
-  Type, 
-  TextCursorInput, 
-  CaseSensitive, 
-  Plus, 
-  Trash2, 
+import {
+  Type,
+  TextCursorInput,
+  CaseSensitive,
+  Plus,
+  Trash2,
   AlertCircle,
   HelpCircle,
   MessageSquare,
-  CheckCircle, 
-  List
+  CheckCircle,
+  List,
 } from "lucide-react";
 import type { FillBlankData } from "../../../types/quiz.types";
 
@@ -33,15 +33,15 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
 
   // Initialize blanks from data potentially
   useEffect(() => {
-    // If we have existing correct_answer structure, try to use it
-    const existingAnswers = (data as any).correct_answer;
+    // If we have existing acceptable_answers structure, try to use it
+    const existingAnswers = data.acceptable_answers;
     if (existingAnswers && Array.isArray(existingAnswers)) {
       setBlanks(
-        existingAnswers.map((ans: any, i: number) => ({
-          index: i,
+        existingAnswers.map((ans: any) => ({
+          index: ans.blank_index,
           acceptable_answers: ans.answers || [],
           case_sensitive: ans.case_sensitive || false,
-        }))
+        })),
       );
     }
   }, []);
@@ -49,10 +49,10 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
   // Sync text changes
   const handleTextChange = (newText: string) => {
     setText(newText);
-    
-    // Count blanks in new text
-    const blankCount = (newText.match(/__/g) || []).length;
-    
+
+    // Count blanks in new text - now looking for {{blank}}
+    const blankCount = (newText.match(/\{\{blank\}\}/g) || []).length;
+
     // Adjust blanks array size
     setBlanks((prev) => {
       const newBlanks = [...prev];
@@ -69,7 +69,7 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
         // Remove excess blanks
         newBlanks.splice(blankCount);
       }
-      
+
       // Update payload
       updatePayload(newText, newBlanks);
       return newBlanks;
@@ -88,8 +88,8 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
   const updatePayload = (currentText: string, currentBlanks: BlankConfig[]) => {
     onChange({
       text_with_blanks: currentText,
-      correct_answer: currentBlanks.map((b) => ({
-        index: b.index,
+      acceptable_answers: currentBlanks.map((b) => ({
+        blank_index: b.index,
         answers: b.acceptable_answers,
         case_sensitive: b.case_sensitive,
       })),
@@ -99,19 +99,21 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
   // Validation - useMemo to prevent resize loops or flickering if used in effects
   const errors = useMemo(() => {
     const errs: string[] = [];
-    const hasBlanks = (text.match(/__/g) || []).length > 0;
-    if (!hasBlanks && text.trim()) errs.push("No blanks detected. Add '__' to create a blank.");
-    
+    const hasBlanks = (text.match(/\{\{blank\}\}/g) || []).length > 0;
+    if (!hasBlanks && text.trim())
+      errs.push("No blanks detected. Add '{{blank}}' to create a blank.");
+
     if (blanks.length > 0) {
       const allBlanksHaveAnswers = blanks.every(
-        (b) => b.acceptable_answers.length > 0 && b.acceptable_answers.some(a => a.trim())
+        (b) =>
+          b.acceptable_answers.length > 0 &&
+          b.acceptable_answers.some((a) => a.trim()),
       );
-      if (!allBlanksHaveAnswers) errs.push("All blanks must have at least one acceptable answer.");
+      if (!allBlanksHaveAnswers)
+        errs.push("All blanks must have at least one acceptable answer.");
     }
     return errs;
   }, [text, blanks]);
-
-
 
   return (
     <div className="space-y-6">
@@ -122,7 +124,7 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
         </div>
         <div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-             Fill-in-the-Blank Setup
+            Fill-in-the-Blank Setup
           </h3>
           <p className="text-sm text-gray-500 dark:text-gray-400">
             Create sentences with missing words for students to complete.
@@ -138,18 +140,22 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
             Question Text
           </h4>
         </div>
-        
+
         <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-start gap-2">
-           <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
-           <p className="text-sm text-blue-700 dark:text-blue-300">
-             Type your sentence below and use <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800 font-mono text-xs font-bold mx-1">__</code> (double underscore) to create a blank space.
-           </p>
+          <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-blue-700 dark:text-blue-300">
+            Type your sentence below and use{" "}
+            <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800 font-mono text-xs font-bold mx-1">
+              {"{{blank}}"}
+            </code>{" "}
+            to create a blank space.
+          </p>
         </div>
 
         <textarea
           value={text}
           onChange={(e) => handleTextChange(e.target.value)}
-          placeholder="e.g., The capital of France is __ and Germany is __."
+          placeholder="e.g., The capital of France is {{blank}} and Germany is {{blank}}."
           rows={4}
           className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900/50 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all text-sm resize-none"
         />
@@ -166,7 +172,7 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
               </h4>
             </div>
             <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-300">
-               {blanks.length} Blanks Detected
+              {blanks.length} Blanks Detected
             </span>
           </div>
 
@@ -204,8 +210,8 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
 
                 <div className="space-y-2">
                   <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 flex items-center gap-1">
-                     <CheckCircle className="w-3.5 h-3.5" />
-                     Acceptable Answers
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    Acceptable Answers
                   </label>
                   {blank.acceptable_answers.map((answer, ansIndex) => (
                     <div key={ansIndex} className="flex gap-2">
@@ -217,7 +223,9 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
                           onChange={(e) => {
                             const newAnswers = [...blank.acceptable_answers];
                             newAnswers[ansIndex] = e.target.value;
-                            updateBlank(index, { acceptable_answers: newAnswers });
+                            updateBlank(index, {
+                              acceptable_answers: newAnswers,
+                            });
                           }}
                           placeholder={`Acceptable answer ${ansIndex + 1}`}
                           className="w-full pl-9 pr-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent transition-all"
@@ -227,9 +235,11 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
                         type="button"
                         onClick={() => {
                           const newAnswers = blank.acceptable_answers.filter(
-                            (_, i) => i !== ansIndex
+                            (_, i) => i !== ansIndex,
                           );
-                          updateBlank(index, { acceptable_answers: newAnswers });
+                          updateBlank(index, {
+                            acceptable_answers: newAnswers,
+                          });
                         }}
                         className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                         title="Remove answer"
@@ -251,11 +261,11 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
                     Add Acceptable Answer
                   </button>
                 </div>
-                
+
                 {blank.acceptable_answers.length === 0 && (
                   <p className="mt-2 text-xs text-red-500 flex items-center gap-1">
-                     <AlertCircle className="w-3 h-3" />
-                     At least one acceptable answer is required.
+                    <AlertCircle className="w-3 h-3" />
+                    At least one acceptable answer is required.
                   </p>
                 )}
               </div>
@@ -266,17 +276,17 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
 
       {errors.length > 0 && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
-           <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
-           <div>
-             <h4 className="text-sm font-semibold text-red-900 dark:text-red-200 mb-1">
-               Validation Errors
-             </h4>
-             <ul className="text-sm text-red-700 dark:text-red-300 space-y-1 list-disc list-inside">
-               {errors.map((err, i) => (
-                 <li key={i}>{err}</li>
-               ))}
-             </ul>
-           </div>
+          <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+          <div>
+            <h4 className="text-sm font-semibold text-red-900 dark:text-red-200 mb-1">
+              Validation Errors
+            </h4>
+            <ul className="text-sm text-red-700 dark:text-red-300 space-y-1 list-disc list-inside">
+              {errors.map((err, i) => (
+                <li key={i}>{err}</li>
+              ))}
+            </ul>
+          </div>
         </div>
       )}
     </div>

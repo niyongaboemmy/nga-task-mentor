@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import axios from "axios";
 import { useAuth } from "../../contexts/AuthContext";
+import { getProfileImageUrl } from "../../utils/imageUrl";
 
 interface Student {
   id: string;
@@ -104,7 +105,7 @@ const StudentDetails: React.FC = () => {
         setStudent(studentResponse.data.data);
 
         const coursesResponse = await axios.get(
-          `/api/users/${studentId}/courses`
+          `/api/users/${studentId}/courses`,
         );
         setCourses(coursesResponse.data.data);
 
@@ -125,8 +126,9 @@ const StudentDetails: React.FC = () => {
     const unenrolled = availableCourses.filter(
       (course) =>
         !courses.some(
-          (enrolledCourse) => enrolledCourse.courseInUserCourse.id === course.id
-        )
+          (enrolledCourse) =>
+            enrolledCourse.courseInUserCourse.id === course.id,
+        ),
     );
 
     if (!searchTerm) return unenrolled;
@@ -138,7 +140,7 @@ const StudentDetails: React.FC = () => {
         course.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
         `${course.courseInstructor.first_name} ${course.courseInstructor.last_name}`
           .toLowerCase()
-          .includes(searchTerm.toLowerCase())
+          .includes(searchTerm.toLowerCase()),
     );
   }, [availableCourses, courses, searchTerm]);
 
@@ -146,8 +148,9 @@ const StudentDetails: React.FC = () => {
     return availableCourses.filter(
       (course) =>
         !courses.some(
-          (enrolledCourse) => enrolledCourse.courseInUserCourse.id === course.id
-        )
+          (enrolledCourse) =>
+            enrolledCourse.courseInUserCourse.id === course.id,
+        ),
     );
   }, [availableCourses, courses]);
 
@@ -155,7 +158,7 @@ const StudentDetails: React.FC = () => {
     setSelectedCourses((prev) =>
       prev.includes(courseId)
         ? prev.filter((id) => id !== courseId)
-        : [...prev, courseId]
+        : [...prev, courseId],
     );
   };
 
@@ -169,12 +172,12 @@ const StudentDetails: React.FC = () => {
         selectedCourses.map((courseId) =>
           axios.post(`/api/courses/${courseId}/enroll-students`, {
             studentIds: [studentId],
-          })
-        )
+          }),
+        ),
       );
 
       const coursesResponse = await axios.get(
-        `/api/users/${studentId}/courses`
+        `/api/users/${studentId}/courses`,
       );
       setCourses(coursesResponse.data.data);
 
@@ -279,10 +282,7 @@ const StudentDetails: React.FC = () => {
               <div className="relative">
                 {student.profile_image ? (
                   <img
-                    src={`${
-                      import.meta.env.VITE_API_BASE_URL ||
-                      "https://tm.universalbridge.rw"
-                    }/uploads/profile-pictures/${student.profile_image}`}
+                    src={getProfileImageUrl(student.profile_image) || ""}
                     alt={`${student.first_name} ${student.last_name}`}
                     className="w-24 h-24 rounded-2xl object-cover shadow-2xl ring-4 ring-white/50 dark:ring-gray-800/50"
                   />
@@ -1018,7 +1018,7 @@ const StudentDetails: React.FC = () => {
                         <div className="flex flex-wrap gap-2">
                           {availableCourses
                             .filter((course) =>
-                              selectedCourses.includes(course.id)
+                              selectedCourses.includes(course.id),
                             )
                             .map((course) => (
                               <div

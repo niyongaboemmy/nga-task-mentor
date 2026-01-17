@@ -1,6 +1,7 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
 import axios from "axios";
+import { getProfileImageUrl } from "../../utils/imageUrl";
 
 interface ProfilePictureUploadProps {
   onUploadSuccess?: (imageUrl: string) => void;
@@ -66,11 +67,11 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
           headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress: (progressEvent) => {
             const percentCompleted = Math.round(
-              (progressEvent.loaded * 100) / (progressEvent.total || 1)
+              (progressEvent.loaded * 100) / (progressEvent.total || 1),
             );
             setUploadProgress(percentCompleted);
           },
-        }
+        },
       );
 
       const imageUrl = response.data.data.profile_image;
@@ -105,7 +106,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       const files = Array.from(e.dataTransfer.files);
       if (files.length > 0) handleFileSelect(files[0]);
     },
-    [handleFileSelect]
+    [handleFileSelect],
   );
 
   const handleClick = useCallback(() => {
@@ -117,7 +118,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       const files = e.target.files;
       if (files && files.length > 0) handleFileSelect(files[0]);
     },
-    [handleFileSelect]
+    [handleFileSelect],
   );
 
   const handleDelete = async () => {
@@ -139,13 +140,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
 
   const getImageUrl = () => {
     if (preview) return preview;
-    if (user?.profile_image) {
-      // Use the API server domain where static files are served
-      // Files are uploaded TO server and served FROM server
-      const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "https://tm.universalbridge.rw";
-      return `${apiBaseUrl}/uploads/profile-pictures/${user.profile_image}`;
-    }
-    return null;
+    return getProfileImageUrl(user?.profile_image);
   };
 
   const imageUrl = getImageUrl();

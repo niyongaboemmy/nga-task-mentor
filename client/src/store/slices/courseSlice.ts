@@ -23,7 +23,7 @@ export const fetchCourses = createAsyncThunk(
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
-  }
+  },
 );
 
 export const fetchCourse = createAsyncThunk(
@@ -31,12 +31,12 @@ export const fetchCourse = createAsyncThunk(
   async (courseId: number, { rejectWithValue }) => {
     try {
       return await handleCourseApiCall(() =>
-        CourseApiService.getCourse(courseId)
+        CourseApiService.getCourse(courseId),
       );
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
-  }
+  },
 );
 
 export const fetchCourseQuizzes = createAsyncThunk(
@@ -44,12 +44,12 @@ export const fetchCourseQuizzes = createAsyncThunk(
   async (courseId: number, { rejectWithValue }) => {
     try {
       return await handleCourseApiCall(() =>
-        CourseApiService.getCourseQuizzes(courseId)
+        CourseApiService.getCourseQuizzes(courseId),
       );
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
-  }
+  },
 );
 
 export const createCourse = createAsyncThunk(
@@ -57,12 +57,12 @@ export const createCourse = createAsyncThunk(
   async (courseData: CreateCourseRequest, { rejectWithValue }) => {
     try {
       return await handleCourseApiCall(() =>
-        CourseApiService.createCourse(courseData)
+        CourseApiService.createCourse(courseData),
       );
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
-  }
+  },
 );
 
 export const updateCourse = createAsyncThunk(
@@ -72,16 +72,16 @@ export const updateCourse = createAsyncThunk(
       courseId,
       courseData,
     }: { courseId: number; courseData: UpdateCourseRequest },
-    { rejectWithValue }
+    { rejectWithValue },
   ) => {
     try {
       return await handleCourseApiCall(() =>
-        CourseApiService.updateCourse(courseId, courseData)
+        CourseApiService.updateCourse(courseId, courseData),
       );
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
-  }
+  },
 );
 
 export const deleteCourse = createAsyncThunk(
@@ -93,7 +93,7 @@ export const deleteCourse = createAsyncThunk(
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
-  }
+  },
 );
 
 // Course slice state interface
@@ -135,7 +135,7 @@ const courseSlice = createSlice({
   reducers: {
     clearCourseError: (
       state,
-      action: PayloadAction<keyof CourseState["error"]>
+      action: PayloadAction<keyof CourseState["error"]>,
     ) => {
       state.error[action.payload] = null;
     },
@@ -171,7 +171,15 @@ const courseSlice = createSlice({
       })
       .addCase(fetchCourse.fulfilled, (state, action) => {
         state.loading.course = false;
-        state.currentCourse = action.payload;
+        const index = state.courses.findIndex(
+          (c) => String(c.id) === String(action.payload.id),
+        );
+        if (index !== -1) {
+          state.courses[index] = { ...state.courses[index], ...action.payload };
+          state.currentCourse = state.courses[index];
+        } else {
+          state.currentCourse = action.payload;
+        }
         state.error.course = null;
       })
       .addCase(fetchCourse.rejected, (state, action) => {

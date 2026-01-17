@@ -26,7 +26,7 @@ import { CodeExecutor, TestCase } from "./codeExecutor";
 export class ChoiceQuestionGrader {
   static gradeSingleChoice(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     // Validate inputs
     if (!question || !answerData) {
@@ -79,7 +79,7 @@ export class ChoiceQuestionGrader {
         is_correct: false,
         points_earned: 0,
         feedback: `Invalid answer format - selected_option_index must be a number. Received: ${JSON.stringify(
-          answer.selected_option_index
+          answer.selected_option_index,
         )} of type ${typeof answer.selected_option_index}`,
       };
     }
@@ -94,9 +94,9 @@ export class ChoiceQuestionGrader {
         is_correct: false,
         points_earned: 0,
         feedback: `Question has no valid correct answer. correctAnswerData: ${JSON.stringify(
-          correctAnswerData
+          correctAnswerData,
         )}, question_data: ${JSON.stringify(
-          question.question_data
+          question.question_data,
         )}, correct_answer: ${JSON.stringify(question.correct_answer)}`,
       };
     }
@@ -113,7 +113,7 @@ export class ChoiceQuestionGrader {
 
   static gradeMultipleChoice(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     // Validate inputs
     if (!question || !answerData) {
@@ -213,12 +213,12 @@ export class ChoiceQuestionGrader {
     } else {
       // Give partial credit for correct selections (if any)
       const correctSelections = studentAnswers.filter((index) =>
-        correctAnswers.includes(index)
+        correctAnswers.includes(index),
       ).length;
 
       if (correctSelections > 0) {
         pointsEarned = Math.round(
-          (correctSelections / correctAnswers.length) * questionPoints
+          (correctSelections / correctAnswers.length) * questionPoints,
         );
       }
     }
@@ -234,7 +234,7 @@ export class ChoiceQuestionGrader {
 
   static gradeTrueFalse(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     // Validate inputs
     if (!question || !answerData) {
@@ -318,7 +318,7 @@ export class ChoiceQuestionGrader {
 export class TextInputGrader {
   static gradeNumerical(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     // Validate question data structure
     if (!question || !question.question_data) {
@@ -431,7 +431,7 @@ export class TextInputGrader {
 
   static gradeFillBlank(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     // Validate question data structure
     if (!question || !question.question_data) {
@@ -525,7 +525,7 @@ export class TextInputGrader {
       }
 
       const studentAnswer = answer.answers.find(
-        (a: any) => a && typeof a === "object" && a.blank_index === index
+        (a: any) => a && typeof a === "object" && a.blank_index === index,
       );
 
       if (studentAnswer && typeof studentAnswer.answer === "string") {
@@ -549,7 +549,7 @@ export class TextInputGrader {
     }
 
     const pointsEarned = Math.round(
-      (correctBlanks / totalBlanks) * parseFloat(String(question.points || 0))
+      (correctBlanks / totalBlanks) * parseFloat(String(question.points || 0)),
     );
 
     return {
@@ -561,7 +561,7 @@ export class TextInputGrader {
 
   static gradeShortAnswer(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     let questionData = question.question_data as any;
     // If question_data is stored as a string, parse it
@@ -607,7 +607,7 @@ export class TextInputGrader {
     if (questionData.keywords && questionData.keywords.length > 0) {
       const answerLower = answer.answer.toLowerCase();
       const foundKeywords = questionData.keywords.filter((keyword: string) =>
-        answerLower.includes(keyword.toLowerCase())
+        answerLower.includes(keyword.toLowerCase()),
       );
 
       const keywordScore =
@@ -632,7 +632,7 @@ export class TextInputGrader {
 export class InteractiveGrader {
   static gradeMatching(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     // Validate question data structure
     if (!question || !question.question_data) {
@@ -751,7 +751,8 @@ export class InteractiveGrader {
     });
 
     const pointsEarned = Math.round(
-      (correctMatches / totalMatches) * parseFloat(String(question.points || 0))
+      (correctMatches / totalMatches) *
+        parseFloat(String(question.points || 0)),
     );
 
     return {
@@ -763,7 +764,7 @@ export class InteractiveGrader {
 
   static gradeOrdering(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     let questionData = question.question_data as any;
     // If question_data is stored as a string, parse it
@@ -801,7 +802,7 @@ export class InteractiveGrader {
     });
 
     const pointsEarned = Math.round(
-      (correctPositions / totalItems) * parseFloat(String(question.points))
+      (correctPositions / totalItems) * parseFloat(String(question.points)),
     );
 
     return {
@@ -813,7 +814,7 @@ export class InteractiveGrader {
 
   static gradeDropdown(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     let questionData = question.question_data as any;
     // If question_data is stored as a string, parse it
@@ -839,7 +840,7 @@ export class InteractiveGrader {
 
     questionData.dropdown_options.forEach((dropdown: any, index: number) => {
       const studentSelection = answer.selections.find(
-        (s: any) => s.dropdown_index === index
+        (s: any) => s.dropdown_index === index,
       );
       if (studentSelection) {
         // Check against correct answers - prioritize correct_answer column
@@ -848,7 +849,7 @@ export class InteractiveGrader {
         // Check correct_answer column first (array of objects format)
         if (correctAnswer && Array.isArray(correctAnswer)) {
           const correctItem = correctAnswer.find(
-            (item: any) => item.dropdown_index === index
+            (item: any) => item.dropdown_index === index,
           );
           if (correctItem && correctItem.selected_option) {
             correctOption = String(correctItem.selected_option);
@@ -876,7 +877,7 @@ export class InteractiveGrader {
 
     const pointsEarned = Math.round(
       (correctSelections / questionData.dropdown_options.length) *
-        parseFloat(String(question.points))
+        parseFloat(String(question.points)),
     );
 
     return {
@@ -890,7 +891,7 @@ export class InteractiveGrader {
 export class CodingGrader {
   static async gradeCoding(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): Promise<GradingResult> {
     let questionData = question.question_data as any;
     // If question_data is stored as a string, parse it
@@ -951,10 +952,10 @@ export class CodingGrader {
             testCase: result.testCaseId,
             passed: result.passed,
             input: questionData.test_cases.find(
-              (tc: any) => tc.id === result.testCaseId
+              (tc: any) => tc.id === result.testCaseId,
             )?.input,
             expected: questionData.test_cases.find(
-              (tc: any) => tc.id === result.testCaseId
+              (tc: any) => tc.id === result.testCaseId,
             )?.expected_output,
             actual: result.output,
             error: result.error,
@@ -984,7 +985,7 @@ export class CodingGrader {
     if (totalTests > 0) {
       scorePercentage = (passedTests / totalTests) * 100;
       pointsEarned = Math.round(
-        (passedTests / totalTests) * parseFloat(String(question.points))
+        (passedTests / totalTests) * parseFloat(String(question.points)),
       );
     } else {
       // No test cases defined - cannot auto-grade
@@ -1147,7 +1148,7 @@ export class AdvancedQuizGrader {
 
   static normalizeAnswer(
     answerData: AnswerDataType,
-    questionType: string
+    questionType: string,
   ): NormalizedAnswer {
     return {
       type: questionType,
@@ -1156,7 +1157,7 @@ export class AdvancedQuizGrader {
   }
 
   static normalizeCorrectAnswer(
-    question: QuizQuestion
+    question: QuizQuestion,
   ): NormalizedCorrectAnswer {
     let questionData = question.question_data as any;
     if (typeof questionData === "string") {
@@ -1274,17 +1275,17 @@ export class AdvancedQuizGrader {
           Array.isArray(questionData.correct_option_indices)
         ) {
           correctOptionIndices = questionData.correct_option_indices.map(
-            (idx: any) => (typeof idx === "string" ? parseInt(idx, 10) : idx)
+            (idx: any) => (typeof idx === "string" ? parseInt(idx, 10) : idx),
           );
         } else if (questionData && Array.isArray(questionData.correct_answer)) {
           correctOptionIndices = questionData.correct_answer.map((idx: any) =>
-            typeof idx === "string" ? parseInt(idx, 10) : idx
+            typeof idx === "string" ? parseInt(idx, 10) : idx,
           );
         } else if (correctAnswer !== undefined && correctAnswer !== null) {
           // Handle different formats of correct_answer
           if (Array.isArray(correctAnswer)) {
             correctOptionIndices = correctAnswer.map((idx: any) =>
-              typeof idx === "string" ? parseInt(idx, 10) : idx
+              typeof idx === "string" ? parseInt(idx, 10) : idx,
             );
           } else if (
             correctAnswer &&
@@ -1292,7 +1293,7 @@ export class AdvancedQuizGrader {
             Array.isArray(correctAnswer.correct_option_indices)
           ) {
             correctOptionIndices = correctAnswer.correct_option_indices.map(
-              (idx: any) => (typeof idx === "string" ? parseInt(idx, 10) : idx)
+              (idx: any) => (typeof idx === "string" ? parseInt(idx, 10) : idx),
             );
           }
         }
@@ -1364,7 +1365,7 @@ export class AdvancedQuizGrader {
                     answer: blank.answers
                       ? blank.answers[0]
                       : blank.correct_answer,
-                  })
+                  }),
                 ),
               }
             : null;
@@ -1414,7 +1415,7 @@ export class AdvancedQuizGrader {
                   (option: string, index: number) => ({
                     dropdown_index: index,
                     selected_option: option,
-                  })
+                  }),
                 ),
               }
             : null;
@@ -1434,7 +1435,7 @@ export class AdvancedQuizGrader {
   static async gradeWithConfig(
     question: QuizQuestion,
     answerData: AnswerDataType,
-    config?: QuestionGradingConfig
+    config?: QuestionGradingConfig,
   ): Promise<AdvancedGradingResult> {
     const gradingConfig =
       config || this.getDefaultConfig(question.question_type);
@@ -1447,7 +1448,7 @@ export class AdvancedQuizGrader {
           question,
           answerData,
           gradingConfig.config as TrueFalseGradingConfig,
-          maxPoints
+          maxPoints,
         );
 
       case "multiple_choice":
@@ -1455,7 +1456,7 @@ export class AdvancedQuizGrader {
           question,
           answerData,
           gradingConfig.config as MultipleChoiceGradingConfig,
-          maxPoints
+          maxPoints,
         );
 
       case "short_answer":
@@ -1463,7 +1464,7 @@ export class AdvancedQuizGrader {
           question,
           answerData,
           gradingConfig.config as ShortAnswerGradingConfig,
-          maxPoints
+          maxPoints,
         );
 
       case "numerical":
@@ -1471,7 +1472,7 @@ export class AdvancedQuizGrader {
           question,
           answerData,
           gradingConfig.config as NumericalGradingConfig,
-          maxPoints
+          maxPoints,
         );
 
       case "fill_blank":
@@ -1479,7 +1480,7 @@ export class AdvancedQuizGrader {
           question,
           answerData,
           gradingConfig.config as FillBlankGradingConfig,
-          maxPoints
+          maxPoints,
         );
 
       case "matching":
@@ -1487,7 +1488,7 @@ export class AdvancedQuizGrader {
           question,
           answerData,
           gradingConfig.config as MatchingGradingConfig,
-          maxPoints
+          maxPoints,
         );
 
       case "ordering":
@@ -1495,7 +1496,7 @@ export class AdvancedQuizGrader {
           question,
           answerData,
           gradingConfig.config as OrderingGradingConfig,
-          maxPoints
+          maxPoints,
         );
 
       case "dropdown":
@@ -1503,7 +1504,7 @@ export class AdvancedQuizGrader {
           question,
           answerData,
           gradingConfig.config as BaseGradingConfig,
-          maxPoints
+          maxPoints,
         );
 
       case "coding":
@@ -1511,14 +1512,14 @@ export class AdvancedQuizGrader {
           question,
           answerData,
           gradingConfig.config as CodingGradingConfig,
-          maxPoints
+          maxPoints,
         );
 
       default:
         // Fallback to basic grading
         const basicResult = await QuizGrader.gradeQuestion(
           question,
-          answerData
+          answerData,
         );
         return {
           is_correct: basicResult.is_correct,
@@ -1535,11 +1536,11 @@ export class AdvancedQuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
     config: TrueFalseGradingConfig,
-    maxPoints: number
+    maxPoints: number,
   ): AdvancedGradingResult {
     const basicResult = ChoiceQuestionGrader.gradeSingleChoice(
       question,
-      answerData
+      answerData,
     );
 
     let pointsEarned = basicResult.points_earned;
@@ -1579,11 +1580,11 @@ export class AdvancedQuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
     config: MultipleChoiceGradingConfig,
-    maxPoints: number
+    maxPoints: number,
   ): AdvancedGradingResult {
     const basicResult = ChoiceQuestionGrader.gradeMultipleChoice(
       question,
-      answerData
+      answerData,
     );
 
     let pointsEarned = basicResult.points_earned;
@@ -1606,7 +1607,7 @@ export class AdvancedQuizGrader {
       const studentIndices = answer.selected_option_indices || [];
 
       const wrongSelections = studentIndices.filter(
-        (idx: number) => !correctIndices.includes(idx)
+        (idx: number) => !correctIndices.includes(idx),
       ).length;
       const penalty = wrongSelections * config.penalty_per_wrong_selection;
       pointsEarned = Math.max(0, pointsEarned - penalty); // Apply penalty
@@ -1643,7 +1644,7 @@ export class AdvancedQuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
     config: ShortAnswerGradingConfig,
-    maxPoints: number
+    maxPoints: number,
   ): AdvancedGradingResult {
     const basicResult = TextInputGrader.gradeShortAnswer(question, answerData);
 
@@ -1671,7 +1672,7 @@ export class AdvancedQuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
     config: NumericalGradingConfig,
-    maxPoints: number
+    maxPoints: number,
   ): AdvancedGradingResult {
     const basicResult = TextInputGrader.gradeNumerical(question, answerData);
 
@@ -1707,7 +1708,7 @@ export class AdvancedQuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
     config: FillBlankGradingConfig,
-    maxPoints: number
+    maxPoints: number,
   ): AdvancedGradingResult {
     const basicResult = TextInputGrader.gradeFillBlank(question, answerData);
 
@@ -1735,7 +1736,7 @@ export class AdvancedQuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
     config: MatchingGradingConfig,
-    maxPoints: number
+    maxPoints: number,
   ): AdvancedGradingResult {
     const basicResult = InteractiveGrader.gradeMatching(question, answerData);
 
@@ -1772,7 +1773,7 @@ export class AdvancedQuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
     config: OrderingGradingConfig,
-    maxPoints: number
+    maxPoints: number,
   ): AdvancedGradingResult {
     const basicResult = InteractiveGrader.gradeOrdering(question, answerData);
 
@@ -1808,7 +1809,7 @@ export class AdvancedQuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
     config: BaseGradingConfig,
-    maxPoints: number
+    maxPoints: number,
   ): AdvancedGradingResult {
     const basicResult = InteractiveGrader.gradeDropdown(question, answerData);
 
@@ -1834,7 +1835,7 @@ export class AdvancedQuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
     config: CodingGradingConfig,
-    maxPoints: number
+    maxPoints: number,
   ): Promise<AdvancedGradingResult> {
     const basicResult = await CodingGrader.gradeCoding(question, answerData);
 
@@ -1934,7 +1935,7 @@ export class QuizGrader {
   }
   static async gradeQuestion(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): Promise<GradingResult> {
     try {
       switch (question.question_type) {
@@ -1986,28 +1987,28 @@ export class QuizGrader {
 
   private static gradeSingleChoice(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     return ChoiceQuestionGrader.gradeSingleChoice(question, answerData);
   }
 
   private static gradeMultipleChoice(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     return ChoiceQuestionGrader.gradeMultipleChoice(question, answerData);
   }
 
   private static gradeTrueFalse(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     return ChoiceQuestionGrader.gradeTrueFalse(question, answerData);
   }
 
   private static gradeNumerical(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     const questionData = question.question_data as any;
     const answer = answerData as any;
@@ -2050,7 +2051,7 @@ export class QuizGrader {
 
   private static gradeFillBlank(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     const questionData = question.question_data as any;
     const answer = answerData as any;
@@ -2080,7 +2081,7 @@ export class QuizGrader {
 
     questionData.acceptable_answers.forEach((blank: any, index: number) => {
       const studentAnswer = answer.answers.find(
-        (a: any) => a.blank_index === index
+        (a: any) => a.blank_index === index,
       );
       if (studentAnswer) {
         const isCorrect = blank.answers.some((acceptableAnswer: string) => {
@@ -2098,12 +2099,13 @@ export class QuizGrader {
           correctBlanks++;
         }
       }
-      totalPoints += question.points / questionData.acceptable_answers.length;
+      totalPoints +=
+        Number(question.points) / questionData.acceptable_answers.length;
     });
 
     const pointsEarned = Math.round(
       (correctBlanks / questionData.acceptable_answers.length) *
-        parseFloat(String(question.points))
+        parseFloat(String(question.points)),
     );
 
     return {
@@ -2115,7 +2117,7 @@ export class QuizGrader {
 
   private static gradeShortAnswer(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     const questionData = question.question_data as any;
     const answer = answerData as any;
@@ -2145,7 +2147,7 @@ export class QuizGrader {
     if (questionData.keywords && questionData.keywords.length > 0) {
       const answerLower = answer.answer.toLowerCase();
       const foundKeywords = questionData.keywords.filter((keyword: string) =>
-        answerLower.includes(keyword.toLowerCase())
+        answerLower.includes(keyword.toLowerCase()),
       );
 
       const keywordScore =
@@ -2169,7 +2171,7 @@ export class QuizGrader {
 
   private static gradeMatching(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     const questionData = question.question_data as any;
     const correctAnswer = question.correct_answer as any;
@@ -2218,7 +2220,7 @@ export class QuizGrader {
     });
 
     const pointsEarned = Math.round(
-      (correctMatches / totalMatches) * question.points
+      (correctMatches / totalMatches) * question.points,
     );
 
     return {
@@ -2230,7 +2232,7 @@ export class QuizGrader {
 
   private static gradeOrdering(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     const questionData = question.question_data as any;
     const correctAnswer = question.correct_answer as any;
@@ -2279,7 +2281,7 @@ export class QuizGrader {
     });
 
     const pointsEarned = Math.round(
-      (correctPositions / totalItems) * question.points
+      (correctPositions / totalItems) * question.points,
     );
 
     return {
@@ -2291,7 +2293,7 @@ export class QuizGrader {
 
   private static gradeDropdown(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): GradingResult {
     // Validate question data structure
     if (!question || !question.question_data) {
@@ -2369,7 +2371,7 @@ export class QuizGrader {
       }
 
       const studentSelection = answer.selections.find(
-        (s: any) => s && typeof s === "object" && s.dropdown_index === index
+        (s: any) => s && typeof s === "object" && s.dropdown_index === index,
       );
 
       if (
@@ -2398,7 +2400,7 @@ export class QuizGrader {
         ) {
           const correctItem = (question.correct_answer as any[]).find(
             (item: any) =>
-              item && typeof item === "object" && item.dropdown_index === index
+              item && typeof item === "object" && item.dropdown_index === index,
           );
           if (correctItem && correctItem.selected_option) {
             correctOptions = [String(correctItem.selected_option)];
@@ -2416,7 +2418,7 @@ export class QuizGrader {
         const isCorrect = correctOptions.some(
           (option: string) =>
             option.toLowerCase() ===
-            studentSelection.selected_option.toLowerCase()
+            studentSelection.selected_option.toLowerCase(),
         );
 
         if (isCorrect) {
@@ -2427,7 +2429,7 @@ export class QuizGrader {
 
     const pointsEarned = Math.round(
       (correctSelections / totalDropdowns) *
-        parseFloat(String(question.points || 0))
+        parseFloat(String(question.points || 0)),
     );
 
     return {
@@ -2438,7 +2440,7 @@ export class QuizGrader {
   }
   private static async gradeCoding(
     question: QuizQuestion,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): Promise<GradingResult> {
     const questionData = question.question_data as any;
     const answer = answerData as any;
@@ -2491,10 +2493,10 @@ export class QuizGrader {
             testCase: result.testCaseId,
             passed: result.passed,
             input: questionData.test_cases.find(
-              (tc: any) => tc.id === result.testCaseId
+              (tc: any) => tc.id === result.testCaseId,
             )?.input,
             expected: questionData.test_cases.find(
-              (tc: any) => tc.id === result.testCaseId
+              (tc: any) => tc.id === result.testCaseId,
             )?.expected_output,
             actual: result.output,
             error: result.error,
@@ -2569,7 +2571,7 @@ export class QuizGrader {
 
     return this.gradeQuestion(
       question,
-      attempt.submitted_answer as AnswerDataType
+      attempt.submitted_answer as AnswerDataType,
     );
   }
 
@@ -2614,10 +2616,10 @@ export class QuizGrader {
       // Normalize answers for consistent comparison
       const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
         attempt.submitted_answer as AnswerDataType,
-        attempt.question.question_type
+        attempt.question.question_type,
       );
       const normalizedCorrectAnswer = AdvancedQuizGrader.normalizeCorrectAnswer(
-        attempt.question
+        attempt.question,
       );
 
       // Compare normalized answers directly for accurate grading
@@ -2668,7 +2670,7 @@ export class QuizGrader {
         else if (attempt.question.question_type === "multiple_choice") {
           const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
             attempt.question,
-            attempt.submitted_answer as AnswerDataType
+            attempt.submitted_answer as AnswerDataType,
           );
           isCorrect = gradingResult.is_correct;
           pointsEarned = gradingResult.points_earned;
@@ -2678,7 +2680,7 @@ export class QuizGrader {
         else if (attempt.question.question_type === "coding") {
           const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
             attempt.question,
-            attempt.submitted_answer as AnswerDataType
+            attempt.submitted_answer as AnswerDataType,
           );
           isCorrect = gradingResult.is_correct;
           pointsEarned = gradingResult.points_earned;

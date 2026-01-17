@@ -48,16 +48,26 @@ import dashboardRoutes from "./routes/dashboard";
 import quizRoutes from "./routes/quizzes";
 import proctoringRoutes from "./routes/proctoring";
 
+import cookieParser from "cookie-parser";
+
+// ...
+
 // Security middleware
 app.set("trust proxy", 1); // Trust one proxy (e.g., cPanel)
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginEmbedderPolicy: false,
+  }),
+);
+app.use(cookieParser()); // Parse cookies
 app.use(
   cors({
     origin: true,
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization", "x-mis-token"],
-  })
+  }),
 );
 
 // Rate limiting
@@ -78,7 +88,6 @@ app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 const initializeDatabase = async (): Promise<void> => {
   try {
     await testConnection();
-    console.log("Database connection has been established successfully.");
 
     // Import all models to ensure they're registered with Sequelize
     const {
@@ -183,7 +192,7 @@ const startServer = async (): Promise<void> => {
       socket.on("join-proctoring-session", (sessionToken: string) => {
         socket.join(`proctoring-${sessionToken}`);
         console.log(
-          `Client ${socket.id} joined proctoring session: ${sessionToken}`
+          `Client ${socket.id} joined proctoring session: ${sessionToken}`,
         );
       });
 
@@ -191,7 +200,7 @@ const startServer = async (): Promise<void> => {
       socket.on("leave-proctoring-session", (sessionToken: string) => {
         socket.leave(`proctoring-${sessionToken}`);
         console.log(
-          `Client ${socket.id} left proctoring session: ${sessionToken}`
+          `Client ${socket.id} left proctoring session: ${sessionToken}`,
         );
       });
 
@@ -204,7 +213,7 @@ const startServer = async (): Promise<void> => {
             from: socket.id,
             targetUserId: data.targetUserId,
           });
-        }
+        },
       );
 
       socket.on(
@@ -219,7 +228,7 @@ const startServer = async (): Promise<void> => {
             from: socket.id,
             targetUserId: data.targetUserId,
           });
-        }
+        },
       );
 
       socket.on(
@@ -236,7 +245,7 @@ const startServer = async (): Promise<void> => {
               from: socket.id,
               targetUserId: data.targetUserId,
             });
-        }
+        },
       );
 
       // Proctoring events
@@ -246,7 +255,7 @@ const startServer = async (): Promise<void> => {
           socket
             .to(`proctoring-${data.sessionToken}`)
             .emit("proctoring-event", data.event);
-        }
+        },
       );
 
       socket.on("disconnect", () => {
@@ -262,9 +271,9 @@ const startServer = async (): Promise<void> => {
               // Note: We would need to track socket_id in the session to properly map this
               // For now, we'll handle this in the socket server
             },
-          }
+          },
         ).catch((err: any) =>
-          console.error("Error updating session on disconnect:", err)
+          console.error("Error updating session on disconnect:", err),
         );
       });
     });

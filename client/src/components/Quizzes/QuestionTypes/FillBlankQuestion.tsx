@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+import { RefreshCw } from "lucide-react";
+import { ProgressIndicator } from "./shared";
 import type {
   FillBlankData,
   FillBlankAnswer,
@@ -17,10 +19,13 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
   const currentAnswer = answer as FillBlankAnswer | undefined;
 
   const [blankAnswers, setBlankAnswers] = useState<Record<number, string>>(
-    currentAnswer?.answers?.reduce((acc, blank) => {
-      acc[blank.blank_index] = blank.answer;
-      return acc;
-    }, {} as Record<number, string>) ?? {}
+    currentAnswer?.answers?.reduce(
+      (acc, blank) => {
+        acc[blank.blank_index] = blank.answer;
+        return acc;
+      },
+      {} as Record<number, string>,
+    ) ?? {},
   );
 
   useEffect(() => {
@@ -66,13 +71,13 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
       if (part === "{{blank}}") {
         const currentBlankIndex = blankIndex++;
         const blankData = questionData.acceptable_answers?.find(
-          (b) => b.blank_index === currentBlankIndex
+          (b) => b.blank_index === currentBlankIndex,
         );
         const currentAnswer = blankAnswers[currentBlankIndex] || "";
         const isCorrect =
           showCorrectAnswer &&
           blankData?.answers.some(
-            (ans) => ans.toLowerCase() === currentAnswer.toLowerCase()
+            (ans) => ans.toLowerCase() === currentAnswer.toLowerCase(),
           );
 
         return (
@@ -89,12 +94,12 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
               disabled
                 ? "bg-gray-100 border-gray-200 cursor-not-allowed"
                 : showCorrectAnswer
-                ? isCorrect
-                  ? "border-green-500 bg-green-50 focus:border-green-500 focus:ring-green-200"
-                  : "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-200"
-                : currentAnswer
-                ? "border-blue-500 bg-blue-50 focus:border-blue-500 focus:ring-blue-200"
-                : "border-gray-300 focus:border-blue-500 focus:ring-blue-200"
+                  ? isCorrect
+                    ? "border-green-500 bg-green-50 focus:border-green-500 focus:ring-green-200"
+                    : "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-200"
+                  : currentAnswer
+                    ? "border-blue-500 bg-blue-50 focus:border-blue-500 focus:ring-blue-200"
+                    : "border-gray-300 focus:border-blue-500 focus:ring-blue-200"
             }`}
           />
         );
@@ -111,29 +116,50 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
   // Check if all required blanks are filled
   const allBlanksFilled =
     questionData.acceptable_answers?.every(
-      (blank) => blankAnswers[blank.blank_index]?.trim() !== ""
+      (blank) => blankAnswers[blank.blank_index]?.trim() !== "",
     ) ?? false;
 
   return (
     <div className="space-y-4">
       <div className="max-w-4xl mx-auto">
         {/* Question text with blanks */}
-        <div className="text-lg leading-relaxed p-6 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl mb-4">
+        <div className="text-lg leading-loose p-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm mb-6 text-gray-800 dark:text-gray-200">
           {renderTextWithBlanks()}
         </div>
 
         {/* Progress indicator */}
-        <div className="flex items-center justify-center mb-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
-            Blanks completed:{" "}
-            {Object.values(blankAnswers).filter((a) => a.trim() !== "").length}{" "}
-            / {questionData.acceptable_answers?.length || 0}
-          </div>
+        <div className="mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+          <ProgressIndicator
+            completed={
+              Object.values(blankAnswers).filter((a) => a.trim() !== "").length
+            }
+            total={questionData.acceptable_answers?.length || 0}
+            label="Blanks Filled"
+          />
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-between items-center mb-6">
+          <div className="flex gap-2"></div>{" "}
+          {/* Spacer if needed or submit button here if moved */}
+          {Object.values(blankAnswers).some((a) => a.trim() !== "") &&
+            !disabled && (
+              <button
+                onClick={() => {
+                  setBlankAnswers({});
+                  onAnswerChange({ answers: [] });
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors border border-transparent hover:border-red-100"
+              >
+                <RefreshCw className="w-4 h-4" />
+                Clear All
+              </button>
+            )}
         </div>
 
         {/* Case sensitivity info */}
         {questionData.acceptable_answers?.some(
-          (blank) => blank.case_sensitive
+          (blank) => blank.case_sensitive,
         ) && (
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-2xl">
             <div className="text-sm text-blue-800 dark:text-blue-200 text-center">

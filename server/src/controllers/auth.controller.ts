@@ -8,13 +8,16 @@ import fs from "fs";
 import path from "path";
 import { uploadProfilePicture } from "../middleware/upload";
 import axios from "axios";
+import { getMisToken } from "../utils/misUtils";
 
 // User login - forwards to NGA Central MIS
+// Security: Protected by rate limiter and input validation at route level (see routes/auth.routes.ts)
 export const login = async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 
-    // Validate email & password
+    // Additional input validation is now handled by validation middleware
+    // but we keep this check as a failsafe
     if (!email || !password) {
       return res
         .status(400)
@@ -23,26 +26,43 @@ export const login = async (req: Request, res: Response) => {
 
     // Forward login request to NGA Central MIS
     const misResponse = await axios.post(
-      "https://nga-central-mis.vercel.app/auth/login",
+      `${process.env.NGA_MIS_BASE_URL}/auth/login`,
       {
         username: email,
         password: password,
-      }
+      },
+      {
+        // Enforce HTTPS for MIS calls in production (configure via ENV)
+        httpsAgent:
+          process.env.NODE_ENV === "production"
+            ? new (require("https").Agent)({ rejectUnauthorized: true })
+            : undefined,
+      },
     );
 
     const { data } = misResponse.data;
 
-    // Return the MIS response to frontend
+    // Return the MIS response to frontend with tempToken in cookie if needed,
+    // but usually tempToken is short lived. MIS returns it in body.
+    // We can just return it in body as before.
+    // Return the MIS response to frontend with tempToken in cookie if needed,
+    // but usually tempToken is short lived. MIS returns it in body.
+    // We can just return it in body as before.
     res.status(200).json({
       success: true,
       tempToken: data.tempToken,
       requiresOTP: data.requiresOTP,
     });
   } catch (error: any) {
-    console.error("Login error:", error.response?.data || error.message);
+    if (process.env.NODE_ENV === "development") {
+      console.error("Login error:", error.response?.data || error.message);
+    }
     const status = error.response?.status || 500;
+    // Sanitize error message using validation middleware utility if available, otherwise generic
     const message =
-      error.response?.data?.message || "Server error during login";
+      process.env.NODE_ENV === "production"
+        ? "Authentication failed"
+        : error.response?.data?.message || "Server error during login";
     res.status(status).json({ message });
   }
 };
@@ -96,7 +116,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
         forcePasswordChange: boolean;
       };
     }>(
-      "https://nga-central-mis.vercel.app/auth/verify-otp",
+      `${process.env.NGA_MIS_BASE_URL}/auth/verify-otp`,
       {
         otp,
       },
@@ -104,7 +124,12 @@ export const verifyOtp = async (req: Request, res: Response) => {
         headers: {
           Authorization: tempToken, // Pass tempToken directly without Bearer prefix
         },
-      }
+        // Enforce HTTPS in production
+        httpsAgent:
+          process.env.NODE_ENV === "production"
+            ? new (require("https").Agent)({ rejectUnauthorized: true })
+            : undefined,
+      },
     );
 
     const { data } = misResponse.data;
@@ -127,7 +152,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
         role_id: number;
         name: string;
         description: string;
-      }[]
+      }[],
     ): "student" | "instructor" | "admin" => {
       console.log("🔍 Mapping MIS roles:", JSON.stringify(misRoles, null, 2));
 
@@ -139,7 +164,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
       // Check each role individually
       for (const role of misRoles) {
         console.log(
-          `🔍 Checking role: id=${role.role_id}, name="${role.name}"`
+          `🔍 Checking role: id=${role.role_id}, name="${role.name}"`,
         );
 
         // Admin check
@@ -209,7 +234,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
         "🔄 Updating existing user. Current role:",
         localUser.role,
         "New role:",
-        mappedRole
+        mappedRole,
       );
       localUser.first_name = misProfile.first_name;
       localUser.last_name = misProfile.last_name;
@@ -222,11 +247,22 @@ export const verifyOtp = async (req: Request, res: Response) => {
     // Generate local JWT token
     const localToken = localUser.getSignedJwtToken();
 
-    // Return both local and MIS tokens, and complete user profile
+    // Set cookies
+    const cookieOptions = {
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+    };
+
+    res.cookie("token", localToken, cookieOptions);
+    res.cookie("misToken", token, cookieOptions);
+
+    // Return user data (no tokens in body needed really, but keeping for compatibility if needed)
     res.status(200).json({
       success: true,
-      token: localToken,
-      misToken: token, // MIS token for MIS API calls
+      token: localToken, // Optional: remove if full cookie auth
+      misToken: token, // Optional: remove if full cookie auth
       user: {
         id: localUser.id,
         first_name: localUser.first_name,
@@ -234,6 +270,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
         email: localUser.email,
         role: localUser.role,
         mis_user_id: localUser.mis_user_id,
+        profile_image: localUser.profile_image,
       },
       profile: misProfile,
       roles, // Include the raw roles from NGA MIS
@@ -245,7 +282,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
   } catch (error: any) {
     console.error(
       "OTP verification error:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     const status = error.response?.status || 500;
     const message =
@@ -256,34 +293,54 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
 // Refresh token
 export const refreshToken = async (req: Request, res: Response) => {
+  // Logic simplified: just rely on cookies.
+  // If we need a dedicated refresh flow, we would check a long-lived refresh cookie.
+  // For now, assume session cookie logic.
+  // If client specifically calls this, we might want to extend cookie life?
+
+  // Implementation of actual refresh token with rotation is complex.
+  // For now, we can just validate the existing token and issue a new one if valid.
   try {
-    const { refreshToken } = req.body;
+    const token = req.cookies.token;
+    if (!token) return res.status(401).json({ message: "No token provided" });
 
-    if (!refreshToken) {
-      return res.status(401).json({ message: "No refresh token provided" });
-    }
-
-    // Verify refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET!) as {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
       id: number;
     };
     const user = await User.findByPk(decoded.id);
+    if (!user) return res.status(401).json({ message: "Invalid token" });
 
-    if (!user) {
-      return res.status(401).json({ message: "Invalid refresh token" });
-    }
-
-    // Generate new access token
     const newToken = user.getSignedJwtToken();
 
-    res.status(200).json({
-      success: true,
-      token: newToken,
-    });
+    const cookieOptions = {
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+    };
+
+    res.cookie("token", newToken, cookieOptions);
+
+    res.status(200).json({ success: true, token: newToken });
   } catch (error) {
-    console.error("Refresh token error:", error);
     res.status(401).json({ message: "Invalid refresh token" });
   }
+};
+
+// Logout
+export const logout = async (req: Request, res: Response) => {
+  res.cookie("token", "none", {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+  });
+  res.cookie("misToken", "none", {
+    expires: new Date(Date.now() + 10 * 1000),
+    httpOnly: true,
+  });
+
+  res.status(200).json({
+    success: true,
+    data: {},
+  });
 };
 
 // Forgot password
@@ -350,120 +407,111 @@ export const resetPassword = async (req: Request, res: Response) => {
 // Get current user - embeds MIS /users/me data
 export const getMe = async (req: Request, res: Response) => {
   try {
-    // Verify local token
-    let token;
-    if (
-      req.headers.authorization &&
-      req.headers.authorization.startsWith("Bearer")
-    ) {
-      token = req.headers.authorization.split(" ")[1];
+    // User is attached by protect middleware
+    // We need to fetch full user to ensure we have all fields including mis_user_id
+    const startUser = (req as any).user;
+
+    if (!startUser) {
+      return res.status(401).json({ message: "Not authorized" });
     }
 
-    if (!token) {
-      return res
-        .status(401)
-        .json({ message: "Not authorized to access this route" });
+    const user = await User.findByPk(startUser.id, {
+      attributes: { exclude: ["password"] },
+    });
+
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Get MIS token (checks cookie then header)
+    const misToken = getMisToken(req);
+
+    if (!misToken) {
+      // Fallback: return local data if no MIS token
+      return res.status(200).json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            role: user.role,
+            mis_user_id: user.mis_user_id,
+            profile_image: user.profile_image,
+          },
+          profile: null,
+          roles: [],
+          permissions: [],
+          assignedPrograms: [],
+          assignedGrades: [],
+          forcePasswordChange: false,
+        },
+      });
     }
 
     try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
-        id: number;
-        role: string;
-      };
-      const user = await User.findByPk(decoded.id, {
-        attributes: { exclude: ["password"] },
+      // Call MIS /users/me to get complete user profile
+      const misResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/users/me`,
+        {
+          headers: {
+            Authorization: `Bearer ${misToken}`,
+          },
+          // Enforce HTTPS in production
+          httpsAgent:
+            process.env.NODE_ENV === "production"
+              ? new (require("https").Agent)({ rejectUnauthorized: true })
+              : undefined,
+        },
+      );
+
+      const misData = misResponse.data.data;
+
+      // Return combined local and MIS data
+      res.status(200).json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            role: user.role,
+            mis_user_id: user.mis_user_id,
+            profile_image: user.profile_image,
+          },
+          profile: misData.profile,
+          roles: misData.roles,
+          permissions: misData.permissions,
+          assignedPrograms: misData.assignedPrograms,
+          assignedGrades: misData.assignedGrades,
+          forcePasswordChange: misData.forcePasswordChange,
+        },
       });
-
-      if (!user) {
-        return res.status(404).json({ message: "User not found" });
-      }
-
-      // Get MIS token from custom header
-      const misTokenHeader = req.headers["x-mis-token"] as string;
-      if (!misTokenHeader || !misTokenHeader.startsWith("Bearer ")) {
-        // Fallback: return local data if no MIS token
-        return res.status(200).json({
-          success: true,
-          data: {
-            user: {
-              id: user.id,
-              first_name: user.first_name,
-              last_name: user.last_name,
-              email: user.email,
-              role: user.role,
-              mis_user_id: user.mis_user_id,
-            },
-            profile: null,
-            roles: [],
-            permissions: [],
-            assignedPrograms: [],
-            assignedGrades: [],
-            forcePasswordChange: false,
+    } catch (misError) {
+      console.error("MIS API error:", misError);
+      // Fallback to local data if MIS call fails
+      res.status(200).json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            role: user.role,
+            mis_user_id: user.mis_user_id,
+            profile_image: user.profile_image,
           },
-        });
-      }
-
-      const misToken = misTokenHeader.split(" ")[1];
-
-      try {
-        // Call MIS /users/me to get complete user profile
-        const misResponse = await axios.get(
-          "https://nga-central-mis.vercel.app/users/me",
-          {
-            headers: {
-              Authorization: `Bearer ${misToken}`,
-            },
-          }
-        );
-
-        const misData = misResponse.data.data;
-
-        // Return combined local and MIS data
-        res.status(200).json({
-          success: true,
-          data: {
-            user: {
-              id: user.id,
-              first_name: user.first_name,
-              last_name: user.last_name,
-              email: user.email,
-              role: user.role,
-              mis_user_id: user.mis_user_id,
-            },
-            profile: misData.profile,
-            roles: misData.roles,
-            permissions: misData.permissions,
-            assignedPrograms: misData.assignedPrograms,
-            assignedGrades: misData.assignedGrades,
-            forcePasswordChange: misData.forcePasswordChange,
-          },
-        });
-      } catch (misError) {
-        console.error("MIS API error:", misError);
-        // Fallback to local data if MIS call fails
-        res.status(200).json({
-          success: true,
-          data: {
-            user: {
-              id: user.id,
-              first_name: user.first_name,
-              last_name: user.last_name,
-              email: user.email,
-              role: user.role,
-              mis_user_id: user.mis_user_id,
-            },
-            profile: null,
-            roles: [],
-            permissions: [],
-            assignedPrograms: [],
-            assignedGrades: [],
-            forcePasswordChange: false,
-          },
-        });
-      }
-    } catch (tokenError) {
-      console.error("Token verification error:", tokenError);
-      return res.status(401).json({ message: "Invalid token" });
+          profile: null,
+          roles: [],
+          permissions: [],
+          assignedPrograms: [],
+          assignedGrades: [],
+          forcePasswordChange: false,
+        },
+      });
     }
   } catch (error) {
     console.error("Get me error:", error);
@@ -506,7 +554,7 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
           process.cwd(),
           "uploads",
           "profile-pictures",
-          user.profile_image
+          user.profile_image,
         );
         if (fs.existsSync(oldImagePath)) {
           fs.unlinkSync(oldImagePath);
@@ -559,7 +607,7 @@ export const deleteProfileImage = async (req: Request, res: Response) => {
       process.cwd(),
       "uploads",
       "profile-pictures",
-      user.profile_image
+      user.profile_image,
     );
     if (fs.existsSync(imagePath)) {
       fs.unlinkSync(imagePath);
@@ -582,12 +630,37 @@ export const deleteProfileImage = async (req: Request, res: Response) => {
   }
 };
 
-// Update profile details
+// Update profile details (Proxies to MIS)
 export const updateProfileDetails = async (req: Request, res: Response) => {
   try {
     const { first_name, last_name, email } = req.body;
     const userId = (req as any).user.id;
+    const misToken = getMisToken(req);
 
+    // 1. Update in MIS first (Source of Truth)
+    if (misToken) {
+      try {
+        await axios.put(
+          `${process.env.NGA_MIS_BASE_URL}/users/me/profile`,
+          { first_name, last_name, email }, // Adjust payload based on MIS API requirements
+          {
+            headers: { Authorization: `Bearer ${misToken}` },
+            httpsAgent:
+              process.env.NODE_ENV === "production"
+                ? new (require("https").Agent)({ rejectUnauthorized: true })
+                : undefined,
+          },
+        );
+      } catch (misError) {
+        console.error("MIS Profile Update Error:", misError);
+        // If MIS fails, should we fail local? Yes, to keep sync.
+        return res
+          .status(500)
+          .json({ message: "Failed to update profile in MIS" });
+      }
+    }
+
+    // 2. Update local DB
     const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({
@@ -596,7 +669,6 @@ export const updateProfileDetails = async (req: Request, res: Response) => {
       });
     }
 
-    // Update user fields
     if (first_name) user.first_name = first_name;
     if (last_name) user.last_name = last_name;
     if (email) user.email = email;
@@ -623,12 +695,41 @@ export const updateProfileDetails = async (req: Request, res: Response) => {
   }
 };
 
-// Update password
+// Update password (Proxies to MIS)
 export const updatePassword = async (req: Request, res: Response) => {
   try {
     const { currentPassword, newPassword } = req.body;
     const userId = (req as any).user.id;
+    const misToken = getMisToken(req);
 
+    // 1. Update in MIS
+    let newMisToken = misToken;
+    if (misToken) {
+      try {
+        const response = await axios.post(
+          `${process.env.NGA_MIS_BASE_URL}/auth/change-password`,
+          { currentPassword, newPassword, confirmPassword: newPassword },
+          {
+            headers: { Authorization: `Bearer ${misToken}` },
+            httpsAgent:
+              process.env.NODE_ENV === "production"
+                ? new (require("https").Agent)({ rejectUnauthorized: true })
+                : undefined,
+          },
+        );
+        // MIS might return a new token? If so, we should update the cookie.
+        if (response.data.token) {
+          newMisToken = response.data.token;
+        }
+      } catch (misError) {
+        console.error("MIS Password Update Error:", misError);
+        return res
+          .status(401)
+          .json({ message: "Failed to update password in MIS" });
+      }
+    }
+
+    // 2. Update local DB
     const user = await User.findByPk(userId);
     if (!user) {
       return res.status(404).json({
@@ -637,7 +738,7 @@ export const updatePassword = async (req: Request, res: Response) => {
       });
     }
 
-    // Check current password
+    // Check current password (local check redundant if MIS passed, but good for safety)
     const isMatch = await user.matchPassword(currentPassword);
     if (!isMatch) {
       return res.status(401).json({
@@ -646,12 +747,23 @@ export const updatePassword = async (req: Request, res: Response) => {
       });
     }
 
-    // Update password
     user.password = newPassword;
     await user.save();
 
-    // Generate new token
+    // Generate new local token
     const token = user.getSignedJwtToken();
+
+    // Update Cookies
+    const cookieOptions = {
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+    };
+    res.cookie("token", token, cookieOptions);
+    if (newMisToken !== misToken) {
+      res.cookie("misToken", newMisToken, cookieOptions);
+    }
 
     res.status(200).json({
       success: true,

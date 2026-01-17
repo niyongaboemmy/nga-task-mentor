@@ -8,6 +8,7 @@ import {
   clearQuizError,
 } from "../../store/slices/quizSlice";
 import ProctoringSettings from "../Proctoring/ProctoringSettings";
+import { formatUTCToLocalDateTime, parseLocalDateTimeToUTC } from "../../utils/dateUtils";
 import type { UpdateQuizRequest } from "../../types/quiz.types";
 
 export const EditQuizPage: React.FC = () => {
@@ -51,6 +52,8 @@ export const EditQuizPage: React.FC = () => {
           require_manual_grading: (quiz as any).require_manual_grading || false,
           status: quiz.status,
           is_public: quiz.is_public || false,
+          start_date: quiz.start_date ? formatUTCToLocalDateTime(quiz.start_date) : undefined,
+          end_date: quiz.end_date ? formatUTCToLocalDateTime(quiz.end_date) : undefined,
         });
       } catch (error) {
         console.error("Failed to load quiz:", error);
@@ -73,10 +76,21 @@ export const EditQuizPage: React.FC = () => {
     dispatch(clearQuizError("quiz"));
 
     try {
+      // Convert local dates to UTC for API
+      const submissionData = {
+        ...formData,
+        start_date: formData.start_date
+          ? parseLocalDateTimeToUTC(formData.start_date).toISOString()
+          : undefined,
+        end_date: formData.end_date
+          ? parseLocalDateTimeToUTC(formData.end_date).toISOString()
+          : undefined,
+      };
+
       await dispatch(
         updateQuiz({
           quizId: parseInt(quizId!),
-          quizData: formData,
+          quizData: submissionData,
         })
       ).unwrap();
 
@@ -369,6 +383,41 @@ export const EditQuizPage: React.FC = () => {
                     step="0.1"
                     className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
                   />
+                </div>
+
+                {/* Availability Dates */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
+                    <label
+                      htmlFor="start_date"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
+                    >
+                      Start Date & Time (Optional)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="start_date"
+                      value={formData.start_date || ""}
+                      onChange={(e) => handleChange("start_date", e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
+                    />
+                  </div>
+
+                  <div className="animate-fade-in-up" style={{ animationDelay: "0.25s" }}>
+                    <label
+                      htmlFor="end_date"
+                      className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
+                    >
+                      End Date & Time (Optional)
+                    </label>
+                    <input
+                      type="datetime-local"
+                      id="end_date"
+                      value={formData.end_date || ""}
+                      onChange={(e) => handleChange("end_date", e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
+                    />
+                  </div>
                 </div>
 
                 {/* Options */}
