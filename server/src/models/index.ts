@@ -1,8 +1,6 @@
 import User from "./User.model";
-import Course from "./Course.model";
 import Assignment from "./Assignment.model";
 import Submission from "./Submission.model";
-import UserCourse from "./UserCourse.model";
 import Quiz from "./Quiz.model";
 import QuizQuestion from "./QuizQuestion.model";
 import QuizAttempt from "./QuizAttempt.model";
@@ -26,41 +24,9 @@ const setupAssociations = () => {
     as: "submissionsMade",
   });
 
-  User.belongsToMany(Course, {
-    through: UserCourse,
-    foreignKey: "user_id",
-    otherKey: "course_id",
-    as: "enrolledCourses",
-  });
-
-  // ----------------------
-  // Course Associations
-  // ----------------------
-  Course.belongsTo(User, {
-    foreignKey: "instructor_id",
-    as: "courseInstructor",
-  });
-
-  Course.hasMany(Assignment, {
-    foreignKey: "course_id",
-    as: "courseAssignments",
-  });
-
-  Course.belongsToMany(User, {
-    through: UserCourse,
-    foreignKey: "course_id",
-    otherKey: "user_id",
-    as: "studentsEnrolled",
-  });
-
   // ----------------------
   // Assignment Associations
   // ----------------------
-  Assignment.belongsTo(Course, {
-    foreignKey: "course_id",
-    as: "assignmentCourse",
-  });
-
   Assignment.belongsTo(User, {
     foreignKey: "created_by",
     as: "assignmentCreator",
@@ -85,41 +51,8 @@ const setupAssociations = () => {
   });
 
   // ----------------------
-  // UserCourse Associations
-  // ----------------------
-  UserCourse.belongsTo(User, {
-    foreignKey: "user_id",
-    as: "userInCourse",
-  });
-
-  UserCourse.belongsTo(Course, {
-    foreignKey: "course_id",
-    as: "courseInUserCourse",
-  });
-
-  // Add reverse associations for complete relationship
-  User.hasMany(UserCourse, {
-    foreignKey: "user_id",
-    as: "userCourses",
-  });
-
-  Course.hasMany(UserCourse, {
-    foreignKey: "course_id",
-    as: "courseUserCourses",
-  });
-
-  // ----------------------
   // Quiz Associations
   // ----------------------
-  Course.hasMany(Quiz, {
-    foreignKey: "course_id",
-    as: "courseQuizzes",
-  });
-
-  Quiz.belongsTo(Course, {
-    foreignKey: "course_id",
-    as: "quizCourse",
-  });
 
   Quiz.belongsTo(User, {
     foreignKey: "created_by",
@@ -241,10 +174,8 @@ const setupAssociations = () => {
 // Export as named exports for compatibility
 export {
   User,
-  Course,
   Assignment,
   Submission,
-  UserCourse,
   Quiz,
   QuizQuestion,
   QuizAttempt,
@@ -257,10 +188,8 @@ export {
 
 export default {
   User,
-  Course,
   Assignment,
   Submission,
-  UserCourse,
   Quiz,
   QuizQuestion,
   QuizAttempt,

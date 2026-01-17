@@ -7,7 +7,34 @@ import type {
   CreateQuestionRequest,
   QuizAnalytics,
   AnswerDataType,
+  QuestionDataType,
 } from "../types/quiz.types";
+
+// Helper function to parse question data from API response
+function parseQuestionData(question: any): QuizQuestion {
+  if (typeof question.question_data === "string") {
+    try {
+      const parsed = JSON.parse(question.question_data);
+      // Remove correct_answer from question_data if present, as it's stored separately
+      if ("correct_answer" in parsed) {
+        delete parsed.correct_answer;
+      }
+      question.question_data = parsed as QuestionDataType;
+    } catch (error) {
+      console.error("Failed to parse question_data:", error);
+      question.question_data = {};
+    }
+  }
+  if (typeof question.correct_answer === "string") {
+    try {
+      question.correct_answer = JSON.parse(question.correct_answer);
+    } catch (error) {
+      // If parsing fails, keep as string or set to null
+      question.correct_answer = null;
+    }
+  }
+  return question as QuizQuestion;
+}
 
 // Quiz API Service
 export class QuizApiService {
@@ -23,17 +50,21 @@ export class QuizApiService {
     quizId: number
   ): Promise<{ success: boolean; data: Quiz }> {
     const response = await axios.get(`/api/quizzes/${quizId}`);
+    if (
+      response.data.success &&
+      response.data.data &&
+      response.data.data.questions
+    ) {
+      response.data.data.questions =
+        response.data.data.questions.map(parseQuestionData);
+    }
     return response.data;
   }
 
   static async createQuiz(
-    courseId: number,
     quizData: CreateQuizRequest
   ): Promise<{ success: boolean; data: Quiz }> {
-    const response = await axios.post(
-      `/api/courses/${courseId}/quizzes`,
-      quizData
-    );
+    const response = await axios.post(`/api/quizzes`, quizData);
     return response.data;
   }
 
@@ -64,6 +95,9 @@ export class QuizApiService {
     quizId: number
   ): Promise<{ success: boolean; count: number; data: QuizQuestion[] }> {
     const response = await axios.get(`/api/quizzes/${quizId}/questions`);
+    if (response.data.success && response.data.data) {
+      response.data.data = response.data.data.map(parseQuestionData);
+    }
     return response.data;
   }
 
@@ -71,6 +105,9 @@ export class QuizApiService {
     questionId: number
   ): Promise<{ success: boolean; data: QuizQuestion }> {
     const response = await axios.get(`/api/quizzes/questions/${questionId}`);
+    if (response.data.success && response.data.data) {
+      response.data.data = parseQuestionData(response.data.data);
+    }
     return response.data;
   }
 
@@ -83,7 +120,7 @@ export class QuizApiService {
       questionData
     );
     // API returns QuizQuestion directly, so wrap it in the expected format
-    return { success: true, data: response.data };
+    return { success: true, data: parseQuestionData(response.data) };
   }
 
   static async updateQuestion(
@@ -95,7 +132,7 @@ export class QuizApiService {
       questionData
     );
     // API returns QuizQuestion directly, so wrap it in the expected format
-    return { success: true, data: response.data };
+    return { success: true, data: parseQuestionData(response.data) };
   }
 
   static async deleteQuestion(
@@ -113,6 +150,9 @@ export class QuizApiService {
       `/api/quizzes/${quizId}/questions/reorder`,
       { questionOrders }
     );
+    if (response.data.success && response.data.data) {
+      response.data.data = response.data.data.map(parseQuestionData);
+    }
     return response.data;
   }
 
@@ -123,6 +163,9 @@ export class QuizApiService {
     const response = await axios.post(`/api/quizzes/${quizId}/questions/bulk`, {
       questions,
     });
+    if (response.data.success && response.data.data) {
+      response.data.data = response.data.data.map(parseQuestionData);
+    }
     return response.data;
   }
 

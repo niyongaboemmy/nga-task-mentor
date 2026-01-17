@@ -20,6 +20,7 @@ import { ProctoringSetup } from "../components/Proctoring";
 import ProctoringMonitorComponent from "../components/Proctoring/ProctoringMonitorComponent";
 import FloatingCameraComponent from "../components/Proctoring/FloatingCameraComponent";
 import type { Quiz, QuizQuestion, AnswerDataType } from "../types/quiz.types";
+import { toast } from "react-toastify";
 
 interface QuizTakingQuiz extends Quiz {
   quiz_completed?: boolean;
@@ -96,7 +97,7 @@ const QuizTakingPage: React.FC = () => {
   const [isCheckingVolume, setIsCheckingVolume] = useState(false);
   const [volumeCheckPassed, setVolumeCheckPassed] = useState(false);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
-  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
+  const [audioContext, setAudioContext] = useState<any>(null);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [isPlayingSpeakerTest, setIsPlayingSpeakerTest] = useState(false);
   const [speakerTestConfirmed, setSpeakerTestConfirmed] = useState(false);
@@ -234,9 +235,6 @@ const QuizTakingPage: React.FC = () => {
           });
 
           socket.on("connect", () => {
-            console.log(
-              "QuizTakingPage connected to socket server for audio confirmation"
-            );
             socket.emit("join-proctoring-session", {
               sessionToken: proctoringSession.session_token,
               role: "student",
@@ -246,7 +244,6 @@ const QuizTakingPage: React.FC = () => {
           // Listen for audio confirmation requests from proctor
           socket.on("request-student-audio-confirmation", (data: any) => {
             if (data.sessionToken === proctoringSession.session_token) {
-              console.log("Student received audio confirmation request:", data);
               setAudioConfirmationRequest({
                 volume: data.volume || 0.5,
                 micGain: data.micGain || 0.6,
@@ -259,7 +256,6 @@ const QuizTakingPage: React.FC = () => {
           // Listen for quiz termination from proctor
           socket.on("quiz-terminated", (data: any) => {
             if (data.sessionToken === proctoringSession.session_token) {
-              console.log("Quiz terminated by proctor:", data);
               setTerminationReason(
                 data.reason || "Quiz terminated by instructor"
               );
@@ -504,7 +500,7 @@ const QuizTakingPage: React.FC = () => {
             await startQuizNormally();
           }, 500);
         } catch (error) {
-          console.error("Failed to enter fullscreen:", error);
+          toast.error("Failed to enter fullscreen. Please enable fullscreen manually to proceed.");
           // Fallback to showing prompt if auto-fullscreen fails
           setShowFullscreenPrompt(true);
           return;
@@ -578,18 +574,11 @@ const QuizTakingPage: React.FC = () => {
         // Store audio context for cleanup
         (window as any).proctoringAudioContext = audioContext;
         (window as any).masterGainNode = masterGainNode;
-
-        console.log(`System audio volume set to ${(volume * 100).toFixed(0)}%`);
       } else {
         // Fallback to basic audio element control
         const instructorAudio = (window as any).instructorAudio;
         if (instructorAudio) {
           instructorAudio.volume = volume;
-          console.log(
-            `Audio volume set to ${(volume * 100).toFixed(
-              0
-            )}% (fallback method)`
-          );
         }
       }
 
@@ -618,73 +607,46 @@ const QuizTakingPage: React.FC = () => {
             micGainNode.connect(micAudioContext.destination);
 
             // Store for cleanup
-            (window as any).micAudioContext = micAudioContext;
             (window as any).micGainNode = micGainNode;
-
-            console.log(
-              `Microphone gain set to ${(micGain * 100).toFixed(0)}%`
-            );
           } catch (micError) {
             console.warn(
               "Could not apply microphone gain adjustment:",
               micError
             );
-            console.log(
-              `Microphone gain setting requested: ${(micGain * 100).toFixed(
-                0
-              )}%`
-            );
           }
         }
       }
 
-      // Show user feedback - BROWSER FORCED TO MAXIMUM VOLUME
-      const notification = document.createElement("div");
-      notification.className =
-        "fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl z-[10000] font-bold border-2 border-red-400 animate-pulse";
-      notification.innerHTML = `
-        <div class="flex items-center gap-2">
-          <span class="text-2xl">🔊</span>
-          <div>
-            <div class="text-lg font-bold">BROWSER FORCED TO MAXIMUM VOLUME</div>
-            <div class="text-sm opacity-90">Volume: ${(volume * 100).toFixed(
-              0
-            )}% | Mic: ${(micGain * 100).toFixed(0)}%</div>
-          </div>
-        </div>
-      `;
-      document.body.appendChild(notification);
+      // Show user feedback - replace custom DOM element with toast
+      toast.error(
+        <div className="flex flex-col gap-1">
+          <span className="font-bold text-lg">BROWSER FORCED TO MAXIMUM VOLUME</span>
+          <span className="text-sm">Volume: {(volume * 100).toFixed(0)}% | Mic: {(micGain * 100).toFixed(0)}%</span>
+        </div>,
+        {
+          position: "top-right",
+          autoClose: 8000,
+          hideProgressBar: false,
+          closeOnClick: true,
+          pauseOnHover: true,
+          draggable: true,
+          style: {
+            background: "#EF4444", // red-500
+            color: "#FFFFFF",
+            fontWeight: "bold",
+          }
+        }
+      );
 
       // Force browser focus and volume
       document.body.focus();
       if (document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(() => {});
       }
-
-      // Remove notification after 8 seconds
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 8000);
-
-      console.log("🎯 BROWSER AUDIO SYSTEM FORCED - MAXIMUM VOLUME APPLIED");
     } catch (error) {
       console.error("Error applying system audio settings:", error);
 
-      // Fallback notification
-      const notification = document.createElement("div");
-      notification.className =
-        "fixed top-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-[10000]";
-      notification.textContent =
-        "Audio settings applied (limited browser support)";
-      document.body.appendChild(notification);
-
-      setTimeout(() => {
-        if (notification.parentNode) {
-          notification.parentNode.removeChild(notification);
-        }
-      }, 3000);
+      toast.warning("Audio settings applied (limited browser support)");
     }
   };
 
@@ -726,16 +688,10 @@ const QuizTakingPage: React.FC = () => {
       setAudioContext(audioCtx);
       setAnalyser(analyserNode);
 
-      console.log("Audio context state:", audioCtx.state);
-      console.log("Stream active:", stream.active);
-      console.log("Audio tracks:", stream.getAudioTracks().length);
-      console.log("Analyser created and connected");
+      setAnalyser(analyserNode);
 
       // Start monitoring volume levels with the analyser directly
-      console.log("About to call checkVolumeLevels...");
       checkVolumeLevels(analyserNode);
-
-      console.log("Volume check started - microphone access granted");
     } catch (error) {
       console.error("Error starting volume check:", error);
       setError(
@@ -748,7 +704,6 @@ const QuizTakingPage: React.FC = () => {
   function checkVolumeLevels(providedAnalyser?: AnalyserNode) {
     const analyserToUse = providedAnalyser || analyser;
     if (!analyserToUse) {
-      console.log("No analyser available for volume check");
       return;
     }
 
@@ -757,16 +712,10 @@ const QuizTakingPage: React.FC = () => {
 
     const checkLevels = () => {
       if (!analyserToUse) {
-        console.log(
-          "Volume check skipped - analyser:",
-          !!analyserToUse,
-          "isCheckingVolume:",
-          isCheckingVolume
-        );
         return;
       }
 
-      console.log("Volume check executing...");
+
 
       // Try time domain data first (more reliable for volume detection)
       analyserToUse.getFloatTimeDomainData(dataArray);
@@ -779,21 +728,8 @@ const QuizTakingPage: React.FC = () => {
       const rms = Math.sqrt(sum / dataArray.length);
       const volumePercent = Math.min(100, Math.max(0, rms * 2000)); // Scale RMS to percentage (adjusted scaling)
 
-      // Also log raw RMS for debugging
-      console.log("Raw RMS value:", rms);
-
       // Simple check: if RMS is above a very low threshold, there's audio input
-      const hasAudioInput = rms > 0.001; // Very low threshold for any audio
-      console.log("Has audio input:", hasAudioInput);
 
-      console.log(
-        "Volume check - RMS:",
-        rms,
-        "volumePercent:",
-        volumePercent,
-        "dataArray length:",
-        dataArray.length
-      );
 
       setVolumeLevel(volumePercent);
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useMemo } from "react";
 import { toast } from "react-toastify";
 import type { CodingData } from "../../../types/quiz.types";
 import { AITestCaseGenerator } from "../AITestCaseGenerator";
@@ -39,8 +39,39 @@ interface CodingQuestionFormProps {
 
 export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
   data,
-  onChange,
+  onChange: parentOnChange,
 }) => {
+  const onChange = (newData: CodingData) => {
+    parentOnChange({
+      ...newData,
+      correct_answer: {
+        language: newData.language,
+        test_cases: newData.test_cases,
+        starter_code: newData.starter_code,
+      },
+    } as any);
+  };
+
+  const validationErrors = useMemo(() => {
+    const errors: string[] = [];
+    if (!data.language) {
+      errors.push("Please select a programming language");
+    }
+    if (!data.test_cases || data.test_cases.length === 0) {
+      errors.push("At least one test case is required");
+    } else {
+      const hasVisible = data.test_cases.some((tc) => !tc.is_hidden);
+      if (!hasVisible) {
+        errors.push("At least one visible test case is recommended for students");
+      }
+    }
+    // Check if test cases have input/output
+    if (data.test_cases?.some((tc) => !tc.input && !tc.expected_output)) {
+      errors.push("Some test cases are missing input/output");
+    }
+    return errors;
+  }, [data]);
+
   // Initialize with empty test cases array if not provided
   const codingData = {
     ...data,
@@ -596,8 +627,8 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
 
                   const newTestCase = {
                     id: (codingData.test_cases.length + 1).toString(),
-                    input: "",
-                    expected_output: "",
+                    input: exampleInputs[codingData.language as keyof typeof exampleInputs] || "",
+                    expected_output: exampleOutputs[codingData.language as keyof typeof exampleOutputs] || "",
                     is_hidden: false,
                     points: 10,
                     time_limit: 5000,
@@ -1832,6 +1863,24 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
         isOpen={isCppValidationGuideOpen}
         onClose={() => setIsCppValidationGuideOpen(false)}
       />
+
+      {validationErrors.length > 0 && (
+        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl">
+          <h4 className="text-sm font-bold text-red-800 dark:text-red-300 mb-2">
+            Validation Issues
+          </h4>
+          <ul className="list-disc list-inside space-y-1">
+            {validationErrors.map((error, index) => (
+              <li
+                key={index}
+                className="text-sm text-red-600 dark:text-red-400"
+              >
+                {error}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <CodingProgressIndicator codingData={codingData} />
     </div>

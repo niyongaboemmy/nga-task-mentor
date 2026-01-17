@@ -1,109 +1,106 @@
 import React, { useState, useEffect } from "react";
-import { useParams, Link } from "react-router-dom";
-import axios from "axios";
-import { useAuth } from "../../contexts/AuthContext";
+import { useParams, useLocation, Link } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
+import axios from "../../utils/axiosConfig";
 import Assignments from "../Assignments/Assignments";
-import StudentCourseView from "./StudentCourseView";
-import { getSubmissionStatusColor } from "../Assignments/AssignmentDetails";
-import SubmissionSummaryItem from "../Assignments/SubmissionSummaryItem";
 import { QuizList } from "../Quizzes/QuizList";
-
-export const formatDate = (dateString: string) => {
-  // Use UTC methods to ensure exact time without conversions - same as AssignmentDetails
-  const date = new Date(dateString);
-  const year = date.getUTCFullYear();
-  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
-  const day = String(date.getUTCDate()).padStart(2, "0");
-  const hours = String(date.getUTCHours()).padStart(2, "0");
-  const minutes = String(date.getUTCMinutes()).padStart(2, "0");
-  const seconds = String(date.getUTCSeconds()).padStart(2, "0");
-
-  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
-};
-
-interface Course {
-  id: string;
-  code: string;
-  title: string;
-  description: string;
-  credits: number;
-  maxStudents: number;
-  start_date: string;
-  end_date: string;
-  instructor?: {
-    id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-  };
-  assignments: Array<{
-    id: string;
-    title: string;
-    description: string;
-    due_date: string;
-    max_score: string;
-    submission_type: string;
-    allowed_file_types: string;
-    rubric: string;
-    course_id: string;
-    created_by: string;
-    createdAt: string;
-    updatedAt: string;
-    creator: {
-      id: string;
-      first_name: string;
-      last_name: string;
-    };
-    submissions: any[];
-    status: string;
-  }>;
-  studentsEnrolled: Array<{
-    id: string;
-    first_name: string;
-    last_name: string;
-    email: string;
-    profile_image?: string;
-    UserCourse: {
-      enrollment_date: string;
-      status: string;
-      grade?: string;
-    };
-  }>;
-}
+import { fetchCourse } from "../../store/slices/courseSlice";
+import type { RootState, AppDispatch } from "../../store";
+import type { Course } from "../../types/course.types";
 
 const CourseDetails: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
+  const location = useLocation();
+  const dispatch = useDispatch<AppDispatch>();
   const [course, setCourse] = useState<Course | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<
     "overview" | "assignments" | "quizzes" | "students" | "submissions"
   >("overview");
 
+  // Get courses from Redux store
+  const { courses, currentCourse, loading } = useSelector(
+    (state: RootState) => ({
+      courses: state.course.courses,
+      currentCourse: state.course.currentCourse,
+      loading: state.course.loading.course,
+    })
+  );
+
   useEffect(() => {
-    const fetchCourse = async () => {
+    const fetchEnrolledStudents = async (courseId: string) => {
       try {
-        const response = await axios.get(`/api/courses/${courseId}/details`);
-        setCourse(response.data.data);
-        setErrorMessage("");
-      } catch (error: any) {
-        console.error("Error fetching course:", error);
-        // Check if course not found (404)
-        if (error.response?.status === 404) {
-          setErrorMessage(error.response.data.message || "Course not found");
+        const response = await axios.get(`/api/courses/${courseId}/students`);
+        return response.data.data || [];
+      } catch (error) {
+        console.warn("Could not fetch enrolled students:", error);
+        return [];
+      }
+    };
+
+    const initializeCourse = async () => {
+      if (!courseId) return;
+
+      const courseIdNum = parseInt(courseId);
+
+      // First check if course data was passed from navigation state
+      const courseFromState = (location.state as any)?.course;
+      if (courseFromState) {
+        // Use the course data from navigation state
+        const enrolledStudents = await fetchEnrolledStudents(courseId);
+        setCourse({
+          ...courseFromState,
+          enrolledStudents,
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if course exists in Redux store
+      const courseFromRedux = courses.find((c) => c.id === courseIdNum);
+      if (courseFromRedux) {
+        // Use course from Redux, but fetch enrolled students if not present
+        if (!courseFromRedux.enrolledStudents) {
+          const enrolledStudents = await fetchEnrolledStudents(courseId);
+          setCourse({
+            ...courseFromRedux,
+            enrolledStudents,
+          });
         } else {
-          setErrorMessage("Failed to load course details");
+          setCourse(courseFromRedux);
         }
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if course is currently being fetched (in currentCourse)
+      if (currentCourse && currentCourse.id === courseIdNum) {
+        setCourse(currentCourse);
+        setIsLoading(false);
+        return;
+      }
+
+      // If not in Redux and not passed via state, fetch from API
+      try {
+        const result = await dispatch(fetchCourse(courseIdNum));
+        if (result.payload) {
+          setCourse(result.payload as Course);
+        } else {
+          setErrorMessage("Course not found");
+        }
+      } catch (error) {
+        console.error("Error fetching course:", error);
+        setErrorMessage("Failed to load course");
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchCourse();
-  }, [courseId]);
+    initializeCourse();
+  }, [courseId, location.state, courses, dispatch, isLoading]);
 
-  if (isLoading) {
+  if (isLoading || loading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -156,11 +153,6 @@ const CourseDetails: React.FC = () => {
     );
   }
 
-  // Show student-specific view for students
-  if (user?.role === "student") {
-    return <StudentCourseView />;
-  }
-
   return (
     <div className="space-y-2 md:space-y-4">
       {/* Header */}
@@ -182,53 +174,16 @@ const CourseDetails: React.FC = () => {
                 <p className="text-gray-600 mt-1 dark:text-gray-400">
                   {course.code} • {course.credits} Credits
                 </p>
-                {course.instructor && (
-                  <p className="text-sm text-gray-500 mt-1 dark:text-gray-400">
-                    Instructor: {course.instructor.first_name}{" "}
-                    {course.instructor.last_name}
-                  </p>
-                )}
                 <p className="pt-2">
                   <span
-                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
-                      new Date(course.start_date) <= new Date() &&
-                      new Date(course.end_date) >= new Date()
-                        ? "bg-green-100 text-green-800"
-                        : new Date(course.end_date) < new Date()
-                        ? "bg-gray-100 text-gray-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}
+                    className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800`}
                   >
-                    {new Date(course.start_date) <= new Date() &&
-                    new Date(course.end_date) >= new Date()
-                      ? "Active"
-                      : new Date(course.end_date) < new Date()
-                      ? "Completed"
-                      : "Upcoming"}
+                    Active
                   </span>
                 </p>
               </div>
               <div>
                 <div className="flex items-center justify-end gap-3">
-                  {user?.role === "admin" && (
-                    <Link
-                      to={`/courses/${courseId}/assign-instructor`}
-                      className="text-center inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
-                    >
-                      Assign Instructor
-                    </Link>
-                  )}
-
-                  {(user?.role === "instructor" || user?.role === "admin") &&
-                    user?.id === course.instructor?.id && (
-                      <Link
-                        to={`/courses/${courseId}/enroll`}
-                        className="text-center inline-flex items-center px-5 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 hover:shadow-xl transition-all duration-200"
-                      >
-                        + Students
-                      </Link>
-                    )}
-
                   <Link
                     to="/courses"
                     className="text-center inline-flex items-center px-5 py-2 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-orange-300 dark:hover:border-blue-700 dark:hover:bg-blue-700 dark:hover:text-white hover:shadow dark:text-orange-300 transition-all duration-200"
@@ -268,7 +223,7 @@ const CourseDetails: React.FC = () => {
                 Assignments
               </p>
               <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                {course.assignments?.length || 0}
+                0
               </p>
             </div>
           </div>
@@ -328,42 +283,7 @@ const CourseDetails: React.FC = () => {
                 Students
               </p>
               <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                {course.studentsEnrolled?.length || 0}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-gray-800/70 dark:bg-gray-900/60 p-2 px-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="h-8 w-8 bg-orange-500 rounded-lg flex items-center justify-center">
-                <svg
-                  className="h-4 w-4 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8 7V3a2 2 0 012-2h4a2 2 0 012 2v4m-6 8h6m6 0v8a2 2 0 01-2 2H6a2 2 0 01-2-2v-8a2 2 0 012-2h8a2 2 0 012 2z"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Duration
-              </p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                {Math.ceil(
-                  (new Date(course.end_date).getTime() -
-                    new Date(course.start_date).getTime()) /
-                    (1000 * 60 * 60 * 24 * 7)
-                )}
-                w
+                {course.enrolledStudents?.length || 0}
               </p>
             </div>
           </div>
@@ -382,7 +302,7 @@ const CourseDetails: React.FC = () => {
               },
               {
                 id: "assignments",
-                label: `Assignments (${course.assignments?.length || 0})`,
+                label: `Assignments (0)`,
                 icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
               },
               {
@@ -392,13 +312,8 @@ const CourseDetails: React.FC = () => {
               },
               {
                 id: "students",
-                label: `Students (${course.studentsEnrolled?.length || 0})`,
+                label: `Students (${course.enrolledStudents?.length || 0})`,
                 icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z",
-              },
-              {
-                id: "submissions",
-                label: "All Submissions",
-                icon: "M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
               },
             ].map((tab) => (
               <button
@@ -435,7 +350,7 @@ const CourseDetails: React.FC = () => {
               <div>
                 <div className="font-bold mb-2">{course.title}</div>
                 <div className="text-sm font-light mb-1 opacity-50">
-                  {course.description.toString().toLowerCase()}
+                  {course.description || "No description available."}
                 </div>
               </div>
 
@@ -457,23 +372,6 @@ const CourseDetails: React.FC = () => {
                       </dt>
                       <dd className="text-sm">{course.credits}</dd>
                     </div>
-                    <div className="flex gap-2">
-                      <dt className="text-sm text-gray-500 dark:text-gray-400">
-                        Max Students:
-                      </dt>
-                      <dd className="text-sm">{course.maxStudents}</dd>
-                    </div>
-                    {course.instructor && (
-                      <div className="flex gap-2">
-                        <dt className="text-sm text-gray-500 dark:text-gray-400">
-                          Instructor:
-                        </dt>
-                        <dd className="text-sm ">
-                          {course.instructor.first_name}{" "}
-                          {course.instructor.last_name}
-                        </dd>
-                      </div>
-                    )}
                   </dl>
                 </div>
               </div>
@@ -499,22 +397,16 @@ const CourseDetails: React.FC = () => {
 
           {activeTab === "students" && (
             <div className="space-y-2">
-              {course.studentsEnrolled &&
-                course.studentsEnrolled.length > 0 && (
+              {course.enrolledStudents &&
+                course.enrolledStudents.length > 0 && (
                   <div className="flex justify-between items-center mb-3">
                     <h3 className="text-lg font-medium">Enrolled Students</h3>
-                    <Link
-                      to={`/courses/${courseId}/enroll`}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 hover:shadow-xl transition-all duration-200"
-                    >
-                      Assign Students
-                    </Link>
                   </div>
                 )}
 
-              {course.studentsEnrolled && course.studentsEnrolled.length > 0 ? (
+              {course.enrolledStudents && course.enrolledStudents.length > 0 ? (
                 <div className="space-y-4">
-                  {course.studentsEnrolled.map((student) => (
+                  {course.enrolledStudents.map((student) => (
                     <div
                       key={student.id}
                       className="pb-2 mb-2 border-b border-gray-200/50 dark:border-gray-800/50"
@@ -522,25 +414,12 @@ const CourseDetails: React.FC = () => {
                       <div className="flex items-center justify-between">
                         <div className="flex items-center">
                           <div className="flex-shrink-0">
-                            {student.profile_image ? (
-                              <img
-                                src={`${
-                                  import.meta.env.VITE_API_BASE_URL ||
-                                  "https://tm.universalbridge.rw"
-                                }/uploads/profile-pictures/${
-                                  student.profile_image
-                                }`}
-                                alt={`${student.first_name} ${student.last_name}`}
-                                className="w-8 h-8 rounded-full object-cover"
-                              />
-                            ) : (
-                              <div className="w-8 h-8 bg-gradient-to-br from-blue-400 dark:from-blue-600 to-blue-500 dark:to-blue-800 rounded-full flex items-center justify-center">
-                                <span className="text-white font-semibold text-sm">
-                                  {student.first_name[0]}
-                                  {student.last_name[0]}
-                                </span>
-                              </div>
-                            )}
+                            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 dark:from-blue-600 to-blue-500 dark:to-blue-800 rounded-full flex items-center justify-center">
+                              <span className="text-white font-semibold text-sm">
+                                {student.first_name[0]}
+                                {student.last_name[0]}
+                              </span>
+                            </div>
                           </div>
                           <div className="ml-4">
                             <h4 className="text-normal font-normal text-gray-900 dark:text-gray-300">
@@ -550,31 +429,6 @@ const CourseDetails: React.FC = () => {
                               {student.email}
                             </p>
                           </div>
-                        </div>
-                        <div className="text-right">
-                          <span
-                            className={`px-2 py-1 text-xs font-medium rounded-full ${
-                              student.UserCourse.status === "enrolled"
-                                ? "bg-blue-100 text-blue-800"
-                                : student.UserCourse.status === "completed"
-                                ? "bg-green-100 text-green-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
-                          >
-                            {student.UserCourse.status.charAt(0).toUpperCase() +
-                              student.UserCourse.status.slice(1)}
-                          </span>
-                          {student.UserCourse.grade && (
-                            <p className="text-sm text-gray-600 mt-1">
-                              Grade: {student.UserCourse.grade}
-                            </p>
-                          )}
-                          <p className="text-xs text-gray-500 mt-1">
-                            Enrolled:{" "}
-                            {new Date(
-                              student.UserCourse.enrollment_date
-                            ).toLocaleDateString()}
-                          </p>
                         </div>
                       </div>
                     </div>
@@ -601,99 +455,6 @@ const CourseDetails: React.FC = () => {
                   <p className="mt-1 text-sm text-gray-500">
                     Students will appear here once they're enrolled in this
                     course.
-                  </p>
-                  <div className="mt-4">
-                    <Link
-                      to={`/courses/${courseId}/enroll`}
-                      className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 hover:shadow-xl transition-all duration-200"
-                    >
-                      Assign Students to Course
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {activeTab === "submissions" && (
-            <div className="space-y-6">
-              {course.assignments &&
-              course.assignments.filter((itm) => itm.status === "published")
-                .length > 0 ? (
-                <div className="space-y-6">
-                  {course.assignments
-                    .filter((itm) => itm.status === "published")
-                    .map((assignment) => (
-                      <div
-                        key={assignment.id}
-                        className="bg-gray-50/50 dark:bg-gray-900 rounded-xl p-6 border border-gray-200/50 dark:border-gray-800/60"
-                      >
-                        <div className="flex items-center justify-between mb-4">
-                          <div>
-                            <h4 className="text-lg font-semibold">
-                              {assignment.title}
-                            </h4>
-                            <p className="text-gray-600 dark:text-gray-400 text-sm">
-                              Due:{" "}
-                              {new Date(
-                                assignment.due_date
-                              ).toLocaleDateString()}
-                            </p>
-                          </div>
-                          <Link
-                            to={`/assignments/${assignment.id}`}
-                            className="text-blue-600 hover:text-blue-900 dark:text-blue-500 dark:hover:text-blue-400 text-sm font-medium"
-                          >
-                            View Assignment →
-                          </Link>
-                        </div>
-
-                        {assignment.submissions &&
-                        assignment.submissions.length > 0 ? (
-                          <div className="space-y-3">
-                            {assignment.submissions.map((submission) => (
-                              <SubmissionSummaryItem
-                                submission={submission}
-                                formatDate={formatDate}
-                                getSubmissionStatusColor={
-                                  getSubmissionStatusColor
-                                }
-                                assignment={{
-                                  max_score: Number(assignment.max_score),
-                                  title: assignment.title,
-                                  status: undefined,
-                                }}
-                              />
-                            ))}
-                          </div>
-                        ) : (
-                          <p className="text-gray-500 text-sm">
-                            No submissions yet
-                          </p>
-                        )}
-                      </div>
-                    ))}
-                </div>
-              ) : (
-                <div className="text-center py-12">
-                  <svg
-                    className="mx-auto h-12 w-12 text-gray-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
-                  <h3 className="mt-2 text-sm font-medium">
-                    No assignments yet
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500">
-                    Create assignments to see submissions here.
                   </p>
                 </div>
               )}

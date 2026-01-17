@@ -28,6 +28,7 @@ interface StudentDashboardData {
     user_id: string;
     first_name: string;
     last_name: string;
+    roles?: Array<{ id: number; name: string }>;
   };
   stats: DashboardStats;
   pendingAssignments: AssignmentInterface[];
@@ -188,7 +189,10 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                 <div
                   className={`px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-medium rounded-full self-start`}
                 >
-                  student
+                  {data.user.roles
+                    ? data.user.roles[0].name.charAt(0).toUpperCase() +
+                      data.user.roles[0].name.slice(1)
+                    : "N/A"}
                 </div>
               </div>
               <p className="text-sm sm:text-base text-white/80">

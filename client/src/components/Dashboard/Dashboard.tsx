@@ -27,6 +27,7 @@ interface StudentDashboardData {
     user_id: string;
     first_name: string;
     last_name: string;
+    roles?: Array<{ id: number; name: string }>;
   };
   stats: DashboardStats;
   pendingAssignments: any[];
@@ -106,9 +107,7 @@ const Dashboard: React.FC = () => {
       const isErrorResponse = (
         response: any
       ): response is { error: unknown; url: string } => {
-        return (
-          response && typeof response === "object" && "error" in response
-        );
+        return response && typeof response === "object" && "error" in response;
       };
 
       // Check if any responses have errors
@@ -136,6 +135,7 @@ const Dashboard: React.FC = () => {
             user_id: user?.id || "",
             first_name: user?.first_name || "",
             last_name: user?.last_name || "",
+            roles: user?.roles,
           },
           stats: (validResponses[0] as any)?.data?.data || {
             totalCourses: 0,

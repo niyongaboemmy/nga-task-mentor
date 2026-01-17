@@ -83,10 +83,8 @@ const initializeDatabase = async (): Promise<void> => {
     // Import all models to ensure they're registered with Sequelize
     const {
       User,
-      Course,
       Assignment,
       Submission,
-      UserCourse,
       Quiz,
       QuizQuestion,
       QuizAttempt,
@@ -99,10 +97,8 @@ const initializeDatabase = async (): Promise<void> => {
     // Add models to Sequelize instance
     sequelizeInstance.addModels([
       User,
-      Course,
       Assignment,
       Submission,
-      UserCourse,
       Quiz,
       QuizQuestion,
       QuizAttempt,

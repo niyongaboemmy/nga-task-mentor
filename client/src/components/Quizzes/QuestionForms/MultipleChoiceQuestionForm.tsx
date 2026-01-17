@@ -2,13 +2,41 @@ import React from "react";
 import type { MultipleChoiceData } from "../../../types/quiz.types";
 
 interface MultipleChoiceQuestionFormProps {
-  data: MultipleChoiceData;
-  onChange: (data: MultipleChoiceData) => void;
+  data: MultipleChoiceData & { correct_answer?: number[] };
+  onChange: (data: MultipleChoiceData & { correct_answer?: number[] }) => void;
 }
 
 export const MultipleChoiceQuestionForm: React.FC<
   MultipleChoiceQuestionFormProps
 > = ({ data, onChange }) => {
+  // Ensure data has required properties with defaults
+  const options = data?.options || [];
+  const rawCorrectIndices = data?.correct_option_indices || [];
+  const correct_option_indices = rawCorrectIndices.filter(
+    (index) => typeof index === "number" && index >= 0 && index < options.length
+  );
+
+  // Validate correct answers
+  const isValidCorrectAnswers =
+    correct_option_indices.length > 0 &&
+    correct_option_indices.every(
+      (index) => index >= 0 && index < options.length
+    );
+
+  // Validate that no options are empty
+  const hasEmptyOptions = options.some((option) => !option.trim());
+
+  // Set correct_answer for payload - only if valid
+  const correct_answer = isValidCorrectAnswers ? correct_option_indices : undefined;
+
+  const safeData: MultipleChoiceData & { correct_answer?: number[] } = {
+    options,
+    correct_option_indices,
+    min_selections: data?.min_selections,
+    max_selections: data?.max_selections,
+    correct_answer,
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -16,13 +44,15 @@ export const MultipleChoiceQuestionForm: React.FC<
           Options
         </label>
         <div className="space-y-3">
-          {data.options.map((option: string, index: number) => (
+          {safeData.options.map((option: string, index: number) => (
             <div key={index} className="flex items-center gap-3">
               <input
                 type="checkbox"
-                checked={data.correct_option_indices?.includes(index) || false}
+                checked={
+                  safeData.correct_option_indices?.includes(index) || false
+                }
                 onChange={(e) => {
-                  const currentIndices = data.correct_option_indices || [];
+                  const currentIndices = safeData.correct_option_indices || [];
                   let newIndices;
                   if (e.target.checked) {
                     newIndices = [...currentIndices, index];
@@ -31,9 +61,14 @@ export const MultipleChoiceQuestionForm: React.FC<
                       (i: number) => i !== index
                     );
                   }
+                  // Validate correct_answer after selection change
+                  const isValid = newIndices.length > 0 && newIndices.every(
+                    (idx) => idx >= 0 && idx < safeData.options.length
+                  );
                   onChange({
-                    ...data,
+                    ...safeData,
                     correct_option_indices: newIndices,
+                    correct_answer: isValid ? newIndices : undefined,
                   });
                 }}
                 className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
@@ -42,11 +77,17 @@ export const MultipleChoiceQuestionForm: React.FC<
                 type="text"
                 value={option}
                 onChange={(e) => {
-                  const newOptions = [...data.options];
+                  const newOptions = [...safeData.options];
                   newOptions[index] = e.target.value;
+                  // Revalidate correct_answer after options change
+                  const isValid = safeData.correct_option_indices.length > 0 && 
+                    safeData.correct_option_indices.every(
+                      (idx) => idx >= 0 && idx < newOptions.length
+                    );
                   onChange({
-                    ...data,
+                    ...safeData,
                     options: newOptions,
+                    correct_answer: isValid ? safeData.correct_option_indices : undefined,
                   });
                 }}
                 placeholder={`Option ${index + 1}`}
@@ -57,10 +98,16 @@ export const MultipleChoiceQuestionForm: React.FC<
           <button
             type="button"
             onClick={() => {
-              const newOptions = [...data.options, ""];
+              const newOptions = [...safeData.options, ""];
+              // Revalidate correct_answer after adding new option
+              const isValid = safeData.correct_option_indices.length > 0 && 
+                safeData.correct_option_indices.every(
+                  (idx) => idx >= 0 && idx < newOptions.length
+                );
               onChange({
-                ...data,
+                ...safeData,
                 options: newOptions,
+                correct_answer: isValid ? safeData.correct_option_indices : undefined,
               });
             }}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-full transition-colors duration-200"
@@ -68,6 +115,16 @@ export const MultipleChoiceQuestionForm: React.FC<
             + Add Option
           </button>
         </div>
+        {hasEmptyOptions && options.length > 0 && (
+          <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+            All options must have text. Please fill in empty options.
+          </p>
+        )}
+        {!isValidCorrectAnswers && options.length > 0 && !hasEmptyOptions && (
+          <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+            Please select at least one correct answer option.
+          </p>
+        )}
       </div>
     </div>
   );

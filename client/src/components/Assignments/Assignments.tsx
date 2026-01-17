@@ -61,8 +61,8 @@ const Assignments: React.FC<AssignmentsProps> = ({
 
       // For students, filter out deleted assignments
       if (user?.role === "student") {
-        assignmentsData = assignmentsData.filter((assignment: AssignmentInterface) =>
-          assignment.status !== "removed"
+        assignmentsData = assignmentsData.filter(
+          (assignment: AssignmentInterface) => assignment.status !== "removed"
         );
       }
 
@@ -86,7 +86,10 @@ const Assignments: React.FC<AssignmentsProps> = ({
       if (user?.role === "student") {
         // Check if student is enrolled by looking at course enrollment status
         // If the course doesn't have enrollment info or student is not enrolled, don't set course
-        if (!courseData.students || !courseData.students.some((student: any) => student.id === user.id)) {
+        if (
+          !courseData.students ||
+          !courseData.students.some((student: any) => student.id === user.id)
+        ) {
           setCourse(null);
           return;
         }
@@ -109,17 +112,22 @@ const Assignments: React.FC<AssignmentsProps> = ({
     }
   }, [currentCourseId, fetchAssignments, fetchCourse]);
 
-  const handleStatusChange = useCallback(async (
-    assignmentId: string,
-    status: "draft" | "published" | "completed" | "removed"
-  ) => {
-    try {
-      await axios.patch(`/api/assignments/${assignmentId}/status`, { status });
-      fetchAssignments();
-    } catch (error) {
-      console.error("Error updating assignment status:", error);
-    }
-  }, [fetchAssignments]);
+  const handleStatusChange = useCallback(
+    async (
+      assignmentId: string,
+      status: "draft" | "published" | "completed" | "removed"
+    ) => {
+      try {
+        await axios.patch(`/api/assignments/${assignmentId}/status`, {
+          status,
+        });
+        fetchAssignments();
+      } catch (error) {
+        console.error("Error updating assignment status:", error);
+      }
+    },
+    [fetchAssignments]
+  );
 
   const filteredAssignments = useMemo(() => {
     return assignments.filter((assignment) => {
@@ -164,7 +172,9 @@ const Assignments: React.FC<AssignmentsProps> = ({
                   <option value="published">Published</option>
                   <option value="completed">Completed</option>
                   {/* Only show removed filter for instructors/admins */}
-                  {canManageAssignments && <option value="removed">Removed</option>}
+                  {canManageAssignments && (
+                    <option value="removed">Removed</option>
+                  )}
                   <option value="draft">Draft</option>
                 </select>
               </div>

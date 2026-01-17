@@ -7,7 +7,6 @@ import {
   BelongsTo,
   HasMany,
 } from "sequelize-typescript";
-import { Course } from "./Course.model";
 import { User } from "./User.model";
 import { Submission } from "./Submission.model";
 
@@ -24,7 +23,7 @@ export interface IAssignmentAttributes {
     max_score: number;
     description?: string;
   }> | null;
-  course_id: number;
+  course_id?: number | null;
   created_by: number | null;
   status: "draft" | "published" | "completed" | "removed";
   created_at?: Date;
@@ -180,13 +179,12 @@ export class Assignment extends Model<
     description?: string;
   }> | null;
 
-  @ForeignKey(() => Course)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
     field: "course_id",
   })
-  public course_id!: number;
+  public course_id?: number | null;
 
   @ForeignKey(() => User)
   @Column({
@@ -205,9 +203,6 @@ export class Assignment extends Model<
     defaultValue: "draft",
   })
   public status!: "draft" | "published" | "completed" | "removed";
-
-  @BelongsTo(() => Course, "course_id")
-  public course!: Course;
 
   @BelongsTo(() => User, "created_by")
   public creator!: User;

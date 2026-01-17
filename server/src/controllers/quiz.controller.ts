@@ -1,12 +1,5 @@
 import { Request, Response } from "express";
-import {
-  QuizQuestion,
-  QuizAttempt,
-  User,
-  Course,
-  UserCourse,
-  Quiz,
-} from "../models";
+import { QuizQuestion, QuizAttempt, User, Quiz } from "../models";
 import QuizSubmission from "../models/QuizSubmission.model";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
@@ -112,11 +105,6 @@ export const getQuiz = async (req: Request, res: Response) => {
     const quiz = await Quiz.findByPk(req.params.id, {
       include: [
         {
-          model: Course,
-          as: "quizCourse",
-          attributes: ["id", "title", "code"],
-        },
-        {
           model: User,
           as: "quizCreator",
           attributes: ["id", "first_name", "last_name", "email"],
@@ -148,25 +136,11 @@ export const getQuiz = async (req: Request, res: Response) => {
     }
 
     // Check if user can access this quiz
-    if (
-      req.user.role !== "admin" &&
-      req.user.id !== quiz.created_by &&
-      req.user.id !== quiz.course?.instructor_id
-    ) {
-      // Check if student is enrolled in the course
-      const enrollment = await UserCourse.findOne({
-        where: {
-          user_id: req.user.id,
-          course_id: quiz.course_id,
-        },
+    if (req.user.role !== "admin" && req.user.id !== quiz.created_by) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to access this quiz",
       });
-
-      if (!enrollment) {
-        return res.status(403).json({
-          success: false,
-          message: "Not authorized to access this quiz",
-        });
-      }
     }
 
     // If quiz is not published and user is not instructor/admin, deny access
@@ -291,38 +265,19 @@ export const getQuiz = async (req: Request, res: Response) => {
 };
 
 // @desc    Create quiz
-// @route   POST /api/courses/:courseId/quizzes
+// @route   POST /api/quizzes
 // @access  Private/Instructor/Admin
 export const createQuiz = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
   try {
-    const { courseId } = req.params;
     const quizData: CreateQuizRequest = req.body;
 
     // Validate required fields
-    if (!quizData.title || !quizData.description) {
+    if (!quizData.title || !quizData.description || !quizData.course_id) {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
-        message: "Title and description are required",
-      });
-    }
-
-    // Check if course exists
-    const course = await Course.findByPk(courseId, { transaction });
-    if (!course) {
-      await transaction.rollback();
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    // Check if user is course instructor or admin
-    if (course.instructor_id !== req.user.id && req.user.role !== "admin") {
-      await transaction.rollback();
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to create quizzes for this course",
+        message: "Title, description, and course_id are required",
       });
     }
 
@@ -330,7 +285,7 @@ export const createQuiz = async (req: Request, res: Response) => {
       {
         title: quizData.title,
         description: quizData.description,
-        course_id: parseInt(courseId),
+        course_id: quizData.course_id,
         created_by: req.user.id,
         status: quizData.status || "draft",
         type: quizData.type,
@@ -360,11 +315,6 @@ export const createQuiz = async (req: Request, res: Response) => {
     // Fetch the created quiz with associations
     const createdQuiz = await Quiz.findByPk(quiz.id, {
       include: [
-        {
-          model: Course,
-          as: "quizCourse",
-          attributes: ["id", "title", "code"],
-        },
         {
           model: User,
           as: "quizCreator",
@@ -398,11 +348,7 @@ export const updateQuiz = async (req: Request, res: Response) => {
     }
 
     // Check if user is quiz creator, course instructor, or admin
-    if (
-      quiz.created_by !== req.user.id &&
-      quiz.course?.instructor_id !== req.user.id &&
-      req.user.role !== "admin"
-    ) {
+    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -466,11 +412,6 @@ export const updateQuiz = async (req: Request, res: Response) => {
     const updatedQuiz = await Quiz.findByPk(quiz.id, {
       include: [
         {
-          model: Course,
-          as: "quizCourse",
-          attributes: ["id", "title", "code"],
-        },
-        {
           model: User,
           as: "quizCreator",
           attributes: ["id", "first_name", "last_name", "email"],
@@ -501,11 +442,7 @@ export const deleteQuiz = async (req: Request, res: Response) => {
     }
 
     // Check if user is quiz creator, course instructor, or admin
-    if (
-      quiz.created_by !== req.user.id &&
-      quiz.course?.instructor_id !== req.user.id &&
-      req.user.role !== "admin"
-    ) {
+    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -551,11 +488,7 @@ export const getQuizStats = async (req: Request, res: Response) => {
     }
 
     // Check authorization
-    if (
-      quiz.created_by !== req.user.id &&
-      quiz.course?.instructor_id !== req.user.id &&
-      req.user.role !== "admin"
-    ) {
+    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
       return res.status(403).json({
         success: false,
         message: "Not authorized to view quiz statistics",
@@ -646,36 +579,11 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
       });
     }
 
-    // Get courses where student is enrolled
-    const enrolledCourses = (await UserCourse.findAll({
-      where: {
-        user_id: req.user.id,
-        status: "enrolled",
-      },
-      attributes: ["course_id"],
-    })) as any[];
-
-    const courseIds = enrolledCourses.map((ec) => ec.course_id);
-
-    if (courseIds.length === 0) {
-      return res.status(200).json({
-        success: true,
-        count: 0,
-        data: [],
-      });
-    }
-
     const quizzes = await Quiz.findAll({
       where: {
-        course_id: { [Op.in]: courseIds },
         [Op.or]: [{ status: "published" }, { is_public: true }],
       },
       include: [
-        {
-          model: Course,
-          as: "quizCourse",
-          attributes: ["id", "title", "code"],
-        },
         {
           model: QuizQuestion,
           attributes: ["id"],
@@ -792,11 +700,6 @@ export const getPublicQuizzes = async (req: Request, res: Response) => {
         status: "published",
       },
       include: [
-        {
-          model: Course,
-          as: "quizCourse",
-          attributes: ["id", "title", "code"],
-        },
         {
           model: User,
           as: "quizCreator",

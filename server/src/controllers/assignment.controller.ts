@@ -1,21 +1,65 @@
 import { Request, Response } from "express";
-import { Assignment, Course, Submission, User, UserCourse } from "../models";
+import { Assignment, Submission, User } from "../models";
+import { sequelize } from "../config/database";
 import {
   parseLocalDateTimeToUTC,
   formatUTCToLocal,
   isPastDate,
 } from "../utils/dateUtils";
+import axios from "axios";
+import { getMisToken } from "../utils/misUtils";
+
+// @desc    Get assignments for a specific course
+// @route   GET /api/courses/:courseId/assignments
+// @access  Private
+export const getCourseAssignments = async (req: Request, res: Response) => {
+  try {
+    const { courseId } = req.params;
+
+    const assignments = await Assignment.findAll({
+      where: { course_id: courseId },
+      include: [
+        {
+          model: User,
+          as: "creator",
+          attributes: ["id", "first_name", "last_name"],
+        },
+        {
+          model: Submission,
+          include: [
+            {
+              model: User,
+              as: "student",
+              attributes: ["id", "first_name", "last_name", "profile_image"],
+            },
+          ],
+        },
+      ],
+      attributes: [
+        "id",
+        "title",
+        "description",
+        "due_date",
+        "max_score",
+        "submission_type",
+        "status",
+        "created_by",
+      ],
+      order: [["due_date", "ASC"]],
+    });
+
+    res
+      .status(200)
+      .json({ success: true, count: assignments.length, data: assignments });
+  } catch (error) {
+    console.error("Get course assignments error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
 
 export const getAssignments = async (req: Request, res: Response) => {
   try {
-    const assignments = await Assignment.findAll({
-      include: [
-        {
-          model: Course,
-          attributes: ["id", "title", "code"],
-        },
-      ],
-    });
+    const assignments = await Assignment.findAll();
     res
       .status(200)
       .json({ success: true, count: assignments.length, data: assignments });
@@ -30,14 +74,7 @@ export const getAssignments = async (req: Request, res: Response) => {
 // @access  Public
 export const getAssignment = async (req: Request, res: Response) => {
   try {
-    const assignment = await Assignment.findByPk(req.params.id, {
-      include: [
-        {
-          model: Course,
-          attributes: ["id", "title", "code"],
-        },
-      ],
-    });
+    const assignment = await Assignment.findByPk(req.params.id);
 
     if (!assignment) {
       return res
@@ -63,8 +100,19 @@ export const createAssignment = async (req: Request, res: Response) => {
       due_date,
       max_score,
       submission_type = "both",
+      course_id, // Allow course_id from body for flexibility
     } = req.body;
     const { courseId } = req.params;
+
+    // Use courseId from params or body
+    const finalCourseId = courseId || course_id;
+
+    if (!finalCourseId) {
+      return res.status(400).json({
+        success: false,
+        message: "Course ID is required",
+      });
+    }
 
     // Convert due_date from local time string to UTC Date object
     let utcDueDate: Date;
@@ -84,20 +132,80 @@ export const createAssignment = async (req: Request, res: Response) => {
       });
     }
 
+    // Validate required fields
+    if (!title || !title.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Assignment title is required",
+      });
+    }
+
+    if (!description || !description.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: "Assignment description is required",
+      });
+    }
+
+    if (!max_score || max_score < 0) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid maximum score is required",
+      });
+    }
+
+    // Validate submission_type
+    const validSubmissionTypes = ["file", "text", "both"];
+    if (!validSubmissionTypes.includes(submission_type)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid submission type. Must be one of: ${validSubmissionTypes.join(
+          ", "
+        )}`,
+      });
+    }
+
     const assignment = await Assignment.create({
-      title,
-      description,
+      title: title.trim(),
+      description: description.trim(), // Rich text HTML content is stored as-is
       due_date: utcDueDate,
-      max_score,
-      course_id: parseInt(courseId),
+      max_score: parseFloat(max_score),
+      course_id: parseInt(finalCourseId),
       submission_type,
       created_by: req.user.id,
-    });
+    } as any); // Cast to any to allow status field
 
-    res.status(201).json({ success: true, data: assignment });
-  } catch (error) {
+    res.status(201).json({
+      success: true,
+      message: "Assignment created successfully",
+      data: assignment,
+    });
+  } catch (error: any) {
     console.error("Create assignment error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+
+    // Handle Sequelize validation errors
+    if (error?.name === "SequelizeValidationError") {
+      const messages = error.errors?.map((err: any) => err.message) || [
+        "Validation error",
+      ];
+      return res.status(400).json({
+        success: false,
+        message: messages.join(", "),
+      });
+    }
+
+    // Handle Sequelize unique constraint errors
+    if (error?.name === "SequelizeUniqueConstraintError") {
+      return res.status(400).json({
+        success: false,
+        message: "An assignment with this title already exists in this course",
+      });
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "Failed to create assignment. Please try again.",
+    });
   }
 };
 
@@ -169,14 +277,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
     await assignment.save();
 
     // Fetch updated assignment with course info
-    const updatedAssignment = await Assignment.findByPk(req.params.id, {
-      include: [
-        {
-          model: Course,
-          attributes: ["id", "title", "code"],
-        },
-      ],
-    });
+    const updatedAssignment = await Assignment.findByPk(req.params.id);
 
     res.status(200).json({ success: true, data: updatedAssignment });
   } catch (error) {
@@ -233,14 +334,7 @@ export const publishAssignment = async (req: Request, res: Response) => {
 // @access  Private - Students (own submission only), Instructors/Admins (all submissions)
 export const getAssignmentSubmissions = async (req: Request, res: Response) => {
   try {
-    const assignment = await Assignment.findByPk(req.params.id, {
-      include: [
-        {
-          model: Course,
-          attributes: ["id", "title", "code"],
-        },
-      ],
-    });
+    const assignment = await Assignment.findByPk(req.params.id);
 
     if (!assignment) {
       return res
@@ -281,27 +375,38 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
     }
 
     // For instructors and admins, get all enrolled students and create comprehensive submission list
+    const token = getMisToken(req);
 
-    // Get all students enrolled in the course
-    const enrollments = await UserCourse.findAll({
-      where: {
-        course_id: assignment.course_id,
-        status: "enrolled",
-      },
-      include: [
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "MIS authentication required",
+      });
+    }
+
+    // Get all students enrolled in the course (subject) from NGA MIS
+    let enrolledStudents = [];
+    try {
+      const studentsResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${assignment.course_id}/terms/4/students`,
         {
-          model: User,
-          as: "userInCourse",
-          attributes: [
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-            "profile_image",
-          ],
-        },
-      ],
-    });
+          headers: {
+            Authorization: token,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (studentsResponse.data.success) {
+        enrolledStudents = studentsResponse.data.data || [];
+      }
+    } catch (enrollmentError: any) {
+      console.warn(
+        "Could not fetch enrolled students from NGA MIS:",
+        enrollmentError.message
+      );
+      // Continue with existing submissions only
+    }
 
     // Create a map of existing submissions by student_id for quick lookup
     const submissionsMap = new Map();
@@ -310,8 +415,8 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
     });
 
     // Create comprehensive submission list including non-submitters
-    const allSubmissions = enrollments.map((enrollment: any) => {
-      const existingSubmission = submissionsMap.get(enrollment.user_id);
+    const allSubmissions = enrolledStudents.map((student: any) => {
+      const existingSubmission = submissionsMap.get(student.id);
 
       if (existingSubmission) {
         // Student has submitted - return the actual submission
@@ -321,7 +426,7 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
         return {
           id: null,
           assignment_id: parseInt(req.params.id),
-          student_id: enrollment.user_id,
+          student_id: student.id,
           status: "pending",
           submitted_at: null,
           text_submission: null,
@@ -333,15 +438,13 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
           comments: null,
           createdAt: null,
           updatedAt: null,
-          student: enrollment.userInCourse
-            ? {
-                id: enrollment.userInCourse.id,
-                first_name: enrollment.userInCourse.first_name,
-                last_name: enrollment.userInCourse.last_name,
-                email: enrollment.userInCourse.email,
-                profile_image: enrollment.userInCourse.profile_image,
-              }
-            : null,
+          student: {
+            id: student.id,
+            first_name: student.first_name || student.firstName,
+            last_name: student.last_name || student.lastName,
+            email: student.email,
+            profile_image: student.profile_image || student.profileImage,
+          },
           // Add a flag to indicate this is a placeholder for non-submitters
           _isPlaceholder: true,
         };
@@ -377,42 +480,13 @@ export const getEnrolledAssignments = async (req: Request, res: Response) => {
         .json({ success: false, message: "Access denied. Students only." });
     }
 
-    const studentId = req.user.id;
-    console.log("Student ID from token:", studentId);
-    console.log("Student role:", req.user.role);
-
-    // Find courses where the student is enrolled using UserCourse directly
-    const enrollments = await UserCourse.findAll({
-      where: { user_id: studentId, status: "enrolled" },
-      attributes: ["course_id"],
-    });
-
-    console.log("Found enrollments:", enrollments.length);
-
-    if (enrollments.length === 0) {
-      console.log("No enrollments found for student:", studentId);
-      return res.status(200).json({ success: true, count: 0, data: [] });
-    }
-
-    const courseIds = enrollments.map((enrollment) => enrollment.course_id);
-    console.log("Course IDs:", courseIds);
-
-    // Get only published assignments from enrolled courses
+    // Get all published assignments (since we can't check enrollments locally)
     const assignments = await Assignment.findAll({
       where: {
-        course_id: courseIds,
         status: "published",
       },
-      include: [
-        {
-          model: Course,
-          attributes: ["id", "title", "code"],
-        },
-      ],
       order: [["due_date", "ASC"]],
     });
-
-    console.log("Found assignments:", assignments.length);
 
     res.status(200).json({
       success: true,
@@ -497,22 +571,7 @@ export const submitAssignment = async (req: Request, res: Response) => {
       });
     }
 
-    // 4. Check if student is enrolled in the course
-    const enrollment = await UserCourse.findOne({
-      where: {
-        user_id: req.user.id,
-        course_id: assignment.course_id,
-        status: "enrolled",
-      },
-    });
-
-    if (!enrollment) {
-      return res.status(403).json({
-        success: false,
-        message:
-          "You are not enrolled in this course. Cannot submit assignment.",
-      });
-    }
+    // 4. Skip enrollment check since course IDs come from external API
 
     // 5. Check if assignment is still open for submissions (compare UTC times)
     const now = new Date();

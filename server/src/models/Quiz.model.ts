@@ -9,7 +9,6 @@ import {
   HasOne,
 } from "sequelize-typescript";
 import { User } from "./User.model";
-import { Course } from "./Course.model";
 import QuizQuestion from "./QuizQuestion.model";
 import QuizAttempt from "./QuizAttempt.model";
 import ProctoringSettings from "./ProctoringSettings.model";
@@ -36,7 +35,7 @@ export interface IQuizAttributes {
   start_date?: Date;
   end_date?: Date;
   is_public?: boolean;
-  course_id: number;
+  course_id?: number | null;
   created_by: number;
   created_at?: Date;
   updated_at?: Date;
@@ -218,13 +217,12 @@ export class Quiz extends Model<IQuizAttributes, QuizCreationAttributes> {
   })
   end_date?: Date;
 
-  @ForeignKey(() => Course)
   @Column({
     type: DataType.INTEGER,
-    allowNull: false,
+    allowNull: true,
     field: "course_id",
   })
-  course_id!: number;
+  course_id?: number | null;
 
   @ForeignKey(() => User)
   @Column({
@@ -235,9 +233,6 @@ export class Quiz extends Model<IQuizAttributes, QuizCreationAttributes> {
   created_by!: number;
 
   // Associations
-  @BelongsTo(() => Course, "course_id")
-  course!: Course;
-
   @BelongsTo(() => User, "created_by")
   creator!: User;
 

@@ -39,14 +39,9 @@ export const fetchQuiz = createAsyncThunk(
 
 export const createQuiz = createAsyncThunk(
   "quiz/createQuiz",
-  async (
-    { courseId, quizData }: { courseId: number; quizData: CreateQuizRequest },
-    { rejectWithValue }
-  ) => {
+  async (quizData: CreateQuizRequest, { rejectWithValue }) => {
     try {
-      return await handleQuizApiCall(() =>
-        QuizApiService.createQuiz(courseId, quizData)
-      );
+      return await handleQuizApiCall(() => QuizApiService.createQuiz(quizData));
     } catch (error: any) {
       return rejectWithValue(error.message);
     }

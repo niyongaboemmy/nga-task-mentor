@@ -60,14 +60,49 @@ export const verifyOtp = async (req: Request, res: Response) => {
     }
 
     // Forward OTP verification to NGA Central MIS
-    const misResponse = await axios.post(
+    const misResponse = await axios.post<{
+      success: boolean;
+      message: string;
+      data: {
+        token: string;
+        user: {
+          user_id: number;
+          username: string;
+          email: string;
+          phone_number: string;
+          status: string;
+          created_at: string;
+          updated_at: string;
+        };
+        profile: {
+          profile_id: number;
+          user_id: number;
+          first_name: string;
+          last_name: string;
+          gender: string;
+          date_of_birth: string | null;
+          address: string | null;
+          user_type: string;
+          external_id: string | null;
+        };
+        permissions: string[];
+        assignedPrograms: any[];
+        assignedGrades: any[];
+        roles: {
+          role_id: number;
+          name: string;
+          description: string;
+        }[];
+        forcePasswordChange: boolean;
+      };
+    }>(
       "https://nga-central-mis.vercel.app/auth/verify-otp",
       {
         otp,
       },
       {
         headers: {
-          Authorization: `Bearer ${tempToken}`,
+          Authorization: tempToken, // Pass tempToken directly without Bearer prefix
         },
       }
     );
@@ -84,39 +119,72 @@ export const verifyOtp = async (req: Request, res: Response) => {
       roles,
     } = data;
 
+    console.log({ dataToTest: data.roles });
+
     // Function to map MIS roles to local roles
     const mapMisRoleToLocal = (
-      misRoles: any[]
+      misRoles: {
+        role_id: number;
+        name: string;
+        description: string;
+      }[]
     ): "student" | "instructor" | "admin" => {
-      if (!misRoles || !Array.isArray(misRoles)) {
-        return "student"; // Default if roles not available
-      }
+      console.log("🔍 Mapping MIS roles:", JSON.stringify(misRoles, null, 2));
 
-      // Check for admin role (PROGRAM_MANAGER and other admin roles)
-      if (
-        misRoles.some(
-          (role) =>
-            role.role_id === 12 ||
-            role.role_id === 1 ||
-            role.role_id === 2 ||
-            role.role_id === 3
-        )
-      ) {
-        return "admin";
-      }
-      // Check for teacher roles (TEACHER or CLASS_TEACHER)
-      if (misRoles.some((role) => role.role_id === 4 || role.role_id === 11)) {
-        return "instructor";
-      }
-      // Check for student role
-      if (misRoles.some((role) => role.role_id === 6)) {
+      if (!misRoles || !Array.isArray(misRoles) || misRoles.length === 0) {
+        console.log("❌ No roles provided, defaulting to student");
         return "student";
       }
-      // Default to student if no matching role
+
+      // Check each role individually
+      for (const role of misRoles) {
+        console.log(
+          `🔍 Checking role: id=${role.role_id}, name="${role.name}"`
+        );
+
+        // Admin check
+        if (
+          role.role_id === 1 || // SUPER_ADMIN
+          role.role_id === 2 ||
+          role.role_id === 3 ||
+          role.role_id === 12 || // PROGRAM_MANAGER
+          (role.name &&
+            (role.name.toLowerCase().includes("admin") ||
+              role.name.toLowerCase().includes("super") ||
+              role.name.toLowerCase().includes("manager")))
+        ) {
+          console.log("✅ Mapped to admin role");
+          return "admin";
+        }
+
+        // Instructor check
+        if (
+          role.role_id === 4 || // TEACHER
+          role.role_id === 11 || // CLASS_TEACHER
+          (role.name &&
+            (role.name.toLowerCase().includes("teacher") ||
+              role.name.toLowerCase().includes("instructor")))
+        ) {
+          console.log("✅ Mapped to instructor role");
+          return "instructor";
+        }
+
+        // Student check
+        if (
+          role.role_id === 6 || // STUDENT
+          (role.name && role.name.toLowerCase().includes("student"))
+        ) {
+          console.log("✅ Mapped to student role");
+          return "student";
+        }
+      }
+
+      console.log("❌ No matching role found, defaulting to student");
       return "student";
     };
 
     const mappedRole = mapMisRoleToLocal(roles);
+    console.log("🎯 Final mapped role:", mappedRole);
 
     // Sync user with local database
     let localUser = await User.findOne({
@@ -125,6 +193,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
 
     if (!localUser) {
       // Create new user if doesn't exist
+      console.log("👤 Creating new user with role:", mappedRole);
       localUser = await User.create({
         first_name: misProfile.first_name,
         last_name: misProfile.last_name,
@@ -133,13 +202,21 @@ export const verifyOtp = async (req: Request, res: Response) => {
         role: mappedRole,
         mis_user_id: misUser.user_id,
       });
+      console.log("✅ Created user with role:", localUser.role);
     } else {
       // Update existing user info
+      console.log(
+        "🔄 Updating existing user. Current role:",
+        localUser.role,
+        "New role:",
+        mappedRole
+      );
       localUser.first_name = misProfile.first_name;
       localUser.last_name = misProfile.last_name;
       localUser.email = misUser.email;
       localUser.role = mappedRole;
       await localUser.save();
+      console.log("✅ Updated user role to:", localUser.role);
     }
 
     // Generate local JWT token
@@ -159,6 +236,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
         mis_user_id: localUser.mis_user_id,
       },
       profile: misProfile,
+      roles, // Include the raw roles from NGA MIS
       permissions,
       assignedPrograms,
       assignedGrades,

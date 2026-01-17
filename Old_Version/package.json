@@ -1,0 +1,33 @@
+{
+  "name": "taskmentor",
+  "version": "1.0.0",
+  "description": "TaskMentor",
+  "main": "server/index.js",
+  "scripts": {
+    "dev": "concurrently \"npm run server\" \"npm run client\" \"npm run socket\"",
+    "server": "TZ=UTC cd server && npm run dev",
+    "client": "cd client && npm run dev",
+    "socket": "cd server && npm run socket",
+    "build": "cd client && npm run build",
+    "install-server": "cd server && npm install",
+    "install-client": "cd client && npm install",
+    "install-all": "npm run install-server && npm run install-client"
+  },
+  "keywords": [
+    "student",
+    "management",
+    "practical",
+    "work",
+    "education"
+  ],
+  "author": "TaskMentor Team",
+  "license": "MIT",
+  "devDependencies": {
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.19",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^8.2.2",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.14"
+  }
+}

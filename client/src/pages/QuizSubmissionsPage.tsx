@@ -16,14 +16,6 @@ import {
   TrendingUp,
   Award,
   Target,
-  Sparkles,
-  Star,
-  Heart,
-  Zap,
-  Crown,
-  BookOpen,
-  Filter,
-  Download,
   BarChart3,
 } from "lucide-react";
 
@@ -127,8 +119,8 @@ const QuizSubmissionsPage: React.FC = () => {
 
   const getGradeIcon = (gradeStatus: string) => {
     switch (gradeStatus) {
-      case "graded": return <Crown className="w-3 h-3" />;
-      case "auto_graded": return <Zap className="w-3 h-3" />;
+      case "graded": return <CheckCircle className="w-3 h-3" />;
+      case "auto_graded": return <CheckCircle className="w-3 h-3" />;
       case "pending": return <Clock className="w-3 h-3" />;
       default: return <FileText className="w-3 h-3" />;
     }
@@ -137,7 +129,7 @@ const QuizSubmissionsPage: React.FC = () => {
   const getGradeColor = (gradeStatus: string) => {
     switch (gradeStatus) {
       case "graded": return "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300";
-      case "auto_graded": return "bg-purple-50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300";
+      case "auto_graded": return "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300";
       case "pending": return "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300";
       default: return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300";
     }
@@ -187,13 +179,12 @@ const QuizSubmissionsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="relative mb-6">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-pink-400 border-t-purple-500 mx-auto"></div>
-            <Sparkles className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-purple-500 animate-pulse" />
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-400 border-t-indigo-500 mx-auto"></div>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 animate-pulse font-medium">Loading magical submissions...</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 animate-pulse font-medium">Loading submissions...</p>
         </div>
       </div>
     );
@@ -204,14 +195,13 @@ const QuizSubmissionsPage: React.FC = () => {
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-pink-50 to-purple-50 dark:from-gray-900 dark:via-red-900/20 dark:to-purple-900/20 flex items-center justify-center p-4">
         <div className="text-center max-w-sm">
           <div className="relative mb-6">
-            <Heart className="h-16 w-16 text-red-400 mx-auto animate-bounce" />
-            <AlertCircle className="absolute -top-2 -right-2 h-8 w-8 text-red-500 animate-pulse" />
+            <AlertCircle className="h-16 w-16 text-red-400 mx-auto animate-bounce" />
           </div>
           <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Oops! Something went wrong</h2>
           <p className="text-xs text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">{error}</p>
           <button
             onClick={() => navigate(`/quizzes/${quizId}`)}
-            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-sm font-medium rounded-full hover:from-pink-600 hover:to-purple-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
+            className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-medium rounded-full hover:from-blue-600 hover:to-indigo-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
           >
             <ArrowLeft className="h-3 w-3 mr-2" />
             Back to Quiz
@@ -222,7 +212,7 @@ const QuizSubmissionsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-pink-50 via-purple-50 to-blue-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
@@ -241,15 +231,14 @@ const QuizSubmissionsPage: React.FC = () => {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <div className="relative">
-                    <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-pink-500 animate-pulse" />
-                    <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-purple-500 animate-ping" />
+                    <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-blue-500" />
                   </div>
                   <div>
                     <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
                       Quiz Submissions
                     </h1>
                     <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                      ✨ Magical results overview
+                      Overview of student submissions
                     </p>
                   </div>
                 </div>
@@ -290,14 +279,14 @@ const QuizSubmissionsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 rounded-xl p-3 border border-purple-200/50 dark:border-purple-800/50 hover:shadow-lg transition-all duration-200 hover:scale-105">
+                <div className="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 rounded-xl p-3 border border-indigo-200/50 dark:border-indigo-800/50 hover:shadow-lg transition-all duration-200 hover:scale-105">
                   <div className="flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-purple-600" />
+                    <TrendingUp className="w-4 h-4 text-indigo-600" />
                     <div>
-                      <div className="text-sm font-bold text-purple-900 dark:text-purple-100">
+                      <div className="text-sm font-bold text-indigo-900 dark:text-indigo-100">
                         {stats.averageScore}%
                       </div>
-                      <div className="text-xs text-purple-700 dark:text-purple-300">
+                      <div className="text-xs text-indigo-700 dark:text-indigo-300">
                         Avg
                       </div>
                     </div>
@@ -333,7 +322,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   placeholder="Search students..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200/50 dark:border-gray-700/50 dark:bg-gray-800/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-200"
+                  className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200/50 dark:border-gray-700/50 dark:bg-gray-800/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200"
                 />
               </div>
             </div>
@@ -342,7 +331,7 @@ const QuizSubmissionsPage: React.FC = () => {
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 text-xs border border-gray-200/50 dark:border-gray-700/50 dark:bg-gray-800/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-200"
+                className="px-3 py-2 text-xs border border-gray-200/50 dark:border-gray-700/50 dark:bg-gray-800/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200"
               >
                 <option value="all">All Status</option>
                 <option value="completed">Completed</option>
@@ -353,7 +342,7 @@ const QuizSubmissionsPage: React.FC = () => {
               <select
                 value={gradeFilter}
                 onChange={(e) => setGradeFilter(e.target.value)}
-                className="px-3 py-2 text-xs border border-gray-200/50 dark:border-gray-700/50 dark:bg-gray-800/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-400 focus:border-transparent transition-all duration-200"
+                className="px-3 py-2 text-xs border border-gray-200/50 dark:border-gray-700/50 dark:bg-gray-800/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200"
               >
                 <option value="all">All Grades</option>
                 <option value="graded">Graded</option>
@@ -366,7 +355,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   onClick={() => setViewMode("cards")}
                   className={`p-2 rounded-xl transition-all duration-200 ${
                     viewMode === "cards"
-                      ? "bg-pink-500 text-white shadow-lg"
+                      ? "bg-blue-500 text-white shadow-lg"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                   }`}
                 >
@@ -376,7 +365,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   onClick={() => setViewMode("table")}
                   className={`p-2 rounded-xl transition-all duration-200 ${
                     viewMode === "table"
-                      ? "bg-pink-500 text-white shadow-lg"
+                      ? "bg-blue-500 text-white shadow-lg"
                       : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
                   }`}
                 >
@@ -392,18 +381,17 @@ const QuizSubmissionsPage: React.FC = () => {
           {filteredSubmissions.length === 0 ? (
             <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl p-8 sm:p-12 text-center shadow-lg">
               <div className="relative mb-6">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-br from-pink-100 to-purple-100 dark:from-pink-900/20 dark:to-purple-900/20 rounded-2xl flex items-center justify-center">
-                  <Users className="w-8 h-8 sm:w-10 sm:h-10 text-pink-500 dark:text-pink-400" />
+                <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl flex items-center justify-center">
+                  <Users className="w-8 h-8 sm:w-10 sm:h-10 text-blue-500 dark:text-blue-400" />
                 </div>
-                <Heart className="absolute -top-2 -right-2 w-6 h-6 text-red-400 animate-bounce" />
               </div>
               <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-2">
                 No submissions found
               </h3>
               <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
                 {searchTerm || statusFilter !== "all" || gradeFilter !== "all"
-                  ? "Try adjusting your magical filters ✨"
-                  : "No students have submitted this quiz yet 💫"}
+                  ? "Try adjusting your filters"
+                  : "No students have submitted this quiz yet"}
               </p>
             </div>
           ) : viewMode === "cards" ? (
@@ -418,11 +406,11 @@ const QuizSubmissionsPage: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex items-start sm:items-center gap-3 mb-3">
                       <div className="relative">
-                        <div className="w-10 h-10 bg-gradient-to-br from-pink-400 to-purple-500 rounded-xl flex items-center justify-center">
+                        <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-xl flex items-center justify-center">
                           <User className="w-5 h-5 text-white" />
                         </div>
                         {submission.percentage >= 90 && (
-                          <Crown className="absolute -top-1 -right-1 w-4 h-4 text-yellow-500 animate-pulse" />
+                          <Award className="absolute -top-1 -right-1 w-4 h-4 text-yellow-500 animate-pulse" />
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
@@ -454,7 +442,7 @@ const QuizSubmissionsPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3 h-3 text-gray-400" />
                         <span className="text-gray-600 dark:text-gray-400">
-                          {formatDate(submission.completed_at)}
+                          {formatDate(submission.submitted_at)}
                         </span>
                       </div>
 
@@ -484,7 +472,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={() => navigate(`/quizzes/${quizId}/results/${submission.submission_id}`)}
-                      className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs font-medium rounded-xl hover:from-pink-600 hover:to-purple-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
+                      className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs font-medium rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
                     >
                       <Eye className="w-3 h-3 mr-1" />
                       View
@@ -510,11 +498,11 @@ const QuizSubmissionsPage: React.FC = () => {
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredSubmissions.map((submission, index) => (
+                    {filteredSubmissions.map((submission) => (
                       <tr key={submission.id} className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gradient-to-br from-pink-400 to-purple-500 rounded-lg flex items-center justify-center">
+                            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center">
                               <User className="w-4 h-4 text-white" />
                             </div>
                             <div>
@@ -548,12 +536,12 @@ const QuizSubmissionsPage: React.FC = () => {
                           {formatTime(submission.time_taken)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {formatDate(submission.completed_at)}
+                          {formatDate(submission.submitted_at)}
                         </td>
                         <td className="px-4 py-3">
                           <button
                             onClick={() => navigate(`/quizzes/${quizId}/results/${submission.submission_id}`)}
-                            className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs font-medium rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all duration-200 hover:scale-105"
+                            className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs font-medium rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-200 hover:scale-105"
                           >
                             <Eye className="w-3 h-3 mr-1" />
                             View

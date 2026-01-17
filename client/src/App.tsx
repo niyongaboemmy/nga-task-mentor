@@ -20,14 +20,10 @@ import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import Layout from "./components/Layout/Layout";
 import Login from "./components/Auth/Login";
 import CourseDetails from "./components/Courses/CourseDetails";
-import AssignInstructor from "./components/Courses/AssignInstructor";
 import AssignmentDetails from "./components/Assignments/AssignmentDetails";
 import CreateAssignmentPage from "./components/Assignments/CreateAssignmentPage";
-import CreateCourse from "./components/Courses/CreateCourse";
-import EnrollStudents from "./components/Courses/EnrollStudents";
 import StudentDetails from "./components/Students/StudentDetails";
 import Students from "./components/Students/Students";
-import CourseStudents from "./components/Courses/CourseStudents";
 import UpdateAssignmentPage from "./components/Assignments/UpdateAssignmentPage";
 import EditQuestionPage from "./components/Quizzes/EditQuestionPage";
 import QuizView from "./components/Quizzes/QuizView";
@@ -37,7 +33,6 @@ import CreateQuestionPage from "./components/Quizzes/CreateQuestionPage";
 import ProfilePicturePrompt from "./components/Profile/ProfilePicturePrompt";
 import Profile from "./components/Profile/Profile";
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
-import QuizListPage from "./pages/QuizListPage";
 import QuizTakingPage from "./pages/QuizTakingPage";
 import QuizResultsPage from "./pages/QuizResultsPage";
 import QuizSubmissionsPage from "./pages/QuizSubmissionsPage";
@@ -50,6 +45,7 @@ import QuizProctoringSettingsPage from "./components/Quizzes/QuizProctoringSetti
 import QuizProctoringMonitoringPage from "./components/Quizzes/QuizProctoringMonitoringPage";
 import QuizProctoringAnalyticsPage from "./components/Quizzes/QuizProctoringAnalyticsPage";
 import { LiveProctoringDashboard } from "./components/Proctoring";
+import QuizListPage from "./pages/QuizListPage";
 
 // Wrapper components for routes that need useParams
 const QuizViewWrapper = () => {
@@ -197,46 +193,6 @@ function AppContent() {
                 <ProtectedRoute>
                   <Layout>
                     <CourseDetails />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/courses/new"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <CreateCourse />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/courses/:courseId/assign-instructor"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <AssignInstructor />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/courses/:courseId/enroll"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <EnrollStudents />
-                  </Layout>
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/courses/:courseId/students"
-              element={
-                <ProtectedRoute>
-                  <Layout>
-                    <CourseStudents />
                   </Layout>
                 </ProtectedRoute>
               }

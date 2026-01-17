@@ -162,7 +162,7 @@ const QuizResultsPage: React.FC = () => {
             correct_answer: result.correct_answer,
             is_correct: result.is_correct,
             points_earned: parseFloat(result.points_earned) || 0,
-            max_points: result.question_type === "coding" ? 5 : 1, // Assuming coding questions are worth 5 points
+            max_points: parseFloat(result.max_points) || 1,
             explanation: result.explanation || "No explanation provided.",
           })) || [],
       };
@@ -231,8 +231,9 @@ const QuizResultsPage: React.FC = () => {
         const correctOption = question.options?.find((opt) => opt.is_correct);
         return correctOption?.id === userAnswer;
       case "coding":
-        // For basic client-side check, compare with expected output if available
-        return question.coding_data?.expected_output === userAnswer;
+        // For basic client-side check, we can't easily verify coding execution
+        // Fallback: check if it matches sample solution or if it's non-empty
+        return !!userAnswer && (userAnswer === question.coding_data?.expected_output);
       case "ordering":
         return (
           JSON.stringify(question.ordering_data?.correct_order) ===
@@ -251,7 +252,7 @@ const QuizResultsPage: React.FC = () => {
       case "short_answer":
         // Basic string comparison, could be improved with fuzzy matching
         return (
-          userAnswer.toLowerCase().trim() ===
+          (userAnswer?.toLowerCase().trim() || "") ===
           (question.options?.[0]?.text || "").toLowerCase().trim()
         );
       default:

@@ -297,13 +297,14 @@ export interface QuizQuestion {
   explanation?: string;
   points: number;
   order: number;
-  time_limit?: number;
-  time_limit_seconds?: number;
+  time_limit_seconds: number;
   is_required: boolean;
+  created_by: number;
   created_at: string;
   updated_at: string;
   quiz?: Quiz;
   attempts?: QuizAttempt[];
+  time_limit?: string;
 }
 
 export interface QuizAttempt {
@@ -312,7 +313,8 @@ export interface QuizAttempt {
   question_id: number;
   student_id: number;
   submission_id?: number;
-  answer_data: AnswerDataType;
+  submitted_answer?: object;
+  correct_answer?: object;
   is_correct?: boolean;
   points_earned?: number;
   time_taken?: number;

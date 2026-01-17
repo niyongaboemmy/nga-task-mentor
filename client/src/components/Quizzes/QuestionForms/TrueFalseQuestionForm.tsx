@@ -2,14 +2,24 @@ import React from "react";
 import type { TrueFalseData } from "../../../types/quiz.types";
 
 interface TrueFalseQuestionFormProps {
-  data: TrueFalseData;
-  onChange: (data: TrueFalseData) => void;
+  data: TrueFalseData & { correct_answer?: boolean };
+  onChange: (data: TrueFalseData & { correct_answer?: boolean }) => void;
 }
 
 export const TrueFalseQuestionForm: React.FC<TrueFalseQuestionFormProps> = ({
   data,
   onChange,
 }) => {
+  // Ensure data has required properties with defaults
+  const rawCorrectAnswer = data?.correct_answer ?? null;
+
+  // Validate correct answer
+  const isValidCorrectAnswer = typeof rawCorrectAnswer === "boolean";
+
+  const safeData: TrueFalseData & { correct_answer?: boolean } = {
+    correct_answer: rawCorrectAnswer,
+  };
+
   return (
     <div className="space-y-6">
       <div>
@@ -22,7 +32,7 @@ export const TrueFalseQuestionForm: React.FC<TrueFalseQuestionFormProps> = ({
               type="radio"
               name="correct_answer"
               value="true"
-              checked={data.correct_answer === true}
+              checked={safeData.correct_answer === true}
               onChange={(e) =>
                 onChange({
                   correct_answer: e.target.value === "true",
@@ -39,10 +49,10 @@ export const TrueFalseQuestionForm: React.FC<TrueFalseQuestionFormProps> = ({
               type="radio"
               name="correct_answer"
               value="false"
-              checked={data.correct_answer === false}
+              checked={safeData.correct_answer === false}
               onChange={(e) =>
                 onChange({
-                  correct_answer: e.target.value === "true",
+                  correct_answer: e.target.value !== "false",
                 })
               }
               className="mr-3 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
@@ -52,6 +62,11 @@ export const TrueFalseQuestionForm: React.FC<TrueFalseQuestionFormProps> = ({
             </span>
           </label>
         </div>
+        {!isValidCorrectAnswer && (
+          <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+            Please select either True or False as the correct answer.
+          </p>
+        )}
       </div>
     </div>
   );

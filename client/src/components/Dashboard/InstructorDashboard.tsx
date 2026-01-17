@@ -227,7 +227,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                 <div
                   className={`px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-medium rounded-full self-start`}
                 >
-                  instructor
+                  Instructor
                 </div>
               </div>
               <p className="text-sm sm:text-base text-white/80">

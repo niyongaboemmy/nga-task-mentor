@@ -54,6 +54,7 @@ declare global {
       JWT_SECRET: string;
       CLIENT_URL?: string;
       PORT?: string;
+      NGA_MIS_BASE_URL: string;
     }
   }
 }

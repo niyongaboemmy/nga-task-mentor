@@ -12,7 +12,6 @@ import QuizListItem from "../components/Quizzes/QuizListItem";
 import {
   ChevronLeft,
   ChevronRight,
-  Filter,
   Search,
   BookOpen,
   Plus,
@@ -26,7 +25,7 @@ import {
 const QuizListPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const dispatch = useDispatch<AppDispatch>();
-  const { quizzes, loading, error } = useSelector(
+  const { quizzes, loading } = useSelector(
     (state: RootState) => state.quiz
   );
 
@@ -39,7 +38,6 @@ const QuizListPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
-  const [showFilters, setShowFilters] = useState(false);
 
   const itemsPerPage = 12;
 
@@ -80,8 +78,8 @@ const QuizListPage: React.FC = () => {
 
       switch (sortBy) {
         case "title":
-          aValue = a.title.toLowerCase();
-          bValue = b.title.toLowerCase();
+          aValue = (a.title || "").toLowerCase();
+          bValue = (b.title || "").toLowerCase();
           break;
         case "created_at":
           aValue = new Date(a.created_at || 0).getTime();
@@ -99,6 +97,8 @@ const QuizListPage: React.FC = () => {
           return 0;
       }
 
+      if (aValue === bValue) return 0;
+
       if (sortOrder === "asc") {
         return aValue > bValue ? 1 : -1;
       } else {
@@ -109,6 +109,14 @@ const QuizListPage: React.FC = () => {
     return filtered;
   }, [quizzes, searchTerm, statusFilter, typeFilter, sortBy, sortOrder]);
 
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAndSortedQuizzes.length / itemsPerPage);
+  const paginatedQuizzes = filteredAndSortedQuizzes.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   // Group quizzes by status
   const groupedQuizzes = useMemo(() => {
     const groups: { [key: string]: typeof filteredAndSortedQuizzes } = {
@@ -117,7 +125,7 @@ const QuizListPage: React.FC = () => {
       completed: [],
     };
 
-    filteredAndSortedQuizzes.forEach((quiz) => {
+    paginatedQuizzes.forEach((quiz) => {
       if (groups[quiz.status]) {
         groups[quiz.status].push(quiz);
       } else {
@@ -126,14 +134,7 @@ const QuizListPage: React.FC = () => {
     });
 
     return groups;
-  }, [filteredAndSortedQuizzes]);
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedQuizzes.length / itemsPerPage);
-  const paginatedQuizzes = filteredAndSortedQuizzes.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+  }, [paginatedQuizzes]);
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -615,7 +616,7 @@ const QuizListPage: React.FC = () => {
 
             {!searchTerm && statusFilter === "all" && typeFilter === "all" && (
               <Link
-                to={`/courses/${courseId}/quizzes/create`}
+                to={`/quizzes/${courseId}/questions/create`}
                 className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
               >
                 <Plus className="h-5 w-5 mr-2" />

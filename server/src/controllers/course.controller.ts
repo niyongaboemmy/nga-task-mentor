@@ -1,42 +1,77 @@
 import { Request, Response } from "express";
-import {
-  Course,
-  User,
-  UserCourse,
-  Assignment,
-  Submission,
-  Quiz,
-} from "../models";
-import { Op, Transaction } from "sequelize";
-import { sequelize } from "../config/database";
+import axios from "axios";
+import { getMisToken, hasMisToken } from "../utils/misUtils";
+import { Assignment, Submission, Quiz, QuizSubmission } from "../models";
+import { Op } from "sequelize";
 
 // @desc    Get all courses
 // @route   GET /api/courses
-// @access  Public
+// @access  Private
 export const getCourses = async (req: Request, res: Response) => {
   try {
-    const whereClause: any = {};
+    const token = getMisToken(req);
 
-    // If user is not admin, only show their own courses
-    if (req.user && req.user.role !== "admin") {
-      whereClause.instructor_id = req.user.id;
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
     }
 
-    const courses = await Course.findAll({
-      where: whereClause,
-      include: [
-        {
-          model: User,
-          as: "courseInstructor",
-          attributes: ["id", "first_name", "last_name", "email"],
+    let endpoint = "/academics/subjects"; // Default for admin
+
+    if (req.user?.role === "instructor") {
+      endpoint = "/academics/my-assigned-subjects";
+    } else if (req.user?.role === "student" && req.user.mis_user_id) {
+      endpoint = `/academics/students/${req.user.mis_user_id}/enrolled-subjects`;
+    }
+
+    // Call NGA MIS API
+    const response = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}${endpoint}`,
+      {
+        headers: {
+          Authorization: token,
+          "Content-Type": "application/json",
         },
-      ],
-    });
-    res
-      .status(200)
-      .json({ success: true, count: courses.length, data: courses });
-  } catch (error) {
-    console.error("Get courses error:", error);
+      }
+    );
+
+    if (response.data.success) {
+      // Map subjects to courses format
+      const subjects = response.data.data || [];
+      const courses = subjects.map((subject: any) => ({
+        id: subject.id || subject.subject_id,
+        title: subject.name || subject.subject_name,
+        code: subject.code || subject.subject_code,
+        description: subject.description,
+        credits: 3, // Default credits
+        start_date: null,
+        end_date: null,
+        is_active: true,
+        max_students: 50,
+        instructor_id: req.user?.role === "instructor" ? req.user.id : null,
+        created_at: subject.created_at || new Date().toISOString(),
+        updated_at: subject.updated_at || new Date().toISOString(),
+        instructor:
+          req.user?.role === "instructor"
+            ? {
+                first_name: req.user.first_name,
+                last_name: req.user.last_name,
+              }
+            : null,
+      }));
+
+      res
+        .status(200)
+        .json({ success: true, count: courses.length, data: courses });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: "Failed to fetch subjects from NGA MIS",
+      });
+    }
+  } catch (error: any) {
+    console.error("Get courses error:", error.response?.data || error.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -46,38 +81,246 @@ export const getCourses = async (req: Request, res: Response) => {
 // @access  Public
 export const getCourse = async (req: Request, res: Response) => {
   try {
-    const course = await Course.findByPk(req.params.id, {
-      include: [
-        {
-          model: User,
-          as: "courseInstructor",
-          attributes: ["id", "first_name", "last_name", "email"],
-        },
-        {
-          model: Assignment,
-          attributes: [
-            "id",
-            "title",
-            "description",
-            "due_date",
-            "max_score",
-            "submission_type",
-            "status",
-          ],
-        },
-      ],
-    });
+    const token = getMisToken(req);
 
-    if (!course) {
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
+    }
+
+    // Call NGA MIS API to get subject details
+    const subjectResponse = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    if (!subjectResponse.data.success) {
       return res
         .status(404)
         .json({ success: false, message: "Course not found" });
     }
 
+    const subject = subjectResponse.data.data;
+    if (!subject) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
+    }
+
+    // Get enrolled students for this subject and term 4
+    let enrolledStudents = [];
+    try {
+      const studentsResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/4/students`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      if (studentsResponse.data.success) {
+        enrolledStudents = studentsResponse.data.data || [];
+      }
+    } catch (enrollmentError: any) {
+      console.warn(
+        "Could not fetch enrolled students:",
+        enrollmentError.message
+      );
+      // Continue without enrolled students data
+    }
+
+    // Get assignments statistics for this course
+    let assignmentsStats = {
+      total: 0,
+      by_status: { draft: 0, published: 0, completed: 0, removed: 0 },
+      total_submissions: 0,
+      average_submissions_per_assignment: 0,
+    };
+
+    try {
+      // Get all assignments for this course
+      const assignments = await Assignment.findAll({
+        where: { course_id: parseInt(req.params.id) },
+        include: [
+          {
+            model: Submission,
+            required: false,
+          },
+        ],
+      });
+
+      assignmentsStats.total = assignments.length;
+
+      // Count assignments by status
+      assignments.forEach((assignment) => {
+        assignmentsStats.by_status[assignment.status] =
+          (assignmentsStats.by_status[assignment.status] || 0) + 1;
+      });
+
+      // Calculate total submissions
+      assignmentsStats.total_submissions = assignments.reduce(
+        (total, assignment) => total + (assignment.submissions?.length || 0),
+        0
+      );
+
+      // Calculate average submissions per assignment
+      assignmentsStats.average_submissions_per_assignment =
+        assignmentsStats.total > 0
+          ? Math.round(
+              (assignmentsStats.total_submissions / assignmentsStats.total) *
+                100
+            ) / 100
+          : 0;
+    } catch (assignmentError: any) {
+      console.warn(
+        "Could not fetch assignments statistics:",
+        assignmentError.message
+      );
+      // Continue with empty stats
+    }
+
+    // Get quizzes statistics for this course
+    let quizzesStats = {
+      total: 0,
+      by_status: { draft: 0, published: 0, completed: 0 },
+      by_type: { practice: 0, graded: 0, exam: 0 },
+      total_submissions: 0,
+      average_score: 0,
+      pass_rate: 0,
+    };
+
+    try {
+      // Get all quizzes for this course
+      const quizzes = await Quiz.findAll({
+        where: { course_id: parseInt(req.params.id) },
+      });
+
+      quizzesStats.total = quizzes.length;
+
+      // Count quizzes by status and type
+      quizzes.forEach((quiz) => {
+        quizzesStats.by_status[quiz.status] =
+          (quizzesStats.by_status[quiz.status] || 0) + 1;
+        quizzesStats.by_type[quiz.type] =
+          (quizzesStats.by_type[quiz.type] || 0) + 1;
+      });
+
+      // Get all quiz submissions for this course's quizzes
+      const quizIds = quizzes.map((quiz) => quiz.id);
+      if (quizIds.length > 0) {
+        const quizSubmissions = await QuizSubmission.findAll({
+          where: { quiz_id: { [Op.in]: quizIds } },
+        });
+
+        // Calculate submission statistics
+        let totalScore = 0;
+        let totalSubmissions = 0;
+        let passedCount = 0;
+
+        quizSubmissions.forEach((submission: any) => {
+          totalSubmissions++;
+          totalScore += submission.percentage;
+          if (submission.passed) {
+            passedCount++;
+          }
+        });
+
+        quizzesStats.total_submissions = totalSubmissions;
+        quizzesStats.average_score =
+          totalSubmissions > 0
+            ? Math.round((totalScore / totalSubmissions) * 100) / 100
+            : 0;
+        quizzesStats.pass_rate =
+          totalSubmissions > 0
+            ? Math.round((passedCount / totalSubmissions) * 100)
+            : 0;
+      }
+    } catch (quizError: any) {
+      console.warn("Could not fetch quizzes statistics:", quizError.message);
+      // Continue with empty stats
+    }
+
+    // Map subject to course format with statistics
+    const course = {
+      id: subject.id,
+      title: subject.name,
+      code: subject.code,
+      description: subject.description,
+      credits: 3,
+      start_date: null,
+      end_date: null,
+      is_active: true,
+      max_students: 50,
+      instructor_id: null,
+      created_at: subject.created_at || new Date().toISOString(),
+      updated_at: subject.updated_at || new Date().toISOString(),
+      courseInstructor: null,
+      enrolledStudents: enrolledStudents,
+      // Add statistics
+      statistics: {
+        assignments: assignmentsStats,
+        quizzes: quizzesStats,
+      },
+    };
+
     res.status(200).json({ success: true, data: course });
-  } catch (error) {
-    console.error("Get course error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+  } catch (error: any) {
+    console.error("Get course error:", error.response?.data || error.message);
+    if (error.response?.status === 404) {
+      res.status(404).json({ success: false, message: "Course not found" });
+    } else if (error.response?.status === 403) {
+      // For 403 errors, still return course data but with empty statistics
+      // This allows the frontend to show the course exists but user may not have access to detailed MIS data
+      console.warn(
+        `MIS API returned 403 for course ${req.params.id}, returning basic course data`
+      );
+
+      // Return course data with empty statistics since MIS access failed
+      const course = {
+        id: req.params.id,
+        title: `Course ${req.params.id}`,
+        code: `COURSE${req.params.id}`,
+        description: "Course details unavailable - access restricted",
+        credits: 3,
+        start_date: null,
+        end_date: null,
+        is_active: true,
+        max_students: 50,
+        instructor_id: null,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        courseInstructor: null,
+        enrolledStudents: [],
+        statistics: {
+          assignments: {
+            total: 0,
+            by_status: { draft: 0, published: 0, completed: 0, removed: 0 },
+            total_submissions: 0,
+            average_submissions_per_assignment: 0,
+          },
+          quizzes: {
+            total: 0,
+            by_status: { draft: 0, published: 0, completed: 0 },
+            by_type: { practice: 0, graded: 0, exam: 0 },
+            total_submissions: 0,
+            average_score: 0,
+            pass_rate: 0,
+          },
+        },
+      };
+
+      res.status(200).json({ success: true, data: course });
+    } else {
+      res.status(500).json({ success: false, message: "Server error" });
+    }
   }
 };
 
@@ -86,6 +329,14 @@ export const getCourse = async (req: Request, res: Response) => {
 // @access  Private/Instructor/Admin
 export const createCourse = async (req: Request, res: Response) => {
   try {
+    const token = getMisToken(req);
+
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
+    }
+
     const {
       title,
       description,
@@ -96,21 +347,52 @@ export const createCourse = async (req: Request, res: Response) => {
       max_students = 50,
     } = req.body;
 
-    const course = await Course.create({
-      title,
-      description,
-      code,
-      credits,
-      start_date,
-      end_date,
-      max_students,
-      instructor_id: req.user.id,
-      is_active: true,
-    });
+    // Call NGA MIS API to create subject
+    const response = await axios.post(
+      `${process.env.NGA_MIS_BASE_URL}/academics/subjects`,
+      {
+        name: title,
+        code,
+        description,
+      },
+      {
+        headers: {
+          Authorization: token,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    res.status(201).json({ success: true, data: course });
-  } catch (error) {
-    console.error("Create course error:", error);
+    if (response.data.success) {
+      const subject = response.data.data;
+      // Map back to course format
+      const course = {
+        id: subject.id,
+        title: subject.name,
+        code: subject.code,
+        description: subject.description,
+        credits: credits || 3,
+        start_date,
+        end_date,
+        is_active: true,
+        max_students,
+        instructor_id: req.user?.id || null,
+        created_at: subject.created_at || new Date().toISOString(),
+        updated_at: subject.updated_at || new Date().toISOString(),
+      };
+
+      res.status(201).json({ success: true, data: course });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: response.data.message || "Failed to create course",
+      });
+    }
+  } catch (error: any) {
+    console.error(
+      "Create course error:",
+      error.response?.data || error.message
+    );
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -120,30 +402,112 @@ export const createCourse = async (req: Request, res: Response) => {
 // @access  Private/Instructor/Admin
 export const updateCourse = async (req: Request, res: Response) => {
   try {
+    const token = getMisToken(req);
+
+    if (!token) {
+      return res.status(400).json({
+        success: false,
+        message: "MIS authentication required. Please log in again.",
+      });
+    }
+
     const { title, description, code, credits, start_date, end_date } =
       req.body;
 
-    const course = await Course.findByPk(req.params.id);
+    // Call NGA MIS API to update subject
+    const response = await axios.put(
+      `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}`,
+      {
+        name: title,
+        code,
+        description,
+      },
+      {
+        headers: {
+          Authorization: token,
+          "Content-Type": "application/json",
+        },
+      }
+    );
 
-    if (!course) {
+    if (response.data.success) {
+      const subject = response.data.data;
+      // Map back to course format
+      const course = {
+        id: subject.id,
+        title: subject.name,
+        code: subject.code,
+        description: subject.description,
+        credits: credits || 3,
+        start_date,
+        end_date,
+        is_active: true,
+        max_students: 50,
+        instructor_id: null,
+        created_at: subject.created_at || new Date().toISOString(),
+        updated_at: subject.updated_at || new Date().toISOString(),
+      };
+
+      res.status(200).json({ success: true, data: course });
+    } else {
+      res.status(404).json({ success: false, message: "Course not found" });
+    }
+  } catch (error: any) {
+    console.error(
+      "Update course error:",
+      error.response?.data || error.message
+    );
+    if (error.response?.status === 404) {
+      res.status(404).json({ success: false, message: "Course not found" });
+    } else {
+      res.status(500).json({ success: false, message: "Server error" });
+    }
+  }
+};
+
+// @desc    Get enrolled students for a course
+// @route   GET /api/courses/:id/students
+// @access  Private
+export const getCourseStudents = async (req: Request, res: Response) => {
+  try {
+    const token = getMisToken(req);
+
+    if (!token) {
       return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
     }
 
-    // Update fields
-    course.title = title || course.title;
-    course.description = description || course.description;
-    course.code = code || course.code;
-    course.credits = credits || course.credits;
-    course.start_date = start_date || course.start_date;
-    course.end_date = end_date || course.end_date;
+    // Get enrolled students for this subject and term 4
+    let enrolledStudents = [];
+    try {
+      const studentsResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/4/students`,
+        {
+          headers: {
+            Authorization: token,
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-    await course.save();
+      if (studentsResponse.data.success) {
+        enrolledStudents = studentsResponse.data.data || [];
+      }
+    } catch (enrollmentError: any) {
+      console.warn(
+        "Could not fetch enrolled students:",
+        enrollmentError.message
+      );
+      // Continue with empty array
+    }
 
-    res.status(200).json({ success: true, data: course });
-  } catch (error) {
-    console.error("Update course error:", error);
+    res.status(200).json({ success: true, data: enrolledStudents });
+  } catch (error: any) {
+    console.error(
+      "Get course students error:",
+      error.response?.data || error.message
+    );
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -153,631 +517,40 @@ export const updateCourse = async (req: Request, res: Response) => {
 // @access  Private/Instructor/Admin
 export const deleteCourse = async (req: Request, res: Response) => {
   try {
-    const course = await Course.findByPk(req.params.id);
+    const token = getMisToken(req);
 
-    if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    await course.destroy();
-
-    res.status(200).json({ success: true, data: {} });
-  } catch (error) {
-    console.error("Delete course error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// @desc    Get course students
-// @route   GET /api/courses/:id/students
-// @access  Private/Instructor/Admin
-export const getCourseStudents = async (req: Request, res: Response) => {
-  try {
-    const course = await Course.findByPk(req.params.id, {
-      include: [
-        {
-          model: User,
-          as: "studentsEnrolled",
-          attributes: [
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-            "profile_image",
-          ],
-          through: { attributes: ["enrollment_date", "status"] }, // Include enrollment data
-        },
-      ],
-    });
-
-    if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    // Transform the data to include enrollment information
-    const studentsWithEnrollment = (course as any).studentsEnrolled.map(
-      (student: any) => {
-        const enrollment = student.UserCourse || {};
-        return {
-          id: student.id,
-          firstName: student.first_name,
-          lastName: student.last_name,
-          email: student.email,
-          profile_image: student.profile_image,
-          enrollmentDate:
-            enrollment.enrollment_date || new Date().toISOString(),
-          status: enrollment.status || "enrolled",
-        };
-      }
-    );
-
-    res.status(200).json({
-      success: true,
-      count: studentsWithEnrollment.length,
-      data: studentsWithEnrollment,
-    });
-  } catch (error) {
-    console.error("Get course students error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// @desc    Get course stats
-// @route   GET /api/courses/:id/stats
-// @access  Private/Instructor/Admin
-export const getCourseStats = async (req: Request, res: Response) => {
-  try {
-    const course = await Course.findByPk(req.params.id, {
-      include: [
-        {
-          model: User,
-          as: "studentsEnrolled",
-          attributes: [],
-          through: { attributes: [] },
-          required: false,
-        },
-        {
-          model: Assignment,
-          attributes: [],
-          required: false,
-        },
-      ],
-      attributes: [
-        "id",
-        "title",
-        [
-          // Count students
-          Course.sequelize!.literal("COUNT(DISTINCT(students.id))"),
-          "studentCount",
-        ],
-        [
-          // Count assignments
-          Course.sequelize!.literal("COUNT(DISTINCT(assignments.id))"),
-          "assignmentCount",
-        ],
-      ],
-      group: ["Course.id"],
-      raw: true,
-    });
-
-    if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    res.status(200).json({ success: true, data: course });
-  } catch (error) {
-    console.error("Get course stats error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// @desc    Get comprehensive course details
-// @route   GET /api/courses/:id/details
-// @access  Public - All users can access course details
-export const getCourseDetails = async (req: Request, res: Response) => {
-  try {
-    const course = await Course.findByPk(req.params.id);
-
-    if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    // All users can access course details - no authorization required
-
-    const courseWithDetails = await Course.findByPk(req.params.id, {
-      include: [
-        {
-          model: User,
-          as: "courseInstructor",
-          attributes: ["id", "first_name", "last_name", "email"],
-        },
-        {
-          model: User,
-          as: "studentsEnrolled",
-          attributes: [
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-            "profile_image",
-          ],
-          through: { attributes: ["enrollment_date", "status", "grade"] },
-        },
-        {
-          model: Assignment,
-          include: [
-            {
-              model: User,
-              as: "assignmentCreator",
-              attributes: ["id", "first_name", "last_name"],
-            },
-            {
-              model: Submission,
-              include: [
-                {
-                  model: User,
-                  as: "submissionStudent",
-                  attributes: [
-                    "id",
-                    "first_name",
-                    "last_name",
-                    "profile_image",
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
-
-    res.status(200).json({ success: true, data: courseWithDetails });
-  } catch (error) {
-    console.error("Get course details error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-// @desc    Assign instructor to course
-// @route   PUT /api/courses/:courseId/assign-instructor
-// @access  Private/Admin
-export const assignInstructorToCourse = async (req: Request, res: Response) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const { courseId } = req.params;
-    const { instructorId } = req.body;
-
-    if (!instructorId) {
-      await transaction.rollback();
-      return res
-        .status(400)
-        .json({ success: false, message: "Instructor ID is required" });
-    }
-
-    // Check if instructor exists and has the right role
-    const instructor = await User.findByPk(instructorId);
-    if (
-      !instructor ||
-      (instructor.role !== "instructor" && instructor.role !== "admin")
-    ) {
-      await transaction.rollback();
-      return res
-        .status(400)
-        .json({ success: false, message: "Invalid instructor" });
-    }
-
-    // Update course with new instructor
-    const [updated] = await Course.update(
-      { instructor_id: instructorId },
-      { where: { id: courseId }, transaction }
-    );
-
-    if (!updated) {
-      await transaction.rollback();
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    await transaction.commit();
-    res
-      .status(200)
-      .json({ success: true, message: "Instructor assigned successfully" });
-  } catch (error) {
-    await transaction.rollback();
-    console.error("Assign instructor error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// @desc    Enroll students in course
-// @route   POST /api/courses/:courseId/enroll-students
-// @access  Private/Instructor/Admin
-export const enrollStudentsInCourse = async (req: Request, res: Response) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const { courseId } = req.params;
-    const { studentIds } = req.body;
-
-    if (!Array.isArray(studentIds) || studentIds.length === 0) {
-      await transaction.rollback();
-      return res
-        .status(400)
-        .json({ success: false, message: "Student IDs array is required" });
-    }
-
-    // Check if course exists
-    const course = await Course.findByPk(courseId, { transaction });
-    if (!course) {
-      await transaction.rollback();
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    // Check if students exist and are actually students
-    const students = await User.findAll({
-      where: { id: studentIds, role: "student" },
-      transaction,
-    });
-
-    if (students.length !== studentIds.length) {
-      await transaction.rollback();
-      return res
-        .status(400)
-        .json({ success: false, message: "One or more invalid students" });
-    }
-
-    // Enroll students
-    const enrollments = studentIds.map((studentId) => ({
-      user_id: parseInt(studentId),
-      course_id: parseInt(courseId),
-      enrollment_date: new Date(),
-      status: "enrolled" as const,
-    }));
-
-    await UserCourse.bulkCreate(enrollments, { transaction });
-
-    await transaction.commit();
-    res
-      .status(200)
-      .json({ success: true, message: "Students enrolled successfully" });
-  } catch (error) {
-    await transaction.rollback();
-    console.error("Enroll students error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// @desc    Get course assignments
-// @route   GET /api/courses/:id/assignments
-// @access  Public
-export const getCourseAssignments = async (req: Request, res: Response) => {
-  try {
-    const assignments = await Assignment.findAll({
-      where: { course_id: req.params.id },
-      include: [
-        {
-          model: User,
-          as: "creator",
-          attributes: ["id", "first_name", "last_name"],
-        },
-        {
-          model: Submission,
-          include: [
-            {
-              model: User,
-              as: "student",
-              attributes: ["id", "first_name", "last_name", "profile_image"],
-            },
-          ],
-        },
-      ],
-      attributes: [
-        "id",
-        "title",
-        "description",
-        "due_date",
-        "max_score",
-        "submission_type",
-        "status",
-        "created_by",
-      ],
-      order: [["due_date", "ASC"]],
-    });
-
-    res
-      .status(200)
-      .json({ success: true, count: assignments.length, data: assignments });
-  } catch (error) {
-    console.error("Get course assignments error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// @desc    Update student status in course
-// @route   PUT /api/courses/:courseId/students/:studentId/status
-// @access  Private/Instructor/Admin
-export const updateStudentStatus = async (req: Request, res: Response) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const { courseId, studentId } = req.params;
-    const { status } = req.body;
-
-    // Validate status
-    if (!["enrolled", "completed", "dropped"].includes(status)) {
-      await transaction.rollback();
+    if (!token) {
       return res.status(400).json({
         success: false,
-        message: "Invalid status. Must be enrolled, completed, or dropped",
+        message: "MIS authentication required. Please log in again.",
       });
     }
 
-    // Check if course exists
-    const course = await Course.findByPk(courseId, { transaction });
-    if (!course) {
-      await transaction.rollback();
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    // Check if student exists and is actually a student
-    const student = await User.findOne({
-      where: { id: studentId, role: "student" },
-      transaction,
-    });
-
-    if (!student) {
-      await transaction.rollback();
-      return res
-        .status(404)
-        .json({ success: false, message: "Student not found" });
-    }
-
-    // Check if enrollment exists
-    const enrollment = await UserCourse.findOne({
-      where: {
-        user_id: parseInt(studentId),
-        course_id: parseInt(courseId),
-      },
-      transaction,
-    });
-
-    if (!enrollment) {
-      await transaction.rollback();
-      return res.status(404).json({
-        success: false,
-        message: "Student is not enrolled in this course",
-      });
-    }
-
-    // Update the status
-    const updateData: any = { status };
-
-    // If status is completed, set completion date
-    if (status === "completed") {
-      updateData.completion_date = new Date();
-    } else if (status === "dropped" && enrollment.completion_date) {
-      // Clear completion date if dropping
-      updateData.completion_date = null;
-    }
-
-    await enrollment.update(updateData, { transaction });
-
-    await transaction.commit();
-
-    res.status(200).json({
-      success: true,
-      message: "Student status updated successfully",
-      data: enrollment,
-    });
-  } catch (error) {
-    await transaction.rollback();
-    console.error("Update student status error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// @desc    Get enrolled courses for current student user
-// @route   GET /api/courses/enrolled
-// @access  Private/Student
-export const getEnrolledCourses = async (req: Request, res: Response) => {
-  try {
-    if (req.user.role !== "student") {
-      return res.status(403).json({
-        success: false,
-        message: "Only students can access their enrolled courses",
-      });
-    }
-
-    // Query courses where the current user is enrolled using the many-to-many association
-    const courses = await Course.findAll({
-      include: [
-        {
-          model: User,
-          as: "studentsEnrolled",
-          where: { id: req.user.id },
-          attributes: [],
-          through: {
-            where: { status: "enrolled" },
-            attributes: [],
-          },
-          required: true,
+    // Call NGA MIS API to delete subject
+    const response = await axios.delete(
+      `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}`,
+      {
+        headers: {
+          Authorization: token,
+          "Content-Type": "application/json",
         },
-        {
-          model: User,
-          as: "courseInstructor",
-          attributes: ["id", "first_name", "last_name", "email"],
-        },
-      ],
-      where: { is_active: true },
-    });
-
-    // Get assignments and quizzes separately to avoid query conflicts
-    const courseIds = courses.map((course) => course.id);
-
-    if (courseIds.length === 0) {
-      return res.status(200).json({
-        success: true,
-        count: 0,
-        data: [],
-      });
-    }
-
-    // Get upcoming assignments for these courses
-    const assignments = await Assignment.findAll({
-      where: {
-        course_id: { [Op.in]: courseIds },
-        due_date: { [Op.gte]: new Date() },
-        status: "published",
-      },
-      attributes: ["id", "title", "due_date", "max_score", "course_id"],
-      order: [["due_date", "ASC"]],
-      limit: 5,
-    });
-
-    // Get upcoming quizzes for these courses
-    const quizzes = await Quiz.findAll({
-      where: {
-        course_id: { [Op.in]: courseIds },
-        status: "published",
-        [Op.or]: [{ end_date: { [Op.gte]: new Date() } }, { end_date: null }],
-      },
-      attributes: ["id", "title", "end_date", "course_id"],
-      order: [["end_date", "ASC"]],
-      limit: 5,
-    } as any);
-
-    // Group assignments and quizzes by course
-    const assignmentsByCourse = assignments.reduce((acc, assignment) => {
-      if (!acc[assignment.course_id]) acc[assignment.course_id] = [];
-      acc[assignment.course_id].push(assignment);
-      return acc;
-    }, {} as Record<number, any[]>);
-
-    const quizzesByCourse = quizzes.reduce((acc, quiz) => {
-      if (!acc[quiz.course_id]) acc[quiz.course_id] = [];
-      acc[quiz.course_id].push(quiz);
-      return acc;
-    }, {} as Record<number, any[]>);
-
-    // Enhance course data with deadline information
-    const enhancedCourses = courses.map((course) => {
-      const courseData = course.toJSON();
-      const courseAssignments = assignmentsByCourse[course.id] || [];
-      const courseQuizzes = quizzesByCourse[course.id] || [];
-
-      // Find next assignment deadline
-      const nextAssignment = courseAssignments[0];
-      const nextAssignmentDeadline = nextAssignment?.due_date;
-
-      // Find next quiz deadline
-      const nextQuiz = courseQuizzes[0];
-      const nextQuizDeadline = nextQuiz?.end_date;
-
-      // Determine the next deadline (whichever comes first)
-      let nextDeadline = null;
-      let nextItemType = null;
-
-      if (nextAssignmentDeadline && nextQuizDeadline) {
-        const assignmentDate = new Date(nextAssignmentDeadline);
-        const quizDate = new Date(nextQuizDeadline);
-
-        if (assignmentDate <= quizDate) {
-          nextDeadline = nextAssignmentDeadline;
-          nextItemType = "Assignment";
-        } else {
-          nextDeadline = nextQuizDeadline;
-          nextItemType = "Quiz";
-        }
-      } else if (nextAssignmentDeadline) {
-        nextDeadline = nextAssignmentDeadline;
-        nextItemType = "Assignment";
-      } else if (nextQuizDeadline) {
-        nextDeadline = nextQuizDeadline;
-        nextItemType = "Quiz";
       }
+    );
 
-      return {
-        ...courseData,
-        instructor_name: (course as any).courseInstructor
-          ? `${(course as any).courseInstructor.first_name} ${
-              (course as any).courseInstructor.last_name
-            }`.trim()
-          : "",
-        next_deadline: nextDeadline,
-        next_item_type: nextItemType,
-        assignment_deadline: nextAssignmentDeadline,
-        quiz_deadline: nextQuizDeadline,
-        assignments_count: courseAssignments.length,
-        quizzes_count: courseQuizzes.length,
-        enrolled_students: 1, // The current user
-        progress: Math.floor(Math.random() * 100), // Mock progress for now
-      };
-    });
-
-    res.status(200).json({
-      success: true,
-      count: enhancedCourses.length,
-      data: enhancedCourses,
-    });
-  } catch (error) {
-    console.error("Get enrolled courses error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// @desc    Get available students for enrollment in a course
-// @route   GET /api/courses/:courseId/available-students
-// @access  Private (instructor, admin)
-export const getAvailableStudents = async (req: Request, res: Response) => {
-  try {
-    const { courseId } = req.params;
-
-    // First verify the course exists
-    const course = await Course.findByPk(courseId);
-    if (!course) {
-      return res.status(404).json({
-        success: false,
-        message: "Course not found",
-      });
+    if (response.data.success) {
+      res.status(200).json({ success: true, data: {} });
+    } else {
+      res.status(404).json({ success: false, message: "Course not found" });
     }
-
-    // Get all enrolled student IDs for this course
-    const enrolledStudents = await UserCourse.findAll({
-      where: { course_id: courseId },
-      attributes: ["user_id"],
-    });
-
-    const enrolledStudentIds = enrolledStudents.map((uc) => uc.user_id);
-
-    // Get all students who are NOT enrolled in this course
-    const availableStudents = await User.findAll({
-      where: {
-        role: "student",
-        id: {
-          [Op.notIn]: enrolledStudentIds.length > 0 ? enrolledStudentIds : [0], // If no enrolled students, exclude ID 0
-        },
-      },
-      attributes: ["id", "first_name", "last_name", "email", "profile_image"],
-      order: [["first_name", "ASC"]],
-    });
-
-    res.status(200).json({
-      success: true,
-      count: availableStudents.length,
-      data: availableStudents,
-    });
-  } catch (error) {
-    console.error("Get available students error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+  } catch (error: any) {
+    console.error(
+      "Delete course error:",
+      error.response?.data || error.message
+    );
+    if (error.response?.status === 404) {
+      res.status(404).json({ success: false, message: "Course not found" });
+    } else {
+      res.status(500).json({ success: false, message: "Server error" });
+    }
   }
 };

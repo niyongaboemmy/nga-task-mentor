@@ -1,57 +1,29 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Link } from "react-router-dom";
-import axios from "../../utils/axiosConfig";
+import React, { useState, useMemo, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useSelector, useDispatch } from "react-redux";
 import { useAuth } from "../../contexts/AuthContext";
 import CourseCard from "./CourseCard";
-
-interface Course {
-  id: string;
-  code: string;
-  title: string;
-  description: string;
-  credits: number;
-  department: string;
-  instructor: {
-    first_name: string;
-    last_name: string;
-  };
-  is_active: boolean;
-  start_date: string;
-  end_date: string;
-}
+import type { RootState, AppDispatch } from "../../store";
+import { fetchCourses } from "../../store/slices/courseSlice";
 
 const Courses: React.FC = () => {
   const { user } = useAuth();
-  const [courses, setCourses] = useState<Course[]>([]);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const [filter, _setFilter] = useState<"all" | "enrolled" | "teaching">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  const fetchCourses = useCallback(async () => {
-    try {
-      let endpoint = "/api/courses";
-
-      // For students, show only enrolled courses by default
-      if (user?.role === "student") {
-        endpoint = "/api/courses/enrolled";
-      } else if (filter === "enrolled") {
-        endpoint = "/api/courses/enrolled";
-      } else if (filter === "teaching") {
-        endpoint = "/api/courses/teaching";
-      }
-
-      const response = await axios.get(endpoint);
-      setCourses(response.data.data);
-    } catch (error) {
-      console.error("Error fetching courses:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [filter, user?.role]);
+  // Get courses from Redux store
+  const { courses, loading } = useSelector((state: RootState) => ({
+    courses: state.course.courses,
+    loading: state.course.loading.courses,
+  }));
 
   useEffect(() => {
-    fetchCourses();
-  }, [fetchCourses]);
+    if (courses.length === 0 && !loading) {
+      dispatch(fetchCourses());
+    }
+  }, [courses.length, loading, dispatch]);
 
   // Filter courses based on search query
   const filteredCourses = useMemo(() => {
@@ -62,11 +34,7 @@ const Courses: React.FC = () => {
       return (
         course.title.toLowerCase().includes(query) ||
         course.code.toLowerCase().includes(query) ||
-        course.description.toLowerCase().includes(query) ||
-        (course.instructor &&
-          `${course.instructor.first_name} ${course.instructor.last_name}`
-            .toLowerCase()
-            .includes(query))
+        (course.description && course.description.toLowerCase().includes(query))
       );
     });
   }, [courses, searchQuery]);
@@ -126,7 +94,7 @@ const Courses: React.FC = () => {
             </div>
             <input
               type="text"
-              placeholder="Search courses by title, code, description, or instructor..."
+              placeholder="Search courses by title, code, or description..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="block w-full font-normal pl-10 pr-3 py-2.5 text-sm border border-gray-300 rounded-xl leading-5 bg-white/50 dark:bg-gray-800/30 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:text-white"
@@ -174,7 +142,9 @@ const Courses: React.FC = () => {
               key={course.id}
               course={course}
               compact={true}
-              showInstructor={true}
+              onClick={() =>
+                navigate(`/courses/${course.id}`, { state: { course } })
+              }
             />
           ))
         )}

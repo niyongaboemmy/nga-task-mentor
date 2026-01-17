@@ -6,7 +6,7 @@ This document provides a comprehensive overview of all API endpoints available i
 
 The API base URL depends on the environment:
 
-- Development: `http://localhost:3000`
+- Development: `https://nga-central-mis.vercel.app`
 - Production: As configured in deployment
 
 ## Authentication

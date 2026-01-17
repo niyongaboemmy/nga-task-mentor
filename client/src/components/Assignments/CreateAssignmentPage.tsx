@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
-import CreateAssignment from "../Courses/CreateAssignmentModal";
+import CreateAssignment from "./CreateAssignmentModal";
 
 const CreateAssignmentPage: React.FC = () => {
   const navigate = useNavigate();

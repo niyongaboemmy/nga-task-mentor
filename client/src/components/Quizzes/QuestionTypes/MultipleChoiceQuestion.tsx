@@ -16,6 +16,61 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
   const questionData = question.question_data as MultipleChoiceData;
   const currentAnswer = answer as MultipleChoiceAnswer | undefined;
 
+  // Defensive check for question data
+  if (!questionData) {
+    return (
+      <div className="text-red-600 dark:text-red-400 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-red-500">⚠️</span>
+          <span className="font-semibold">Data Error</span>
+        </div>
+        <p className="text-sm">
+          Question data is missing for this multiple choice question.
+        </p>
+        <p className="text-xs text-red-500 mt-1">Question ID: {question.id}</p>
+      </div>
+    );
+  }
+
+  if (
+    !questionData.options ||
+    !Array.isArray(questionData.options) ||
+    questionData.options.length === 0
+  ) {
+    return (
+      <div className="text-orange-600 dark:text-orange-400 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-orange-500">⚠️</span>
+          <span className="font-semibold">Incomplete Question</span>
+        </div>
+        <p className="text-sm">This question is missing answer options.</p>
+        <p className="text-xs text-orange-500 mt-1">
+          Question ID: {question.id}
+        </p>
+      </div>
+    );
+  }
+
+  if (
+    !questionData.correct_option_indices ||
+    !Array.isArray(questionData.correct_option_indices)
+  ) {
+    return (
+      <div className="text-orange-600 dark:text-orange-400 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
+        <div className="flex items-center gap-2 mb-2">
+          <span className="text-orange-500">⚠️</span>
+          <span className="font-semibold">Incomplete Question</span>
+        </div>
+        <p className="text-sm">
+          This question is missing correct answer configuration.
+        </p>
+        <p className="text-xs text-orange-500 mt-1">
+          Question ID: {question.id}
+        </p>
+      </div>
+    );
+  }
+
   const [selectedOptions, setSelectedOptions] = useState<number[]>(
     currentAnswer?.selected_option_indices ?? []
   );

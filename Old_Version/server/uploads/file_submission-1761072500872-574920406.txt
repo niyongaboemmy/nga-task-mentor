@@ -1,0 +1,442 @@
+﻿My portfolio
+
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Oceanne's Portfolio</title>
+
+
+  <!-- Google Fonts -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+
+
+  <style>
+    html {
+      scroll-behavior: smooth;
+    }
+
+
+    body {
+      background-color: khaki;
+      font-family: 'Poppins', sans-serif;
+      color: #333;
+      text-align: center;
+      margin: 0;
+      padding: 0;
+      transition: background 0.3s, color 0.3s;
+    }
+
+
+    header {
+      border-bottom: 5px solid white;
+      padding: 25px;
+      background-color: #5C4033;
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      color: white;
+    }
+
+
+    .header-icons span {
+      font-size: 22px;
+      margin: 0 6px;
+    }
+
+
+    .nav-list {
+      list-style: none;
+      display: flex;
+      justify-content: flex-start;
+      gap: 15px;
+      margin: 0;
+      padding: 0;
+    }
+
+
+    .nav-link {
+      text-decoration: none;
+      color: white;
+      font-weight: 500;
+      border: 2px solid white;
+      padding: 8px 15px;
+      border-radius: 20px;
+      transition: all 0.3s ease;
+      display: inline-block;
+    }
+
+
+    .nav-link:hover {
+      background-color: white;
+      color: #5C4033;
+      transform: scale(1.1);
+    }
+
+
+    .toggle-btn {
+      background: white;
+      border: none;
+      color: #5C4033;
+      padding: 8px 15px;
+      border-radius: 15px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: 0.3s;
+    }
+
+
+    .toggle-btn:hover {
+      background: brown;
+      color: white;
+    }
+
+
+    .container {
+      background: white;
+      border-radius: 15px;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+      max-width: 900px;
+      margin: 50px auto;
+      padding: 30px;
+      text-align: left;
+    }
+
+
+    .profile-pic {
+      display: block;
+      margin: 0 auto 20px;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      border: 4px solid #5C4033;
+      object-fit: cover;
+    }
+
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
+    }
+
+
+    th, td {
+      border: 1px solid #5C4033;
+      padding: 10px;
+      text-align: left;
+    }
+
+
+    th {
+      background-color: #5C4033;
+      color: white;
+    }
+
+
+    form {
+      margin-top: 30px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+
+    input, textarea {
+      padding: 10px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-family: 'Poppins', sans-serif;
+    }
+
+
+    button {
+      padding: 10px;
+      background-color: #5C4033;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+
+    button:hover {
+      background-color: brown;
+    }
+
+
+    footer {
+      background-color: #5C4033;
+      color: white;
+      text-align: center;
+      padding: 15px;
+      margin-top: 50px;
+      border-top: 4px solid white;
+    }
+
+
+    /* Dark mode */
+    body.dark {
+      background-color: #1c1b1a;
+      color: white;
+    }
+
+
+    body.dark .container {
+      background-color: #2c2b29;
+      color: white;
+    }
+
+
+    body.dark th {
+      background-color: brown;
+    }
+
+
+    body.dark .nav-link {
+      color: #5C4033;
+      border-color: #5C4033;
+      background-color: white;
+    }
+
+
+    body.dark .nav-link:hover {
+      background-color: #5C4033;
+      color: white;
+    }
+
+
+    body.dark header {
+      background-color: #2c2b29;
+      border-bottom: 5px solid #5C4033;
+    }
+
+
+    body.dark footer {
+      background-color: #2c2b29;
+      border-top: 4px solid #5C4033;
+    }
+  </style>
+/* Responsive Design */
+@media (max-width: 768px) {
+  header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+
+  .nav-list {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+
+
+  .container {
+    padding: 20px;
+    margin: 20px;
+  }
+
+
+  table, th, td {
+    font-size: 14px;
+  }
+}
+
+
+@media (max-width: 480px) {
+  .nav-link {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+
+
+  .profile-pic {
+    width: 130px;
+    height: 130px;
+  }
+
+
+  h1, h2 {
+    font-size: 20px;
+    text-align: center;
+  }
+
+
+  table, th, td {
+    font-size: 12px;
+  }
+
+
+  th, td {
+    padding: 6px;
+  }
+
+
+  footer {
+    font-size: 13px;
+    padding: 10px;
+  }
+}
+
+
+</head>
+
+
+<body>
+  <header>
+    <div class="header-icons">
+      <span>🌸</span><span>💻</span><span>🌍</span><span>⭐</span>
+    </div>
+
+
+    <nav>
+      <ul class="nav-list">
+        <li><a href="#about" class="nav-link">About</a></li>
+        <li><a href="#projects" class="nav-link">Projects</a></li>
+        <li><a href="#testimonials" class="nav-link">Testimonials</a></li>
+        <li><a href="#contact" class="nav-link">Contact</a></li>
+        <li><a href="#lessons" class="nav-link">Lessons</a></li>
+      </ul>
+    </nav>
+
+
+    <button class="toggle-btn" onclick="toggleMode()">☀️ / 🌙</button>
+  </header>
+
+
+  <main>
+    <!-- ABOUT SECTION -->
+    <section class="container" id="about">
+      <article>
+        <img src="temp_image_4DA58808-D5D2-4850-928F-484FF1AFE2FD.WEBP" alt="Oceanne's photo" class="profile-pic">
+        <h1>Welcome to My Portfolio</h1>
+        <p>Hi! I'm Oceanne, a creative developer who loves designing and building interactive projects that connect creativity, coding, and community.</p>
+      </article>
+    </section>
+
+
+    <!-- SKILLS SECTION -->
+    <section class="container" id="skills">
+      <article>
+        <h2>My Skills</h2>
+        <table>
+          <tr>
+            <th>Skill</th>
+            <th>Level</th>
+            <th>Experience</th>
+          </tr>
+          <tr>
+            <td>HTML & CSS</td>
+            <td>Advanced</td>
+            <td>2 years</td>
+          </tr>
+          <tr>
+            <td>Python</td>
+            <td>Intermediate</td>
+            <td>1 year</td>
+          </tr>
+          <tr>
+            <td>Arduino</td>
+            <td>Advanced</td>
+            <td>2 years</td>
+          </tr>
+        </table>
+
+
+        <p style="margin-top:20px; font-size:15px;">
+          As a recent graduate of Grade 6, I’ve developed a strong curiosity for how technology can make life easier and more meaningful.  
+          My goal is to use my skills to create innovative solutions that empower people, strengthen communities, and inspire creativity across generations.  
+          Every project I build is a small step toward that dream.
+        </p>
+      </article>
+    </section>
+
+
+    <!-- PROJECTS SECTION -->
+    <section class="container" id="projects">
+      <article>
+        <h2>Projects</h2>
+        <p>Here are a few of my projects — each one representing creativity, logic, and purpose.</p>
+
+
+        <table>
+          <tr>
+            <th>Project Name</th>
+            <th>Description</th>
+            <th>Technologies Used</th>
+          </tr>
+          <tr>
+            <td>Traffic Light Simulation</td>
+            <td>A simple Arduino project that replicates how traffic lights work using LEDs and delay timing to control light transitions.</td>
+            <td>Arduino, LEDs, C++</td>
+          </tr>
+          <tr>
+            <td>Soil Moisture Sensor System</td>
+            <td>A smart monitoring system that measures soil moisture levels and displays data on an LCD screen for automatic plant watering.</td>
+            <td>Arduino, Sensor Modules, LCD I2C, C++</td>
+          </tr>
+        </table>
+      </article>
+    </section>
+
+
+    <!-- TESTIMONIALS SECTION -->
+    <section class="container" id="testimonials">
+      <article>
+        <h2>Testimonials</h2>
+        <p>"Oceanne is creative and passionate — her work always stands out!"</p>
+        <p>"An amazing learner and developer with great energy."</p>
+        <p>"Always dedicated to her works"</p>
+      </article>
+    </section>
+
+
+    <!-- CONTACT SECTION -->
+    <section class="container" id="contact">
+      <article>
+        <h2>Contact Me</h2>
+        <form action="https://formsubmit.co/utujoecean@gmail.com" method="POST">
+          <input type="hidden" name="_captcha" value="false">
+          <input type="text" name="name" placeholder="Your Name" required>
+          <input type="email" name="email" placeholder="Your Email" required>
+          <textarea name="message" rows="4" placeholder="Your Message"></textarea>
+          <button type="submit">Send Message</button>
+        </form>
+      </article>
+    </section>
+
+
+    <!-- LESSONS SECTION -->
+    <section class="container" id="lessons">
+      <article>
+        <h2>Lessons</h2>
+        <p>Check out my upcoming tutorials and lessons about coding, design, and creativity!</p>
+      </article>
+    </section>
+  </main>
+
+
+  <footer>
+    <p>© 2025 Oceanne’s Portfolio — Designed with passion.</p>
+    <p>Instagram : oceanne_._11</p>
+  </footer>
+
+
+  <script>
+    function toggleMode() {
+      document.body.classList.toggle('dark');
+    }
+  </script>
+
+
+</body>
+</html>

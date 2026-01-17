@@ -40,6 +40,17 @@ const cleanupPendingRequests = (): void => {
 // Request interceptor
 axios.interceptors.request.use(
   (config) => {
+    // Add MIS token for local API requests
+    if (
+      config.baseURL?.includes("localhost:5001") ||
+      config.baseURL?.includes("/api")
+    ) {
+      const misToken = localStorage.getItem("misToken");
+      if (misToken) {
+        config.headers["x-mis-token"] = `Bearer ${misToken}`;
+      }
+    }
+
     // Clean up old requests periodically
     cleanupPendingRequests();
 
@@ -122,10 +133,20 @@ axios.interceptors.response.use(
 
     // Handle common error cases
     if (error.response?.status === 401) {
-      // Handle unauthorized access
-      localStorage.removeItem("token");
-      delete axios.defaults.headers.common["Authorization"];
-      window.location.href = "/login";
+      // Only logout for auth endpoints, not for general API errors
+      const isAuthEndpoint =
+        error.config?.url?.includes("/auth/") ||
+        error.config?.url?.includes("/login") ||
+        error.config?.url?.includes("/verify-otp");
+
+      if (isAuthEndpoint) {
+        // Handle unauthorized access for auth endpoints
+        localStorage.removeItem("token");
+        localStorage.removeItem("misToken");
+        delete axios.defaults.headers.common["Authorization"];
+        window.location.href = "/login";
+      }
+      // For other 401s, let the component handle the error
     }
     return Promise.reject(error);
   }

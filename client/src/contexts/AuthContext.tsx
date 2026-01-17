@@ -36,13 +36,12 @@ export interface UserProfileResponse {
 
 export interface UserProfileData {
   user: {
-    user_id: number;
-    username: string;
+    id: number;
+    first_name: string;
+    last_name: string;
     email: string;
-    phone_number: string;
-    status: string;
-    created_at: string;
-    updated_at: string;
+    role: string;
+    mis_user_id: number;
   };
   profile: {
     profile_id: number;
@@ -73,6 +72,7 @@ interface User {
   profile_image?: string;
   department?: string;
   user_type?: string;
+  mis_user_id?: number;
 }
 
 interface AuthContextType {
@@ -169,10 +169,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             const responseData = response.data.data;
             const userData = {
               id: responseData.user.id.toString(),
-              first_name: responseData.profile.first_name,
-              last_name: responseData.profile.last_name,
+              first_name: responseData.user.first_name,
+              last_name: responseData.user.last_name,
               email: responseData.user.email,
-              role: responseData.profile.user_type,
+              role: responseData.user.role,
               roles: responseData.roles.map((r: Role, i: number) => ({
                 id: r.role_id,
                 name: r.name,
@@ -181,6 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               profile_image: undefined,
               department: undefined,
               user_type: responseData.profile.user_type,
+              mis_user_id: responseData.user.mis_user_id,
             };
 
             setUser(userData);
@@ -256,6 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           profile_image: undefined,
           department: undefined,
           user_type: response.data.user.role,
+          mis_user_id: response.data.user.mis_user_id,
         };
 
         localStorage.setItem("token", token);

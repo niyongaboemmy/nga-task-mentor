@@ -1,0 +1,5 @@
+id,first_name,last_name,email,role,profile_image,createdAt,updatedAt
+1,Test,Instructor,test@example.com,instructor,,Sat Oct 18 2025 02:40:40 GMT+0200 (Central Africa Time),Sat Oct 18 2025 02:40:40 GMT+0200 (Central Africa Time)
+2,NIYONGABO,Emmanuel,emmanuelniyongabo44@gmail.com,instructor,,Sat Oct 18 2025 12:51:59 GMT+0200 (Central Africa Time),Sat Oct 18 2025 12:51:59 GMT+0200 (Central Africa Time)
+3,Doe,John,johndoe@gmail.com,student,,Sat Oct 18 2025 17:36:13 GMT+0200 (Central Africa Time),Sat Oct 18 2025 17:36:13 GMT+0200 (Central Africa Time)
+4,Test,Student,test@student.com,student,,Sun Oct 19 2025 18:01:35 GMT+0200 (Central Africa Time),Sun Oct 19 2025 18:01:35 GMT+0200 (Central Africa Time)

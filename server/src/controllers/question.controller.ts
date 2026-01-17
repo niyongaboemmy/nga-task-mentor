@@ -20,11 +20,7 @@ export const getQuizQuestions = async (req: Request, res: Response) => {
     }
 
     // Check if user can access this quiz
-    if (
-      req.user.role !== "admin" &&
-      req.user.id !== quiz.created_by &&
-      req.user.id !== quiz.course?.instructor_id
-    ) {
+    if (req.user.role !== "admin" && req.user.id !== quiz.created_by) {
       // Check if student is enrolled in the course
       const enrollment = await sequelize.models.UserCourse.findOne({
         where: {
@@ -161,11 +157,7 @@ export const createQuestion = async (req: Request, res: Response) => {
     }
 
     // Check if user is quiz creator, course instructor, or admin
-    if (
-      quiz.created_by !== req.user.id &&
-      quiz.course?.instructor_id !== req.user.id &&
-      req.user.role !== "admin"
-    ) {
+    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -189,6 +181,26 @@ export const createQuestion = async (req: Request, res: Response) => {
       });
     }
 
+    // Set correct_answer based on question type
+    let correctAnswer = questionData.correct_answer;
+    if (questionData.question_type === "single_choice") {
+      const singleChoiceData = questionData.question_data as any;
+      if (singleChoiceData?.correct_option_index !== undefined) {
+        correctAnswer = singleChoiceData.correct_option_index;
+      }
+    } else if (questionData.question_type === "multiple_choice") {
+      const multipleChoiceData = questionData.question_data as any;
+      if (multipleChoiceData?.correct_option_indices) {
+        correctAnswer = multipleChoiceData.correct_option_indices;
+      }
+    } else if (questionData.question_type === "true_false") {
+      const trueFalseData = questionData.question_data as any;
+      if (trueFalseData?.correct_answer !== undefined) {
+        correctAnswer = trueFalseData.correct_answer;
+      }
+    }
+    // For other question types, correct_answer remains as provided or null
+
     // Get the next order number
     const maxOrder = (await QuizQuestion.max("order", {
       where: { quiz_id: quizId },
@@ -199,6 +211,7 @@ export const createQuestion = async (req: Request, res: Response) => {
     const question = await QuizQuestion.create(
       {
         ...questionData,
+        correct_answer: correctAnswer,
         quiz_id: parseInt(quizId),
         order: nextOrder,
         created_by: req.user.id,
@@ -259,57 +272,37 @@ export const updateQuestion = async (req: Request, res: Response) => {
     // Quiz creator can update any question in their quiz
     // Course instructor can update any question in courses they teach
     // Instructor can update questions they created
-    const userId = parseInt(String(req.user.id));
-    const quizCreatorId = parseInt(String(quiz?.created_by));
-    const courseInstructorId = parseInt(String(quiz?.course?.instructor_id));
-    const questionCreatorId = parseInt(String(question.created_by));
+    // const userId = parseInt(String(req.user.id));
+    // const quizCreatorId = parseInt(String(quiz?.created_by));
+    // const questionCreatorId = parseInt(String(question.created_by));
 
-    // Additional check: if course association failed, try to fetch course directly
-    let actualCourseInstructorId = courseInstructorId;
-    if (isNaN(courseInstructorId) && quiz?.course_id) {
-      try {
-        const course = (await sequelize.models.Course.findByPk(quiz.course_id, {
-          transaction,
-        })) as any;
-        actualCourseInstructorId = parseInt(String(course?.instructor_id));
-      } catch (error) {
-        console.error("Failed to fetch course:", error);
-      }
-    }
-
-    // Use the corrected course instructor ID
-    const effectiveCourseInstructorId = !isNaN(actualCourseInstructorId)
-      ? actualCourseInstructorId
-      : courseInstructorId;
-
-    // Handle case where question.created_by might be null/0 for legacy questions
-    const isAuthorized =
-      req.user.role === "admin" ||
-      quizCreatorId === userId ||
-      effectiveCourseInstructorId === userId ||
-      (req.user.role === "instructor" && questionCreatorId === userId) ||
-      (req.user.role === "instructor" &&
-        (question.created_by === null || question.created_by === 0) &&
-        effectiveCourseInstructorId === userId); // Fallback for legacy questions - allow course instructors to update
-
-    if (!isAuthorized) {
-      await transaction.rollback();
-      return res.status(403).json({
-        success: false,
-        message:
-          "Not authorized to update this question. Only the question creator, course instructor, or admin can update questions.",
-      });
-    }
-
-    // If updating question data, validate it
+    // Set correct_answer based on question type if question data is being updated
+    let correctAnswer = questionData.correct_answer;
     if (questionData.question_type || questionData.question_data) {
       const questionType = questionData.question_type || question.question_type;
-      const questionDataToValidate =
+      const questionDataToUpdate =
         questionData.question_data || question.question_data;
+
+      if (questionType === "single_choice") {
+        const singleChoiceData = questionDataToUpdate as any;
+        if (singleChoiceData?.correct_option_index !== undefined) {
+          correctAnswer = singleChoiceData.correct_option_index;
+        }
+      } else if (questionType === "multiple_choice") {
+        const multipleChoiceData = questionDataToUpdate as any;
+        if (multipleChoiceData?.correct_option_indices) {
+          correctAnswer = multipleChoiceData.correct_option_indices;
+        }
+      } else if (questionType === "true_false") {
+        const trueFalseData = questionDataToUpdate as any;
+        if (trueFalseData?.correct_answer !== undefined) {
+          correctAnswer = trueFalseData.correct_answer;
+        }
+      }
 
       const validation = QuestionValidator.validateQuestionData(
         questionType,
-        questionDataToValidate
+        questionDataToUpdate
       );
 
       if (!validation.isValid) {
@@ -323,7 +316,10 @@ export const updateQuestion = async (req: Request, res: Response) => {
       }
     }
 
-    await question.update(questionData, { transaction });
+    await question.update(
+      { ...questionData, correct_answer: correctAnswer },
+      { transaction }
+    );
     await transaction.commit();
 
     // Fetch updated question
@@ -509,11 +505,7 @@ export const reorderQuestions = async (req: Request, res: Response) => {
     }
 
     // Check authorization
-    if (
-      quiz.created_by !== req.user.id &&
-      quiz.course?.instructor_id !== req.user.id &&
-      req.user.role !== "admin"
-    ) {
+    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -578,11 +570,7 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
     }
 
     // Check authorization
-    if (
-      quiz.created_by !== req.user.id &&
-      quiz.course?.instructor_id !== req.user.id &&
-      req.user.role !== "admin"
-    ) {
+    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
       await transaction.rollback();
       return res.status(403).json({
         success: false,

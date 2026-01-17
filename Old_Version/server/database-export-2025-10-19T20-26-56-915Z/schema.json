@@ -1,0 +1,804 @@
+[
+  {
+    "table_name": "users",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": true,
+        "auto_increment": true,
+        "comment": null
+      },
+      {
+        "name": "first_name",
+        "type": "VARCHAR(50)",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "last_name",
+        "type": "VARCHAR(50)",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "email",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "password",
+        "type": "VARCHAR(255)",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "role",
+        "type": "ENUM('student','instructor','admin')",
+        "nullable": false,
+        "default": "student",
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "profile_image",
+        "type": "VARCHAR(255)",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "reset_password_token",
+        "type": "VARCHAR(255)",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "reset_password_expire",
+        "type": "DATETIME",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      }
+    ],
+    "indexes": [
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      }
+    ],
+    "sql_create_statement": "CREATE TABLE users (\n  id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,\n  first_name VARCHAR(50) NOT NULL,\n  last_name VARCHAR(50) NOT NULL,\n  email VARCHAR(100) NOT NULL,\n  password VARCHAR(255) NOT NULL,\n  role ENUM('student','instructor','admin') NOT NULL,\n  profile_image VARCHAR(255),\n  reset_password_token VARCHAR(255),\n  reset_password_expire DATETIME,\n  created_at DATETIME NOT NULL,\n  updated_at DATETIME NOT NULL\n);"
+  },
+  {
+    "table_name": "courses",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": true,
+        "auto_increment": true,
+        "comment": null
+      },
+      {
+        "name": "code",
+        "type": "VARCHAR(20)",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(100)",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "description",
+        "type": "TEXT",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "credits",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "start_date",
+        "type": "DATE",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "end_date",
+        "type": "DATE",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "is_active",
+        "type": "TINYINT(1)",
+        "nullable": false,
+        "default": "1",
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "max_students",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "instructor_id",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      }
+    ],
+    "indexes": [
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      }
+    ],
+    "sql_create_statement": "CREATE TABLE courses (\n  id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,\n  code VARCHAR(20) NOT NULL,\n  title VARCHAR(100) NOT NULL,\n  description TEXT NOT NULL,\n  credits INT NOT NULL,\n  start_date DATE NOT NULL,\n  end_date DATE NOT NULL,\n  is_active TINYINT(1) NOT NULL,\n  max_students INT NOT NULL,\n  instructor_id INT NOT NULL,\n  created_at DATETIME NOT NULL,\n  updated_at DATETIME NOT NULL\n);"
+  },
+  {
+    "table_name": "assignments",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": true,
+        "auto_increment": true,
+        "comment": null
+      },
+      {
+        "name": "title",
+        "type": "VARCHAR(255)",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "description",
+        "type": "TEXT",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "due_date",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "max_score",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "submission_type",
+        "type": "ENUM('file','text','both')",
+        "nullable": false,
+        "default": "both",
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "allowed_file_types",
+        "type": "JSON",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "rubric",
+        "type": "JSON",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "course_id",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "created_by",
+        "type": "INT",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "status",
+        "type": "ENUM('draft','published','completed','removed')",
+        "nullable": false,
+        "default": "draft",
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      }
+    ],
+    "indexes": [
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      }
+    ],
+    "sql_create_statement": "CREATE TABLE assignments (\n  id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,\n  title VARCHAR(255) NOT NULL,\n  description TEXT NOT NULL,\n  due_date DATETIME NOT NULL,\n  max_score INT NOT NULL,\n  submission_type ENUM('file','text','both') NOT NULL,\n  allowed_file_types JSON,\n  rubric JSON,\n  course_id INT NOT NULL,\n  created_by INT,\n  status ENUM('draft','published','completed','removed') NOT NULL,\n  created_at DATETIME NOT NULL,\n  updated_at DATETIME NOT NULL\n);"
+  },
+  {
+    "table_name": "submissions",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": true,
+        "auto_increment": true,
+        "comment": null
+      },
+      {
+        "name": "assignment_id",
+        "type": "INT",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "student_id",
+        "type": "INT",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "status",
+        "type": "ENUM('draft','submitted','late','graded','resubmitted')",
+        "nullable": false,
+        "default": "draft",
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "submitted_at",
+        "type": "DATETIME",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "text_submission",
+        "type": "TEXT",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "file_submissions",
+        "type": "JSON",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "grade",
+        "type": "JSON",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "feedback",
+        "type": "TEXT",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "resubmissions",
+        "type": "JSON",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "is_late",
+        "type": "TINYINT(1)",
+        "nullable": false,
+        "default": "0",
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "comments",
+        "type": "JSON",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      }
+    ],
+    "indexes": [
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      }
+    ],
+    "sql_create_statement": "CREATE TABLE submissions (\n  id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,\n  assignment_id INT,\n  student_id INT,\n  status ENUM('draft','submitted','late','graded','resubmitted') NOT NULL,\n  submitted_at DATETIME,\n  text_submission TEXT,\n  file_submissions JSON,\n  grade JSON,\n  feedback TEXT,\n  resubmissions JSON,\n  is_late TINYINT(1) NOT NULL,\n  comments JSON,\n  created_at DATETIME NOT NULL,\n  updated_at DATETIME NOT NULL\n);"
+  },
+  {
+    "table_name": "user_courses",
+    "columns": [
+      {
+        "name": "id",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": true,
+        "auto_increment": true,
+        "comment": null
+      },
+      {
+        "name": "user_id",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "course_id",
+        "type": "INT",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "enrollment_date",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "completion_date",
+        "type": "DATETIME",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "status",
+        "type": "ENUM('enrolled','completed','dropped')",
+        "nullable": false,
+        "default": "enrolled",
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "grade",
+        "type": "VARCHAR(2)",
+        "nullable": true,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "created_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      },
+      {
+        "name": "updated_at",
+        "type": "DATETIME",
+        "nullable": false,
+        "default": null,
+        "primary_key": false,
+        "auto_increment": false,
+        "comment": null
+      }
+    ],
+    "indexes": [
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      },
+      {
+        "unique": false
+      }
+    ],
+    "sql_create_statement": "CREATE TABLE user_courses (\n  id INT NOT NULL PRIMARY KEY AUTO_INCREMENT,\n  user_id INT NOT NULL,\n  course_id INT NOT NULL,\n  enrollment_date DATETIME NOT NULL,\n  completion_date DATETIME,\n  status ENUM('enrolled','completed','dropped') NOT NULL,\n  grade VARCHAR(2),\n  created_at DATETIME NOT NULL,\n  updated_at DATETIME NOT NULL\n);"
+  }
+]

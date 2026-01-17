@@ -1,0 +1,23 @@
+# .htaccess for Apache on cPanel (if needed)
+# This file is optional and may not be needed if Node.js app is handled directly
+
+# Redirect all requests to Node.js app (if using Apache as reverse proxy)
+# Uncomment if your cPanel setup requires Apache to proxy requests
+
+# RewriteEngine On
+# RewriteCond %{REQUEST_FILENAME} !-f
+# RewriteCond %{REQUEST_FILENAME} !-d
+# RewriteRule ^(.*)$ http://localhost:PORT/$1 [P,L]
+
+# Security Headers (handled by Helmet middleware, but can add here too)
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "DENY"
+    Header set X-XSS-Protection "1; mode=block"
+</IfModule>
+
+# Prevent access to sensitive files
+<FilesMatch "^(\.env|\.git|node_modules)">
+    Require all denied
+</FilesMatch>
+

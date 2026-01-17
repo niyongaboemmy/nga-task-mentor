@@ -14,8 +14,6 @@ import * as jwt from "jsonwebtoken";
 import * as crypto from "crypto";
 import Submission from "./Submission.model";
 import Assignment from "./Assignment.model";
-import Course from "./Course.model";
-import { UserCourse } from "./UserCourse.model";
 import Quiz from "./Quiz.model";
 import QuizSubmission from "./QuizSubmission.model";
 import QuizAttempt from "./QuizAttempt.model";
@@ -143,17 +141,11 @@ export class User extends Model<IUserAttributes, UserCreationAttributes> {
   reset_password_expire?: Date | null;
 
   // Associations
-  @HasMany(() => Course, "instructor_id")
-  courses_taught?: Course[];
-
   @HasMany(() => Assignment, "created_by")
   assignments_created?: Assignment[];
 
   @HasMany(() => Submission, "student_id")
   submissions?: Submission[];
-
-  @BelongsToMany(() => Course, () => UserCourse)
-  enrolled_courses?: Course[];
 
   @HasMany(() => Quiz, "created_by")
   quizzes_created?: Quiz[];

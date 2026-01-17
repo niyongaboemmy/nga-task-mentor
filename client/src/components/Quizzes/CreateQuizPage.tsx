@@ -35,12 +35,7 @@ export const CreateQuizPage: React.FC = () => {
     dispatch(clearQuizError("quiz"));
 
     try {
-      const result = await dispatch(
-        createQuiz({
-          courseId: parseInt(courseId!),
-          quizData: formData,
-        })
-      ).unwrap();
+      const result = await dispatch(createQuiz(formData)).unwrap();
 
       setCreatedQuizId(result.id);
 

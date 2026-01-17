@@ -2,14 +2,25 @@ import React from "react";
 import type { MatchingData } from "../../../types/quiz.types";
 
 interface MatchingQuestionFormProps {
-  data: MatchingData;
-  onChange: (data: MatchingData) => void;
+  data: MatchingData & { correct_answer?: Record<string, string> };
+  onChange: (data: MatchingData & { correct_answer?: Record<string, string> }) => void;
 }
 
 export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
   data,
   onChange,
 }) => {
+  // Validate correct matches
+  const leftItemIds = data.left_items.map(item => item.id);
+  const rightItemIds = data.right_items.map(item => item.id);
+  
+  // Check if all left items have matches and all matches reference valid right items
+  const hasAllMatches = leftItemIds.every(leftId => data.correct_matches[leftId]);
+  const allMatchesValid = Object.values(data.correct_matches).every(
+    rightId => rightItemIds.includes(rightId)
+  );
+  const isValidCorrectAnswer = hasAllMatches && allMatchesValid && leftItemIds.length > 0;
+
   return (
     <div className="space-y-6">
       {/* Left Items */}
@@ -29,9 +40,19 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                 onChange={(e) => {
                   const newLeftItems = [...data.left_items];
                   newLeftItems[index] = { ...item, text: e.target.value };
-                  onChange({
+                  const newData = {
                     ...data,
                     left_items: newLeftItems,
+                  };
+                  // Revalidate
+                  const leftIds = newData.left_items.map(i => i.id);
+                  const rightIds = newData.right_items.map(i => i.id);
+                  const hasAll = leftIds.every(id => newData.correct_matches[id]);
+                  const allValid = Object.values(newData.correct_matches).every(id => rightIds.includes(id));
+                  const isValid = hasAll && allValid && leftIds.length > 0;
+                  onChange({
+                    ...newData,
+                    correct_answer: isValid ? newData.correct_matches : undefined,
                   });
                 }}
                 placeholder={`Term ${index + 1}`}
@@ -57,11 +78,21 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                         delete newCorrectMatches[key];
                       }
                     });
-                    onChange({
+                    const newData = {
                       ...data,
                       left_items: newLeftItems,
                       right_items: newRightItems,
                       correct_matches: newCorrectMatches,
+                    };
+                    // Revalidate
+                    const leftIds = newData.left_items.map(i => i.id);
+                    const rightIds = newData.right_items.map(i => i.id);
+                    const hasAll = leftIds.every(id => newData.correct_matches[id]);
+                    const allValid = Object.values(newData.correct_matches).every(id => rightIds.includes(id));
+                    const isValid = hasAll && allValid && leftIds.length > 0;
+                    onChange({
+                      ...newData,
+                      correct_answer: isValid ? newData.correct_matches : undefined,
                     });
                   }}
                   className="w-8 h-8 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-600 dark:text-red-400 flex items-center justify-center text-sm font-medium transition-colors duration-200"
@@ -83,10 +114,20 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                 ...data.right_items,
                 { id: newId, text: "" },
               ];
-              onChange({
+              const newData = {
                 ...data,
                 left_items: newLeftItems,
                 right_items: newRightItems,
+              };
+              // Revalidate
+              const leftIds = newData.left_items.map(i => i.id);
+              const rightIds = newData.right_items.map(i => i.id);
+              const hasAll = leftIds.every(id => newData.correct_matches[id]);
+              const allValid = Object.values(newData.correct_matches).every(id => rightIds.includes(id));
+              const isValid = hasAll && allValid && leftIds.length > 0;
+              onChange({
+                ...newData,
+                correct_answer: isValid ? newData.correct_matches : undefined,
               });
             }}
             className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-full transition-colors duration-200"
@@ -116,9 +157,19 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                     ...item,
                     text: e.target.value,
                   };
-                  onChange({
+                  const newData = {
                     ...data,
                     right_items: newRightItems,
+                  };
+                  // Revalidate
+                  const leftIds = newData.left_items.map(i => i.id);
+                  const rightIds = newData.right_items.map(i => i.id);
+                  const hasAll = leftIds.every(id => newData.correct_matches[id]);
+                  const allValid = Object.values(newData.correct_matches).every(id => rightIds.includes(id));
+                  const isValid = hasAll && allValid && leftIds.length > 0;
+                  onChange({
+                    ...newData,
+                    correct_answer: isValid ? newData.correct_matches : undefined,
                   });
                 }}
                 placeholder={`Definition ${String.fromCharCode(65 + index)}`}
@@ -144,11 +195,21 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                         delete newCorrectMatches[key];
                       }
                     });
-                    onChange({
+                    const newData = {
                       ...data,
                       left_items: newLeftItems,
                       right_items: newRightItems,
                       correct_matches: newCorrectMatches,
+                    };
+                    // Revalidate
+                    const leftIds = newData.left_items.map(i => i.id);
+                    const rightIds = newData.right_items.map(i => i.id);
+                    const hasAll = leftIds.every(id => newData.correct_matches[id]);
+                    const allValid = Object.values(newData.correct_matches).every(id => rightIds.includes(id));
+                    const isValid = hasAll && allValid && leftIds.length > 0;
+                    onChange({
+                      ...newData,
+                      correct_answer: isValid ? newData.correct_matches : undefined,
                     });
                   }}
                   className="w-8 h-8 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-600 dark:text-red-400 flex items-center justify-center text-sm font-medium transition-colors duration-200"
@@ -170,10 +231,20 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                 ...data.right_items,
                 { id: newId, text: "" },
               ];
-              onChange({
+              const newData = {
                 ...data,
                 left_items: newLeftItems,
                 right_items: newRightItems,
+              };
+              // Revalidate
+              const leftIds = newData.left_items.map(i => i.id);
+              const rightIds = newData.right_items.map(i => i.id);
+              const hasAll = leftIds.every(id => newData.correct_matches[id]);
+              const allValid = Object.values(newData.correct_matches).every(id => rightIds.includes(id));
+              const isValid = hasAll && allValid && leftIds.length > 0;
+              onChange({
+                ...newData,
+                correct_answer: isValid ? newData.correct_matches : undefined,
               });
             }}
             className="px-4 py-2 bg-green-600 hover:bg-green-700 dark:bg-green-500 dark:hover:bg-green-600 text-white text-sm font-medium rounded-full transition-colors duration-200"
@@ -217,9 +288,19 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                     } else {
                       delete newCorrectMatches[leftItem.id];
                     }
-                    onChange({
+                    const newData = {
                       ...data,
                       correct_matches: newCorrectMatches,
+                    };
+                    // Revalidate
+                    const leftIds = newData.left_items.map(i => i.id);
+                    const rightIds = newData.right_items.map(i => i.id);
+                    const hasAll = leftIds.every(id => newData.correct_matches[id]);
+                    const allValid = Object.values(newData.correct_matches).every(id => rightIds.includes(id));
+                    const isValid = hasAll && allValid && leftIds.length > 0;
+                    onChange({
+                      ...newData,
+                      correct_answer: isValid ? newData.correct_matches : undefined,
                     });
                   }}
                   className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 transition-colors duration-200"
@@ -236,6 +317,11 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
               </div>
             ))}
           </div>
+          {!isValidCorrectAnswer && leftItemIds.length > 0 && (
+            <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+              Please match all items with their correct definitions.
+            </p>
+          )}
         </div>
       </div>
     </div>

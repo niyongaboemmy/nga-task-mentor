@@ -47,12 +47,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
     dispatch(clearQuizError("quiz"));
 
     try {
-      const result = await dispatch(
-        createQuiz({
-          courseId,
-          quizData: formData,
-        })
-      ).unwrap();
+      const result = await dispatch(createQuiz(formData)).unwrap();
 
       setCreatedQuizId(result.id);
 

@@ -2,14 +2,26 @@ import React from "react";
 import type { OrderingData } from "../../../types/quiz.types";
 
 interface OrderingQuestionFormProps {
-  data: OrderingData;
-  onChange: (data: OrderingData) => void;
+  data: OrderingData & { correct_answer?: Array<{ id: string; order: number }> };
+  onChange: (data: OrderingData & { correct_answer?: Array<{ id: string; order: number }> }) => void;
 }
 
 export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
   data,
   onChange,
 }) => {
+  // Validate ordering
+  const orders = data.items.map(item => item.order);
+  const hasValidOrders = data.items.length > 0 &&
+    data.items.every(item => item.order >= 1 && item.order <= data.items.length);
+  const hasNoDuplicates = new Set(orders).size === orders.length;
+  const isValidCorrectAnswer = hasValidOrders && hasNoDuplicates;
+  
+  // Set correct_answer for payload - only if valid (the items with their correct order)
+  const correct_answer = isValidCorrectAnswer 
+    ? data.items.map(item => ({ id: item.id, order: item.order }))
+    : undefined;
+
   return (
     <div className="space-y-6">
       <div>
@@ -28,9 +40,18 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
                 onChange={(e) => {
                   const newItems = [...data.items];
                   newItems[index] = { ...item, text: e.target.value };
-                  onChange({
+                  const newData = {
                     ...data,
                     items: newItems,
+                  };
+                  // Revalidate
+                  const orders = newData.items.map(i => i.order);
+                  const hasValid = newData.items.every(i => i.order >= 1 && i.order <= newData.items.length);
+                  const noDupes = new Set(orders).size === orders.length;
+                  const isValid = hasValid && noDupes && newData.items.length > 0;
+                  onChange({
+                    ...newData,
+                    correct_answer: isValid ? newData.items.map(i => ({ id: i.id, order: i.order })) : undefined,
                   });
                 }}
                 placeholder={`Item ${index + 1}`}
@@ -46,9 +67,18 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
                     ...item,
                     order: parseInt(e.target.value) || 0,
                   };
-                  onChange({
+                  const newData = {
                     ...data,
                     items: newItems,
+                  };
+                  // Revalidate
+                  const orders = newData.items.map(i => i.order);
+                  const hasValid = newData.items.every(i => i.order >= 1 && i.order <= newData.items.length);
+                  const noDupes = new Set(orders).size === orders.length;
+                  const isValid = hasValid && noDupes && newData.items.length > 0;
+                  onChange({
+                    ...newData,
+                    correct_answer: isValid ? newData.items.map(i => ({ id: i.id, order: i.order })) : undefined,
                   });
                 }}
                 placeholder="Order"
@@ -66,9 +96,18 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
                       ...item,
                       order: i + 1,
                     }));
-                    onChange({
+                    const newData = {
                       ...data,
                       items: reorderedItems,
+                    };
+                    // Revalidate
+                    const orders = newData.items.map(i => i.order);
+                    const hasValid = newData.items.every(i => i.order >= 1 && i.order <= newData.items.length);
+                    const noDupes = new Set(orders).size === orders.length;
+                    const isValid = hasValid && noDupes && newData.items.length > 0;
+                    onChange({
+                      ...newData,
+                      correct_answer: isValid ? newData.items.map(i => ({ id: i.id, order: i.order })) : undefined,
                     });
                   }}
                   className="w-8 h-8 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-600 dark:text-red-400 flex items-center justify-center text-sm font-medium transition-colors duration-200"
@@ -98,6 +137,11 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
           </button>
         </div>
       </div>
+      {!isValidCorrectAnswer && data.items.length > 0 && (
+        <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+          Please ensure all items have unique, valid order numbers (1 to {data.items.length}).
+        </p>
+      )}
       <div>
         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
           Partial Credit

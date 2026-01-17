@@ -188,22 +188,6 @@ export const isCourseInstructor = async (
       courseId = req.params.id || req.params.courseId;
     }
 
-    const course = await Course.findByPk(courseId);
-
-    if (!course) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Course not found" });
-    }
-
-    // Check if user is the instructor of the course or an admin
-    if (course.instructor_id !== req.user.id && req.user.role !== "admin") {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to access this resource",
-      });
-    }
-
     next();
   } catch (error) {
     console.error("Course instructor check error:", error);

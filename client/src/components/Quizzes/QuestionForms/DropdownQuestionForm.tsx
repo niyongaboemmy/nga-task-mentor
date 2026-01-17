@@ -3,13 +3,26 @@ import type { DropdownData } from "../../../types/quiz.types";
 
 interface DropdownQuestionFormProps {
   data: DropdownData;
-  onChange: (data: DropdownData) => void;
+  onChange: (data: any) => void;
 }
 
 export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
   data,
   onChange,
 }) => {
+  // Ensure data has default values with correct_answer_indices
+ const safeData = {
+    text_with_dropdowns: data.text_with_dropdowns || "",
+    dropdown_options: data.dropdown_options || [],
+    correct_answer_indices: (data as any).correct_answer_indices || [],
+  };
+
+  // Validation - check all dropdowns have a correct answer selected
+  const hasCorrectAnswers = safeData.dropdown_options.every((_, index) => {
+    return safeData.correct_answer_indices[index] !== undefined &&
+      safeData.correct_answer_indices[index] >= 0;
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -18,10 +31,10 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
         </label>
         <input
           type="text"
-          value={data.text_with_dropdowns}
+          value={safeData.text_with_dropdowns}
           onChange={(e) =>
             onChange({
-              ...data,
+              ...safeData,
               text_with_dropdowns: e.target.value,
             })
           }
@@ -34,7 +47,7 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
           Dropdown Options
         </label>
         <div className="space-y-4">
-          {data.dropdown_options.map((dropdown, index) => (
+          {safeData.dropdown_options.map((dropdown, index) => (
             <div
               key={dropdown.dropdown_index}
               className="p-4 border border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-800/50"
@@ -43,16 +56,19 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Dropdown {index + 1}
                 </span>
-                {data.dropdown_options.length > 1 && (
+                {safeData.dropdown_options.length > 1 && (
                   <button
                     type="button"
                     onClick={() => {
-                      const newOptions = data.dropdown_options.filter(
+                      const newOptions = safeData.dropdown_options.filter(
                         (_, i) => i !== index
                       );
+                      const newCorrectIndices = [...safeData.correct_answer_indices];
+                      newCorrectIndices.splice(index, 1);
                       onChange({
-                        ...data,
+                        ...safeData,
                         dropdown_options: newOptions,
+                        correct_answer_indices: newCorrectIndices,
                       });
                     }}
                     className="w-8 h-8 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-600 dark:text-red-400 flex items-center justify-center text-sm font-medium transition-colors duration-200"
@@ -61,22 +77,38 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
                   </button>
                 )}
               </div>
-              <div className="space-y-2">
+              
+              {/* Dropdown options list */}
+              <div className="space-y-2 mb-3">
                 {dropdown.options.map((option, optionIndex) => (
                   <div key={optionIndex} className="flex items-center gap-2">
+                    <input
+                      type="radio"
+                      name={`correct-${index}`}
+                      checked={safeData.correct_answer_indices[index] === optionIndex}
+                      onChange={() => {
+                        const newCorrectIndices = [...safeData.correct_answer_indices];
+                        newCorrectIndices[index] = optionIndex;
+                        onChange({
+                          ...safeData,
+                          correct_answer_indices: newCorrectIndices,
+                        });
+                      }}
+                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                    />
                     <input
                       type="text"
                       value={option}
                       onChange={(e) => {
                         const newOptions = [...dropdown.options];
                         newOptions[optionIndex] = e.target.value;
-                        const newDropdowns = [...data.dropdown_options];
+                        const newDropdowns = [...safeData.dropdown_options];
                         newDropdowns[index] = {
                           ...dropdown,
                           options: newOptions,
                         };
                         onChange({
-                          ...data,
+                          ...safeData,
                           dropdown_options: newDropdowns,
                         });
                       }}
@@ -90,14 +122,22 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
                           const newOptions = dropdown.options.filter(
                             (_, i) => i !== optionIndex
                           );
-                          const newDropdowns = [...data.dropdown_options];
+                          const newDropdowns = [...safeData.dropdown_options];
                           newDropdowns[index] = {
                             ...dropdown,
                             options: newOptions,
                           };
+                          // Adjust correct answer if needed
+                          const newCorrectIndices = [...safeData.correct_answer_indices];
+                          if (newCorrectIndices[index] === optionIndex) {
+                            newCorrectIndices[index] = 0;
+                          } else if (newCorrectIndices[index] > optionIndex) {
+                            newCorrectIndices[index]--;
+                          }
                           onChange({
-                            ...data,
+                            ...safeData,
                             dropdown_options: newDropdowns,
+                            correct_answer_indices: newCorrectIndices,
                           });
                         }}
                         className="w-6 h-6 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-600 dark:text-red-400 flex items-center justify-center text-xs font-medium transition-colors duration-200"
@@ -111,10 +151,10 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
                   type="button"
                   onClick={() => {
                     const newOptions = [...dropdown.options, ""];
-                    const newDropdowns = [...data.dropdown_options];
+                    const newDropdowns = [...safeData.dropdown_options];
                     newDropdowns[index] = { ...dropdown, options: newOptions };
                     onChange({
-                      ...data,
+                      ...safeData,
                       dropdown_options: newDropdowns,
                     });
                   }}
@@ -123,18 +163,25 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
                   + Add Option
                 </button>
               </div>
+
+              {/* Validation message for this dropdown */}
+              {safeData.correct_answer_indices[index] === undefined && (
+                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
+                  Please select the correct answer for this dropdown.
+                </p>
+              )}
             </div>
           ))}
           <button
             type="button"
             onClick={() => {
-              const newDropdownIndex = data.dropdown_options.length;
+              const newDropdownIndex = safeData.dropdown_options.length;
               const newDropdowns = [
-                ...data.dropdown_options,
+                ...safeData.dropdown_options,
                 { dropdown_index: newDropdownIndex, options: ["", ""] },
               ];
               onChange({
-                ...data,
+                ...safeData,
                 dropdown_options: newDropdowns,
               });
             }}
@@ -143,6 +190,13 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
             + Add Dropdown
           </button>
         </div>
+        
+        {/* Overall validation message */}
+        {!hasCorrectAnswers && safeData.dropdown_options.length > 0 && (
+          <p className="mt-3 text-sm text-red-600 dark:text-red-400">
+            Please select correct answers for all dropdowns.
+          </p>
+        )}
       </div>
     </div>
   );
