@@ -38,7 +38,7 @@ interface ProctoringEvent {
 
 const LiveProctoringDashboard: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
-  const [selectedQuiz, setSelectedQuiz] = useState<number | null>(
+  const [selectedQuiz, _setSelectedQuiz] = useState<number | null>(
     quizId ? Number(quizId) : null
   );
   const [activeStreams, setActiveStreams] = useState<LiveStream[]>([]);
@@ -50,12 +50,12 @@ const LiveProctoringDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [availableQuizzes, setAvailableQuizzes] = useState<
+  const [_availableQuizzes, setAvailableQuizzes] = useState<
     { id: number; title: string }[]
   >([]);
 
   const socketRef = useRef<Socket | null>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  // const _videoRef = useRef<HTMLVideoElement>(null);
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localAudioStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const joiningStreamsRef = useRef<Set<string>>(new Set()); // Track streams currently being joined
@@ -678,12 +678,12 @@ const LiveProctoringDashboard: React.FC = () => {
     }
   };
 
-  const getRiskColor = (score: number) => {
-    if (score >= 80) return "text-red-600 bg-red-50";
-    if (score >= 60) return "text-orange-600 bg-orange-50";
-    if (score >= 30) return "text-yellow-600 bg-yellow-50";
-    return "text-green-600 bg-green-50";
-  };
+  // const _getRiskColor = (score: number) => {
+  //   if (score >= 80) return "text-red-600 bg-red-50";
+  //   if (score >= 60) return "text-orange-600 bg-orange-50";
+  //   if (score >= 30) return "text-yellow-600 bg-yellow-50";
+  //   return "text-green-600 bg-green-50";
+  // };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -738,8 +738,8 @@ const LiveProctoringDashboard: React.FC = () => {
         localAudioStreamsRef.current.set(sessionToken, localAudioStream);
 
         // Add audio track to peer connection
-        const audioTrack = localAudioStream.getAudioTracks()[0];
-        const sender = peerConnection.addTrack(audioTrack, localAudioStream);
+        // const audioTrack = localAudioStream.getAudioTracks()[0];
+        // const _sender = peerConnection.addTrack(audioTrack, localAudioStream);
 
         // Trigger renegotiation by creating new offer
         console.log("Creating renegotiation offer for microphone");
@@ -1143,7 +1143,7 @@ const LiveProctoringDashboard: React.FC = () => {
 
               <div className="max-h-80 overflow-y-auto">
                 <div className="space-y-3">
-                  {events.slice(0, 20).map((event, eventIndex) => (
+                  {events.slice(0, 50).map((event, _eventIndex) => (
                     <div
                       key={event.id}
                       className="flex items-center gap-4 p-4 bg-white/50 hover:bg-blue-50/50 rounded-xl transition-all duration-200 border border-blue-100/50 hover:border-blue-200"

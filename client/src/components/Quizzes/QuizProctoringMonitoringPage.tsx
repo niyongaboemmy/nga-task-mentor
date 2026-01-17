@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "../ui/Button";
 import LiveProctoringDashboard from "../Proctoring/LiveProctoringDashboard";
 import axios from "../../utils/axiosConfig";
-import { ArrowLeft, Eye } from "lucide-react";
+
 
 interface QuizProctoringMonitoringPageProps {}
 

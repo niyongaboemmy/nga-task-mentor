@@ -142,7 +142,7 @@ const courseSlice = createSlice({
     clearCurrentCourse: (state) => {
       state.currentCourse = null;
     },
-    resetCourseState: (state) => {
+    resetCourseState: (_state) => {
       return initialState;
     },
   },

@@ -31,13 +31,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
     loadResults();
   }, [submissionId, dispatch]);
 
-  const getScoreColor = (percentage: number) => {
-    if (percentage >= 90) return "text-green-600";
-    if (percentage >= 80) return "text-blue-600";
-    if (percentage >= 70) return "text-yellow-600";
-    if (percentage >= 60) return "text-orange-600";
-    return "text-red-600";
-  };
+
 
   const getScoreLetter = (percentage: number) => {
     if (percentage >= 90) return "A";

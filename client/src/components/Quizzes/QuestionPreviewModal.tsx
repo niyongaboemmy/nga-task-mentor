@@ -7,9 +7,7 @@ import {
   ChevronRight,
   Smartphone,
   Monitor,
-  Eye,
 } from "lucide-react";
-import { CodePreviewModal } from "./CodePreviewModal";
 
 interface QuestionPreviewModalProps {
   isOpen: boolean;
@@ -32,7 +30,6 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
     "desktop"
   );
   const [showAllQuestions, setShowAllQuestions] = useState(false);
-  const [showCodePreview, setShowCodePreview] = useState(false);
 
   const currentIndex = allQuestions.findIndex((q) => q.id === question.id);
   const hasNavigation = allQuestions.length > 1 && onNavigate;

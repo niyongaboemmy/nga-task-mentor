@@ -4,12 +4,9 @@ import { Card, CardContent, CardHeader } from "../ui/Card";
 import { Button } from "../ui/Button";
 import {
   BarChart3,
-  TrendingUp,
   Users,
   Clock,
   Target,
-  Award,
-  AlertTriangle,
   CheckCircle,
   XCircle,
 } from "lucide-react";

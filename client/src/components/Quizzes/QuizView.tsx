@@ -39,9 +39,8 @@ const QuizHeader: React.FC<{
   quiz: any;
   questions: QuizQuestion[];
   editing: boolean;
-  onEdit: () => void;
   onNavigate: (path: string) => void;
-}> = ({ quiz, questions, editing, onEdit, onNavigate }) => {
+}> = ({ quiz, questions, editing, onNavigate }) => {
   const navigate = useNavigate();
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -247,15 +246,7 @@ const QuizHeader: React.FC<{
           )}
         </div>
 
-        {/* Right Column - Action Buttons */}
         <div className="lg:w-72 space-y-2">
-          {/* <button
-            onClick={onEdit}
-            className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium border border-gray-300 text-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-200 hover:scale-105 transform"
-          >
-            <Edit3 className="w-4 h-4" />
-            Edit Quiz
-          </button> */}
           <button
             onClick={() => onNavigate(`/quizzes/${quiz.id}/settings`)}
             className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium border border-gray-300 text-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-200 hover:scale-105 transform"
@@ -759,7 +750,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
     }
   }, [currentQuiz]);
 
-  const handleEdit = () => setEditing(true);
+
 
   const handleSave = async () => {
     try {
@@ -831,7 +822,6 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                 quiz={currentQuiz}
                 questions={questions}
                 editing={editing}
-                onEdit={handleEdit}
                 onNavigate={navigate}
               />
             </div>

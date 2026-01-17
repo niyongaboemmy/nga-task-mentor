@@ -19,6 +19,15 @@ import {
   LogicalExpressionQuestionForm,
   DragDropQuestionForm,
 } from "./QuestionForms";
+import { 
+  ArrowLeft, 
+  Edit3, 
+  MessageCircle, 
+  Clock, 
+  Trophy, 
+  FileText,
+  Layers
+} from "lucide-react";
 import type {
   QuizQuestion,
   SingleChoiceData,
@@ -281,36 +290,89 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
     <div className="pb-8">
       <div className="">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 md:p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
-              Edit Question
-            </h1>
-            <button
-              onClick={() => navigate(`/quizzes/${quizId}`)}
-              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-200"
-            >
-              ← Back to Quiz
-            </button>
-          </div>
+          <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-100 dark:border-gray-800">
+             <div className="flex items-center gap-4">
+               <div className="p-3 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl">
+                 <Edit3 className="w-8 h-8 text-indigo-600 dark:text-indigo-400" />
+               </div>
+               <div>
+                 <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Edit Question</h1>
+                 <p className="text-sm text-gray-500 dark:text-gray-400">Modify question properties and content</p>
+               </div>
+             </div>
+             <button
+               onClick={() => navigate(`/quizzes/${quizId}`)}
+               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+             >
+               <ArrowLeft className="w-4 h-4" />
+               Back to Quiz
+             </button>
+           </div>
 
           <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Question Type (read-only display) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Question Type
-              </label>
-              <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium">
-                {formData.question_type?.replace("_", " ").toUpperCase() ||
-                  "Unknown"}
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Question type cannot be changed after creation
-              </p>
+            {/* Primary Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-gray-50/50 dark:bg-gray-800/30 rounded-3xl border border-gray-100 dark:border-gray-800">
+               {/* Question Type (Read-only) */}
+               <div className="space-y-2">
+                 <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                   <Layers className="w-4 h-4 text-gray-400" />
+                   Question Type
+                 </label>
+                 <div className="w-full px-4 py-2.5 bg-gray-100 dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-xl text-gray-600 dark:text-gray-400 text-sm font-medium">
+                   {formData.question_type?.replace("_", " ").toUpperCase() || "Unknown"}
+                 </div>
+                 <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">Type cannot be changed</p>
+               </div>
+
+               {/* Points & Time */}
+               <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <Trophy className="w-4 h-4 text-gray-400" />
+                      Points
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.points || 1}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          points: parseInt(e.target.value),
+                        }))
+                      }
+                      min="1"
+                      max="100"
+                      className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      Time (sec)
+                    </label>
+                    <input
+                      type="number"
+                      value={formData.time_limit_seconds || 60}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          time_limit_seconds: parseInt(e.target.value),
+                        }))
+                      }
+                      min="10"
+                      max="3600"
+                      className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm font-medium"
+                      required
+                    />
+                  </div>
+               </div>
             </div>
 
             {/* Question Text */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <FileText className="w-4 h-4 text-gray-400" />
                 Question Text *
               </label>
               <textarea
@@ -321,15 +383,15 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                     question_text: e.target.value,
                   }))
                 }
-                placeholder="Enter your question..."
+                placeholder="Edit your question prompt..."
                 rows={4}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
+                className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm resize-none"
                 required
               />
             </div>
 
             {/* Question-specific fields */}
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl p-2 border border-gray-100 dark:border-gray-800 shadow-sm">
               {renderQuestionTypeFields()}
             </div>
 
@@ -355,8 +417,9 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
             </div>
 
             {/* Explanation */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <MessageCircle className="w-4 h-4 text-gray-400" />
                 Explanation (optional)
               </label>
               <textarea
@@ -367,9 +430,9 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                     explanation: e.target.value,
                   }))
                 }
-                placeholder="Explain the correct answer..."
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
+                placeholder="Provide a helpful explanation..."
+                rows={3}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-sm resize-none"
               />
             </div>
 

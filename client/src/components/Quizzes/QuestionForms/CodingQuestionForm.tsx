@@ -27,7 +27,17 @@ import { CppTestCaseBuilderModal } from "../CppTestCaseBuilderModal";
 import { CppValidationGuideModal } from "../CppValidationGuideModal";
 import { PhpTestCaseBuilderModal } from "../PhpTestCaseBuilderModal";
 import { PhpValidationGuideModal } from "../PhpValidationGuideModal";
-import { Plus } from "lucide-react";
+import { 
+  Plus, 
+  Code, 
+  Terminal, 
+  BookOpen, 
+  Wrench, 
+  Lightbulb, 
+  CheckCircle,
+  Eye,
+  EyeOff
+} from "lucide-react";
 import { CodingProgressIndicator } from "./CodingProgressIndicator";
 import { CodingSetupTab } from "./CodingSetupTab";
 import { CodingTemplateTab } from "./CodingTemplateTab";
@@ -42,14 +52,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
   onChange: parentOnChange,
 }) => {
   const onChange = (newData: CodingData) => {
-    parentOnChange({
+    // Cast to any/unknown to allow correct_answer property which isn't in CodingData but required by backend
+    const payload = {
       ...newData,
       correct_answer: {
         language: newData.language,
         test_cases: newData.test_cases,
         starter_code: newData.starter_code,
       },
-    } as any);
+    };
+    parentOnChange(payload as unknown as CodingData);
   };
 
   const validationErrors = useMemo(() => {
@@ -435,19 +447,21 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
   };
 
   return (
-    <div className="space-y-6 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-800 dark:to-gray-900 rounded-2xl p-6 border border-blue-100 dark:border-gray-700">
-      {/* Header with cute design */}
-      <div className="text-center mb-6">
-        <div className="inline-flex items-center gap-2 bg-blue-100 dark:bg-blue-900/30 px-4 py-2 rounded-full mb-3">
-          <span className="text-2xl">💻</span>
-          <span className="font-semibold text-blue-800 dark:text-blue-200">
-            Coding Question Setup
-          </span>
+    <div className="space-y-6 bg-white dark:bg-gray-800 rounded-lg p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6 pb-6 border-b border-gray-100 dark:border-gray-700">
+        <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+          <Code className="w-6 h-6 text-blue-600 dark:text-blue-400" />
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-300">
-          Create interactive coding challenges in 15+ programming languages
-          including modern web technologies
-        </p>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Coding Challenge Setup
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Create interactive coding challenges in over 15 programming languages
+            with automated test cases.
+          </p>
+        </div>
       </div>
 
       {/* Step Navigation */}
@@ -517,17 +531,17 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             />
 
             {/* Test Cases Header with Stats */}
-            <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-700 rounded-3xl p-6">
+            <div className="bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700 rounded-xl p-6">
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="">
-                    <span className="text-2xl">🧪</span>
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
+                    <CheckCircle className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
                       Test Cases Management
                     </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
                       Define inputs and expected outputs for your coding problem
                     </p>
                   </div>
@@ -535,30 +549,30 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
 
                 {/* Test Case Stats */}
                 <div className="flex flex-wrap gap-3">
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-2 border-2 border-green-200 dark:border-green-700">
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
+                  <div className="bg-white dark:bg-gray-800 rounded-lg px-4 py-2 border border-gray-200 dark:border-gray-700 shadow-sm">
+                    <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                       Total Tests
                     </div>
-                    <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    <div className="text-xl font-bold text-gray-900 dark:text-white">
                       {codingData.test_cases.length}
                     </div>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-2 border-2 border-blue-200 dark:border-blue-700">
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      Visible
+                  <div className="bg-white dark:bg-gray-800 rounded-lg px-4 py-2 border border-blue-200 dark:border-blue-900/30 shadow-sm">
+                    <div className="text-xs text-blue-600 dark:text-blue-400 font-medium flex items-center gap-1">
+                      <Eye className="w-3 h-3" /> Visible
                     </div>
-                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                    <div className="text-xl font-bold text-blue-700 dark:text-blue-300">
                       {
                         codingData.test_cases.filter((tc) => !tc.is_hidden)
                           .length
                       }
                     </div>
                   </div>
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl px-4 py-2 border-2 border-purple-200 dark:border-purple-700">
-                    <div className="text-xs text-gray-600 dark:text-gray-400">
-                      Hidden
+                  <div className="bg-white dark:bg-gray-800 rounded-lg px-4 py-2 border border-purple-200 dark:border-purple-900/30 shadow-sm">
+                    <div className="text-xs text-purple-600 dark:text-purple-400 font-medium flex items-center gap-1">
+                      <EyeOff className="w-3 h-3" /> Hidden
                     </div>
-                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                    <div className="text-xl font-bold text-purple-700 dark:text-purple-300">
                       {
                         codingData.test_cases.filter((tc) => tc.is_hidden)
                           .length
@@ -650,14 +664,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             {/* JavaScript Test Case Builder */}
             {codingData.language === "javascript" && (
               <>
-                <div className="bg-gradient-to-r from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-2 border-yellow-200 dark:border-yellow-700 rounded-3xl p-6">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">🛠️</div>
+                    <div className="p-3 bg-yellow-50 dark:bg-yellow-900/30 rounded-lg text-yellow-600 dark:text-yellow-400">
+                      <Wrench className="w-6 h-6" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-yellow-900 dark:text-yellow-100 mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         JavaScript Test Case Tools
                       </h4>
-                      <p className="text-sm text-yellow-800 dark:text-yellow-200 mb-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Use our interactive tools to create comprehensive
                         JavaScript test cases with validation keywords.
                       </p>
@@ -666,15 +682,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsTestCaseBuilderOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-yellow-200 dark:border-yellow-700 hover:border-yellow-300 dark:hover:border-yellow-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-yellow-400 dark:hover:border-yellow-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">🔧</span>
-                            <h5 className="font-semibold text-yellow-900 dark:text-yellow-100 group-hover:text-yellow-800 dark:group-hover:text-yellow-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Wrench className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Test Case Builder
                             </h5>
                           </div>
-                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Visual builder to create test cases with function
                             details, input/output examples, and validation
                             requirements.
@@ -684,15 +700,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsValidationGuideOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-yellow-200 dark:border-yellow-700 hover:border-yellow-300 dark:hover:border-yellow-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-yellow-400 dark:hover:border-yellow-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">📚</span>
-                            <h5 className="font-semibold text-yellow-900 dark:text-yellow-100 group-hover:text-yellow-800 dark:group-hover:text-yellow-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BookOpen className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Validation Keywords Guide
                             </h5>
                           </div>
-                          <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comprehensive guide to all JavaScript validation
                             keywords with examples and usage instructions.
                           </p>
@@ -729,14 +745,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             {/* React Test Case Builder */}
             {codingData.language === "react" && (
               <>
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-3xl p-6">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">⚛️</div>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                      <Code className="w-6 h-6" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         React Test Case Tools
                       </h4>
-                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Use our interactive tools to create comprehensive React
                         component test cases with validation keywords.
                       </p>
@@ -745,15 +763,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsReactTestCaseBuilderOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">🔧</span>
-                            <h5 className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Wrench className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Test Case Builder
                             </h5>
                           </div>
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Visual builder to create test cases with component
                             details, hook requirements, and validation rules.
                           </p>
@@ -762,15 +780,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsReactValidationGuideOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">📚</span>
-                            <h5 className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Validation Keywords Guide
                             </h5>
                           </div>
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comprehensive guide to all React validation keywords
                             with examples and usage instructions.
                           </p>
@@ -807,14 +825,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             {/* TypeScript Test Case Builder */}
             {codingData.language === "typescript" && (
               <>
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-3xl p-6">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">🔷</div>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                      <Code className="w-6 h-6" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         TypeScript Test Case Tools
                       </h4>
-                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Use our interactive tools to create comprehensive
                         TypeScript test cases with type safety validation.
                       </p>
@@ -825,15 +845,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                           onClick={() =>
                             setIsTypeScriptTestCaseBuilderOpen(true)
                           }
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">🔧</span>
-                            <h5 className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Wrench className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Test Case Builder
                             </h5>
                           </div>
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Visual builder to create test cases with type
                             definitions, generics, and validation rules.
                           </p>
@@ -844,15 +864,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                           onClick={() =>
                             setIsTypeScriptValidationGuideOpen(true)
                           }
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">📚</span>
-                            <h5 className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Validation Keywords Guide
                             </h5>
                           </div>
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comprehensive guide to all TypeScript validation
                             keywords with examples and usage instructions.
                           </p>
@@ -889,14 +909,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             {/* Node.js Test Case Builder */}
             {codingData.language === "nodejs" && (
               <>
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-700 rounded-3xl p-6">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">🟢</div>
+                    <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
+                      <Terminal className="w-6 h-6" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-green-900 dark:text-green-100 mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         Node.js Test Case Tools
                       </h4>
-                      <p className="text-sm text-green-800 dark:text-green-200 mb-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Use our interactive tools to create comprehensive
                         Node.js application test cases with server validation.
                       </p>
@@ -905,15 +927,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsNodeJSTestCaseBuilderOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">🔧</span>
-                            <h5 className="font-semibold text-green-900 dark:text-green-100 group-hover:text-green-800 dark:group-hover:text-green-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Wrench className="w-5 h-5 text-green-600 dark:text-green-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Test Case Builder
                             </h5>
                           </div>
-                          <p className="text-sm text-green-800 dark:text-green-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Visual builder to create test cases with server
                             configuration, API endpoints, and validation rules.
                           </p>
@@ -922,15 +944,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsNodeJSValidationGuideOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">📚</span>
-                            <h5 className="font-semibold text-green-900 dark:text-green-100 group-hover:text-green-800 dark:group-hover:text-green-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BookOpen className="w-5 h-5 text-green-600 dark:text-green-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Validation Keywords Guide
                             </h5>
                           </div>
-                          <p className="text-sm text-green-800 dark:text-green-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comprehensive guide to all Node.js validation
                             keywords with examples and usage instructions.
                           </p>
@@ -1011,14 +1033,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             {/* Vue.js Test Case Builder */}
             {codingData.language === "vue" && (
               <>
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-700 rounded-3xl p-6">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">🟢</div>
+                    <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
+                      <Code className="w-6 h-6" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-green-900 dark:text-green-100 mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         Vue.js Test Case Tools
                       </h4>
-                      <p className="text-sm text-green-800 dark:text-green-200 mb-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Use our interactive tools to create comprehensive Vue.js
                         component test cases with reactivity validation.
                       </p>
@@ -1027,15 +1051,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsVueTestCaseBuilderOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">🔧</span>
-                            <h5 className="font-semibold text-green-900 dark:text-green-100 group-hover:text-green-800 dark:group-hover:text-green-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Wrench className="w-5 h-5 text-green-600 dark:text-green-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Test Case Builder
                             </h5>
                           </div>
-                          <p className="text-sm text-green-800 dark:text-green-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Visual builder to create test cases with component
                             details, reactivity requirements, and validation
                             rules.
@@ -1045,15 +1069,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsVueValidationGuideOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-green-200 dark:border-green-700 hover:border-green-300 dark:hover:border-green-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">📚</span>
-                            <h5 className="font-semibold text-green-900 dark:text-green-100 group-hover:text-green-800 dark:group-hover:text-green-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BookOpen className="w-5 h-5 text-green-600 dark:text-green-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Validation Keywords Guide
                             </h5>
                           </div>
-                          <p className="text-sm text-green-800 dark:text-green-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comprehensive guide to all Vue.js validation
                             keywords with examples and usage instructions.
                           </p>
@@ -1090,14 +1114,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             {/* Python Test Case Builder */}
             {codingData.language === "python" && (
               <>
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-3xl p-6">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">🐍</div>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                      <Code className="w-6 h-6" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         Python Test Case Tools
                       </h4>
-                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Use our interactive tools to create comprehensive Python
                         function test cases with validation keywords.
                       </p>
@@ -1106,15 +1132,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsPythonTestCaseBuilderOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">🔧</span>
-                            <h5 className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Wrench className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Test Case Builder
                             </h5>
                           </div>
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Visual builder to create test cases with function
                             details, input/output examples, and validation
                             rules.
@@ -1124,15 +1150,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsPythonValidationGuideOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">📚</span>
-                            <h5 className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Validation Keywords Guide
                             </h5>
                           </div>
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comprehensive guide to all Python validation
                             keywords with examples and usage instructions.
                           </p>
@@ -1169,14 +1195,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             {/* Java Test Case Builder */}
             {codingData.language === "java" && (
               <>
-                <div className="bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-900/20 dark:to-red-900/20 border-2 border-orange-200 dark:border-orange-700 rounded-3xl p-6">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">☕</div>
+                    <div className="p-3 bg-orange-50 dark:bg-orange-900/30 rounded-lg text-orange-600 dark:text-orange-400">
+                      <Code className="w-6 h-6" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-orange-900 dark:text-orange-100 mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         Java Test Case Tools
                       </h4>
-                      <p className="text-sm text-orange-800 dark:text-orange-200 mb-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Use our interactive tools to create comprehensive Java
                         method test cases with validation keywords.
                       </p>
@@ -1185,15 +1213,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsJavaTestCaseBuilderOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-orange-200 dark:border-orange-700 hover:border-orange-300 dark:hover:border-orange-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-orange-400 dark:hover:border-orange-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">🔧</span>
-                            <h5 className="font-semibold text-orange-900 dark:text-orange-100 group-hover:text-orange-800 dark:group-hover:text-orange-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Wrench className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Test Case Builder
                             </h5>
                           </div>
-                          <p className="text-sm text-orange-800 dark:text-orange-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Visual builder to create test cases with method
                             details, input/output examples, and validation
                             rules.
@@ -1203,15 +1231,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsJavaValidationGuideOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-orange-200 dark:border-orange-700 hover:border-orange-300 dark:hover:border-orange-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-orange-400 dark:hover:border-orange-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">📚</span>
-                            <h5 className="font-semibold text-orange-900 dark:text-orange-100 group-hover:text-orange-800 dark:group-hover:text-orange-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BookOpen className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Validation Keywords Guide
                             </h5>
                           </div>
-                          <p className="text-sm text-orange-800 dark:text-orange-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comprehensive guide to all Java validation keywords
                             with examples and usage instructions.
                           </p>
@@ -1248,14 +1276,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             {/* C Test Case Builder */}
             {codingData.language === "c" && (
               <>
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-3xl p-6">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">🔵</div>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                      <Code className="w-6 h-6" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         C Test Case Tools
                       </h4>
-                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Use our interactive tools to create comprehensive C
                         function test cases with memory safety validation.
                       </p>
@@ -1264,15 +1294,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsCTestCaseBuilderOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">🔧</span>
-                            <h5 className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Wrench className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Test Case Builder
                             </h5>
                           </div>
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Visual builder to create test cases with function
                             details, memory management, and validation rules.
                           </p>
@@ -1281,15 +1311,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsCValidationGuideOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">📚</span>
-                            <h5 className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Validation Keywords Guide
                             </h5>
                           </div>
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comprehensive guide to all C validation keywords
                             with examples and usage instructions.
                           </p>
@@ -1326,14 +1356,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             {/* C++ Test Case Builder */}
             {codingData.language === "cpp" && (
               <>
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 border-2 border-blue-200 dark:border-blue-700 rounded-3xl p-6">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">🔵</div>
+                    <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-lg text-blue-600 dark:text-blue-400">
+                      <Code className="w-6 h-6" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-blue-900 dark:text-blue-100 mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         C++ Test Case Tools
                       </h4>
-                      <p className="text-sm text-blue-800 dark:text-blue-200 mb-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Use our interactive tools to create comprehensive C++
                         function test cases with modern C++ validation.
                       </p>
@@ -1342,15 +1374,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsCppTestCaseBuilderOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">🔧</span>
-                            <h5 className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Wrench className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Test Case Builder
                             </h5>
                           </div>
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Visual builder to create test cases with function
                             details, STL usage, and validation rules.
                           </p>
@@ -1359,15 +1391,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsCppValidationGuideOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-blue-200 dark:border-blue-700 hover:border-blue-300 dark:hover:border-blue-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">📚</span>
-                            <h5 className="font-semibold text-blue-900 dark:text-blue-100 group-hover:text-blue-800 dark:group-hover:text-blue-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BookOpen className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Validation Keywords Guide
                             </h5>
                           </div>
-                          <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comprehensive guide to all C++ validation keywords
                             with examples and usage instructions.
                           </p>
@@ -1404,14 +1436,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             {/* PHP Test Case Builder */}
             {codingData.language === "php" && (
               <>
-                <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-3xl p-6">
+                <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                   <div className="flex items-start gap-4">
-                    <div className="text-3xl">🐘</div>
+                    <div className="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
+                      <Code className="w-6 h-6" />
+                    </div>
                     <div className="flex-1">
-                      <h4 className="text-xl font-bold text-purple-900 dark:text-purple-100 mb-3">
+                      <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                         PHP Test Case Tools
                       </h4>
-                      <p className="text-sm text-purple-800 dark:text-purple-200 mb-6">
+                      <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Use our interactive tools to create comprehensive PHP
                         function test cases with security validation.
                       </p>
@@ -1420,15 +1454,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsPhpTestCaseBuilderOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">🔧</span>
-                            <h5 className="font-semibold text-purple-900 dark:text-purple-100 group-hover:text-purple-800 dark:group-hover:text-purple-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Wrench className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Test Case Builder
                             </h5>
                           </div>
-                          <p className="text-sm text-purple-800 dark:text-purple-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Visual builder to create test cases with function
                             details, security requirements, and validation
                             rules.
@@ -1438,15 +1472,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                         <button
                           type="button"
                           onClick={() => setIsPhpValidationGuideOpen(true)}
-                          className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all text-left group"
+                          className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-600 transition-all text-left group"
                         >
-                          <div className="flex items-center gap-3 mb-3">
-                            <span className="text-2xl">📚</span>
-                            <h5 className="font-semibold text-purple-900 dark:text-purple-100 group-hover:text-purple-800 dark:group-hover:text-purple-200">
+                          <div className="flex items-center gap-3 mb-2">
+                            <BookOpen className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                            <h5 className="font-semibold text-gray-900 dark:text-white">
                               Validation Keywords Guide
                             </h5>
                           </div>
-                          <p className="text-sm text-purple-800 dark:text-purple-200">
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
                             Comprehensive guide to all PHP validation keywords
                             with examples and usage instructions.
                           </p>
@@ -1482,14 +1516,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
 
             {/* CSS Test Case Tools for CSS Language */}
             {codingData.language === "css" && (
-              <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-3xl p-6">
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                 <div className="flex items-start gap-4">
-                  <div className="text-3xl">🎨</div>
+                  <div className="p-3 bg-purple-50 dark:bg-purple-900/30 rounded-lg text-purple-600 dark:text-purple-400">
+                    <Code className="w-6 h-6" />
+                  </div>
                   <div className="flex-1">
-                    <h4 className="text-xl font-bold text-purple-900 dark:text-purple-100 mb-3">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                       CSS Test Case Tools
                     </h4>
-                    <p className="text-sm text-purple-800 dark:text-purple-200 mb-6">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                       Use our interactive tools to create comprehensive CSS test
                       cases with validation keywords.
                     </p>
@@ -1498,15 +1534,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsCssTestCaseBuilderOpen(true)}
-                        className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all text-left group"
+                        className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-600 transition-all text-left group"
                       >
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="text-2xl">🔧</span>
-                          <h5 className="font-semibold text-purple-900 dark:text-purple-100 group-hover:text-purple-800 dark:group-hover:text-purple-200">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Wrench className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                          <h5 className="font-semibold text-gray-900 dark:text-white">
                             Test Case Builder
                           </h5>
                         </div>
-                        <p className="text-sm text-purple-800 dark:text-purple-200">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           Visual builder to create test cases with selector
                           details, property requirements, and validation rules.
                         </p>
@@ -1515,15 +1551,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsCssValidationGuideOpen(true)}
-                        className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-purple-200 dark:border-purple-700 hover:border-purple-300 dark:hover:border-purple-600 transition-all text-left group"
+                        className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-purple-400 dark:hover:border-purple-600 transition-all text-left group"
                       >
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="text-2xl">📚</span>
-                          <h5 className="font-semibold text-purple-900 dark:text-purple-100 group-hover:text-purple-800 dark:group-hover:text-purple-200">
+                        <div className="flex items-center gap-3 mb-2">
+                          <BookOpen className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                          <h5 className="font-semibold text-gray-900 dark:text-white">
                             Validation Keywords Guide
                           </h5>
                         </div>
-                        <p className="text-sm text-purple-800 dark:text-purple-200">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           Comprehensive guide to all CSS validation keywords
                           with examples and usage instructions.
                         </p>
@@ -1536,14 +1572,16 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
 
             {/* HTML Test Case Tools for HTML Language */}
             {codingData.language === "html" && (
-              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-200 dark:border-emerald-700 rounded-3xl p-6">
+              <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl p-6 shadow-sm">
                 <div className="flex items-start gap-4">
-                  <div className="text-3xl">🏷️</div>
+                  <div className="p-3 bg-green-50 dark:bg-green-900/30 rounded-lg text-green-600 dark:text-green-400">
+                    <Code className="w-6 h-6" />
+                  </div>
                   <div className="flex-1">
-                    <h4 className="text-xl font-bold text-emerald-900 dark:text-emerald-100 mb-3">
+                    <h4 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                       HTML Test Case Tools
                     </h4>
-                    <p className="text-sm text-emerald-800 dark:text-emerald-200 mb-6">
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                       Use our interactive tools to create comprehensive HTML
                       test cases with validation keywords.
                     </p>
@@ -1552,15 +1590,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsHtmlTestCaseBuilderOpen(true)}
-                        className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-emerald-200 dark:border-emerald-700 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all text-left group"
+                        className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-all text-left group"
                       >
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="text-2xl">🔧</span>
-                          <h5 className="font-semibold text-emerald-900 dark:text-emerald-100 group-hover:text-emerald-800 dark:group-hover:text-emerald-200">
+                        <div className="flex items-center gap-3 mb-2">
+                          <Wrench className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          <h5 className="font-semibold text-gray-900 dark:text-white">
                             Test Case Builder
                           </h5>
                         </div>
-                        <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           Visual builder to create test cases with element
                           details, attribute requirements, and validation rules.
                         </p>
@@ -1569,15 +1607,15 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                       <button
                         type="button"
                         onClick={() => setIsHtmlValidationGuideOpen(true)}
-                        className="p-6 bg-white/70 dark:bg-gray-800/70 rounded-xl border-2 border-emerald-200 dark:border-emerald-700 hover:border-emerald-300 dark:hover:border-emerald-600 transition-all text-left group"
+                        className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700 hover:border-green-400 dark:hover:border-green-600 transition-all text-left group"
                       >
-                        <div className="flex items-center gap-3 mb-3">
-                          <span className="text-2xl">📚</span>
-                          <h5 className="font-semibold text-emerald-900 dark:text-emerald-100 group-hover:text-emerald-800 dark:group-hover:text-emerald-200">
+                        <div className="flex items-center gap-3 mb-2">
+                          <BookOpen className="w-5 h-5 text-green-600 dark:text-green-400" />
+                          <h5 className="font-semibold text-gray-900 dark:text-white">
                             Validation Keywords Guide
                           </h5>
                         </div>
-                        <p className="text-sm text-emerald-800 dark:text-emerald-200">
+                        <p className="text-xs text-gray-500 dark:text-gray-400">
                           Comprehensive guide to all HTML validation keywords
                           with examples and usage instructions.
                         </p>
@@ -1590,9 +1628,9 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
 
             {/* Original Helper Info */}
             {codingData.test_cases.length > 0 && (
-              <div className="bg-blue-50 dark:bg-blue-900/20 border-2 border-blue-200 dark:border-blue-800 rounded-3xl p-4">
+              <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="flex items-start gap-3">
-                  <span className="text-2xl">💡</span>
+                  <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
                   <div className="flex-1">
                     <h4 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">
                       Quick Test Case Tips
@@ -1660,19 +1698,23 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
 
             {/* Empty State */}
             {codingData.test_cases.length === 0 && (
-              <div className="bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-3xl p-12 text-center">
-                <div className="text-6xl mb-4">🧪</div>
+              <div className="bg-white dark:bg-gray-800 border border-dashed border-gray-300 dark:border-gray-600 rounded-xl p-12 text-center">
+                <div className="flex justify-center mb-4">
+                  <div className="p-4 bg-gray-50 dark:bg-gray-700 rounded-full">
+                    <CheckCircle className="w-8 h-8 text-gray-400 dark:text-gray-500" />
+                  </div>
+                </div>
                 <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
                   No Test Cases Yet
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                <p className="text-gray-500 dark:text-gray-400 mb-6 max-w-md mx-auto">
                   Use the AI generator above or manually add test cases to
                   evaluate student solutions
                 </p>
                 <button
                   type="button"
                   onClick={() => {
-                    const exampleInputs = {
+                    const exampleInputs: Record<string, string> = {
                       javascript: "[\n  [2, 7, 11, 15],\n  9\n]",
                       python: "[\n  [2, 7, 11, 15],\n  9\n]",
                       java: "new int[]{2, 7, 11, 15},\n9",
@@ -1698,7 +1740,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                       sql: "SELECT * FROM users WHERE id = 1;",
                     };
 
-                    const exampleOutputs = {
+                    const exampleOutputs: Record<string, string> = {
                       javascript: "[\n  0,\n  1\n]",
                       python: "[\n  0,\n  1\n]",
                       java: "[0, 1]",
@@ -1726,10 +1768,11 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                       sql: '{\n  "id": 1,\n  "name": "John Doe",\n  "email": "john@example.com"\n}',
                     };
 
+                    const language = codingData.language || "javascript";
                     const newTestCase = {
                       id: "1",
-                      input: "",
-                      expected_output: "",
+                      input: exampleInputs[language] || "",
+                      expected_output: exampleOutputs[language] || "",
                       is_hidden: false,
                       points: 10,
                       time_limit: 5000,
@@ -1739,9 +1782,9 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                       test_cases: [newTestCase],
                     });
                   }}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-500 to-indigo-500 hover:from-blue-600 hover:to-indigo-600 text-white rounded-full font-medium transition-all inline-flex items-center gap-2"
+                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-all inline-flex items-center gap-2 shadow-sm"
                 >
-                  <span className="text-xl">➕</span>
+                  <Plus className="w-5 h-5" />
                   <span>Create First Test Case</span>
                 </button>
               </div>
@@ -1751,15 +1794,17 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
 
         {activeTab === "constraints" && (
           <div className="space-y-6">
-            <div className="bg-white dark:bg-gray-800 rounded-3xl p-5 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
-                <span className="text-xl">📋</span>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-lg">
+                  <BookOpen className="w-5 h-5 text-gray-600 dark:text-gray-400" />
+                </div>
+                <label className="block text-sm font-semibold text-gray-900 dark:text-white">
                   Constraints & Instructions
                 </label>
               </div>
               <textarea
-                value={data.constraints || ""}
+                value={codingData.constraints || ""}
                 onChange={(e) =>
                   onChange({
                     ...codingData,
@@ -1768,22 +1813,22 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                 }
                 placeholder="Add constraints like time complexity, space complexity, input size limits, or special instructions for students..."
                 rows={6}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all"
+                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none transition-all text-sm"
               />
-              <div className="mt-3 text-xs text-gray-500">
-                💡 Tip: Include constraints like "O(n) time complexity required"
-                or "Input size ≤ 10^5"
+              <div className="mt-3 text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                <Lightbulb className="w-3 h-3" />
+                <span>Tip: Include constraints like "O(n) time complexity required" or "Input size ≤ 10^5"</span>
               </div>
             </div>
 
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-3xl p-4">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-xl p-4">
               <div className="flex items-start gap-3">
-                <span className="text-xl">💡</span>
+                <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-blue-800 dark:text-blue-200 mb-2">
+                  <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
                     Pro Tips for Great Coding Questions
                   </h4>
-                  <ul className="text-sm text-blue-700 dark:text-blue-300 space-y-1">
+                  <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
                     <li>
                       • Start with 2-3 basic test cases, then add edge cases
                     </li>
@@ -1806,14 +1851,14 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
               </div>
             </div>
 
-            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-3xl p-4">
+            <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-xl p-4">
               <div className="flex items-start gap-3">
-                <span className="text-xl">🎯</span>
+                <Code className="w-5 h-5 text-green-600 dark:text-green-400 mt-0.5" />
                 <div>
-                  <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">
+                  <h4 className="font-medium text-green-900 dark:text-green-100 mb-2">
                     Language-Specific Tips
                   </h4>
-                  <ul className="text-sm text-green-700 dark:text-green-300 space-y-1">
+                  <ul className="text-sm text-green-800 dark:text-green-200 space-y-1">
                     <li>
                       <strong>HTML/CSS:</strong> Focus on semantic structure and
                       responsive design

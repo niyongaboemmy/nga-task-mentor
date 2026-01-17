@@ -1,4 +1,14 @@
-import React from "react";
+import React, { useMemo } from "react";
+import { 
+  ChevronDown, 
+  Type, 
+  ListPlus, 
+  Trash2, 
+  Plus, 
+  CheckCircle, 
+  AlertCircle,
+  HelpCircle
+} from "lucide-react";
 import type { DropdownData } from "../../../types/quiz.types";
 
 interface DropdownQuestionFormProps {
@@ -11,167 +21,237 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
   onChange,
 }) => {
   // Ensure data has default values with correct_answer_indices
- const safeData = {
+  const safeData = {
     text_with_dropdowns: data.text_with_dropdowns || "",
     dropdown_options: data.dropdown_options || [],
     correct_answer_indices: (data as any).correct_answer_indices || [],
   };
 
-  // Validation - check all dropdowns have a correct answer selected
-  const hasCorrectAnswers = safeData.dropdown_options.every((_, index) => {
-    return safeData.correct_answer_indices[index] !== undefined &&
-      safeData.correct_answer_indices[index] >= 0;
-  });
+  // Validation - memoize for performance
+  const errors = useMemo(() => {
+    const errs: string[] = [];
+    if (!safeData.text_with_dropdowns.trim()) errs.push("Question text required");
+    
+    if (safeData.dropdown_options.length === 0) {
+      errs.push("At least one dropdown is required");
+    } else {
+      const allHaveAnswers = safeData.dropdown_options.every((_: any, index: number) => {
+        const correctIndex = safeData.correct_answer_indices[index];
+        return correctIndex !== undefined && correctIndex >= 0;
+      });
+      if (!allHaveAnswers) errs.push("All dropdowns must have a correct answer selected");
+    }
+    return errs;
+  }, [safeData]);
+
+  const updateData = (newData: any) => {
+    onChange(newData);
+  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          Text with Dropdowns (use ___ for dropdowns)
-        </label>
+      {/* Header */}
+      <div className="flex items-center gap-3 mb-6 pb-6 border-b border-gray-100 dark:border-gray-700">
+        <div className="p-3 bg-violet-50 dark:bg-violet-900/30 rounded-lg">
+          <ChevronDown className="w-6 h-6 text-violet-600 dark:text-violet-400" />
+        </div>
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+             Dropdown Question Setup
+          </h3>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Create sentences with interactive dropdown choices.
+          </p>
+        </div>
+      </div>
+
+      {/* Text Section */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <Type className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+          <h4 className="font-semibold text-gray-900 dark:text-white">
+            Question Text
+          </h4>
+        </div>
+        
+        <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-start gap-2">
+           <HelpCircle className="w-5 h-5 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+           <p className="text-sm text-blue-700 dark:text-blue-300">
+             Type your sentence and use <code className="bg-white dark:bg-gray-800 px-1.5 py-0.5 rounded border border-blue-200 dark:border-blue-800 font-mono text-xs font-bold mx-1">___</code> (three underscores) where you want a dropdown to appear.
+           </p>
+        </div>
+
         <input
           type="text"
           value={safeData.text_with_dropdowns}
           onChange={(e) =>
-            onChange({
+            updateData({
               ...safeData,
               text_with_dropdowns: e.target.value,
             })
           }
-          placeholder="Enter text with ___ for dropdowns"
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
+          placeholder="e.g., The ___ of Japan is ___."
+          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg bg-gray-50 dark:bg-gray-900/50 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent transition-all text-sm"
         />
       </div>
-      <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-          Dropdown Options
-        </label>
-        <div className="space-y-4">
-          {safeData.dropdown_options.map((dropdown, index) => (
+
+      {/* Dropdowns Configuration */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl p-6 border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <ListPlus className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+            <h4 className="font-semibold text-gray-900 dark:text-white">
+              Dropdown Options
+            </h4>
+          </div>
+          <span className="text-xs font-medium px-2 py-1 bg-gray-100 dark:bg-gray-700 rounded text-gray-600 dark:text-gray-300">
+             {safeData.dropdown_options.length} Dropdowns
+          </span>
+        </div>
+
+        <div className="space-y-6">
+          {safeData.dropdown_options.map((dropdown: { dropdown_index: number; options: string[] }, index: number) => (
             <div
               key={dropdown.dropdown_index}
-              className="p-4 border border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-800/50"
+              className="p-5 border border-gray-200 dark:border-gray-700 rounded-xl bg-gray-50 dark:bg-gray-800/50 hover:border-violet-300 dark:hover:border-violet-700 transition-all group"
             >
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Dropdown {index + 1}
-                </span>
+              <div className="flex items-center justify-between mb-4 border-b border-gray-100 dark:border-gray-700 pb-3">
+                <div className="flex items-center gap-2">
+                   <div className="w-6 h-6 rounded bg-violet-100 dark:bg-violet-900/50 text-violet-700 dark:text-violet-300 flex items-center justify-center text-xs font-bold">
+                      {index + 1}
+                   </div>
+                   <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                     Dropdown Configuration
+                   </span>
+                </div>
                 {safeData.dropdown_options.length > 1 && (
                   <button
                     type="button"
                     onClick={() => {
                       const newOptions = safeData.dropdown_options.filter(
-                        (_, i) => i !== index
+                        (_: any, i: number) => i !== index
                       );
                       const newCorrectIndices = [...safeData.correct_answer_indices];
                       newCorrectIndices.splice(index, 1);
-                      onChange({
+                      updateData({
                         ...safeData,
                         dropdown_options: newOptions,
                         correct_answer_indices: newCorrectIndices,
                       });
                     }}
-                    className="w-8 h-8 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-600 dark:text-red-400 flex items-center justify-center text-sm font-medium transition-colors duration-200"
+                    className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                   >
-                    ✕
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 )}
               </div>
               
-              {/* Dropdown options list */}
-              <div className="space-y-2 mb-3">
-                {dropdown.options.map((option, optionIndex) => (
-                  <div key={optionIndex} className="flex items-center gap-2">
-                    <input
-                      type="radio"
-                      name={`correct-${index}`}
-                      checked={safeData.correct_answer_indices[index] === optionIndex}
-                      onChange={() => {
+              <div className="space-y-3">
+                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-2 block">
+                  Click the circle to select the correct answer:
+                </label>
+                {dropdown.options.map((option: string, optionIndex: number) => (
+                  <div key={optionIndex} className="flex items-center gap-3 group/option">
+                    <button
+                      type="button"
+                      onClick={() => {
                         const newCorrectIndices = [...safeData.correct_answer_indices];
                         newCorrectIndices[index] = optionIndex;
-                        onChange({
+                        updateData({
                           ...safeData,
                           correct_answer_indices: newCorrectIndices,
                         });
                       }}
-                      className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
-                    />
-                    <input
-                      type="text"
-                      value={option}
-                      onChange={(e) => {
-                        const newOptions = [...dropdown.options];
-                        newOptions[optionIndex] = e.target.value;
-                        const newDropdowns = [...safeData.dropdown_options];
-                        newDropdowns[index] = {
-                          ...dropdown,
-                          options: newOptions,
-                        };
-                        onChange({
-                          ...safeData,
-                          dropdown_options: newDropdowns,
-                        });
-                      }}
-                      placeholder={`Option ${optionIndex + 1}`}
-                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
-                    />
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all ${
+                        safeData.correct_answer_indices[index] === optionIndex
+                          ? "border-violet-500 bg-violet-500 text-white"
+                          : "border-gray-300 dark:border-gray-600 hover:border-violet-400"
+                      }`}
+                    >
+                      {safeData.correct_answer_indices[index] === optionIndex && (
+                        <CheckCircle className="w-3.5 h-3.5" />
+                      )}
+                    </button>
+                    <div className="relative flex-1">
+                      <input
+                        type="text"
+                        value={option}
+                        onChange={(e) => {
+                          const newOptions = [...dropdown.options];
+                          newOptions[optionIndex] = e.target.value;
+                          const newDropdowns = [...safeData.dropdown_options];
+                          newDropdowns[index] = {
+                            ...dropdown,
+                            options: newOptions,
+                          };
+                          updateData({
+                            ...safeData,
+                            dropdown_options: newDropdowns,
+                          });
+                        }}
+                        placeholder={`Option ${optionIndex + 1}`}
+                        className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-800 focus:outline-none focus:ring-1 focus:ring-violet-500 transition-all"
+                      />
+                    </div>
                     {dropdown.options.length > 2 && (
                       <button
                         type="button"
                         onClick={() => {
                           const newOptions = dropdown.options.filter(
-                            (_, i) => i !== optionIndex
+                            (_: any, i: number) => i !== optionIndex
                           );
                           const newDropdowns = [...safeData.dropdown_options];
                           newDropdowns[index] = {
                             ...dropdown,
                             options: newOptions,
                           };
-                          // Adjust correct answer if needed
                           const newCorrectIndices = [...safeData.correct_answer_indices];
                           if (newCorrectIndices[index] === optionIndex) {
                             newCorrectIndices[index] = 0;
                           } else if (newCorrectIndices[index] > optionIndex) {
                             newCorrectIndices[index]--;
                           }
-                          onChange({
+                          updateData({
                             ...safeData,
                             dropdown_options: newDropdowns,
                             correct_answer_indices: newCorrectIndices,
                           });
                         }}
-                        className="w-6 h-6 rounded-full bg-red-100 hover:bg-red-200 dark:bg-red-900 dark:hover:bg-red-800 text-red-600 dark:text-red-400 flex items-center justify-center text-xs font-medium transition-colors duration-200"
+                        className="p-1 px-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-md transition-colors"
                       >
-                        ✕
+                        <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     )}
                   </div>
                 ))}
+                
                 <button
                   type="button"
                   onClick={() => {
                     const newOptions = [...dropdown.options, ""];
                     const newDropdowns = [...safeData.dropdown_options];
                     newDropdowns[index] = { ...dropdown, options: newOptions };
-                    onChange({
+                    updateData({
                       ...safeData,
                       dropdown_options: newDropdowns,
                     });
                   }}
-                  className="px-3 py-1 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm rounded-full transition-colors duration-200"
+                  className="text-xs text-violet-600 hover:text-violet-700 dark:text-violet-400 dark:hover:text-violet-300 font-medium flex items-center gap-1 py-1 px-2 rounded hover:bg-violet-50 dark:hover:bg-violet-900/20 w-fit transition-colors mt-2"
                 >
-                  + Add Option
+                  <Plus className="w-3.5 h-3.5" />
+                  Add Option
                 </button>
               </div>
 
-              {/* Validation message for this dropdown */}
               {safeData.correct_answer_indices[index] === undefined && (
-                <p className="mt-2 text-sm text-red-600 dark:text-red-400">
-                  Please select the correct answer for this dropdown.
-                </p>
+                <div className="mt-3 p-2 bg-red-50 dark:bg-red-900/20 rounded flex items-center gap-2 text-xs text-red-600 dark:text-red-400 font-medium">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Select a correct answer
+                </div>
               )}
             </div>
           ))}
+          
           <button
             type="button"
             onClick={() => {
@@ -180,24 +260,40 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
                 ...safeData.dropdown_options,
                 { dropdown_index: newDropdownIndex, options: ["", ""] },
               ];
-              onChange({
+              // Also add a default correct index for the new dropdown
+              const newCorrectIndices = [...safeData.correct_answer_indices, 0];
+              updateData({
                 ...safeData,
                 dropdown_options: newDropdowns,
+                correct_answer_indices: newCorrectIndices,
               });
             }}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white text-sm font-medium rounded-full transition-colors duration-200"
+            className="w-full py-3 border border-dashed border-gray-300 dark:border-gray-600 rounded-lg text-gray-500 hover:border-violet-500 hover:text-violet-600 hover:bg-violet-50 dark:hover:bg-violet-900/20 transition-all flex items-center justify-center gap-2 group"
           >
-            + Add Dropdown
+             <div className="p-1 rounded-full bg-gray-100 dark:bg-gray-700 group-hover:bg-violet-100 dark:group-hover:bg-violet-900/50 transition-colors">
+                 <Plus className="w-4 h-4" />
+              </div>
+            <span className="font-medium text-sm">Add Dropdown</span>
           </button>
         </div>
-        
-        {/* Overall validation message */}
-        {!hasCorrectAnswers && safeData.dropdown_options.length > 0 && (
-          <p className="mt-3 text-sm text-red-600 dark:text-red-400">
-            Please select correct answers for all dropdowns.
-          </p>
-        )}
       </div>
+
+      {/* Validation Errors */}
+      {errors.length > 0 && (
+        <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl flex items-start gap-3">
+           <AlertCircle className="w-5 h-5 text-red-600 dark:text-red-400 mt-0.5" />
+           <div>
+             <h4 className="text-sm font-semibold text-red-900 dark:text-red-200 mb-1">
+               Validation Errors
+             </h4>
+             <ul className="text-sm text-red-700 dark:text-red-300 space-y-1 list-disc list-inside">
+               {errors.map((err: string, i: number) => (
+                 <li key={i}>{err}</li>
+               ))}
+             </ul>
+           </div>
+        </div>
+      )}
     </div>
   );
 };

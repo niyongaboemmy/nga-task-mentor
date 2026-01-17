@@ -37,18 +37,7 @@ export const QuizList: React.FC<QuizListProps> = ({
     dispatch(fetchQuizzes(courseId));
   }, [dispatch, courseId]);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "published":
-        return "bg-green-100 text-green-800";
-      case "draft":
-        return "bg-yellow-100 text-yellow-800";
-      case "completed":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+
 
   const handleDeleteQuiz = async (quizId: number) => {
     setDeleteLoading(quizId.toString());
@@ -118,18 +107,7 @@ export const QuizList: React.FC<QuizListProps> = ({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "exam":
-        return "bg-red-100 text-red-800";
-      case "graded":
-        return "bg-blue-100 text-blue-800";
-      case "practice":
-        return "bg-purple-100 text-purple-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+
 
   if (loading.quizzes) {
     return (

@@ -65,9 +65,9 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
     const descLower = (description + " " + (code || "")).toLowerCase();
 
     // Analyze starter code for function names and patterns
-    const hasFunctionName = code?.match(
-      /function\s+(\w+)|def\s+(\w+)|public\s+\w+\s+(\w+)/
-    );
+    // const _hasFunctionName = code?.match(
+    //   /function\s+(\w+)|def\s+(\w+)|public\s+\w+\s+(\w+)/
+    // );
 
     // Detect problem type and generate appropriate test cases
     if (

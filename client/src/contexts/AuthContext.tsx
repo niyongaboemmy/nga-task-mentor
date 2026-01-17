@@ -173,7 +173,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
               last_name: responseData.user.last_name,
               email: responseData.user.email,
               role: responseData.user.role,
-              roles: responseData.roles.map((r: Role, i: number) => ({
+              roles: responseData.roles.map((r: Role, _i: number) => ({
                 id: r.role_id,
                 name: r.name,
               })),
@@ -307,7 +307,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         last_name: responseData.profile.last_name,
         email: responseData.user.email,
         role: responseData.profile.user_type,
-        roles: responseData.roles.map((r: Role, i: number) => ({
+        roles: responseData.roles.map((r: Role, _i: number) => ({
           id: r.role_id,
           name: r.name,
         })),

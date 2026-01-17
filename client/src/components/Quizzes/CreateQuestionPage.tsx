@@ -21,6 +21,15 @@ import {
   MatchingQuestionForm,
   OrderingQuestionForm,
 } from "./QuestionForms";
+import { 
+  ArrowLeft, 
+  PlusCircle, 
+  Clock, 
+  Trophy, 
+  MessageCircle, 
+  Layers,
+  FileText
+} from "lucide-react";
 import type {
   CreateQuestionRequest,
   QuestionType,
@@ -352,51 +361,109 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
     <div className="pb-8">
       <div className="">
         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-6 md:p-9">
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold mb-2">Create Question</h1>
+          <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-100 dark:border-gray-800">
+            <div className="flex items-center gap-3">
+              <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-2xl">
+                <PlusCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Create New Question</h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">Define your question and its metadata</p>
+              </div>
+            </div>
             <button
               onClick={() => navigate(`/quizzes/${quizId}`)}
-              className="text-blue-600 hover:text-blue-800"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
-              ← Back to Quiz
+              <ArrowLeft className="w-4 h-4" />
+              Back to Quiz
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Question Type */}
-            <div>
-              <label className="block text-sm font-normal text-gray-700 mb-2 dark:text-gray-300">
-                Question Type
-              </label>
-              <select
-                value={formData.question_type}
-                onChange={(e) => {
-                  const newType = e.target.value as QuestionType;
-                  setFormData((prev) => ({
-                    ...prev,
-                    question_type: newType,
-                    question_data: createQuestionData(newType),
-                  }));
-                }}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="single_choice">Single Choice</option>
-                <option value="multiple_choice">Multiple Choice</option>
-                <option value="true_false">True/False</option>
-                <option value="numerical">Numerical</option>
-                <option value="fill_blank">Fill in the Blank</option>
-                <option value="short_answer">Short Answer</option>
-                <option value="matching">Matching</option>
-                <option value="ordering">Ordering</option>
-                <option value="dropdown">Dropdown</option>
-                <option value="algorithmic">Algorithmic</option>
-                <option value="coding">Coding</option>
-              </select>
+            {/* Primary Details Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-gray-50/50 dark:bg-gray-800/30 rounded-3xl border border-gray-100 dark:border-gray-800">
+              {/* Question Type */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  <Layers className="w-4 h-4 text-gray-400" />
+                  Question Type
+                </label>
+                <select
+                  value={formData.question_type}
+                  onChange={(e) => {
+                    const newType = e.target.value as QuestionType;
+                    setFormData((prev) => ({
+                      ...prev,
+                      question_type: newType,
+                      question_data: createQuestionData(newType),
+                    }));
+                  }}
+                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                >
+                  <option value="single_choice">Single Choice</option>
+                  <option value="multiple_choice">Multiple Choice</option>
+                  <option value="true_false">True/False</option>
+                  <option value="numerical">Numerical</option>
+                  <option value="fill_blank">Fill in the Blank</option>
+                  <option value="short_answer">Short Answer</option>
+                  <option value="matching">Matching</option>
+                  <option value="ordering">Ordering</option>
+                  <option value="dropdown">Dropdown</option>
+                  <option value="algorithmic">Algorithmic</option>
+                  <option value="coding">Coding</option>
+                </select>
+              </div>
+
+              {/* Scoring & Time Grid */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <Trophy className="w-4 h-4 text-gray-400" />
+                    Points
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.points}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        points: parseInt(e.target.value),
+                      }))
+                    }
+                    min="1"
+                    max="100"
+                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <Clock className="w-4 h-4 text-gray-400" />
+                    Time (sec)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.time_limit_seconds}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        time_limit_seconds: parseInt(e.target.value),
+                      }))
+                    }
+                    min="10"
+                    max="3600"
+                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium"
+                    required
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Question Text */}
-            <div>
-              <label className="block text-sm font-normal text-gray-700 mb-2 dark:text-gray-300">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <FileText className="w-4 h-4 text-gray-400" />
                 Question Text *
               </label>
               <textarea
@@ -407,9 +474,9 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                     question_text: e.target.value,
                   }))
                 }
-                placeholder="Enter your question..."
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Enter your clear and concise question prompt here..."
+                rows={4}
+                className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none"
                 required
               />
             </div>
@@ -483,8 +550,9 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
             </div>
 
             {/* Explanation */}
-            <div>
-              <label className="block text-sm font-normal text-gray-700 mb-2 dark:text-gray-300">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <MessageCircle className="w-4 h-4 text-gray-400" />
                 Explanation (optional)
               </label>
               <textarea
@@ -495,9 +563,9 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                     explanation: e.target.value,
                   }))
                 }
-                placeholder="Explain the correct answer..."
+                placeholder="Briefly explain the correct answer to help students learn..."
                 rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none"
               />
             </div>
 

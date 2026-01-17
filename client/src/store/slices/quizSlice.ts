@@ -454,7 +454,7 @@ const quizSlice = createSlice({
     setCurrentQuestion: (state, action: PayloadAction<QuizQuestion>) => {
       state.currentQuestion = action.payload;
     },
-    resetQuizState: (state) => {
+    resetQuizState: (_state) => {
       return initialState;
     },
   },

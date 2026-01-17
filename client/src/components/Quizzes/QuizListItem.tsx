@@ -44,18 +44,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
     }
   };
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "exam":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-      case "graded":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-      case "practice":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400";
-    }
-  };
+
 
   return (
     <div className="group bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/50 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 hover:-translate-y-0.5 p-3 animate-in fade-in slide-in-from-bottom-2 duration-500">

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -82,52 +82,42 @@ const QuizResultsWrapper = () => {
 };
 
 const CreateQuizPageWrapper = () => {
-  const { courseId } = useParams<{ courseId: string }>();
   return <CreateQuizPage />;
 };
 
 const EditQuizPageWrapper = () => {
-  const { quizId } = useParams<{ quizId: string }>();
   return <EditQuizPage />;
 };
 
 const QuizTakingPageWrapper = () => {
-  const { id } = useParams<{ id: string }>();
   return <QuizTakingPage />;
 };
 
 const QuizResultsPageWrapper = () => {
-  const { id } = useParams<{ id: string }>();
   return <QuizResultsPage />;
 };
 
 const QuizProctoringPageWrapper = () => {
-  const { quizId } = useParams<{ quizId: string }>();
   return <QuizProctoringPage />;
 };
 
 const QuizAnalyticsPageWrapper = () => {
-  const { quizId } = useParams<{ quizId: string }>();
   return <QuizAnalyticsPage />;
 };
 
 const QuizProctoringSettingsPageWrapper = () => {
-  const { quizId } = useParams<{ quizId: string }>();
   return <QuizProctoringSettingsPage />;
 };
 
 const QuizProctoringMonitoringPageWrapper = () => {
-  const { quizId } = useParams<{ quizId: string }>();
   return <QuizProctoringMonitoringPage />;
 };
 
 const QuizProctoringAnalyticsPageWrapper = () => {
-  const { quizId } = useParams<{ quizId: string }>();
   return <QuizProctoringAnalyticsPage />;
 };
 
 const QuizSubmissionsPageWrapper = () => {
-  const { quizId } = useParams<{ quizId: string }>();
   return <QuizSubmissionsPage />;
 };
 

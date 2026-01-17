@@ -38,7 +38,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
   onAnswerChange,
   disabled = false,
   showCorrectAnswer = false,
-  timeRemaining,
+  timeRemaining: _timeRemaining,
 }) => {
   const algorithmicData: AlgorithmicData = question.question_data as AlgorithmicData;
 
