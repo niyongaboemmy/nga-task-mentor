@@ -1,11 +1,16 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState } from "react";
 import { Button } from "../ui/Button";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import {
   formatUTCToLocalDateTime,
   parseLocalDateTimeToUTC,
 } from "../../utils/dateUtils";
+import RichTextEditor from "../Common/RichTextEditor";
+import { Plus, Trash2 } from "lucide-react";
+import { type RubricCriterion } from "./AssignmentCard";
+import { toast } from "react-toastify";
+import FileDropzone from "../Common/FileDropzone";
 
 interface UpdateAssignmentProps {
   assignment: {
@@ -15,6 +20,8 @@ interface UpdateAssignmentProps {
     due_date: string;
     max_score: number;
     submission_type: string;
+    allowed_file_types?: string[] | string;
+    rubric?: RubricCriterion[] | string;
     status: string;
     attachments?: {
       name: string;
@@ -38,6 +45,13 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
     due_date: formatUTCToLocalDateTime(assignment.due_date),
     max_score: assignment.max_score,
     submission_type: assignment.submission_type,
+    allowed_file_types: Array.isArray(assignment.allowed_file_types)
+      ? assignment.allowed_file_types.join(", ")
+      : assignment.allowed_file_types || "",
+    rubric:
+      (typeof assignment.rubric === "string"
+        ? JSON.parse(assignment.rubric)
+        : assignment.rubric) || ([] as RubricCriterion[]),
     status: assignment.status,
   });
 
@@ -45,21 +59,9 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
     assignment.attachments || [],
   );
   const [newFiles, setNewFiles] = useState<File[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const editorRef = useRef<HTMLDivElement>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
-
-  // Initialize editor content when component mounts
-  useEffect(() => {
-    if (editorRef.current && !isInitialized) {
-      editorRef.current.innerHTML = formData.description || "";
-      setIsInitialized(true);
-    }
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -67,19 +69,23 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
     setError("");
 
     try {
-      // Get final content from editor
-      const finalContent = editorRef.current?.innerHTML || "";
-
       // Convert local input to UTC for API
       const utcDueDate = parseLocalDateTimeToUTC(formData.due_date);
 
       const submitData = new FormData();
       submitData.append("title", formData.title);
-      submitData.append("description", finalContent);
-      submitData.append("due_date", utcDueDate.toISOString());
+      submitData.append("description", formData.description);
+      submitData.append("due_date", utcDueDate.toISOString().slice(0, 16));
       submitData.append("max_score", formData.max_score.toString());
       submitData.append("submission_type", formData.submission_type);
       submitData.append("status", formData.status);
+
+      const typesArray = formData.allowed_file_types
+        .split(",")
+        .map((t: string) => t.trim().toLowerCase())
+        .filter((t: string) => t !== "");
+      submitData.append("allowed_file_types", JSON.stringify(typesArray));
+      submitData.append("rubric", JSON.stringify(formData.rubric));
 
       // Existing attachments
       submitData.append(
@@ -97,25 +103,18 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
           "Content-Type": "multipart/form-data",
         },
       });
+      toast.success("Assignment updated successfully!");
 
-      onSubmit({ ...formData, description: finalContent });
+      onSubmit(formData);
     } catch (error: any) {
       console.error("Error updating assignment:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to update assignment",
+      );
       setError(error.response?.data?.message || "Failed to update assignment");
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const selectedFiles = Array.from(e.target.files);
-      setNewFiles((prev) => [...prev, ...selectedFiles]);
-    }
-  };
-
-  const removeNewFile = (index: number) => {
-    setNewFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const removeExistingAttachment = (url: string) => {
@@ -123,7 +122,9 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
   };
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
+    >,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -132,60 +133,16 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
     }));
   };
 
-  const handleEditorInput = () => {
-    if (editorRef.current) {
-      const content = editorRef.current.innerHTML;
-      if (content !== formData.description) {
-        setFormData((prev) => ({
-          ...prev,
-          description: content,
-        }));
-      }
-    }
-  };
-
-  // Rich text editor functions (simplified version)
-  const insertFormatting = (command: string, value?: string) => {
-    if (editorRef.current) {
-      editorRef.current.focus();
-
-      try {
-        switch (command) {
-          case "bold":
-            document.execCommand("bold", false);
-            break;
-          case "italic":
-            document.execCommand("italic", false);
-            break;
-          case "underline":
-            document.execCommand("underline", false);
-            break;
-          case "insertUnorderedList":
-            document.execCommand("insertUnorderedList", false);
-            break;
-          case "insertOrderedList":
-            document.execCommand("insertOrderedList", false);
-            break;
-          default:
-            document.execCommand(command, false, value);
-        }
-      } catch (error) {
-        console.error("Error executing command:", command, error);
-      }
-
-      const content = editorRef.current.innerHTML;
-      setFormData((prev) => ({
-        ...prev,
-        description: content,
-      }));
-
-      editorRef.current.focus();
-    }
+  const onRubricChange = (newRubric: RubricCriterion[]) => {
+    setFormData((prev) => ({
+      ...prev,
+      rubric: newRubric,
+    }));
   };
 
   return (
     <motion.div
-      className="max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden"
+      className="max-w-7xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -312,7 +269,6 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                   </div>
                 </div>
 
-                {/* Status */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
                     Status
@@ -330,6 +286,22 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                   </select>
                 </div>
               </div>
+
+              {formData.submission_type !== "text" && (
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    Allowed File Types (comma-separated)
+                  </label>
+                  <input
+                    type="text"
+                    name="allowed_file_types"
+                    value={formData.allowed_file_types}
+                    onChange={handleChange}
+                    placeholder="pdf, docx, jpg, png, zip"
+                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm"
+                  />
+                </div>
+              )}
             </div>
           </div>
         </motion.div>
@@ -345,21 +317,6 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
               Attachments
             </label>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              + Add Files
-            </Button>
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              multiple
-              className="hidden"
-            />
           </div>
 
           <div className="space-y-3">
@@ -367,7 +324,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
             {existingAttachments.map((att, index) => (
               <div
                 key={`existing-${index}`}
-                className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+                className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700"
               >
                 <div className="flex items-center gap-3">
                   <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
@@ -417,57 +374,22 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
             ))}
 
             {/* New Files */}
-            {newFiles.map((file, index) => (
-              <div
-                key={`new-${index}`}
-                className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
-                    <svg
-                      className="w-5 h-5 text-green-600 dark:text-green-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4v16m8-8H4"
-                      />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
-                      {file.name}
-                    </p>
-                    <p className="text-xs text-green-600 dark:text-green-400">
-                      New Upload
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => removeNewFile(index)}
-                  className="p-2 text-red-500 hover:bg-white rounded-lg transition-colors"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  </svg>
-                </button>
-              </div>
-            ))}
+            <div className="space-y-4">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                New Attachments
+              </label>
+              <FileDropzone
+                onFilesSelected={(updatedFiles: File[]) =>
+                  setNewFiles(updatedFiles)
+                }
+                allowedTypes={
+                  formData.submission_type !== "text"
+                    ? formData.allowed_file_types
+                    : ""
+                }
+                existingFiles={newFiles}
+              />
+            </div>
 
             {existingAttachments.length === 0 && newFiles.length === 0 && (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
@@ -486,66 +408,154 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
           <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
             Description
           </label>
-          <div className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden bg-white dark:bg-gray-800">
-            {/* Simple Toolbar */}
-            <div className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 p-2">
-              <div className="flex flex-wrap items-center gap-1 text-sm">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertFormatting("bold")}
-                  className="h-8 w-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
-                >
-                  <strong>B</strong>
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertFormatting("italic")}
-                  className="h-8 w-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
-                >
-                  <em>I</em>
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertFormatting("underline")}
-                  className="h-8 w-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
-                >
-                  <u>U</u>
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertFormatting("insertUnorderedList")}
-                  className="h-8 w-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
-                >
-                  •
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => insertFormatting("insertOrderedList")}
-                  className="h-8 w-8 p-0 hover:bg-gray-200 dark:hover:bg-gray-700"
-                >
-                  1.
-                </Button>
-              </div>
-            </div>
+          <RichTextEditor
+            content={formData.description}
+            onChange={(content) =>
+              setFormData((prev) => ({ ...prev, description: content }))
+            }
+            placeholder="Modify the assignment description..."
+          />
+        </motion.div>
 
-            {/* Editor */}
-            <div
-              ref={editorRef}
-              contentEditable
-              onInput={handleEditorInput}
-              className="min-h-[200px] p-4 focus:outline-none bg-white dark:bg-gray-800 dark:text-white"
-              style={{ color: "black" }}
-            />
+        {/* Rubric Management */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.25 }}
+          className="space-y-4"
+        >
+          <div className="flex items-center justify-between">
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                Grading Rubric
+              </label>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                Define the criteria for grading this assignment
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => {
+                const newCriterion: RubricCriterion = {
+                  criteria: "",
+                  max_score: 10,
+                  description: "",
+                };
+                onRubricChange([...formData.rubric, newCriterion]);
+              }}
+            >
+              <div className="flex flex-row items-center justify-center gap-2">
+                <div>
+                  <Plus className="w-4 h-4" />
+                </div>
+                <span>Add Criterion</span>
+              </div>
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            <AnimatePresence initial={false}>
+              {formData.rubric.map(
+                (criterion: RubricCriterion, index: number) => (
+                  <motion.div
+                    key={index}
+                    initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, height: "auto", scale: 1 }}
+                    exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 space-y-4 mb-4">
+                      <div className="flex items-start gap-4">
+                        <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
+                          <div className="md:col-span-3">
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase">
+                              Criterion Name
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="e.g., Code Quality, Documentation..."
+                              value={criterion.criteria}
+                              onChange={(e) => {
+                                const newRubric = [...formData.rubric];
+                                newRubric[index] = {
+                                  ...newRubric[index],
+                                  criteria: e.target.value,
+                                };
+                                onRubricChange(newRubric);
+                              }}
+                              className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase">
+                              Max Pts
+                            </label>
+                            <input
+                              type="number"
+                              placeholder="10"
+                              value={criterion.max_score}
+                              onChange={(e) => {
+                                const newRubric = [...formData.rubric];
+                                newRubric[index] = {
+                                  ...newRubric[index],
+                                  max_score: parseInt(e.target.value) || 0,
+                                };
+                                onRubricChange(newRubric);
+                              }}
+                              className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white text-center font-bold"
+                            />
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newRubric = formData.rubric.filter(
+                              (_: any, i: number) => i !== index,
+                            );
+                            onRubricChange(newRubric);
+                          }}
+                          className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-colors mt-6"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
+                      </div>
+                      <textarea
+                        placeholder="Describe what expectations must be met for this criterion..."
+                        value={criterion.description}
+                        onChange={(e) => {
+                          const newRubric = [...formData.rubric];
+                          newRubric[index] = {
+                            ...newRubric[index],
+                            description: e.target.value,
+                          };
+                          onRubricChange(newRubric);
+                        }}
+                        rows={2}
+                        className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white resize-none"
+                      />
+                    </div>
+                  </motion.div>
+                ),
+              )}
+
+              {formData.rubric.length === 0 && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-center py-10 bg-gray-50/50 dark:bg-gray-800/30 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700"
+                >
+                  <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm border border-gray-100 dark:border-gray-700">
+                    <Plus className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                    No criteria added. Click "Add Criterion" to build your
+                    rubric.
+                  </p>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </motion.div>
 

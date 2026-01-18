@@ -3,6 +3,9 @@ import { motion, AnimatePresence } from "framer-motion";
 import axios from "axios";
 import { toast } from "react-toastify";
 import { formatDateTimeLocal } from "../../utils/dateUtils";
+import { type RubricCriterion } from "./AssignmentCard";
+import { Award, ChevronDown, ChevronUp, Target } from "lucide-react";
+import FileDropzone from "../Common/FileDropzone";
 
 interface SubmissionModalProps {
   isOpen: boolean;
@@ -14,6 +17,7 @@ interface SubmissionModalProps {
     max_score: number;
     due_date: string;
     status?: string;
+    rubric?: RubricCriterion[] | string | null;
   };
   onSubmissionSuccess: () => void;
   existingSubmission?: any;
@@ -27,7 +31,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
   existingSubmission,
 }) => {
   const [submissionText, setSubmissionText] = useState(
-    existingSubmission?.text_submission || ""
+    existingSubmission?.text_submission || "",
   );
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -39,6 +43,20 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
       setSubmissionFile(null);
     }
   }, [isOpen, existingSubmission]);
+
+  const [showRubric, setShowRubric] = useState(false);
+
+  const parsedRubric = React.useMemo(() => {
+    if (!assignment?.rubric) return [];
+    if (typeof assignment.rubric === "string") {
+      try {
+        return JSON.parse(assignment.rubric) as RubricCriterion[];
+      } catch (e) {
+        return [];
+      }
+    }
+    return assignment.rubric as RubricCriterion[];
+  }, [assignment?.rubric]);
 
   const handleSubmitAssignment = async () => {
     // Validate that at least one submission method is provided
@@ -170,15 +188,15 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                       assignment.submission_type === "both"
                         ? "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300"
                         : assignment.submission_type === "file"
-                        ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
-                        : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300"
+                          : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300"
                     }`}
                   >
                     {assignment.submission_type === "both"
                       ? "📁 + ✍️"
                       : assignment.submission_type === "file"
-                      ? "📁"
-                      : "✍️"}
+                        ? "📁"
+                        : "✍️"}
                   </span>
                 </div>
                 <div className="flex items-center gap-4 text-sm text-blue-700 dark:text-blue-300">
@@ -187,6 +205,67 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                   <span>{assignment.max_score} points</span>
                 </div>
               </div>
+
+              {/* Rubric Section */}
+              {parsedRubric.length > 0 && (
+                <div className="mb-6 border border-gray-100 dark:border-gray-800 rounded-2xl overflow-hidden bg-gray-50/50 dark:bg-gray-800/30">
+                  <button
+                    onClick={() => setShowRubric(!showRubric)}
+                    className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-700/50 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Award className="w-5 h-5 text-indigo-500" />
+                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                        Grading Rubric ({parsedRubric.length} Criteria)
+                      </span>
+                    </div>
+                    {showRubric ? (
+                      <ChevronUp className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    )}
+                  </button>
+                  <AnimatePresence>
+                    {showRubric && (
+                      <motion.div
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: "auto", opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="border-t border-gray-100 dark:border-gray-800"
+                      >
+                        <div className="p-4 space-y-3">
+                          {parsedRubric.map((criterion, idx) => (
+                            <div
+                              key={idx}
+                              className="bg-white dark:bg-gray-800/50 p-3 rounded-xl border border-gray-100 dark:border-gray-700"
+                            >
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="flex gap-2">
+                                  <Target className="w-4 h-4 text-gray-400 mt-0.5" />
+                                  <div>
+                                    <p className="text-sm font-bold text-gray-900 dark:text-white">
+                                      {criterion.criteria}
+                                    </p>
+                                    {criterion.description && (
+                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                        {criterion.description}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                                <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded-lg shrink-0">
+                                  {criterion.max_score} pts
+                                </span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+              )}
 
               {/* Submission Form */}
               <div className="space-y-6">
@@ -212,75 +291,18 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                 {/* File Submission */}
                 {(assignment.submission_type === "file" ||
                   assignment.submission_type === "both") && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                      Upload File
+                  <div className="space-y-4">
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      File Submission
                     </label>
-                    <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl p-6 text-center hover:border-blue-400 dark:hover:border-blue-500 transition-colors">
-                      <input
-                        type="file"
-                        onChange={(e) =>
-                          setSubmissionFile(e.target.files?.[0] || null)
-                        }
-                        accept=".pdf,.doc,.docx,.xls,.xlsx,.zip,.7z,.rar,.txt,.jpg,.jpeg,.png,.gif,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/zip,application/x-zip-compressed,application/x-7z-compressed,application/x-rar-compressed,application/rar,application/x-rar,application/octet-stream,text/plain,image/jpeg,image/png,image/gif"
-                        className="hidden"
-                        id="file-upload"
-                      />
-                      <label htmlFor="file-upload" className="cursor-pointer">
-                        {submissionFile ? (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-green-100 dark:bg-green-900/30 rounded-full">
-                              <svg
-                                className="w-6 h-6 text-green-600 dark:text-green-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                />
-                              </svg>
-                            </div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-white">
-                              {submissionFile.name}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {(submissionFile.size / 1024 / 1024).toFixed(2)}{" "}
-                              MB
-                            </p>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <div className="flex items-center justify-center w-12 h-12 mx-auto bg-gray-100 dark:bg-gray-800 rounded-full">
-                              <svg
-                                className="w-6 h-6 text-gray-400"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-                                />
-                              </svg>
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-900 dark:text-white">
-                                Click to upload or drag and drop
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
-                                PDF, DOC, XLS, ZIP, 7Z, RAR, TXT, Images up to 10MB
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </label>
-                    </div>
+                    <FileDropzone
+                      onFilesSelected={(files: File[]) =>
+                        setSubmissionFile(files[0] || null)
+                      }
+                      maxFiles={1}
+                      existingFiles={submissionFile ? [submissionFile] : []}
+                      className="mt-1"
+                    />
                   </div>
                 )}
               </div>
@@ -309,8 +331,8 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                     {isSubmitting
                       ? "Submitting..."
                       : existingSubmission
-                      ? "Update Submission"
-                      : "Submit Assignment"}
+                        ? "Update Submission"
+                        : "Submit Assignment"}
                   </button>
                 </div>
               </div>

@@ -1,4 +1,5 @@
 import React from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import SubmissionSummaryItem, {
   type SubmissionItemInterface,
 } from "./SubmissionSummaryItem";
@@ -40,7 +41,7 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
   // Calculate submission statistics
   const gradedCount = submissions.filter((s) => s.status === "graded").length;
   const submittedCount = submissions.filter(
-    (s) => s.status === "submitted"
+    (s) => s.status === "submitted",
   ).length;
   // Count pending submissions: both actual pending submissions and placeholder non-submitters
   const pendingCount = submissions.filter((s) => s.status === "pending").length;
@@ -49,7 +50,11 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
     <div className="space-y-4">
       {/* Submission Statistics Dashboard - Only for Instructors */}
       {canManageAssignment && submissions.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-1 sm:grid-cols-3 gap-4"
+        >
           <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-4 border border-green-200 dark:border-green-700">
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 bg-green-100 dark:bg-green-800 rounded-2xl flex items-center justify-center">
@@ -133,15 +138,20 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
               </div>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Student-specific messages */}
       {isStudent && (
-        <>
+        <AnimatePresence mode="popLayout">
           {/* User's own submission status */}
           {userSubmission() && (
-            <div className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-6 border border-green-200 dark:border-green-700">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-6 border border-green-200 dark:border-green-700"
+            >
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex items-center gap-4 flex-1">
                   <div className="h-12 w-12 bg-green-100 dark:bg-green-800 rounded-2xl flex items-center justify-center">
@@ -220,12 +230,17 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
                   </button>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
 
           {/* Overdue message */}
           {!canSubmit && !userSubmission() && isOverdue && (
-            <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-6 border border-orange-200 dark:border-orange-700">
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-6 border border-orange-200 dark:border-orange-700"
+            >
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex items-center gap-4">
                   <div className="h-12 w-12 bg-orange-100 dark:bg-orange-800 rounded-2xl flex items-center justify-center">
@@ -254,9 +269,9 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
                   </div>
                 </div>
               </div>
-            </div>
+            </motion.div>
           )}
-        </>
+        </AnimatePresence>
       )}
 
       {/* First submission CTA for students */}
@@ -335,27 +350,41 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
             </div>
           </div>
 
-          <div className="space-y-3">
-            {submissions.map((submission) => (
-              <SubmissionSummaryItem
-                key={submission.id}
-                submission={submission}
-                assignment={{
-                  max_score: parseInt(assignment.max_score),
-                  status: assignment.status,
-                }}
-                formatDate={formatDate}
-                getSubmissionStatusColor={getSubmissionStatusColor}
-                onViewDetails={() => onViewDetails(submission)}
-              />
-            ))}
-          </div>
+          <motion.div layout className="space-y-3">
+            <AnimatePresence mode="popLayout">
+              {submissions.map((submission, index) => (
+                <motion.div
+                  key={submission.id}
+                  layout
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <SubmissionSummaryItem
+                    submission={submission}
+                    assignment={{
+                      max_score: parseInt(assignment.max_score),
+                      status: assignment.status,
+                    }}
+                    formatDate={formatDate}
+                    getSubmissionStatusColor={getSubmissionStatusColor}
+                    onViewDetails={() => onViewDetails(submission)}
+                  />
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </motion.div>
         </div>
       ) : null}
 
       {/* Empty state for instructors/non-students when no submissions */}
       {!canSubmit && submissions.length === 0 && (
-        <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-12 border border-gray-200 dark:border-gray-800">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-12 border border-gray-200 dark:border-gray-800"
+        >
           <div className="flex flex-col items-center gap-6 text-center max-w-md mx-auto">
             <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
               <svg
@@ -382,7 +411,7 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
               </p>
             </div>
           </div>
-        </div>
+        </motion.div>
       )}
     </div>
   );

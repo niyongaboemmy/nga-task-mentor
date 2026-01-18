@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../store";
@@ -8,10 +9,13 @@ import { useAuth } from "../../contexts/AuthContext";
 import SubmissionModal from "./SubmissionModal";
 import AssignmentHeader from "./AssignmentHeader";
 import SubmissionList from "./SubmissionList";
+import { toast } from "react-toastify";
 import AssignmentForm from "./AssignmentForm";
 import SubmissionDetailsModal from "./SubmissionDetailsModal";
 import FilePreviewModal from "../Submissions/FilePreviewModal";
 import { type SubmissionItemInterface } from "./SubmissionSummaryItem";
+import { type RubricCriterion } from "./AssignmentCard";
+import { Award, Target } from "lucide-react";
 import {
   formatDateTimeLocal,
   parseLocalDateTimeToUTC,
@@ -46,7 +50,7 @@ interface Assignment {
   max_score: string;
   submission_type: string;
   allowed_file_types: string;
-  rubric: string;
+  rubric: RubricCriterion[] | string | null;
   course_id: string;
   created_by: string;
   attachments?: Attachment[];
@@ -109,7 +113,7 @@ const AssignmentDetails = () => {
     max_score: string;
     submission_type: string;
     allowed_file_types: string;
-    rubric: string;
+    rubric: RubricCriterion[] | string;
     status: string;
     attachments?: Attachment[];
   }>({
@@ -119,7 +123,7 @@ const AssignmentDetails = () => {
     max_score: "",
     submission_type: "both",
     allowed_file_types: "",
-    rubric: "",
+    rubric: [],
     status: "draft",
     attachments: [],
   });
@@ -127,6 +131,18 @@ const AssignmentDetails = () => {
     url: string;
     name: string;
   } | null>(null);
+
+  const parsedRubric = React.useMemo(() => {
+    if (!assignment?.rubric) return [];
+    if (typeof assignment.rubric === "string") {
+      try {
+        return JSON.parse(assignment.rubric) as RubricCriterion[];
+      } catch (e) {
+        return [];
+      }
+    }
+    return assignment.rubric as RubricCriterion[];
+  }, [assignment?.rubric]);
 
   const handleInputChange = (
     e: React.ChangeEvent<
@@ -174,8 +190,19 @@ const AssignmentDetails = () => {
       formData.append("due_date", formattedDate);
       formData.append("max_score", editFormData.max_score);
       formData.append("submission_type", editFormData.submission_type);
-      formData.append("allowed_file_types", editFormData.allowed_file_types);
-      formData.append("rubric", editFormData.rubric);
+      const allowedFileTypesArray = Array.isArray(
+        editFormData.allowed_file_types,
+      )
+        ? editFormData.allowed_file_types
+        : editFormData.allowed_file_types
+            .split(",")
+            .map((t) => t.trim().toLowerCase())
+            .filter((t) => t !== "");
+      formData.append(
+        "allowed_file_types",
+        JSON.stringify(allowedFileTypesArray),
+      );
+      formData.append("rubric", JSON.stringify(editFormData.rubric));
       formData.append("status", editFormData.status);
 
       // Add existing attachments
@@ -198,10 +225,15 @@ const AssignmentDetails = () => {
         formData,
       );
       setAssignment(response.data.data);
+      toast.success("Assignment updated successfully!");
       setIsEditing(false);
+      fetchAssignment();
       setNewFiles([]);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error updating assignment:", error);
+      toast.error(
+        error.response?.data?.message || "Failed to update assignment",
+      );
     }
   };
 
@@ -217,7 +249,9 @@ const AssignmentDetails = () => {
         due_date: data.due_date ? formatUTCToLocalDateTime(data.due_date) : "",
         max_score: data.max_score.toString(),
         submission_type: data.submission_type,
-        allowed_file_types: data.allowed_file_types || "",
+        allowed_file_types: Array.isArray(data.allowed_file_types)
+          ? data.allowed_file_types.join(", ")
+          : data.allowed_file_types || "",
         rubric: data.rubric || "",
         status: data.status || "draft",
         attachments: data.attachments || [],
@@ -273,21 +307,31 @@ const AssignmentDetails = () => {
         await axios.patch(`/api/assignments/${assignmentId}/status`, {
           status,
         });
+        toast.success("Assignment status updated successfully!");
         fetchAssignment();
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error updating assignment status:", error);
+        toast.error(
+          error.response?.data?.message || "Failed to update assignment status",
+        );
       }
     },
     [fetchAssignment],
   );
 
   const handleGradeSubmission = useCallback(
-    async (submissionId: string, score: number, feedback: string) => {
+    async (
+      submissionId: string,
+      score: number,
+      feedback: string,
+      rubricScores?: Record<number, number>,
+    ) => {
       try {
         await axios.patch(`/api/submissions/${submissionId}/grade`, {
           score,
           maxScore: parseInt(assignment!.max_score),
           feedback,
+          rubricScores,
         });
         await fetchSubmissions();
       } catch (error) {
@@ -462,17 +506,17 @@ const AssignmentDetails = () => {
         {/* Clean Tab Navigation */}
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-white dark:border-gray-800 overflow-hidden">
           <div className="border-b mt-1 border-gray-200 dark:border-gray-800">
-            <nav className="flex space-x-0 px-6">
+            <nav className="flex space-x-1 px-6">
               <button
                 onClick={() => setActiveTab("submissions")}
                 className={`py-3 px-6 border-b-2 rounded-t-2xl font-medium text-sm flex items-center gap-2 transition-colors ${
                   activeTab === "submissions"
-                    ? "border-gray-300 dark:border-gray-700 text-gray-900 dark:text-gray-100 bg-gray-50 dark:bg-gray-800"
-                    : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 hover:border-gray-300 dark:hover:border-gray-600"
+                    ? "border-blue-500 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10"
+                    : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
                 }`}
               >
                 <svg
-                  className="h-5 w-5 text-blue-500"
+                  className="h-5 w-5"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -485,46 +529,144 @@ const AssignmentDetails = () => {
                   />
                 </svg>
                 <span>Submissions</span>
-                <span
-                  className={`px-2 py-1 rounded-full text-xs font-medium ${
-                    activeTab === "submissions"
-                      ? "bg-gray-200 dark:bg-gray-600 text-gray-700 dark:text-gray-300"
-                      : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
-                  }`}
-                >
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                   {submissions.length}
                 </span>
+              </button>
+              <button
+                onClick={() => setActiveTab("details")}
+                className={`py-3 px-6 border-b-2 rounded-t-2xl font-medium text-sm flex items-center gap-2 transition-colors ${
+                  activeTab === "details"
+                    ? "border-blue-500 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10"
+                    : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                }`}
+              >
+                <svg
+                  className="h-5 w-5"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span>Details</span>
               </button>
             </nav>
           </div>
 
           {/* Tab Content */}
           <div className="p-6">
-            {activeTab === "submissions" && (
-              <SubmissionList
-                submissions={submissions}
-                assignment={{
-                  id: assignment.id,
-                  title: assignment.title,
-                  due_date: assignment.due_date,
-                  max_score: assignment.max_score,
-                  submission_type: assignment.submission_type,
-                  status: assignment.status,
-                }}
-                canSubmit={canSubmit}
-                canManageAssignment={canManageAssignment}
-                isOverdue={isOverdue}
-                isStudent={isStudent}
-                userSubmission={userSubmission}
-                formatDate={formatDate}
-                getSubmissionStatusColor={getSubmissionStatusColor}
-                onViewDetails={(submission) => {
-                  setSelectedSubmission(submission);
-                  setIsDetailsModalOpen(true);
-                }}
-                onOpenSubmissionModal={() => setIsModalOpen(true)}
-              />
-            )}
+            <AnimatePresence mode="wait">
+              {activeTab === "submissions" ? (
+                <motion.div
+                  key="submissions"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <SubmissionList
+                    submissions={submissions}
+                    assignment={{
+                      id: assignment.id,
+                      title: assignment.title,
+                      due_date: assignment.due_date,
+                      max_score: assignment.max_score,
+                      submission_type: assignment.submission_type,
+                      status: assignment.status,
+                    }}
+                    canSubmit={canSubmit}
+                    canManageAssignment={canManageAssignment}
+                    isOverdue={isOverdue}
+                    isStudent={isStudent}
+                    userSubmission={userSubmission}
+                    formatDate={formatDate}
+                    getSubmissionStatusColor={getSubmissionStatusColor}
+                    onViewDetails={(submission) => {
+                      setSelectedSubmission(submission);
+                      setIsDetailsModalOpen(true);
+                    }}
+                    onOpenSubmissionModal={() => setIsModalOpen(true)}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="details"
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  transition={{ duration: 0.2 }}
+                  className="space-y-8"
+                >
+                  <div className="prose prose-blue dark:prose-invert max-w-none">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                      Assignment Description
+                    </h3>
+                    <div
+                      className="text-gray-700 dark:text-gray-300 leading-relaxed"
+                      dangerouslySetInnerHTML={{
+                        __html: assignment.description,
+                      }}
+                    />
+                  </div>
+
+                  {parsedRubric.length > 0 && (
+                    <div className="space-y-6 pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400">
+                          <Award className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                            Grading Rubric
+                          </h3>
+                          <p className="text-xs text-gray-500 font-medium">
+                            Evaluation criteria for this assignment
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid gap-4">
+                        {parsedRubric.map((criterion, idx) => (
+                          <div
+                            key={idx}
+                            className="group bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-3 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all hover:shadow-md"
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex items-start gap-3">
+                                <div className="mt-1 w-8 h-8 rounded-lg bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center text-gray-400 group-hover:text-blue-500 transition-colors">
+                                  <Target className="w-4 h-4" />
+                                </div>
+                                <div className="space-y-1">
+                                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                                    {criterion.criteria}
+                                  </h4>
+                                  {criterion.description && (
+                                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed max-w-2xl">
+                                      {criterion.description}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                              <div className="bg-blue-100 dark:bg-blue-900/30 px-3 py-1.5 rounded-xl text-center min-w-[70px]">
+                                <span className="text-xs font-black text-blue-700 dark:text-blue-400">
+                                  {criterion.max_score} pts
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         </div>
 

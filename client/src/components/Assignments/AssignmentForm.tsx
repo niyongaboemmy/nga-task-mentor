@@ -1,4 +1,6 @@
-import React from "react";
+import RichTextEditor from "../Common/RichTextEditor";
+import { Plus, Trash2 } from "lucide-react";
+import { type RubricCriterion } from "./AssignmentCard";
 
 interface Attachment {
   name: string;
@@ -14,7 +16,7 @@ interface AssignmentFormData {
   max_score: string;
   submission_type: string;
   allowed_file_types: string;
-  rubric: string;
+  rubric: RubricCriterion[] | string;
   status: string;
   attachments?: Attachment[];
 }
@@ -101,14 +103,14 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
             >
               Description
             </label>
-            <textarea
-              id="description"
-              name="description"
-              value={editFormData.description}
-              onChange={onInputChange}
-              rows={4}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
-              required
+            <RichTextEditor
+              content={editFormData.description}
+              onChange={(content) => {
+                onInputChange({
+                  target: { name: "description", value: content },
+                } as any);
+              }}
+              placeholder="Enter assignment description..."
             />
           </div>
 
@@ -330,22 +332,142 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
             />
           </div>
 
-          <div>
-            <label
-              htmlFor="rubric"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
-            >
-              Rubric (JSON format)
-            </label>
-            <textarea
-              id="rubric"
-              name="rubric"
-              value={editFormData.rubric}
-              onChange={onInputChange}
-              rows={3}
-              placeholder="Enter rubric in JSON format"
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white font-mono text-sm"
-            />
+          {/* Rubric Management */}
+          <div className="space-y-4 py-4 border-t border-gray-100 dark:border-gray-700">
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                  Grading Rubric
+                </label>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  Define the criteria for grading this assignment
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  const currentRubric = Array.isArray(editFormData.rubric)
+                    ? editFormData.rubric
+                    : [];
+                  const newCriterion: RubricCriterion = {
+                    criteria: "",
+                    max_score: 10,
+                    description: "",
+                  };
+                  onInputChange({
+                    target: {
+                      name: "rubric",
+                      value: [...currentRubric, newCriterion],
+                    },
+                  } as any);
+                }}
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 transition-colors"
+              >
+                <div className="flex flex-row items-center justify-center gap-2">
+                  <div>
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <span>Add Criterion</span>
+                </div>
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              {Array.isArray(editFormData.rubric) &&
+              editFormData.rubric.length > 0 ? (
+                editFormData.rubric.map((item, index) => (
+                  <div
+                    key={index}
+                    className="bg-gray-50/50 dark:bg-gray-800/30 rounded-xl p-4 border border-gray-100 dark:border-gray-700 space-y-3"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 space-y-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
+                          <div className="sm:col-span-3">
+                            <input
+                              type="text"
+                              placeholder="Criterion name"
+                              value={item.criteria}
+                              onChange={(e) => {
+                                const newRubric = [
+                                  ...(editFormData.rubric as RubricCriterion[]),
+                                ];
+                                newRubric[index] = {
+                                  ...newRubric[index],
+                                  criteria: e.target.value,
+                                };
+                                onInputChange({
+                                  target: { name: "rubric", value: newRubric },
+                                } as any);
+                              }}
+                              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                            />
+                          </div>
+                          <div>
+                            <input
+                              type="number"
+                              placeholder="Pts"
+                              value={item.max_score}
+                              onChange={(e) => {
+                                const newRubric = [
+                                  ...(editFormData.rubric as RubricCriterion[]),
+                                ];
+                                newRubric[index] = {
+                                  ...newRubric[index],
+                                  max_score: parseInt(e.target.value) || 0,
+                                };
+                                onInputChange({
+                                  target: { name: "rubric", value: newRubric },
+                                } as any);
+                              }}
+                              className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                            />
+                          </div>
+                        </div>
+                        <textarea
+                          placeholder="Description..."
+                          value={item.description}
+                          onChange={(e) => {
+                            const newRubric = [
+                              ...(editFormData.rubric as RubricCriterion[]),
+                            ];
+                            newRubric[index] = {
+                              ...newRubric[index],
+                              description: e.target.value,
+                            };
+                            onInputChange({
+                              target: { name: "rubric", value: newRubric },
+                            } as any);
+                          }}
+                          rows={2}
+                          className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white resize-none"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const newRubric = (
+                            editFormData.rubric as RubricCriterion[]
+                          ).filter((_, i) => i !== index);
+                          onInputChange({
+                            target: { name: "rubric", value: newRubric },
+                          } as any);
+                        }}
+                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="text-center py-6 border-2 border-dashed border-gray-100 dark:border-gray-700 rounded-2xl">
+                  <p className="text-xs text-gray-400">
+                    No grading criteria defined.
+                  </p>
+                </div>
+              )}
+            </div>
           </div>
 
           <div>

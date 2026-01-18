@@ -103,6 +103,8 @@ export const createAssignment = async (req: Request, res: Response) => {
       max_score,
       submission_type = "both",
       course_id, // Allow course_id from body for flexibility
+      rubric,
+      allowed_file_types,
     } = req.body;
 
     console.log("Create Assignment Payload debug:", {
@@ -200,6 +202,31 @@ export const createAssignment = async (req: Request, res: Response) => {
       submission_type,
       created_by: req.user.id,
       attachments,
+      rubric: (() => {
+        if (!rubric) return [];
+        if (typeof rubric === "string") {
+          try {
+            return JSON.parse(rubric);
+          } catch (e) {
+            return [];
+          }
+        }
+        return rubric;
+      })(),
+      allowed_file_types: (() => {
+        if (!allowed_file_types) return [];
+        if (typeof allowed_file_types === "string") {
+          try {
+            return JSON.parse(allowed_file_types);
+          } catch (e) {
+            return allowed_file_types
+              .split(",")
+              .map((t: string) => t.trim().toLowerCase())
+              .filter((t: string) => t !== "");
+          }
+        }
+        return allowed_file_types;
+      })(),
     } as any); // Cast to any to allow status field
 
     res.status(201).json({
@@ -366,9 +393,32 @@ export const updateAssignment = async (req: Request, res: Response) => {
     if (max_score !== undefined) assignment.max_score = max_score;
     if (submission_type !== undefined)
       assignment.submission_type = submission_type;
-    if (allowed_file_types !== undefined)
-      assignment.allowed_file_types = allowed_file_types;
-    if (rubric !== undefined) assignment.rubric = rubric;
+    if (allowed_file_types !== undefined) {
+      if (typeof allowed_file_types === "string") {
+        try {
+          assignment.allowed_file_types = JSON.parse(allowed_file_types);
+        } catch (e) {
+          assignment.allowed_file_types = allowed_file_types
+            .split(",")
+            .map((t: string) => t.trim().toLowerCase())
+            .filter((t: string) => t !== "");
+        }
+      } else {
+        assignment.allowed_file_types = allowed_file_types;
+      }
+    }
+
+    if (rubric !== undefined) {
+      if (typeof rubric === "string") {
+        try {
+          assignment.rubric = JSON.parse(rubric);
+        } catch (e) {
+          assignment.rubric = [];
+        }
+      } else {
+        assignment.rubric = rubric;
+      }
+    }
     if (status !== undefined) {
       const validStatuses = ["draft", "published", "completed", "removed"];
       if (!validStatuses.includes(status)) {

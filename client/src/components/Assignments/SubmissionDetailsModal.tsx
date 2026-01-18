@@ -1,5 +1,4 @@
 import React from "react";
-import axios from "axios";
 import { toast } from "react-toastify";
 import { getProfileImageUrl } from "../../utils/imageUrl";
 import SubmissionMarking, {
@@ -7,6 +6,22 @@ import SubmissionMarking, {
 } from "./SubmissionMarking";
 import type { AssignmentInterface } from "./AssignmentCard";
 import FilePreviewModal from "../Submissions/FilePreviewModal";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  CheckCircle2,
+  Award,
+  FileText,
+  Download,
+  Eye,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  Star,
+  Info,
+  Plus,
+  ChevronRight,
+} from "lucide-react";
+import axios from "../../utils/axiosConfig";
 
 interface SubmissionDetailsModalProps {
   isOpen: boolean;
@@ -37,6 +52,37 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
     url: string;
     name: string;
   } | null>(null);
+  const [newComment, setNewComment] = React.useState("");
+  const [isSubmittingComment, setIsSubmittingComment] = React.useState(false);
+  const [localComments, setLocalComments] = React.useState<any[]>(
+    submission.comments || [],
+  );
+  const [showBreakdown, setShowBreakdown] = React.useState(true);
+
+  const handleAddComment = async () => {
+    if (!newComment.trim()) return;
+
+    setIsSubmittingComment(true);
+    try {
+      const response = await axios.post(
+        `/api/submissions/${submission.id}/comments`,
+        {
+          content: newComment,
+        },
+      );
+
+      if (response.data.success) {
+        setLocalComments(response.data.data.comments);
+        setNewComment("");
+        toast.success("Comment added successfully");
+      }
+    } catch (error: any) {
+      console.error("Error adding comment:", error);
+      toast.error(error.response?.data?.message || "Failed to add comment");
+    } finally {
+      setIsSubmittingComment(false);
+    }
+  };
 
   const handleDownloadFile = async (fileName: string, filename: string) => {
     setIsDownloading(fileName);
@@ -48,7 +94,6 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
         },
       );
 
-      // Create download link
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement("a");
       link.href = url;
@@ -65,448 +110,317 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
     }
   };
 
+  const rubric = React.useMemo(() => {
+    if (!assignment.rubric) return [];
+    if (typeof assignment.rubric === "string") {
+      try {
+        return JSON.parse(assignment.rubric);
+      } catch (e) {
+        return [];
+      }
+    }
+    return assignment.rubric;
+  }, [assignment.rubric]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/50">
-      <div className="w-full max-w-4xl max-h-[90vh] bg-white dark:bg-gray-900 rounded-3xl shadow-xl overflow-hidden animate-in fade-in-0 zoom-in-95 duration-300 dark:border dark:border-gray-800">
-        {/* Modern Compact Header */}
-        <div className="px-5 py-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-b border-gray-200/50 dark:border-gray-700/50">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="h-9 w-9 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center shadow-sm">
-                <svg
-                  className="w-5 h-5 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </div>
-              <div className="min-w-0 flex-1">
-                <h2 className="text-lg font-semibold text-gray-900 dark:text-white truncate">
-                  Submission Details
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+      <motion.div
+        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        className="w-full max-w-5xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-2xl overflow-hidden dark:border dark:border-gray-800 flex flex-col"
+      >
+        {/* Premium Header */}
+        <div className="px-8 py-6 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-black dark:via-gray-900 dark:to-black text-white relative">
+          <div className="absolute top-0 right-0 p-8 opacity-10">
+            <FileText className="w-32 h-32" />
+          </div>
+          <div className="flex items-center justify-between relative z-10">
+            <div className="flex items-center gap-5">
+              {submission.student.profile_image ? (
+                <img
+                  src={
+                    getProfileImageUrl(submission.student.profile_image) ||
+                    undefined
+                  }
+                  alt={submission.student.first_name}
+                  className="h-14 w-14 rounded-2xl object-cover shadow-lg transform -rotate-3 ring-2 ring-white/20"
+                />
+              ) : (
+                <div className="h-14 w-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg transform -rotate-3">
+                  <FileText className="w-7 h-7 text-white" />
+                </div>
+              )}
+              <div>
+                <h2 className="text-2xl font-black tracking-tight">
+                  {submission.student.first_name}'s Submission
                 </h2>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400 truncate">
-                  {assignment.title}
-                </p>
+                <div className="flex items-center gap-2 mt-1 opacity-70">
+                  <span className="text-xs font-bold uppercase tracking-widest">
+                    {assignment.title}
+                  </span>
+                  <div className="w-1 h-1 bg-white rounded-full" />
+                  <span className="text-xs font-bold uppercase tracking-widest">
+                    {assignment.course_id || "CS101"}
+                  </span>
+                </div>
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-105"
+              className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all hover:rotate-90"
             >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
+              <Plus className="w-6 h-6 rotate-45" />
             </button>
           </div>
         </div>
 
-        {/* Compact Content */}
-        <div
-          className="px-5 py-4 overflow-y-auto"
-          style={{ maxHeight: "calc(90vh - 120px)" }}
-        >
-          {/* Student Info - Compact */}
-          <div className="mb-4">
-            <div className="bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 rounded-2xl p-4 border border-gray-200/30 dark:border-gray-700/30">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  {submission.student.profile_image ? (
-                    <div className="relative">
-                      <img
-                        src={
-                          getProfileImageUrl(
-                            submission.student.profile_image,
-                          ) || ""
-                        }
-                        alt={`${submission.student.first_name} ${submission.student.last_name}`}
-                        className="h-11 w-11 rounded-2xl object-cover ring-2 ring-white dark:ring-gray-800 shadow-sm"
-                      />
-                      <div
-                        className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white dark:border-gray-800 ${getSubmissionStatusColor(
-                          submission.status,
-                        )}`}
-                      >
-                        <span className="w-1 h-1 rounded-full bg-current block mx-auto mt-0.5"></span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="relative h-11 w-11 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-2xl flex items-center justify-center ring-2 ring-white dark:ring-gray-800 shadow-sm">
-                      <span className="text-gray-700 dark:text-gray-300 font-semibold text-sm">
-                        {submission.student.first_name?.[0] || "?"}
-                        {submission.student.last_name?.[0] || ""}
+        {/* Scrollable Content Container */}
+        <div className="flex-1 overflow-y-auto bg-gray-50/50 dark:bg-gray-950 p-8 pt-6">
+          <div className="max-w-4xl mx-auto space-y-8">
+            {/* Grade Highlight & Status */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-2 bg-white dark:bg-gray-900 rounded-[2rem] p-8 border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none flex items-center gap-6">
+                <div className="h-24 w-24 rounded-full border-[6px] border-blue-500/20 flex items-center justify-center relative">
+                  <div className="absolute inset-0 rounded-full border-[6px] border-blue-600 border-t-transparent animate-[spin_3s_linear_infinite]" />
+                  <span className="text-2xl font-black text-gray-900 dark:text-white">
+                    {submission.grade
+                      ? Math.round(
+                          (parseFloat(submission.grade.split("/")[0]) /
+                            (Number(assignment.max_score) || 1)) *
+                            100,
+                        )
+                      : 0}
+                    %
+                  </span>
+                </div>
+                <div className="flex-1 space-y-1">
+                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">
+                    Final Assessment
+                  </p>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-4xl font-black text-gray-900 dark:text-white">
+                      {submission.grade || "Ungraded"}
+                    </span>
+                    {submission.grade && (
+                      <span className="text-sm font-bold text-gray-400 uppercase tracking-tighter">
+                        Points
                       </span>
-                      <div
-                        className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full border-2 border-white dark:border-gray-800 ${getSubmissionStatusColor(
-                          submission.status,
-                        )}`}
-                      >
-                        <span className="w-1 h-1 rounded-full bg-current block mx-auto mt-0.5"></span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="min-w-0 flex-1">
-                    <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
-                      {submission.student.first_name}{" "}
-                      {submission.student.last_name}
-                    </h3>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                      {submission.student.email}
-                    </p>
+                    )}
                   </div>
                 </div>
+              </div>
 
-                <div
-                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${getSubmissionStatusColor(
-                    submission.status,
-                  )}`}
-                >
-                  <span className="w-1.5 h-1.5 rounded-full bg-current mr-2"></span>
-                  <span className="capitalize">{submission.status}</span>
+              <div
+                className={`rounded-[2rem] p-8 flex flex-col justify-center items-center text-center gap-2 border shadow-lg ${getSubmissionStatusColor(submission.status)}`}
+              >
+                <div className="w-12 h-12 rounded-2xl bg-current/20 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6" />
                 </div>
+                <h5 className="text-lg font-black uppercase tracking-tight">
+                  {submission.status}
+                </h5>
+                <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">
+                  Marked by Instructor
+                </p>
               </div>
             </div>
-          </div>
 
-          {/* Grade & Status - Compact Grid */}
-          <div className="mb-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {submission.grade &&
-                submission.grade !== null &&
-                submission.grade !== "" && (
-                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 rounded-2xl p-3 border border-green-200/50 dark:border-green-800/50">
-                    <div className="flex items-center gap-3">
-                      <div className="h-7 w-7 bg-gradient-to-br from-green-400 to-emerald-500 rounded-xl flex items-center justify-center shadow-sm">
-                        <svg
-                          className="w-4 h-4 text-white"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
+            {/* Rubric Breakdown for Student */}
+            {submission.grade && rubric.length > 0 && (
+              <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 overflow-hidden shadow-xl shadow-gray-200/30">
+                <button
+                  onClick={() => setShowBreakdown(!showBreakdown)}
+                  className="w-full px-8 py-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                      <Award className="w-6 h-6" />
+                    </div>
+                    <div className="text-left">
+                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                        Grade Breakdown
+                      </h4>
+                      <p className="text-xs text-gray-500 font-medium">
+                        Evaluation based on specific criteria
+                      </p>
+                    </div>
+                  </div>
+                  {showBreakdown ? (
+                    <ChevronUp className="w-5 h-5" />
+                  ) : (
+                    <ChevronDown className="w-5 h-5" />
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {showBreakdown && (
+                    <motion.div
+                      initial={{ height: 0, opacity: 0 }}
+                      animate={{ height: "auto", opacity: 1 }}
+                      exit={{ height: 0, opacity: 0 }}
+                      className="border-t border-gray-100 dark:border-gray-800"
+                    >
+                      <div className="p-8 space-y-6">
+                        {rubric.map((criterion: any, index: number) => {
+                          const scoreValue =
+                            submission.rubric_scores?.[index] || 0;
+                          const ratio = scoreValue / criterion.max_score;
+
+                          return (
+                            <div key={index} className="space-y-3">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
+                                  <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                    {criterion.criteria}
+                                  </span>
+                                </div>
+                                <span className="text-xs font-black text-gray-500">
+                                  <span className="text-blue-600 dark:text-blue-400 text-sm font-black mr-1">
+                                    {scoreValue}
+                                  </span>
+                                  / {criterion.max_score}
+                                </span>
+                              </div>
+                              <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                                <motion.div
+                                  initial={{ width: 0 }}
+                                  animate={{ width: `${ratio * 100}%` }}
+                                  transition={{
+                                    duration: 1,
+                                    delay: 0.2 + index * 0.1,
+                                  }}
+                                  className={`h-full rounded-full ${ratio > 0.8 ? "bg-green-500" : ratio > 0.5 ? "bg-blue-500" : "bg-orange-500"}`}
+                                />
+                              </div>
+                              {criterion.description && (
+                                <p className="text-[11px] text-gray-500 dark:text-gray-400 ml-5 italic leading-relaxed">
+                                  {criterion.description}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+            )}
+
+            {/* Content Display: Files & Text */}
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <h6 className="text-[10px] font-black text-gray-400 dark:text-gray-600 uppercase tracking-[0.3em]">
+                  Submission Materials
+                </h6>
+                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* File List */}
+                {submission.file_submissions && (
+                  <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-6 space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-gray-400">
+                      <Download className="w-3 h-3" /> Sent Files
+                    </h4>
+                    <div className="space-y-3">
+                      {JSON.parse(
+                        submission.file_submissions as unknown as string,
+                      ).map((file: any, idx: number) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-800/30 rounded-2xl border border-gray-100 dark:border-gray-800 group hover:border-blue-500/30 transition-colors"
                         >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                          />
-                        </svg>
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-green-700 dark:text-green-400 uppercase tracking-wide">
-                          Score
-                        </p>
-                        <p className="text-sm font-semibold text-green-900 dark:text-green-100">
-                          {submission.grade} points
-                        </p>
-                      </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold truncate dark:text-white">
+                              {file.originalname || file.filename}
+                            </p>
+                            <p className="text-[10px] font-bold text-gray-400 uppercase">
+                              {(file.size / 1024).toFixed(1)} KB
+                            </p>
+                          </div>
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => {
+                                const fileName =
+                                  file.path.split(/[\/\\]/).pop() ||
+                                  file.filename;
+                                setSelectedFile({
+                                  url: `${import.meta.env.VITE_API_BASE_URL || ""}/uploads/${fileName}`,
+                                  name: file.originalname || fileName,
+                                });
+                              }}
+                              className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleDownloadFile(
+                                  file.path.split(/[\/\\]/).pop() ||
+                                    file.filename,
+                                  file.originalname || file.filename,
+                                )
+                              }
+                              disabled={
+                                isDownloading ===
+                                (file.path.split(/[\/\\]/).pop() ||
+                                  file.filename)
+                              }
+                              className="p-2 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
+                            >
+                              {isDownloading ===
+                              (file.path.split(/[\/\\]/).pop() ||
+                                file.filename) ? (
+                                <div className="w-4 h-4 border-2 border-green-500 border-t-transparent animate-spin rounded-full" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   </div>
                 )}
 
-              {submission.is_late && (
-                <div className="bg-gradient-to-br from-orange-50 to-amber-50 dark:from-orange-900/20 dark:to-amber-900/20 rounded-2xl p-3 border border-orange-200/50 dark:border-orange-800/50">
-                  <div className="flex items-center gap-3">
-                    <div className="h-7 w-7 bg-gradient-to-br from-orange-400 to-amber-500 rounded-xl flex items-center justify-center shadow-sm">
-                      <svg
-                        className="w-4 h-4 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-orange-700 dark:text-orange-400 uppercase tracking-wide">
-                        Status
-                      </p>
-                      <p className="text-sm font-semibold text-orange-900 dark:text-orange-100">
-                        Late Submission
-                      </p>
-                    </div>
+                {/* Instructor Feedback */}
+                {submission.feedback && (
+                  <div className="bg-blue-600 rounded-3xl p-6 text-white space-y-4 shadow-xl shadow-blue-600/20">
+                    <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-blue-100">
+                      <Star className="w-3 h-3" /> Instructor Notes
+                    </h4>
+                    <p className="text-sm font-medium leading-relaxed opacity-90 italic">
+                      "{submission.feedback}"
+                    </p>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
 
-          {/* Content Sections - Compact */}
-          <div className="space-y-4">
-            {/* Text Submission */}
+            {/* Secondary: Text Submission Full */}
             {submission.text_submission && (
-              <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/40 dark:border-gray-700/40 p-4 shadow-sm">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="h-7 w-7 bg-gradient-to-br from-gray-400 to-gray-500 rounded-xl flex items-center justify-center shadow-sm">
-                    <svg
-                      className="w-4 h-4 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M4 6h16M4 12h16M4 18h16"
-                      />
-                    </svg>
-                  </div>
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Text Submission
-                  </h4>
-                </div>
-                <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-sm">
+              <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-8 space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                  Written Response
+                </h4>
+                <div className="prose prose-sm dark:prose-invert max-w-none">
                   {submission.text_submission}
                 </div>
               </div>
             )}
 
-            {/* File Submissions */}
-            {submission.file_submissions &&
-              submission.file_submissions.length > 0 && (
-                <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200/40 dark:border-gray-700/40 p-4 shadow-sm">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="h-7 w-7 bg-gradient-to-br from-blue-400 to-blue-700 rounded-xl flex items-center justify-center shadow-sm">
-                      <svg
-                        className="w-4 h-4 text-white"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                    </div>
-                    <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                      Files (
-                      {
-                        JSON.parse(
-                          submission.file_submissions as unknown as string,
-                        ).length
-                      }
-                      )
-                    </h4>
+            {/* Grading System (For Instructor) */}
+            {canManageAssignment && submission.status !== "draft" && (
+              <div className="relative pt-12">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                  <div className="h-12 w-px bg-gradient-to-t from-gray-200 to-transparent dark:from-gray-800" />
+                  <div className="px-4 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full text-[9px] font-black uppercase tracking-widest text-gray-500">
+                    Grading Console
                   </div>
-                  <div className="space-y-2">
-                    {JSON.parse(
-                      submission.file_submissions as unknown as string,
-                    ).map((file: any, index: number) => (
-                      <div
-                        key={index}
-                        className="flex items-center justify-between bg-gray-50 dark:bg-gray-700 rounded-xl p-3 border border-gray-200/50 dark:border-gray-600/50"
-                      >
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className="h-7 w-7 bg-white dark:bg-gray-600 rounded-xl flex items-center justify-center border border-gray-200/50 dark:border-gray-500/50 shadow-sm">
-                            <svg
-                              className="w-3.5 h-3.5 text-gray-600 dark:text-gray-400"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                              />
-                            </svg>
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                              {file.originalname || file.filename}
-                            </p>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
-                              {(file.size / 1024).toFixed(1)} KB •{" "}
-                              {file.mimetype}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 ml-2">
-                          <button
-                            onClick={() => {
-                              const fileName =
-                                file.path.split("/").pop() ||
-                                file.path.split("\\").pop() ||
-                                file.filename;
-                              const url = `${
-                                import.meta.env.VITE_API_BASE_URL ||
-                                "https://tm.universalbridge.rw"
-                              }/uploads/${fileName}`;
-                              setSelectedFile({
-                                url,
-                                name: file.originalname || fileName,
-                              });
-                            }}
-                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-all duration-200 hover:scale-105 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
-                          >
-                            <svg
-                              className="w-4 h-4"
-                              fill="none"
-                              stroke="currentColor"
-                              viewBox="0 0 24 24"
-                            >
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                              />
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
-                              />
-                            </svg>
-                            <span>View</span>
-                          </button>
-                          <button
-                            onClick={() => {
-                              const fileName =
-                                file.path.split("/").pop() ||
-                                file.path.split("\\").pop() ||
-                                file.filename;
-                              handleDownloadFile(
-                                fileName,
-                                file.originalname || fileName,
-                              );
-                            }}
-                            disabled={
-                              isDownloading ===
-                              (file.path.split("/").pop() ||
-                                file.path.split("\\").pop() ||
-                                file.filename)
-                            }
-                            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-all duration-200 hover:scale-105 border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100 disabled:hover:bg-transparent"
-                          >
-                            {isDownloading ===
-                            (file.path.split("/").pop() ||
-                              file.path.split("\\").pop() ||
-                              file.filename) ? (
-                              <svg
-                                className="w-4 h-4 animate-spin"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                                />
-                              </svg>
-                            ) : (
-                              <svg
-                                className="w-4 h-4"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M12 10v6m0 0l4-4m-4 4l-4-4m8 2h6a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2h8z"
-                                />
-                              </svg>
-                            )}
-                            <span>
-                              {isDownloading ===
-                              (file.path.split("/").pop() ||
-                                file.path.split("\\").pop() ||
-                                file.filename)
-                                ? "Downloading..."
-                                : "Download"}
-                            </span>
-                          </button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-            {/* Instructor Feedback */}
-            {submission.feedback && (
-              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-4 border border-blue-200/50 dark:border-blue-800/50">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="h-7 w-7 bg-gradient-to-br from-blue-400 to-blue-600 rounded-xl flex items-center justify-center shadow-sm">
-                    <svg
-                      className="w-4 h-4 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
-                      />
-                    </svg>
-                  </div>
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                    Instructor Feedback
-                  </h4>
-                </div>
-                <div className="bg-white/70 dark:bg-gray-800/70 rounded-xl p-3 border border-blue-100/50 dark:border-blue-800/50">
-                  <p className="text-gray-800 dark:text-gray-200 leading-relaxed text-sm">
-                    {submission.feedback}
-                  </p>
-                </div>
-              </div>
-            )}
-
-            {/* Grading Interface - Always visible to instructors for grading/re-grading */}
-            {canManageAssignment && submission.status === "submitted" && (
-              <div className="bg-gradient-to-br from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 rounded-2xl p-4 border border-amber-200/50 dark:border-amber-800/50">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="h-7 w-7 bg-gradient-to-br from-amber-400 to-yellow-500 rounded-xl flex items-center justify-center shadow-sm">
-                    <svg
-                      className="w-4 h-4 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                      />
-                    </svg>
-                  </div>
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">
-                    {submission.grade ? "Update Grade" : "Ready to Grade"}
-                  </h4>
                 </div>
                 <SubmissionMarking
                   submission={submission}
@@ -515,21 +429,88 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                 />
               </div>
             )}
+
+            {/* Real-time Threaded Comments */}
+            <div className="space-y-6 pt-12">
+              <div className="flex items-center gap-4">
+                <h6 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-[0.2em]">
+                  Conversation Thread
+                </h6>
+                <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-800" />
+              </div>
+
+              <div className="bg-white dark:bg-gray-900 rounded-[3rem] p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+                <div className="max-h-[400px] overflow-y-auto px-6 py-4 space-y-6">
+                  {localComments.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center py-12 text-center space-y-3 opacity-30">
+                      <MessageSquare className="w-12 h-12" />
+                      <p className="text-sm font-bold italic uppercase tracking-widest">
+                        Digital Void
+                      </p>
+                    </div>
+                  ) : (
+                    localComments.map((comment: any, idx: number) => (
+                      <div
+                        key={idx}
+                        className={`flex ${comment.isInstructor ? "justify-end" : "justify-start"}`}
+                      >
+                        <div
+                          className={`max-w-[80%] space-y-1 ${comment.isInstructor ? "items-end text-right" : "items-start text-left"}`}
+                        >
+                          <span
+                            className={`text-[10px] font-black uppercase tracking-widest block mb-1 ${comment.isInstructor ? "text-blue-500" : "text-gray-400"}`}
+                          >
+                            {comment.isInstructor ? "Instructor" : "Student"} •{" "}
+                            {new Date(comment.createdAt).toLocaleDateString()}
+                          </span>
+                          <div
+                            className={`px-5 py-3 rounded-2xl text-sm font-medium leading-relaxed ${
+                              comment.isInstructor
+                                ? "bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-500/20"
+                                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-tl-none"
+                            }`}
+                          >
+                            {comment.content}
+                          </div>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-[2.5rem] mt-4 flex items-center gap-4 border border-gray-200 dark:border-gray-700">
+                  <textarea
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    placeholder="Type a premium message..."
+                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 px-2 dark:text-white resize-none h-10 scrollbar-hide"
+                  />
+                  <button
+                    disabled={isSubmittingComment || !newComment.trim()}
+                    onClick={handleAddComment}
+                    className="h-10 w-10 bg-gray-900 dark:bg-white rounded-full flex items-center justify-center text-white dark:text-gray-900 shadow-xl hover:scale-110 active:scale-90 transition-all disabled:opacity-20"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Compact Footer */}
-        <div className="px-5 py-3 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800 dark:to-gray-700 border-t border-gray-200/50 dark:border-gray-700/50">
-          <div className="flex items-center justify-end">
-            <button
-              onClick={onClose}
-              className="px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all duration-200 hover:scale-105"
-            >
-              Close
-            </button>
+        {/* Action Footer */}
+        <div className="px-12 py-6 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+            <Info className="w-3 h-3" /> Encrypted Session
           </div>
+          <button
+            onClick={onClose}
+            className="px-8 py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-all"
+          >
+            Exit Console
+          </button>
         </div>
-      </div>
+      </motion.div>
 
       <FilePreviewModal
         isOpen={!!selectedFile}

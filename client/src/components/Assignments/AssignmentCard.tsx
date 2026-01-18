@@ -5,6 +5,13 @@ import { Clock, Calendar, Timer } from "lucide-react";
 import { formatDateTimeLocal } from "../../utils/dateUtils";
 import { getProfileImageUrl } from "../../utils/imageUrl";
 
+export interface RubricCriterion {
+  criteria: string;
+  max_score: number;
+  description?: string;
+  score?: number; // Used during grading
+}
+
 export interface AssignmentInterface {
   id: string;
   title: string;
@@ -13,7 +20,7 @@ export interface AssignmentInterface {
   max_score: string;
   submission_type: string;
   allowed_file_types: string;
-  rubric: string;
+  rubric: RubricCriterion[] | string | null;
   course_id: string;
   created_by: string;
   createdAt: string;

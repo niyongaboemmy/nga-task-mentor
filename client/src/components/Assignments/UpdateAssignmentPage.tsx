@@ -10,6 +10,8 @@ interface Assignment {
   due_date: string;
   max_score: number;
   submission_type: string;
+  allowed_file_types?: string[] | string;
+  rubric?: any;
   status: string;
   attachments?: {
     name: string;
@@ -44,16 +46,9 @@ const UpdateAssignmentPage: React.FC = () => {
     }
   }, [assignmentId]);
 
-  const handleSubmit = async (assignmentData: any) => {
-    try {
-      await axios.put(`/api/assignments/${assignmentId}`, assignmentData);
-
-      // Navigate back to assignment details
-      navigate(`/assignments/${assignmentId}`);
-    } catch (error: any) {
-      console.error("Error updating assignment:", error);
-      setError(error.response?.data?.message || "Failed to update assignment");
-    }
+  const handleSubmit = (_assignmentData: any) => {
+    // Navigate back to assignment details - the modal handled the update
+    navigate(`/assignments/${assignmentId}`);
   };
 
   const handleCancel = () => {

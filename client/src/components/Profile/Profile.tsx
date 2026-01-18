@@ -119,7 +119,7 @@ const Profile: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden"
       >
-        <div className="h-24 bg-gradient-to-r from-blue-600 to-indigo-600 relative">
+        <div className="h-24 bg-gradient-to-r from-blue-600 to-blue-600 relative">
           <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20" />
         </div>
         <div className="px-6 pb-6">

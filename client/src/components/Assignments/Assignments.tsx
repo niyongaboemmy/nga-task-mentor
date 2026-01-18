@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
 import AssignmentCard, { type AssignmentInterface } from "./AssignmentCard";
@@ -214,80 +215,99 @@ const Assignments: React.FC<AssignmentsProps> = ({
         </div>
 
         {/* Assignment List */}
-        {filteredAssignments.length > 0 ? (
-          <div
-            className={`grid gap-4 ${
-              compact ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-1"
-            }`}
-          >
-            {filteredAssignments.map((assignment) => (
-              <div key={assignment.id} className="relative">
-                <AssignmentCard
-                  assignment={assignment}
-                  showSubmissions={!compact}
-                  compact={compact}
-                  canManage={
-                    canManageAssignments && course?.instructor?.id === user?.id
-                  }
-                  onStatusChange={handleStatusChange}
-                />
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-12 pt-0">
-            <svg
-              className="mx-auto h-12 w-12 text-gray-400"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
+        <AnimatePresence mode="popLayout">
+          {filteredAssignments.length > 0 ? (
+            <motion.div
+              layout
+              className={`grid gap-4 ${
+                compact ? "grid-cols-1" : "grid-cols-1 lg:grid-cols-1"
+              }`}
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-              />
-            </svg>
-            <h3 className="mt-2 text-base font-medium">
-              {user?.role === "student"
-                ? "No assignments available"
-                : filter === "all"
-                  ? "No assignments yet"
-                  : `No ${filter} assignments`}
-            </h3>
-            <p className="mt-1 text-sm text-gray-500">
-              {user?.role === "student"
-                ? "You need to be enrolled in courses to see assignments."
-                : filter === "all"
-                  ? "Assignments will appear here once they're created."
-                  : `${filter} assignments will appear here.`}
-            </p>
-            {filter === "all" && showCreateButton && canManageAssignments && (
-              <div className="mt-4">
-                <Link
-                  to={`/assignments/create?courseId=${currentCourseId}`}
-                  className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
+              {filteredAssignments.map((assignment, index) => (
+                <motion.div
+                  key={assignment.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{
+                    duration: 0.3,
+                    delay: compact ? 0 : index * 0.05,
+                  }}
+                  className="relative"
                 >
-                  <svg
-                    className="h-4 w-4 mr-2"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+                  <AssignmentCard
+                    assignment={assignment}
+                    showSubmissions={!compact}
+                    compact={compact}
+                    canManage={
+                      canManageAssignments &&
+                      course?.instructor?.id === user?.id
+                    }
+                    onStatusChange={handleStatusChange}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="text-center py-12 pt-0"
+            >
+              <svg
+                className="mx-auto h-12 w-12 text-gray-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                />
+              </svg>
+              <h3 className="mt-2 text-base font-medium">
+                {user?.role === "student"
+                  ? "No assignments available"
+                  : filter === "all"
+                    ? "No assignments yet"
+                    : `No ${filter} assignments`}
+              </h3>
+              <p className="mt-1 text-sm text-gray-500">
+                {user?.role === "student"
+                  ? "You need to be enrolled in courses to see assignments."
+                  : filter === "all"
+                    ? "Assignments will appear here once they're created."
+                    : `${filter} assignments will appear here.`}
+              </p>
+              {filter === "all" && showCreateButton && canManageAssignments && (
+                <div className="mt-4">
+                  <Link
+                    to={`/assignments/create?courseId=${currentCourseId}`}
+                    className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
                   >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  Create First Assignment
-                </Link>
-              </div>
-            )}
-          </div>
-        )}
+                    <svg
+                      className="h-4 w-4 mr-2"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                    Create First Assignment
+                  </Link>
+                </div>
+              )}
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </>
   );

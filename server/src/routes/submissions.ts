@@ -7,6 +7,7 @@ import {
   deleteSubmission,
   downloadFile,
   gradeSubmission,
+  addComment,
 } from "../controllers/submission.controller";
 import { protect, authorize, checkEnrollment } from "../middleware/auth";
 
@@ -20,7 +21,7 @@ router.post(
   "/assignments/:assignmentId/submissions",
   authorize("student"),
   checkEnrollment(),
-  createSubmission
+  createSubmission,
 );
 
 // Student and instructor routes
@@ -37,14 +38,17 @@ router.get("/", authorize("student", "instructor", "admin"), getSubmissions);
 router.get(
   "/:id/files/:fileId",
   authorize("student", "instructor", "admin"),
-  downloadFile
+  downloadFile,
 );
 
 // Grade submission (instructor/admin only)
-router.patch(
-  "/:id/grade",
-  authorize("instructor", "admin"),
-  gradeSubmission
+router.patch("/:id/grade", authorize("instructor", "admin"), gradeSubmission);
+
+// Add comment to submission
+router.post(
+  "/:id/comments",
+  authorize("student", "instructor", "admin"),
+  addComment,
 );
 
 export default router;
