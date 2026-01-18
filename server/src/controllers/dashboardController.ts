@@ -3,6 +3,8 @@ import { Op, Sequelize } from "sequelize";
 import { User } from "../models/User.model";
 import { Assignment } from "../models/Assignment.model";
 import { Submission } from "../models/Submission.model";
+import { Quiz } from "../models/Quiz.model";
+import { QuizSubmission } from "../models/QuizSubmission.model";
 import axios from "axios";
 import { getMisToken } from "../utils/misUtils";
 
@@ -425,7 +427,197 @@ export const getAdminStats = async (req: Request, res: Response) => {
   }
 };
 
-// Recent Activity (for logged-in user only)
+// Admin Grading Summary
+export const getAdminGradingSummary = async (req: Request, res: Response) => {
+  try {
+    const token = getMisToken(req);
+
+    // 1. Fetch all courses from MIS (or local cache if we had one, but we use MIS)
+    let allCourses: any[] = [];
+    try {
+      if (token) {
+        // Fetch all subjects/courses available
+        // Note: In a real scenario with pagination this might need adjustment.
+        // For now assuming we can fetch all or a reasonable limit.
+        const coursesResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/subjects`,
+          {
+            headers: {
+              Authorization: token,
+              "Content-Type": "application/json",
+            },
+            params: { limit: 100 }, // Try to get a good chunk
+          },
+        );
+        if (coursesResponse.data.success) {
+          allCourses = coursesResponse.data.data || [];
+        }
+      }
+    } catch (courseError) {
+      console.warn("Could not fetch courses from MIS:", courseError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to fetch courses from external system",
+      });
+    }
+
+    if (allCourses.length === 0) {
+      return res.status(200).json({
+        success: true,
+        data: [],
+      });
+    }
+
+    // 2. Fetch ALL relevant data from local database for aggregation
+    const assignmentsFull = await Assignment.findAll({
+      attributes: ["id", "course_id", "max_score"],
+    });
+
+    const quizzes = await Quiz.findAll({
+      attributes: ["id", "course_id", "title"],
+    });
+
+    const assignmentInfos = new Map(
+      assignmentsFull.map((a) => [
+        a.id,
+        { courseId: String(a.course_id), maxScore: a.max_score },
+      ]),
+    );
+
+    const quizInfos = new Map(
+      quizzes.map((q: any) => [q.id, String(q.course_id)]),
+    );
+
+    // Get all submissions stats
+    const assignmentSubmissions = await Submission.findAll({
+      attributes: ["assignment_id", "grade", "student_id", "status"],
+      where: { status: "graded" },
+    });
+
+    const quizSubmissions = await QuizSubmission.findAll({
+      attributes: ["quiz_id", "percentage", "student_id", "status"],
+      where: { status: "completed" },
+    });
+
+    // 3. Aggregate in Map
+    const courseStatsMap = new Map<
+      string,
+      {
+        totalGrades: number;
+        sumGrades: number;
+        uniqueStudents: Set<string>;
+        assignmentCount: number;
+        quizCount: number;
+      }
+    >();
+
+    // Initialize map for all fetched courses from MIS
+    allCourses.forEach((course) => {
+      const courseId = String(course.subject_id || course.id || course._id);
+      courseStatsMap.set(courseId, {
+        totalGrades: 0,
+        sumGrades: 0,
+        uniqueStudents: new Set(),
+        assignmentCount: 0,
+        quizCount: 0,
+      });
+    });
+
+    // Initial count of assignments and quizzes per course using local data
+    assignmentsFull.forEach((a) => {
+      const stats = courseStatsMap.get(String(a.course_id));
+      if (stats) stats.assignmentCount++;
+    });
+
+    quizzes.forEach((q: any) => {
+      const stats = courseStatsMap.get(String(q.course_id));
+      if (stats) stats.quizCount++;
+    });
+
+    // 4. Calculate Global Grade Distribution
+    const distribution = {
+      excellent: 0, // >= 90
+      good: 0, // 75-89
+      average: 0, // 60-74
+      poor: 0, // < 60
+    };
+
+    const processGrade = (
+      percentage: number,
+      studentId: string,
+      courseId: string,
+    ) => {
+      if (percentage >= 90) distribution.excellent++;
+      else if (percentage >= 75) distribution.good++;
+      else if (percentage >= 60) distribution.average++;
+      else distribution.poor++;
+
+      const stats = courseStatsMap.get(courseId);
+      if (stats) {
+        stats.sumGrades += percentage;
+        stats.totalGrades++;
+        if (studentId) stats.uniqueStudents.add(String(studentId));
+      }
+    };
+
+    // Aggregate Assignment Submissions
+    assignmentSubmissions.forEach((sub) => {
+      const info = assignmentInfos.get(sub.assignment_id);
+      if (info && info.maxScore > 0 && sub.grade !== null) {
+        const percentage = (Number(sub.grade) / Number(info.maxScore)) * 100;
+        processGrade(percentage, String(sub.student_id), info.courseId);
+      }
+    });
+
+    // Aggregate Quiz Submissions
+    quizSubmissions.forEach((sub: any) => {
+      const courseId = quizInfos.get(sub.quiz_id);
+      if (courseId) {
+        const percentage = Number(sub.percentage);
+        if (!isNaN(percentage)) {
+          processGrade(percentage, String(sub.student_id), courseId);
+        }
+      }
+    });
+
+    // 5. Construct Final Data
+    const gradingSummary = allCourses.map((course) => {
+      const courseId = String(course.subject_id || course.id || course._id);
+      const stats = courseStatsMap.get(courseId);
+      const avgGrade =
+        stats && stats.totalGrades > 0
+          ? stats.sumGrades / stats.totalGrades
+          : 0;
+
+      return {
+        course_id: courseId,
+        title: course.name || course.title,
+        code: course.code,
+        average_grade: Math.round(avgGrade * 10) / 10,
+        active_students: stats ? stats.uniqueStudents.size : 0,
+        graded_submissions: stats ? stats.totalGrades : 0,
+      };
+    });
+
+    // Sort by most active (students count) or maybe Average Grade?
+    // Let's return all and let frontend sort/filter.
+
+    res.status(200).json({
+      success: true,
+      data: {
+        gradingSummary,
+        gradeDistribution: distribution,
+      },
+    });
+  } catch (error) {
+    console.error("Error fetching admin grading summary:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching grading summary",
+    });
+  }
+};
+
 export const getRecentActivity = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;

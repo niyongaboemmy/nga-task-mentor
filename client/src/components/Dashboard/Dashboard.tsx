@@ -57,6 +57,13 @@ interface AdminDashboardData {
   };
   stats: DashboardStats;
   recentActivity: RecentActivity[];
+  gradingSummary: any[];
+  gradeDistribution?: {
+    excellent: number;
+    good: number;
+    average: number;
+    poor: number;
+  };
 }
 
 type DashboardData =
@@ -86,7 +93,11 @@ const Dashboard: React.FC = () => {
           "/api/dashboard/instructor/pending-grading",
           "/api/dashboard/activity",
         ],
-        admin: ["/api/dashboard/admin/stats", "/api/dashboard/activity"],
+        admin: [
+          "/api/dashboard/admin/stats",
+          "/api/dashboard/activity",
+          "/api/dashboard/admin/grading-summary",
+        ],
       };
 
       const role = user?.role || "student";
@@ -100,19 +111,19 @@ const Dashboard: React.FC = () => {
           } catch (error) {
             return { error, url };
           }
-        })
+        }),
       );
 
       // Type guard to check if response is an error response
       const isErrorResponse = (
-        response: any
+        response: any,
       ): response is { error: unknown; url: string } => {
         return response && typeof response === "object" && "error" in response;
       };
 
       // Check if any responses have errors
       const validResponses = responses.filter(
-        (response) => !isErrorResponse(response)
+        (response) => !isErrorResponse(response),
       );
 
       if (validResponses.length !== urls.length) {
@@ -123,7 +134,7 @@ const Dashboard: React.FC = () => {
               `Failed to fetch ${urls[index]}:`,
               response.error instanceof Error
                 ? response.error.message
-                : response.error
+                : response.error,
             );
           }
         });
@@ -173,7 +184,8 @@ const Dashboard: React.FC = () => {
           recentActivity: (validResponses[3] as any)?.data?.data || [],
         } as InstructorDashboardData);
       } else {
-        setData({
+        // This block is for admin
+        const baseData = {
           user: {
             user_id: user?.id || "",
             first_name: user?.first_name || "",
@@ -186,7 +198,24 @@ const Dashboard: React.FC = () => {
             completedAssignments: 0,
           },
           recentActivity: (validResponses[1] as any)?.data?.data || [],
-        } as AdminDashboardData);
+        };
+
+        if (role === "admin" && validResponses[2]) {
+          // validResponses[2] should exist if no error
+          const adminData = (validResponses[2] as any)?.data?.data;
+          setData({
+            ...baseData,
+            gradingSummary: adminData?.gradingSummary || [],
+            gradeDistribution: adminData?.gradeDistribution || null,
+          } as AdminDashboardData);
+        } else {
+          // Fallback for non-admin or error in specific admin endpoint
+          setData({
+            ...baseData,
+            gradingSummary: [],
+            gradeDistribution: undefined,
+          } as AdminDashboardData);
+        }
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
