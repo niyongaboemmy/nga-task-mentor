@@ -90,16 +90,16 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
             }
             disabled={disabled}
             placeholder={`Blank ${currentBlankIndex + 1}`}
-            className={`inline-block mx-1 px-3 py-1 border-2 rounded focus:outline-none focus:ring-2 transition-all duration-200 min-w-[120px] ${
+            className={`inline-block mx-1 px-3 py-1 border-2 rounded-xl focus:outline-none focus:ring-2 transition-all duration-200 min-w-[120px] ${
               disabled
                 ? "bg-gray-100 border-gray-200 cursor-not-allowed"
                 : showCorrectAnswer
                   ? isCorrect
-                    ? "border-green-500 bg-green-50 focus:border-green-500 focus:ring-green-200"
-                    : "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-200"
+                    ? "border-green-500 bg-green-50 focus:border-green-500 focus:ring-green-200 dark:bg-gray-800/50"
+                    : "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-200 dark:bg-gray-800/50"
                   : currentAnswer
-                    ? "border-blue-500 bg-blue-50 focus:border-blue-500 focus:ring-blue-200"
-                    : "border-gray-300 focus:border-blue-500 focus:ring-blue-200"
+                    ? "border-blue-500 bg-blue-50 focus:border-blue-500 focus:ring-blue-200 dark:bg-gray-800/50"
+                    : "border-gray-300 focus:border-blue-500 focus:ring-blue-200 dark:bg-gray-800/50"
             }`}
           />
         );
@@ -123,12 +123,12 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
     <div className="space-y-4">
       <div className="max-w-4xl mx-auto">
         {/* Question text with blanks */}
-        <div className="text-lg leading-loose p-8 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm mb-6 text-gray-800 dark:text-gray-200">
+        <div className="text-base leading-loose p-4 px-6 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm mb-6 text-gray-800 dark:text-gray-200">
           {renderTextWithBlanks()}
         </div>
 
         {/* Progress indicator */}
-        <div className="mb-6 bg-white p-4 rounded-xl border border-gray-200 shadow-sm">
+        <div className="mb-6 bg-white p-4 rounded-xl border border-gray-200 dark:bg-gray-800/60 dark:border-none shadow-sm">
           <ProgressIndicator
             completed={
               Object.values(blankAnswers).filter((a) => a.trim() !== "").length

@@ -1,7 +1,13 @@
 import { Request, Response } from "express";
 import axios from "axios";
 import { getMisToken, hasMisToken } from "../utils/misUtils";
-import { Assignment, Submission, Quiz, QuizSubmission } from "../models";
+import {
+  Assignment,
+  Submission,
+  Quiz,
+  QuizSubmission,
+  QuizQuestion,
+} from "../models";
 import { Op } from "sequelize";
 
 // @desc    Get all courses
@@ -520,5 +526,249 @@ export const deleteCourse = async (req: Request, res: Response) => {
     } else {
       res.status(500).json({ success: false, message: "Server error" });
     }
+  }
+};
+// @desc    Get course grades (assignments and quizzes) for all students
+// @route   GET /api/courses/:id/grades
+// @access  Private/Instructor/Admin
+export const getCourseGrades = async (req: Request, res: Response) => {
+  try {
+    const token = getMisToken(req);
+
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
+    }
+
+    const courseId = req.params.id;
+
+    // 1. Get enrolled students from MIS
+    let enrolledStudents: any[] = [];
+    try {
+      const studentsResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}/terms/4/students`,
+        {
+          headers: {
+            Authorization: token,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+
+      if (studentsResponse.data.success) {
+        enrolledStudents = studentsResponse.data.data || [];
+      }
+    } catch (enrollmentError: any) {
+      console.warn(
+        "Could not fetch enrolled students:",
+        enrollmentError.message,
+      );
+      // We might still want to proceed if we have local submissions,
+      // but typically we need the student list to show who hasn't submitted.
+    }
+
+    // 2. Get all Assignments
+    const assignments = await Assignment.findAll({
+      where: {
+        course_id: courseId,
+        status: { [Op.in]: ["published", "completed"] }, // Only show published or completed
+      },
+      attributes: ["id", "title", "max_score", "due_date"],
+      order: [["due_date", "ASC"]],
+    });
+
+    // 3. Get all Quizzes
+    const quizzes = await Quiz.findAll({
+      where: {
+        course_id: courseId,
+        status: "published", // Only parsed published quizzes
+      },
+      attributes: ["id", "title", "type", "passing_score"],
+      include: [
+        {
+          model: QuizQuestion,
+          attributes: ["points"],
+        },
+      ],
+      order: [["created_at", "ASC"]],
+    });
+
+    // Calculate max score for each quiz
+    const quizzesWithMaxScore = quizzes.map((quiz) => {
+      const maxScore =
+        quiz.questions?.reduce((sum, q) => sum + (q.points || 0), 0) || 0;
+      return {
+        id: quiz.id,
+        title: quiz.title,
+        type: quiz.type,
+        max_score: maxScore,
+      };
+    });
+
+    // 4. Get all Assignment Submissions
+    const assignmentIds = assignments.map((a) => a.id);
+    const assignmentSubmissions = await Submission.findAll({
+      where: { assignment_id: { [Op.in]: assignmentIds } },
+      attributes: ["student_id", "assignment_id", "grade", "status"],
+    });
+
+    // 5. Get all Quiz Submissions
+    const quizIds = quizzes.map((q) => q.id);
+    const quizSubmissions = await QuizSubmission.findAll({
+      where: {
+        quiz_id: { [Op.in]: quizIds },
+        status: "completed", // Only count completed attempts
+      },
+      attributes: [
+        "student_id",
+        "quiz_id",
+        "total_score",
+        "percentage",
+        "passed",
+      ],
+      order: [["total_score", "DESC"]], // If multiple, we might want best? Or we assume one per student/quiz for now?
+      // Actually, let's just fetch all and handle logic.
+    });
+
+    // 6. Aggregate Data
+    const studentsWithGrades = enrolledStudents.map((student) => {
+      const studentId = student.id;
+
+      // Assignments Map
+      const studentAssignments = assignments.map((assignment) => {
+        const sub = assignmentSubmissions.find(
+          (s) =>
+            String(s.student_id) === String(studentId) &&
+            s.assignment_id === assignment.id,
+        );
+        return {
+          assignment_id: assignment.id,
+          title: assignment.title,
+          max_score: assignment.max_score,
+          submitted: !!sub,
+          grade: sub?.grade !== null ? sub?.grade : null,
+          status: sub?.status || "pending",
+        };
+      });
+
+      // Quizzes Map
+      const studentQuizzes = quizzesWithMaxScore.map((quiz) => {
+        // Find best submission for this quiz (if multiple allowed)
+        // Since we fetched all, we filter by student and quiz
+        const subs = quizSubmissions.filter(
+          (s) =>
+            String(s.student_id) === String(studentId) && s.quiz_id === quiz.id,
+        );
+        // Take best score
+        const bestSub =
+          subs.length > 0
+            ? subs.reduce((prev, current) =>
+                prev.total_score > current.total_score ? prev : current,
+              )
+            : null;
+
+        return {
+          quiz_id: quiz.id,
+          title: quiz.title,
+          max_score: quiz.max_score,
+          submitted: !!bestSub,
+          score:
+            bestSub?.total_score !== undefined ? bestSub.total_score : null,
+          percentage: bestSub?.percentage || null,
+          passed: bestSub?.passed || null,
+        };
+      });
+
+      // Calculate Totals (Mock logic - custom weighting can be added later)
+      // For now, simple sum of points earned vs total possible points
+      let totalPointsEarned = 0;
+      let totalMaxPoints = 0;
+
+      studentAssignments.forEach((a) => {
+        if (a.max_score) {
+          totalMaxPoints += Number(a.max_score);
+          if (a.grade) totalPointsEarned += Number(a.grade);
+        }
+      });
+
+      studentQuizzes.forEach((q) => {
+        if (q.max_score) {
+          totalMaxPoints += Number(q.max_score);
+          if (q.score) totalPointsEarned += Number(q.score);
+        }
+      });
+
+      const totalPercentage =
+        totalMaxPoints > 0 ? (totalPointsEarned / totalMaxPoints) * 100 : 0;
+
+      // Calculate Average Grade from assignments
+      let assignmentsPoints = 0;
+      let assignmentsMaxPoints = 0;
+      studentAssignments.forEach((a) => {
+        if (a.max_score) {
+          assignmentsMaxPoints += Number(a.max_score);
+          if (a.grade) assignmentsPoints += Number(a.grade);
+        }
+      });
+      const assignmentPercentage =
+        assignmentsMaxPoints > 0
+          ? (assignmentsPoints / assignmentsMaxPoints) * 100
+          : 0;
+
+      // Calculate Average Grade from quizzes
+      let quizzesPoints = 0;
+      let quizzesMaxPoints = 0;
+      studentQuizzes.forEach((q) => {
+        if (q.max_score) {
+          quizzesMaxPoints += Number(q.max_score);
+          if (q.score) quizzesPoints += Number(q.score);
+        }
+      });
+      const quizPercentage =
+        quizzesMaxPoints > 0 ? (quizzesPoints / quizzesMaxPoints) * 100 : 0;
+
+      return {
+        student: {
+          id: student.id,
+          name: `${student.first_name} ${student.last_name}`,
+          email: student.email,
+          profile_image: student.profile_image,
+        },
+        assignments: studentAssignments,
+        quizzes: studentQuizzes,
+        summary: {
+          total_points_earned: totalPointsEarned,
+          total_max_points: totalMaxPoints,
+          total_percentage: Math.round(totalPercentage * 100) / 100,
+          assignment_percentage: Math.round(assignmentPercentage * 100) / 100,
+          quiz_percentage: Math.round(quizPercentage * 100) / 100,
+        },
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        course_id: courseId,
+        students: studentsWithGrades,
+        assignments: assignments.map((a) => ({
+          id: a.id,
+          title: a.title,
+          max_score: a.max_score,
+        })),
+        quizzes: quizzesWithMaxScore.map((q) => ({
+          id: q.id,
+          title: q.title,
+          max_score: q.max_score,
+        })),
+      },
+    });
+  } catch (error: any) {
+    console.error(
+      "Get course grades error:",
+      error.response?.data || error.message,
+    );
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

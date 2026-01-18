@@ -46,6 +46,7 @@ import QuizProctoringMonitoringPage from "./components/Quizzes/QuizProctoringMon
 import QuizProctoringAnalyticsPage from "./components/Quizzes/QuizProctoringAnalyticsPage";
 import { LiveProctoringDashboard } from "./components/Proctoring";
 import QuizListPage from "./pages/QuizListPage";
+import CourseReportsPage from "./pages/CourseReportsPage";
 
 // Wrapper components for routes that need useParams
 const QuizViewWrapper = () => {
@@ -183,6 +184,16 @@ function AppContent() {
                 <ProtectedRoute>
                   <Layout>
                     <CourseDetails />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/courses/:courseId/reports"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <CourseReportsPage />
                   </Layout>
                 </ProtectedRoute>
               }

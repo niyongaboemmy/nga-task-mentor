@@ -17,7 +17,7 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
   const currentAnswer = answer as TrueFalseAnswer | undefined;
 
   const [selectedAnswer, setSelectedAnswer] = useState<boolean | null>(
-    currentAnswer?.selected_answer ?? null
+    currentAnswer?.selected_answer ?? null,
   );
 
   useEffect(() => {
@@ -35,105 +35,118 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
     });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent, answer: boolean) => {
+    if (disabled) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleAnswerSelect(answer);
+    }
+  };
+
   const correctAnswer = questionData.correct_answer;
 
   return (
-    <div className="space-y-4 px-2 sm:px-0">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 max-w-2xl mx-auto">
+    <div className="space-y-6 w-full">
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto w-full"
+        role="radiogroup"
+        aria-label="True or False options"
+      >
         {/* True option */}
         <div
-          className={`flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 rounded-2xl border-2 cursor-pointer transition-all duration-300 transform hover:scale-105 active:scale-95 ${
+          role="radio"
+          aria-checked={selectedAnswer === true}
+          tabIndex={disabled ? -1 : 0}
+          onKeyDown={(e) => handleKeyDown(e, true)}
+          className={`group flex flex-row sm:flex-col items-center justify-start sm:justify-center p-4 sm:p-8 rounded-2xl border-2 cursor-pointer transition-all duration-300 transform active:scale-[0.98] outline-none focus:ring-4 focus:ring-green-500/30 ${
             selectedAnswer === true
-              ? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 shadow-lg ring-2 ring-green-200 dark:ring-green-800"
+              ? "border-green-500 bg-green-50/50 dark:bg-green-900/20 shadow-lg scale-[1.02] sm:scale-105 z-10"
               : showCorrectAnswer && correctAnswer === true
-              ? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 shadow-md"
-              : "border-gray-300 dark:border-gray-600 hover:border-green-300 dark:hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 hover:shadow-md"
+                ? "border-green-500 bg-green-50/30 dark:bg-green-900/10 shadow-md"
+                : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-green-300 dark:hover:border-green-600 hover:bg-green-50/30 dark:hover:bg-green-900/10 hover:shadow-md"
           } ${
-            disabled ? "cursor-not-allowed opacity-75 hover:scale-100" : ""
+            disabled
+              ? "cursor-not-allowed opacity-75 hover:scale-100 hover:shadow-none"
+              : ""
           } animate-fadeIn`}
           onClick={() => handleAnswerSelect(true)}
         >
-          <div className="flex flex-col items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto">
             <div
-              className={`w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full border-3 flex items-center justify-center transition-all duration-300 ${
+              className={`w-12 h-12 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
                 selectedAnswer === true
-                  ? "border-green-600 bg-green-600 scale-110 shadow-lg"
-                  : "border-gray-400 dark:border-gray-500 hover:border-green-500"
+                  ? "border-green-500 bg-green-500 text-white scale-110 shadow-md"
+                  : "border-gray-300 dark:border-gray-600 group-hover:border-green-400 text-transparent"
               }`}
             >
-              {selectedAnswer === true && (
-                <svg
-                  className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white animate-scaleIn"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                    clipRule="evenodd"
-                  />
-                </svg>
+              <svg
+                className={`w-6 h-6 transition-transform duration-300 ${selectedAnswer === true ? "scale-100" : "scale-0"}`}
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                  clipRule="evenodd"
+                />
+              </svg>
+            </div>
+
+            <div className="flex flex-col">
+              <span
+                className={`font-bold text-lg sm:text-2xl transition-colors duration-200 ${
+                  showCorrectAnswer && correctAnswer === true
+                    ? "text-green-700 dark:text-green-400"
+                    : selectedAnswer === true
+                      ? "text-green-700 dark:text-green-400"
+                      : "text-gray-700 dark:text-gray-300 group-hover:text-green-700 dark:group-hover:text-green-400"
+                }`}
+              >
+                True
+              </span>
+              {showCorrectAnswer && correctAnswer === true && (
+                <span className="text-green-600 dark:text-green-400 text-xs font-bold flex items-center gap-1 animate-slideInRight">
+                  ✓ Correct Answer
+                </span>
               )}
             </div>
-            <span
-              className={`font-bold text-lg sm:text-xl md:text-2xl transition-colors duration-200 ${
-                showCorrectAnswer && correctAnswer === true
-                  ? "text-green-900 dark:text-green-100"
-                  : selectedAnswer === true
-                  ? "text-green-900 dark:text-green-100"
-                  : "text-gray-700 dark:text-gray-300"
-              }`}
-            >
-              True
-            </span>
-            {showCorrectAnswer && correctAnswer === true && (
-              <span className="px-2 py-1 sm:px-3 sm:py-1 bg-green-600 text-white text-xs sm:text-sm font-bold rounded-full animate-slideInLeft">
-                ✓ Correct Answer
-              </span>
-            )}
           </div>
         </div>
 
         {/* False option */}
         <div
-          className={`flex flex-col items-center justify-center p-4 sm:p-6 md:p-8 rounded-2xl border-2 cursor-pointer transition-all duration-300 transform hover:scale-105 active:scale-95 ${
+          role="radio"
+          aria-checked={selectedAnswer === false}
+          tabIndex={disabled ? -1 : 0}
+          onKeyDown={(e) => handleKeyDown(e, false)}
+          className={`group flex flex-row sm:flex-col items-center justify-start sm:justify-center p-4 sm:p-8 rounded-2xl border-2 cursor-pointer transition-all duration-300 transform active:scale-[0.98] outline-none focus:ring-4 focus:ring-red-500/30 ${
             selectedAnswer === false
-              ? "border-red-500 bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900 dark:to-pink-900 shadow-lg ring-2 ring-red-200 dark:ring-red-800"
+              ? "border-red-500 bg-red-50/50 dark:bg-red-900/20 shadow-lg scale-[1.02] sm:scale-105 z-10"
               : showCorrectAnswer && correctAnswer === false
-              ? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 shadow-md"
-              : "border-gray-300 dark:border-gray-600 hover:border-red-300 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:shadow-md"
+                ? "border-green-500 bg-green-50/30 dark:bg-green-900/10 shadow-md"
+                : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 hover:border-red-300 dark:hover:border-red-600 hover:bg-red-50/30 dark:hover:bg-red-900/10 hover:shadow-md"
           } ${
-            disabled ? "cursor-not-allowed opacity-75 hover:scale-100" : ""
+            disabled
+              ? "cursor-not-allowed opacity-75 hover:scale-100 hover:shadow-none"
+              : ""
           } animate-fadeIn`}
           style={{ animationDelay: "100ms" }}
           onClick={() => handleAnswerSelect(false)}
         >
-          <div className="flex flex-col items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-4 sm:gap-6 w-full sm:w-auto">
             <div
-              className={`w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 rounded-full border-3 flex items-center justify-center transition-all duration-300 ${
+              className={`w-12 h-12 flex-shrink-0 rounded-full border-2 flex items-center justify-center transition-all duration-300 ${
                 selectedAnswer === false
-                  ? "border-red-600 bg-red-600 scale-110 shadow-lg"
+                  ? "border-red-500 bg-red-500 text-white scale-110 shadow-md"
                   : showCorrectAnswer && correctAnswer === false
-                  ? "border-green-600 bg-green-600"
-                  : "border-gray-400 dark:border-gray-500 hover:border-red-500"
+                    ? "border-green-500 bg-green-500 text-white"
+                    : "border-gray-300 dark:border-gray-600 group-hover:border-red-400 text-transparent"
               }`}
             >
-              {selectedAnswer === false && !showCorrectAnswer && (
+              {/* Checkmark for correct answer display, otherwise X for selected false */}
+              {showCorrectAnswer && correctAnswer === false ? (
                 <svg
-                  className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white animate-scaleIn"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              )}
-              {showCorrectAnswer && correctAnswer === false && (
-                <svg
-                  className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 text-white"
+                  className="w-6 h-6"
                   fill="currentColor"
                   viewBox="0 0 20 20"
                 >
@@ -143,31 +156,49 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
                     clipRule="evenodd"
                   />
                 </svg>
+              ) : (
+                <svg
+                  className={`w-6 h-6 transition-transform duration-300 ${selectedAnswer === false ? "scale-100" : "scale-0"}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M6 18L18 6M6 6l12 12"
+                  />
+                </svg>
               )}
             </div>
-            <span
-              className={`font-bold text-lg sm:text-xl md:text-2xl transition-colors duration-200 ${
-                showCorrectAnswer && correctAnswer === false
-                  ? "text-green-900 dark:text-green-100"
-                  : selectedAnswer === false
-                  ? "text-red-900 dark:text-red-100"
-                  : "text-gray-700 dark:text-gray-300"
-              }`}
-            >
-              False
-            </span>
-            {showCorrectAnswer && correctAnswer === false && (
-              <span className="px-2 py-1 sm:px-3 sm:py-1 bg-green-600 text-white text-xs sm:text-sm font-bold rounded-full animate-slideInRight">
-                ✓ Correct Answer
+
+            <div className="flex flex-col">
+              <span
+                className={`font-bold text-lg sm:text-2xl transition-colors duration-200 ${
+                  showCorrectAnswer && correctAnswer === false
+                    ? "text-green-700 dark:text-green-400"
+                    : selectedAnswer === false
+                      ? "text-red-700 dark:text-red-400"
+                      : "text-gray-700 dark:text-gray-300 group-hover:text-red-700 dark:group-hover:text-red-400"
+                }`}
+              >
+                False
               </span>
-            )}
-            {showCorrectAnswer &&
-              selectedAnswer === true &&
-              correctAnswer === false && (
-                <span className="px-2 py-1 sm:px-3 sm:py-1 bg-red-600 text-white text-xs sm:text-sm font-bold rounded-full animate-slideInRight">
-                  ✗ Your Answer
+
+              {showCorrectAnswer && correctAnswer === false && (
+                <span className="text-green-600 dark:text-green-400 text-xs font-bold flex items-center gap-1 animate-slideInRight">
+                  ✓ Correct Answer
                 </span>
               )}
+              {showCorrectAnswer &&
+                selectedAnswer === true &&
+                correctAnswer === false && (
+                  <span className="text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-1 animate-slideInRight">
+                    ✗ Your Answer
+                  </span>
+                )}
+            </div>
           </div>
         </div>
       </div>
@@ -176,23 +207,23 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
       {timeRemaining !== undefined &&
         timeRemaining <= 30 &&
         timeRemaining > 0 && (
-          <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900 dark:to-amber-900 border-l-4 border-yellow-500 dark:border-yellow-600 rounded-r-2xl shadow-sm animate-pulse mx-2 sm:mx-0">
-            <div className="flex items-center justify-center gap-2">
-              <svg
-                className="w-5 h-5 text-yellow-700 dark:text-yellow-300 flex-shrink-0"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span className="text-yellow-900 dark:text-yellow-100 font-semibold text-sm sm:text-base">
-                Time remaining: {timeRemaining} seconds
-              </span>
-            </div>
+          <div className="flex items-center justify-center p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 rounded-lg border border-amber-200 dark:border-amber-800 animate-pulse">
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span className="font-medium text-sm">
+              Time remaining: {timeRemaining} seconds
+            </span>
           </div>
         )}
     </div>

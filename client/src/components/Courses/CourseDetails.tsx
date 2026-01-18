@@ -151,6 +151,26 @@ const CourseDetails: React.FC = () => {
               <div>
                 <div className="flex items-center justify-end gap-3">
                   <Link
+                    to={`/courses/${courseId}/reports`}
+                    className="flex items-center justify-center p-2 rounded-full border border-gray-300 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-all shadow-sm"
+                    title="View Course Reports"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
+                  </Link>
+
+                  <Link
                     to="/courses"
                     className="text-center inline-flex items-center px-5 py-2 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-orange-300 dark:hover:border-blue-700 dark:hover:bg-blue-700 dark:hover:text-white hover:shadow dark:text-orange-300 transition-all duration-200"
                   >

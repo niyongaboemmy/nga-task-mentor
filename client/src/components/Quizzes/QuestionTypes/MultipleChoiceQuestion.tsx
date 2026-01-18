@@ -72,7 +72,7 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
   }
 
   const [selectedOptions, setSelectedOptions] = useState<number[]>(
-    currentAnswer?.selected_option_indices ?? []
+    currentAnswer?.selected_option_indices ?? [],
   );
 
   useEffect(() => {
@@ -89,14 +89,20 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
     if (selectedOptions.includes(optionIndex)) {
       newSelectedOptions = selectedOptions.filter((idx) => idx !== optionIndex);
     } else {
-      newSelectedOptions = [...selectedOptions, optionIndex];
-
       // Check max selections if specified
       if (
         questionData.max_selections &&
-        newSelectedOptions.length > questionData.max_selections
+        selectedOptions.length >= questionData.max_selections
       ) {
-        return; // Don't allow more selections than max
+        // If generic single select behavior (max=1), just switch
+        if (questionData.max_selections === 1) {
+          newSelectedOptions = [optionIndex];
+        } else {
+          // Otherwise prevent
+          return;
+        }
+      } else {
+        newSelectedOptions = [...selectedOptions, optionIndex];
       }
     }
 
@@ -106,6 +112,14 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
     });
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent, optionIndex: number) => {
+    if (disabled) return;
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      handleOptionToggle(optionIndex);
+    }
+  };
+
   const correctAnswerIndices = questionData.correct_option_indices;
   const minSelections = questionData.min_selections || 1;
 
@@ -113,172 +127,212 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
   const hasMinimumSelections = selectedOptions.length >= minSelections;
 
   return (
-    <div className="space-y-3">
+    <div
+      className="space-y-4"
+      role="group"
+      aria-label="Multiple choice options"
+    >
       {/* Selection info */}
-      <div className="mb-4 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 border border-blue-200 dark:border-blue-700 rounded-2xl animate-fadeIn">
+      <div className="mb-4 p-3 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-lg">
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <svg
-            className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fillRule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
-              clipRule="evenodd"
-            />
-          </svg>
+          <div className="bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-300 p-1 rounded">
+            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fillRule="evenodd"
+                d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                clipRule="evenodd"
+              />
+            </svg>
+          </div>
+
           <span className="text-gray-700 dark:text-gray-300 font-medium">
             Select{" "}
-            {minSelections === questionData.max_selections
-              ? `${minSelections} option${minSelections !== 1 ? "s" : ""}`
-              : `at least ${minSelections}${
-                  questionData.max_selections
-                    ? ` and at most ${questionData.max_selections}`
-                    : ""
-                } option${minSelections !== 1 ? "s" : ""}`}
+            {minSelections === questionData.max_selections ? (
+              <span className="font-bold text-gray-900 dark:text-white">
+                {minSelections} {minSelections !== 1 ? "options" : "option"}
+              </span>
+            ) : (
+              <span>
+                at least <span className="font-bold">{minSelections}</span>
+                {questionData.max_selections ? (
+                  <span>
+                    {" "}
+                    and at most{" "}
+                    <span className="font-bold">
+                      {questionData.max_selections}
+                    </span>
+                  </span>
+                ) : (
+                  ""
+                )}{" "}
+                option{minSelections !== 1 ? "s" : ""}
+              </span>
+            )}
           </span>
           {selectedOptions.length > 0 && (
-            <span className="ml-auto px-2.5 py-1 bg-blue-600 text-white text-xs font-bold rounded-full animate-scaleIn">
+            <span className="ml-auto px-2.5 py-1 bg-blue-600 text-white text-xs font-bold rounded-full animate-scaleIn shadow-sm">
               {selectedOptions.length} selected
             </span>
           )}
         </div>
       </div>
 
-      {questionData.options.map((option, index) => {
-        const isSelected = selectedOptions.includes(index);
-        const isCorrect =
-          showCorrectAnswer && correctAnswerIndices.includes(index);
-        const isIncorrectSelection =
-          showCorrectAnswer &&
-          isSelected &&
-          !correctAnswerIndices.includes(index);
+      <div className="space-y-3">
+        {questionData.options.map((option, index) => {
+          const isSelected = selectedOptions.includes(index);
+          const isCorrect =
+            showCorrectAnswer && correctAnswerIndices.includes(index);
+          const isIncorrectSelection =
+            showCorrectAnswer &&
+            isSelected &&
+            !correctAnswerIndices.includes(index);
 
-        let optionClassName =
-          "flex items-center p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] ";
+          let optionClassName =
+            "group flex items-center p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 outline-none focus:ring-4 focus:ring-blue-500/20 ";
 
-        if (disabled || showCorrectAnswer) {
-          optionClassName += "cursor-default hover:scale-100 active:scale-100 ";
-          if (isCorrect) {
-            optionClassName +=
-              "border-green-500 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 shadow-sm";
-          } else if (isIncorrectSelection) {
-            optionClassName +=
-              "border-red-500 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900 dark:to-pink-900 shadow-sm";
+          if (disabled || showCorrectAnswer) {
+            optionClassName += "cursor-default ";
+            if (isCorrect) {
+              optionClassName +=
+                "border-green-500 bg-green-50/50 dark:bg-green-900/10 shadow-sm";
+            } else if (isIncorrectSelection) {
+              optionClassName +=
+                "border-red-500 bg-red-50/50 dark:bg-red-900/10 shadow-sm";
+            } else {
+              optionClassName +=
+                "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 opacity-60";
+            }
           } else {
-            optionClassName +=
-              "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 opacity-60";
+            if (isSelected) {
+              optionClassName +=
+                "border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 shadow-md ring-1 ring-blue-500/50 z-10 scale-[1.01]";
+            } else {
+              optionClassName +=
+                "border-gray-200 dark:border-gray-700 hover:border-blue-300 dark:hover:border-blue-600 hover:bg-gray-50 dark:hover:bg-gray-700/50 hover:shadow-sm";
+            }
           }
-        } else {
-          if (isSelected) {
-            optionClassName +=
-              "border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900 dark:to-indigo-900 shadow-md ring-2 ring-blue-200 dark:ring-blue-800";
-          } else {
-            optionClassName +=
-              "border-gray-300 dark:border-gray-600 hover:border-blue-300 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:shadow-sm";
-          }
-        }
 
-        return (
-          <div
-            key={index}
-            className={`${optionClassName} animate-fadeIn`}
-            style={{ animationDelay: `${index * 50}ms` }}
-            onClick={() => handleOptionToggle(index)}
-          >
-            <div className="flex items-center w-full">
-              <div
-                className={`w-5 h-5 rounded border-2 mr-3 sm:mr-4 flex items-center justify-center flex-shrink-0 transition-all duration-300 ${
-                  isSelected
-                    ? "border-blue-600 bg-blue-600 scale-110 shadow-md"
-                    : "border-gray-400 dark:border-gray-500 hover:border-blue-400 dark:hover:border-blue-500"
-                }`}
-              >
-                {isSelected && (
-                  <svg
-                    className="w-3.5 h-3.5 text-white animate-scaleIn"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
+          return (
+            <div
+              key={index}
+              role={questionData.max_selections === 1 ? "radio" : "checkbox"}
+              aria-checked={isSelected}
+              tabIndex={disabled ? -1 : 0}
+              onKeyDown={(e) => handleKeyDown(e, index)}
+              className={`${optionClassName} animate-fadeIn`}
+              style={{ animationDelay: `${index * 50}ms` }}
+              onClick={() => handleOptionToggle(index)}
+            >
+              <div className="flex items-start w-full gap-4">
+                <div
+                  className={`mt-0.5 w-6 h-6 rounded border-2 flex-shrink-0 flex items-center justify-center transition-all duration-200 ${
+                    isSelected
+                      ? "border-blue-500 bg-blue-500 text-white shadow-sm scale-110"
+                      : "border-gray-300 dark:border-gray-600 group-hover:border-blue-400 text-transparent"
+                  } ${questionData.max_selections === 1 ? "rounded-full" : "rounded-md"}`}
+                >
+                  {questionData.max_selections === 1 ? (
+                    <div
+                      className={`w-2 h-2 rounded-full bg-white transition-transform duration-200 ${isSelected ? "scale-100" : "scale-0"}`}
                     />
-                  </svg>
-                )}
+                  ) : (
+                    <svg
+                      className={`w-3.5 h-3.5 transition-transform duration-200 ${isSelected ? "scale-100" : "scale-0"}`}
+                      fill="currentColor"
+                      viewBox="0 0 20 20"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  )}
+                </div>
+
+                <div className="flex-1 flex flex-col">
+                  <span
+                    className={`text-base leading-relaxed transition-colors duration-200 ${
+                      showCorrectAnswer && isCorrect
+                        ? "text-green-800 dark:text-green-200 font-medium"
+                        : showCorrectAnswer && isIncorrectSelection
+                          ? "text-red-800 dark:text-red-200 font-medium"
+                          : isSelected
+                            ? "text-blue-900 dark:text-blue-100 font-medium"
+                            : "text-gray-700 dark:text-gray-300"
+                    }`}
+                  >
+                    {option}
+                  </span>
+
+                  {showCorrectAnswer && isCorrect && (
+                    <span className="mt-1 text-green-600 dark:text-green-400 text-xs font-bold flex items-center gap-1 animate-slideInRight">
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                      Correct Option
+                    </span>
+                  )}
+
+                  {showCorrectAnswer && isIncorrectSelection && (
+                    <span className="mt-1 text-red-600 dark:text-red-400 text-xs font-bold flex items-center gap-1 animate-slideInRight">
+                      <svg
+                        className="w-3 h-3"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth={3}
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                      Your incorrect selection
+                    </span>
+                  )}
+                </div>
               </div>
-              <span
-                className={`flex-1 text-sm sm:text-base break-words transition-colors duration-200 ${
-                  showCorrectAnswer && isCorrect
-                    ? "text-green-900 dark:text-green-100 font-semibold"
-                    : showCorrectAnswer && isIncorrectSelection
-                    ? "text-red-900 dark:text-red-100 font-medium"
-                    : isSelected
-                    ? "text-blue-900 dark:text-blue-100 font-medium"
-                    : "text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                {option}
-              </span>
-              {showCorrectAnswer && isCorrect && (
-                <span className="ml-2 sm:ml-3 text-green-600 dark:text-green-400 text-xs sm:text-sm font-bold flex items-center gap-1 animate-slideInRight flex-shrink-0">
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="hidden sm:inline">Correct</span>
-                </span>
-              )}
-              {showCorrectAnswer && isIncorrectSelection && (
-                <span className="ml-2 sm:ml-3 text-red-600 dark:text-red-400 text-xs sm:text-sm font-bold flex items-center gap-1 animate-slideInRight flex-shrink-0">
-                  <svg
-                    className="w-4 h-4"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fillRule="evenodd"
-                      d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z"
-                      clipRule="evenodd"
-                    />
-                  </svg>
-                  <span className="hidden sm:inline">Incorrect</span>
-                </span>
-              )}
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+      </div>
 
       {/* Validation warning */}
       {!disabled && !hasMinimumSelections && selectedOptions.length > 0 && (
-        <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900 dark:to-amber-900 border-l-4 border-yellow-500 dark:border-yellow-600 rounded-r-2xl shadow-sm animate-slideInLeft">
-          <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3 p-4 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded-r-lg shadow-sm animate-slideInLeft">
+          <div className="p-1.5 bg-amber-100 dark:bg-amber-800 rounded-full text-amber-600 dark:text-amber-300">
             <svg
-              className="w-5 h-5 text-yellow-700 dark:text-yellow-300 flex-shrink-0"
-              fill="currentColor"
-              viewBox="0 0 20 20"
+              className="w-5 h-5"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+              strokeWidth={2}
             >
               <path
-                fillRule="evenodd"
-                d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z"
-                clipRule="evenodd"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
               />
             </svg>
-            <span className="text-yellow-900 dark:text-yellow-100 font-semibold text-sm sm:text-base">
-              Please select at least {minSelections} option
-              {minSelections !== 1 ? "s" : ""}
-            </span>
           </div>
+
+          <span className="text-amber-900 dark:text-amber-100 font-medium">
+            Please select at least{" "}
+            <span className="font-bold">{minSelections}</span> option
+            {minSelections !== 1 ? "s" : ""}
+          </span>
         </div>
       )}
 
@@ -286,23 +340,23 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
       {timeRemaining !== undefined &&
         timeRemaining <= 30 &&
         timeRemaining > 0 && (
-          <div className="mt-4 p-3 sm:p-4 bg-gradient-to-r from-yellow-100 to-amber-100 dark:from-yellow-900 dark:to-amber-900 border-l-4 border-yellow-500 dark:border-yellow-600 rounded-r-2xl shadow-sm animate-pulse">
-            <div className="flex items-center gap-2">
-              <svg
-                className="w-5 h-5 text-yellow-700 dark:text-yellow-300 flex-shrink-0"
-                fill="currentColor"
-                viewBox="0 0 20 20"
-              >
-                <path
-                  fillRule="evenodd"
-                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm1-12a1 1 0 10-2 0v4a1 1 0 00.293.707l2.828 2.829a1 1 0 101.415-1.415L11 9.586V6z"
-                  clipRule="evenodd"
-                />
-              </svg>
-              <span className="text-yellow-900 dark:text-yellow-100 font-semibold text-sm sm:text-base">
-                Time remaining: {timeRemaining} seconds
-              </span>
-            </div>
+          <div className="flex items-center justify-center p-3 bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 rounded-lg border border-amber-200 dark:border-amber-800 animate-pulse">
+            <svg
+              className="w-5 h-5 mr-2"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+              />
+            </svg>
+            <span className="font-medium text-sm">
+              Time remaining: {timeRemaining} seconds
+            </span>
           </div>
         )}
     </div>

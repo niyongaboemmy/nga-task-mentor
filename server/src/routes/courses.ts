@@ -3,6 +3,7 @@ import {
   getCourses,
   getCourse,
   getCourseStudents,
+  getCourseGrades,
   createCourse,
   updateCourse,
   deleteCourse,
@@ -28,6 +29,9 @@ router.route("/").get(getCourses).post(createCourse);
 
 router.route("/:id").get(getCourse).put(updateCourse).delete(deleteCourse);
 router.route("/:id/students").get(getCourseStudents);
+router
+  .route("/:id/grades")
+  .get(authorize("instructor", "admin"), getCourseGrades);
 router
   .route("/:courseId/assignments")
   .get(getCourseAssignments)
