@@ -65,27 +65,37 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       className="!max-w-6xl"
     >
       <div className="h-[75vh] flex flex-col -m-4 overflow-hidden rounded-b-2xl">
-        <DocViewer
-          documents={docs}
-          pluginRenderers={DocViewerRenderers}
-          style={{ height: "100%" }}
-          config={{
-            header: {
-              disableHeader: true,
-              disableFileName: true,
-              retainURLParams: false,
-            },
-          }}
-          theme={{
-            primary: "#3b82f6",
-            secondary: "#ffffff",
-            tertiary: "#f3f4f6",
-            textPrimary: "#111827",
-            textSecondary: "#4b5563",
-            textTertiary: "#9ca3af",
-            disableThemeScrollbar: false,
-          }}
-        />
+        {extension === "pdf" ? (
+          <iframe
+            src={fileUrl}
+            className="w-full h-full"
+            title={fileName}
+            // allow-scripts is often needed for PDF viewers' internal JS
+            sandbox="allow-scripts allow-same-origin allow-forms"
+          />
+        ) : (
+          <DocViewer
+            documents={docs}
+            pluginRenderers={DocViewerRenderers}
+            style={{ height: "100%" }}
+            config={{
+              header: {
+                disableHeader: true,
+                disableFileName: true,
+                retainURLParams: false,
+              },
+            }}
+            theme={{
+              primary: "#3b82f6",
+              secondary: "#ffffff",
+              tertiary: "#f3f4f6",
+              textPrimary: "#111827",
+              textSecondary: "#4b5563",
+              textTertiary: "#9ca3af",
+              disableThemeScrollbar: false,
+            }}
+          />
+        )}
       </div>
     </Modal>
   );

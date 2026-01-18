@@ -10,8 +10,13 @@ import AssignmentHeader from "./AssignmentHeader";
 import SubmissionList from "./SubmissionList";
 import AssignmentForm from "./AssignmentForm";
 import SubmissionDetailsModal from "./SubmissionDetailsModal";
+import FilePreviewModal from "../Submissions/FilePreviewModal";
 import { type SubmissionItemInterface } from "./SubmissionSummaryItem";
-import { formatDateTimeLocal, parseLocalDateTimeToUTC, formatUTCToLocalDateTime } from "../../utils/dateUtils";
+import {
+  formatDateTimeLocal,
+  parseLocalDateTimeToUTC,
+  formatUTCToLocalDateTime,
+} from "../../utils/dateUtils";
 
 export const getSubmissionStatusColor = (status: string) => {
   switch (status) {
@@ -26,6 +31,13 @@ export const getSubmissionStatusColor = (status: string) => {
   }
 };
 
+interface Attachment {
+  name: string;
+  url: string;
+  type: string;
+  size?: number;
+}
+
 interface Assignment {
   id: string;
   title: string;
@@ -37,6 +49,7 @@ interface Assignment {
   rubric: string;
   course_id: string;
   created_by: string;
+  attachments?: Attachment[];
   createdAt: string;
   updatedAt: string;
   creator?: {
@@ -60,27 +73,46 @@ const AssignmentDetails = () => {
   const [submissions, setSubmissions] = useState<SubmissionItemInterface[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"details" | "submissions">(
-    "submissions"
+    "submissions",
   );
   const { user } = useAuth();
   const { courses } = useSelector((state: RootState) => state.course);
 
   // Find course in redux if not provided by assignment object
   const reduxCourse = courses.find(
-    (c) => c.id.toString() === assignment?.course_id.toString()
+    (c) => c.id.toString() === assignment?.course_id.toString(),
   );
 
-  const displayCourse = assignment?.course || (reduxCourse ? {
-    id: reduxCourse.id.toString(),
-    code: reduxCourse.code,
-    title: reduxCourse.title
-  } : undefined);
+  const displayCourse =
+    assignment?.course ||
+    (reduxCourse
+      ? {
+          id: reduxCourse.id.toString(),
+          code: reduxCourse.code,
+          title: reduxCourse.title,
+        }
+      : undefined);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] =
     useState<SubmissionItemInterface | null>(null);
-  const [editFormData, setEditFormData] = useState({
+
+  // Add new file state
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+
+  // Update editFormData to include attachments
+  const [editFormData, setEditFormData] = useState<{
+    title: string;
+    description: string;
+    due_date: string;
+    max_score: string;
+    submission_type: string;
+    allowed_file_types: string;
+    rubric: string;
+    status: string;
+    attachments?: Attachment[];
+  }>({
     title: "",
     description: "",
     due_date: "",
@@ -89,15 +121,39 @@ const AssignmentDetails = () => {
     allowed_file_types: "",
     rubric: "",
     status: "draft",
+    attachments: [],
   });
+  const [previewFile, setPreviewFile] = useState<{
+    url: string;
+    name: string;
+  } | null>(null);
 
   const handleInputChange = (
     e: React.ChangeEvent<
       HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
+    >,
   ) => {
     const { name, value } = e.target;
     setEditFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setNewFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
+  const handleRemoveNewFile = (index: number) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleRemoveExistingAttachment = (index: number) => {
+    setEditFormData((prev) => ({
+      ...prev,
+      attachments: prev.attachments
+        ? prev.attachments.filter((_, i) => i !== index)
+        : [],
+    }));
   };
 
   const formatDate = (dateString: string) => {
@@ -109,39 +165,45 @@ const AssignmentDetails = () => {
     if (!assignment) return;
     try {
       const utcDueDate = parseLocalDateTimeToUTC(editFormData.due_date);
-      const submissionData = {
-        ...editFormData,
-        due_date: utcDueDate.toISOString(),
-      };
+      // Format as YYYY-MM-DDTHH:mm string for backend validation
+      const formattedDate = utcDueDate.toISOString().slice(0, 16);
+
+      const formData = new FormData();
+      formData.append("title", editFormData.title);
+      formData.append("description", editFormData.description);
+      formData.append("due_date", formattedDate);
+      formData.append("max_score", editFormData.max_score);
+      formData.append("submission_type", editFormData.submission_type);
+      formData.append("allowed_file_types", editFormData.allowed_file_types);
+      formData.append("rubric", editFormData.rubric);
+      formData.append("status", editFormData.status);
+
+      // Add existing attachments
+      if (editFormData.attachments) {
+        formData.append(
+          "existing_attachments",
+          JSON.stringify(editFormData.attachments),
+        );
+      }
+
+      // Add new files
+      if (newFiles.length > 0) {
+        newFiles.forEach((file) => {
+          formData.append("attachments", file);
+        });
+      }
+
       const response = await axios.put(
         `/api/assignments/${assignment.id}`,
-        submissionData
+        formData,
       );
       setAssignment(response.data.data);
       setIsEditing(false);
+      setNewFiles([]);
     } catch (error) {
       console.error("Error updating assignment:", error);
     }
   };
-
-  const userSubmission = () =>
-    submissions?.find(
-      (submission) => submission.student?.id.toString() === user?.id.toString()
-    );
-
-  const isStudent = user?.role === "student";
-  const dueDate = assignment ? new Date(assignment.due_date) : null;
-  const isOverdue = dueDate
-    ? (() => {
-        const nowUTC = Date.now();
-        const dueUTC = dueDate.getTime();
-        return dueUTC < nowUTC;
-      })()
-    : false;
-
-  const canSubmit = isStudent && !userSubmission() && !!user && !isOverdue;
-  const canManageAssignment =
-    user?.role === "instructor" || user?.role === "admin";
 
   const fetchAssignment = useCallback(async () => {
     try {
@@ -158,6 +220,7 @@ const AssignmentDetails = () => {
         allowed_file_types: data.allowed_file_types || "",
         rubric: data.rubric || "",
         status: data.status || "draft",
+        attachments: data.attachments || [],
       });
     } catch (error) {
       console.error("Error fetching assignment:", error);
@@ -169,7 +232,7 @@ const AssignmentDetails = () => {
   const fetchSubmissions = useCallback(async () => {
     try {
       const response = await axios.get(
-        `/api/assignments/${assignmentId}/submissions`
+        `/api/assignments/${assignmentId}/submissions`,
       );
       setSubmissions(response.data.data || response.data);
     } catch (error) {
@@ -182,10 +245,29 @@ const AssignmentDetails = () => {
     }
   }, [assignmentId]);
 
+  const userSubmission = () =>
+    submissions?.find(
+      (submission) => submission.student?.id.toString() === user?.id.toString(),
+    );
+
+  const isStudent = user?.role === "student";
+  const dueDate = assignment ? new Date(assignment.due_date) : null;
+  const isOverdue = dueDate
+    ? (() => {
+        const nowUTC = Date.now();
+        const dueUTC = dueDate.getTime();
+        return dueUTC < nowUTC;
+      })()
+    : false;
+
+  const canSubmit = isStudent && !userSubmission() && !!user && !isOverdue;
+  const canManageAssignment =
+    user?.role === "instructor" || user?.role === "admin";
+
   const handleStatusChange = useCallback(
     async (
       assignmentId: string,
-      status: "draft" | "published" | "completed" | "removed"
+      status: "draft" | "published" | "completed" | "removed",
     ) => {
       try {
         await axios.patch(`/api/assignments/${assignmentId}/status`, {
@@ -196,7 +278,7 @@ const AssignmentDetails = () => {
         console.error("Error updating assignment status:", error);
       }
     },
-    [fetchAssignment]
+    [fetchAssignment],
   );
 
   const handleGradeSubmission = useCallback(
@@ -213,7 +295,7 @@ const AssignmentDetails = () => {
         throw error;
       }
     },
-    [assignment, fetchSubmissions]
+    [assignment, fetchSubmissions],
   );
 
   useEffect(() => {
@@ -222,7 +304,13 @@ const AssignmentDetails = () => {
     if (courses.length === 0) {
       dispatch(fetchCourses());
     }
-  }, [assignmentId, fetchAssignment, fetchSubmissions, dispatch, courses.length]);
+  }, [
+    assignmentId,
+    fetchAssignment,
+    fetchSubmissions,
+    dispatch,
+    courses.length,
+  ]);
 
   // Modern Loading State
   if (isLoading) {
@@ -311,13 +399,64 @@ const AssignmentDetails = () => {
           <AssignmentHeader
             assignment={{
               ...assignment,
-              course: displayCourse
+              course: displayCourse,
             }}
             formatDate={formatDate}
             isOverdue={isOverdue}
             canManageAssignment={canManageAssignment}
             onStatusChange={handleStatusChange}
           />
+
+          {/* Attachments Section */}
+          {assignment?.attachments && assignment.attachments.length > 0 && (
+            <div className="px-6 pb-6 pt-2">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+                Attachments
+              </h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {assignment.attachments.map((file, index) => (
+                  <button
+                    key={index}
+                    onClick={() => {
+                      const baseUrl =
+                        import.meta.env.VITE_API_BASE_URL ||
+                        "http://localhost:5001";
+                      const fullUrl = file.url.startsWith("http")
+                        ? file.url
+                        : `${baseUrl}${file.url.startsWith("/") ? "" : "/"}${file.url}`;
+                      setPreviewFile({ url: fullUrl, name: file.name });
+                    }}
+                    className="flex items-center p-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 mr-3 group-hover:scale-110 transition-transform">
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                        />
+                      </svg>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                        {file.name}
+                      </p>
+                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                        {file.size ? (file.size / 1024 / 1024).toFixed(2) : 0}{" "}
+                        MB
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Clean Tab Navigation */}
@@ -410,10 +549,17 @@ const AssignmentDetails = () => {
 
         <AssignmentForm
           isOpen={isEditing}
-          onClose={() => setIsEditing(false)}
+          onClose={() => {
+            setIsEditing(false);
+            setNewFiles([]);
+          }}
           editFormData={editFormData}
           onInputChange={handleInputChange}
           onSubmit={handleSubmit}
+          newFiles={newFiles}
+          onFileChange={handleFileChange}
+          onRemoveNewFile={handleRemoveNewFile}
+          onRemoveExistingAttachment={handleRemoveExistingAttachment}
         />
 
         {selectedSubmission && (
@@ -428,6 +574,13 @@ const AssignmentDetails = () => {
             onGradeSubmission={handleGradeSubmission}
           />
         )}
+
+        <FilePreviewModal
+          isOpen={!!previewFile}
+          onClose={() => setPreviewFile(null)}
+          fileUrl={previewFile?.url || ""}
+          fileName={previewFile?.name || ""}
+        />
       </div>
     </div>
   );

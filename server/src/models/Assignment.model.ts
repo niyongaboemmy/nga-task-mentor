@@ -23,6 +23,12 @@ export interface IAssignmentAttributes {
     max_score: number;
     description?: string;
   }> | null;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }> | null;
   course_id?: number | null;
   created_by: number | null;
   status: "draft" | "published" | "completed" | "removed";
@@ -141,7 +147,7 @@ export class Assignment extends Model<
           criteria: string;
           max_score: number;
           description?: string;
-        }> | null
+        }> | null,
       ) {
         if (!value) return;
 
@@ -156,17 +162,17 @@ export class Assignment extends Model<
           }
           if (!item.criteria || typeof item.criteria !== "string") {
             throw new Error(
-              `Rubric item at index ${index} must have a string 'criteria' property`
+              `Rubric item at index ${index} must have a string 'criteria' property`,
             );
           }
           if (typeof item.max_score !== "number" || item.max_score <= 0) {
             throw new Error(
-              `Rubric item at index ${index} must have a positive 'max_score' number`
+              `Rubric item at index ${index} must have a positive 'max_score' number`,
             );
           }
           if (item.description && typeof item.description !== "string") {
             throw new Error(
-              `Rubric item at index ${index} description must be a string if provided`
+              `Rubric item at index ${index} description must be a string if provided`,
             );
           }
         }
@@ -177,6 +183,36 @@ export class Assignment extends Model<
     criteria: string;
     max_score: number;
     description?: string;
+  }> | null;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    defaultValue: null,
+    get() {
+      const parsed = this.getDataValue("attachments");
+      if (typeof parsed === "string") {
+        try {
+          return JSON.parse(parsed);
+        } catch (e) {
+          return [];
+        }
+      }
+      return parsed ? parsed : null;
+    },
+    set(value: Array<any> | null) {
+      if (value) {
+        this.setDataValue("attachments", JSON.stringify(value));
+      } else {
+        this.setDataValue("attachments", null);
+      }
+    },
+  })
+  public attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
   }> | null;
 
   @Column({

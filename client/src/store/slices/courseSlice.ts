@@ -155,7 +155,7 @@ const courseSlice = createSlice({
       })
       .addCase(fetchCourses.fulfilled, (state, action) => {
         state.loading.courses = false;
-        state.courses = action.payload;
+        state.courses = action.payload || [];
         state.error.courses = null;
       })
       .addCase(fetchCourses.rejected, (state, action) => {

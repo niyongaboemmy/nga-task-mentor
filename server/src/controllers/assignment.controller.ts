@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { Assignment, Submission, User } from "../models";
 import { sequelize } from "../config/database";
+import fs from "fs";
+import path from "path";
 import {
   parseLocalDateTimeToUTC,
   formatUTCToLocal,
@@ -102,7 +104,24 @@ export const createAssignment = async (req: Request, res: Response) => {
       submission_type = "both",
       course_id, // Allow course_id from body for flexibility
     } = req.body;
+
+    console.log("Create Assignment Payload debug:", {
+      contentType: req.headers["content-type"],
+      bodyType: typeof req.body,
+      bodyKeys: Object.keys(req.body),
+      title,
+      due_date,
+    });
     const { courseId } = req.params;
+
+    // Handle file uploads
+    const attachments =
+      (req.files as Express.Multer.File[])?.map((file) => ({
+        name: file.originalname,
+        url: `/uploads/assignments/${file.filename}`,
+        type: file.mimetype,
+        size: file.size,
+      })) || [];
 
     // Use courseId from params or body
     const finalCourseId = courseId || course_id;
@@ -119,16 +138,23 @@ export const createAssignment = async (req: Request, res: Response) => {
     try {
       // Check if due_date is already a Date object (from middleware) or still a string
       if (typeof due_date === "string") {
-        utcDueDate = parseLocalDateTimeToUTC(due_date);
+        let cleanDate = due_date.trim();
+        // Append seconds if missing to ensure better compatibility
+        if (cleanDate.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+          cleanDate += ":00";
+        }
+        utcDueDate = parseLocalDateTimeToUTC(cleanDate);
       } else if (due_date instanceof Date) {
         utcDueDate = due_date; // Already converted by middleware
       } else {
+        console.error("Invalid due_date type:", typeof due_date, due_date);
         throw new Error("Invalid due_date format");
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Date parsing error:", error.message, "Value:", due_date);
       return res.status(400).json({
         success: false,
-        message: "Invalid due date format. Please use YYYY-MM-DDTHH:mm format.",
+        message: `Invalid due date format: ${due_date}. Error: ${error.message}`,
       });
     }
 
@@ -160,7 +186,7 @@ export const createAssignment = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: `Invalid submission type. Must be one of: ${validSubmissionTypes.join(
-          ", "
+          ", ",
         )}`,
       });
     }
@@ -173,6 +199,7 @@ export const createAssignment = async (req: Request, res: Response) => {
       course_id: parseInt(finalCourseId),
       submission_type,
       created_by: req.user.id,
+      attachments,
     } as any); // Cast to any to allow status field
 
     res.status(201).json({
@@ -223,6 +250,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
       allowed_file_types,
       rubric,
       status,
+      existing_attachments, // JSON string of existing attachments to keep
     } = req.body;
 
     const assignment = await Assignment.findByPk(req.params.id);
@@ -233,6 +261,71 @@ export const updateAssignment = async (req: Request, res: Response) => {
         .json({ success: false, message: "Assignment not found" });
     }
 
+    // Handle attachments
+    let updatedAttachments = assignment.attachments || [];
+
+    // If existing_attachments is provided, parse it and use it as the base
+    // This allows removing files by sending a filtered list
+    if (existing_attachments) {
+      try {
+        const retainedAttachments = JSON.parse(existing_attachments);
+
+        // Identify files to remove (present in DB but not in retained list)
+        // We compare by URL as it's unique enough for this purpose
+        const filesToRemove = updatedAttachments.filter(
+          (oldAtt) =>
+            !retainedAttachments.some(
+              (newAtt: any) => newAtt.url === oldAtt.url,
+            ),
+        );
+
+        // Delete removed files from disk
+        filesToRemove.forEach((file) => {
+          try {
+            // Extract filename from URL (e.g., /uploads/assignments/filename.ext)
+            const filename = file.url.split("/").pop();
+            if (filename) {
+              const filePath = path.join(
+                __dirname,
+                "../../uploads/assignments",
+                filename,
+              );
+              if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                console.log(`Deleted file: ${filePath}`);
+              }
+            }
+          } catch (err) {
+            console.error(
+              `Failed to delete file ${file.name}:`,
+              (err as Error).message,
+            );
+          }
+        });
+
+        // Set valid attachments to the retained list (ensuring they match known structure)
+        updatedAttachments = retainedAttachments;
+      } catch (e) {
+        console.error("Error parsing existing_attachments:", e);
+      }
+    }
+
+    // Add new files
+    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      const newAttachments = (req.files as Express.Multer.File[]).map(
+        (file) => ({
+          name: file.originalname,
+          url: `/uploads/assignments/${file.filename}`,
+          type: file.mimetype,
+          size: file.size,
+        }),
+      );
+      updatedAttachments = [...updatedAttachments, ...newAttachments];
+    }
+
+    // Update attachments if changed
+    assignment.attachments = updatedAttachments;
+
     // Update fields if provided
     if (title !== undefined) assignment.title = title;
     if (description !== undefined) assignment.description = description;
@@ -241,17 +334,32 @@ export const updateAssignment = async (req: Request, res: Response) => {
       try {
         // Check if due_date is already a Date object (from middleware) or still a string
         if (typeof due_date === "string") {
-          assignment.due_date = parseLocalDateTimeToUTC(due_date);
+          let cleanDate = due_date.trim();
+          if (cleanDate.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/)) {
+            cleanDate += ":00";
+          }
+          assignment.due_date = parseLocalDateTimeToUTC(cleanDate);
         } else if (due_date instanceof Date) {
           assignment.due_date = due_date; // Already converted by middleware
         } else {
+          // If it's something else/invalid
+          console.error(
+            "Invalid due_date type in update:",
+            typeof due_date,
+            due_date,
+          );
           throw new Error("Invalid due_date format");
         }
-      } catch (error) {
+      } catch (error: any) {
+        console.error(
+          "Date parsing error in update:",
+          error.message,
+          "Value:",
+          due_date,
+        );
         return res.status(400).json({
           success: false,
-          message:
-            "Invalid due date format. Please use YYYY-MM-DDTHH:mm format.",
+          message: `Invalid due date format: ${due_date}. Please use YYYY-MM-DDTHH:mm format.`,
         });
       }
     }
@@ -267,7 +375,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
         return res.status(400).json({
           success: false,
           message: `Invalid status. Must be one of: ${validStatuses.join(
-            ", "
+            ", ",
           )}`,
         });
       }
@@ -364,7 +472,7 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
     // If user is a student, return only their own submission
     if (req.user.role === "student") {
       const userSubmission = existingSubmissions.find(
-        (submission) => String(submission.student_id) === String(req.user.id)
+        (submission) => String(submission.student_id) === String(req.user.id),
       );
 
       return res.status(200).json({
@@ -394,7 +502,7 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
             Authorization: token,
             "Content-Type": "application/json",
           },
-        }
+        },
       );
 
       if (studentsResponse.data.success) {
@@ -403,7 +511,7 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
     } catch (enrollmentError: any) {
       console.warn(
         "Could not fetch enrolled students from NGA MIS:",
-        enrollmentError.message
+        enrollmentError.message,
       );
       // Continue with existing submissions only
     }

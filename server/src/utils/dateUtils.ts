@@ -9,14 +9,20 @@
  * @param timezone - Optional timezone offset in minutes
  * @returns Date object in UTC
  */
-export function parseLocalDateTimeToUTC(dateString: string, timezone?: number): Date {
+export function parseLocalDateTimeToUTC(
+  dateString: string,
+  timezone?: number,
+): Date {
   if (!dateString) {
-    throw new Error('Date string is required');
+    throw new Error("Date string is required");
   }
 
-  // If the string already looks like an ISO UTC string or has an offset, 
+  // If the string already looks like an ISO UTC string or has an offset,
   // don't attempt to manually shift it again.
-  if (dateString.includes('Z') || (dateString.includes('T') && dateString.match(/[+-]\d{2}:?\d{2}$/))) {
+  if (
+    dateString.includes("Z") ||
+    (dateString.includes("T") && dateString.match(/[+-]\d{2}:?\d{2}$/))
+  ) {
     return new Date(dateString);
   }
 
@@ -24,7 +30,7 @@ export function parseLocalDateTimeToUTC(dateString: string, timezone?: number): 
   const localDate = new Date(dateString);
 
   if (isNaN(localDate.getTime())) {
-    throw new Error('Invalid date string format');
+    throw new Error("Invalid date string format");
   }
 
   // Get the timezone offset in minutes (UTC - Local)
@@ -33,7 +39,7 @@ export function parseLocalDateTimeToUTC(dateString: string, timezone?: number): 
 
   // Convert to UTC: UTC = Local + offset
   // Note: new Date(dateString) already parses as local time in most JS environments
-  // if no timezone is specified. We only need manual adjustment if we want to 
+  // if no timezone is specified. We only need manual adjustment if we want to
   // override the environment's timezone with a specific 'timezone' argument.
   if (timezone !== undefined) {
     const localTimestamp = localDate.getTime();
@@ -53,13 +59,13 @@ export function parseLocalDateTimeToUTC(dateString: string, timezone?: number): 
  */
 export function formatUTCToLocal(utcDate: Date, timezone?: number): string {
   if (!utcDate || isNaN(utcDate.getTime())) {
-    throw new Error('Valid UTC date is required');
+    throw new Error("Valid UTC date is required");
   }
 
   const tzOffset = timezone ?? new Date().getTimezoneOffset();
 
   // Convert UTC to local time: Local = UTC - offset
-  const localTimestamp = utcDate.getTime() - (tzOffset * 60 * 1000);
+  const localTimestamp = utcDate.getTime() - tzOffset * 60 * 1000;
   const localDate = new Date(localTimestamp);
 
   return localDate.toISOString().slice(0, 16); // Format: "YYYY-MM-DDTHH:mm"
@@ -81,7 +87,7 @@ export function createUTCDate(
   day: number,
   hour: number = 0,
   minute: number = 0,
-  timezone?: number
+  timezone?: number,
 ): Date {
   const tzOffset = timezone ?? new Date().getTimezoneOffset();
 
@@ -89,7 +95,7 @@ export function createUTCDate(
   const localDate = new Date(year, month, day, hour, minute);
 
   // Convert to UTC
-  return new Date(localDate.getTime() - (tzOffset * 60 * 1000));
+  return new Date(localDate.getTime() - tzOffset * 60 * 1000);
 }
 
 /**
@@ -115,19 +121,19 @@ export function isPastDate(utcDate: Date): boolean {
 export function formatDateTimeLocal(
   utcDate: Date,
   options: Intl.DateTimeFormatOptions = {
-    year: 'numeric',
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    timeZoneName: 'short'
-  }
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short",
+  },
 ): string {
   if (!utcDate || isNaN(utcDate.getTime())) {
-    return 'Invalid Date';
+    return "Invalid Date";
   }
 
-  return new Intl.DateTimeFormat('en-US', options).format(utcDate);
+  return new Intl.DateTimeFormat("en-US", options).format(utcDate);
 }
 
 /**
@@ -135,18 +141,25 @@ export function formatDateTimeLocal(
  * @param dateFields - Array of field names that contain dates
  * @returns Express middleware function
  */
-export function timezoneMiddleware(dateFields: string[] = ['due_date', 'submitted_at']) {
+export function timezoneMiddleware(
+  dateFields: string[] = ["due_date", "submitted_at"],
+) {
   return (req: any, res: any, next: any) => {
-    // Process each specified field - maintain original format without conversion
-    dateFields.forEach(field => {
+    // Process each specified field
+    dateFields.forEach((field) => {
       if (req.body[field]) {
         try {
-          // Keep the datetime exactly as received (no timezone conversion)
-          // The datetime should already be in the desired format
-          req.body[field] = req.body[field];
+          // If it's a valid date string, keep it as is.
+          // The goal is just to ensure it's not malformed.
+          // If we receive "YYYY-MM-DDTHH:mm", it's valid.
+          const date = new Date(req.body[field]);
+          if (!isNaN(date.getTime())) {
+            // Valid date, proceed.
+            // We don't change the format here to avoid messing up what the user sent
+            // especially if they sent a specific format required by validation.
+          }
         } catch (error) {
           console.error(`Error processing date field ${field}:`, error);
-          // Continue with original value if processing fails
         }
       }
     });

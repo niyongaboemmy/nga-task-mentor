@@ -13,6 +13,7 @@ import {
 } from "../controllers/assignment.controller";
 import { protect, authorize, isCourseInstructor } from "../middleware/auth";
 import { timezoneMiddleware } from "../utils/dateUtils";
+import { uploadAssignmentAttachment } from "../middleware/assignmentUpload";
 
 // Configure multer for file uploads (same config as in index.ts)
 import multer from "multer";
@@ -29,7 +30,10 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname));
+    cb(
+      null,
+      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname),
+    );
   },
 });
 
@@ -62,19 +66,46 @@ const upload = multer({
     const isAllowedMimeType = allowedTypes.includes(file.mimetype);
 
     // Additional check: allow files with generic MIME type but valid extensions
-    const allowedExtensions = ['.pdf', '.doc', '.docx', '.xls', '.xlsx', '.zip', '.7z', '.rar', '.txt', '.jpg', '.jpeg', '.png', '.gif'];
-    const fileExtension = file.originalname.toLowerCase().substring(file.originalname.lastIndexOf('.'));
+    const allowedExtensions = [
+      ".pdf",
+      ".doc",
+      ".docx",
+      ".xls",
+      ".xlsx",
+      ".zip",
+      ".7z",
+      ".rar",
+      ".txt",
+      ".jpg",
+      ".jpeg",
+      ".png",
+      ".gif",
+    ];
+    const fileExtension = file.originalname
+      .toLowerCase()
+      .substring(file.originalname.lastIndexOf("."));
     const isAllowedExtension = allowedExtensions.includes(fileExtension);
 
     // Special case: allow octet-stream (generic binary) files with valid extensions
-    const isGenericBinaryWithValidExtension = file.mimetype === 'application/octet-stream' && isAllowedExtension;
+    const isGenericBinaryWithValidExtension =
+      file.mimetype === "application/octet-stream" && isAllowedExtension;
 
     // Allow if either MIME type matches or extension is valid or it's a generic binary with valid extension
-    if (isAllowedMimeType || isAllowedExtension || isGenericBinaryWithValidExtension) {
+    if (
+      isAllowedMimeType ||
+      isAllowedExtension ||
+      isGenericBinaryWithValidExtension
+    ) {
       cb(null, true);
     } else {
-      console.log(`File rejected - MIME: ${file.mimetype}, Extension: ${fileExtension}, Original: ${file.originalname}`);
-      cb(new Error(`Invalid file type. Only PDF, DOC, XLS, ZIP, 7Z, RAR, TXT, and images are allowed. Received: ${file.mimetype}`));
+      console.log(
+        `File rejected - MIME: ${file.mimetype}, Extension: ${fileExtension}, Original: ${file.originalname}`,
+      );
+      cb(
+        new Error(
+          `Invalid file type. Only PDF, DOC, XLS, ZIP, 7Z, RAR, TXT, and images are allowed. Received: ${file.mimetype}`,
+        ),
+      );
     }
   },
 });
@@ -84,28 +115,36 @@ const router = Router();
 // Public routes
 router.get("/", getAssignments);
 // Get enrolled assignments for students
-router.get(
-  "/enrolled",
-  protect,
-  authorize("student"),
-  getEnrolledAssignments
-);
+router.get("/enrolled", protect, authorize("student"), getEnrolledAssignments);
 router.get("/:id", getAssignment);
 
 // Protected routes
 router.use(protect);
 
 // Instructor and admin routes - these should be for general assignment operations
-router.post("/", authorize("instructor", "admin"), timezoneMiddleware(['due_date']), createAssignment);
+// Instructor and admin routes - these should be for general assignment operations
+router.post(
+  "/",
+  authorize("instructor", "admin"),
+  uploadAssignmentAttachment.any(),
+  timezoneMiddleware(["due_date"]),
+  createAssignment,
+);
 
 // Course instructor and admin routes
 router
   .route("/:id")
-  .put(authorize("instructor", "admin"), isCourseInstructor, timezoneMiddleware(['due_date']), updateAssignment)
+  .put(
+    authorize("instructor", "admin"),
+    isCourseInstructor,
+    uploadAssignmentAttachment.any(),
+    timezoneMiddleware(["due_date"]),
+    updateAssignment,
+  )
   .delete(
     authorize("instructor", "admin"),
     isCourseInstructor,
-    deleteAssignment
+    deleteAssignment,
   );
 
 // Publish assignment (legacy route - keeping for backward compatibility)
@@ -113,7 +152,7 @@ router.put(
   "/:id/publish",
   authorize("instructor", "admin"),
   isCourseInstructor,
-  publishAssignment
+  publishAssignment,
 );
 
 // Update assignment status
@@ -121,7 +160,7 @@ router.patch(
   "/:id/status",
   authorize("instructor", "admin"),
   isCourseInstructor,
-  updateAssignmentStatus
+  updateAssignmentStatus,
 );
 
 // Submit assignment (for students) - temporarily remove auth for testing
@@ -130,7 +169,7 @@ router.post(
   upload.single("file_submission"), // Apply multer middleware for file uploads
   protect,
   authorize("student"),
-  submitAssignment
+  submitAssignment,
 );
 
 // Get submissions for an assignment - Students see only their own, Instructors see all
@@ -138,7 +177,7 @@ router.get(
   "/:id/submissions",
   protect,
   // authorize("instructor", "admin"), // Students can view their own submissions
-  getAssignmentSubmissions
+  getAssignmentSubmissions,
 );
 
 // Download submissions as zip (TODO: implement)

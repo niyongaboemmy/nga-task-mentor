@@ -17,13 +17,15 @@ const CourseDetails: React.FC = () => {
   >("overview");
 
   // Get courses and loading state from Redux store
-  const { currentCourse, courses, loading } = useSelector(
-    (state: RootState) => ({
-      currentCourse: state.course.currentCourse,
-      courses: state.course.courses,
-      loading: state.course.loading.course,
-    }),
-  );
+  // Get courses and loading state from Redux store
+  const courseState = useSelector((state: RootState) => {
+    // console.log("Redux State Debug:", state.course); // Optional debug
+    return state.course;
+  });
+
+  const currentCourse = courseState?.currentCourse;
+  const courses = courseState?.courses || [];
+  const loading = courseState?.loading?.course || false;
 
   // Derive course data - prioritize currentCourse if it matches the ID, otherwise fallback to list
   const course = React.useMemo<Course | null>(() => {

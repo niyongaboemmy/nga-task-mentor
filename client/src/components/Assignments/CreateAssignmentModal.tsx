@@ -12,6 +12,7 @@ interface CreateAssignmentProps {
     max_score: number;
     submission_type: string;
     course_id: string;
+    attachments?: File[];
   }) => void;
   onCancel?: () => void;
   initialCourseId?: string;
@@ -38,6 +39,17 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const editorRef = useRef<HTMLDivElement>(null);
   const [isInitialized, setIsInitialized] = useState(false);
+  const [files, setFiles] = useState<File[]>([]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      setFiles((prev) => [...prev, ...Array.from(e.target.files!)]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
 
   // Fetch courses for the current user
   useEffect(() => {
@@ -75,14 +87,15 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
 
     try {
       // Convert local input to UTC for API
-      const utcDueDate = formData.due_date 
-        ? parseLocalDateTimeToUTC(formData.due_date).toISOString() 
+      const utcDueDate = formData.due_date
+        ? parseLocalDateTimeToUTC(formData.due_date).toISOString().slice(0, 16)
         : "";
 
       await onSubmit({
         ...formData,
         description: finalContent,
         due_date: utcDueDate,
+        attachments: files,
       });
 
       // Reset form only after successful submission
@@ -104,7 +117,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
   };
 
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -242,7 +255,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
 
         while (element && element !== editorRef.current) {
           const fontFamily = window.getComputedStyle(
-            element as Element
+            element as Element,
           ).fontFamily;
           if (
             fontFamily &&
@@ -315,7 +328,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
 
         while (element && element !== editorRef.current) {
           const fontFamily = window.getComputedStyle(
-            element as Element
+            element as Element,
           ).fontFamily;
           if (
             fontFamily &&
@@ -391,7 +404,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
         while (element && element !== editorRef.current) {
           if ((element as Element).tagName === "OL") {
             const style = window.getComputedStyle(
-              element as Element
+              element as Element,
             ).listStyleType;
             switch (style) {
               case "decimal":
@@ -479,7 +492,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
           case "insertUnorderedList":
             // First check if we're in a list already
             const isInUnorderedList = detectFormattingFromDOM(
-              "insertUnorderedList"
+              "insertUnorderedList",
             );
             if (isInUnorderedList) {
               // If already in unordered list, outdent or convert to normal text
@@ -799,6 +812,98 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                     </select>
                   </div>
                 </div>
+
+                {/* File Upload to Attachments */}
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Attachments
+                  </label>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-center w-full">
+                      <label
+                        htmlFor="file-upload"
+                        className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-bray-800 dark:bg-gray-700 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600"
+                      >
+                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                          <svg
+                            className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400"
+                            aria-hidden="true"
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 20 16"
+                          >
+                            <path
+                              stroke="currentColor"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
+                            />
+                          </svg>
+                          <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                            <span className="font-semibold">
+                              Click to upload
+                            </span>{" "}
+                            or drag and drop
+                          </p>
+                          <p className="text-xs text-gray-500 dark:text-gray-400">
+                            PDF, DOC, Images (MAX. 10MB)
+                          </p>
+                        </div>
+                        <input
+                          id="file-upload"
+                          type="file"
+                          className="hidden"
+                          multiple
+                          onChange={handleFileChange}
+                        />
+                      </label>
+                    </div>
+
+                    {/* File List */}
+                    {files.length > 0 && (
+                      <div className="space-y-2">
+                        {files.map((file, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700 rounded-lg"
+                          >
+                            <div className="flex items-center space-x-3">
+                              <span className="text-2xl">📄</span>
+                              <div>
+                                <p className="text-sm font-medium text-gray-900 dark:text-white truncate max-w-xs">
+                                  {file.name}
+                                </p>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                  {(file.size / 1024 / 1024).toFixed(2)} MB
+                                </p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => removeFile(index)}
+                              className="p-1 hover:bg-gray-200 dark:hover:bg-gray-600 rounded-full transition-colors"
+                            >
+                              <svg
+                                className="w-5 h-5 text-red-500"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                                stroke="currentColor"
+                              >
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M6 18L18 6M6 6l12 12"
+                                />
+                              </svg>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1082,7 +1187,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                         // Apply the style immediately to the new list
                         setTimeout(() => {
                           const lists = editorRef.current?.querySelectorAll(
-                            'ol:not([style*="list-style-type"])'
+                            'ol:not([style*="list-style-type"])',
                           );
                           if (lists && lists.length > 0) {
                             const newList = lists[

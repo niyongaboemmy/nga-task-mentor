@@ -13,6 +13,7 @@ import {
 } from "../controllers/assignment.controller";
 import { getQuizzes, createQuiz } from "../controllers/quiz.controller";
 import { timezoneMiddleware } from "../utils/dateUtils";
+import { uploadAssignmentAttachment } from "../middleware/assignmentUpload";
 
 import { protect, authorize } from "../middleware/auth";
 import { requireMisToken } from "../middleware/misAuth";
@@ -32,8 +33,9 @@ router
   .get(getCourseAssignments)
   .post(
     authorize("instructor", "admin"),
+    uploadAssignmentAttachment.any(),
     timezoneMiddleware(["due_date"]),
-    createAssignment
+    createAssignment,
   );
 
 // Quiz routes for courses

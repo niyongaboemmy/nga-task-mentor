@@ -121,8 +121,8 @@ const initializeDatabase = async (): Promise<void> => {
     const models = await import("./models");
     models.setupAssociations();
 
-    // Sync all models (use alter: false to avoid MySQL key limit issues)
-    await sequelizeInstance.sync({ alter: false });
+    // Sync all models (use alter: true to update schema)
+    await sequelizeInstance.sync({ alter: true });
     console.log("Database synchronized");
 
     // Add any additional initialization here
