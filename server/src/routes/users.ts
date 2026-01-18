@@ -8,6 +8,8 @@ import {
   enrollInCourse,
   withdrawFromCourse,
   getUserCourses,
+  getStudentAssignments,
+  getStudentQuizzes,
   getProfilePicture,
 } from "../controllers/user.controller";
 import { protect, authorize } from "../middleware/auth";
@@ -38,7 +40,9 @@ router
   .post(enrollInCourse)
   .delete(withdrawFromCourse);
 
-// Get user's courses
+// Get user's assignments, quizzes, and courses
+router.get("/:userId/assignments", getStudentAssignments);
+router.get("/:userId/quizzes", getStudentQuizzes);
 router.get("/:userId/courses", getUserCourses);
 
 export default router;

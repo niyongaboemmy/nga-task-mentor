@@ -14,9 +14,10 @@ const Courses: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Get courses from Redux store
+  // Get courses from Redux store with defensive checks
   const { courses, loading } = useSelector((state: RootState) => ({
-    courses: state.course.courses,
-    loading: state.course.loading.courses,
+    courses: state.course?.courses || [],
+    loading: !!state.course?.loading?.courses,
   }));
 
   useEffect(() => {
@@ -27,14 +28,20 @@ const Courses: React.FC = () => {
 
   // Filter courses based on search query
   const filteredCourses = useMemo(() => {
+    if (!Array.isArray(courses)) return [];
     return courses.filter((course) => {
+      if (!course) return false;
       if (!searchQuery) return true;
 
       const query = searchQuery.toLowerCase();
+      const title = (course.title || "").toLowerCase();
+      const code = (course.code || "").toLowerCase();
+      const description = (course.description || "").toLowerCase();
+
       return (
-        course.title.toLowerCase().includes(query) ||
-        course.code.toLowerCase().includes(query) ||
-        (course.description && course.description.toLowerCase().includes(query))
+        title.includes(query) ||
+        code.includes(query) ||
+        description.includes(query)
       );
     });
   }, [courses, searchQuery]);
@@ -59,10 +66,10 @@ const Courses: React.FC = () => {
                 {user?.role === "student"
                   ? "Your enrolled courses"
                   : filter === "all"
-                  ? "All available courses"
-                  : filter === "enrolled"
-                  ? "Courses you're enrolled in"
-                  : "Courses you're teaching"}
+                    ? "All available courses"
+                    : filter === "enrolled"
+                      ? "Courses you're enrolled in"
+                      : "Courses you're teaching"}
               </p>
             </div>
 
@@ -129,10 +136,10 @@ const Courses: React.FC = () => {
                 ? user?.role === "student"
                   ? "You're not enrolled in any courses yet."
                   : filter === "all"
-                  ? "No courses are available yet."
-                  : filter === "enrolled"
-                  ? "You're not enrolled in any courses yet."
-                  : "You're not teaching any courses yet."
+                    ? "No courses are available yet."
+                    : filter === "enrolled"
+                      ? "You're not enrolled in any courses yet."
+                      : "You're not teaching any courses yet."
                 : "Try adjusting your search terms or filters."}
             </p>
           </div>

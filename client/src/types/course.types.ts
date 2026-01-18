@@ -1,3 +1,5 @@
+import type { UserFullData } from "./user.types";
+
 export interface Course {
   id: number;
   title: string;
@@ -15,12 +17,7 @@ export interface Course {
     first_name: string;
     last_name: string;
   } | null;
-  enrolledStudents?: Array<{
-    id: number;
-    first_name: string;
-    last_name: string;
-    email: string;
-  }>;
+  enrolledStudents?: UserFullData[];
   statistics?: {
     assignments: {
       total: number;

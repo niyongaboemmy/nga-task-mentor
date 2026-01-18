@@ -2,6 +2,11 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import axios from "../utils/axiosConfig";
 import { useDispatch } from "react-redux";
 import { loginSuccess, logout } from "../store/slices/authSlice";
+import type {
+  UserFullData,
+  Role as CentralRole,
+  UserResponse,
+} from "../types/user.types";
 
 // Local API axios instance
 const apiAxios = axios.create({
@@ -9,51 +14,8 @@ const apiAxios = axios.create({
   timeout: 10000,
 });
 
-interface Role {
-  role_id: number;
-  name: string;
-  description: string;
-  status: string;
-  permissions: Array<{
-    perm_id: number;
-    name: string;
-    description: string;
-    status: string;
-  }>;
-}
-
-export interface UserProfileResponse {
-  success: boolean;
-  message: string;
-  data: UserProfileData;
-}
-
-export interface UserProfileData {
-  user: {
-    id: number;
-    first_name: string;
-    last_name: string;
-    email: string;
-    role: string;
-    mis_user_id: number;
-  };
-  profile: {
-    profile_id: number;
-    user_id: number;
-    first_name: string;
-    last_name: string;
-    gender: string;
-    date_of_birth: null | string;
-    address: null | string;
-    user_type: string;
-    external_id: null | string;
-  };
-  roles: Role[];
-  permissions: string[];
-  assignedPrograms: any[];
-  assignedGrades: any[];
-  forcePasswordChange: boolean;
-}
+export type UserProfileData = UserFullData;
+export type UserProfileResponse = UserResponse;
 
 interface User {
   id: string;
@@ -130,22 +92,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
         console.log("✅ AuthContext: Auth check successful:", response.data);
 
-        const responseData = response.data.data;
+        const responseData: UserFullData = response.data.data;
         const userData: User = {
-          id: responseData.user.id.toString(),
-          first_name: responseData.user.first_name,
-          last_name: responseData.user.last_name,
-          email: responseData.user.email,
-          role: responseData.user.role,
-          roles: responseData.roles.map((r: Role, _i: number) => ({
+          id: (
+            responseData.user?.id ||
+            responseData.user?.user_id ||
+            ""
+          ).toString(),
+          first_name:
+            responseData.user?.first_name ||
+            responseData.profile?.first_name ||
+            "",
+          last_name:
+            responseData.user?.last_name ||
+            responseData.profile?.last_name ||
+            "",
+          email: responseData.user?.email || "",
+          role: responseData.user?.role || "student",
+          roles: (responseData.roles || []).map((r: CentralRole) => ({
             id: r.role_id,
             name: r.name,
           })),
-          permissions: responseData.permissions,
-          profile_image: responseData.user.profile_image,
+          permissions: responseData.permissions || [],
+          profile_image: responseData.user?.profile_image,
           department: undefined,
-          user_type: responseData.profile?.user_type,
-          mis_user_id: responseData.user.mis_user_id,
+          user_type: responseData.profile?.user_type || responseData.user?.role,
+          mis_user_id:
+            responseData.user?.mis_user_id || responseData.user?.user_id,
           // Map new fields
           gender: responseData.profile?.gender,
           date_of_birth: responseData.profile?.date_of_birth,
@@ -187,24 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       if (otp) {
         // Verify OTP via local backend
         console.log("Verifying OTP for:", email);
-        const response = await apiAxios.post<{
-          success: boolean;
-          token: string;
-          misToken: string;
-          user: {
-            id: number;
-            first_name: string;
-            last_name: string;
-            email: string;
-            role: string;
-            mis_user_id: number;
-          };
-          profile: any;
-          permissions: string[];
-          assignedPrograms: any[];
-          assignedGrades: any[];
-          forcePasswordChange: boolean;
-        }>(
+        const response = await apiAxios.post(
           "/auth/verify-otp",
           { otp },
           {
@@ -212,19 +168,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           },
         );
         // Cookies are set by server automatically
-        const data = response.data;
+        const data: UserFullData = response.data;
         const userData: User = {
-          id: data.user.id.toString(),
-          first_name: data.user.first_name,
-          last_name: data.user.last_name,
-          email: data.user.email,
-          role: data.user.role,
-          roles: [], // roles might need to be fetched or passed if verify-otp returns them
-          permissions: data.permissions,
-          profile_image: undefined,
+          id: (data.user?.id || data.user?.user_id || "").toString(),
+          first_name: data.user?.first_name || data.profile?.first_name || "",
+          last_name: data.user?.last_name || data.profile?.last_name || "",
+          email: data.user?.email || "",
+          role: data.user?.role || "student",
+          roles: (data.roles || []).map((r: CentralRole) => ({
+            id: r.role_id,
+            name: r.name,
+          })),
+          permissions: data.permissions || [],
+          profile_image: data.user?.profile_image,
           department: undefined,
-          user_type: data.user.role,
-          mis_user_id: data.user.mis_user_id,
+          user_type: data.profile?.user_type || data.user?.role,
+          mis_user_id: data.user?.mis_user_id || data.user?.user_id,
           // Map new fields
           gender: data.profile?.gender,
           date_of_birth: data.profile?.date_of_birth,

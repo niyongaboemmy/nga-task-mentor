@@ -1,8 +1,10 @@
 import { Request, Response } from "express";
+import { Op } from "sequelize";
 import axios from "axios";
 import path from "path";
 import fs from "fs";
 import { getMisToken } from "../utils/misUtils";
+import { Submission, Assignment, QuizSubmission, Quiz } from "../models";
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -74,46 +76,40 @@ export const getUsers = async (req: Request, res: Response) => {
         }
       }
     }
-
-    const response = await axios.get(
-      `${process.env.NGA_MIS_BASE_URL}${endpoint}`,
-      {
-        headers: {
-          Authorization: token,
-          "Content-Type": "application/json",
-        },
-        params,
-        // Enforce HTTPS in production
-        httpsAgent:
-          process.env.NODE_ENV === "production"
-            ? new (require("https").Agent)({ rejectUnauthorized: true })
-            : undefined,
+    const response = await axios.get<{
+      success: boolean;
+      message: string;
+      data: {
+        user_id: string;
+        username: string;
+        first_name: string;
+        last_name: string;
+        gender: string;
+        class_group_name: string;
+        grade_name: string;
+        program_name: string;
+        enrolled_at: string;
+      }[];
+    }>(`${process.env.NGA_MIS_BASE_URL}${endpoint}`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
-    );
+      params,
+      // Enforce HTTPS in production
+      httpsAgent:
+        process.env.NODE_ENV === "production"
+          ? new (require("https").Agent)({ rejectUnauthorized: true })
+          : undefined,
+    });
 
-    if (response.data.success) {
-      let users = response.data.data || [];
-
-      // Filter by role if specified (client-side filtering)
-      if (role) {
-        users = users.filter((user: any) => {
-          // Check if user has the specified role
-          if (user.roles && Array.isArray(user.roles)) {
-            return user.roles.some(
-              (r: any) =>
-                r.name &&
-                r.name.toLowerCase().includes(role.toString().toLowerCase()),
-            );
-          }
-          return false;
-        });
-      }
-
+    if (response.data.data && response.data.data.length > 0) {
+      const users = response.data.data;
       res.status(200).json({
         success: true,
         count: users.length,
         data: users,
-        meta: response.data.meta,
+        // meta: response.data.meta,
       });
     } else {
       res.status(500).json({
@@ -144,7 +140,7 @@ export const getUser = async (req: Request, res: Response) => {
       `${process.env.NGA_MIS_BASE_URL}/users/${req.params.id}`,
       {
         headers: {
-          Authorization: token,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         // Enforce HTTPS in production
@@ -198,7 +194,7 @@ export const getUserCourses = async (req: Request, res: Response) => {
       `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
       {
         headers: {
-          Authorization: token,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         // Enforce HTTPS in production
@@ -259,7 +255,7 @@ export const createUser = async (req: Request, res: Response) => {
       },
       {
         headers: {
-          Authorization: token,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         // Enforce HTTPS in production
@@ -323,7 +319,7 @@ export const updateUser = async (req: Request, res: Response) => {
       },
       {
         headers: {
-          Authorization: token,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         // Enforce HTTPS in production
@@ -374,7 +370,7 @@ export const deleteUser = async (req: Request, res: Response) => {
       `${process.env.NGA_MIS_BASE_URL}/users/${req.params.id}`,
       {
         headers: {
-          Authorization: token,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
         // Enforce HTTPS in production
@@ -456,6 +452,162 @@ export const getProfilePicture = async (req: Request, res: Response) => {
     }
   } catch (error) {
     console.error("Get profile picture error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Get student's assignments and submissions
+// @route   GET /api/users/:userId/assignments
+// @access  Private/Admin/Instructor
+export const getStudentAssignments = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const token = getMisToken(req);
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    // Fetch user's enrolled subjects from MIS API to know which assignments to show
+    const misResponse = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const enrolledSubjects = misResponse.data.success
+      ? misResponse.data.data || []
+      : [];
+    const courseIds = enrolledSubjects
+      .map((s: any) => Number(s.subject_id))
+      .filter((id: number) => !isNaN(id));
+
+    // Fetch all assignments for these courses and include student's submission if it exists
+    const assignments = await Assignment.findAll({
+      where: {
+        course_id: { [Op.in]: courseIds },
+        status: { [Op.in]: ["published", "completed"] },
+      },
+      include: [
+        {
+          model: Submission,
+          as: "assignmentSubmissions",
+          where: { student_id: Number(userId) },
+          required: false, // Left join to show assignments even without submissions
+        },
+      ],
+      order: [["due_date", "DESC"]],
+    });
+
+    // Map subject info onto assignments
+    const data = assignments.map((assignment: any) => {
+      const subject = enrolledSubjects.find(
+        (s: any) => Number(s.subject_id) === Number(assignment.course_id),
+      );
+      return {
+        ...assignment.toJSON(),
+        subject: subject
+          ? {
+              subject_name: subject.subject_name,
+              subject_code: subject.subject_code,
+              subject_description: subject.subject_description,
+            }
+          : null,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      count: data.length,
+      data: data,
+    });
+  } catch (error: any) {
+    console.error("Get student assignments error:", error.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Get student's quiz submissions
+// @route   GET /api/users/:userId/quizzes
+// @access  Private/Admin/Instructor
+export const getStudentQuizzes = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+
+    const token = getMisToken(req);
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    // Fetch user's enrolled subjects from MIS API
+    const misResponse = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    const enrolledSubjects = misResponse.data.success
+      ? misResponse.data.data || []
+      : [];
+    const courseIds = enrolledSubjects
+      .map((s: any) => Number(s.subject_id))
+      .filter((id: number) => !isNaN(id));
+
+    // Fetch all quizzes for these courses and include student's submission if it exists
+    const quizzes = await Quiz.findAll({
+      where: {
+        course_id: { [Op.in]: courseIds },
+        // status: { [Op.in]: ["published", "completed"] },
+      },
+      include: [
+        {
+          model: QuizSubmission,
+          as: "quizSubmissions",
+          where: { student_id: Number(userId) },
+          required: false, // Left join
+        },
+      ],
+      order: [["created_at", "DESC"]],
+    });
+
+    // Map subject info onto quizzes
+    const data = quizzes.map((quiz: any) => {
+      const subject = enrolledSubjects.find(
+        (s: any) => Number(s.subject_id) === Number(quiz.course_id),
+      );
+      return {
+        ...quiz.toJSON(),
+        subject: subject
+          ? {
+              subject_name: subject.subject_name,
+              subject_code: subject.subject_code,
+              subject_description: subject.subject_description,
+            }
+          : null,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      count: data.length,
+      data: data,
+    });
+  } catch (error: any) {
+    console.error("Get student quizzes error:", error.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

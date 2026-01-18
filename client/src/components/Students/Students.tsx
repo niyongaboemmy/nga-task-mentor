@@ -5,31 +5,34 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../../store";
 import { fetchCourses } from "../../store/slices/courseSlice";
-import { getProfileImageUrl } from "../../utils/imageUrl";
-
-interface Student {
-  id: string;
-  first_name: string;
-  last_name: string;
-  email: string;
-  role: string;
-  profile_image?: string;
-  createdAt: string;
-}
 
 type SortField = "first_name" | "last_name" | "email" | "createdAt";
 type SortDirection = "asc" | "desc";
 
+interface UserSearchInterface {
+  user_id: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  gender: string;
+  class_group_name: string;
+  grade_name: string;
+  program_name: string;
+  enrolled_at: string;
+}
+
 const Students: React.FC = () => {
   const { user } = useAuth();
   const dispatch = useDispatch<AppDispatch>();
-  const { courses } = useSelector((state: RootState) => state.course);
+  const { courses } = useSelector(
+    (state: RootState) => state.course || { courses: [] },
+  );
 
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<UserSearchInterface[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [sortField, setSortField] = useState<SortField>("createdAt");
-  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [sortField, setSortField] = useState<SortField>("last_name");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
   const [roleFilter, setRoleFilter] = useState<string>("all");
   const [selectedCourse, setSelectedCourse] = useState<string>("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -41,6 +44,13 @@ const Students: React.FC = () => {
       dispatch(fetchCourses());
     }
   }, [user, courses.length, dispatch]);
+
+  // Select first course by default when courses are loaded
+  useEffect(() => {
+    if (courses.length > 0 && !selectedCourse) {
+      setSelectedCourse(courses[0].id.toString());
+    }
+  }, [courses, selectedCourse]);
 
   useEffect(() => {
     const fetchStudents = async () => {
@@ -55,7 +65,11 @@ const Students: React.FC = () => {
           params.termId = 4; // Default term as requested
         }
 
-        const response = await axios.get("/api/users", { params });
+        const response = await axios.get<{
+          success: boolean;
+          count: string;
+          data: UserSearchInterface[];
+        }>("/api/users", { params });
         setStudents(response.data.data);
       } catch (error) {
         console.error("Error fetching students:", error);
@@ -71,28 +85,38 @@ const Students: React.FC = () => {
   // Filter and sort students
   const filteredAndSortedStudents = useMemo(() => {
     let filtered = students.filter((student) => {
+      const firstName = student?.first_name || student?.first_name || "";
+      const lastName = student?.last_name || student?.last_name || "";
+      const email = student?.username || "";
+
       const matchesSearch =
-        `${student.first_name} ${student.last_name}`
+        `${firstName} ${lastName}`
           .toLowerCase()
           .includes(searchTerm.toLowerCase()) ||
-        student.email.toLowerCase().includes(searchTerm.toLowerCase());
+        email.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesRole = roleFilter === "all" || student.role === roleFilter;
-
-      return matchesSearch && matchesRole;
+      return matchesSearch;
     });
 
     // Sort students
-    filtered.sort((a, b) => {
-      let aValue: string | number = a[sortField];
-      let bValue: string | number = b[sortField];
+    filtered.sort((studentA, studentB) => {
+      let aValue: string | number;
+      let bValue: string | number;
 
       if (sortField === "createdAt") {
-        aValue = new Date(aValue as string).getTime();
-        bValue = new Date(bValue as string).getTime();
+        aValue = studentA.user_id || studentA.user_id || 0;
+        bValue = studentB.user_id || studentB.user_id || 0;
       } else {
-        aValue = (aValue as string)?.toLowerCase() || "";
-        bValue = (bValue as string)?.toLowerCase() || "";
+        const getFieldValue = (s: UserSearchInterface, field: string) => {
+          if (field === "first_name" || field === "last_name") {
+            return s?.[field] || "";
+          }
+          return "";
+        };
+        aValue =
+          (getFieldValue(studentA, sortField) as string)?.toLowerCase() || "";
+        bValue =
+          (getFieldValue(studentB, sortField) as string)?.toLowerCase() || "";
       }
 
       if (sortDirection === "asc") {
@@ -311,37 +335,32 @@ const Students: React.FC = () => {
             <div className="divide-y divide-gray-200 dark:divide-gray-900">
               {paginatedStudents.map((student) => (
                 <Link
-                  key={student.id}
-                  to={`/students/${student.id}`}
+                  key={student?.user_id || student?.user_id}
+                  to={`/students/${student?.user_id || student?.user_id}`}
                   className="block px-6 py-3 hover:bg-gray-50/50 dark:hover:bg-gray-900 transition-colors duration-200 group"
                 >
                   <div className="grid grid-cols-12 gap-4 items-center">
                     <div className="col-span-7">
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0">
-                          {student.profile_image ? (
-                            <img
-                              src={
-                                getProfileImageUrl(student.profile_image) || ""
-                              }
-                              alt={`${student.first_name} ${student.last_name}`}
-                              className="w-8 h-8 rounded-full object-cover"
-                            />
-                          ) : (
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 dark:from-blue-600 to-blue-500 dark:to-blue-800 rounded-full flex items-center justify-center">
-                              <span className="text-white font-bold text-sm">
-                                {student.first_name[0]}
-                                {student.last_name[0]}
-                              </span>
-                            </div>
-                          )}
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-400 dark:from-blue-600 to-blue-500 dark:to-blue-800 rounded-full flex items-center justify-center">
+                            <span className="text-white font-bold text-sm">
+                              {student?.first_name?.[0] ||
+                                student?.first_name?.[0] ||
+                                "U"}
+                              {student?.last_name?.[0] ||
+                                student?.last_name?.[0] ||
+                                ""}
+                            </span>
+                          </div>
                         </div>
                         <div>
                           <h3 className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
-                            {student.first_name} {student.last_name}
+                            {student?.first_name || student?.first_name}{" "}
+                            {student?.last_name || student?.last_name}
                           </h3>
                           <p className="text-xs text-gray-500 dark:text-gray-500 capitalize">
-                            {student.role}
+                            {"Student"}
                           </p>
                         </div>
                       </div>
@@ -353,12 +372,13 @@ const Students: React.FC = () => {
                     </div> */}
                     <div className="col-span-4">
                       <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                        {student.email}
+                        {student.username}
                       </p>
                     </div>
                     <div className="col-span-1">
                       <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {new Date(student.createdAt).toLocaleDateString()}
+                        {/* {new Date(student.createdAt).toLocaleDateString()} */}
+                        ID: {student?.user_id}
                       </p>
                     </div>
                   </div>

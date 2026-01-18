@@ -24,7 +24,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
         <div className="flex items-center gap-2">
           <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
             <span className="text-white font-bold text-base">
-              {course.code.substring(0, 2)}
+              {(course.code || "??").substring(0, 2)}
             </span>
           </div>
           <div className="flex-1 min-w-0">

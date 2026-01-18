@@ -80,7 +80,9 @@ const AssignmentDetails = () => {
     "submissions",
   );
   const { user } = useAuth();
-  const { courses } = useSelector((state: RootState) => state.course);
+  const { courses } = useSelector(
+    (state: RootState) => state.course || { courses: [] },
+  );
 
   // Find course in redux if not provided by assignment object
   const reduxCourse = courses.find(

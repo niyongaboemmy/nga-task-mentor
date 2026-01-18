@@ -128,16 +128,65 @@ export const getCourse = async (req: Request, res: Response) => {
       );
     }
 
+    // Get subject details from MIS
+    let subjectDetails: any = {};
+    try {
+      const subjectResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        },
+      );
+      if (subjectResponse.data.success) {
+        subjectDetails = subjectResponse.data.data;
+      }
+    } catch (subjectError: any) {
+      console.warn(
+        `Could not fetch subject details for course ${courseId}:`,
+        subjectError.response?.data || subjectError.message,
+      );
+    }
+
     // Get local statistics (assignments, quizzes)
     const statistics = await getCourseLocalStatistics(courseId);
+
+    // Map enrolled students to match UserFullData structure expected by frontend
+    const mappedStudents = enrolledStudents.map((s: any) => ({
+      user: {
+        id: s.id || s.user_id,
+        user_id: s.user_id || s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        email: s.email,
+        profile_image: s.profile_image,
+        role: "student",
+      },
+      profile: {
+        first_name: s.first_name,
+        last_name: s.last_name,
+      },
+      roles: [],
+      permissions: [],
+    }));
 
     // Return statistics and enrollment to complement Redux list data
     res.status(200).json({
       success: true,
       data: {
         id: courseId,
+        title:
+          subjectDetails.name ||
+          subjectDetails.subject_name ||
+          subjectDetails.title ||
+          "Course Details",
+        code: subjectDetails.code || subjectDetails.subject_code || "",
+        description: subjectDetails.description || "",
+        credits: subjectDetails.credits || 0,
         statistics,
-        enrolledStudents,
+        enrolledStudents: mappedStudents,
       },
     });
   } catch (error: any) {
@@ -459,7 +508,7 @@ export const getCourseStudents = async (req: Request, res: Response) => {
         `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/4/students`,
         {
           headers: {
-            Authorization: token,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         },
@@ -476,7 +525,26 @@ export const getCourseStudents = async (req: Request, res: Response) => {
       // Continue with empty array
     }
 
-    res.status(200).json({ success: true, data: enrolledStudents });
+    // Map enrolled students to match UserFullData structure expected by frontend
+    const mappedStudents = enrolledStudents.map((s: any) => ({
+      user: {
+        id: s.id || s.user_id,
+        user_id: s.user_id || s.id,
+        first_name: s.first_name,
+        last_name: s.last_name,
+        email: s.email,
+        profile_image: s.profile_image,
+        role: "student",
+      },
+      profile: {
+        first_name: s.first_name,
+        last_name: s.last_name,
+      },
+      roles: [],
+      permissions: [],
+    }));
+
+    res.status(200).json({ success: true, data: mappedStudents });
   } catch (error: any) {
     console.error(
       "Get course students error:",
@@ -505,7 +573,7 @@ export const deleteCourse = async (req: Request, res: Response) => {
       `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}`,
       {
         headers: {
-          Authorization: token,
+          Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
       },
@@ -550,7 +618,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}/terms/4/students`,
         {
           headers: {
-            Authorization: token,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         },
