@@ -26,7 +26,7 @@ export const QuizList: React.FC<QuizListProps> = ({
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { quizzes, loading, error } = useSelector(
-    (state: RootState) => state.quiz
+    (state: RootState) => state.quiz,
   );
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [publicLoading, setPublicLoading] = useState<string | null>(null);
@@ -36,8 +36,6 @@ export const QuizList: React.FC<QuizListProps> = ({
   useEffect(() => {
     dispatch(fetchQuizzes(courseId));
   }, [dispatch, courseId]);
-
-
 
   const handleDeleteQuiz = async (quizId: number) => {
     setDeleteLoading(quizId.toString());
@@ -72,7 +70,7 @@ export const QuizList: React.FC<QuizListProps> = ({
 
   const handleTogglePublic = async (
     quizId: number,
-    currentPublicStatus: boolean
+    currentPublicStatus: boolean,
   ) => {
     setPublicLoading(quizId.toString());
     try {
@@ -80,7 +78,7 @@ export const QuizList: React.FC<QuizListProps> = ({
         updateQuiz({
           quizId,
           quizData: { is_public: !currentPublicStatus },
-        })
+        }),
       ).unwrap();
     } catch (error) {
       console.error("Failed to update quiz public status:", error);
@@ -93,21 +91,19 @@ export const QuizList: React.FC<QuizListProps> = ({
   const sortedQuizzes = [...quizzes].sort(
     (a, b) =>
       new Date(b.created_at || 0).getTime() -
-      new Date(a.created_at || 0).getTime()
+      new Date(a.created_at || 0).getTime(),
   );
   const limitedQuizzes = limit ? sortedQuizzes.slice(0, limit) : sortedQuizzes;
   const totalPages = Math.ceil(limitedQuizzes.length / itemsPerPage);
   const paginatedQuizzes = limitedQuizzes.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-
-
 
   if (loading.quizzes) {
     return (
@@ -135,14 +131,11 @@ export const QuizList: React.FC<QuizListProps> = ({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex justify-between items-center">
-        <h3 className="text-base font-semibold text-gray-900 dark:text-white">
-          Quizzes
-        </h3>
-        {showCreateButton && (
+      <div className="flex justify-between items-ceter">
+        {showCreateButton && quizzes.length > 0 && (
           <Link
             to={`/courses/${courseId}/quizzes/create`}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200"
           >
             <svg
               className="w-4 h-4 mr-2"
@@ -174,7 +167,7 @@ export const QuizList: React.FC<QuizListProps> = ({
             {showViewAllButton && limit && quizzes.length > limit && (
               <Link
                 to={`/courses/${courseId}/quizzes`}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 hover:shadow-md"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg transition-all duration-200 hover:scale-105"
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -233,7 +226,7 @@ export const QuizList: React.FC<QuizListProps> = ({
                     >
                       {page}
                     </button>
-                  )
+                  ),
                 )}
               </div>
 
@@ -242,7 +235,7 @@ export const QuizList: React.FC<QuizListProps> = ({
                 {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
                   const pageNum = Math.max(
                     1,
-                    Math.min(totalPages, currentPage - 1 + i)
+                    Math.min(totalPages, currentPage - 1 + i),
                   );
                   return (
                     <button
@@ -271,7 +264,7 @@ export const QuizList: React.FC<QuizListProps> = ({
           )}
         </>
       ) : (
-        <div className="text-center py-12">
+        <div className="text-center py-12 pt-0">
           <svg
             className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600"
             fill="none"
@@ -285,7 +278,7 @@ export const QuizList: React.FC<QuizListProps> = ({
               d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
             />
           </svg>
-          <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-white">
+          <h3 className="mt-2 text-xl font-bold text-gray-900 dark:text-white">
             No quizzes yet
           </h3>
           <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
@@ -296,7 +289,7 @@ export const QuizList: React.FC<QuizListProps> = ({
             <div className="mt-6">
               <Link
                 to={`/courses/${courseId}/quizzes/create`}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200"
               >
                 <svg
                   className="w-4 h-4 mr-2"

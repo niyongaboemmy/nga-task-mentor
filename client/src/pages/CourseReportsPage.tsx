@@ -286,8 +286,8 @@ const CourseReportsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50 dark:bg-gray-900">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="flex justify-center items-center h-screen bg-gray-50 dark:bg-gray-900/50 rounded-3xl">
+        <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
   }
@@ -336,14 +336,12 @@ const CourseReportsPage: React.FC = () => {
                 {course.code ? course.code.substring(0, 2) : "C"}
               </div>
             )}
-            <h1 className="text-3xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-purple-600">
-              {course
-                ? `${course.title} Reports`
-                : "Student Performance Reports"}
+            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-black to-black dark:from-white dark:to-white">
+              {course ? `${course.title}` : "Student Performance Reports"}
             </h1>
           </div>
 
-          <p className="text-gray-500 dark:text-gray-400 mt-1 md:ml-14">
+          <p className="text-gray-500 dark:text-gray-400 mt-1 md:ml-14 text-sm">
             {course ? `${course.code} • ` : ""} Comprehensive overview of
             student grades.
           </p>
@@ -351,7 +349,7 @@ const CourseReportsPage: React.FC = () => {
         <div className="flex gap-3">
           <button
             onClick={fetchGrades}
-            className="px-4 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm flex items-center gap-2"
+            className="px-4 py-2 bg-white dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700/30 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm flex items-center gap-2"
           >
             <svg
               className="w-4 h-4"
@@ -370,7 +368,7 @@ const CourseReportsPage: React.FC = () => {
           </button>
           <button
             onClick={handleExportCSV}
-            className="px-4 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-blue-500/30 flex items-center gap-2 font-medium"
+            className="px-4 py-2 bg-blue-600 text-sm text-white rounded-full hover:bg-blue-700 transition-all hover:shadow-blue-500/30 flex items-center gap-2 font-normal"
           >
             <svg
               className="w-4 h-4"
@@ -392,7 +390,7 @@ const CourseReportsPage: React.FC = () => {
 
       {/* Dashboard Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-800/40 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/30 relative overflow-hidden group">
           <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
           <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-2">
             Average Grade
@@ -414,7 +412,7 @@ const CourseReportsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-800/40 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/30 relative overflow-hidden group">
           <div className="absolute right-0 top-0 w-32 h-32 bg-green-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
           <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-2">
             Passing Students
@@ -428,7 +426,7 @@ const CourseReportsPage: React.FC = () => {
           </span>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-800/40 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/30 relative overflow-hidden group">
           <div className="absolute right-0 top-0 w-32 h-32 bg-red-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
           <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-2">
             Needs Attention (Failing)
@@ -441,7 +439,7 @@ const CourseReportsPage: React.FC = () => {
           </span>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-800/40 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/30 relative overflow-hidden group">
           <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
           <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-2">
             Total Students
@@ -455,7 +453,7 @@ const CourseReportsPage: React.FC = () => {
 
       {/* Analytics Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800/40 p-6 rounded-2xl border border-gray-200 dark:border-gray-700/30 shadow-sm">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
             Grade Distribution
           </h3>
@@ -464,7 +462,7 @@ const CourseReportsPage: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm">
+        <div className="bg-white dark:bg-gray-800/40 p-6 rounded-2xl border border-gray-200 dark:border-gray-700/30 shadow-sm">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
             Class Performance Ratio
           </h3>
@@ -475,7 +473,7 @@ const CourseReportsPage: React.FC = () => {
       </div>
 
       {/* Filters & Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-gray-800 p-4 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm mb-6 gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-200 dark:border-gray-700/30 shadow-sm mb-6 gap-4">
         <div className="relative w-full md:w-96">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg
@@ -494,7 +492,7 @@ const CourseReportsPage: React.FC = () => {
           </div>
           <input
             type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg leading-5 bg-white dark:bg-gray-700 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
+            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600/50 rounded-xl leading-5 bg-white dark:bg-gray-800/40 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
             placeholder="Search students..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
@@ -506,7 +504,7 @@ const CourseReportsPage: React.FC = () => {
             <button
               key={type}
               onClick={() => setFilterType(type as any)}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
                 filterType === type
                   ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
                   : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -519,7 +517,7 @@ const CourseReportsPage: React.FC = () => {
       </div>
 
       {/* Data Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700 overflow-hidden">
+      <div className="bg-white dark:bg-gray-800/40 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700/30 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
             <thead className="bg-gray-50 dark:bg-gray-900/50">
@@ -576,14 +574,14 @@ const CourseReportsPage: React.FC = () => {
                 ))}
               </tr>
             </thead>
-            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
+            <tbody className="bg-white dark:bg-gray-800/40 divide-y divide-gray-200 dark:divide-gray-700">
               {filteredStudents.map((student) => (
                 <tr
                   key={student.student.id}
                   onClick={() => handleStudentClick(student)}
                   className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
                 >
-                  <td className="px-6 py-4 whitespace-nowrap sticky left-0 z-10 bg-white dark:bg-gray-800 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/50 transition-colors border-r border-transparent">
+                  <td className="px-6 py-4 whitespace-nowrap sticky left-0 z-10 bg-white dark:bg-gray-800/40 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/50 transition-colors border-r border-transparent">
                     <div className="flex items-center">
                       <div className="flex-shrink-0 h-10 w-10">
                         {student.student.profile_image ? (
@@ -608,7 +606,7 @@ const CourseReportsPage: React.FC = () => {
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center sticky left-40 z-10 bg-white dark:bg-gray-800 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/50 border-r border-gray-200 dark:border-gray-700 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-center sticky left-40 z-10 bg-white dark:bg-gray-800/40 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/50 border-r border-gray-200 dark:border-gray-700/30 transition-colors">
                     <div
                       className={`text-lg font-bold ${
                         student.summary.total_percentage >= 80

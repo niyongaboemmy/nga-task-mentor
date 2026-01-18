@@ -128,8 +128,8 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                   badge.includes("Hot")
                     ? "bg-red-500 text-white"
                     : badge.includes("New")
-                    ? "bg-green-500 text-white"
-                    : "bg-blue-500 text-white"
+                      ? "bg-green-500 text-white"
+                      : "bg-blue-500 text-white"
                 }`}
               >
                 {badge}
@@ -166,7 +166,8 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome Section - Enhanced Mobile Design */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-700 via-blue-500 to-blue-700 dark:from-blue-900/60 dark:via-blue-900/30 dark:to-blue-950/50 rounded-3xl p-4 sm:p-6 border border-gray-100 dark:border-blue-900/20">
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-700 via-blue-600 to-blue-700 dark:from-blue-800 dark:via-blue-600 dark:to-blue-800 rounded-3xl p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center space-x-3 sm:space-x-5 w-full sm:w-auto">
             {/* Responsive avatar */}
@@ -487,8 +488,8 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                       isExpired
                         ? "bg-red-50/80 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                         : isUrgent
-                        ? "bg-orange-50/80 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
-                        : "bg-emerald-50/80 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800"
+                          ? "bg-orange-50/80 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
+                          : "bg-emerald-50/80 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800"
                     } hover:scale-[1.01] sm:hover:scale-[1.02]`}
                     style={{
                       animationDelay: `${index * 100}ms`,
@@ -501,8 +502,8 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                         isExpired
                           ? "bg-red-500"
                           : isUrgent
-                          ? "bg-orange-500"
-                          : "bg-emerald-500"
+                            ? "bg-orange-500"
+                            : "bg-emerald-500"
                       }`}
                     ></div>
 
@@ -568,8 +569,8 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                                 isExpired
                                   ? "expired"
                                   : isUrgent
-                                  ? "urgent"
-                                  : "default"
+                                    ? "urgent"
+                                    : "default"
                               }
                               showLabel={false}
                               className="text-xs"
@@ -585,16 +586,16 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                               isExpired
                                 ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
                                 : quiz.studentStatus === "in_progress"
-                                ? "bg-blue-600 hover:bg-blue-700 text-white"
-                                : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                                  ? "bg-blue-600 hover:bg-blue-700 text-white"
+                                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
                             }`}
                             onClick={(e) => isExpired && e.preventDefault()}
                           >
                             {isExpired
                               ? "Expired"
                               : quiz.studentStatus === "in_progress"
-                              ? "Resume Quiz"
-                              : "Take Quiz"}
+                                ? "Resume Quiz"
+                                : "Take Quiz"}
                             {!isExpired && (
                               <svg
                                 className="ml-1 h-3 w-3"
@@ -697,8 +698,8 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                     isExpired
                       ? "bg-red-50/80 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                       : isUrgent
-                      ? "bg-orange-50/80 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
-                      : "bg-blue-50/80 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
+                        ? "bg-orange-50/80 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
+                        : "bg-blue-50/80 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800"
                   } hover:scale-[1.01] sm:hover:scale-[1.02]`}
                   style={{
                     animationDelay: `${index * 100}ms`,
@@ -711,8 +712,8 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                       isExpired
                         ? "bg-red-500"
                         : isUrgent
-                        ? "bg-orange-500"
-                        : "bg-blue-500"
+                          ? "bg-orange-500"
+                          : "bg-blue-500"
                     }`}
                   ></div>
 
@@ -772,8 +773,8 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                               isExpired
                                 ? "expired"
                                 : isUrgent
-                                ? "urgent"
-                                : "default"
+                                  ? "urgent"
+                                  : "default"
                             }
                             showLabel={false}
                             className="text-xs"
@@ -867,8 +868,8 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                       activity.type === "assignment"
                         ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                         : activity.type === "submission"
-                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
-                        : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
+                          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+                          : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
                     }`}
                   >
                     {activity.type === "assignment" && (
@@ -936,7 +937,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                             {
                               month: "short",
                               day: "numeric",
-                            }
+                            },
                           )}
                         </span>
                       </div>

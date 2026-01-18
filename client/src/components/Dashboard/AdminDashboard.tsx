@@ -1,5 +1,5 @@
 import React, { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -67,6 +67,7 @@ interface AdminDashboardData {
 }
 
 const AdminDashboard: React.FC<{ data: AdminDashboardData }> = ({ data }) => {
+  const navigate = useNavigate();
   // Bar Chart Data
   const barChartData = useMemo(() => {
     const summary = data.gradingSummary || [];
@@ -254,9 +255,9 @@ const AdminDashboard: React.FC<{ data: AdminDashboardData }> = ({ data }) => {
   return (
     <div className="space-y-8 animate-fade-in pb-10">
       {/* Header Section with Glassmorphism */}
-      <div className="relative overflow-hidden rounded-3xl p-8 text-white shadow-2xl">
-        <div className="absolute inset-0 bg-gradient-to-r from-violet-600 via-blue-600 to-cyan-600 opacity-90"></div>
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20"></div>
+      <div className="relative overflow-hidden rounded-3xl p-4 sm:p-6 text-white shadow-2xl">
+        <div className="absolute inset-0 bg-gradient-to-r from-blue-700 via-blue-600 to-blue-700 dark:from-blue-800 dark:via-blue-600 dark:to-blue-800"></div>
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
         <div className="relative z-10 flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-5">
             <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl font-bold border border-white/30 shadow-inner">
@@ -272,10 +273,10 @@ const AdminDashboard: React.FC<{ data: AdminDashboardData }> = ({ data }) => {
             </div>
           </div>
           <div className="flex gap-3">
-            <button className="px-5 py-2.5 bg-white/10 hover:bg-white/20 backdrop-blur-md border border-white/20 rounded-xl font-medium transition-all text-sm">
-              Generate Report
-            </button>
-            <button className="px-5 py-2.5 bg-white text-blue-600 hover:bg-blue-50 rounded-xl font-bold shadow-lg transition-all text-sm">
+            <button
+              onClick={() => navigate("/courses")}
+              className="px-5 py-2.5 bg-white text-blue-600 hover:bg-blue-50 dark:bg-blue-500 dark:text-white rounded-full font-bold transition-all text-sm"
+            >
               Manage Courses
             </button>
           </div>
@@ -351,7 +352,7 @@ const AdminDashboard: React.FC<{ data: AdminDashboardData }> = ({ data }) => {
           <StatCard
             icon={
               <svg
-                className="w-6 h-6 text-violet-600 dark:text-violet-400"
+                className="w-6 h-6 text-blue-600 dark:text-blue-400"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -366,7 +367,7 @@ const AdminDashboard: React.FC<{ data: AdminDashboardData }> = ({ data }) => {
             }
             value={data.stats.completedAssignments}
             label="Graded Items"
-            color="text-violet-600"
+            color="text-blue-600"
             trend="+8%"
           />
         </div>

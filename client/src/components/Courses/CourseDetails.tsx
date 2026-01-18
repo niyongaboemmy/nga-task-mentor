@@ -152,22 +152,25 @@ const CourseDetails: React.FC = () => {
                 <div className="flex items-center justify-end gap-3">
                   <Link
                     to={`/courses/${courseId}/reports`}
-                    className="flex items-center justify-center p-2 rounded-full border border-gray-300 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-600 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 transition-all shadow-sm"
+                    className="flex items-center justify-center gap-2 p-1.5 px-4 rounded-full border dark:border-2 border-blue-500 bg-white hover:bg-blue-500 hover:text-white dark:bg-blue-800/20 dark:border-blue-600 dark:hover:bg-blue-700 text-blue-600 dark:text-blue-400 dark:hover:text-white transition-all shadow-sm"
                     title="View Course Reports"
                   >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
-                    </svg>
+                    <div>
+                      <svg
+                        className="w-5 h-5"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                        />
+                      </svg>
+                    </div>
+                    <div>Report</div>
                   </Link>
 
                   <Link

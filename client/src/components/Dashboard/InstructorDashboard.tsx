@@ -166,8 +166,8 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                   badge.includes("Hot")
                     ? "bg-red-500 text-white"
                     : badge.includes("New")
-                    ? "bg-green-500 text-white"
-                    : "bg-blue-500 text-white"
+                      ? "bg-green-500 text-white"
+                      : "bg-blue-500 text-white"
                 }`}
               >
                 {badge}
@@ -204,7 +204,8 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
   return (
     <div className="space-y-6 animate-fade-in">
       {/* Welcome Section - Enhanced Mobile Design */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-700 via-blue-500 to-blue-700 dark:from-blue-900/60 dark:via-blue-900/30 dark:to-blue-950/50 rounded-3xl p-4 sm:p-6 border border-gray-100 dark:border-blue-900/20">
+      <div className="relative overflow-hidden bg-gradient-to-r from-blue-700 via-blue-600 to-blue-700 dark:from-blue-800 dark:via-blue-600 dark:to-blue-800 rounded-3xl p-4 sm:p-6">
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="flex items-center space-x-3 sm:space-x-5 w-full sm:w-auto">
             {/* Responsive avatar */}
@@ -732,8 +733,8 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                       activity.type === "assignment"
                         ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
                         : activity.type === "submission"
-                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
-                        : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
+                          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+                          : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
                     }`}
                   >
                     {activity.type === "assignment" && (
@@ -801,7 +802,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                             {
                               month: "short",
                               day: "numeric",
-                            }
+                            },
                           )}
                         </span>
                       </div>
