@@ -285,6 +285,12 @@ export interface Quiz {
   is_available?: boolean;
   is_active?: boolean;
   is_public?: boolean;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+  }>;
 }
 
 export interface QuizQuestion {
@@ -305,6 +311,12 @@ export interface QuizQuestion {
   quiz?: Quiz;
   attempts?: QuizAttempt[];
   time_limit?: string;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+  }>;
 }
 
 export interface QuizAttempt {

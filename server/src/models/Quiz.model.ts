@@ -35,6 +35,12 @@ export interface IQuizAttributes {
   start_date?: Date;
   end_date?: Date;
   is_public?: boolean;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }> | null;
   course_id?: number | null;
   created_by: number;
   created_at?: Date;
@@ -218,6 +224,36 @@ export class Quiz extends Model<IQuizAttributes, QuizCreationAttributes> {
   end_date?: Date;
 
   @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    defaultValue: null,
+    get() {
+      const parsed = this.getDataValue("attachments");
+      if (typeof parsed === "string") {
+        try {
+          return JSON.parse(parsed);
+        } catch (e) {
+          return [];
+        }
+      }
+      return parsed ? parsed : null;
+    },
+    set(value: Array<any> | null) {
+      if (value) {
+        this.setDataValue("attachments", JSON.stringify(value));
+      } else {
+        this.setDataValue("attachments", null);
+      }
+    },
+  })
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }> | null;
+
+  @Column({
     type: DataType.INTEGER,
     allowNull: true,
     field: "course_id",
@@ -257,7 +293,7 @@ export class Quiz extends Model<IQuizAttributes, QuizCreationAttributes> {
     return this.questions
       ? this.questions.reduce(
           (total, question) => total + (question.points || 1),
-          0
+          0,
         )
       : 0;
   }

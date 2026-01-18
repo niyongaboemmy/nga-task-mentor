@@ -37,6 +37,12 @@ export interface IQuestionAttributes {
   order: number;
   time_limit_seconds: number; // seconds for this specific question
   is_required: boolean;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }> | null;
   created_by: number; // User who created this question
   created_at?: Date;
   updated_at?: Date;
@@ -212,7 +218,7 @@ export class QuizQuestion extends Model<
       "coding",
       "logical_expression",
       "drag_drop",
-      "ordering"
+      "ordering",
     ),
     allowNull: false,
     field: "question_type",
@@ -311,6 +317,36 @@ export class QuizQuestion extends Model<
     field: "is_required",
   })
   is_required!: boolean;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    defaultValue: null,
+    get() {
+      const parsed = this.getDataValue("attachments");
+      if (typeof parsed === "string") {
+        try {
+          return JSON.parse(parsed);
+        } catch (e) {
+          return [];
+        }
+      }
+      return parsed ? parsed : null;
+    },
+    set(value: Array<any> | null) {
+      if (value) {
+        this.setDataValue("attachments", JSON.stringify(value));
+      } else {
+        this.setDataValue("attachments", null);
+      }
+    },
+  })
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }> | null;
 
   @Column({
     type: DataType.INTEGER,

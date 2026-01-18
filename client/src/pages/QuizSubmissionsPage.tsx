@@ -17,6 +17,7 @@ import {
   Award,
   Target,
   BarChart3,
+  Download,
 } from "lucide-react";
 
 interface QuizSubmission {
@@ -90,48 +91,72 @@ const QuizSubmissionsPage: React.FC = () => {
 
   const filteredSubmissions = submissions.filter((submission) => {
     const matchesSearch =
-      (submission.student_name?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false) ||
-      (submission.student_email?.toLowerCase().includes(searchTerm.toLowerCase()) ?? false);
+      (submission.student_name
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ??
+        false) ||
+      (submission.student_email
+        ?.toLowerCase()
+        .includes(searchTerm.toLowerCase()) ??
+        false);
 
-    const matchesStatus = statusFilter === "all" || submission.status === statusFilter;
-    const matchesGrade = gradeFilter === "all" || submission.grade_status === gradeFilter;
+    const matchesStatus =
+      statusFilter === "all" || submission.status === statusFilter;
+    const matchesGrade =
+      gradeFilter === "all" || submission.grade_status === gradeFilter;
 
     return matchesSearch && matchesStatus && matchesGrade;
   });
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case "completed": return <CheckCircle className="w-3 h-3" />;
-      case "in_progress": return <Clock className="w-3 h-3" />;
-      case "expired": return <AlertCircle className="w-3 h-3" />;
-      default: return <FileText className="w-3 h-3" />;
+      case "completed":
+        return <CheckCircle className="w-3 h-3" />;
+      case "in_progress":
+        return <Clock className="w-3 h-3" />;
+      case "expired":
+        return <AlertCircle className="w-3 h-3" />;
+      default:
+        return <FileText className="w-3 h-3" />;
     }
   };
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "completed": return "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
-      case "in_progress": return "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800";
-      case "expired": return "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800";
-      default: return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700";
+      case "completed":
+        return "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-800";
+      case "in_progress":
+        return "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800";
+      case "expired":
+        return "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800";
+      default:
+        return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700";
     }
   };
 
   const getGradeIcon = (gradeStatus: string) => {
     switch (gradeStatus) {
-      case "graded": return <CheckCircle className="w-3 h-3" />;
-      case "auto_graded": return <CheckCircle className="w-3 h-3" />;
-      case "pending": return <Clock className="w-3 h-3" />;
-      default: return <FileText className="w-3 h-3" />;
+      case "graded":
+        return <CheckCircle className="w-3 h-3" />;
+      case "auto_graded":
+        return <CheckCircle className="w-3 h-3" />;
+      case "pending":
+        return <Clock className="w-3 h-3" />;
+      default:
+        return <FileText className="w-3 h-3" />;
     }
   };
 
   const getGradeColor = (gradeStatus: string) => {
     switch (gradeStatus) {
-      case "graded": return "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300";
-      case "auto_graded": return "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300";
-      case "pending": return "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300";
-      default: return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300";
+      case "graded":
+        return "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300";
+      case "auto_graded":
+        return "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300";
+      case "pending":
+        return "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300";
+      default:
+        return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300";
     }
   };
 
@@ -166,15 +191,63 @@ const QuizSubmissionsPage: React.FC = () => {
     return "F";
   };
 
+  const handleExportCSV = () => {
+    if (submissions.length === 0) return;
+
+    const headers = [
+      "Student Name",
+      "Email",
+      "Status",
+      "Grade Status",
+      "Score",
+      "Max Score",
+      "Percentage",
+      "Time Taken (s)",
+      "Submitted At",
+    ];
+
+    const csvContent = [
+      headers.join(","),
+      ...submissions.map((s) =>
+        [
+          `"${s.student_name || "Unknown"}"`,
+          s.student_email || "",
+          s.status,
+          s.grade_status,
+          s.total_score,
+          s.max_score,
+          `${s.percentage}%`,
+          s.time_taken,
+          `"${new Date(s.submitted_at).toLocaleString()}"`,
+        ].join(","),
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute("download", `quiz_${quizId}_submissions.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const stats = {
     total: submissions.length,
-    completed: submissions.filter(s => s.status === "completed").length,
-    averageScore: submissions.length > 0
-      ? Math.round(submissions.reduce((sum, s) => sum + s.percentage, 0) / submissions.length)
-      : 0,
-    highestScore: submissions.length > 0
-      ? Math.max(...submissions.map(s => s.percentage))
-      : 0,
+    completed: submissions.filter((s) => s.status === "completed").length,
+    averageScore:
+      submissions.length > 0
+        ? Math.round(
+            submissions.reduce((sum, s) => sum + s.percentage, 0) /
+              submissions.length,
+          )
+        : 0,
+    highestScore:
+      submissions.length > 0
+        ? Math.max(...submissions.map((s) => s.percentage))
+        : 0,
   };
 
   if (loading) {
@@ -184,7 +257,9 @@ const QuizSubmissionsPage: React.FC = () => {
           <div className="relative mb-6">
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-400 border-t-indigo-500 mx-auto"></div>
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 animate-pulse font-medium">Loading submissions...</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400 animate-pulse font-medium">
+            Loading submissions...
+          </p>
         </div>
       </div>
     );
@@ -197,8 +272,12 @@ const QuizSubmissionsPage: React.FC = () => {
           <div className="relative mb-6">
             <AlertCircle className="h-16 w-16 text-red-400 mx-auto animate-bounce" />
           </div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Oops! Something went wrong</h2>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">{error}</p>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+            Oops! Something went wrong
+          </h2>
+          <p className="text-xs text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+            {error}
+          </p>
           <button
             onClick={() => navigate(`/quizzes/${quizId}`)}
             className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-sm font-medium rounded-full hover:from-blue-600 hover:to-indigo-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
@@ -327,7 +406,15 @@ const QuizSubmissionsPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex gap-2 sm:gap-3">
+            <div className="flex flex-wrap gap-2 sm:gap-3">
+              <button
+                onClick={handleExportCSV}
+                className="inline-flex items-center gap-2 px-3 py-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 text-xs font-medium"
+              >
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Export CSV</span>
+              </button>
+
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
@@ -424,17 +511,21 @@ const QuizSubmissionsPage: React.FC = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 mb-3">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(submission.status)}`}>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full border ${getStatusColor(submission.status)}`}
+                      >
                         {getStatusIcon(submission.status)}
                         {submission.status.replace("_", " ")}
                       </span>
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getGradeColor(submission.grade_status)}`}>
+                      <span
+                        className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getGradeColor(submission.grade_status)}`}
+                      >
                         {getGradeIcon(submission.grade_status)}
                         {submission.grade_status.replace("_", " ")}
                       </span>
                       <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
-                        <Target className="w-3 h-3" />
-                        #{submission.attempt_number}
+                        <Target className="w-3 h-3" />#
+                        {submission.attempt_number}
                       </span>
                     </div>
 
@@ -461,9 +552,14 @@ const QuizSubmissionsPage: React.FC = () => {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        <Trophy className={`w-3 h-3 ${getScoreColor(submission.percentage)}`} />
-                        <span className={`font-bold ${getScoreColor(submission.percentage)}`}>
-                          {Math.round(submission.percentage)}% ({getGradeLetter(submission.percentage)})
+                        <Trophy
+                          className={`w-3 h-3 ${getScoreColor(submission.percentage)}`}
+                        />
+                        <span
+                          className={`font-bold ${getScoreColor(submission.percentage)}`}
+                        >
+                          {Math.round(submission.percentage)}% (
+                          {getGradeLetter(submission.percentage)})
                         </span>
                       </div>
                     </div>
@@ -471,7 +567,11 @@ const QuizSubmissionsPage: React.FC = () => {
 
                   <div className="flex gap-2">
                     <button
-                      onClick={() => navigate(`/quizzes/${quizId}/results/${submission.submission_id}`)}
+                      onClick={() =>
+                        navigate(
+                          `/quizzes/${quizId}/results/${submission.submission_id}`,
+                        )
+                      }
                       className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs font-medium rounded-xl hover:from-blue-600 hover:to-indigo-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
                     >
                       <Eye className="w-3 h-3 mr-1" />
@@ -488,18 +588,35 @@ const QuizSubmissionsPage: React.FC = () => {
                 <table className="w-full">
                   <thead className="bg-gray-50/50 dark:bg-gray-800/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Student</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Grade</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Score</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Time</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Submitted</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">Actions</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                        Student
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                        Status
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                        Grade
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                        Score
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                        Time
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                        Submitted
+                      </th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                        Actions
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredSubmissions.map((submission) => (
-                      <tr key={submission.id} className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors">
+                      <tr
+                        key={submission.id}
+                        className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
+                      >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-indigo-500 rounded-lg flex items-center justify-center">
@@ -516,20 +633,27 @@ const QuizSubmissionsPage: React.FC = () => {
                           </div>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(submission.status)}`}>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(submission.status)}`}
+                          >
                             {getStatusIcon(submission.status)}
                             {submission.status.replace("_", " ")}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getGradeColor(submission.grade_status)}`}>
+                          <span
+                            className={`inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full ${getGradeColor(submission.grade_status)}`}
+                          >
                             {getGradeIcon(submission.grade_status)}
                             {submission.grade_status.replace("_", " ")}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`text-sm font-bold ${getScoreColor(submission.percentage)}`}>
-                            {Math.round(submission.percentage)}% ({getGradeLetter(submission.percentage)})
+                          <span
+                            className={`text-sm font-bold ${getScoreColor(submission.percentage)}`}
+                          >
+                            {Math.round(submission.percentage)}% (
+                            {getGradeLetter(submission.percentage)})
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
@@ -540,7 +664,11 @@ const QuizSubmissionsPage: React.FC = () => {
                         </td>
                         <td className="px-4 py-3">
                           <button
-                            onClick={() => navigate(`/quizzes/${quizId}/results/${submission.submission_id}`)}
+                            onClick={() =>
+                              navigate(
+                                `/quizzes/${quizId}/results/${submission.submission_id}`,
+                              )
+                            }
                             className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs font-medium rounded-lg hover:from-blue-600 hover:to-indigo-600 transition-all duration-200 hover:scale-105"
                           >
                             <Eye className="w-3 h-3 mr-1" />

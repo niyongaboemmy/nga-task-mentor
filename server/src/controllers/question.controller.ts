@@ -4,6 +4,8 @@ import { Transaction, Op } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
 import { QuestionType, CreateQuestionRequest } from "../types/quiz.types";
+import fs from "fs";
+import path from "path";
 
 // @desc    Get questions for a quiz
 // @route   GET /api/quizzes/:quizId/questions
@@ -147,6 +149,39 @@ export const createQuestion = async (req: Request, res: Response) => {
     const { quizId } = req.params;
     const questionData: CreateQuestionRequest = req.body;
 
+    // Parse JSON fields if they are strings (happens with FormData)
+    if (typeof questionData.question_data === "string") {
+      try {
+        questionData.question_data = JSON.parse(questionData.question_data);
+      } catch (e) {
+        console.error("Failed to parse question_data:", e);
+      }
+    }
+
+    if (typeof questionData.correct_answer === "string") {
+      try {
+        questionData.correct_answer = JSON.parse(questionData.correct_answer);
+      } catch (e) {
+        console.error("Failed to parse correct_answer:", e);
+      }
+    }
+
+    // Parse numeric fields if they are strings
+    if (typeof questionData.points === "string") {
+      questionData.points = parseFloat(questionData.points);
+    }
+    if (typeof questionData.order === "string") {
+      questionData.order = parseInt(questionData.order);
+    }
+    if (typeof questionData.time_limit_seconds === "string") {
+      questionData.time_limit_seconds = parseInt(
+        questionData.time_limit_seconds,
+      );
+    }
+    if (typeof questionData.is_required === "string") {
+      questionData.is_required = questionData.is_required === "true";
+    }
+
     // Find the quiz
     const quiz = await Quiz.findByPk(quizId, { transaction });
     if (!quiz) {
@@ -209,6 +244,15 @@ export const createQuestion = async (req: Request, res: Response) => {
     })) as number | undefined;
     const nextOrder = (maxOrder || 0) + 1;
 
+    // Handle file uploads
+    const attachments =
+      (req.files as Express.Multer.File[])?.map((file) => ({
+        name: file.originalname,
+        url: `/uploads/questions/${file.filename}`,
+        type: file.mimetype,
+        size: file.size,
+      })) || [];
+
     const question = await QuizQuestion.create(
       {
         ...questionData,
@@ -216,6 +260,7 @@ export const createQuestion = async (req: Request, res: Response) => {
         quiz_id: parseInt(quizId),
         order: nextOrder,
         created_by: req.user.id,
+        attachments,
       },
       { transaction },
     );
@@ -248,6 +293,39 @@ export const updateQuestion = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
   try {
     const questionData = req.body;
+
+    // Parse JSON fields if they are strings (happens with FormData)
+    if (typeof questionData.question_data === "string") {
+      try {
+        questionData.question_data = JSON.parse(questionData.question_data);
+      } catch (e) {
+        console.error("Failed to parse question_data:", e);
+      }
+    }
+
+    if (typeof questionData.correct_answer === "string") {
+      try {
+        questionData.correct_answer = JSON.parse(questionData.correct_answer);
+      } catch (e) {
+        console.error("Failed to parse correct_answer:", e);
+      }
+    }
+
+    // Parse numeric fields if they are strings
+    if (typeof questionData.points === "string") {
+      questionData.points = parseFloat(questionData.points);
+    }
+    if (typeof questionData.order === "string") {
+      questionData.order = parseInt(questionData.order);
+    }
+    if (typeof questionData.time_limit_seconds === "string") {
+      questionData.time_limit_seconds = parseInt(
+        questionData.time_limit_seconds,
+      );
+    }
+    if (typeof questionData.is_required === "string") {
+      questionData.is_required = questionData.is_required === "true";
+    }
 
     const question = await QuizQuestion.findByPk(req.params.id, {
       include: [
@@ -317,6 +395,58 @@ export const updateQuestion = async (req: Request, res: Response) => {
         });
       }
     }
+
+    // Handle attachments
+    let updatedAttachments = question.attachments || [];
+
+    if (req.body.existing_attachments) {
+      try {
+        const retainedAttachments = JSON.parse(req.body.existing_attachments);
+        const filesToRemove = updatedAttachments.filter(
+          (oldAtt: any) =>
+            !retainedAttachments.some(
+              (newAtt: any) => newAtt.url === oldAtt.url,
+            ),
+        );
+
+        filesToRemove.forEach((file: any) => {
+          try {
+            const filename = file.url.split("/").pop();
+            if (filename) {
+              const filePath = path.join(
+                __dirname,
+                "../../uploads/questions",
+                filename,
+              );
+              if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                console.log(`Deleted file: ${filePath}`);
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to delete file ${file.name}:`, err);
+          }
+        });
+
+        updatedAttachments = retainedAttachments;
+      } catch (e) {
+        console.error("Error parsing existing_attachments:", e);
+      }
+    }
+
+    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      const newAttachments = (req.files as Express.Multer.File[]).map(
+        (file) => ({
+          name: file.originalname,
+          url: `/uploads/questions/${file.filename}`,
+          type: file.mimetype,
+          size: file.size,
+        }),
+      );
+      updatedAttachments = [...updatedAttachments, ...newAttachments];
+    }
+
+    question.attachments = updatedAttachments as any;
 
     await question.update(
       { ...questionData, correct_answer: correctAnswer },
@@ -457,6 +587,28 @@ export const deleteQuestion = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: "Cannot delete question with existing attempts",
+      });
+    }
+
+    // Delete question attachments from disk
+    if (question.attachments && question.attachments.length > 0) {
+      question.attachments.forEach((file: any) => {
+        try {
+          const filename = file.url.split("/").pop();
+          if (filename) {
+            const filePath = path.join(
+              __dirname,
+              "../../uploads/questions",
+              filename,
+            );
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              console.log(`Deleted question attachment: ${filePath}`);
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to delete file ${file.name}:`, err);
+        }
       });
     }
 

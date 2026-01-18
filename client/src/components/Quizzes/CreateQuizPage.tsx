@@ -2,10 +2,17 @@ import React, { useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../store";
-import { createQuiz, clearQuizError } from "../../store/slices/quizSlice";
+import {
+  createQuiz,
+  updateQuiz,
+  clearQuizError,
+} from "../../store/slices/quizSlice";
 import ProctoringSettings from "../Proctoring/ProctoringSettings";
+import { useAutoSave } from "../../hooks/useAutoSave";
 import type { CreateQuizRequest } from "../../types/quiz.types";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
+import { FileText, X } from "lucide-react";
+import FileDropzone from "../Common/FileDropzone";
 
 export const CreateQuizPage: React.FC = () => {
   const navigate = useNavigate();
@@ -24,6 +31,70 @@ export const CreateQuizPage: React.FC = () => {
     randomize_questions: false,
     show_correct_answers: false,
   });
+  const [attachments, setAttachments] = useState<File[]>([]);
+
+  // Helper to prepare FormData
+  const prepareFormData = (data: CreateQuizRequest, files?: File[]) => {
+    const submitData = new FormData();
+    submitData.append("title", data.title);
+    submitData.append("description", data.description);
+    submitData.append("course_id", data.course_id.toString());
+    submitData.append("type", data.type);
+    submitData.append(
+      "show_results_immediately",
+      data.show_results_immediately.toString(),
+    );
+    submitData.append(
+      "randomize_questions",
+      data.randomize_questions.toString(),
+    );
+    submitData.append(
+      "show_correct_answers",
+      data.show_correct_answers.toString(),
+    );
+
+    if (data.instructions) submitData.append("instructions", data.instructions);
+    if (data.time_limit)
+      submitData.append("time_limit", data.time_limit.toString());
+    if (data.max_attempts)
+      submitData.append("max_attempts", data.max_attempts.toString());
+    if (data.passing_score)
+      submitData.append("passing_score", data.passing_score.toString());
+    if (data.start_date) submitData.append("start_date", data.start_date);
+    if (data.end_date) submitData.append("end_date", data.end_date);
+    if (data.is_public !== undefined)
+      submitData.append("is_public", data.is_public.toString());
+
+    if (files) {
+      files.forEach((file) => {
+        submitData.append("attachments", file);
+      });
+    }
+
+    return submitData;
+  };
+
+  const { saving: autoSaving, lastSaved: autoLastSaved } = useAutoSave(
+    formData,
+    async (data) => {
+      if (!data.title.trim() || !data.description.trim()) return;
+
+      if (createdQuizId) {
+        const submitData = prepareFormData(data);
+        await dispatch(
+          updateQuiz({ quizId: createdQuizId, quizData: submitData as any }),
+        ).unwrap();
+      } else {
+        const submitData = prepareFormData(data);
+        const result = await dispatch(createQuiz(submitData as any)).unwrap();
+        setCreatedQuizId(result.id);
+      }
+    },
+    {
+      delay: 3000,
+      enabled: !loading && !showProctoringSettings,
+    },
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -35,9 +106,16 @@ export const CreateQuizPage: React.FC = () => {
     dispatch(clearQuizError("quiz"));
 
     try {
-      const result = await dispatch(createQuiz(formData)).unwrap();
+      const submitData = prepareFormData(formData, attachments);
 
-      setCreatedQuizId(result.id);
+      if (createdQuizId) {
+        await dispatch(
+          updateQuiz({ quizId: createdQuizId, quizData: submitData as any }),
+        ).unwrap();
+      } else {
+        const result = await dispatch(createQuiz(submitData as any)).unwrap();
+        setCreatedQuizId(result.id);
+      }
 
       // Show proctoring settings after quiz creation if enabled
       if (enableProctoring) {
@@ -109,6 +187,22 @@ export const CreateQuizPage: React.FC = () => {
         <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           Create New Quiz
         </h1>
+      </div>
+      <div className="h-6 mt-1">
+        {autoSaving ? (
+          <span className="text-sm text-blue-600 dark:text-blue-400 flex items-center gap-2">
+            <span className="w-2 h-2 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse"></span>
+            Saving draft...
+          </span>
+        ) : autoLastSaved ? (
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            Draft saved {autoLastSaved.toLocaleTimeString()}
+          </span>
+        ) : (
+          <span className="text-sm text-gray-500 dark:text-gray-400">
+            No auto-save data available
+          </span>
+        )}
       </div>
 
       <div className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/50 p-6">
@@ -211,7 +305,7 @@ export const CreateQuizPage: React.FC = () => {
                   onChange={(e) =>
                     handleChange(
                       "time_limit",
-                      e.target.value ? parseInt(e.target.value) : undefined
+                      e.target.value ? parseInt(e.target.value) : undefined,
                     )
                   }
                   placeholder="No limit"
@@ -236,7 +330,7 @@ export const CreateQuizPage: React.FC = () => {
                   onChange={(e) =>
                     handleChange(
                       "max_attempts",
-                      e.target.value ? parseInt(e.target.value) : undefined
+                      e.target.value ? parseInt(e.target.value) : undefined,
                     )
                   }
                   placeholder="Unlimited"
@@ -261,7 +355,7 @@ export const CreateQuizPage: React.FC = () => {
                   onChange={(e) =>
                     handleChange(
                       "passing_score",
-                      e.target.value ? parseFloat(e.target.value) : undefined
+                      e.target.value ? parseFloat(e.target.value) : undefined,
                     )
                   }
                   placeholder="60%"
@@ -329,6 +423,59 @@ export const CreateQuizPage: React.FC = () => {
                 </label>
               </div>
             </div>
+          </div>
+
+          {/* Quiz Attachments */}
+          <div className="space-y-3">
+            <h3 className="text-base font-medium text-gray-900 dark:text-white">
+              Quiz Attachments (Optional)
+            </h3>
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              Add reference materials, diagrams, or documents for this quiz.
+            </p>
+
+            <FileDropzone
+              onFilesSelected={(files) =>
+                setAttachments([...attachments, ...files])
+              }
+              allowedTypes=".pdf, .png, .jpg, .jpeg, .doc, .docx, .xls, .xlsx, .zip"
+              maxFiles={5}
+            />
+
+            {attachments.length > 0 && (
+              <div className="mt-4 space-y-2">
+                <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                  Selected Files ({attachments.length})
+                </p>
+                {attachments.map((file, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700"
+                  >
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">
+                        {file.name}
+                      </span>
+                      <span className="text-xs text-gray-500">
+                        ({(file.size / 1024).toFixed(1)} KB)
+                      </span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAttachments(
+                          attachments.filter((_, i) => i !== index),
+                        );
+                      }}
+                      className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Proctoring Settings */}

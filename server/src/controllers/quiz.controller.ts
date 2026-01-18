@@ -12,6 +12,8 @@ import {
   GradingResult,
 } from "../types/quiz.types";
 import { parseLocalDateTimeToUTC } from "../utils/dateUtils";
+import fs from "fs";
+import path from "path";
 
 // Deep equality comparison for objects
 const deepEqual = (a: any, b: any): boolean => {
@@ -284,6 +286,15 @@ export const createQuiz = async (req: Request, res: Response) => {
       });
     }
 
+    // Handle file uploads
+    const attachments =
+      (req.files as Express.Multer.File[])?.map((file) => ({
+        name: file.originalname,
+        url: `/uploads/quizzes/${file.filename}`,
+        type: file.mimetype,
+        size: file.size,
+      })) || [];
+
     const quiz = await Quiz.create(
       {
         title: quizData.title,
@@ -311,6 +322,7 @@ export const createQuiz = async (req: Request, res: Response) => {
           ? parseLocalDateTimeToUTC(quizData.end_date)
           : undefined,
         is_public: quizData.is_public || false,
+        attachments,
       },
       { transaction },
     );
@@ -376,6 +388,64 @@ export const updateQuiz = async (req: Request, res: Response) => {
         });
       }
     }
+
+    // Handle attachments
+    let updatedAttachments = quiz.attachments || [];
+
+    // If existing_attachments is provided, parse it and use it as the base
+    if (req.body.existing_attachments) {
+      try {
+        const retainedAttachments = JSON.parse(req.body.existing_attachments);
+
+        // Identify files to remove
+        const filesToRemove = updatedAttachments.filter(
+          (oldAtt: any) =>
+            !retainedAttachments.some(
+              (newAtt: any) => newAtt.url === oldAtt.url,
+            ),
+        );
+
+        // Delete removed files from disk
+        filesToRemove.forEach((file: any) => {
+          try {
+            const filename = file.url.split("/").pop();
+            if (filename) {
+              const filePath = path.join(
+                __dirname,
+                "../../uploads/quizzes",
+                filename,
+              );
+              if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                console.log(`Deleted file: ${filePath}`);
+              }
+            }
+          } catch (err) {
+            console.error(`Failed to delete file ${file.name}:`, err);
+          }
+        });
+
+        updatedAttachments = retainedAttachments;
+      } catch (e) {
+        console.error("Error parsing existing_attachments:", e);
+      }
+    }
+
+    // Add new files
+    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
+      const newAttachments = (req.files as Express.Multer.File[]).map(
+        (file) => ({
+          name: file.originalname,
+          url: `/uploads/quizzes/${file.filename}`,
+          type: file.mimetype,
+          size: file.size,
+        }),
+      );
+      updatedAttachments = [...updatedAttachments, ...newAttachments];
+    }
+
+    // Update quiz with new attachments
+    quiz.attachments = updatedAttachments as any;
 
     await quiz.update(
       {
@@ -466,6 +536,28 @@ export const deleteQuiz = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: "Cannot delete quiz with existing submissions",
+      });
+    }
+
+    // Delete quiz attachments from disk
+    if (quiz.attachments && quiz.attachments.length > 0) {
+      quiz.attachments.forEach((file: any) => {
+        try {
+          const filename = file.url.split("/").pop();
+          if (filename) {
+            const filePath = path.join(
+              __dirname,
+              "../../uploads/quizzes",
+              filename,
+            );
+            if (fs.existsSync(filePath)) {
+              fs.unlinkSync(filePath);
+              console.log(`Deleted quiz attachment: ${filePath}`);
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to delete file ${file.name}:`, err);
+        }
       });
     }
 

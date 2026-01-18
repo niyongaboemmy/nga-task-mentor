@@ -8,8 +8,13 @@ import {
   clearQuizError,
 } from "../../store/slices/quizSlice";
 import ProctoringSettings from "../Proctoring/ProctoringSettings";
-import { formatUTCToLocalDateTime, parseLocalDateTimeToUTC } from "../../utils/dateUtils";
+import {
+  formatUTCToLocalDateTime,
+  parseLocalDateTimeToUTC,
+} from "../../utils/dateUtils";
 import type { UpdateQuizRequest } from "../../types/quiz.types";
+import FileDropzone from "../Common/FileDropzone";
+import { FileText, X } from "lucide-react";
 
 export const EditQuizPage: React.FC = () => {
   const navigate = useNavigate();
@@ -29,6 +34,8 @@ export const EditQuizPage: React.FC = () => {
     require_manual_grading: false,
     is_public: false,
   });
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [existingAttachments, setExistingAttachments] = useState<any[]>([]);
 
   useEffect(() => {
     const loadQuiz = async () => {
@@ -52,9 +59,16 @@ export const EditQuizPage: React.FC = () => {
           require_manual_grading: (quiz as any).require_manual_grading || false,
           status: quiz.status,
           is_public: quiz.is_public || false,
-          start_date: quiz.start_date ? formatUTCToLocalDateTime(quiz.start_date) : undefined,
-          end_date: quiz.end_date ? formatUTCToLocalDateTime(quiz.end_date) : undefined,
+          start_date: quiz.start_date
+            ? formatUTCToLocalDateTime(quiz.start_date)
+            : undefined,
+          end_date: quiz.end_date
+            ? formatUTCToLocalDateTime(quiz.end_date)
+            : undefined,
         });
+        if (quiz.attachments) {
+          setExistingAttachments(quiz.attachments);
+        }
       } catch (error) {
         console.error("Failed to load quiz:", error);
         navigate("/dashboard");
@@ -76,22 +90,75 @@ export const EditQuizPage: React.FC = () => {
     dispatch(clearQuizError("quiz"));
 
     try {
-      // Convert local dates to UTC for API
-      const submissionData = {
-        ...formData,
-        start_date: formData.start_date
-          ? parseLocalDateTimeToUTC(formData.start_date).toISOString()
-          : undefined,
-        end_date: formData.end_date
-          ? parseLocalDateTimeToUTC(formData.end_date).toISOString()
-          : undefined,
-      };
+      // Create FormData for file upload
+      const submitData = new FormData();
+      submitData.append("title", formData.title || "");
+      submitData.append("description", formData.description || "");
+      if (formData.type) submitData.append("type", formData.type);
+      submitData.append(
+        "show_results_immediately",
+        String(formData.show_results_immediately ?? true),
+      );
+      submitData.append(
+        "randomize_questions",
+        String(formData.randomize_questions ?? false),
+      );
+      submitData.append(
+        "show_correct_answers",
+        String(formData.show_correct_answers ?? false),
+      );
+      submitData.append(
+        "enable_automatic_grading",
+        String(formData.enable_automatic_grading ?? true),
+      );
+      submitData.append(
+        "require_manual_grading",
+        String(formData.require_manual_grading ?? false),
+      );
+      submitData.append("is_public", String(formData.is_public ?? false));
+
+      if (formData.instructions)
+        submitData.append("instructions", formData.instructions);
+      if (formData.time_limit)
+        submitData.append("time_limit", String(formData.time_limit));
+      if (formData.max_attempts)
+        submitData.append("max_attempts", String(formData.max_attempts));
+      if (formData.passing_score)
+        submitData.append("passing_score", String(formData.passing_score));
+
+      if (formData.start_date) {
+        submitData.append(
+          "start_date",
+          parseLocalDateTimeToUTC(formData.start_date).toISOString(),
+        );
+      }
+      if (formData.end_date) {
+        submitData.append(
+          "end_date",
+          parseLocalDateTimeToUTC(formData.end_date).toISOString(),
+        );
+      }
+
+      // Add existing attachments as JSON string
+      if (existingAttachments.length > 0) {
+        submitData.append(
+          "existing_attachments",
+          JSON.stringify(existingAttachments),
+        );
+      } else {
+        submitData.append("existing_attachments", JSON.stringify([]));
+      }
+
+      // Add new attachments
+      attachments.forEach((file) => {
+        submitData.append("attachments", file);
+      });
 
       await dispatch(
         updateQuiz({
           quizId: parseInt(quizId!),
-          quizData: submissionData,
-        })
+          quizData: submitData as any,
+        }),
       ).unwrap();
 
       navigate(`/quizzes/${quizId}`);
@@ -324,7 +391,7 @@ export const EditQuizPage: React.FC = () => {
                     onChange={(e) =>
                       handleChange(
                         "time_limit",
-                        e.target.value ? parseInt(e.target.value) : undefined
+                        e.target.value ? parseInt(e.target.value) : undefined,
                       )
                     }
                     placeholder="No limit"
@@ -349,7 +416,7 @@ export const EditQuizPage: React.FC = () => {
                     onChange={(e) =>
                       handleChange(
                         "max_attempts",
-                        e.target.value ? parseInt(e.target.value) : undefined
+                        e.target.value ? parseInt(e.target.value) : undefined,
                       )
                     }
                     placeholder="Unlimited"
@@ -374,7 +441,7 @@ export const EditQuizPage: React.FC = () => {
                     onChange={(e) =>
                       handleChange(
                         "passing_score",
-                        e.target.value ? parseFloat(e.target.value) : undefined
+                        e.target.value ? parseFloat(e.target.value) : undefined,
                       )
                     }
                     placeholder="60%"
@@ -387,7 +454,10 @@ export const EditQuizPage: React.FC = () => {
 
                 {/* Availability Dates */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="animate-fade-in-up" style={{ animationDelay: "0.2s" }}>
+                  <div
+                    className="animate-fade-in-up"
+                    style={{ animationDelay: "0.2s" }}
+                  >
                     <label
                       htmlFor="start_date"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
@@ -398,12 +468,17 @@ export const EditQuizPage: React.FC = () => {
                       type="datetime-local"
                       id="start_date"
                       value={formData.start_date || ""}
-                      onChange={(e) => handleChange("start_date", e.target.value)}
+                      onChange={(e) =>
+                        handleChange("start_date", e.target.value)
+                      }
                       className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
                     />
                   </div>
 
-                  <div className="animate-fade-in-up" style={{ animationDelay: "0.25s" }}>
+                  <div
+                    className="animate-fade-in-up"
+                    style={{ animationDelay: "0.25s" }}
+                  >
                     <label
                       htmlFor="end_date"
                       className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
@@ -430,7 +505,7 @@ export const EditQuizPage: React.FC = () => {
                       onChange={(e) =>
                         handleChange(
                           "show_results_immediately",
-                          e.target.checked
+                          e.target.checked,
                         )
                       }
                       className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-xl"
@@ -491,7 +566,7 @@ export const EditQuizPage: React.FC = () => {
                         onChange={(e) =>
                           handleChange(
                             "enable_automatic_grading",
-                            e.target.checked
+                            e.target.checked,
                           )
                         }
                         className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-xl"
@@ -513,7 +588,7 @@ export const EditQuizPage: React.FC = () => {
                         onChange={(e) =>
                           handleChange(
                             "require_manual_grading",
-                            e.target.checked
+                            e.target.checked,
                           )
                         }
                         className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-xl"
@@ -531,8 +606,8 @@ export const EditQuizPage: React.FC = () => {
                       {formData.require_manual_grading
                         ? "Students will see 'Pending' until instructor reviews and grades the quiz manually."
                         : formData.enable_automatic_grading
-                        ? "Grades will be calculated automatically and shown immediately."
-                        : "Grades will be hidden from students (manual grading required)."}
+                          ? "Grades will be calculated automatically and shown immediately."
+                          : "Grades will be hidden from students (manual grading required)."}
                     </div>
                   </div>
 
@@ -554,6 +629,91 @@ export const EditQuizPage: React.FC = () => {
                     </label>
                   </div>
                 </div>
+              </div>
+
+              {/* Quiz Attachments */}
+              <div className="space-y-3">
+                <h3 className="text-base font-medium text-gray-900 dark:text-white">
+                  Quiz Attachments (Optional)
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  Manage reference materials, diagrams, or documents for this
+                  quiz.
+                </p>
+
+                <FileDropzone
+                  onFilesSelected={(files: File[]) =>
+                    setAttachments([...attachments, ...files])
+                  }
+                  allowedTypes=".pdf, .png, .jpg, .jpeg, .doc, .docx, .xls, .xlsx, .zip"
+                  maxFiles={5 - existingAttachments.length - attachments.length}
+                />
+
+                {(existingAttachments.length > 0 || attachments.length > 0) && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Files ({existingAttachments.length + attachments.length})
+                    </p>
+
+                    {/* Existing Attachments */}
+                    {existingAttachments.map((file, index) => (
+                      <div
+                        key={`existing-${index}`}
+                        className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg border border-blue-200 dark:border-blue-800"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {file.name}
+                          </span>
+                          <span className="text-xs text-blue-600 dark:text-blue-400 font-medium">
+                            (Existing)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExistingAttachments(
+                              existingAttachments.filter((_, i) => i !== index),
+                            );
+                          }}
+                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+
+                    {/* New Attachments */}
+                    {attachments.map((file, index) => (
+                      <div
+                        key={`new-${index}`}
+                        className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700"
+                      >
+                        <div className="flex items-center gap-2">
+                          <FileText className="w-4 h-4 text-green-600 dark:text-green-400" />
+                          <span className="text-sm text-gray-700 dark:text-gray-300">
+                            {file.name}
+                          </span>
+                          <span className="text-xs text-green-600 dark:text-green-400 font-medium">
+                            (New)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setAttachments(
+                              attachments.filter((_, i) => i !== index),
+                            );
+                          }}
+                          className="text-red-600 hover:text-red-800 dark:text-red-400 dark:hover:text-red-300"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Action Buttons */}

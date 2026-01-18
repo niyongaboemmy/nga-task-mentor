@@ -5,9 +5,11 @@ import { toast } from "react-toastify";
 import type { AppDispatch } from "../../store";
 import {
   createQuestion,
+  updateQuestion,
   fetchQuizQuestions,
   clearQuizError,
 } from "../../store/slices/quizSlice";
+import { useAutoSave } from "../../hooks/useAutoSave";
 import {
   DropdownQuestionForm,
   AlgorithmicQuestionForm,
@@ -21,15 +23,17 @@ import {
   MatchingQuestionForm,
   OrderingQuestionForm,
 } from "./QuestionForms";
-import { 
-  ArrowLeft, 
-  PlusCircle, 
-  Clock, 
-  Trophy, 
-  MessageCircle, 
+import {
+  ArrowLeft,
+  PlusCircle,
+  Clock,
+  Trophy,
+  MessageCircle,
   Layers,
-  FileText
+  FileText,
+  Paperclip,
 } from "lucide-react";
+import FileDropzone from "../Common/FileDropzone";
 import type {
   CreateQuestionRequest,
   QuestionType,
@@ -148,6 +152,67 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
     time_limit_seconds: 60,
     is_required: true,
   });
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const [createdQuestionId, setCreatedQuestionId] = useState<number | null>(
+    null,
+  );
+
+  // Helper to prepare FormData
+  const prepareFormData = (data: CreateQuestionRequest, files?: File[]) => {
+    const submitData = new FormData();
+    submitData.append("question_type", data.question_type);
+    submitData.append("question_text", data.question_text);
+    submitData.append("points", data.points.toString());
+    submitData.append("order", data.order.toString());
+    submitData.append("time_limit_seconds", data.time_limit_seconds.toString());
+    submitData.append("is_required", data.is_required.toString());
+
+    if (data.explanation) {
+      submitData.append("explanation", data.explanation);
+    }
+
+    submitData.append("question_data", JSON.stringify(data.question_data));
+
+    if (data.correct_answer !== undefined) {
+      submitData.append("correct_answer", JSON.stringify(data.correct_answer));
+    }
+
+    if (files) {
+      files.forEach((file) => {
+        submitData.append("attachments", file);
+      });
+    }
+
+    return submitData;
+  };
+
+  const { saving: autoSaving, lastSaved: autoLastSaved } = useAutoSave(
+    formData,
+    async (data) => {
+      // Basic validation for auto-save
+      if (!data.question_text.trim()) return;
+
+      const submitData = prepareFormData(data);
+
+      if (createdQuestionId) {
+        await dispatch(
+          updateQuestion({
+            questionId: createdQuestionId,
+            questionData: submitData as any,
+          }),
+        ).unwrap();
+      } else {
+        const result = await dispatch(
+          createQuestion({ quizId, questionData: submitData as any }),
+        ).unwrap();
+        setCreatedQuestionId(result.id);
+      }
+    },
+    {
+      delay: 3000,
+      enabled: !loading,
+    },
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -157,13 +222,14 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
     if (formData.question_type === "coding") {
       const codingData = getCodingData();
       const hasInvalidTestCases = codingData.test_cases.some(
-        (testCase) => !testCase.input.trim() || !testCase.expected_output.trim()
+        (testCase) =>
+          !testCase.input.trim() || !testCase.expected_output.trim(),
       );
 
       if (hasInvalidTestCases) {
         const invalidCount = codingData.test_cases.filter(
           (testCase) =>
-            !testCase.input.trim() || !testCase.expected_output.trim()
+            !testCase.input.trim() || !testCase.expected_output.trim(),
         ).length;
 
         toast.error(
@@ -175,7 +241,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
             closeOnClick: true,
             pauseOnHover: true,
             draggable: true,
-          }
+          },
         );
         return;
       }
@@ -185,12 +251,23 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
     dispatch(clearQuizError("questions"));
 
     try {
-      await dispatch(
-        createQuestion({
-          quizId: quizId,
-          questionData: formData,
-        })
-      ).unwrap();
+      const submitData = prepareFormData(formData, attachments);
+
+      if (createdQuestionId) {
+        await dispatch(
+          updateQuestion({
+            questionId: createdQuestionId,
+            questionData: submitData as any,
+          }),
+        ).unwrap();
+      } else {
+        await dispatch(
+          createQuestion({
+            quizId: quizId,
+            questionData: submitData as any,
+          }),
+        ).unwrap();
+      }
 
       toast.success("Question created successfully!", {
         position: "top-right",
@@ -265,7 +342,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
       const codingData = getCodingData();
       const hasInvalidTestCases = codingData.test_cases.some(
         (testCase: any) =>
-          !testCase.input.trim() || !testCase.expected_output.trim()
+          !testCase.input.trim() || !testCase.expected_output.trim(),
       );
       if (hasInvalidTestCases) return false;
     }
@@ -367,8 +444,24 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                 <PlusCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Create New Question</h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">Define your question and its metadata</p>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                  Create New Question
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400">
+                  Define your question and its metadata
+                </p>
+                <div className="h-5 mt-1">
+                  {autoSaving ? (
+                    <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse"></span>
+                      Saving draft...
+                    </span>
+                  ) : autoLastSaved ? (
+                    <span className="text-xs text-gray-400 dark:text-gray-500">
+                      Draft saved {autoLastSaved.toLocaleTimeString()}
+                    </span>
+                  ) : null}
+                </div>
               </div>
             </div>
             <button
@@ -567,6 +660,74 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                 rows={3}
                 className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none"
               />
+            </div>
+
+            {/* Attachments Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2">
+                <Paperclip className="w-5 h-5 text-gray-400" />
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+                  Question Attachments
+                </h3>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
+                <FileDropzone
+                  onFilesSelected={(files: File[]) =>
+                    setAttachments([...attachments, ...files])
+                  }
+                  allowedTypes=".pdf, .png, .jpg, .jpeg, .doc, .docx, .xls, .xlsx, .zip"
+                  maxFiles={3 - attachments.length}
+                />
+
+                {/* Selected Files List */}
+                {attachments.length > 0 && (
+                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {attachments.map((file, index) => (
+                      <div
+                        key={`new-${index}`}
+                        className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                            <FileText className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              {file.name}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {(file.size / 1024 / 1024).toFixed(2)} MB
+                            </p>
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newFiles = [...attachments];
+                            newFiles.splice(index, 1);
+                            setAttachments(newFiles);
+                          }}
+                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                        >
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M6 18L18 6M6 6l12 12"
+                            />
+                          </svg>
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Action Buttons */}
