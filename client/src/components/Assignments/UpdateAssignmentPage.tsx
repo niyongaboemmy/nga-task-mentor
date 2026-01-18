@@ -11,6 +11,12 @@ interface Assignment {
   max_score: number;
   submission_type: string;
   status: string;
+  attachments?: {
+    name: string;
+    url: string;
+    type: string;
+    size: number;
+  }[];
 }
 
 const UpdateAssignmentPage: React.FC = () => {

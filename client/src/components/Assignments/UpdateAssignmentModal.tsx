@@ -2,7 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button } from "../ui/Button";
 import { motion } from "framer-motion";
 import axios from "axios";
-import { formatUTCToLocalDateTime, parseLocalDateTimeToUTC } from "../../utils/dateUtils";
+import {
+  formatUTCToLocalDateTime,
+  parseLocalDateTimeToUTC,
+} from "../../utils/dateUtils";
 
 interface UpdateAssignmentProps {
   assignment: {
@@ -13,6 +16,12 @@ interface UpdateAssignmentProps {
     max_score: number;
     submission_type: string;
     status: string;
+    attachments?: {
+      name: string;
+      url: string;
+      type: string;
+      size: number;
+    }[];
   };
   onSubmit: (assignmentData: any) => void;
   onCancel?: () => void;
@@ -31,6 +40,12 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
     submission_type: assignment.submission_type,
     status: assignment.status,
   });
+
+  const [existingAttachments, setExistingAttachments] = useState(
+    assignment.attachments || [],
+  );
+  const [newFiles, setNewFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
@@ -58,15 +73,32 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
       // Convert local input to UTC for API
       const utcDueDate = parseLocalDateTimeToUTC(formData.due_date);
 
-      const updatedData = {
-        ...formData,
-        description: finalContent,
-        due_date: utcDueDate.toISOString(),
-      };
+      const submitData = new FormData();
+      submitData.append("title", formData.title);
+      submitData.append("description", finalContent);
+      submitData.append("due_date", utcDueDate.toISOString());
+      submitData.append("max_score", formData.max_score.toString());
+      submitData.append("submission_type", formData.submission_type);
+      submitData.append("status", formData.status);
 
-      await axios.put(`/api/assignments/${assignment.id}`, updatedData);
+      // Existing attachments
+      submitData.append(
+        "existing_attachments",
+        JSON.stringify(existingAttachments),
+      );
 
-      onSubmit(updatedData);
+      // New files
+      newFiles.forEach((file) => {
+        submitData.append("attachments", file);
+      });
+
+      await axios.put(`/api/assignments/${assignment.id}`, submitData, {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      });
+
+      onSubmit({ ...formData, description: finalContent });
     } catch (error: any) {
       console.error("Error updating assignment:", error);
       setError(error.response?.data?.message || "Failed to update assignment");
@@ -75,8 +107,23 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
     }
   };
 
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      setNewFiles((prev) => [...prev, ...selectedFiles]);
+    }
+  };
+
+  const removeNewFile = (index: number) => {
+    setNewFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const removeExistingAttachment = (url: string) => {
+    setExistingAttachments((prev) => prev.filter((att) => att.url !== url));
+  };
+
   const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>,
   ) => {
     const { name, value } = e.target;
     setFormData((prev) => ({
@@ -284,6 +331,149 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                 </div>
               </div>
             </div>
+          </div>
+        </motion.div>
+
+        {/* Attachments Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+              Attachments
+            </label>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              + Add Files
+            </Button>
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              multiple
+              className="hidden"
+            />
+          </div>
+
+          <div className="space-y-3">
+            {/* Existing Attachments */}
+            {existingAttachments.map((att, index) => (
+              <div
+                key={`existing-${index}`}
+                className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-50 dark:bg-blue-900/30 rounded-lg">
+                    <svg
+                      className="w-5 h-5 text-blue-600 dark:text-blue-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {att.name}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {(att.size / 1024).toFixed(1)} KB
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeExistingAttachment(att.url)}
+                  className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ))}
+
+            {/* New Files */}
+            {newFiles.map((file, index) => (
+              <div
+                key={`new-${index}`}
+                className="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-200 dark:border-green-800"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                    <svg
+                      className="w-5 h-5 text-green-600 dark:text-green-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 4v16m8-8H4"
+                      />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                      {file.name}
+                    </p>
+                    <p className="text-xs text-green-600 dark:text-green-400">
+                      New Upload
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => removeNewFile(index)}
+                  className="p-2 text-red-500 hover:bg-white rounded-lg transition-colors"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                </button>
+              </div>
+            ))}
+
+            {existingAttachments.length === 0 && newFiles.length === 0 && (
+              <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+                No attachments
+              </div>
+            )}
           </div>
         </motion.div>
 

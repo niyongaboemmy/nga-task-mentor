@@ -38,7 +38,7 @@ interface SubmissionMarkingProps {
   onGradeSubmission: (
     submissionId: string,
     score: number,
-    feedback: string
+    feedback: string,
   ) => void;
 }
 
@@ -47,11 +47,27 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
   assignment,
   onGradeSubmission,
 }) => {
-  const [score, setScore] = React.useState<string>(submission.grade || "");
+  // Initialize score from submission.grade (e.g. "85/100" -> "85")
+  const initialScore = React.useMemo(() => {
+    if (!submission.grade) return "";
+    const parts = submission.grade.toString().split("/");
+    return parts[0] || "";
+  }, [submission.grade]);
+
+  const [score, setScore] = React.useState<string>(initialScore);
   const [feedback, setFeedback] = React.useState<string>(
-    submission.feedback || ""
+    submission.feedback || "",
   );
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+
+  // Update local state if submission changes
+  React.useEffect(() => {
+    if (submission.grade) {
+      const parts = submission.grade.toString().split("/");
+      setScore(parts[0] || "");
+    }
+    setFeedback(submission.feedback || "");
+  }, [submission]);
 
   const handleSubmit = async () => {
     if (!score || isNaN(Number(score))) {
@@ -66,13 +82,19 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
     setIsSubmitting(true);
     try {
       await onGradeSubmission(submission.id, numScore, feedback);
-      toast.success("Submission graded successfully!");
+      toast.success(
+        submission.grade
+          ? "Grade updated successfully!"
+          : "Submission graded successfully!",
+      );
     } catch (error: any) {
       toast.error("Failed to grade submission.");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const isGraded = !!submission.grade;
 
   return (
     <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-800">
@@ -90,7 +112,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
             d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
           />
         </svg>
-        Grade Submission
+        {isGraded ? "Update Grade" : "Grade Submission"}
       </h5>
       <div className="flex items-center gap-4">
         <div className="flex-1 max-w-xs">
@@ -116,9 +138,13 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
         <button
           onClick={handleSubmit}
           disabled={isSubmitting}
-          className="px-5 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50"
+          className="px-5 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
-          {isSubmitting ? "Submitting..." : "Submit Grade"}
+          {isSubmitting
+            ? "Submitting..."
+            : isGraded
+              ? "Update Grade"
+              : "Submit Grade"}
         </button>
       </div>
     </div>
