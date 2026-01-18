@@ -1,28 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-
-interface Quiz {
-  id: number;
-  title: string;
-  description: string;
-  status: string;
-  type: string;
-  is_public?: boolean;
-  total_questions?: number;
-  questions?: {
-    id: string;
-    question_type: string;
-    points: string;
-    order: string;
-  }[];
-  total_points?: number;
-  time_limit?: number;
-  created_at?: string;
-  totalQuestions: string;
-  totalPoints: string;
-  isAvailable: boolean;
-  isPublic: boolean;
-}
+import type { Quiz } from "../../types/quiz.types";
 
 interface QuizListItemProps {
   quiz: Quiz;

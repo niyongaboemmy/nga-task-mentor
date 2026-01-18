@@ -220,7 +220,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
       <div className="flex flex-col sm:flex-row items-start justify-between gap-3 sm:gap-4">
         <div className="flex-1 min-w-0 w-full">
           {/* Header row with title and status - Enhanced mobile layout */}
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-3 mb-3 sm:mb-4">
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-3 mb-1 sm:mb-1">
             <div className="flex-1 min-w-0">
               <h3
                 className={`font-semibold text-gray-900 dark:text-white truncate pr-2 mb-1 sm:mb-2 ${
