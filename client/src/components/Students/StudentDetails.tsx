@@ -688,9 +688,9 @@ const StudentDetails: React.FC = () => {
           {activeTab === "courses" && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {courses.length > 0 ? (
-                courses.map((course) => (
+                courses.map((course, c) => (
                   <Link
-                    key={course.enrollment_id}
+                    key={c + 1}
                     to={`/courses/${course.subject_id}`}
                     className="group relative block"
                   >
@@ -808,7 +808,7 @@ const StudentDetails: React.FC = () => {
                     const submission = assignment.assignmentSubmissions?.[0];
                     return (
                       <div
-                        key={assignment.id}
+                        key={index + 1}
                         className={`flex items-center justify-between p-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors ${
                           index !== assignments.length - 1
                             ? "border-b border-gray-200/50 dark:border-gray-700/50"
@@ -920,7 +920,7 @@ const StudentDetails: React.FC = () => {
                     const submission = quiz.quizSubmissions?.[0];
                     return (
                       <div
-                        key={quiz.id}
+                        key={index + 1}
                         className={`flex items-center justify-between p-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors ${
                           index !== quizzes.length - 1
                             ? "border-b border-gray-200/50 dark:border-gray-700/50"
@@ -1205,9 +1205,9 @@ const StudentDetails: React.FC = () => {
                       </div>
                     ) : (
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {filteredAvailableCourses.map((course) => (
+                        {filteredAvailableCourses.map((course, c) => (
                           <div
-                            key={course.subject_id}
+                            key={c + 1}
                             onClick={() =>
                               handleCourseSelection(course.subject_id)
                             }
@@ -1361,9 +1361,9 @@ const StudentDetails: React.FC = () => {
                           .filter((course) =>
                             selectedCourses.includes(course.subject_id),
                           )
-                          .map((course) => (
+                          .map((course, c) => (
                             <div
-                              key={course.subject_id}
+                              key={c + 1}
                               className="inline-flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm"
                             >
                               <span className="text-sm font-medium text-gray-900 dark:text-white">

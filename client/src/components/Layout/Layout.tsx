@@ -258,10 +258,19 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
             {/* Theme Toggle, Timezone Indicator and User Section */}
             <div className="hidden md:flex items-center space-x-3">
+              {/* Academic Info */}
+              {user?.currentAcademicYear && user?.currentAcademicTerm && (
+                <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700/40 mr-2">
+                  <span>{user.currentAcademicYear.name}</span>
+                  <span className="w-1 h-1 rounded-full bg-gray-400"></span>
+                  <span>{user.currentAcademicTerm.name}</span>
+                </div>
+              )}
+
               <ThemeToggle />
 
               {/* Timezone Status Indicator */}
-              {isTimezoneCorrect !== null && (
+              {/* {isTimezoneCorrect !== null && (
                 <div
                   className={`flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${
                     isTimezoneCorrect
@@ -283,7 +292,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                     {isTimezoneCorrect ? "CAT" : "TZ"}
                   </span>
                 </div>
-              )}
+              )} */}
 
               <div className="flex items-center space-x-3 border-l border-gray-200 dark:border-gray-700 pl-4">
                 <Link to="/profile">
@@ -405,6 +414,17 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                     </Link>
                   </motion.div>
                 ))}
+
+                {/* Mobile Academic Info */}
+                {user?.currentAcademicYear && user?.currentAcademicTerm && (
+                  <div className="px-4 py-2">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-lg text-sm font-medium border border-gray-200 dark:border-gray-700">
+                      <span>{user.currentAcademicYear.name}</span>
+                      <span className="w-1 h-1 rounded-full bg-gray-400"></span>
+                      <span>{user.currentAcademicTerm.name}</span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Mobile Timezone Status */}
                 {isTimezoneCorrect !== null && (

@@ -62,7 +62,7 @@ const Students: React.FC = () => {
         }
         if (selectedCourse) {
           params.subjectId = selectedCourse;
-          params.termId = 4; // Default term as requested
+          params.termId = user?.currentAcademicTerm?.academic_term_id || 4;
         }
 
         const response = await axios.get<{
@@ -233,8 +233,8 @@ const Students: React.FC = () => {
               className="w-full px-4 py-2.5 bg-white/50 border border-gray-200 text-sm rounded-xl focus:outline-none dark:border-gray-800 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
             >
               <option value="">Select Course...</option>
-              {courses.map((course) => (
-                <option key={course.id} value={course.id}>
+              {courses.map((course, c) => (
+                <option key={c + 1} value={course.id}>
                   {course.code} - {course.title}
                 </option>
               ))}
@@ -333,9 +333,9 @@ const Students: React.FC = () => {
 
             {/* Student List */}
             <div className="divide-y divide-gray-200 dark:divide-gray-900">
-              {paginatedStudents.map((student) => (
+              {paginatedStudents.map((student, s) => (
                 <Link
-                  key={student?.user_id || student?.user_id}
+                  key={s + 1}
                   to={`/students/${student?.user_id || student?.user_id}`}
                   className="block px-6 py-3 hover:bg-gray-50/50 dark:hover:bg-gray-900 transition-colors duration-200 group"
                 >

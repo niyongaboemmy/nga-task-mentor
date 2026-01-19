@@ -37,10 +37,9 @@ export const getUsers = async (req: Request, res: Response) => {
     let endpoint = "/users/";
 
     if (req.user.role === "instructor" && role === "student") {
-      if (subjectId) {
+      if (subjectId && termId) {
         // Use the specific academic endpoint provided by the user
-        const activeTermId = termId || 4;
-        endpoint = `/academics/subjects/${subjectId}/terms/${activeTermId}/students`;
+        endpoint = `/academics/subjects/${subjectId}/terms/${termId}/students`;
       } else if (search) {
         // Instructors use the search endpoint for students if they have a query
         endpoint = "/users/search";

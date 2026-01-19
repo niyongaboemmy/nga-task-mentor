@@ -13,6 +13,7 @@ declare global {
 interface JwtPayload {
   id: number;
   role: string;
+  termId?: number; // Add termId to payload interface
   iat: number;
   exp: number;
 }
@@ -63,6 +64,8 @@ export const protect = async (
         id: user.id,
         email: user.email,
         role: user.role,
+        mis_user_id: user.mis_user_id,
+        termId: decoded.termId, // Attach termId from token to req.user
       };
 
       next();

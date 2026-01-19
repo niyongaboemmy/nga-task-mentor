@@ -114,6 +114,8 @@ export const verifyOtp = async (req: Request, res: Response) => {
           description: string;
         }[];
         forcePasswordChange: boolean;
+        currentAcademicYear: any;
+        currentAcademicTerms: any[];
       };
     }>(
       `${process.env.NGA_MIS_BASE_URL}/auth/verify-otp`,
@@ -142,6 +144,8 @@ export const verifyOtp = async (req: Request, res: Response) => {
       assignedGrades,
       forcePasswordChange,
       roles,
+      currentAcademicYear,
+      currentAcademicTerms,
     } = data;
 
     console.log({ dataToTest: data.roles });
@@ -244,8 +248,21 @@ export const verifyOtp = async (req: Request, res: Response) => {
       console.log("✅ Updated user role to:", localUser.role);
     }
 
+    // Find active term ID
+    let activeTermId: number | undefined;
+    if (currentAcademicTerms && Array.isArray(currentAcademicTerms)) {
+      const activeTerm = currentAcademicTerms.find(
+        (t: any) =>
+          t.is_current === 1 || t.status === 1 || t.status === "ACTIVE",
+      );
+      if (activeTerm) activeTermId = activeTerm.academic_term_id;
+      else if (currentAcademicTerms.length > 0)
+        activeTermId = currentAcademicTerms[0].academic_term_id;
+    }
+
     // Generate local JWT token
-    const localToken = localUser.getSignedJwtToken();
+    console.log("🎟️ Generating token with Active Term ID:", activeTermId);
+    const localToken = localUser.getSignedJwtToken(activeTermId);
 
     // Set cookies
     const cookieOptions = {
@@ -278,6 +295,8 @@ export const verifyOtp = async (req: Request, res: Response) => {
       assignedPrograms,
       assignedGrades,
       forcePasswordChange,
+      currentAcademicYear,
+      currentAcademicTerms,
     });
   } catch (error: any) {
     console.error(
@@ -306,11 +325,14 @@ export const refreshToken = async (req: Request, res: Response) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
       id: number;
+      termId?: number;
     };
     const user = await User.findByPk(decoded.id);
     if (!user) return res.status(401).json({ message: "Invalid token" });
 
-    const newToken = user.getSignedJwtToken();
+    // Preserve termId from previous token
+    console.log("🔄 Refreshing token, preserving Term ID:", decoded.termId);
+    const newToken = user.getSignedJwtToken(decoded.termId);
 
     const cookieOptions = {
       expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
@@ -487,6 +509,8 @@ export const getMe = async (req: Request, res: Response) => {
           assignedPrograms: misData.assignedPrograms,
           assignedGrades: misData.assignedGrades,
           forcePasswordChange: misData.forcePasswordChange,
+          currentAcademicYear: misData.currentAcademicYear,
+          currentAcademicTerms: misData.currentAcademicTerms,
         },
       });
     } catch (misError) {

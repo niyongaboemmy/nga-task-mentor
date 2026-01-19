@@ -36,6 +36,8 @@ interface User {
   external_id?: string | null;
   assigned_programs?: any[];
   assigned_grades?: any[];
+  currentAcademicYear?: any;
+  currentAcademicTerm?: any;
 }
 
 interface AuthContextType {
@@ -126,10 +128,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           external_id: responseData.profile?.external_id,
           assigned_programs: responseData.assignedPrograms,
           assigned_grades: responseData.assignedGrades,
+          currentAcademicYear: (responseData as any).currentAcademicYear,
+          currentAcademicTerm:
+            (responseData as any).currentAcademicTerms?.find(
+              (t: any) => t.is_current === 1,
+            ) || (responseData as any).currentAcademicTerms?.[0],
         };
 
         setUser(userData);
-        dispatch(loginSuccess(response.data.data));
+        dispatch(loginSuccess(userData));
 
         const currentPath = window.location.pathname;
         if (currentPath === "/login") {
@@ -191,6 +198,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           external_id: data.profile?.external_id,
           assigned_programs: data.assignedPrograms,
           assigned_grades: data.assignedGrades,
+          currentAcademicYear: (data as any).currentAcademicYear,
+          currentAcademicTerm:
+            (data as any).currentAcademicTerms?.find(
+              (t: any) => t.is_current === 1,
+            ) || (data as any).currentAcademicTerms?.[0],
         };
 
         setUser(userData);

@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import axios from "axios";
-import { getMisToken, hasMisToken } from "../utils/misUtils";
+import { getMisToken, hasMisToken, getCurrentTermId } from "../utils/misUtils";
 import {
   Assignment,
   Submission,
@@ -29,13 +29,15 @@ export const getCourses = async (req: Request, res: Response) => {
 
     if (req.user?.role === "instructor") {
       endpoint = "/academics/my-assigned-subjects";
-      params.termId = 4; // Default to active term
+      const termId = await getCurrentTermId(req);
+      params.termId = termId || 4; // Default to 4 if fetch fails
     } else if (req.user?.role === "student" && req.user.mis_user_id) {
       endpoint = `/academics/students/${req.user.mis_user_id}/enrolled-subjects`;
       // Students usually only get their current enrollments from this endpoint
     } else if (req.user?.role === "admin") {
       endpoint = "/academics/subjects";
-      params.termId = 4;
+      const termId = await getCurrentTermId(req);
+      params.termId = termId || 4;
     }
 
     // Call NGA MIS API
@@ -105,11 +107,12 @@ export const getCourse = async (req: Request, res: Response) => {
 
     const courseId = parseInt(req.params.id);
 
-    // Get enrolled students for this subject and term 4 from MIS
+    // Get enrolled students for this subject and term (dynamic) from MIS
     let enrolledStudents = [];
     try {
+      const termId = await getCurrentTermId(req);
       const studentsResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/4/students`,
+        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/${termId}/students`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -501,11 +504,12 @@ export const getCourseStudents = async (req: Request, res: Response) => {
         .json({ success: false, message: "Authentication required" });
     }
 
-    // Get enrolled students for this subject and term 4
+    // Get enrolled students for this subject and term (dynamic)
     let enrolledStudents = [];
     try {
+      const termId = await getCurrentTermId(req);
       const studentsResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/4/students`,
+        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/${termId}/students`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -614,8 +618,9 @@ export const getCourseGrades = async (req: Request, res: Response) => {
     // 1. Get enrolled students from MIS
     let enrolledStudents: any[] = [];
     try {
+      const termId = await getCurrentTermId(req);
       const studentsResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}/terms/4/students`,
+        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}/terms/${termId}/students`,
         {
           headers: {
             Authorization: `Bearer ${token}`,

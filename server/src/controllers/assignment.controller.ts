@@ -9,7 +9,7 @@ import {
   isPastDate,
 } from "../utils/dateUtils";
 import axios from "axios";
-import { getMisToken } from "../utils/misUtils";
+import { getMisToken, getCurrentTermId } from "../utils/misUtils";
 
 // @desc    Get assignments for a specific course
 // @route   GET /api/courses/:courseId/assignments
@@ -545,8 +545,9 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
     // Get all students enrolled in the course (subject) from NGA MIS
     let enrolledStudents = [];
     try {
+      const termId = await getCurrentTermId(req);
       const studentsResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${assignment.course_id}/terms/4/students`,
+        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${assignment.course_id}/terms/${termId}/students`,
         {
           headers: {
             Authorization: token,
