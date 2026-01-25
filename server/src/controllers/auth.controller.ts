@@ -2,13 +2,13 @@ import { Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import axios from "axios";
+import { getMisToken } from "../utils/misUtils";
 import { Sequelize, Op } from "sequelize";
 import { User } from "../models/User.model";
 import fs from "fs";
 import path from "path";
 import { uploadProfilePicture } from "../middleware/upload";
-import axios from "axios";
-import { getMisToken } from "../utils/misUtils";
 
 // User login - forwards to NGA Central MIS
 // Security: Protected by rate limiter and input validation at route level (see routes/auth.routes.ts)
@@ -272,7 +272,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
       sameSite: "lax" as const,
     };
 
-    res.cookie("token", localToken, cookieOptions);
+    res.cookie("nga_auth_token", localToken, cookieOptions);
     res.cookie("misToken", token, cookieOptions);
 
     // Return user data (no tokens in body needed really, but keeping for compatibility if needed)
@@ -310,6 +310,208 @@ export const verifyOtp = async (req: Request, res: Response) => {
   }
 };
 
+// SSO Callback - Exchanges authorization code for MIS token and establishes local session
+// Follows OAuth2-style Authorization Code Flow as per SSO_CLIENT_INTEGRATION.md
+export const ssoCallback = async (req: Request, res: Response) => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Authorization code is required" });
+    }
+
+    console.log("🔐 SSO Callback: Exchanging authorization code for token...");
+
+    // Exchange authorization code for MIS token
+    // Endpoint: POST /sso/token as per SSO_CLIENT_INTEGRATION.md
+    const misResponse = await axios.post<{
+      success: boolean;
+      data: {
+        token: string;
+        user: {
+          user_id: number;
+          username: string;
+          email: string;
+        };
+        permissions: string[];
+      };
+    }>(
+      `${process.env.NGA_MIS_BASE_URL}/sso/token`,
+      {
+        code,
+        client_id: process.env.SSO_CLIENT_ID,
+        client_secret: process.env.SSO_CLIENT_SECRET,
+      },
+      {
+        httpsAgent:
+          process.env.NODE_ENV === "production"
+            ? new (require("https").Agent)({ rejectUnauthorized: true })
+            : undefined,
+      },
+    );
+
+    const {
+      token: misToken,
+      user: misUser,
+      permissions,
+    } = misResponse.data.data;
+    console.log("✅ SSO Token exchange successful for user:", misUser.username);
+
+    // Fetch full user profile from MIS to get roles and profile data
+    let misProfile: any = null;
+    let roles: any[] = [];
+    let assignedPrograms: any[] = [];
+    let assignedGrades: any[] = [];
+    let currentAcademicYear: any = null;
+    let currentAcademicTerms: any[] = [];
+
+    try {
+      const profileResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/users/me`,
+        {
+          headers: { Authorization: `Bearer ${misToken}` },
+        },
+      );
+      const profileData = profileResponse.data.data;
+      misProfile = profileData.profile;
+      roles = profileData.roles || [];
+      assignedPrograms = profileData.assignedPrograms || [];
+      assignedGrades = profileData.assignedGrades || [];
+      currentAcademicYear = profileData.currentAcademicYear;
+      currentAcademicTerms = profileData.currentAcademicTerms || [];
+    } catch (profileError) {
+      console.warn("⚠️ Could not fetch full profile, using basic data");
+    }
+
+    // Map MIS roles to local roles (reusing existing logic)
+    const mapMisRoleToLocal = (
+      misRoles: { role_id: number; name: string }[],
+    ): "student" | "instructor" | "admin" => {
+      if (!misRoles || !Array.isArray(misRoles) || misRoles.length === 0) {
+        return "student";
+      }
+      for (const role of misRoles) {
+        if (
+          role.role_id === 1 ||
+          role.role_id === 2 ||
+          role.role_id === 3 ||
+          role.role_id === 12 ||
+          (role.name &&
+            (role.name.toLowerCase().includes("admin") ||
+              role.name.toLowerCase().includes("super") ||
+              role.name.toLowerCase().includes("manager")))
+        ) {
+          return "admin";
+        }
+        if (
+          role.role_id === 4 ||
+          role.role_id === 11 ||
+          (role.name &&
+            (role.name.toLowerCase().includes("teacher") ||
+              role.name.toLowerCase().includes("instructor")))
+        ) {
+          return "instructor";
+        }
+        if (
+          role.role_id === 6 ||
+          (role.name && role.name.toLowerCase().includes("student"))
+        ) {
+          return "student";
+        }
+      }
+      return "student";
+    };
+
+    const mappedRole = mapMisRoleToLocal(roles);
+
+    // Sync user with local database
+    let localUser = await User.findOne({
+      where: { mis_user_id: misUser.user_id },
+    });
+
+    if (!localUser) {
+      // Create local account if it doesn't exist
+      console.log("👤 Creating new local user for MIS user:", misUser.user_id);
+      localUser = await User.create({
+        first_name: misProfile?.first_name || misUser.username,
+        last_name: misProfile?.last_name || "",
+        email: misUser.email,
+        password: "SSO_USER_" + crypto.randomBytes(8).toString("hex"),
+        role: mappedRole,
+        mis_user_id: misUser.user_id,
+      });
+    } else {
+      // Update existing user info
+      localUser.first_name = misProfile?.first_name || localUser.first_name;
+      localUser.last_name = misProfile?.last_name || localUser.last_name;
+      localUser.email = misUser.email;
+      localUser.role = mappedRole;
+      await localUser.save();
+    }
+
+    // Find active term ID for token
+    let activeTermId: number | undefined;
+    if (currentAcademicTerms && Array.isArray(currentAcademicTerms)) {
+      const activeTerm = currentAcademicTerms.find(
+        (t: any) =>
+          t.is_current === 1 || t.status === 1 || t.status === "ACTIVE",
+      );
+      if (activeTerm) activeTermId = activeTerm.academic_term_id;
+      else if (currentAcademicTerms.length > 0)
+        activeTermId = currentAcademicTerms[0].academic_term_id;
+    }
+
+    // Generate local JWT token
+    const token = localUser.getSignedJwtToken(activeTermId);
+
+    // Set cookies
+    const cookieOptions = {
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+    };
+
+    res.cookie("nga_auth_token", token, cookieOptions);
+    res.cookie("misToken", misToken, cookieOptions);
+
+    console.log("✅ SSO Login successful for:", localUser.email);
+
+    return res.status(200).json({
+      success: true,
+      token,
+      misToken,
+      user: {
+        id: localUser.id,
+        first_name: localUser.first_name,
+        last_name: localUser.last_name,
+        email: localUser.email,
+        role: localUser.role,
+        mis_user_id: localUser.mis_user_id,
+        profile_image: localUser.profile_image,
+      },
+      profile: misProfile,
+      roles,
+      permissions: permissions || [],
+      assignedPrograms,
+      assignedGrades,
+      currentAcademicYear,
+      currentAcademicTerms,
+    });
+  } catch (error: any) {
+    console.error(
+      "❌ SSO Callback error:",
+      error.response?.data || error.message,
+    );
+    const status = error.response?.status || 500;
+    const message =
+      error.response?.data?.message || "Failed to exchange SSO code for token";
+    return res.status(status).json({ success: false, message });
+  }
+};
+
 // Refresh token
 export const refreshToken = async (req: Request, res: Response) => {
   // Logic simplified: just rely on cookies.
@@ -320,7 +522,7 @@ export const refreshToken = async (req: Request, res: Response) => {
   // Implementation of actual refresh token with rotation is complex.
   // For now, we can just validate the existing token and issue a new one if valid.
   try {
-    const token = req.cookies.token;
+    const token = req.cookies.nga_auth_token;
     if (!token) return res.status(401).json({ message: "No token provided" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
@@ -340,7 +542,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       secure: process.env.NODE_ENV === "production",
     };
 
-    res.cookie("token", newToken, cookieOptions);
+    res.cookie("nga_auth_token", newToken, cookieOptions);
 
     res.status(200).json({ success: true, token: newToken });
   } catch (error) {
@@ -350,7 +552,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
 // Logout
 export const logout = async (req: Request, res: Response) => {
-  res.cookie("token", "none", {
+  res.cookie("nga_auth_token", "none", {
     expires: new Date(Date.now() + 10 * 1000),
     httpOnly: true,
   });
@@ -785,7 +987,7 @@ export const updatePassword = async (req: Request, res: Response) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax" as const,
     };
-    res.cookie("token", token, cookieOptions);
+    res.cookie("nga_auth_token", token, cookieOptions);
     if (newMisToken !== misToken) {
       res.cookie("misToken", newMisToken, cookieOptions);
     }

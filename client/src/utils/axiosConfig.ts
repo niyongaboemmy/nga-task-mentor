@@ -47,7 +47,7 @@ api.interceptors.request.use(
   (config) => {
     // Inject token from localStorage for all requests
     // Only if an Authorization header is not already explicitly provided (like for OTP)
-    const token = localStorage.getItem("token");
+    const token = localStorage.getItem("nga_auth_token");
     if (token && !config.headers.Authorization) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -106,6 +106,15 @@ api.interceptors.response.use(
   async (error) => {
     // Handle 401 Unauthorized errors (Token expired)
     if (error.response?.status === 401) {
+      // Don't redirect if it's just the initial auth check
+      if (
+        error.config &&
+        error.config.url &&
+        error.config.url.includes("/auth/me")
+      ) {
+        return Promise.reject(error);
+      }
+
       console.warn("Session expired or unauthorized. Redirecting to login.");
       // Cookies will be cleared by server or expire. Relogin needed.
       const loginPath = (import.meta.env.BASE_URL + "/login").replace(

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { useAuth } from "../../contexts/AuthContext";
 import CourseCard from "./CourseCard";
@@ -72,14 +72,6 @@ const Courses: React.FC = () => {
                       : "Courses you're teaching"}
               </p>
             </div>
-
-            {(user?.role === "instructor" || user?.role === "admin") && (
-              <Link to="/courses/new">
-                <button className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-full text-base">
-                  Create Course
-                </button>
-              </Link>
-            )}
           </div>
 
           {/* Search Input */}

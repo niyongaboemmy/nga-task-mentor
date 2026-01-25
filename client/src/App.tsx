@@ -17,6 +17,7 @@ import Submissions from "./components/Submissions/Submissions";
 import ProtectedRoute from "./components/Auth/ProtectedRoute";
 import Layout from "./components/Layout/Layout";
 import Login from "./components/Auth/Login";
+import Callback from "./components/Auth/Callback";
 import CourseDetails from "./components/Courses/CourseDetails";
 import AssignmentDetails from "./components/Assignments/AssignmentDetails";
 import CreateAssignmentPage from "./components/Assignments/CreateAssignmentPage";
@@ -143,6 +144,7 @@ function AppContent() {
             {/* Public routes */}
             <Route path="/" element={<AuthGuard />} />
             <Route path="/login" element={<Login />} />
+            <Route path="/sso/callback" element={<Callback />} />
 
             {/* Protected routes */}
             <Route

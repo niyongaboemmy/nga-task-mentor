@@ -33,13 +33,18 @@ export const protect = async (
       req.headers.authorization.startsWith("Bearer")
     ) {
       token = req.headers.authorization.split(" ")[1];
-    } else if (req.cookies && req.cookies.token) {
+    } else if (req.cookies && req.cookies.nga_auth_token) {
       // Check for token in cookies
-      token = req.cookies.token;
+      token = req.cookies.nga_auth_token;
     }
 
-    // Make sure token exists
-    if (!token) {
+    // Make sure token exists and is not a placeholder
+    if (
+      !token ||
+      token === "none" ||
+      token === "null" ||
+      token === "undefined"
+    ) {
       return res.status(401).json({
         success: false,
         message: "Not authorized to access this route",
@@ -50,6 +55,7 @@ export const protect = async (
       // Verify token
       const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
 
+      // ... rest of success logic ...
       // Get user from the token
       const user = await User.findByPk(decoded.id);
 
@@ -69,8 +75,11 @@ export const protect = async (
       };
 
       next();
-    } catch (error) {
-      console.error("Token verification error:", error);
+    } catch (error: any) {
+      console.error(
+        `Token verification error for token: "${token.substring(0, 10)}..."`,
+        error.message,
+      );
       return res.status(401).json({
         success: false,
         message: "Not authorized to access this route",
