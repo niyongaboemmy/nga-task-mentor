@@ -60,7 +60,7 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
         setLoading(true);
 
         // Load quiz details
-        const quizResponse = await fetch(`/api/quizzes/${quizId}`, {
+        const quizResponse = await fetch(`/quizzes/${quizId}`, {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
@@ -75,7 +75,7 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
 
         // Load analytics
         const analyticsResponse = await fetch(
-          `/api/quizzes/${quizId}/analytics?timeRange=${timeRange}`,
+          `/quizzes/${quizId}/analytics?timeRange=${timeRange}`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("token")}`,

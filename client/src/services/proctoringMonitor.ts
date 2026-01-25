@@ -398,7 +398,7 @@ class ProctoringMonitor {
 
     try {
       // Send to server
-      await axios.post("/api/proctoring/events", {
+      await axios.post(" /proctoring/events", {
         session_token: this.config.sessionToken,
         event_type: violation.type,
         severity: violation.severity,

@@ -69,7 +69,7 @@ const Students: React.FC = () => {
           success: boolean;
           count: string;
           data: UserSearchInterface[];
-        }>("/api/users", { params });
+        }>("/users", { params });
         setStudents(response.data.data);
       } catch (error) {
         console.error("Error fetching students:", error);

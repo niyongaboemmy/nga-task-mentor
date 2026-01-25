@@ -2,11 +2,8 @@ import axios from "axios";
 import type { AxiosRequestConfig, AxiosResponse } from "axios";
 
 // Configure axios base URL for backend API
-const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL || "http://localhost:5001/api";
-axios.defaults.baseURL = API_BASE_URL;
-axios.defaults.withCredentials = true; // Send cookies with requests
-axios.defaults.timeout = 10000; // 10 second timeout
+const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+const API_BASE_URL = BASE.endsWith("/api") ? BASE : `${BASE}/api`;
 
 // Debug flag to disable deduplication for testing
 const DEBUG_DISABLE_DEDUPLICATION = true;
@@ -38,11 +35,27 @@ const cleanupPendingRequests = (): void => {
   }
 };
 
+// Create a dedicated instance
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  withCredentials: true,
+  timeout: 10000,
+});
+
 // Request interceptor
-axios.interceptors.request.use(
+api.interceptors.request.use(
   (config) => {
-    // Add MIS token for local API requests
-    // REFACTOR: Cookies are now used. Remove explicit header injection.
+    // Inject token from localStorage for all requests
+    // Only if an Authorization header is not already explicitly provided (like for OTP)
+    const token = localStorage.getItem("token");
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    const misToken = localStorage.getItem("misToken");
+    if (misToken) {
+      config.headers["x-mis-token"] = misToken;
+    }
 
     // Clean up old requests periodically
     cleanupPendingRequests();
@@ -60,19 +73,11 @@ axios.interceptors.request.use(
             config.url
           }`,
         );
-        console.log(`🔄 Pending requests count: ${pendingRequests.size}`);
         return pendingRequests.get(requestKey)!.promise;
       }
 
       // Create new promise for this request
-      console.log(
-        `🚀 Making new GET request: ${config.method?.toUpperCase()} ${
-          config.url
-        }`,
-      );
-      console.log(`🔄 Pending requests count: ${pendingRequests.size}`);
-
-      const promise = axios(config);
+      const promise = api(config);
       pendingRequests.set(requestKey, {
         promise,
         timestamp: Date.now(),
@@ -81,21 +86,9 @@ axios.interceptors.request.use(
       // Clean up after request completes
       promise.finally(() => {
         pendingRequests.delete(requestKey);
-        console.log(
-          `🧹 Cleaned up request: ${config.method?.toUpperCase()} ${config.url}`,
-        );
       });
 
       return promise;
-    }
-
-    // For non-GET requests or when deduplication is disabled, make direct request
-    if (config.method?.toLowerCase() === "get" && DEBUG_DISABLE_DEDUPLICATION) {
-      console.log(
-        `🚀 [DEBUG] Making GET request (deduplication disabled): ${config.method?.toUpperCase()} ${
-          config.url
-        }`,
-      );
     }
 
     return config;
@@ -106,35 +99,21 @@ axios.interceptors.request.use(
 );
 
 // Response interceptor
-axios.interceptors.response.use(
+api.interceptors.response.use(
   (response: AxiosResponse) => {
-    /* console.log(
-      `✅ Response: ${response.config.method?.toUpperCase()} ${
-        response.config.url
-      } - ${response.status}`
-    ); */
     return response;
   },
   async (error) => {
-    /* console.log(
-      `❌ Response error: ${error.config?.method?.toUpperCase()} ${
-        error.config?.url
-      } - ${error.response?.status || "Network Error"}`
-    ); */
-
     // Handle 401 Unauthorized errors (Token expired)
     if (error.response?.status === 401) {
       console.warn("Session expired or unauthorized. Redirecting to login.");
-
-      // Clear tokens and redirect to login
-      // localStorage.removeItem("token");
-      // localStorage.removeItem("misToken");
-      // delete axios.defaults.headers.common["Authorization"];
-
       // Cookies will be cleared by server or expire. Relogin needed.
-      // Prevent redirect loop if already on login page
-      if (!window.location.pathname.includes("/login")) {
-        window.location.href = "/login";
+      const loginPath = (import.meta.env.BASE_URL + "/login").replace(
+        /\/+/g,
+        "/",
+      );
+      if (!window.location.pathname.includes(loginPath)) {
+        window.location.href = loginPath;
       }
     }
 
@@ -142,4 +121,4 @@ axios.interceptors.response.use(
   },
 );
 
-export default axios;
+export default api;

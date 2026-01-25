@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
-import axios from "../utils/axiosConfig";
+import api from "../utils/axiosConfig";
 import { useDispatch } from "react-redux";
 import { loginSuccess, logout } from "../store/slices/authSlice";
 import type {
@@ -8,11 +8,8 @@ import type {
   UserResponse,
 } from "../types/user.types";
 
-// Local API axios instance
-const apiAxios = axios.create({
-  baseURL: "http://localhost:5001/api",
-  timeout: 10000,
-});
+// Use the pre-configured api instance
+const apiAxios = api;
 
 export type UserProfileData = UserFullData;
 export type UserProfileResponse = UserResponse;
@@ -138,9 +135,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         setUser(userData);
         dispatch(loginSuccess(userData));
 
+        // Persist misToken if returned
+        if ((responseData as any).misToken) {
+          localStorage.setItem("misToken", (responseData as any).misToken);
+        }
+
         const currentPath = window.location.pathname;
-        if (currentPath === "/login") {
-          window.location.href = "/dashboard";
+        const loginPath = (import.meta.env.BASE_URL + "/login").replace(
+          /\/+/g,
+          "/",
+        );
+        const dashboardPath = (import.meta.env.BASE_URL + "/dashboard").replace(
+          /\/+/g,
+          "/",
+        );
+        if (currentPath === loginPath || currentPath === "/login") {
+          window.location.href = dashboardPath;
         }
       } catch (error) {
         console.error(
@@ -175,7 +185,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           },
         );
         // Cookies are set by server automatically
-        const data: UserFullData = response.data;
+        // BUT we also store in localStorage for cross-domain headers
+        const data = response.data;
+        if (data.token) {
+          localStorage.setItem("token", data.token);
+        }
+        if (data.misToken) {
+          localStorage.setItem("misToken", data.misToken);
+        }
+
         const userData: User = {
           id: (data.user?.id || data.user?.user_id || "").toString(),
           first_name: data.user?.first_name || data.profile?.first_name || "",
@@ -209,7 +227,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         dispatch(loginSuccess(userData));
         setTempToken(null);
 
-        window.location.href = "/dashboard";
+        window.location.href = (
+          import.meta.env.BASE_URL + "/dashboard"
+        ).replace(/\/+/g, "/");
       } else {
         // Initial login via local backend
         console.log("Attempting login for:", email);
@@ -295,9 +315,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (err) {
       console.error("Logout failed", err);
     }
+    localStorage.removeItem("token");
+    localStorage.removeItem("misToken");
     setUser(null);
     dispatch(logout());
-    window.location.href = "/login";
+    window.location.href = (import.meta.env.BASE_URL + "/login").replace(
+      /\/+/g,
+      "/",
+    );
   };
 
   const value: AuthContextType = {

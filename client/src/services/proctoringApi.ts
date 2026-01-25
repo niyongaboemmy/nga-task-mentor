@@ -12,16 +12,16 @@ export class ProctoringApiService {
     screenshot_url?: string;
     video_timestamp?: number;
   }): Promise<{ success: boolean; data: any }> {
-    const response = await axios.post("/api/proctoring/events", data);
+    const response = await axios.post("/proctoring/events", data);
     return response.data;
   }
 
   // Get proctoring settings for a quiz
   static async getProctoringSettings(
-    quizId: number
+    quizId: number,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.get(
-      `/api/proctoring/quizzes/${quizId}/proctoring-settings`
+      `/proctoring/quizzes/${quizId}/proctoring-settings`,
     );
     return response.data;
   }
@@ -29,11 +29,11 @@ export class ProctoringApiService {
   // Update proctoring settings for a quiz
   static async updateProctoringSettings(
     quizId: number,
-    settings: any
+    settings: any,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.post(
-      `/api/proctoring/quizzes/${quizId}/proctoring-settings`,
-      settings
+      `/proctoring/quizzes/${quizId}/proctoring-settings`,
+      settings,
     );
     return response.data;
   }
@@ -46,11 +46,11 @@ export class ProctoringApiService {
       system_info: any;
       ip_address: string;
       location_data?: any;
-    }
+    },
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.post(
-      `/api/quizzes/${quizId}/proctoring/start`,
-      data
+      `/quizzes/${quizId}/proctoring/start`,
+      data,
     );
     return response.data;
   }
@@ -63,11 +63,11 @@ export class ProctoringApiService {
       identity_verified?: boolean;
       environment_verified?: boolean;
       end_time?: string;
-    }
+    },
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.patch(
-      `/api/proctoring/sessions/${sessionId}`,
-      data
+      `/proctoring/sessions/${sessionId}`,
+      data,
     );
     return response.data;
   }
@@ -75,20 +75,19 @@ export class ProctoringApiService {
   // Get proctoring sessions for a quiz
   static async getProctoringSessions(
     quizId: number,
-    filters?: { status?: string; student_id?: number }
+    filters?: { status?: string; student_id?: number },
   ): Promise<{ success: boolean; count: number; data: any[] }> {
-    const response = await axios.get(
-      `/api/quizzes/${quizId}/proctoring/sessions`,
-      { params: filters }
-    );
+    const response = await axios.get(`/quizzes/${quizId}/proctoring/sessions`, {
+      params: filters,
+    });
     return response.data;
   }
 
   // Get proctoring session details
   static async getProctoringSession(
-    sessionId: number
+    sessionId: number,
   ): Promise<{ success: boolean; data: any }> {
-    const response = await axios.get(`/api/proctoring/sessions/${sessionId}`);
+    const response = await axios.get(`/proctoring/sessions/${sessionId}`);
     return response.data;
   }
 
@@ -98,28 +97,28 @@ export class ProctoringApiService {
     count: number;
     data: any[];
   }> {
-    const response = await axios.get("/api/proctoring/my-sessions");
+    const response = await axios.get("/proctoring/my-sessions");
     return response.data;
   }
 
   // Join live proctoring stream
   static async joinLiveStream(
     sessionToken: string,
-    socketId: string
+    socketId: string,
   ): Promise<{ success: boolean; message: string; session: any }> {
     const response = await axios.post(
-      `/api/proctoring/sessions/${sessionToken}/join-stream`,
-      { socketId }
+      `/proctoring/sessions/${sessionToken}/join-stream`,
+      { socketId },
     );
     return response.data;
   }
 
   // Leave live proctoring stream
   static async leaveLiveStream(
-    sessionToken: string
+    sessionToken: string,
   ): Promise<{ success: boolean; message: string }> {
     const response = await axios.post(
-      `/api/proctoring/sessions/${sessionToken}/leave-stream`
+      `/proctoring/sessions/${sessionToken}/leave-stream`,
     );
     return response.data;
   }
@@ -130,18 +129,18 @@ export class ProctoringApiService {
     count: number;
     data: any[];
   }> {
-    const response = await axios.get("/api/proctoring/live-streams");
+    const response = await axios.get("/proctoring/live-streams");
     return response.data;
   }
 
   // End proctoring session with reason
   static async endProctoringSession(
     sessionId: number,
-    reason: string
+    reason: string,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.patch(
-      `/api/proctoring/sessions/${sessionId}/end`,
-      { reason }
+      `/proctoring/sessions/${sessionId}/end`,
+      { reason },
     );
     return response.data;
   }
@@ -167,7 +166,7 @@ export async function handleProctoringApiCall<T>(
     data: T;
     message?: string;
     errors?: any[];
-  }>
+  }>,
 ): Promise<T> {
   try {
     const response = await apiCall();
@@ -176,7 +175,7 @@ export async function handleProctoringApiCall<T>(
       throw new ProctoringApiError(
         response.message || "API call failed",
         400,
-        response.errors
+        response.errors,
       );
     }
 
@@ -187,19 +186,19 @@ export async function handleProctoringApiCall<T>(
       throw new ProctoringApiError(
         error.response.data.message || "Server error",
         error.response.status,
-        error.response.data.errors
+        error.response.data.errors,
       );
     } else if (error.request) {
       // Network error
       throw new ProctoringApiError(
         "Network error - please check your connection",
-        0
+        0,
       );
     } else {
       // Other error
       throw new ProctoringApiError(
         error.message || "Unknown error occurred",
-        0
+        0,
       );
     }
   }

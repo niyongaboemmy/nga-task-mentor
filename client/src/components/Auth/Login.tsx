@@ -126,7 +126,7 @@ const Login: React.FC = () => {
                   initial={{ scale: 0.8 }}
                   animate={{ scale: 1 }}
                   transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                  src="/nga-logo.png"
+                  src="./nga-logo.png"
                   alt="NGA Logo"
                   className="h-24 mx-auto mb-0 object-contain drop-shadow-md"
                 />

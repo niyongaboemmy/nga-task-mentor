@@ -67,7 +67,7 @@ const QuizSubmissionsPage: React.FC = () => {
 
   const fetchQuiz = async () => {
     try {
-      const response = await axios.get(`/api/quizzes/${quizId}`);
+      const response = await axios.get(`/quizzes/${quizId}`);
       setQuiz(response.data.data);
     } catch (error) {
       console.error("Error fetching quiz:", error);
@@ -79,7 +79,7 @@ const QuizSubmissionsPage: React.FC = () => {
 
     try {
       setLoading(true);
-      const response = await axios.get(`/api/quizzes/${quizId}/submissions`);
+      const response = await axios.get(`/quizzes/${quizId}/submissions`);
       setSubmissions(response.data.data || []);
     } catch (error: any) {
       console.error("Error fetching submissions:", error);

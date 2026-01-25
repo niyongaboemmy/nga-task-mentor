@@ -44,19 +44,15 @@ const Assignments: React.FC<AssignmentsProps> = ({
       let endpoint: string;
 
       if (user?.role === "student") {
-        // For students, get assignments from their enrolled courses only
         if (currentCourseId) {
-          // If a specific course is requested, check if student is enrolled
-          endpoint = `/api/courses/${currentCourseId}/assignments`;
+          endpoint = `/courses/${currentCourseId}/assignments`;
         } else {
-          // Get all assignments from enrolled courses
-          endpoint = "/api/assignments/enrolled";
+          endpoint = "/assignments/enrolled";
         }
       } else {
-        // For instructors and admins, use existing logic
         endpoint = currentCourseId
-          ? `/api/courses/${currentCourseId}/assignments`
-          : "/api/assignments";
+          ? `/courses/${currentCourseId}/assignments`
+          : "/assignments";
       }
 
       const response = await axios.get(endpoint);
@@ -82,7 +78,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
     if (!currentCourseId) return;
 
     try {
-      const response = await axios.get(`/api/courses/${currentCourseId}`);
+      const response = await axios.get(`/courses/${currentCourseId}`);
       const courseData = response.data.data || response.data;
 
       // For students, check if they're enrolled in this course
@@ -125,7 +121,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
       status: "draft" | "published" | "completed" | "removed",
     ) => {
       try {
-        await axios.patch(`/api/assignments/${assignmentId}/status`, {
+        await axios.patch(`/assignments/${assignmentId}/status`, {
           status,
         });
         fetchAssignments();

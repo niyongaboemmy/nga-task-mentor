@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
-import axios from "axios";
+import api from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
 import { getProfileImageUrl } from "../../utils/imageUrl";
 import type { UserFullData } from "../../types/user.types";
@@ -98,10 +98,10 @@ const StudentDetails: React.FC = () => {
       try {
         const [studentRes, coursesRes, assignmentsRes, quizzesRes] =
           await Promise.all([
-            axios.get(`/api/users/${studentId}`),
-            axios.get(`/api/users/${studentId}/courses`),
-            axios.get(`/api/users/${studentId}/assignments`),
-            axios.get(`/api/users/${studentId}/quizzes`),
+            api.get(`/users/${studentId}`),
+            api.get(`/users/${studentId}/courses`),
+            api.get(`/users/${studentId}/assignments`),
+            api.get(`/users/${studentId}/quizzes`),
           ]);
 
         setStudent(studentRes.data.data);
@@ -155,15 +155,13 @@ const StudentDetails: React.FC = () => {
     try {
       await Promise.all(
         selectedCourses.map((courseId) =>
-          axios.post(`/api/courses/${courseId}/enroll-students`, {
+          api.post(`/courses/${courseId}/enroll-students`, {
             studentIds: [studentId],
           }),
         ),
       );
 
-      const coursesResponse = await axios.get(
-        `/api/users/${studentId}/courses`,
-      );
+      const coursesResponse = await api.get(`/users/${studentId}/courses`);
       setCourses(coursesResponse.data.data);
 
       setSelectedCourses([]);

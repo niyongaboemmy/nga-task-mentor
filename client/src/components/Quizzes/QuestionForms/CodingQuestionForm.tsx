@@ -598,7 +598,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                     vue: '{\n  "props": {\n    "items": [1, 2, 3]\n  }\n}',
                     angular: '{\n  "items": [1, 2, 3]\n}',
                     nextjs: '{\n  "params": {\n    "id": "123"\n  }\n}',
-                    nodejs: '{\n  "method": "GET",\n  "url": "/api/test"\n}',
+                    nodejs: '{\n  "method": "GET",\n  "url": " /test"\n}',
                     typescript:
                       '{\n  "data": [1, 2, 3],\n  "options": {\n    "sort": true\n  }\n}',
                     php: "$numbers = [2, 7, 11, 15];\n$target = 9;",
@@ -1726,7 +1726,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                       vue: '{\n  "props": {\n    "items": [1, 2, 3]\n  }\n}',
                       angular: '{\n  "items": [1, 2, 3]\n}',
                       nextjs: '{\n  "params": {\n    "id": "123"\n  }\n}',
-                      nodejs: '{\n  "method": "GET",\n  "url": "/api/test"\n}',
+                      nodejs: '{\n  "method": "GET",\n  "url": " /test"\n}',
                       typescript:
                         '{\n  "data": [1, 2, 3],\n  "options": {\n    "sort": true\n  }\n}',
                       php: "$numbers = [2, 7, 11, 15];\n$target = 9;",

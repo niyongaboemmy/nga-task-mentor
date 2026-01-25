@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import axios from "axios";
+import api from "../../utils/axiosConfig";
 import { toast } from "react-toastify";
 import { formatDateTimeLocal } from "../../utils/dateUtils";
 import { type RubricCriterion } from "./AssignmentCard";
@@ -88,7 +88,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
         ]),
       });
 
-      await axios.post(`/api/assignments/${assignment.id}/submit`, formData, {
+      await api.post(`/assignments/${assignment.id}/submit`, formData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },

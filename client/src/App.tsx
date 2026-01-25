@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -7,7 +6,6 @@ import {
 } from "react-router-dom";
 import { Provider } from "react-redux";
 import { store } from "./store";
-import { useAuth } from "./contexts/AuthContext";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 // import TimezoneChecker from "./components/TimezoneChecker";
@@ -30,7 +28,6 @@ import QuizView from "./components/Quizzes/QuizView";
 import QuizTaker from "./components/Quizzes/QuizTaker";
 import QuizResults from "./components/Quizzes/QuizResults";
 import CreateQuestionPage from "./components/Quizzes/CreateQuestionPage";
-import ProfilePicturePrompt from "./components/Profile/ProfilePicturePrompt";
 import Profile from "./components/Profile/Profile";
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 import QuizTakingPage from "./pages/QuizTakingPage";
@@ -123,24 +120,24 @@ const QuizSubmissionsPageWrapper = () => {
 };
 
 function AppContent() {
-  const { user } = useAuth();
-  const [showProfilePicturePrompt, setShowProfilePicturePrompt] =
-    useState(false);
+  // const { user } = useAuth();
+  // const [showProfilePicturePrompt, setShowProfilePicturePrompt] =
+  //   useState(false);
 
   // Show profile picture prompt if user doesn't have a profile picture
-  useEffect(() => {
-    if (user && !user.profile_image) {
-      // Show prompt after a short delay to let the app load
-      const timer = setTimeout(() => {
-        setShowProfilePicturePrompt(true);
-      }, 2000);
-      return () => clearTimeout(timer);
-    }
-  }, [user]);
+  // useEffect(() => {
+  //   if (user && !user.profile_image) {
+  //     // Show prompt after a short delay to let the app load
+  //     const timer = setTimeout(() => {
+  //       setShowProfilePicturePrompt(true);
+  //     }, 2000);
+  //     return () => clearTimeout(timer);
+  //   }
+  // }, [user]);
 
   return (
     <ErrorBoundary>
-      <Router>
+      <Router basename="/taskmentor">
         <div className="min-h-screen bg-background text-foreground">
           <Routes>
             {/* Public routes */}
@@ -473,10 +470,10 @@ function AppContent() {
       </Router>
 
       {/* Profile Picture Prompt Modal */}
-      <ProfilePicturePrompt
+      {/* <ProfilePicturePrompt
         isOpen={showProfilePicturePrompt}
         onClose={() => setShowProfilePicturePrompt(false)}
-      />
+      /> */}
     </ErrorBoundary>
   );
 }

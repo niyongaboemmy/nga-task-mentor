@@ -31,7 +31,7 @@ export const QuizProctoringPage: React.FC<QuizProctoringPageProps> = () => {
 
       try {
         setLoading(true);
-        const response = await axios.get(`/api/quizzes/${quizId}`);
+        const response = await axios.get(`/quizzes/${quizId}`);
 
         const data = response.data;
         setQuiz(data.data || data);

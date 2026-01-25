@@ -4,7 +4,8 @@ import { useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../store";
 import { fetchCourses } from "../../store/slices/courseSlice";
-import axios from "../../utils/axiosConfig";
+import api from "../../utils/axiosConfig";
+import axiosLib from "axios";
 import { useAuth } from "../../contexts/AuthContext";
 import SubmissionModal from "./SubmissionModal";
 import AssignmentHeader from "./AssignmentHeader";
@@ -222,10 +223,7 @@ const AssignmentDetails = () => {
         });
       }
 
-      const response = await axios.put(
-        `/api/assignments/${assignment.id}`,
-        formData,
-      );
+      const response = await api.put(`/assignments/${assignment.id}`, formData);
       setAssignment(response.data.data);
       toast.success("Assignment updated successfully!");
       setIsEditing(false);
@@ -241,7 +239,7 @@ const AssignmentDetails = () => {
 
   const fetchAssignment = useCallback(async () => {
     try {
-      const response = await axios.get(`/api/assignments/${assignmentId}`);
+      const response = await api.get(`/assignments/${assignmentId}`);
       const data = response.data.data || response.data;
       setAssignment(data);
       // Initialize edit form data
@@ -267,13 +265,13 @@ const AssignmentDetails = () => {
 
   const fetchSubmissions = useCallback(async () => {
     try {
-      const response = await axios.get(
-        `/api/assignments/${assignmentId}/submissions`,
+      const response = await api.get(
+        `/assignments/${assignmentId}/submissions`,
       );
       setSubmissions(response.data.data || response.data);
     } catch (error) {
       console.error("Error fetching submissions:", error);
-      if (axios.isAxiosError(error) && error.response?.status === 403) {
+      if (axiosLib.isAxiosError(error) && error.response?.status === 403) {
         setSubmissions([]);
       } else {
         setSubmissions([]);
@@ -306,7 +304,7 @@ const AssignmentDetails = () => {
       status: "draft" | "published" | "completed" | "removed",
     ) => {
       try {
-        await axios.patch(`/api/assignments/${assignmentId}/status`, {
+        await api.patch(`/assignments/${assignmentId}/status`, {
           status,
         });
         toast.success("Assignment status updated successfully!");
@@ -329,7 +327,7 @@ const AssignmentDetails = () => {
       rubricScores?: Record<number, number>,
     ) => {
       try {
-        await axios.patch(`/api/submissions/${submissionId}/grade`, {
+        await api.patch(`/submissions/${submissionId}/grade`, {
           score,
           maxScore: parseInt(assignment!.max_score),
           feedback,

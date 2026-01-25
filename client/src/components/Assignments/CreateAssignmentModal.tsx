@@ -50,7 +50,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await axios.get("/api/courses");
+        const response = await axios.get(" /courses");
         const coursesData = response.data.data || response.data;
         setCourses(coursesData);
       } catch (error) {

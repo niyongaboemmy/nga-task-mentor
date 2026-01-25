@@ -511,6 +511,7 @@ export const getMe = async (req: Request, res: Response) => {
           forcePasswordChange: misData.forcePasswordChange,
           currentAcademicYear: misData.currentAcademicYear,
           currentAcademicTerms: misData.currentAcademicTerms,
+          misToken: misToken, // Include misToken for frontend persistence safely
         },
       });
     } catch (misError) {

@@ -125,7 +125,7 @@ const QuizResultsPage: React.FC = () => {
 
   const fetchQuiz = async () => {
     try {
-      const response = await axios.get(`/api/quizzes/${id}`);
+      const response = await axios.get(`/quizzes/${id}`);
       setQuiz(response.data.data);
     } catch (error) {
       console.error("Error fetching quiz:", error);
@@ -137,7 +137,7 @@ const QuizResultsPage: React.FC = () => {
 
     try {
       setLoading(true);
-      const response = await axios.get(`/api/quizzes/${id}/results`);
+      const response = await axios.get(`/quizzes/${id}/results`);
       const apiData = response.data.data;
 
       // Check grading settings

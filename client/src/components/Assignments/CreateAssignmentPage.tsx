@@ -12,8 +12,8 @@ const CreateAssignmentPage: React.FC = () => {
   const handleSubmit = async (assignmentData: any) => {
     try {
       const endpoint = courseId
-        ? `/api/courses/${courseId}/assignments`
-        : "/api/assignments";
+        ? `/courses/${courseId}/assignments`
+        : " /assignments";
 
       // Create FormData object
       const formData = new FormData();

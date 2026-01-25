@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import axios from "axios";
+import api from "../../utils/axiosConfig";
 import UpdateAssignmentModal from "./UpdateAssignmentModal";
 
 interface Assignment {
@@ -31,7 +31,7 @@ const UpdateAssignmentPage: React.FC = () => {
   useEffect(() => {
     const fetchAssignment = async () => {
       try {
-        const response = await axios.get(`/api/assignments/${assignmentId}`);
+        const response = await api.get(`/assignments/${assignmentId}`);
         setAssignment(response.data.data);
       } catch (error: any) {
         console.error("Error fetching assignment:", error);

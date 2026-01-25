@@ -45,7 +45,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
     setLoading(true);
     try {
       const response = await fetch(
-        `/api/proctoring/quizzes/${quizId}/analytics?timeRange=${timeRange}`,
+        `/proctoring/quizzes/${quizId}/analytics?timeRange=${timeRange}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
@@ -67,7 +67,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
   const exportReport = async () => {
     try {
       const response = await fetch(
-        `/api/proctoring/quizzes/${quizId}/analytics/export?timeRange=${timeRange}`,
+        `/proctoring/quizzes/${quizId}/analytics/export?timeRange=${timeRange}`,
         {
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,

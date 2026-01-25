@@ -80,12 +80,12 @@ const StudentQuizzesPage: React.FC = () => {
         setLoading(true);
 
         // Fetch completed quiz results
-        const resultsResponse = await axios.get("/api/quizzes/my-results");
+        const resultsResponse = await axios.get(" /quizzes/my-results");
         const results = resultsResponse.data.data || [];
         setQuizResults(results);
 
         // Fetch available quizzes
-        const availableResponse = await axios.get("/api/quizzes/available");
+        const availableResponse = await axios.get(" /quizzes/available");
         const available = availableResponse.data.data || [];
         setAvailableQuizzes(available);
 

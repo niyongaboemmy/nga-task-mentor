@@ -118,7 +118,7 @@ const CourseReportsPage: React.FC = () => {
   const fetchGrades = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/api/courses/${courseId}/grades`);
+      const response = await axios.get(`/courses/${courseId}/grades`);
       if (response.data.success) {
         setData(response.data.data);
       }

@@ -1,10 +1,10 @@
 import React from "react";
-import axios from "axios";
 import { getProfileImageUrl } from "../../utils/imageUrl";
 import SubmissionDetailsModal from "./SubmissionDetailsModal";
 import { toast } from "react-toastify";
 import type { AssignmentInterface } from "./AssignmentCard";
 import FilePreviewModal from "../Submissions/FilePreviewModal";
+import api from "../../utils/axiosConfig";
 
 export interface SubmissionItemInterface {
   id: string;
@@ -87,7 +87,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
 
     setIsDeleting(true);
     try {
-      await axios.delete(`/api/submissions/${submission.id}`);
+      await api.delete(`/submissions/${submission.id}`);
       onDeleteSuccess();
       toast.success("Submission removed successfully!");
     } catch (error: any) {
@@ -107,8 +107,8 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
 
     setIsDownloading(extractedFileName);
     try {
-      const response = await axios.get(
-        `/api/submissions/${submission.id}/files/${extractedFileName}`,
+      const response = await api.get(
+        `/submissions/${submission.id}/files/${extractedFileName}`,
         {
           responseType: "blob",
         },

@@ -80,23 +80,23 @@ const Dashboard: React.FC = () => {
     try {
       const endpoints = {
         student: [
-          "/api/dashboard/student/stats",
-          "/api/dashboard/student/pending-assignments",
-          "/api/dashboard/activity",
-          "/api/quizzes/public",
-          "/api/courses/enrolled", // Add enrolled courses with deadlines
-          "/api/quizzes/available", // Add available quizzes from enrolled courses
+          "/dashboard/student/stats",
+          "/dashboard/student/pending-assignments",
+          "/dashboard/activity",
+          "/quizzes/public",
+          "/courses/enrolled", // Add enrolled courses with deadlines
+          "/quizzes/available", // Add available quizzes from enrolled courses
         ],
         instructor: [
-          "/api/dashboard/instructor/stats",
-          "/api/dashboard/instructor/courses",
-          "/api/dashboard/instructor/pending-grading",
-          "/api/dashboard/activity",
+          "/dashboard/instructor/stats",
+          "/dashboard/instructor/courses",
+          "/dashboard/instructor/pending-grading",
+          "/dashboard/activity",
         ],
         admin: [
-          "/api/dashboard/admin/stats",
-          "/api/dashboard/activity",
-          "/api/dashboard/admin/grading-summary",
+          "/dashboard/admin/stats",
+          "/dashboard/activity",
+          "/dashboard/admin/grading-summary",
         ],
       };
 

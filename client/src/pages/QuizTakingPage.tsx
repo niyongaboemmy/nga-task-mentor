@@ -336,7 +336,7 @@ const QuizTakingPage: React.FC = () => {
   const checkExistingSubmission = async () => {
     try {
       const response = await axios.get(
-        `/api/quizzes/submissions?quiz_id=${id}&status=in_progress`
+        `/quizzes/submissions?quiz_id=${id}&status=in_progress`
       );
       const submissions = response.data.data;
 
@@ -451,7 +451,7 @@ const QuizTakingPage: React.FC = () => {
   };
 
   const startQuizNormally = async () => {
-    const response = await axios.post(`/api/quizzes/submissions`, {
+    const response = await axios.post(`/quizzes/submissions`, {
       quiz_id: parseInt(id!),
       status: "in_progress",
       started_at: new Date().toISOString(),
@@ -1003,7 +1003,7 @@ const QuizTakingPage: React.FC = () => {
 
       // Update submission status to completed
       if (existingSubmission) {
-        await axios.patch(`/api/quizzes/submissions/${existingSubmission.id}`, {
+        await axios.patch(`/quizzes/submissions/${existingSubmission.id}`, {
           status: "completed",
           completed_at: new Date().toISOString(),
           answers: answers,
@@ -1013,7 +1013,7 @@ const QuizTakingPage: React.FC = () => {
 
       // Submit the quiz
       const response = await axios.post(
-        `/api/quizzes/${quiz.id}/submit`,
+        `/quizzes/${quiz.id}/submit`,
         submissionData
       );
       const submissionResult = response.data.data;

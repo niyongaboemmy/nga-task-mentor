@@ -1,6 +1,6 @@
 import React, { useState, useRef, useCallback, useEffect } from "react";
 import { useAuth } from "../../contexts/AuthContext";
-import axios from "axios";
+import axios from "../../utils/axiosConfig";
 import { getProfileImageUrl } from "../../utils/imageUrl";
 
 interface ProfilePictureUploadProps {
@@ -61,7 +61,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       formData.append("profileImage", file);
 
       const response = await axios.post(
-        "/api/auth/upload-profile-image",
+        "/auth/upload-profile-image",
         formData,
         {
           headers: { "Content-Type": "multipart/form-data" },
@@ -128,7 +128,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
     setError(null);
 
     try {
-      await axios.delete("/api/auth/delete-profile-image");
+      await axios.delete("/auth/delete-profile-image");
       if (onUploadSuccess) onUploadSuccess("");
     } catch (error: any) {
       console.error("Delete error:", error);

@@ -13,7 +13,10 @@ const AuthGuard: React.FC = () => {
 
     // If user is authenticated, redirect to dashboard
     if (isAuthenticated) {
-      window.location.href = "/dashboard";
+      window.location.href = (import.meta.env.BASE_URL + "/dashboard").replace(
+        /\/+/g,
+        "/",
+      );
       return;
     }
   }, [isAuthenticated, loading]);

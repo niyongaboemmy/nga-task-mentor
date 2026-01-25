@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Button } from "../ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
-import axios from "axios";
+import api from "../../utils/axiosConfig";
 import {
   formatUTCToLocalDateTime,
   parseLocalDateTimeToUTC,
@@ -98,7 +98,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
         submitData.append("attachments", file);
       });
 
-      await axios.put(`/api/assignments/${assignment.id}`, submitData, {
+      await api.put(`/assignments/${assignment.id}`, submitData, {
         headers: {
           "Content-Type": "multipart/form-data",
         },

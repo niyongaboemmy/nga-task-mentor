@@ -14,56 +14,56 @@ export class CourseApiService {
     count: number;
     data: Course[];
   }> {
-    const response = await axios.get("/api/courses");
+    const response = await axios.get("/courses");
     return response.data;
   }
 
   // Get single course
   static async getCourse(
-    courseId: number
+    courseId: number,
   ): Promise<{ success: boolean; data: Course }> {
-    const response = await axios.get(`/api/courses/${courseId}`);
+    const response = await axios.get(`/courses/${courseId}`);
     return response.data;
   }
 
   // Create course
   static async createCourse(
-    courseData: CreateCourseRequest
+    courseData: CreateCourseRequest,
   ): Promise<{ success: boolean; data: Course }> {
-    const response = await axios.post("/api/courses", courseData);
+    const response = await axios.post("/courses", courseData);
     return response.data;
   }
 
   // Update course
   static async updateCourse(
     courseId: number,
-    courseData: UpdateCourseRequest
+    courseData: UpdateCourseRequest,
   ): Promise<{ success: boolean; data: Course }> {
-    const response = await axios.put(`/api/courses/${courseId}`, courseData);
+    const response = await axios.put(`/courses/${courseId}`, courseData);
     return response.data;
   }
 
   // Delete course
   static async deleteCourse(
-    courseId: number
+    courseId: number,
   ): Promise<{ success: boolean; data: any }> {
-    const response = await axios.delete(`/api/courses/${courseId}`);
+    const response = await axios.delete(`/courses/${courseId}`);
     return response.data;
   }
 
   // Get course students
   static async getCourseStudents(
-    courseId: number
+    courseId: number,
   ): Promise<{ success: boolean; data: any[] }> {
-    const response = await axios.get(`/api/courses/${courseId}/students`);
+    const response = await axios.get(`/courses/${courseId}/students`);
     return response.data;
   }
 
   // Get course quizzes
   static async getCourseQuizzes(
-    courseId: number
+    courseId: number,
   ): Promise<{ success: boolean; count: number; data: Quiz[] }> {
-    const response = await axios.get(`/api/courses/${courseId}/quizzes`);
+    const response = await axios.get(`/courses/${courseId}/quizzes`);
     return response.data;
   }
 }
@@ -88,7 +88,7 @@ export async function handleCourseApiCall<T>(
     data: T;
     message?: string;
     errors?: any[];
-  }>
+  }>,
 ): Promise<T> {
   try {
     const response = await apiCall();
@@ -97,7 +97,7 @@ export async function handleCourseApiCall<T>(
       throw new CourseApiError(
         response.message || "API call failed",
         400,
-        response.errors
+        response.errors,
       );
     }
 
@@ -108,13 +108,13 @@ export async function handleCourseApiCall<T>(
       throw new CourseApiError(
         error.response.data.message || "Server error",
         error.response.status,
-        error.response.data.errors
+        error.response.data.errors,
       );
     } else if (error.request) {
       // Network error
       throw new CourseApiError(
         "Network error - please check your connection",
-        0
+        0,
       );
     } else {
       // Other error

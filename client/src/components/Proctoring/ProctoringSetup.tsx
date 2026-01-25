@@ -301,7 +301,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
     setIsLoading(true);
     try {
       const response = await axios.post(
-        `/api/proctoring/quizzes/${quizId}/proctoring/start`,
+        `/proctoring/quizzes/${quizId}/proctoring/start`,
         {
           browser_info: browserInfo,
           system_info: {

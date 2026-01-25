@@ -95,7 +95,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
     setError(null);
     try {
       const response = await axios.get(
-        `/api/proctoring/quizzes/${quizId}/proctoring-settings`
+        `/proctoring/quizzes/${quizId}/proctoring-settings`
       );
 
       if (response.data.success && response.data.data) {
@@ -122,7 +122,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
       const method = isCreating ? "post" : "put";
 
       const response = await axios[method](
-        `/api/proctoring/quizzes/${quizId}/proctoring-settings`,
+        `/proctoring/quizzes/${quizId}/proctoring-settings`,
         settings
       );
 

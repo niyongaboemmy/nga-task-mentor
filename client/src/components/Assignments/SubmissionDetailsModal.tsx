@@ -65,7 +65,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
     setIsSubmittingComment(true);
     try {
       const response = await axios.post(
-        `/api/submissions/${submission.id}/comments`,
+        `/submissions/${submission.id}/comments`,
         {
           content: newComment,
         },
@@ -88,7 +88,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
     setIsDownloading(fileName);
     try {
       const response = await axios.get(
-        `/api/submissions/${submission.id}/files/${fileName}`,
+        `/submissions/${submission.id}/files/${fileName}`,
         {
           responseType: "blob",
         },
