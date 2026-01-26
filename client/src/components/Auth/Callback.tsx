@@ -29,8 +29,11 @@ const Callback: React.FC = () => {
         const response = await api.post("/auth/sso/callback", { code });
 
         if (response.data.success) {
-          // Clear any stale local storage tokens to prevent conflicts
-          localStorage.removeItem("nga_auth_token");
+          // Store token for header-based auth fallback
+          localStorage.setItem("nga_auth_token", response.data.token);
+          if (response.data.misToken) {
+            localStorage.setItem("misToken", response.data.misToken);
+          }
 
           // Re-validate auth state to update Context
           await checkAuth();
