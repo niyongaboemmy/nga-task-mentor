@@ -4,14 +4,17 @@ import { useAuth } from "../../contexts/AuthContext";
 import { getProfileImageUrl } from "../../utils/imageUrl";
 import { motion, AnimatePresence } from "framer-motion";
 import { ThemeToggle } from "../ThemeToggle";
-import { CheckCircle, AlertTriangle } from "lucide-react";
+import { CheckCircle, AlertTriangle, LayoutGrid } from "lucide-react";
 import Logo from "../Logo";
+import SystemsMenu from "./SystemsMenu";
+import type { System } from "../../types/user.types";
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, logoutUser } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isSystemsMenuOpen, setIsSystemsMenuOpen] = useState(false);
   const [isTimezoneCorrect, setIsTimezoneCorrect] = useState<boolean | null>(
     null,
   );
@@ -141,14 +144,38 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
-            {/* Logo with subtle scale animation */}
-            <Link
-              to="/dashboard"
-              className="flex items-center space-x-3 group"
-              aria-label="Dashboard"
-            >
-              <Logo size="medium" />
-            </Link>
+            <div className="flex items-center space-x-4">
+              {/* Systems Menu Toggle */}
+              <div className="relative">
+                <motion.button
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => setIsSystemsMenuOpen(!isSystemsMenuOpen)}
+                  className="p-2 rounded-xl text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-all duration-200"
+                  title="View Applications"
+                >
+                  <LayoutGrid className="w-5 h-5" />
+                </motion.button>
+
+                {/* Side Systems Menu - Absolute positioned relative to toggle */}
+                <SystemsMenu
+                  isOpen={isSystemsMenuOpen}
+                  onClose={() => setIsSystemsMenuOpen(false)}
+                  systems={((user?.systems as System[]) || []).filter(
+                    (s) => s.client_id !== import.meta.env.VITE_SSO_CLIENT_ID,
+                  )}
+                />
+              </div>
+
+              {/* Logo with subtle scale animation */}
+              <Link
+                to="/dashboard"
+                className="flex items-center space-x-3 group"
+                aria-label="Dashboard"
+              >
+                <Logo size="medium" />
+              </Link>
+            </div>
 
             {/* Desktop Navigation with subtle hover effects */}
             <div className="hidden md:flex items-center space-x-1">
@@ -470,6 +497,25 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                       <path d="M21 12H9" />
                     </svg>
                     Sign out
+                  </motion.button>
+                </div>
+
+                {/* Mobile Systems Toggle */}
+                <div className="px-4 py-3">
+                  <motion.button
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => {
+                      setIsSystemsMenuOpen(true);
+                      closeAllMenus();
+                    }}
+                    className="w-full flex items-center justify-between p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl border border-blue-100 dark:border-blue-800/50"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <LayoutGrid className="w-5 h-5" />
+                      <span className="font-semibold">View Applications</span>
+                    </div>
+                    <CheckCircle className="w-4 h-4 opacity-0" />{" "}
+                    {/* Placeholder for alignment */}
                   </motion.button>
                 </div>
               </div>

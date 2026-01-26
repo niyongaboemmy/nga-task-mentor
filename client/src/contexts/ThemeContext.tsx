@@ -1,9 +1,11 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
+import { updateThemePreference } from "../services/authService";
 
 type Theme = "light" | "dark";
 type ThemeContextType = {
   theme: Theme;
   toggleTheme: () => void;
+  setTheme: (theme: Theme) => void;
   resetTheme: () => void;
 };
 
@@ -50,7 +52,17 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   }, [theme, isInitialized]);
 
   const toggleTheme = () => {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    // Persist to MIS (asynchronously)
+    updateThemePreference(newTheme);
+  };
+
+  const handleSetTheme = (newTheme: Theme) => {
+    if (newTheme === theme) return;
+    setTheme(newTheme);
+    // Persist to MIS (asynchronously)
+    updateThemePreference(newTheme);
   };
 
   const resetTheme = () => {
@@ -60,7 +72,9 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   return (
-    <ThemeContext.Provider value={{ theme, toggleTheme, resetTheme }}>
+    <ThemeContext.Provider
+      value={{ theme, toggleTheme, setTheme: handleSetTheme, resetTheme }}
+    >
       {children}
     </ThemeContext.Provider>
   );

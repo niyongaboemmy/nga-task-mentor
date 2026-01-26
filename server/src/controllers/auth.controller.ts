@@ -336,6 +336,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
           email: string;
         };
         permissions: string[];
+        systems?: any[];
       };
     }>(
       `${process.env.NGA_MIS_BASE_URL}/sso/token`,
@@ -352,10 +353,11 @@ export const ssoCallback = async (req: Request, res: Response) => {
       },
     );
 
-    const {
+    let {
       token: misToken,
       user: misUser,
       permissions,
+      systems,
     } = misResponse.data.data;
     console.log("✅ SSO Token exchange successful for user:", misUser.username);
 
@@ -366,6 +368,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
     let assignedGrades: any[] = [];
     let currentAcademicYear: any = null;
     let currentAcademicTerms: any[] = [];
+    let preferred_theme: string | null = null;
 
     try {
       const profileResponse = await axios.get(
@@ -381,6 +384,10 @@ export const ssoCallback = async (req: Request, res: Response) => {
       assignedGrades = profileData.assignedGrades || [];
       currentAcademicYear = profileData.currentAcademicYear;
       currentAcademicTerms = profileData.currentAcademicTerms || [];
+      preferred_theme = profileData.user?.preferred_theme || null;
+      if (profileData.systems) {
+        systems = profileData.systems;
+      }
     } catch (profileError) {
       console.warn("⚠️ Could not fetch full profile, using basic data");
     }
@@ -491,6 +498,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
         role: localUser.role,
         mis_user_id: localUser.mis_user_id,
         profile_image: localUser.profile_image,
+        preferred_theme: preferred_theme,
       },
       profile: misProfile,
       roles,
@@ -499,6 +507,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
       assignedGrades,
       currentAcademicYear,
       currentAcademicTerms,
+      systems: systems || [],
     });
   } catch (error: any) {
     console.error(
@@ -704,6 +713,7 @@ export const getMe = async (req: Request, res: Response) => {
             role: user.role,
             mis_user_id: user.mis_user_id,
             profile_image: user.profile_image,
+            preferred_theme: misData.user?.preferred_theme || null,
           },
           profile: misData.profile,
           roles: misData.roles,
@@ -713,6 +723,7 @@ export const getMe = async (req: Request, res: Response) => {
           forcePasswordChange: misData.forcePasswordChange,
           currentAcademicYear: misData.currentAcademicYear,
           currentAcademicTerms: misData.currentAcademicTerms,
+          systems: misData.systems,
           misToken: misToken, // Include misToken for frontend persistence safely
         },
       });
@@ -1010,5 +1021,84 @@ export const updatePassword = async (req: Request, res: Response) => {
       success: false,
       message: "Server error during password update",
     });
+  }
+};
+// Proxy SSO Authorization request to MIS
+export const proxySsoAuthorize = async (req: Request, res: Response) => {
+  try {
+    const { client_id, redirect_uri } = req.query;
+    const misToken = getMisToken(req);
+
+    if (!misToken) {
+      return res
+        .status(401)
+        .json({ success: false, message: "MIS session expired" });
+    }
+
+    // Call MIS authorize endpoint
+    const response = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/sso/authorize`,
+      {
+        params: { client_id, redirect_uri },
+        headers: { Authorization: `Bearer ${misToken}` },
+        httpsAgent:
+          process.env.NODE_ENV === "production"
+            ? new (require("https").Agent)({ rejectUnauthorized: true })
+            : undefined,
+      },
+    );
+
+    return res.status(200).json(response.data);
+  } catch (error: any) {
+    console.error(
+      "❌ SSO Authorization Proxy Error:",
+      error.response?.data || error.message,
+    );
+    const status = error.response?.status || 500;
+    return res
+      .status(status)
+      .json(error.response?.data || { message: "Internal server error" });
+  }
+};
+
+// Update User Theme Preference in MIS
+export const updateTheme = async (req: Request, res: Response) => {
+  try {
+    const { theme } = req.body;
+    const misToken = getMisToken(req);
+
+    if (!theme || !["light", "dark"].includes(theme)) {
+      return res.status(400).json({ success: false, message: "Invalid theme" });
+    }
+
+    if (!misToken) {
+      return res
+        .status(401)
+        .json({ success: false, message: "MIS session expired" });
+    }
+
+    // Proxy request to MIS
+    const response = await axios.patch(
+      `${process.env.NGA_MIS_BASE_URL}/users/me/theme`,
+      { theme },
+      {
+        headers: { Authorization: `Bearer ${misToken}` },
+        httpsAgent:
+          process.env.NODE_ENV === "production"
+            ? new (require("https").Agent)({ rejectUnauthorized: true })
+            : undefined,
+      },
+    );
+
+    return res.status(200).json(response.data);
+  } catch (error: any) {
+    console.error(
+      "❌ Update Theme Proxy Error:",
+      error.response?.data || error.message,
+    );
+    const status = error.response?.status || 500;
+    return res
+      .status(status)
+      .json(error.response?.data || { message: "Internal server error" });
   }
 };

@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import api from "../utils/axiosConfig";
 import { useDispatch } from "react-redux";
+import { useTheme } from "./ThemeContext";
 import { loginSuccess, logout } from "../store/slices/authSlice";
 import type {
   UserFullData,
@@ -35,6 +36,8 @@ interface User {
   assigned_grades?: any[];
   currentAcademicYear?: any;
   currentAcademicTerm?: any;
+  systems?: any[];
+  preferred_theme?: "light" | "dark";
 }
 
 interface AuthContextType {
@@ -65,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [loading, setLoading] = useState(true);
   const [isAuthInitializing, setIsAuthInitializing] = useState(false);
   const dispatch = useDispatch();
+  const { setTheme } = useTheme();
 
   // Move initializeAuth to be accessible by other methods
   const initializeAuth = async () => {
@@ -111,6 +115,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         user_type: responseData.profile?.user_type || responseData.user?.role,
         mis_user_id:
           responseData.user?.mis_user_id || responseData.user?.user_id,
+        preferred_theme: responseData.user?.preferred_theme,
+        systems: responseData.systems,
         // Map new fields
         gender: responseData.profile?.gender,
         date_of_birth: responseData.profile?.date_of_birth,
@@ -127,6 +133,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setUser(userData);
       dispatch(loginSuccess(userData));
+
+      // Sync theme if provided
+      if (userData.preferred_theme) {
+        setTheme(userData.preferred_theme);
+      }
 
       // Persist misToken if returned
       if ((responseData as any).misToken) {

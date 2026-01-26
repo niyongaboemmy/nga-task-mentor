@@ -12,6 +12,8 @@ import {
   updatePassword,
   logout,
   ssoCallback,
+  proxySsoAuthorize,
+  updateTheme,
 } from "../controllers/auth.controller";
 import {
   loginSchema,
@@ -37,6 +39,8 @@ router.post("/verify-otp", otpLimiter, validate(otpSchema), verifyOtp);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", logout);
 router.post("/sso/callback", ssoCallback);
+router.get("/sso/authorize", protect, proxySsoAuthorize);
+router.patch("/theme", protect, updateTheme);
 // Note: forgotPasswordSchema and resetPasswordSchema would also be migrated to the new middleware
 // For now preserving existing imports if they were used elsewhere, but updating routes to use rate limiters
 // router.post("/forgot-password", passwordResetLimiter, validate(forgotPasswordSchema), forgotPassword);

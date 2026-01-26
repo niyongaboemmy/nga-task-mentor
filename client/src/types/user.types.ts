@@ -5,6 +5,19 @@ export interface Permission {
   status: string;
 }
 
+export interface System {
+  system_id: number;
+  name: string;
+  description: string;
+  client_id: string;
+  client_secret?: string;
+  allowed_redirect_uris?: string;
+  icon_url: string;
+  home_url: string;
+  status: string;
+  created_at: string;
+}
+
 export interface Role {
   role_id: number;
   name: string;
@@ -39,6 +52,7 @@ export interface UserData {
   updated_at?: string;
   profile_image?: string;
   mis_user_id?: number;
+  preferred_theme?: "light" | "dark";
 }
 
 export interface UserFullData {
@@ -49,6 +63,7 @@ export interface UserFullData {
   assignedPrograms: any[];
   assignedGrades: any[];
   forcePasswordChange: boolean;
+  systems: System[];
 }
 
 export interface UserResponse {
