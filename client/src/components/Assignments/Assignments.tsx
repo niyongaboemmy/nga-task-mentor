@@ -87,7 +87,9 @@ const Assignments: React.FC<AssignmentsProps> = ({
         // If the course doesn't have enrollment info or student is not enrolled, don't set course
         if (
           !courseData.students ||
-          !courseData.students.some((student: any) => student.id === user.id)
+          !courseData.students.some(
+            (student: any) => student.id.toString() === user.id.toString(),
+          )
         ) {
           setCourse(null);
           return;

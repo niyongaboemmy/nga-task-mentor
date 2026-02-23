@@ -20,6 +20,10 @@ const sequelize = new Sequelize({
       return next();
     },
   },
+  define: {
+    charset: "utf8mb4",
+    collate: "utf8mb4_unicode_ci",
+  },
   pool: {
     max: 5,
     min: 0,

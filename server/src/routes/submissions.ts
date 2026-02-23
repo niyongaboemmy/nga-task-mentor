@@ -10,6 +10,7 @@ import {
   addComment,
 } from "../controllers/submission.controller";
 import { protect, authorize, checkEnrollment } from "../middleware/auth";
+import { uploadSubmission } from "../middleware/submissionUpload";
 
 const router = Router();
 
@@ -21,6 +22,7 @@ router.post(
   "/assignments/:assignmentId/submissions",
   authorize("student"),
   checkEnrollment(),
+  uploadSubmission.single("file_submission"),
   createSubmission,
 );
 
@@ -28,7 +30,11 @@ router.post(
 router
   .route("/:id")
   .get(authorize("student", "instructor", "admin"), getSubmission)
-  .put(authorize("student", "instructor", "admin"), updateSubmission)
+  .put(
+    authorize("student", "instructor", "admin"),
+    uploadSubmission.single("file_submission"),
+    updateSubmission,
+  )
   .delete(authorize("student", "instructor", "admin"), deleteSubmission);
 
 // Get submissions (for assignments or users)

@@ -325,10 +325,10 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
           </div>
 
           {/* Description */}
-          <div className="bg-white dark:bg-gray-800/60 rounded-2xl p-6 border border-gray-200 dark:border-gray-800">
+          <div className="bg-white dark:bg-gray-800/60 rounded-2xl p-6 border border-gray-200 dark:border-gray-800/80">
             <div className="prose prose-sm sm:prose-base max-w-none dark:prose-invert">
               <div
-                className="assignment-description leading-relaxed text-gray-700 dark:text-gray-300"
+                className="assignment-description leading-relaxed text-black dark:text-white"
                 dangerouslySetInnerHTML={{ __html: assignment.description }}
               />
             </div>

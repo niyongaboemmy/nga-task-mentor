@@ -6,8 +6,8 @@ import {
   formatUTCToLocalDateTime,
   parseLocalDateTimeToUTC,
 } from "../../utils/dateUtils";
-import RichTextEditor from "../Common/RichTextEditor";
-import { Plus, Trash2 } from "lucide-react";
+import AssignmentDescriptionEditor from "./AssignmentDescriptionEditor";
+import { Plus, Trash2, AlertCircle } from "lucide-react";
 import { type RubricCriterion } from "./AssignmentCard";
 import { toast } from "react-toastify";
 import FileDropzone from "../Common/FileDropzone";
@@ -61,11 +61,15 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
   const [newFiles, setNewFiles] = useState<File[]>([]);
 
   const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [error, setError] = useState("");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!validate()) return;
+
     setIsLoading(true);
+    setErrors({});
     setError("");
 
     try {
@@ -117,6 +121,29 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
     }
   };
 
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.title.trim()) newErrors.title = "Title is required";
+    if (!formData.due_date) newErrors.due_date = "Due date is required";
+
+    if (formData.max_score <= 0) {
+      newErrors.max_score = "Max score must be greater than 0";
+    }
+
+    if (formData.rubric.length > 0) {
+      const rubricError = formData.rubric.some(
+        (c: RubricCriterion) => !c.criteria.trim() || c.max_score <= 0,
+      );
+      if (rubricError) {
+        newErrors.rubric = "All rubric criteria must have a name and score > 0";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const removeExistingAttachment = (url: string) => {
     setExistingAttachments((prev) => prev.filter((att) => att.url !== url));
   };
@@ -129,7 +156,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "max_score" ? parseInt(value) : value,
+      [name]: name === "max_score" ? parseFloat(value) : value,
     }));
   };
 
@@ -217,8 +244,18 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                     onChange={handleChange}
                     required
                     placeholder="Enter assignment title..."
-                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm"
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm ${
+                      errors.title
+                        ? "border-red-500"
+                        : "border-gray-200 dark:border-gray-700"
+                    }`}
                   />
+                  {errors.title && (
+                    <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.title}
+                    </p>
+                  )}
                 </div>
 
                 {/* Metadata */}
@@ -233,8 +270,18 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                       value={formData.due_date}
                       onChange={handleChange}
                       required
-                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm"
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm ${
+                        errors.due_date
+                          ? "border-red-500"
+                          : "border-gray-200 dark:border-gray-700"
+                      }`}
                     />
+                    {errors.due_date && (
+                      <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.due_date}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -248,8 +295,18 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                       onChange={handleChange}
                       min="1"
                       max="1000"
-                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm"
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm ${
+                        errors.max_score
+                          ? "border-red-500"
+                          : "border-gray-200 dark:border-gray-700"
+                      }`}
                     />
+                    {errors.max_score && (
+                      <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.max_score}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -399,17 +456,13 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
           </div>
         </motion.div>
 
-        {/* Description Editor */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-            Description
-          </label>
-          <RichTextEditor
-            content={formData.description}
+          <AssignmentDescriptionEditor
+            description={formData.description}
             onChange={(content) =>
               setFormData((prev) => ({ ...prev, description: content }))
             }
@@ -432,6 +485,12 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Define the criteria for grading this assignment
               </p>
+              {errors.rubric && (
+                <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.rubric}
+                </p>
+              )}
             </div>
             <Button
               type="button"
@@ -500,7 +559,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                                 const newRubric = [...formData.rubric];
                                 newRubric[index] = {
                                   ...newRubric[index],
-                                  max_score: parseInt(e.target.value) || 0,
+                                  max_score: parseFloat(e.target.value) || 0,
                                 };
                                 onRubricChange(newRubric);
                               }}

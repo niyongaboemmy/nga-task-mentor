@@ -7,6 +7,7 @@ import {
   Quiz,
   QuizSubmission,
   QuizQuestion,
+  User,
 } from "../models";
 import { Op } from "sequelize";
 
@@ -684,6 +685,13 @@ export const getCourseGrades = async (req: Request, res: Response) => {
     const assignmentSubmissions = await Submission.findAll({
       where: { assignment_id: { [Op.in]: assignmentIds } },
       attributes: ["student_id", "assignment_id", "grade", "status"],
+      include: [
+        {
+          model: User,
+          as: "student",
+          attributes: ["id", "mis_user_id"],
+        },
+      ],
     });
 
     // 5. Get all Quiz Submissions
@@ -700,19 +708,75 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         "percentage",
         "passed",
       ],
-      order: [["total_score", "DESC"]], // If multiple, we might want best? Or we assume one per student/quiz for now?
-      // Actually, let's just fetch all and handle logic.
+      include: [
+        {
+          model: User,
+          as: "student",
+          attributes: ["id", "mis_user_id"],
+        },
+      ],
+      order: [["total_score", "DESC"]],
     });
 
-    // 6. Aggregate Data
+    // 6. Enrich Student List with Local Submitters
+    // Extract unique local student IDs from submissions
+    const localStudentIds = new Set<number>();
+    assignmentSubmissions.forEach((s) => localStudentIds.add(s.student_id));
+    quizSubmissions.forEach((s) => localStudentIds.add(s.student_id));
+
+    if (localStudentIds.size > 0) {
+      // Fetch user details for these students
+      const localStudents = await User.findAll({
+        where: {
+          id: { [Op.in]: Array.from(localStudentIds) },
+        },
+        attributes: [
+          "id",
+          "first_name",
+          "last_name",
+          "email",
+          "profile_image",
+          "mis_user_id",
+        ],
+      });
+
+      // Merge into enrolledStudents if not already present
+      // We match primarily on MIS ID, or fallback to Local ID if MIS info is missing
+      const misIdSet = new Set(enrolledStudents.map((s) => String(s.id)));
+
+      localStudents.forEach((localUser) => {
+        // Check if this user is already in the list via MIS ID
+        const misId = localUser.mis_user_id
+          ? String(localUser.mis_user_id)
+          : null;
+        const isMisMatch = misId && misIdSet.has(misId);
+
+        if (!isMisMatch) {
+          // Check if we accidentally have them by local ID structure (unlikely but possible if mock data)
+          // Just add them as a "Local Student" object structure matching the MIS one
+          enrolledStudents.push({
+            id: localUser.mis_user_id || `local_${localUser.id}`, // Use MIS ID if available, else prefix local
+            user_id: localUser.id, // Keep local reference
+            first_name: localUser.first_name,
+            last_name: localUser.last_name,
+            email: localUser.email,
+            profile_image: localUser.profile_image,
+            is_local_only: true, // Flag for debugging
+          });
+        }
+      });
+    }
+
+    // 7. Aggregate Data
     const studentsWithGrades = enrolledStudents.map((student) => {
       const studentId = student.id;
 
       // Assignments Map
       const studentAssignments = assignments.map((assignment) => {
         const sub = assignmentSubmissions.find(
-          (s) =>
-            String(s.student_id) === String(studentId) &&
+          (s: any) =>
+            (String(s.student?.mis_user_id) === String(studentId) ||
+              String(s.student_id) === String(studentId)) &&
             s.assignment_id === assignment.id,
         );
         return {
@@ -730,8 +794,10 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         // Find best submission for this quiz (if multiple allowed)
         // Since we fetched all, we filter by student and quiz
         const subs = quizSubmissions.filter(
-          (s) =>
-            String(s.student_id) === String(studentId) && s.quiz_id === quiz.id,
+          (s: any) =>
+            (String(s.student?.mis_user_id) === String(studentId) ||
+              String(s.student_id) === String(studentId)) &&
+            s.quiz_id === quiz.id,
         );
         // Take best score
         const bestSub =
@@ -761,7 +827,15 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       studentAssignments.forEach((a) => {
         if (a.max_score) {
           totalMaxPoints += Number(a.max_score);
-          if (a.grade) totalPointsEarned += Number(a.grade);
+          if (a.grade) {
+            // Handle "15/20" string format if present
+            const gradePoints = String(a.grade).includes("/")
+              ? parseFloat(String(a.grade).split("/")[0])
+              : Number(a.grade);
+            if (!isNaN(gradePoints)) {
+              totalPointsEarned += gradePoints;
+            }
+          }
         }
       });
 
@@ -781,7 +855,14 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       studentAssignments.forEach((a) => {
         if (a.max_score) {
           assignmentsMaxPoints += Number(a.max_score);
-          if (a.grade) assignmentsPoints += Number(a.grade);
+          if (a.grade) {
+            const gradePoints = String(a.grade).includes("/")
+              ? parseFloat(String(a.grade).split("/")[0])
+              : Number(a.grade);
+            if (!isNaN(gradePoints)) {
+              assignmentsPoints += gradePoints;
+            }
+          }
         }
       });
       const assignmentPercentage =
@@ -820,11 +901,35 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       };
     });
 
+    // Filter if requesting user is a student
+    let responseData = studentsWithGrades;
+    if (req.user?.role === "student") {
+      // Find the student in the list (using MIS ID or User ID logic)
+      // The enrolledStudents list comes from MIS and uses MIS IDs usually,
+      // but let's check how we mapped it.
+      // In getCourse, we mapped MIS data. Here we are using raw MIS response data.
+      // The student structure from MIS has 'id' which is likely the MIS User ID.
+      // And req.user.mis_user_id should match it.
+
+      const studentMisId = req.user.mis_user_id;
+
+      if (studentMisId) {
+        responseData = responseData.filter(
+          (s) => String(s.student.id) === String(studentMisId),
+        );
+      } else {
+        // Fallback: try matching by email if MIS ID is missing (shouldn't happen in prod but safe dev)
+        responseData = responseData.filter(
+          (s) => s.student.email === req.user?.email,
+        );
+      }
+    }
+
     res.status(200).json({
       success: true,
       data: {
         course_id: courseId,
-        students: studentsWithGrades,
+        students: responseData,
         assignments: assignments.map((a) => ({
           id: a.id,
           title: a.title,
@@ -842,6 +947,209 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       "Get course grades error:",
       error.response?.data || error.message,
     );
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Get overall grades for all enrolled courses
+// @route   GET /api/courses/my-grades
+// @access  Private (Student only)
+export const getStudentOverallGrades = async (req: Request, res: Response) => {
+  try {
+    const token = getMisToken(req);
+
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
+    }
+
+    if (req.user?.role !== "student") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized. Student only." });
+    }
+
+    const studentMisId = req.user.mis_user_id;
+    if (!studentMisId) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Student MIS ID found" });
+    }
+
+    // 1. Fetch enrolled subjects from MIS
+    const endpoint = `/academics/students/${studentMisId}/enrolled-subjects`;
+    const response = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}${endpoint}`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (!response.data.success) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Failed to fetch enrolled courses" });
+    }
+
+    const subjects = response.data.data || [];
+    const courseIds = subjects.map((s: any) => s.id || s.subject_id);
+
+    if (courseIds.length === 0) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    // 2. Fetch Assignments and Quizzes
+    const assignments = await Assignment.findAll({
+      where: {
+        course_id: {
+          [Op.in]: courseIds,
+        },
+      },
+      attributes: ["id", "course_id", "max_score", "title"],
+    });
+
+    // Fetch quizzes with questions to calculate total points
+    const quizzes = (await Quiz.findAll({
+      where: {
+        course_id: {
+          [Op.in]: courseIds,
+        },
+      },
+      attributes: ["id", "course_id", "title"],
+      include: [
+        {
+          model: QuizQuestion,
+          as: "quizQuestions",
+          attributes: ["points"],
+        },
+      ],
+    })) as any[];
+
+    // 3. Fetch Submissions
+    const assignmentIds = assignments.map((a) => a.id);
+    const quizIds = quizzes.map((q) => q.id);
+
+    const submissions = await Submission.findAll({
+      where: {
+        assignment_id: {
+          [Op.in]: assignmentIds,
+        },
+        student_id: req.user.id,
+      },
+      attributes: ["assignment_id", "grade"],
+    });
+
+    const quizSubmissions = (await QuizSubmission.findAll({
+      where: {
+        quiz_id: {
+          [Op.in]: quizIds,
+        },
+        student_id: req.user.id,
+      },
+      attributes: ["quiz_id", "total_score"],
+    })) as any[];
+
+    // 4. Aggregate
+    const reportCards = subjects.map((subject: any) => {
+      const courseId = subject.id || subject.subject_id;
+      const courseName = subject.name || subject.subject_name;
+      const courseCode = subject.code || subject.subject_code;
+
+      const courseAssignments = assignments.filter(
+        (a) => String(a.course_id) === String(courseId),
+      );
+      const courseQuizzes = quizzes.filter(
+        (q) => String(q.course_id) === String(courseId),
+      );
+
+      let totalMaxPoints = 0;
+      let totalPointsEarned = 0;
+
+      courseAssignments.forEach((a) => {
+        const sub = submissions.find((s) => s.assignment_id === a.id);
+        if (a.max_score) {
+          const max = Number(a.max_score);
+          totalMaxPoints += max;
+          if (sub && sub.grade) {
+            // Handle "15/20" string format
+            const gradePoints = String(sub.grade).includes("/")
+              ? parseFloat(String(sub.grade).split("/")[0])
+              : Number(sub.grade);
+            if (!isNaN(gradePoints)) {
+              totalPointsEarned += gradePoints;
+            }
+          }
+        }
+      });
+
+      courseQuizzes.forEach((q) => {
+        const sub = quizSubmissions.find((s) => s.quiz_id === q.id);
+
+        // Calculate total points from questions
+        let quizMaxPoints = 0;
+        if (q.quizQuestions && Array.isArray(q.quizQuestions)) {
+          quizMaxPoints = q.quizQuestions.reduce(
+            (sum: number, question: any) =>
+              sum + (Number(question.points) || 0),
+            0,
+          );
+        }
+
+        if (quizMaxPoints > 0) {
+          totalMaxPoints += quizMaxPoints;
+          if (sub && sub.total_score) {
+            totalPointsEarned += Number(sub.total_score);
+          }
+        }
+      });
+
+      const percentage =
+        totalMaxPoints > 0 ? (totalPointsEarned / totalMaxPoints) * 100 : 0;
+
+      let status = "No Grade";
+      if (totalMaxPoints > 0) {
+        status = percentage >= 50 ? "Passing" : "Failing";
+      }
+
+      return {
+        courseId,
+        courseName,
+        code: courseCode,
+        totalMaxPoints,
+        totalPointsEarned,
+        percentage: Math.round(percentage * 100) / 100,
+        status,
+        assignmentsCompleted: submissions.filter((s) =>
+          courseAssignments.some((a) => a.id === s.assignment_id),
+        ).length,
+        totalAssignments: courseAssignments.length,
+        quizzesCompleted: quizSubmissions.filter((s) =>
+          courseQuizzes.some((q) => q.id === s.quiz_id),
+        ).length,
+        totalQuizzes: courseQuizzes.length,
+      };
+    });
+
+    res.status(200).json({
+      success: true,
+      data: reportCards,
+    });
+  } catch (error: any) {
+    console.error(
+      "Get student overall grades error:",
+      error.response?.data || error.message,
+    );
+
+    if (error.response?.status === 401) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Unauthorized - Invalid MIS Token" });
+    }
+
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

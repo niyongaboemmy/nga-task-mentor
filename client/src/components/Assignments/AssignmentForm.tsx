@@ -414,7 +414,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
                                 ];
                                 newRubric[index] = {
                                   ...newRubric[index],
-                                  max_score: parseInt(e.target.value) || 0,
+                                  max_score: parseFloat(e.target.value) || 0,
                                 };
                                 onInputChange({
                                   target: { name: "rubric", value: newRubric },

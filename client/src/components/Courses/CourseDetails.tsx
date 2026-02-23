@@ -16,6 +16,9 @@ const CourseDetails: React.FC = () => {
     "overview" | "assignments" | "quizzes" | "students" | "submissions"
   >("overview");
 
+  // Get auth user for role checking
+  const authUser = useSelector((state: RootState) => state.auth.user);
+
   // Get courses and loading state from Redux store
   // Get courses and loading state from Redux store
   const courseState = useSelector((state: RootState) => {
@@ -248,35 +251,37 @@ const CourseDetails: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-gray-800/70 dark:bg-gray-900/60 p-2 px-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="h-8 w-8 bg-green-500 rounded-lg flex items-center justify-center">
-                <svg
-                  className="h-4 w-4 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-                  />
-                </svg>
+        {["instructor", "admin"].includes(authUser?.role || "") && (
+          <div className="bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:border-gray-800/70 dark:bg-gray-900/60 p-2 px-4">
+            <div className="flex items-center">
+              <div className="flex-shrink-0">
+                <div className="h-8 w-8 bg-green-500 rounded-lg flex items-center justify-center">
+                  <svg
+                    className="h-4 w-4 text-white"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
+                    />
+                  </svg>
+                </div>
+              </div>
+              <div className="ml-4">
+                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                  Students
+                </p>
+                <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+                  {course.enrolledStudents?.length || 0}
+                </p>
               </div>
             </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                Students
-              </p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">
-                {course.enrolledStudents?.length || 0}
-              </p>
-            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* Tabs */}
@@ -303,33 +308,44 @@ const CourseDetails: React.FC = () => {
                 id: "students",
                 label: `Students (${course.enrolledStudents?.length || 0})`,
                 icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z",
+                restricted: true,
               },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`${
-                  activeTab === tab.id
-                    ? "border-blue-500 text-blue-600 dark:text-blue-500"
-                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
-                } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2`}
-              >
-                <svg
-                  className="h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
+            ]
+              .filter((tab: any) => {
+                if (tab.restricted) {
+                  // Only allow instructors and admins to see restricted tabs
+                  return ["instructor", "admin"].includes(
+                    authUser?.role || "student",
+                  );
+                }
+                return true;
+              })
+              .map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id as any)}
+                  className={`${
+                    activeTab === tab.id
+                      ? "border-blue-500 text-blue-600 dark:text-blue-500"
+                      : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
+                  } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2`}
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d={tab.icon}
-                  />
-                </svg>
-                {tab.label}
-              </button>
-            ))}
+                  <svg
+                    className="h-4 w-4"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d={tab.icon}
+                    />
+                  </svg>
+                  {tab.label}
+                </button>
+              ))}
           </nav>
         </div>
 

@@ -43,13 +43,15 @@ interface SubmissionMarkingProps {
     score: number,
     feedback: string,
     rubricScores?: Record<number, number>,
-  ) => void;
+  ) => void | Promise<void>;
+  onSuccess?: () => void;
 }
 
 const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
   submission,
   assignment,
   onGradeSubmission,
+  onSuccess,
 }) => {
   const [rubricScores, setRubricScores] = React.useState<
     Record<number, number>
@@ -58,9 +60,6 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
     submission.feedback || "",
   );
   const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [activeCriterion, setActiveCriterion] = React.useState<number | null>(
-    0,
-  );
 
   const rubric = React.useMemo(() => {
     if (!assignment.rubric) return [];
@@ -114,6 +113,10 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
       toast.success(
         submission.grade ? "Assessment updated!" : "Assessment finalized!",
       );
+      // Automatically close modal on success
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error: any) {
       toast.error("Failed to save grade.");
     } finally {
@@ -247,27 +250,18 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           <div className="space-y-4">
             {rubric.map((criterion: any, index: number) => {
               const currentScore = rubricScores[index] || 0;
-              const isActive = activeCriterion === index;
 
               return (
                 <motion.div
-                  key={index}
-                  onClick={() => setActiveCriterion(index)}
-                  className={`relative p-6 rounded-3xl border transition-all cursor-pointer group ${
-                    isActive
-                      ? "bg-white dark:bg-gray-800 border-blue-500/50 shadow-2xl shadow-blue-500/10 ring-1 ring-blue-500/20 scale-[1.01]"
-                      : "bg-gray-50/50 dark:bg-gray-900/50 border-gray-100 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-700"
-                  }`}
+                  key={index + 1}
+                  // onClick={() => setActiveCriterion(index)}
+                  className={`relative p-6 rounded-3xl border transition-all cursor-pointer group bg-white dark:bg-gray-900/50 border-gray-100 dark:border-gray-900 hover:border-gray-200 dark:hover:border-gray-800`}
                 >
                   <div className="flex flex-col md:flex-row md:items-center gap-6">
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-3">
                         <span
-                          className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black transition-colors ${
-                            isActive
-                              ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30"
-                              : "bg-gray-100 dark:bg-gray-800 text-gray-400"
-                          }`}
+                          className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black transition-colors bg-gray-100 dark:bg-gray-800 text-gray-400`}
                         >
                           {index + 1}
                         </span>
@@ -329,11 +323,11 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
                           onChange={(e) =>
                             handleRubricScoreChange(
                               index,
-                              parseInt(e.target.value) || 0,
+                              parseFloat(e.target.value) || 0,
                             )
                           }
                           onClick={(e) => e.stopPropagation()}
-                          className="w-24 px-4 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl text-lg font-black text-center text-blue-600 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                          className="w-24 px-4 py-3 bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-2xl text-lg font-black text-center text-blue-600 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
                         />
                         <span className="absolute -top-3 -right-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[9px] font-black px-2 py-1 rounded-full border border-gray-200 dark:border-gray-700 transition-transform group-hover:scale-110">
                           MAX {criterion.max_score}
@@ -399,7 +393,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="group relative overflow-hidden px-10 py-5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
+            className="group relative overflow-hidden px-10 py-5 bg-blue-600 dark:bg-blue-700 text-white rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             <div className="relative flex items-center gap-3">
               {isSubmitting ? (
@@ -415,9 +409,9 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
               whileHover={{ x: 0 }}
               transition={{ type: "spring", stiffness: 100, damping: 20 }}
             />
-            <span className="absolute inset-0 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity font-black uppercase tracking-[0.2em] text-sm pointer-events-none z-10">
+            {/* <span className="absolute inset-0 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity font-black uppercase tracking-[0.2em] text-sm pointer-events-none z-10">
               Ship Grade
-            </span>
+            </span> */}
           </button>
         </div>
       </div>

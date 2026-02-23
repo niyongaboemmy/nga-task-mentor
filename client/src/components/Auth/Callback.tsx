@@ -21,14 +21,28 @@ const Callback: React.FC = () => {
         return;
       }
 
-      if (callbackCalled.current) return;
+      // Prevent double execution (React Strict Mode, hot reload, etc.)
+      if (callbackCalled.current) {
+        console.log("⚠️ Callback already called, skipping duplicate execution");
+        return;
+      }
       callbackCalled.current = true;
 
+      // CRITICAL: Clear the code from URL immediately to prevent reuse
+      // This prevents issues with page refresh, back button, or double execution
+      window.history.replaceState({}, document.title, window.location.pathname);
+
       try {
+        console.log(
+          "🔐 SSO Callback: Exchanging authorization code for token...",
+        );
+
         // Send code to backend to exchange for token
         const response = await api.post("/auth/sso/callback", { code });
 
         if (response.data.success) {
+          console.log("✅ SSO authentication successful");
+
           // Store token for header-based auth fallback
           localStorage.setItem("nga_auth_token", response.data.token);
           if (response.data.misToken) {
@@ -39,16 +53,20 @@ const Callback: React.FC = () => {
           await checkAuth();
           navigate("/dashboard", { replace: true });
         } else {
+          console.error("❌ SSO authentication failed:", response.data.message);
           setError(response.data.message || "SSO authentication failed");
-          callbackCalled.current = false; // Allow retry on failure
+          // Don't reset callbackCalled on server-side failure to prevent retry with same code
         }
       } catch (err: any) {
-        console.error("SSO Callback Error:", err);
+        console.error(
+          "❌ SSO Callback error:",
+          err.response?.data || err.message,
+        );
         setError(
           err.response?.data?.message ||
             "Failed to complete SSO authentication",
         );
-        callbackCalled.current = false; // Allow retry on failure
+        // Don't reset callbackCalled to prevent retry with same (now invalid) code
       }
     };
 

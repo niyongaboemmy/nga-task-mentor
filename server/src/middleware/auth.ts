@@ -45,6 +45,10 @@ export const protect = async (
       token === "null" ||
       token === "undefined"
     ) {
+      console.log(
+        "❌ No token found in request or token is placeholder:",
+        token,
+      );
       return res.status(401).json({
         success: false,
         message: "Not authorized to access this route",
@@ -53,13 +57,15 @@ export const protect = async (
 
     try {
       // Verify token
+      console.log("✅ Verifying token...");
       const decoded = jwt.verify(token, process.env.JWT_SECRET!) as JwtPayload;
+      console.log("✅ Token verified successfully for user ID:", decoded.id);
 
-      // ... rest of success logic ...
       // Get user from the token
       const user = await User.findByPk(decoded.id);
 
       if (!user) {
+        console.log("❌ User not found for ID:", decoded.id);
         return res
           .status(401)
           .json({ success: false, message: "User not found" });
@@ -77,7 +83,7 @@ export const protect = async (
       next();
     } catch (error: any) {
       console.error(
-        `Token verification error for token: "${token.substring(0, 10)}..."`,
+        `❌ Token verification error for token: "${token.substring(0, 10)}..."`,
         error.message,
       );
       return res.status(401).json({

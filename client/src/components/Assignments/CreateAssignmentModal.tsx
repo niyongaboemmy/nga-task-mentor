@@ -3,8 +3,8 @@ import { Button } from "../ui/Button";
 import { motion, AnimatePresence } from "framer-motion";
 import axios from "../../utils/axiosConfig";
 import { parseLocalDateTimeToUTC } from "../../utils/dateUtils";
-import RichTextEditor from "../Common/RichTextEditor";
-import { Plus, Trash2, Info } from "lucide-react";
+import AssignmentDescriptionEditor from "./AssignmentDescriptionEditor";
+import { Plus, Trash2, Info, AlertCircle } from "lucide-react";
 import { type RubricCriterion } from "./AssignmentCard";
 import FileDropzone from "../Common/FileDropzone";
 
@@ -44,13 +44,14 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
   const [files, setFiles] = useState<File[]>([]);
 
   // Fetch courses for the current user
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await axios.get(" /courses");
+        const response = await axios.get("/courses");
         const coursesData = response.data.data || response.data;
         setCourses(coursesData);
       } catch (error) {
@@ -62,12 +63,44 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
     fetchCourses();
   }, []);
 
+  const validate = () => {
+    const newErrors: Record<string, string> = {};
+
+    if (!formData.title.trim()) newErrors.title = "Title is required";
+    if (!formData.course_id) newErrors.course_id = "Course is required";
+    if (!formData.due_date) newErrors.due_date = "Due date is required";
+    else {
+      const dueDate = new Date(formData.due_date);
+      if (dueDate <= new Date()) {
+        newErrors.due_date = "Due date must be in the future";
+      }
+    }
+
+    if (formData.max_score <= 0) {
+      newErrors.max_score = "Max score must be greater than 0";
+    }
+
+    if (formData.rubric.length > 0) {
+      const rubricError = formData.rubric.some(
+        (c) => !c.criteria.trim() || c.max_score <= 0,
+      );
+      if (rubricError) {
+        newErrors.rubric = "All rubric criteria must have a name and score > 0";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (isSubmitting) return;
+    if (!validate()) return;
 
     setIsSubmitting(true);
+    setErrors({});
 
     try {
       // Convert local input to UTC for API
@@ -106,7 +139,30 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
     const { name, value } = e.target;
     setFormData((prev) => ({
       ...prev,
-      [name]: name === "max_score" ? parseInt(value) : value,
+      [name]: name === "max_score" ? parseFloat(value) : value,
+    }));
+  };
+
+  const handleRubricChange = (index: number, field: string, value: any) => {
+    const newRubric = [...formData.rubric];
+    newRubric[index] = {
+      ...newRubric[index],
+      [field]: field === "max_score" ? parseFloat(value) || 0 : value,
+    };
+    setFormData((prev) => ({ ...prev, rubric: newRubric }));
+  };
+
+  const addRubricCriterion = () => {
+    setFormData((prev) => ({
+      ...prev,
+      rubric: [...prev.rubric, { criteria: "", max_score: 10 }],
+    }));
+  };
+
+  const removeRubricCriterion = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      rubric: prev.rubric.filter((_, i) => i !== index),
     }));
   };
 
@@ -177,8 +233,18 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                     onChange={handleChange}
                     required
                     placeholder="Enter a compelling title..."
-                    className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm"
+                    className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm ${
+                      errors.title
+                        ? "border-red-500"
+                        : "border-gray-200 dark:border-gray-700"
+                    }`}
                   />
+                  {errors.title && (
+                    <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                      <AlertCircle className="w-3 h-3" />
+                      {errors.title}
+                    </p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -189,10 +255,13 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                     <select
                       name="course_id"
                       value={formData.course_id}
-                      // onChange={handleChange}
+                      onChange={handleChange}
                       required
-                      disabled
-                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm"
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm ${
+                        errors.course_id
+                          ? "border-red-500"
+                          : "border-gray-200 dark:border-gray-700"
+                      }`}
                     >
                       <option value="">Select a course</option>
                       {courses.map((course) => (
@@ -201,6 +270,12 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                         </option>
                       ))}
                     </select>
+                    {errors.course_id && (
+                      <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.course_id}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -213,8 +288,18 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                       value={formData.due_date}
                       onChange={handleChange}
                       required
-                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm"
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm ${
+                        errors.due_date
+                          ? "border-red-500"
+                          : "border-gray-200 dark:border-gray-700"
+                      }`}
                     />
+                    {errors.due_date && (
+                      <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.due_date}
+                      </p>
+                    )}
                   </div>
                 </div>
 
@@ -229,8 +314,18 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                       value={formData.max_score}
                       onChange={handleChange}
                       min="1"
-                      className="w-full px-4 py-3 border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm"
+                      className={`w-full px-4 py-3 border rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800 dark:text-white transition-all duration-200 bg-white/80 backdrop-blur-sm ${
+                        errors.max_score
+                          ? "border-red-500"
+                          : "border-gray-200 dark:border-gray-700"
+                      }`}
                     />
+                    {errors.max_score && (
+                      <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                        <AlertCircle className="w-3 h-3" />
+                        {errors.max_score}
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -280,15 +375,12 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
         >
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-            Description
-          </label>
-          <RichTextEditor
-            content={formData.description}
+          <AssignmentDescriptionEditor
+            description={formData.description}
             onChange={(content) =>
               setFormData((prev) => ({ ...prev, description: content }))
             }
-            placeholder="Describe the assignment, goals, and instructions..."
+            placeholder="Describe the assignment ..."
           />
         </motion.div>
 
@@ -307,22 +399,18 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
                 Define the criteria for grading this assignment
               </p>
+              {errors.rubric && (
+                <p className="mt-1 text-xs text-red-500 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" />
+                  {errors.rubric}
+                </p>
+              )}
             </div>
             <Button
               type="button"
               variant="secondary"
               size="sm"
-              onClick={() => {
-                const newCriterion: RubricCriterion = {
-                  criteria: "",
-                  max_score: 10,
-                  description: "",
-                };
-                setFormData((prev) => ({
-                  ...prev,
-                  rubric: [...(prev.rubric || []), newCriterion],
-                }));
-              }}
+              onClick={addRubricCriterion}
               className="flex flex-row items-center gap-2 border-dashed"
             >
               <div className="flex flex-row items-center justify-center gap-2">
@@ -354,16 +442,13 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                                 type="text"
                                 placeholder="Criterion name (e.g. Grammar, Logic)"
                                 value={item.criteria}
-                                onChange={(e) => {
-                                  const newRubric = [
-                                    ...(formData.rubric || []),
-                                  ];
-                                  newRubric[index].criteria = e.target.value;
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    rubric: newRubric,
-                                  }));
-                                }}
+                                onChange={(e) =>
+                                  handleRubricChange(
+                                    index,
+                                    "criteria",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                               />
                             </div>
@@ -372,17 +457,13 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                                 type="number"
                                 placeholder="Points"
                                 value={item.max_score}
-                                onChange={(e) => {
-                                  const newRubric = [
-                                    ...(formData.rubric || []),
-                                  ];
-                                  newRubric[index].max_score =
-                                    parseInt(e.target.value) || 0;
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    rubric: newRubric,
-                                  }));
-                                }}
+                                onChange={(e) =>
+                                  handleRubricChange(
+                                    index,
+                                    "max_score",
+                                    e.target.value,
+                                  )
+                                }
                                 className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white"
                               />
                             </div>
@@ -390,29 +471,20 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                           <textarea
                             placeholder="Description of what defines a good score in this criterion..."
                             value={item.description}
-                            onChange={(e) => {
-                              const newRubric = [...(formData.rubric || [])];
-                              newRubric[index].description = e.target.value;
-                              setFormData((prev) => ({
-                                ...prev,
-                                rubric: newRubric,
-                              }));
-                            }}
+                            onChange={(e) =>
+                              handleRubricChange(
+                                index,
+                                "description",
+                                e.target.value,
+                              )
+                            }
                             rows={2}
                             className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white resize-none"
                           />
                         </div>
                         <button
                           type="button"
-                          onClick={() => {
-                            const newRubric = (formData.rubric || []).filter(
-                              (_, i) => i !== index,
-                            );
-                            setFormData((prev) => ({
-                              ...prev,
-                              rubric: newRubric,
-                            }));
-                          }}
+                          onClick={() => removeRubricCriterion(index)}
                           className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl transition-all"
                         >
                           <Trash2 className="w-5 h-5" />

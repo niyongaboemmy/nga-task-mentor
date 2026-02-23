@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import AssignmentStatusToggle from "./AssignmentStatusToggle";
 import { Clock, Calendar, Timer } from "lucide-react";
 import { formatDateTimeLocal } from "../../utils/dateUtils";
 import { getProfileImageUrl } from "../../utils/imageUrl";
+import { useAuth } from "../../contexts/AuthContext";
+import { Award, CheckCircle2 } from "lucide-react";
 
 export interface RubricCriterion {
   criteria: string;
@@ -179,6 +182,16 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
   canManage = false,
   onStatusChange,
 }) => {
+  const { user } = useAuth();
+  const isStudent = user?.role === "student";
+
+  // Find the student's submission and its grade
+  const userSubmission = isStudent
+    ? assignment.submissions?.[0] // Backend already filters for students
+    : null;
+
+  const userGrade = userSubmission?.grade;
+
   const formatDate = (dateString: string) => {
     return formatDateTimeLocal(dateString);
   };
@@ -211,6 +224,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
   };
 
   const isOverdue = (() => {
+    if (isStudent && userGrade) return false;
     const due = new Date(assignment.due_date);
     const nowUTC = Date.now();
     const dueUTC = due.getTime();
@@ -299,12 +313,14 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
             </div>
 
             {/* Live countdown - Responsive sizing */}
-            <div className="min-w-0 flex-shrink-0">
-              <LiveCountdown
-                dueDate={assignment.due_date}
-                isOverdue={isOverdue}
-              />
-            </div>
+            {!(isStudent && userGrade) && (
+              <div className="min-w-0 flex-shrink-0">
+                <LiveCountdown
+                  dueDate={assignment.due_date}
+                  isOverdue={isOverdue}
+                />
+              </div>
+            )}
 
             <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
               <svg
@@ -322,6 +338,42 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
               </svg>
               <span className="truncate">{assignment.max_score} pts</span>
             </div>
+
+            {isStudent && userGrade && (
+              <div className="flex flex-col gap-1.5 min-w-[120px]">
+                <div className="flex items-center gap-1 sm:gap-1.5 px-2 py-0.5 rounded-full bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-400 border border-green-200 dark:border-green-800 animate-in fade-in zoom-in duration-500">
+                  <Award className="h-3 w-3" />
+                  <span className="font-bold whitespace-nowrap">
+                    Score: {userGrade}
+                  </span>
+                  <CheckCircle2 className="h-3 w-3" />
+                </div>
+                {/* Progress Line */}
+                <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden border border-gray-200/50 dark:border-gray-700/50">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{
+                      width: `${(() => {
+                        const [score, max] = userGrade
+                          .split("/")
+                          .map(parseFloat);
+                        return Math.min(100, Math.max(0, (score / max) * 100));
+                      })()}%`,
+                    }}
+                    transition={{ duration: 1, ease: "easeOut", delay: 0.5 }}
+                    className={`h-full rounded-full ${(() => {
+                      const [score, max] = userGrade.split("/").map(parseFloat);
+                      const pct = (score / max) * 100;
+                      return pct >= 80
+                        ? "bg-green-500"
+                        : pct >= 50
+                          ? "bg-blue-500"
+                          : "bg-orange-500";
+                    })()}`}
+                  />
+                </div>
+              </div>
+            )}
 
             <div
               className={`inline-flex items-center px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full text-xs font-medium border ${getSubmissionTypeColor(

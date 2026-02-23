@@ -10,6 +10,7 @@ import {
 } from "../../store/slices/quizSlice";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import QuizListItem from "./QuizListItem";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface QuizListProps {
   courseId: number;
@@ -28,6 +29,10 @@ export const QuizList: React.FC<QuizListProps> = ({
   const { quizzes, loading, error } = useSelector(
     (state: RootState) => state.quiz,
   );
+  const { user } = useAuth();
+  const canManageQuizzes =
+    user?.role === "instructor" || user?.role === "admin";
+
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [publicLoading, setPublicLoading] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -132,7 +137,7 @@ export const QuizList: React.FC<QuizListProps> = ({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex justify-between items-ceter">
-        {showCreateButton && quizzes.length > 0 && (
+        {showCreateButton && canManageQuizzes && quizzes.length > 0 && (
           <Link
             to={`/courses/${courseId}/quizzes/create`}
             className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200"
@@ -191,11 +196,13 @@ export const QuizList: React.FC<QuizListProps> = ({
               <QuizListItem
                 key={quiz.id}
                 quiz={quiz}
-                onDelete={handleDeleteQuiz}
-                onTogglePublic={handleTogglePublic}
+                onDelete={canManageQuizzes ? handleDeleteQuiz : undefined}
+                onTogglePublic={
+                  canManageQuizzes ? handleTogglePublic : undefined
+                }
                 deleteLoading={deleteLoading}
                 publicLoading={publicLoading}
-                showActions={showCreateButton}
+                showActions={true}
               />
             ))}
           </div>
@@ -285,7 +292,7 @@ export const QuizList: React.FC<QuizListProps> = ({
             Create quizzes to assess student learning and provide practice
             opportunities.
           </p>
-          {showCreateButton && (
+          {showCreateButton && canManageQuizzes && (
             <div className="mt-6">
               <Link
                 to={`/courses/${courseId}/quizzes/create`}

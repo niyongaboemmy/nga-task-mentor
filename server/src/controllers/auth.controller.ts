@@ -158,19 +158,13 @@ export const verifyOtp = async (req: Request, res: Response) => {
         description: string;
       }[],
     ): "student" | "instructor" | "admin" => {
-      console.log("🔍 Mapping MIS roles:", JSON.stringify(misRoles, null, 2));
-
       if (!misRoles || !Array.isArray(misRoles) || misRoles.length === 0) {
-        console.log("❌ No roles provided, defaulting to student");
         return "student";
       }
 
-      // Check each role individually
-      for (const role of misRoles) {
-        console.log(
-          `🔍 Checking role: id=${role.role_id}, name="${role.name}"`,
-        );
+      let bestRole: "student" | "instructor" | "admin" = "student";
 
+      for (const role of misRoles) {
         // Admin check
         if (
           role.role_id === 1 || // SUPER_ADMIN
@@ -182,8 +176,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
               role.name.toLowerCase().includes("super") ||
               role.name.toLowerCase().includes("manager")))
         ) {
-          console.log("✅ Mapped to admin role");
-          return "admin";
+          return "admin"; // Admin is highest, can return immediately
         }
 
         // Instructor check
@@ -194,22 +187,11 @@ export const verifyOtp = async (req: Request, res: Response) => {
             (role.name.toLowerCase().includes("teacher") ||
               role.name.toLowerCase().includes("instructor")))
         ) {
-          console.log("✅ Mapped to instructor role");
-          return "instructor";
-        }
-
-        // Student check
-        if (
-          role.role_id === 6 || // STUDENT
-          (role.name && role.name.toLowerCase().includes("student"))
-        ) {
-          console.log("✅ Mapped to student role");
-          return "student";
+          bestRole = "instructor";
         }
       }
 
-      console.log("❌ No matching role found, defaulting to student");
-      return "student";
+      return bestRole;
     };
 
     const mappedRole = mapMisRoleToLocal(roles);
@@ -324,6 +306,21 @@ export const ssoCallback = async (req: Request, res: Response) => {
 
     console.log("🔐 SSO Callback: Exchanging authorization code for token...");
 
+    // Debug: Verify credentials are loaded
+    console.log("🔍 SSO Config Check:");
+    console.log("  - MIS Base URL:", process.env.NGA_MIS_BASE_URL);
+    console.log("  - Client ID:", process.env.SSO_CLIENT_ID);
+    console.log(
+      "  - Client Secret:",
+      process.env.SSO_CLIENT_SECRET
+        ? `${process.env.SSO_CLIENT_SECRET.substring(0, 10)}...`
+        : "NOT SET",
+    );
+    console.log(
+      "  - Code received:",
+      code ? `${code.substring(0, 10)}...` : "NOT SET",
+    );
+
     // Exchange authorization code for MIS token
     // Endpoint: POST /sso/token as per SSO_CLIENT_INTEGRATION.md
     const misResponse = await axios.post<{
@@ -399,6 +396,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
       if (!misRoles || !Array.isArray(misRoles) || misRoles.length === 0) {
         return "student";
       }
+      let bestRole: "student" | "instructor" | "admin" = "student";
       for (const role of misRoles) {
         if (
           role.role_id === 1 ||
@@ -419,16 +417,10 @@ export const ssoCallback = async (req: Request, res: Response) => {
             (role.name.toLowerCase().includes("teacher") ||
               role.name.toLowerCase().includes("instructor")))
         ) {
-          return "instructor";
-        }
-        if (
-          role.role_id === 6 ||
-          (role.name && role.name.toLowerCase().includes("student"))
-        ) {
-          return "student";
+          bestRole = "instructor";
         }
       }
-      return "student";
+      return bestRole;
     };
 
     const mappedRole = mapMisRoleToLocal(roles);
@@ -441,6 +433,14 @@ export const ssoCallback = async (req: Request, res: Response) => {
     if (!localUser) {
       // Create local account if it doesn't exist
       console.log("👤 Creating new local user for MIS user:", misUser.user_id);
+      console.log("📝 User details:");
+      console.log("  - Email:", misUser.email);
+      console.log(
+        "  - Name:",
+        `${misProfile?.first_name || misUser.username} ${misProfile?.last_name || ""}`,
+      );
+      console.log("  - Role:", mappedRole);
+
       localUser = await User.create({
         first_name: misProfile?.first_name || misUser.username,
         last_name: misProfile?.last_name || "",
@@ -449,13 +449,30 @@ export const ssoCallback = async (req: Request, res: Response) => {
         role: mappedRole,
         mis_user_id: misUser.user_id,
       });
+
+      console.log("✅ New user created successfully with ID:", localUser.id);
     } else {
       // Update existing user info
+      console.log("🔄 Updating existing local user:", localUser.id);
+      console.log("📝 Update details:");
+      console.log(
+        "  - Previous name:",
+        `${localUser.first_name} ${localUser.last_name}`,
+      );
+      console.log(
+        "  - New name:",
+        `${misProfile?.first_name || localUser.first_name} ${misProfile?.last_name || localUser.last_name}`,
+      );
+      console.log("  - Previous role:", localUser.role);
+      console.log("  - New role:", mappedRole);
+
       localUser.first_name = misProfile?.first_name || localUser.first_name;
       localUser.last_name = misProfile?.last_name || localUser.last_name;
       localUser.email = misUser.email;
       localUser.role = mappedRole;
       await localUser.save();
+
+      console.log("✅ User updated successfully");
     }
 
     // Find active term ID for token

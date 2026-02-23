@@ -13,7 +13,7 @@ const CreateAssignmentPage: React.FC = () => {
     try {
       const endpoint = courseId
         ? `/courses/${courseId}/assignments`
-        : " /assignments";
+        : "/assignments";
 
       // Create FormData object
       const formData = new FormData();

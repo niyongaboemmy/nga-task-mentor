@@ -59,10 +59,32 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
   }, [assignment?.rubric]);
 
   const handleSubmitAssignment = async () => {
-    // Validate that at least one submission method is provided
-    if (!submissionText.trim() && !submissionFile) {
-      toast.error("Please provide either text submission or file submission.");
+    // Validate according to submission_type
+    const type = assignment.submission_type;
+    const hasText = !!submissionText.trim();
+    const hasFile = !!submissionFile;
+
+    if (type === "text" && !hasText) {
+      toast.error("Please provide your text submission.");
       return;
+    }
+    if (type === "file" && !hasFile) {
+      toast.error("Please upload your submission file.");
+      return;
+    }
+    if (type === "both") {
+      if (!hasText && !hasFile) {
+        toast.error("Please provide both text and file submissions.");
+        return;
+      }
+      if (!hasText) {
+        toast.error("Please provide your text submission.");
+        return;
+      }
+      if (!hasFile) {
+        toast.error("Please upload your submission file.");
+        return;
+      }
     }
 
     setIsSubmitting(true);
@@ -79,20 +101,33 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
       }
 
       // Debug logging
-      console.log("Submitting assignment with:", {
-        hasText: !!submissionText.trim(),
-        hasFile: !!submissionFile,
-        formDataEntries: Array.from(formData.entries()).map(([key, value]) => [
-          key,
-          value instanceof File ? `File: ${value.name}` : value,
-        ]),
-      });
-
-      await api.post(`/assignments/${assignment.id}/submit`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
+      console.log(
+        `${existingSubmission ? "Updating" : "Submitting"} assignment with:`,
+        {
+          hasText: !!submissionText.trim(),
+          hasFile: !!submissionFile,
+          formDataEntries: Array.from(formData.entries()).map(
+            ([key, value]) => [
+              key,
+              value instanceof File ? `File: ${value.name}` : value,
+            ],
+          ),
         },
-      });
+      );
+
+      if (existingSubmission) {
+        await api.put(`/submissions/${existingSubmission.id}`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      } else {
+        await api.post(`/assignments/${assignment.id}/submit`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        });
+      }
 
       // Refresh data
       onSubmissionSuccess();
@@ -102,12 +137,19 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
       setSubmissionFile(null);
       onClose();
 
-      toast.success("Assignment submitted successfully!");
+      toast.success(
+        existingSubmission
+          ? "Submission updated successfully!"
+          : "Assignment submitted successfully!",
+      );
     } catch (error: any) {
-      console.error("Error submitting assignment:", error);
+      console.error(
+        `Error ${existingSubmission ? "updating" : "submitting"} assignment:`,
+        error,
+      );
       const errorMessage =
         error.response?.data?.message ||
-        "Failed to submit assignment. Please try again.";
+        `Failed to ${existingSubmission ? "update" : "submit"} assignment. Please try again.`;
       toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
@@ -324,7 +366,12 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                     onClick={handleSubmitAssignment}
                     disabled={
                       isSubmitting ||
-                      (!submissionText.trim() && !submissionFile)
+                      (assignment.submission_type === "text" &&
+                        !submissionText.trim()) ||
+                      (assignment.submission_type === "file" &&
+                        !submissionFile) ||
+                      (assignment.submission_type === "both" &&
+                        (!submissionText.trim() || !submissionFile))
                     }
                     className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed rounded-full transition-colors"
                   >

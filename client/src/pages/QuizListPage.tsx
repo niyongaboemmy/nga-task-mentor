@@ -9,6 +9,7 @@ import {
   updateQuiz,
 } from "../store/slices/quizSlice";
 import QuizListItem from "../components/Quizzes/QuizListItem";
+import { useAuth } from "../contexts/AuthContext";
 import {
   ChevronLeft,
   ChevronRight,
@@ -25,9 +26,10 @@ import {
 const QuizListPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const dispatch = useDispatch<AppDispatch>();
-  const { quizzes, loading } = useSelector(
-    (state: RootState) => state.quiz
-  );
+  const { quizzes, loading } = useSelector((state: RootState) => state.quiz);
+  const { user } = useAuth();
+  const canManageQuizzes =
+    user?.role === "instructor" || user?.role === "admin";
 
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [publicLoading, setPublicLoading] = useState<string | null>(null);
@@ -109,12 +111,11 @@ const QuizListPage: React.FC = () => {
     return filtered;
   }, [quizzes, searchTerm, statusFilter, typeFilter, sortBy, sortOrder]);
 
-
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedQuizzes.length / itemsPerPage);
   const paginatedQuizzes = filteredAndSortedQuizzes.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   // Group quizzes by status
@@ -174,7 +175,7 @@ const QuizListPage: React.FC = () => {
 
   const handleTogglePublic = async (
     quizId: number,
-    currentPublicStatus: boolean
+    currentPublicStatus: boolean,
   ) => {
     setPublicLoading(quizId.toString());
     try {
@@ -182,7 +183,7 @@ const QuizListPage: React.FC = () => {
         updateQuiz({
           quizId,
           quizData: { is_public: !currentPublicStatus },
-        })
+        }),
       ).unwrap();
     } catch (error) {
       console.error("Failed to update quiz public status:", error);
@@ -261,15 +262,17 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Link
-                to={`/courses/${courseId}/quizzes/create`}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Create Quiz
-              </Link>
-            </div>
+            {canManageQuizzes && (
+              <div className="flex items-center gap-3">
+                <Link
+                  to={`/courses/${courseId}/quizzes/create`}
+                  className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Create Quiz
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Stats Cards */}
@@ -454,8 +457,12 @@ const QuizListPage: React.FC = () => {
                       <QuizListItem
                         key={quiz.id}
                         quiz={quiz}
-                        onDelete={handleDeleteQuiz}
-                        onTogglePublic={handleTogglePublic}
+                        onDelete={
+                          canManageQuizzes ? handleDeleteQuiz : undefined
+                        }
+                        onTogglePublic={
+                          canManageQuizzes ? handleTogglePublic : undefined
+                        }
                         deleteLoading={deleteLoading}
                         publicLoading={publicLoading}
                         showActions={true}
@@ -481,7 +488,7 @@ const QuizListPage: React.FC = () => {
                             <div className="flex items-center gap-2 mb-3">
                               <span
                                 className={`px-2 py-1 text-xs font-medium rounded-full ${getStatusColor(
-                                  quiz.status
+                                  quiz.status,
                                 )}`}
                               >
                                 {quiz.status.charAt(0).toUpperCase() +
@@ -512,38 +519,40 @@ const QuizListPage: React.FC = () => {
                             View Quiz
                           </Link>
 
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() =>
-                                handleTogglePublic(
-                                  quiz.id,
-                                  quiz.is_public || false
-                                )
-                              }
-                              disabled={publicLoading === quiz.id.toString()}
-                              className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                                quiz.is_public
-                                  ? "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
-                                  : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
-                              } disabled:opacity-50`}
-                            >
-                              {publicLoading === quiz.id.toString()
-                                ? "..."
-                                : quiz.is_public
-                                ? "Private"
-                                : "Public"}
-                            </button>
+                          {canManageQuizzes && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() =>
+                                  handleTogglePublic(
+                                    quiz.id,
+                                    quiz.is_public || false,
+                                  )
+                                }
+                                disabled={publicLoading === quiz.id.toString()}
+                                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                                  quiz.is_public
+                                    ? "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
+                                    : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                                } disabled:opacity-50`}
+                              >
+                                {publicLoading === quiz.id.toString()
+                                  ? "..."
+                                  : quiz.is_public
+                                    ? "Private"
+                                    : "Public"}
+                              </button>
 
-                            <button
-                              onClick={() => handleDeleteQuiz(quiz.id)}
-                              disabled={deleteLoading === quiz.id.toString()}
-                              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-full disabled:opacity-50"
-                            >
-                              {deleteLoading === quiz.id.toString()
-                                ? "..."
-                                : "Delete"}
-                            </button>
-                          </div>
+                              <button
+                                onClick={() => handleDeleteQuiz(quiz.id)}
+                                disabled={deleteLoading === quiz.id.toString()}
+                                className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-full disabled:opacity-50"
+                              >
+                                {deleteLoading === quiz.id.toString()
+                                  ? "..."
+                                  : "Delete"}
+                              </button>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -569,7 +578,7 @@ const QuizListPage: React.FC = () => {
               {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
                 const pageNum = Math.max(
                   1,
-                  Math.min(totalPages - 4, currentPage - 2 + i)
+                  Math.min(totalPages - 4, currentPage - 2 + i),
                 );
                 return (
                   <button
@@ -614,15 +623,18 @@ const QuizListPage: React.FC = () => {
                 : "Create your first quiz to start assessing student learning and progress."}
             </p>
 
-            {!searchTerm && statusFilter === "all" && typeFilter === "all" && (
-              <Link
-                to={`/quizzes/${courseId}/questions/create`}
-                className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Create Your First Quiz
-              </Link>
-            )}
+            {!searchTerm &&
+              statusFilter === "all" &&
+              typeFilter === "all" &&
+              canManageQuizzes && (
+                <Link
+                  to={`/quizzes/${courseId}/questions/create`}
+                  className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Create Your First Quiz
+                </Link>
+              )}
           </div>
         )}
       </div>

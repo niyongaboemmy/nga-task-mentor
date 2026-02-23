@@ -135,6 +135,18 @@ export const getUser = async (req: Request, res: Response) => {
       });
     }
 
+    // IDOR Protection: Users can only view their own profile unless they are admin/instructor
+    if (
+      req.user.id.toString() !== req.params.id &&
+      req.user.role !== "admin" &&
+      req.user.role !== "instructor"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to access this user profile",
+      });
+    }
+
     const response = await axios.get(
       `${process.env.NGA_MIS_BASE_URL}/users/${req.params.id}`,
       {
@@ -470,6 +482,18 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
       });
     }
 
+    // IDOR Protection
+    if (
+      req.user.id.toString() !== userId &&
+      req.user.role !== "admin" &&
+      req.user.role !== "instructor"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to view these assignments",
+      });
+    }
+
     // Fetch user's enrolled subjects from MIS API to know which assignments to show
     const misResponse = await axios.get(
       `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
@@ -545,6 +569,18 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
       return res.status(401).json({
         success: false,
         message: "Authentication required",
+      });
+    }
+
+    // IDOR Protection
+    if (
+      req.user.id.toString() !== userId &&
+      req.user.role !== "admin" &&
+      req.user.role !== "instructor"
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to view these quizzes",
       });
     }
 

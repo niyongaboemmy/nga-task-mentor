@@ -299,17 +299,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
               </button>
             </div>
             <div className="space-y-2">
-              {(
-                JSON.parse(
-                  submission.file_submissions as unknown as string,
-                ) as {
-                  path: string;
-                  size: number;
-                  filename: string;
-                  mimetype: string;
-                  originalname: string;
-                }[]
-              ).map((file, index) => (
+              {submission.file_submissions.map((file, index) => (
                 <div
                   key={index}
                   className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-3 border border-gray-200 dark:border-gray-700"

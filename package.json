@@ -1,0 +1,14 @@
+{
+  "name": "nga-task-mentor",
+  "version": "1.0.0",
+  "description": "NGA Task Mentor Project",
+  "private": true,
+  "scripts": {
+    "server": "npm run dev --prefix server",
+    "client": "npm run dev --prefix client",
+    "dev": "concurrently \"npm run server\" \"npm run client\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}

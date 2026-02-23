@@ -89,7 +89,7 @@ export class Assignment extends Model<
   public due_date!: Date;
 
   @Column({
-    type: DataType.INTEGER,
+    type: DataType.FLOAT,
     allowNull: false,
     field: "max_score",
     validate: {
@@ -155,26 +155,38 @@ export class Assignment extends Model<
           throw new Error("Rubric must be an array of objects");
         }
 
+        let totalRubricScore = 0;
         for (let index = 0; index < value.length; index++) {
           const item = value[index];
           if (!item || typeof item !== "object") {
             throw new Error(`Rubric item at index ${index} must be an object`);
           }
-          if (!item.criteria || typeof item.criteria !== "string") {
+          if (
+            !item.criteria ||
+            typeof item.criteria !== "string" ||
+            !item.criteria.trim()
+          ) {
             throw new Error(
-              `Rubric item at index ${index} must have a string 'criteria' property`,
+              `Rubric item at index ${index} must have a non-empty criteria name`,
             );
           }
           if (typeof item.max_score !== "number" || item.max_score <= 0) {
             throw new Error(
-              `Rubric item at index ${index} must have a positive 'max_score' number`,
+              `Rubric item at index ${index} must have a positive max score`,
             );
           }
+          totalRubricScore += item.max_score;
           if (item.description && typeof item.description !== "string") {
             throw new Error(
-              `Rubric item at index ${index} description must be a string if provided`,
+              `Rubric item at index ${index} description must be a string`,
             );
           }
+        }
+
+        // Optional: We could validate that totalRubricScore equals this.max_score,
+        // but sometimes instructors want flexibility. Let's just ensure it doesn't exceed 1000.
+        if (totalRubricScore > 1000) {
+          throw new Error("Total rubric score cannot exceed 1000");
         }
       },
     },

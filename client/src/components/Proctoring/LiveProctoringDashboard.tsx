@@ -39,7 +39,7 @@ interface ProctoringEvent {
 const LiveProctoringDashboard: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
   const [selectedQuiz, _setSelectedQuiz] = useState<number | null>(
-    quizId ? Number(quizId) : null
+    quizId ? Number(quizId) : null,
   );
   const [activeStreams, setActiveStreams] = useState<LiveStream[]>([]);
   const [selectedStream, setSelectedStream] = useState<LiveStream | null>(null);
@@ -85,7 +85,7 @@ const LiveProctoringDashboard: React.FC = () => {
   useEffect(() => {
     if (socketConnected && activeStreams.length > 0) {
       console.log(
-        "Socket connected/streams loaded, attempting to establish WebRTC connections"
+        "Socket connected/streams loaded, attempting to establish WebRTC connections",
       );
       // Small delay to ensure socket is fully ready
       const connectTimeout = setTimeout(() => {
@@ -111,7 +111,7 @@ const LiveProctoringDashboard: React.FC = () => {
       console.log(
         `Stream ${stream.sessionToken}: isLive=${
           stream.isLive
-        }, hasConnection=${peerConnectionsRef.current.has(stream.sessionToken)}`
+        }, hasConnection=${peerConnectionsRef.current.has(stream.sessionToken)}`,
       );
       if (
         stream.isLive &&
@@ -119,7 +119,7 @@ const LiveProctoringDashboard: React.FC = () => {
         socketConnected
       ) {
         console.log(
-          `Attempting to join stream for ${stream.student.first_name} ${stream.student.last_name}`
+          `Attempting to join stream for ${stream.student.first_name} ${stream.student.last_name}`,
         );
         // Auto-join live streams
         joinStream(stream);
@@ -133,7 +133,7 @@ const LiveProctoringDashboard: React.FC = () => {
     if (liveStreams.length > 0 && !selectedStream && socketConnected) {
       console.log(
         "Auto-joining first live stream:",
-        liveStreams[0].student.first_name
+        liveStreams[0].student.first_name,
       );
       // Add a small delay to ensure socket is connected
       setTimeout(() => {
@@ -149,7 +149,7 @@ const LiveProctoringDashboard: React.FC = () => {
     if (selectedStreamForModal && socketConnected) {
       console.log(
         "Auto-joining stream for modal:",
-        selectedStreamForModal.sessionToken
+        selectedStreamForModal.sessionToken,
       );
       // Only join if not already connected
       if (
@@ -164,8 +164,8 @@ const LiveProctoringDashboard: React.FC = () => {
   useEffect(() => {
     const quizzes = Array.from(
       new Map(
-        activeStreams.map((stream) => [stream.quiz.id, stream.quiz])
-      ).values()
+        activeStreams.map((stream) => [stream.quiz.id, stream.quiz]),
+      ).values(),
     );
     setAvailableQuizzes(quizzes);
   }, [activeStreams]);
@@ -178,7 +178,7 @@ const LiveProctoringDashboard: React.FC = () => {
     socketRef.current.on("connect", () => {
       console.log(
         "Dashboard Socket.IO connected with ID:",
-        socketRef.current?.id
+        socketRef.current?.id,
       );
       setSocketConnected(true);
 
@@ -209,9 +209,9 @@ const LiveProctoringDashboard: React.FC = () => {
         // Dashboard should NOT receive offers - it sends them!
         console.error(
           "DASHBOARD RECEIVED OFFER - THIS SHOULD NOT HAPPEN!",
-          data
+          data,
         );
-      }
+      },
     );
 
     socketRef.current.on(
@@ -220,10 +220,10 @@ const LiveProctoringDashboard: React.FC = () => {
         console.log("Dashboard received WebRTC answer:", data);
         console.log(
           "Dashboard handling WebRTC answer for session:",
-          data.sessionToken
+          data.sessionToken,
         );
         handleWebRTCAnswerDashboard(data.answer, data.sessionToken);
-      }
+      },
     );
 
     socketRef.current.on(
@@ -234,16 +234,16 @@ const LiveProctoringDashboard: React.FC = () => {
         if (peerConnectionsRef.current.has(data.sessionToken)) {
           console.log(
             "Dashboard handling ICE candidate for session:",
-            data.sessionToken
+            data.sessionToken,
           );
           handleICECandidate(data.candidate, data.sessionToken);
         } else {
           console.log(
             "Dashboard ignoring ICE candidate - no peer connection for session:",
-            data.sessionToken
+            data.sessionToken,
           );
         }
-      }
+      },
     );
 
     socketRef.current.on("proctoring-event", (event: ProctoringEvent) => {
@@ -259,7 +259,7 @@ const LiveProctoringDashboard: React.FC = () => {
       const peerConnection = peerConnectionsRef.current.get(sessionToken);
       if (peerConnection) {
         console.log(
-          `Student signaled ready for ${sessionToken}, creating offer`
+          `Student signaled ready for ${sessionToken}, creating offer`,
         );
 
         // Check if peer connection is still valid before creating offer
@@ -268,7 +268,7 @@ const LiveProctoringDashboard: React.FC = () => {
           peerConnection.connectionState === "closed"
         ) {
           console.error(
-            `Peer connection for ${sessionToken} is closed, cannot create offer`
+            `Peer connection for ${sessionToken} is closed, cannot create offer`,
           );
           peerConnectionsRef.current.delete(sessionToken);
           return;
@@ -288,12 +288,12 @@ const LiveProctoringDashboard: React.FC = () => {
         } catch (error) {
           console.error(
             `Failed to create/send offer for ${sessionToken}:`,
-            error
+            error,
           );
         }
       } else {
         console.log(
-          `No peer connection found for session ${sessionToken} when student signaled ready`
+          `No peer connection found for session ${sessionToken} when student signaled ready`,
         );
       }
     });
@@ -313,7 +313,7 @@ const LiveProctoringDashboard: React.FC = () => {
         // Merge new data with existing streams, preserving connection state
         return newStreams.map((newStream: LiveStream) => {
           const existingStream = prevStreams.find(
-            (s) => s.sessionToken === newStream.sessionToken
+            (s) => s.sessionToken === newStream.sessionToken,
           );
           return existingStream
             ? { ...newStream, ...existingStream }
@@ -343,13 +343,13 @@ const LiveProctoringDashboard: React.FC = () => {
     console.log("Stream started:", streamData);
     setActiveStreams((prev) => {
       const existing = prev.find(
-        (s) => s.sessionToken === streamData.sessionToken
+        (s) => s.sessionToken === streamData.sessionToken,
       );
       if (existing) {
         return prev.map((s) =>
           s.sessionToken === streamData.sessionToken
             ? { ...s, ...streamData, isLive: true }
-            : s
+            : s,
         );
       } else {
         return [...prev, { ...streamData, isLive: true }];
@@ -361,8 +361,8 @@ const LiveProctoringDashboard: React.FC = () => {
     console.log("Stream ended:", data.sessionToken);
     setActiveStreams((prev) =>
       prev.map((s) =>
-        s.sessionToken === data.sessionToken ? { ...s, isLive: false } : s
-      )
+        s.sessionToken === data.sessionToken ? { ...s, isLive: false } : s,
+      ),
     );
   };
 
@@ -372,12 +372,12 @@ const LiveProctoringDashboard: React.FC = () => {
     setActiveStreams((prev) =>
       prev.map((existingStream) => {
         const socketStream = streams.find(
-          (s) => s.sessionToken === existingStream.sessionToken
+          (s) => s.sessionToken === existingStream.sessionToken,
         );
         return socketStream
           ? { ...existingStream, isLive: true, ...socketStream }
           : existingStream;
-      })
+      }),
     );
   };
 
@@ -391,8 +391,8 @@ const LiveProctoringDashboard: React.FC = () => {
       prev.map((s) =>
         s.sessionToken === data.sessionToken
           ? { ...s, isLive: false, disconnectedAt: data.disconnectedAt }
-          : s
-      )
+          : s,
+      ),
     );
   };
 
@@ -411,8 +411,8 @@ const LiveProctoringDashboard: React.FC = () => {
               disconnectedAt: undefined,
               lastReconnection: data.resumedAt,
             }
-          : s
-      )
+          : s,
+      ),
     );
   };
 
@@ -427,7 +427,7 @@ const LiveProctoringDashboard: React.FC = () => {
     // Prevent concurrent join attempts for the same stream
     if (joiningStreamsRef.current.has(stream.sessionToken)) {
       console.log(
-        `Already joining stream for ${stream.sessionToken}, skipping`
+        `Already joining stream for ${stream.sessionToken}, skipping`,
       );
       return;
     }
@@ -436,13 +436,13 @@ const LiveProctoringDashboard: React.FC = () => {
 
     try {
       console.log(
-        `Joining stream for ${stream.student.first_name} ${stream.student.last_name} (${stream.sessionToken})`
+        `Joining stream for ${stream.student.first_name} ${stream.student.last_name} (${stream.sessionToken})`,
       );
       setSelectedStream(stream);
 
       // Check if we already have a peer connection for this stream
       const existingConnection = peerConnectionsRef.current.get(
-        stream.sessionToken
+        stream.sessionToken,
       );
       if (existingConnection) {
         // Check if the connection is still valid
@@ -451,13 +451,13 @@ const LiveProctoringDashboard: React.FC = () => {
           existingConnection.connectionState !== "closed"
         ) {
           console.log(
-            `Already have active peer connection for ${stream.sessionToken}`
+            `Already have active peer connection for ${stream.sessionToken}`,
           );
           return;
         } else {
           // Clean up the closed connection
           console.log(
-            `Cleaning up closed peer connection for ${stream.sessionToken}`
+            `Cleaning up closed peer connection for ${stream.sessionToken}`,
           );
           existingConnection.close();
           peerConnectionsRef.current.delete(stream.sessionToken);
@@ -474,7 +474,7 @@ const LiveProctoringDashboard: React.FC = () => {
       // Join the stream via API
       const joinResult = await ProctoringApiService.joinLiveStream(
         stream.sessionToken,
-        socketRef.current?.id || ""
+        socketRef.current?.id || "",
       );
       console.log("Join stream API result:", joinResult);
 
@@ -493,7 +493,7 @@ const LiveProctoringDashboard: React.FC = () => {
       peerConnection.ontrack = (event) => {
         console.log(
           `Received remote stream for ${stream.sessionToken}`,
-          event.streams[0]
+          event.streams[0],
         );
         if (event.streams[0]) {
           console.log(`Dashboard stream tracks:`, event.streams[0].getTracks());
@@ -502,27 +502,27 @@ const LiveProctoringDashboard: React.FC = () => {
             prev.map((s) =>
               s.sessionToken === stream.sessionToken
                 ? { ...s, stream: event.streams[0] }
-                : s
-            )
+                : s,
+            ),
           );
 
           // Also update the modal stream if this is the selected stream
           if (selectedStreamForModal?.sessionToken === stream.sessionToken) {
             setSelectedStreamForModal((prev) =>
-              prev ? { ...prev, stream: event.streams[0] || undefined } : null
+              prev ? { ...prev, stream: event.streams[0] || undefined } : null,
             );
           }
 
           // Force video element update
           setTimeout(() => {
             const videoElements = document.querySelectorAll(
-              `[data-session-token="${stream.sessionToken}"]`
+              `[data-session-token="${stream.sessionToken}"]`,
             );
             videoElements.forEach((videoEl) => {
               const video = videoEl as HTMLVideoElement;
               if (video && video.srcObject !== event.streams[0]) {
                 console.log(
-                  `Force updating video element for ${stream.sessionToken}`
+                  `Force updating video element for ${stream.sessionToken}`,
                 );
                 video.srcObject = event.streams[0];
               }
@@ -535,7 +535,7 @@ const LiveProctoringDashboard: React.FC = () => {
       peerConnection.onconnectionstatechange = () => {
         console.log(
           `Peer connection state for ${stream.sessionToken}:`,
-          peerConnection.connectionState
+          peerConnection.connectionState,
         );
       };
 
@@ -543,7 +543,7 @@ const LiveProctoringDashboard: React.FC = () => {
       peerConnection.oniceconnectionstatechange = () => {
         console.log(
           `ICE connection state for ${stream.sessionToken}:`,
-          peerConnection.iceConnectionState
+          peerConnection.iceConnectionState,
         );
       };
 
@@ -551,7 +551,7 @@ const LiveProctoringDashboard: React.FC = () => {
       peerConnection.onsignalingstatechange = () => {
         console.log(
           `Signaling state for ${stream.sessionToken}:`,
-          peerConnection.signalingState
+          peerConnection.signalingState,
         );
       };
 
@@ -560,7 +560,7 @@ const LiveProctoringDashboard: React.FC = () => {
         if (event.candidate && socketRef.current?.connected) {
           console.log(
             `Dashboard sending ICE candidate for ${stream.sessionToken}:`,
-            event.candidate
+            event.candidate,
           );
           socketRef.current.emit("webrtc-ice-candidate", {
             sessionToken: stream.sessionToken,
@@ -568,7 +568,7 @@ const LiveProctoringDashboard: React.FC = () => {
           });
         } else if (!event.candidate) {
           console.log(
-            `Dashboard ICE gathering complete for ${stream.sessionToken}`
+            `Dashboard ICE gathering complete for ${stream.sessionToken}`,
           );
         }
       };
@@ -580,7 +580,7 @@ const LiveProctoringDashboard: React.FC = () => {
           role: "dashboard",
         });
         console.log(
-          `Joined proctoring session room: ${stream.sessionToken} as dashboard`
+          `Joined proctoring session room: ${stream.sessionToken} as dashboard`,
         );
       } else {
         console.error("Socket not connected when trying to join room");
@@ -608,18 +608,18 @@ const LiveProctoringDashboard: React.FC = () => {
             sessionToken: stream.sessionToken,
           });
           console.log(
-            `Dashboard sent initial offer for ${stream.sessionToken}`
+            `Dashboard sent initial offer for ${stream.sessionToken}`,
           );
         }
       } catch (error) {
         console.error(
           `Failed to send initial offer for ${stream.sessionToken}:`,
-          error
+          error,
         );
       }
 
       console.log(
-        `Dashboard WebRTC setup complete for ${stream.sessionToken} - waiting for student to initiate connection`
+        `Dashboard WebRTC setup complete for ${stream.sessionToken} - waiting for student to initiate connection`,
       );
     } catch (error) {
       console.error("Error joining stream:", error);
@@ -632,11 +632,11 @@ const LiveProctoringDashboard: React.FC = () => {
 
   const handleWebRTCAnswerDashboard = async (
     answer: any,
-    sessionToken: string
+    sessionToken: string,
   ) => {
     try {
       console.log(
-        `Dashboard received WebRTC answer for ${sessionToken} (may be renegotiation)`
+        `Dashboard received WebRTC answer for ${sessionToken} (may be renegotiation)`,
       );
       const peerConnection = peerConnectionsRef.current.get(sessionToken);
       if (peerConnection) {
@@ -646,17 +646,17 @@ const LiveProctoringDashboard: React.FC = () => {
           peerConnection.signalingState === "stable"
         ) {
           console.log(
-            `Setting remote description for ${sessionToken}, current state: ${peerConnection.signalingState}`
+            `Setting remote description for ${sessionToken}, current state: ${peerConnection.signalingState}`,
           );
           await peerConnection.setRemoteDescription(
-            new RTCSessionDescription(answer)
+            new RTCSessionDescription(answer),
           );
           console.log(
-            `Successfully set remote description for ${sessionToken}`
+            `Successfully set remote description for ${sessionToken}`,
           );
         } else {
           console.log(
-            `Cannot set remote description, signaling state: ${peerConnection.signalingState}`
+            `Cannot set remote description, signaling state: ${peerConnection.signalingState}`,
           );
         }
       } else {
@@ -754,13 +754,13 @@ const LiveProctoringDashboard: React.FC = () => {
           });
           console.log(
             "Sent renegotiation offer for microphone to:",
-            sessionToken
+            sessionToken,
           );
         }
 
         console.log(
           "Added microphone track and renegotiated connection for:",
-          sessionToken
+          sessionToken,
         );
       } else {
         // Remove microphone
@@ -778,7 +778,7 @@ const LiveProctoringDashboard: React.FC = () => {
         });
         console.log(
           "Removed microphone track from peer connection for:",
-          sessionToken
+          sessionToken,
         );
       }
     } catch (error) {
@@ -790,13 +790,13 @@ const LiveProctoringDashboard: React.FC = () => {
   const handleForceAudioSettings = (
     sessionToken: string,
     volume?: number,
-    micGain?: number
+    micGain?: number,
   ) => {
     if (socketRef.current?.connected) {
       console.log(
         "Sending force audio settings command to student:",
         sessionToken,
-        { volume, micGain }
+        { volume, micGain },
       );
       socketRef.current.emit("force-student-audio", {
         sessionToken: sessionToken,
@@ -854,10 +854,10 @@ const LiveProctoringDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
       <div className="w-full py-6 pt-0">
         {/* Header */}
-        <div className="bg-white/90 border-b border-blue-100 dark:border-gray-800 p-3 mb-3">
+        <div className="bg-white/90 border-b border-blue-100 dark:border-gray-800 dark:bg-gray-900 p-3 mb-3">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <button
@@ -956,7 +956,7 @@ const LiveProctoringDashboard: React.FC = () => {
         )}
 
         {/* Live Student Videos Section */}
-        <div className="bg-white/90 border border-blue-200 rounded-2xl p-6">
+        <div className="bg-white/90 dark:bg-gray-900 border border-blue-200 rounded-2xl dark:border-none p-6">
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-blue-500 rounded-lg flex items-center justify-center">
@@ -1150,7 +1150,7 @@ const LiveProctoringDashboard: React.FC = () => {
                     >
                       <div
                         className={`w-3 h-3 rounded-full ${getSeverityColor(
-                          event.severity
+                          event.severity,
                         )}`}
                       ></div>
                       <div className="flex-1">
@@ -1170,10 +1170,10 @@ const LiveProctoringDashboard: React.FC = () => {
                               event.severity === "critical"
                                 ? "bg-red-100 text-red-700"
                                 : event.severity === "high"
-                                ? "bg-orange-100 text-orange-700"
-                                : event.severity === "medium"
-                                ? "bg-yellow-100 text-yellow-700"
-                                : "bg-blue-100 text-blue-700"
+                                  ? "bg-orange-100 text-orange-700"
+                                  : event.severity === "medium"
+                                    ? "bg-yellow-100 text-yellow-700"
+                                    : "bg-blue-100 text-blue-700"
                             }`}
                           >
                             {event.severity.toUpperCase()}

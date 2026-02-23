@@ -14,6 +14,7 @@ import { User } from "./User.model";
 export type SubmissionStatus =
   | "draft"
   | "submitted"
+  | "completed"
   | "late"
   | "graded"
   | "resubmitted";
@@ -249,13 +250,28 @@ export class Submission extends Model<
             }
 
             const allowedFileTypes = (assignment as any).allowed_file_types;
-            if (allowedFileTypes && instance.file_submissions?.length) {
+            if (
+              allowedFileTypes &&
+              Array.isArray(allowedFileTypes) &&
+              allowedFileTypes.length > 0 &&
+              instance.file_submissions?.length
+            ) {
               for (const file of instance.file_submissions) {
                 const fileExt = file.originalname
                   .split(".")
                   .pop()
                   ?.toLowerCase();
-                if (!fileExt || !allowedFileTypes.includes(`.${fileExt}`)) {
+
+                if (!fileExt) {
+                  throw new Error(`File type unknown for ${file.originalname}`);
+                }
+
+                // Check both formats: '.pdf' AND 'pdf'
+                const isAllowed =
+                  allowedFileTypes.includes(`.${fileExt}`) ||
+                  allowedFileTypes.includes(fileExt);
+
+                if (!isAllowed) {
                   throw new Error(`File type .${fileExt} is not allowed`);
                 }
               }

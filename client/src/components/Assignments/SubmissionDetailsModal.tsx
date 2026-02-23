@@ -132,7 +132,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
         className="w-full max-w-5xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-2xl overflow-hidden dark:border dark:border-gray-800 flex flex-col"
       >
         {/* Premium Header */}
-        <div className="px-8 py-6 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-black dark:via-gray-900 dark:to-black text-white relative">
+        <div className="px-8 py-6 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 dark:from-black dark:via-gray-900 dark:to-black text-white relative">
           <div className="absolute top-0 right-0 p-8 opacity-10">
             <FileText className="w-32 h-32" />
           </div>
@@ -145,10 +145,10 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                     undefined
                   }
                   alt={submission.student.first_name}
-                  className="h-14 w-14 rounded-2xl object-cover shadow-lg transform -rotate-3 ring-2 ring-white/20"
+                  className="h-14 w-14 rounded-2xl object-cover transform -rotate-3 ring-2 ring-white/20"
                 />
               ) : (
-                <div className="h-14 w-14 bg-blue-600 rounded-2xl flex items-center justify-center shadow-lg transform -rotate-3">
+                <div className="h-14 w-14 bg-blue-500 rounded-2xl flex items-center justify-center transform -rotate-3">
                   <FileText className="w-7 h-7 text-white" />
                 </div>
               )}
@@ -177,11 +177,11 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
         </div>
 
         {/* Scrollable Content Container */}
-        <div className="flex-1 overflow-y-auto bg-gray-50/50 dark:bg-gray-950 p-8 pt-6">
-          <div className="max-w-4xl mx-auto space-y-8">
+        <div className="flex-1 overflow-y-auto bg-gray-100/60 dark:bg-gray-950 p-8 pt-6">
+          <div className="w-full space-y-6">
             {/* Grade Highlight & Status */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 bg-white dark:bg-gray-900 rounded-[2rem] p-8 border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none flex items-center gap-6">
+              <div className="md:col-span-2 bg-white dark:bg-gray-900 rounded-[2rem] p-8 border border-gray-100 dark:border-gray-800 shadow-gray-200/50 dark:shadow-none flex items-center gap-6">
                 <div className="h-24 w-24 rounded-full border-[6px] border-blue-500/20 flex items-center justify-center relative">
                   <div className="absolute inset-0 rounded-full border-[6px] border-blue-600 border-t-transparent animate-[spin_3s_linear_infinite]" />
                   <span className="text-2xl font-black text-gray-900 dark:text-white">
@@ -213,7 +213,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
               </div>
 
               <div
-                className={`rounded-[2rem] p-8 flex flex-col justify-center items-center text-center gap-2 border shadow-lg ${getSubmissionStatusColor(submission.status)}`}
+                className={`rounded-[2rem] p-8 flex flex-col justify-center items-center text-center gap-2 border ${getSubmissionStatusColor(submission.status)}`}
               >
                 <div className="w-12 h-12 rounded-2xl bg-current/20 flex items-center justify-center">
                   <CheckCircle2 className="w-6 h-6" />
@@ -229,7 +229,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
 
             {/* Rubric Breakdown for Student */}
             {submission.grade && rubric.length > 0 && (
-              <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 overflow-hidden shadow-xl shadow-gray-200/30">
+              <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 overflow-hidden shadow-gray-200/30">
                 <button
                   onClick={() => setShowBreakdown(!showBreakdown)}
                   className="w-full px-8 py-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -319,77 +319,103 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                 <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-0">
                 {/* File List */}
                 {submission.file_submissions && (
-                  <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-6 space-y-4">
+                  <div
+                    className={`bg-white dark:bg-gray-900/50 ${submission.text_submission ? "rounded-t-3xl" : "rounded-3xl"} border border-gray-100 dark:border-gray-900 p-6 space-y-4`}
+                  >
                     <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-gray-400">
                       <Download className="w-3 h-3" /> Sent Files
                     </h4>
                     <div className="space-y-3">
-                      {JSON.parse(
-                        submission.file_submissions as unknown as string,
-                      ).map((file: any, idx: number) => (
-                        <div
-                          key={idx}
-                          className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-800/30 rounded-2xl border border-gray-100 dark:border-gray-800 group hover:border-blue-500/30 transition-colors"
-                        >
-                          <div className="min-w-0 flex-1">
-                            <p className="text-sm font-bold truncate dark:text-white">
-                              {file.originalname || file.filename}
-                            </p>
-                            <p className="text-[10px] font-bold text-gray-400 uppercase">
-                              {(file.size / 1024).toFixed(1)} KB
-                            </p>
-                          </div>
-                          <div className="flex gap-1">
-                            <button
-                              onClick={() => {
-                                const fileName =
-                                  file.path.split(/[\/\\]/).pop() ||
-                                  file.filename;
-                                setSelectedFile({
-                                  url: `${import.meta.env.VITE_API_BASE_URL || ""}/uploads/${fileName}`,
-                                  name: file.originalname || fileName,
-                                });
-                              }}
-                              className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
-                            >
-                              <Eye className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() =>
-                                handleDownloadFile(
-                                  file.path.split(/[\/\\]/).pop() ||
-                                    file.filename,
-                                  file.originalname || file.filename,
-                                )
-                              }
-                              disabled={
-                                isDownloading ===
+                      {submission.file_submissions.map(
+                        (file: any, idx: number) => (
+                          <div
+                            key={idx}
+                            className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-800/30 rounded-2xl border border-gray-100 dark:border-gray-800 group hover:border-blue-500/30 transition-colors"
+                          >
+                            <div className="min-w-0 flex-1">
+                              <p className="text-sm font-bold truncate dark:text-white">
+                                {file.originalname || file.filename}
+                              </p>
+                              <p className="text-[10px] font-bold text-gray-400 uppercase">
+                                {(file.size / 1024).toFixed(1)} KB
+                              </p>
+                            </div>
+                            <div className="flex gap-1">
+                              <button
+                                onClick={() => {
+                                  const fileName =
+                                    file.path.split(/[\/\\]/).pop() ||
+                                    file.filename;
+                                  setSelectedFile({
+                                    url: `${import.meta.env.VITE_API_BASE_URL || ""}/uploads/${fileName}`,
+                                    name: file.originalname || fileName,
+                                  });
+                                }}
+                                className="p-2 text-gray-400 hover:text-blue-600 transition-colors"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleDownloadFile(
+                                    file.path.split(/[\/\\]/).pop() ||
+                                      file.filename,
+                                    file.originalname || file.filename,
+                                  )
+                                }
+                                disabled={
+                                  isDownloading ===
+                                  (file.path.split(/[\/\\]/).pop() ||
+                                    file.filename)
+                                }
+                                className="p-2 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
+                              >
+                                {isDownloading ===
                                 (file.path.split(/[\/\\]/).pop() ||
-                                  file.filename)
-                              }
-                              className="p-2 text-gray-400 hover:text-green-600 transition-colors disabled:opacity-50"
-                            >
-                              {isDownloading ===
-                              (file.path.split(/[\/\\]/).pop() ||
-                                file.filename) ? (
-                                <div className="w-4 h-4 border-2 border-green-500 border-t-transparent animate-spin rounded-full" />
-                              ) : (
-                                <Download className="w-4 h-4" />
-                              )}
-                            </button>
+                                  file.filename) ? (
+                                  <div className="w-4 h-4 border-2 border-green-500 border-t-transparent animate-spin rounded-full" />
+                                ) : (
+                                  <Download className="w-4 h-4" />
+                                )}
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                      ))}
+                        ),
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Secondary: Text Submission Full */}
+                {submission.text_submission && (
+                  <div
+                    className={
+                      `bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-900 p-5 space-y-4` +
+                      (submission.file_submissions
+                        ? " rounded-b-3xl"
+                        : " rounded-3xl")
+                    }
+                  >
+                    <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                      Written Response
+                    </h4>
+                    <div className="prose prose-sm dark:prose-invert max-w-none">
+                      {submission.text_submission}
                     </div>
                   </div>
                 )}
 
                 {/* Instructor Feedback */}
                 {submission.feedback && (
-                  <div className="bg-blue-600 rounded-3xl p-6 text-white space-y-4 shadow-xl shadow-blue-600/20">
+                  <div
+                    className={
+                      `bg-blue-600 rounded-3xl p-6 text-white space-y-4 shadow-blue-600/20` +
+                      (submission.file_submissions ? " rounded-t-3xl" : "")
+                    }
+                  >
                     <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-blue-100">
                       <Star className="w-3 h-3" /> Instructor Notes
                     </h4>
@@ -400,18 +426,6 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                 )}
               </div>
             </div>
-
-            {/* Secondary: Text Submission Full */}
-            {submission.text_submission && (
-              <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-8 space-y-4">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
-                  Written Response
-                </h4>
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  {submission.text_submission}
-                </div>
-              </div>
-            )}
 
             {/* Grading System (For Instructor) */}
             {canManageAssignment && submission.status !== "draft" && (
@@ -426,6 +440,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   submission={submission}
                   assignment={assignment}
                   onGradeSubmission={onGradeSubmission}
+                  onSuccess={onClose}
                 />
               </div>
             )}
@@ -439,7 +454,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                 <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-800" />
               </div>
 
-              <div className="bg-white dark:bg-gray-900 rounded-[3rem] p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+              <div className="bg-white dark:bg-gray-900 rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                 <div className="max-h-[400px] overflow-y-auto px-6 py-4 space-y-6">
                   {localComments.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center space-y-3 opacity-30">
@@ -466,7 +481,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                           <div
                             className={`px-5 py-3 rounded-2xl text-sm font-medium leading-relaxed ${
                               comment.isInstructor
-                                ? "bg-blue-600 text-white rounded-tr-none shadow-lg shadow-blue-500/20"
+                                ? "bg-blue-600 text-white rounded-tr-none shadow-blue-500/20"
                                 : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-tl-none"
                             }`}
                           >
@@ -488,7 +503,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   <button
                     disabled={isSubmittingComment || !newComment.trim()}
                     onClick={handleAddComment}
-                    className="h-10 w-10 bg-gray-900 dark:bg-white rounded-full flex items-center justify-center text-white dark:text-gray-900 shadow-xl hover:scale-110 active:scale-90 transition-all disabled:opacity-20"
+                    className="h-10 w-10 bg-gray-900 dark:bg-white rounded-full flex items-center justify-center text-white dark:text-gray-900 hover:scale-110 active:scale-90 transition-all disabled:opacity-20"
                   >
                     <ChevronRight className="w-5 h-5" />
                   </button>
@@ -499,7 +514,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
         </div>
 
         {/* Action Footer */}
-        <div className="px-12 py-6 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
+        <div className="px-12 py-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
           <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
             <Info className="w-3 h-3" /> Encrypted Session
           </div>

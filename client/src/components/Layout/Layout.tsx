@@ -99,6 +99,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
       current: location.pathname.startsWith("/assignments"),
     },
     {
+      name: "My Reports",
+      href: "/reports",
+      current: location.pathname === "/reports",
+    },
+    {
       name: "Profile",
       href: "/profile",
       current: location.pathname === "/profile",

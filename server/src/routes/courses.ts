@@ -4,6 +4,7 @@ import {
   getCourse,
   getCourseStudents,
   getCourseGrades,
+  getStudentOverallGrades,
   createCourse,
   updateCourse,
   deleteCourse,
@@ -27,11 +28,13 @@ router.use(requireMisToken);
 
 router.route("/").get(getCourses).post(createCourse);
 
+router.route("/my-grades").get(authorize("student"), getStudentOverallGrades);
+
 router.route("/:id").get(getCourse).put(updateCourse).delete(deleteCourse);
 router.route("/:id/students").get(getCourseStudents);
 router
   .route("/:id/grades")
-  .get(authorize("instructor", "admin"), getCourseGrades);
+  .get(authorize("instructor", "admin", "student"), getCourseGrades);
 router
   .route("/:courseId/assignments")
   .get(getCourseAssignments)

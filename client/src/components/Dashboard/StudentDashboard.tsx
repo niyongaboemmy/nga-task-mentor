@@ -4,7 +4,39 @@ import AssignmentCard, {
   type AssignmentInterface,
 } from "../Assignments/AssignmentCard";
 import CountdownTimer from "./CountdownTimer";
-import { AlertTriangle, Clock, Flame, BookOpen, Users } from "lucide-react";
+import {
+  AlertTriangle,
+  Clock,
+  BookOpen,
+  Users,
+  Award,
+  TrendingUp,
+  CheckCircle,
+  ListTodo,
+} from "lucide-react";
+import { motion } from "framer-motion";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 100,
+    },
+  },
+};
 
 // Interfaces
 interface DashboardStats {
@@ -53,44 +85,6 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
     return "normal";
   };
 
-  // Function to get urgency styling
-  const getUrgencyStyles = (urgency: string) => {
-    switch (urgency) {
-      case "critical":
-        return {
-          border: "border-red-300 dark:border-red-700",
-          bg: "bg-red-50/80 dark:bg-red-900/20",
-          accent: "bg-red-500",
-          text: "text-red-700 dark:text-red-300",
-          icon: <Flame className="h-3 w-3 text-red-500 animate-pulse" />,
-        };
-      case "urgent":
-        return {
-          border: "border-orange-300 dark:border-orange-700",
-          bg: "bg-orange-50/80 dark:bg-orange-900/20",
-          accent: "bg-orange-500",
-          text: "text-orange-700 dark:text-orange-300",
-          icon: <AlertTriangle className="h-3 w-3 text-orange-500" />,
-        };
-      case "soon":
-        return {
-          border: "border-amber-300 dark:border-amber-700",
-          bg: "bg-amber-50/80 dark:bg-amber-900/20",
-          accent: "bg-amber-500",
-          text: "text-amber-700 dark:text-amber-300",
-          icon: <Clock className="h-3 w-3 text-amber-500" />,
-        };
-      default:
-        return {
-          border: "border-gray-200 dark:border-gray-600",
-          bg: "bg-gray-50/80 dark:bg-gray-800/50",
-          accent: "bg-gray-400",
-          text: "text-gray-600 dark:text-gray-400",
-          icon: null,
-        };
-    }
-  };
-
   const StatCard = ({
     icon,
     value,
@@ -106,520 +100,307 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
     badge?: string;
     trend?: string;
   }) => (
-    <div className="group relative">
+    <motion.div variants={itemVariants} className={`group relative h-full`}>
       <div
-        className={`relative bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl p-5 border border-gray-200/60 dark:border-gray-800/60 hover:bg-white dark:hover:bg-gray-800 hover:shadow-lg hover:shadow-gray-200/25 dark:hover:shadow-gray-900/25 transition-all duration-300 hover:-translate-y-1 h-full ${color}`}
+        className={`relative bg-white dark:bg-gray-900 rounded-[2rem] p-6 border border-gray-100 dark:border-gray-800 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-none transition-all duration-300 hover:-translate-y-1 h-full overflow-hidden`}
       >
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 rounded-xl opacity-[0.02] dark:opacity-[0.04] bg-gradient-to-br from-current to-transparent"></div>
+        {/* Background Glow */}
+        <div
+          className={`absolute -right-10 -top-10 w-32 h-32 rounded-full opacity-[0.08] blur-3xl ${color.replace("text-", "bg-")}`}
+        ></div>
 
-        <div className="relative z-10">
+        <div className="relative z-10 flex flex-col h-full justify-between">
           <div className="flex items-start justify-between mb-4">
             <div
-              className={`p-3 rounded-lg ${color
+              className={`p-3.5 rounded-2xl ${color
                 .replace("text-", "bg-")
-                .replace("-600", "-100 dark:bg-opacity-20")}`}
+                .replace("-600", "-50 dark:bg-opacity-10")} ${color}`}
             >
               {icon}
             </div>
             {badge && (
-              <div
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
+              <span
+                className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                   badge.includes("Hot")
-                    ? "bg-red-500 text-white"
+                    ? "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400"
                     : badge.includes("New")
-                      ? "bg-green-500 text-white"
-                      : "bg-blue-500 text-white"
+                      ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
                 }`}
               >
                 {badge}
-              </div>
+              </span>
             )}
           </div>
 
-          <div className="space-y-2">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div>
+            <div className="text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-1">
               {value}
             </div>
-            <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            <div className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               {label}
             </div>
             {trend && (
-              <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+              <div className="mt-3 flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg w-max">
+                <TrendingUp className="w-3 h-3" />
                 {trend}
               </div>
             )}
           </div>
         </div>
-
-        {/* Decorative elements */}
-        <div className="absolute top-2 right-2 opacity-20">
-          <div className="w-1 h-1 bg-current rounded-full animate-pulse"></div>
-        </div>
-        <div className="absolute bottom-2 left-3 opacity-20">
-          <div className="w-0.5 h-0.5 bg-current rounded-full animate-pulse"></div>
-        </div>
       </div>
-    </div>
+    </motion.div>
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-8 p-1"
+    >
       {/* Welcome Section - Enhanced Mobile Design */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-700 via-blue-600 to-blue-700 dark:from-blue-800 dark:via-blue-600 dark:to-blue-800 rounded-3xl p-4 sm:p-6">
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-3 sm:space-x-5 w-full sm:w-auto">
+      <motion.div
+        variants={itemVariants}
+        className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-[2.5rem] p-8 shadow-xl shadow-blue-500/20"
+      >
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+        {/* Abstract shapes */}
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white opacity-[0.05] rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-pink-500 opacity-[0.1] rounded-full blur-2xl"></div>
+
+        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
             {/* Responsive avatar */}
-            <div className="relative flex-shrink-0 hidden sm:block">
-              <div className="h-12 w-12 sm:h-16 sm:w-16 bg-gradient-to-br from-blue-600 via-blue-600 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                <span className="text-lg sm:text-xl font-bold text-white">
+            <div className="relative hidden sm:block group">
+              <div className="h-20 w-20 bg-white/10 backdrop-blur-md rounded-3xl flex items-center justify-center shadow-inner border border-white/10 group-hover:scale-105 transition-transform duration-300">
+                <span className="text-3xl font-black text-white">
                   {data.user.first_name?.charAt(0)}
                   {data.user.last_name?.charAt(0)}
                 </span>
               </div>
-              {/* Sparkle effect */}
-              <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-yellow-400 rounded-full animate-spin opacity-75"></div>
+              <div className="absolute -top-2 -right-2 w-5 h-5 bg-green-400 border-4 border-blue-700 rounded-full"></div>
             </div>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
-                <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
-                  Welcome back, {data.user.first_name}! 👋
+            <div>
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <h1 className="text-3xl font-black text-white tracking-tight">
+                  Welcome back, {data.user.first_name}!
                 </h1>
-                <div
-                  className={`px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-medium rounded-full self-start`}
-                >
-                  {data.user.roles
-                    ? data.user.roles[0].name.charAt(0).toUpperCase() +
-                      data.user.roles[0].name.slice(1)
-                    : "N/A"}
-                </div>
+                <span className="px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 text-white text-xs font-bold uppercase tracking-wider rounded-lg">
+                  {data.user.roles && data.user.roles.length > 0
+                    ? data.user.roles[0].name
+                    : "Student"}
+                </span>
               </div>
-              <p className="text-sm sm:text-base text-white/80">
-                Ready for today's learning adventure? ✨
+              <p className="text-blue-100 text-lg font-medium max-w-xl">
+                You have{" "}
+                <span className="text-white font-bold">
+                  {data.stats.pendingSubmissions} assignments
+                </span>{" "}
+                due soon. Keep up the momentum! 🚀
               </p>
             </div>
           </div>
-
-          {/* Mobile-optimized decorative elements */}
-          <div className="hidden sm:flex items-center space-x-3 opacity-25">
-            <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
-            <div
-              className="w-3 h-3 bg-purple-400 rounded-full animate-bounce"
-              style={{ animationDelay: "0.2s" }}
-            ></div>
-            <div
-              className="w-2 h-2 bg-pink-400 rounded-full animate-bounce"
-              style={{ animationDelay: "0.4s" }}
-            ></div>
-          </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Stats Grid - Enhanced Mobile Responsiveness */}
+      {/* Stats Grid - Single Line Layout */}
       {data?.stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <Link to="/reports" className="block h-full">
+            <StatCard
+              icon={<Award className="w-6 h-6" />}
+              value={data.stats.totalCourses}
+              label="Global GPA"
+              color="text-purple-600"
+              trend="View Reports"
+              badge="View"
+            />
+          </Link>
+
           <StatCard
-            icon={
-              <svg
-                className="h-4 w-4 sm:h-5 sm:w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
-              </svg>
-            }
+            icon={<BookOpen className="w-6 h-6" />}
             value={data.stats.totalCourses}
-            label="Enrolled Courses"
+            label="Active Courses"
             color="text-blue-600"
-            trend="+2 this semester"
-            badge="Active"
+            badge="Enrolled"
           />
 
           <StatCard
-            icon={
-              <svg
-                className="h-4 w-4 sm:h-5 sm:w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            }
+            icon={<ListTodo className="w-6 h-6" />}
             value={data.stats.totalAssignments}
-            label="Total Assignments"
+            label="Assignments"
             color="text-emerald-600"
             trend="+8 this month"
-            badge="New"
+            badge="Total"
           />
 
           <StatCard
-            icon={
-              <svg
-                className="h-4 w-4 sm:h-5 sm:w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            }
+            icon={<Clock className="w-6 h-6" />}
             value={data.stats.pendingSubmissions}
-            label="Pending Work"
+            label="Pending"
             color="text-amber-600"
-            badge={data.stats.pendingSubmissions > 0 ? "Urgent" : "Clear"}
-          />
-
-          <StatCard
-            icon={
-              <svg
-                className="h-4 w-4 sm:h-5 sm:w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+            badge={
+              data.stats.pendingSubmissions > 0 ? "Action Needed" : "All Clear"
             }
-            value={data.stats.completedAssignments}
-            label="Completed"
-            color="text-violet-600"
-            trend="+15 this semester"
-            badge="Hot"
           />
         </div>
       )}
 
-      {/* Assignment Cards - Enhanced Mobile Layout */}
+      {/* Assignment Cards - Modern List Design */}
       {data?.pendingAssignments && data.pendingAssignments.length > 0 && (
-        <div className="bg-white/90 dark:bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-800/20 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-            <div className="flex items-start md:items-center space-x-2 sm:space-x-3">
-              <div className="p-1.5 sm:p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg relative">
-                <svg
-                  className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {/* Emergency indicator pulse */}
-                <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full animate-ping opacity-75"></div>
-                <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full"></div>
+        <motion.div
+          variants={itemVariants}
+          className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-500">
+                <AlertTriangle className="w-7 h-7" />
               </div>
               <div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-                    Assignments due soon
-                  </h3>
-                  {/* Emergency badge */}
-                  <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gradient-to-r from-red-500 to-orange-500 text-white text-xs font-medium rounded-full animate-pulse w-max mb-2 md:mb-0">
-                    <Flame className="h-2.5 w-2.5 sm:h-3 sm:w-3 inline mr-0.5 sm:mr-1" />
-                    <span className="">URGENT</span>
-                    <span className="xs:hidden">!</span>
-                  </div>
-                </div>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                  Don't forget to submit these assignments
+                <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                  Assignments Due
+                </h3>
+                <p className="text-base font-medium text-gray-500 dark:text-gray-400">
+                  Tasks requiring your immediate attention
                 </p>
               </div>
             </div>
             <Link
               to="/assignments"
-              className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-medium rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200 self-start sm:self-auto"
+              className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               View All
-              <svg
-                className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
             </Link>
           </div>
 
-          <div className="grid gap-3 sm:gap-4">
+          <div className="grid gap-4">
             {data.pendingAssignments.slice(0, 3).map((assignment, index) => {
               const urgency = getUrgencyLevel(assignment.due_date);
-              const urgencyStyles = getUrgencyStyles(urgency);
 
               return (
-                <div
+                <motion.div
                   key={index + 1}
-                  className={`group relative rounded-xl p-3 sm:p-4 transition-all duration-200 hover:shadow-sm animate-fade-in ${urgencyStyles.bg} ${urgencyStyles.border} hover:scale-[1.01] sm:hover:scale-[1.02]`}
-                  style={{
-                    animationDelay: `${index * 100}ms`,
-                    animationFillMode: "both",
-                  }}
+                  variants={itemVariants}
+                  className={`group relative rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1 border-2 ${
+                    urgency === "critical"
+                      ? "bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
+                      : urgency === "urgent"
+                        ? "bg-orange-50/50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-900/30"
+                        : "bg-white dark:bg-gray-800/50 border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800"
+                  }`}
                 >
-                  {/* Urgency indicator stripe */}
-                  <div
-                    className={`absolute left-0 top-0 bottom-0 w-1 ${urgencyStyles.accent} rounded-l-xl`}
-                  ></div>
-
-                  {/* Emergency pulse for critical items */}
-                  {urgency === "critical" && (
-                    <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-2 h-2 sm:w-3 sm:h-3 bg-red-500 rounded-full animate-ping opacity-75"></div>
-                  )}
-
-                  <div className="flex flex-col sm:flex-row items-start justify-between ml-2">
-                    <div className="flex-1 w-full">
-                      <AssignmentCard
-                        assignment={assignment}
-                        compact={true}
-                        showSubmissions={false}
-                      />
-                    </div>
+                  <div className="relative z-10">
+                    <AssignmentCard
+                      assignment={assignment}
+                      compact={true}
+                      showSubmissions={false}
+                    />
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
-        </div>
+        </motion.div>
       )}
 
-      {/* Available Course Quizzes Section */}
+      {/* Available Copurse Quizzes Section */}
       {data?.availableQuizzes && data.availableQuizzes.length > 0 && (
-        <div className="bg-white/90 dark:bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-800/30 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-            <div className="flex items-start md:items-center space-x-2 sm:space-x-3">
-              <div className="p-1.5 sm:p-2 bg-emerald-100 dark:bg-emerald-900/30 rounded-lg relative">
-                <svg
-                  className="h-4 w-4 sm:h-5 sm:w-5 text-emerald-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+        <motion.div
+          variants={itemVariants}
+          className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-500">
+                <CheckCircle className="w-7 h-7" />
               </div>
               <div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
-                    Available Course Quizzes
+                <div className="flex items-center gap-3">
+                  <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
+                    Available Quizzes
                   </h3>
-                  <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gradient-to-r from-emerald-500 to-teal-500 text-white text-xs font-medium rounded-full w-max mb-2 md:mb-0">
-                    {data.availableQuizzes.length} Available
-                  </div>
+                  <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-bold uppercase tracking-wider">
+                    {data.availableQuizzes.length} Active
+                  </span>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
-                  Take these quizzes from your enrolled courses
+                <p className="text-base font-medium text-gray-500 dark:text-gray-400">
+                  Assessments ready for you to take
                 </p>
               </div>
             </div>
             <Link
               to="/courses"
-              className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-medium rounded-full hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-colors duration-200 self-start sm:self-auto"
+              className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
-              View Courses
-              <svg
-                className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
+              Go to Courses
             </Link>
           </div>
 
-          <div className="grid gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {data.availableQuizzes
               .slice(0, 3)
               .map((quiz: any, index: number) => {
                 const deadline = quiz.deadline || quiz.end_date;
                 const isExpired = deadline && new Date(deadline) < new Date();
-                const isUrgent =
-                  deadline &&
-                  !isExpired &&
-                  new Date(deadline).getTime() - new Date().getTime() <
-                    24 * 60 * 60 * 1000;
 
                 return (
-                  <div
+                  <motion.div
                     key={quiz.id || index}
-                    className={`group relative rounded-xl p-3 sm:p-4 transition-all duration-200 hover:shadow-sm ${
-                      isExpired
-                        ? "bg-red-50/80 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
-                        : isUrgent
-                          ? "bg-orange-50/80 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800"
-                          : "bg-emerald-50/80 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800"
-                    } hover:scale-[1.01] sm:hover:scale-[1.02]`}
-                    style={{
-                      animationDelay: `${index * 100}ms`,
-                      animationFillMode: "both",
-                    }}
+                    variants={itemVariants}
+                    className="group flex flex-col justify-between bg-gray-50 dark:bg-gray-800/50 rounded-[2rem] p-6 hover:bg-white dark:hover:bg-gray-800 border-2 border-transparent hover:border-emerald-200 dark:hover:border-emerald-900 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
                   >
-                    {/* Urgency indicator stripe */}
-                    <div
-                      className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${
-                        isExpired
-                          ? "bg-red-500"
-                          : isUrgent
-                            ? "bg-orange-500"
-                            : "bg-emerald-500"
-                      }`}
-                    ></div>
-
-                    <div className="flex flex-col sm:flex-row items-start justify-between ml-2">
-                      <div className="flex-1 w-full">
-                        <div className="flex items-start justify-between mb-2">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="bg-emerald-100 dark:bg-emerald-900 text-emerald-800 dark:text-emerald-200 px-2 py-1 rounded-full text-xs font-medium">
-                                📝 {quiz.type || "Quiz"}
-                              </span>
-                              {!quiz.is_public && (
-                                <span className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-2 py-1 rounded-full text-xs font-medium">
-                                  🎓 Course
-                                </span>
-                              )}
-                              {quiz.studentStatus === "in_progress" && (
-                                <span className="bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 px-2 py-1 rounded-full text-xs font-medium animate-pulse">
-                                  ⏸️ In Progress
-                                </span>
-                              )}
-                            </div>
-                            <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base mb-1">
-                              {quiz.title}
-                            </h4>
-                            <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 line-clamp-2">
-                              {quiz.description}
-                            </p>
-                          </div>
-                          <div className="flex-shrink-0 ml-3">
-                            <div className="text-right">
-                              <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
-                                {quiz.totalPoints || quiz.points || 0} points
-                              </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {quiz.totalQuestions ||
-                                  quiz.questions?.length ||
-                                  quiz.question_count ||
-                                  0}{" "}
-                                questions
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Course info and countdown */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-                            <BookOpen className="h-3 w-3" />
-                            <span>{quiz.course_name || "Course"}</span>
-                            {quiz.instructor_name && (
-                              <>
-                                <span>•</span>
-                                <span>{quiz.instructor_name}</span>
-                              </>
-                            )}
-                          </div>
-
-                          {deadline && (
+                    <div>
+                      <div className="flex justify-between items-start mb-4">
+                        <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                          Quiz
+                        </span>
+                        {deadline && (
+                          <div className="text-xs font-bold text-gray-500 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
                             <CountdownTimer
                               deadline={deadline}
-                              variant={
-                                isExpired
-                                  ? "expired"
-                                  : isUrgent
-                                    ? "urgent"
-                                    : "default"
-                              }
                               showLabel={false}
-                              className="text-xs"
+                              className="font-mono"
                             />
-                          )}
-                        </div>
-
-                        {/* Action button */}
-                        <div className="mt-3">
-                          <Link
-                            to={`/quizzes/${quiz.id}/take`}
-                            className={`inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                              isExpired
-                                ? "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 cursor-not-allowed"
-                                : quiz.studentStatus === "in_progress"
-                                  ? "bg-blue-600 hover:bg-blue-700 text-white"
-                                  : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                            }`}
-                            onClick={(e) => isExpired && e.preventDefault()}
-                          >
-                            {isExpired
-                              ? "Expired"
-                              : quiz.studentStatus === "in_progress"
-                                ? "Resume Quiz"
-                                : "Take Quiz"}
-                            {!isExpired && (
-                              <svg
-                                className="ml-1 h-3 w-3"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                              >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M9 5l7 7-7 7"
-                                />
-                              </svg>
-                            )}
-                          </Link>
-                        </div>
+                          </div>
+                        )}
                       </div>
+
+                      <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-2 line-clamp-2">
+                        {quiz.title}
+                      </h4>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400 line-clamp-2 mb-4">
+                        {quiz.course_name || "General Knowledge"}
+                      </p>
                     </div>
-                  </div>
+
+                    <div className="pt-4 border-t border-gray-200 dark:border-gray-700/50 flex flex-col gap-3">
+                      <div className="flex items-center justify-between text-xs font-bold uppercase tracking-wider text-gray-400">
+                        <span>{quiz.totalPoints || 100} PTS</span>
+                        <span>{quiz.totalQuestions || 10} Qs</span>
+                      </div>
+
+                      <Link
+                        to={`/quizzes/${quiz.id}/take`}
+                        className={`w-full py-3 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider transition-all ${
+                          isExpired
+                            ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+                            : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                        }`}
+                        onClick={(e) => isExpired && e.preventDefault()}
+                      >
+                        {isExpired ? "Closed" : "Start Quiz"}
+                        {!isExpired && <TrendingUp className="w-3 h-3" />}
+                      </Link>
+                    </div>
+                  </motion.div>
                 );
               })}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Enrolled Courses with Deadlines */}
@@ -812,167 +593,103 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
           </div>
         </div>
       )}
-      <div className="bg-white/90 dark:bg-gray-900/40 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-800/30 p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            <div className="p-1.5 sm:p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <svg
-                className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+      {/* Recent Activity Section */}
+      <motion.div
+        variants={itemVariants}
+        className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-500">
+              <Clock className="w-7 h-7" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
                 Recent Activity
               </h3>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-base font-medium text-gray-500 dark:text-gray-400">
                 Your latest interactions and progress
               </p>
             </div>
           </div>
           <Link to="/assignments">
-            <button className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 self-start sm:self-auto">
-              View all →
+            <button className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              View all
             </button>
           </Link>
         </div>
 
-        <div className="space-y-2 sm:space-y-3">
+        <div className="space-y-4">
           {data?.recentActivity && data.recentActivity.length > 0 ? (
-            data.recentActivity
-              .slice(0, 4)
-              .map((activity: RecentActivity, index: number) => (
+            data.recentActivity.slice(0, 4).map((activity: RecentActivity) => (
+              <motion.div
+                key={activity.id}
+                variants={itemVariants}
+                className="group relative flex items-start gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
+              >
+                {/* Activity icon */}
                 <div
-                  key={activity.id}
-                  className="group relative flex items-start space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200 animate-fade-in"
-                  style={{
-                    animationDelay: `${index * 100}ms`,
-                    animationFillMode: "both",
-                  }}
+                  className={`relative z-10 flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 group-hover:scale-110 ${
+                    activity.type === "assignment"
+                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                      : activity.type === "submission"
+                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+                        : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
+                  }`}
                 >
-                  {/* Timeline line */}
-                  <div className="absolute left-4 sm:left-6 top-8 sm:top-12 bottom-0 w-px bg-gray-200 dark:bg-gray-700 group-last:hidden"></div>
+                  {activity.type === "assignment" && (
+                    <ListTodo className="w-6 h-6" />
+                  )}
+                  {activity.type === "submission" && (
+                    <CheckCircle className="w-6 h-6" />
+                  )}
+                  {activity.type === "course" && (
+                    <BookOpen className="w-6 h-6" />
+                  )}
+                </div>
 
-                  {/* Activity icon */}
-                  <div
-                    className={`relative z-10 flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all duration-200 group-hover:scale-105 sm:group-hover:scale-110 ${
-                      activity.type === "assignment"
-                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                        : activity.type === "submission"
-                          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
-                          : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
-                    }`}
-                  >
-                    {activity.type === "assignment" && (
-                      <svg
-                        className="h-4 w-4 sm:h-5 sm:w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                    )}
-                    {activity.type === "submission" && (
-                      <svg
-                        className="h-4 w-4 sm:h-5 sm:w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                        />
-                      </svg>
-                    )}
-                    {activity.type === "course" && (
-                      <svg
-                        className="h-4 w-4 sm:h-5 sm:w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                        />
-                      </svg>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white truncate">
-                          {activity.title}
-                        </p>
-                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 line-clamp-2">
-                          {activity.description}
-                        </p>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-                          {new Date(activity.timestamp).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                            },
-                          )}
-                        </span>
-                      </div>
+                {/* Content */}
+                <div className="flex-1 min-w-0 pt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="text-base font-bold text-gray-900 dark:text-white truncate">
+                        {activity.title}
+                      </p>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                        {activity.description}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                        {new Date(activity.timestamp).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                          },
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
-              ))
+              </motion.div>
+            ))
           ) : (
-            <div className="text-center py-8 sm:py-12">
-              <div className="mx-auto h-16 w-16 sm:h-20 sm:w-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3 sm:mb-4">
-                <svg
-                  className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+            <div className="text-center py-12">
+              <div className="mx-auto h-20 w-20 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                <Clock className="w-10 h-10 text-gray-400" />
               </div>
-              <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-1 sm:mb-2">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
                 No recent activity yet
               </h3>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 max-w-sm mx-auto px-4">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 max-w-sm mx-auto px-4">
                 Activity will appear here as you interact with courses and
                 assignments.
               </p>
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Mobile-optimized floating elements */}
       <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-none">
@@ -1062,7 +779,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
           animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
       `}</style>
-    </div>
+    </motion.div>
   );
 };
 

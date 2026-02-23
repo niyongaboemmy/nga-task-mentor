@@ -1,6 +1,40 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, Clock, Flame, Eye } from "lucide-react";
+import {
+  AlertTriangle,
+  Clock,
+  Eye,
+  BookOpen,
+  Users,
+  TrendingUp,
+  CheckCircle,
+  ListTodo,
+  GraduationCap,
+  ArrowRight,
+} from "lucide-react";
+import { motion } from "framer-motion";
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 100,
+    },
+  },
+};
 
 // Interfaces
 interface DashboardStats {
@@ -91,44 +125,6 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
     return "normal";
   };
 
-  // Function to get urgency styling
-  const getUrgencyStyles = (urgency: string) => {
-    switch (urgency) {
-      case "critical":
-        return {
-          border: "border-red-300 dark:border-red-700",
-          bg: "bg-red-50/80 dark:bg-red-900/20",
-          accent: "bg-red-500",
-          text: "text-red-700 dark:text-red-300",
-          icon: <Flame className="h-3 w-3 text-red-500 animate-pulse" />,
-        };
-      case "urgent":
-        return {
-          border: "border-orange-300 dark:border-orange-700",
-          bg: "bg-orange-50/80 dark:bg-orange-900/20",
-          accent: "bg-orange-500",
-          text: "text-orange-700 dark:text-orange-300",
-          icon: <AlertTriangle className="h-3 w-3 text-orange-500" />,
-        };
-      case "soon":
-        return {
-          border: "border-amber-300 dark:border-amber-700",
-          bg: "bg-amber-50/80 dark:bg-amber-900/20",
-          accent: "bg-amber-500",
-          text: "text-amber-700 dark:text-amber-300",
-          icon: <Clock className="h-3 w-3 text-amber-500" />,
-        };
-      default:
-        return {
-          border: "border-gray-200 dark:border-gray-600",
-          bg: "bg-gray-50/80 dark:bg-gray-800/50",
-          accent: "bg-gray-400",
-          text: "text-gray-600 dark:text-gray-400",
-          icon: null,
-        };
-    }
-  };
-
   const StatCard = ({
     icon,
     value,
@@ -144,133 +140,110 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
     badge?: string;
     trend?: string;
   }) => (
-    <div className="group relative">
+    <motion.div variants={itemVariants} className={`group relative h-full`}>
       <div
-        className={`relative bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl rounded-2xl p-5 border border-gray-200/60 dark:border-gray-800/60 hover:bg-white dark:hover:bg-gray-800 hover:shadow-lg hover:shadow-gray-200/25 dark:hover:shadow-gray-900/25 transition-all duration-300 hover:-translate-y-1 h-full ${color}`}
+        className={`relative bg-white dark:bg-gray-900 rounded-[2rem] p-6 border border-gray-100 dark:border-gray-800 hover:shadow-xl hover:shadow-gray-200/50 dark:hover:shadow-none transition-all duration-300 hover:-translate-y-1 h-full overflow-hidden`}
       >
-        {/* Subtle background pattern */}
-        <div className="absolute inset-0 rounded-xl opacity-[0.02] dark:opacity-[0.04] bg-gradient-to-br from-current to-transparent"></div>
+        {/* Background Glow */}
+        <div
+          className={`absolute -right-10 -top-10 w-32 h-32 rounded-full opacity-[0.08] blur-3xl ${color.replace("text-", "bg-")}`}
+        ></div>
 
-        <div className="relative z-10">
+        <div className="relative z-10 flex flex-col h-full justify-between">
           <div className="flex items-start justify-between mb-4">
             <div
-              className={`p-3 rounded-lg ${color
+              className={`p-3.5 rounded-2xl ${color
                 .replace("text-", "bg-")
-                .replace("-600", "-100 dark:bg-opacity-20")}`}
+                .replace("-600", "-50 dark:bg-opacity-10")} ${color}`}
             >
               {icon}
             </div>
             {badge && (
-              <div
-                className={`px-2 py-1 rounded-full text-xs font-medium ${
-                  badge.includes("Hot")
-                    ? "bg-red-500 text-white"
-                    : badge.includes("New")
-                      ? "bg-green-500 text-white"
-                      : "bg-blue-500 text-white"
+              <span
+                className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
+                  badge.includes("Hot") || badge.includes("Urgent")
+                    ? "bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                    : badge.includes("New") || badge.includes("Growing")
+                      ? "bg-green-50 text-green-600 dark:bg-green-900/30 dark:text-green-400"
+                      : "bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400"
                 }`}
               >
                 {badge}
-              </div>
+              </span>
             )}
           </div>
 
-          <div className="space-y-2">
-            <div className="text-2xl font-bold text-gray-900 dark:text-white">
+          <div>
+            <div className="text-3xl font-black text-gray-900 dark:text-white tracking-tight mb-1">
               {value}
             </div>
-            <div className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            <div className="text-sm font-bold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
               {label}
             </div>
             {trend && (
-              <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">
+              <div className="mt-3 flex items-center gap-1 text-xs font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg w-max">
+                <TrendingUp className="w-3 h-3" />
                 {trend}
               </div>
             )}
           </div>
         </div>
-
-        {/* Decorative elements */}
-        <div className="absolute top-2 right-2 opacity-20">
-          <div className="w-1 h-1 bg-current rounded-full animate-pulse"></div>
-        </div>
-        <div className="absolute bottom-2 left-3 opacity-20">
-          <div className="w-0.5 h-0.5 bg-current rounded-full animate-pulse"></div>
-        </div>
       </div>
-    </div>
+    </motion.div>
   );
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <motion.div
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+      className="space-y-8 p-1"
+    >
       {/* Welcome Section - Enhanced Mobile Design */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-blue-700 via-blue-600 to-blue-700 dark:from-blue-800 dark:via-blue-600 dark:to-blue-800 rounded-3xl p-4 sm:p-6">
-        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-40"></div>
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center space-x-3 sm:space-x-5 w-full sm:w-auto">
+      <motion.div
+        variants={itemVariants}
+        className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-[2.5rem] p-8 shadow-xl shadow-blue-500/20"
+      >
+        <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
+        {/* Abstract shapes */}
+        <div className="absolute top-0 right-0 -mt-10 -mr-10 w-64 h-64 bg-white opacity-[0.05] rounded-full blur-3xl"></div>
+        <div className="absolute bottom-0 left-0 -mb-10 -ml-10 w-40 h-40 bg-pink-500 opacity-[0.1] rounded-full blur-2xl"></div>
+
+        <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
             {/* Responsive avatar */}
-            <div className="relative flex-shrink-0 hidden sm:block">
-              <div className="h-12 w-12 sm:h-16 sm:w-16 bg-gradient-to-br from-blue-600 via-blue-600 to-blue-600 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-lg">
-                <span className="text-lg sm:text-xl font-bold text-white">
+            <div className="relative hidden sm:block group">
+              <div className="h-20 w-20 bg-white/10 backdrop-blur-md rounded-3xl flex items-center justify-center shadow-inner border border-white/20 group-hover:scale-105 transition-transform duration-300">
+                <span className="text-3xl font-black text-white">
                   {data.user.first_name?.charAt(0)}
                   {data.user.last_name?.charAt(0)}
                 </span>
               </div>
-              {/* Sparkle effect */}
-              <div className="absolute -top-1 -right-1 w-2 h-2 sm:w-3 sm:h-3 bg-yellow-400 rounded-full animate-spin opacity-75"></div>
+              <div className="absolute -top-2 -right-2 w-5 h-5 bg-green-400 border-4 border-blue-700 rounded-full"></div>
             </div>
 
-            <div className="flex-1 min-w-0">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1 sm:mb-2">
-                <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
-                  Welcome back, {data.user.first_name}! 👋
+            <div>
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <h1 className="text-3xl font-black text-white tracking-tight">
+                  Welcome back, {data.user.first_name}!
                 </h1>
-                <div
-                  className={`px-2 sm:px-3 py-0.5 sm:py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-medium rounded-full self-start`}
-                >
+                <span className="px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 text-white text-xs font-bold uppercase tracking-wider rounded-lg">
                   Instructor
-                </div>
+                </span>
               </div>
-              <p className="text-sm sm:text-base text-white/80">
+              <p className="text-blue-100 text-lg font-medium max-w-xl">
                 Ready to guide your students' learning journey? ✨
               </p>
             </div>
           </div>
-
-          {/* Mobile-optimized decorative elements */}
-          <div className="hidden sm:flex items-center space-x-3 opacity-25">
-            <div className="w-2 h-2 bg-blue-400 rounded-full animate-bounce"></div>
-            <div
-              className="w-3 h-3 bg-purple-400 rounded-full animate-bounce"
-              style={{ animationDelay: "0.2s" }}
-            ></div>
-            <div
-              className="w-2 h-2 bg-pink-400 rounded-full animate-bounce"
-              style={{ animationDelay: "0.4s" }}
-            ></div>
-          </div>
         </div>
-      </div>
+      </motion.div>
 
-      {/* Stats Grid - Enhanced Mobile Responsiveness */}
+      {/* Stats Grid - Single Line Layout (5 cols) */}
       {data?.stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4 md:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
           <StatCard
-            icon={
-              <svg
-                className="h-4 w-4 sm:h-5 sm:w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
-              </svg>
-            }
+            icon={<BookOpen className="w-6 h-6" />}
             value={data.stats.totalCourses}
             label="Courses Teaching"
             color="text-blue-600"
@@ -279,21 +252,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
           />
 
           <StatCard
-            icon={
-              <svg
-                className="h-4 w-4 sm:h-5 sm:w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            }
+            icon={<ListTodo className="w-6 h-6" />}
             value={data.stats.totalAssignments}
             label="Total Assignments"
             color="text-emerald-600"
@@ -302,21 +261,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
           />
 
           <StatCard
-            icon={
-              <svg
-                className="h-4 w-4 sm:h-5 sm:w-5"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-            }
+            icon={<Clock className="w-6 h-6" />}
             value={data.stats.pendingSubmissions}
             label="Pending Grading"
             color="text-amber-600"
@@ -325,21 +270,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
 
           {data.stats.totalEnrolledStudents !== undefined ? (
             <StatCard
-              icon={
-                <svg
-                  className="h-4 w-4 sm:h-5 sm:w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                  />
-                </svg>
-              }
+              icon={<Users className="w-6 h-6" />}
               value={data.stats.totalEnrolledStudents}
               label="Enrolled Students"
               color="text-purple-600"
@@ -348,21 +279,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
             />
           ) : (
             <StatCard
-              icon={
-                <svg
-                  className="h-4 w-4 sm:h-5 sm:w-5"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              }
+              icon={<CheckCircle className="w-6 h-6" />}
               value={data.stats.completedAssignments}
               label="Completed"
               color="text-violet-600"
@@ -373,7 +290,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
 
           {/* Live Proctoring Card */}
           <StatCard
-            icon={<Eye className="h-4 w-4 sm:h-5 sm:w-5" />}
+            icon={<Eye className="w-6 h-6" />}
             value={0} // This would be dynamic based on active sessions
             label="Active Proctoring"
             color="text-red-600"
@@ -385,255 +302,210 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
 
       {/* Instructor Courses Overview - Enhanced Mobile Layout */}
       {data?.courses && data.courses.length > 0 && (
-        <div className="bg-white/90 dark:bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-800/20 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-            <div className="flex items-center space-x-2 sm:space-x-3">
-              <div className="p-1.5 sm:p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
-                <svg
-                  className="h-4 w-4 sm:h-5 sm:w-5 text-blue-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                  />
-                </svg>
+        <motion.div
+          variants={itemVariants}
+          className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-500">
+                <GraduationCap className="w-7 h-7" />
               </div>
               <div>
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+                <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
                   Courses Teaching
                 </h3>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-base font-medium text-gray-500 dark:text-gray-400">
                   Overview of your active courses
                 </p>
               </div>
             </div>
             <Link
               to="/courses"
-              className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-medium rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/30 transition-colors duration-200 self-start sm:self-auto"
+              className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               View All
-              <svg
-                className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 5l7 7-7 7"
-                />
-              </svg>
             </Link>
           </div>
 
-          <div className="grid gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data.courses.slice(0, 6).map((course, index) => {
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {data.courses.slice(0, 6).map((course) => {
               const enrollmentRate =
                 course.max_students > 0
                   ? (course.enrolledCount / course.max_students) * 100
                   : 0;
 
               return (
-                <div
+                <motion.div
                   key={course.id}
-                  className="group relative bg-gray-50/80 dark:bg-gray-800/50 rounded-xl p-3 sm:p-4 transition-all duration-200 hover:bg-gray-100/80 dark:hover:bg-gray-800/80 hover:shadow-sm animate-fade-in"
-                  style={{
-                    animationDelay: `${index * 100}ms`,
-                    animationFillMode: "both",
-                  }}
+                  variants={itemVariants}
+                  className="group relative bg-gray-50 dark:bg-gray-800/50 rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border-2 border-transparent hover:border-blue-200 dark:hover:border-blue-900"
                 >
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
-                        {course.code}: {course.title}
-                      </h4>
-                      <p className="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2">
-                        {course.description}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1 min-w-0 pr-4">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span
+                          className={`w-2 h-2 rounded-full ${course.is_active ? "bg-green-500" : "bg-gray-400"}`}
+                        ></span>
+                        <h4 className="font-bold text-gray-900 dark:text-white text-lg truncate">
+                          {course.code}
+                        </h4>
+                      </div>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400 line-clamp-1">
+                        {course.title}
                       </p>
                     </div>
-                    <div
-                      className={`ml-2 px-2 py-1 rounded-full text-xs font-medium ${
-                        course.is_active
-                          ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
-                          : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
-                      }`}
-                    >
-                      {course.is_active ? "Active" : "Inactive"}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-                      <span>Enrollment</span>
-                      <span>
-                        {course.enrolledCount}/{course.max_students}
+                    {course.is_active ? (
+                      <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                        Active
                       </span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div
-                        className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                        style={{ width: `${Math.min(enrollmentRate, 100)}%` }}
-                      ></div>
+                    ) : (
+                      <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                        Inactive
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <div>
+                      <div className="flex items-center justify-between text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
+                        <span>Enrollment</span>
+                        <span>
+                          {course.enrolledCount}/{course.max_students}
+                        </span>
+                      </div>
+                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
+                        <div
+                          className="bg-blue-600 h-full rounded-full transition-all duration-500"
+                          style={{ width: `${Math.min(enrollmentRate, 100)}%` }}
+                        ></div>
+                      </div>
                     </div>
 
-                    <div className="flex items-center justify-between text-xs text-gray-600 dark:text-gray-400">
-                      <span>Assignments</span>
-                      <span>{course.assignmentCount}</span>
+                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                      <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                        <ListTodo className="w-4 h-4" />
+                        <span>{course.assignmentCount} Assignments</span>
+                      </div>
+                      <Link
+                        to={`/courses/${course.id}`}
+                        className="p-2 bg-white dark:bg-gray-700 rounded-full shadow-sm hover:scale-110 transition-transform"
+                      >
+                        <ArrowRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                      </Link>
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Instructor Pending Grading - Enhanced Mobile Layout */}
       {data?.pendingGrading && data.pendingGrading.length > 0 && (
-        <div className="bg-white/90 dark:bg-gray-900/50 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-800/20 p-4 sm:p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-            <div className="flex items-start md:items-center space-x-2 sm:space-x-3">
-              <div className="p-1.5 sm:p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg relative">
-                <svg
-                  className="h-4 w-4 sm:h-5 sm:w-5 text-amber-600"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-                {/* Pending indicator pulse */}
-                <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-2 h-2 sm:w-3 sm:h-3 bg-amber-500 rounded-full animate-ping opacity-75"></div>
-                <div className="absolute -top-0.5 -right-0.5 sm:-top-1 sm:-right-1 w-2 h-2 sm:w-3 sm:h-3 bg-amber-500 rounded-full"></div>
+        <motion.div
+          variants={itemVariants}
+          className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
+        >
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+            <div className="flex items-center gap-4">
+              <div className="w-14 h-14 rounded-2xl bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-500">
+                <AlertTriangle className="w-7 h-7" />
               </div>
               <div>
-                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                  <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+                <div className="flex items-center gap-3">
+                  <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
                     Pending Grading
                   </h3>
-                  {/* Pending badge */}
-                  <div className="px-1.5 sm:px-2 py-0.5 sm:py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-medium rounded-full animate-pulse w-max mb-2 md:mb-0">
-                    <svg
-                      className="h-2.5 w-2.5 sm:h-3 sm:w-3 inline mr-0.5 sm:mr-1"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <span className="">PENDING</span>
-                    <span className="xs:hidden">!</span>
-                  </div>
+                  <span className="px-3 py-1 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded-lg text-[10px] font-black uppercase tracking-wider animate-pulse">
+                    {data.pendingGrading.length} PENDING
+                  </span>
                 </div>
-                <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-base font-medium text-gray-500 dark:text-gray-400">
                   Assignments awaiting your review
                 </p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-3">
               <Link
                 to="/assignments"
-                className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-xs sm:text-sm font-medium rounded-full hover:bg-amber-100 dark:hover:bg-amber-900/30 transition-colors duration-200 self-start sm:self-auto"
+                className="px-6 py-3 bg-amber-50 dark:bg-amber-900/20 font-bold text-amber-700 dark:text-amber-300 rounded-xl hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
               >
                 Grade Now
-                <svg
-                  className="ml-1 sm:ml-2 h-3 w-3 sm:h-4 sm:w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 5l7 7-7 7"
-                  />
-                </svg>
               </Link>
               <Link
                 to="/proctoring/live"
-                className="inline-flex items-center px-3 sm:px-4 py-1.5 sm:py-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs sm:text-sm font-medium rounded-full hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors duration-200 self-start sm:self-auto"
+                className="px-6 py-3 bg-red-50 dark:bg-red-900/20 font-bold text-red-700 dark:text-red-300 rounded-xl hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors flex items-center gap-2"
               >
-                <Eye className="mr-1 sm:mr-2 h-3 w-3 sm:h-4 sm:w-4" />
-                Live Proctoring
+                <Eye className="w-5 h-5" />
+                <span>Live</span>
               </Link>
             </div>
           </div>
 
-          <div className="space-y-3 sm:space-y-4">
-            {data.pendingGrading.slice(0, 3).map((assignment, index) => {
+          <div className="grid gap-4">
+            {data.pendingGrading.slice(0, 3).map((assignment) => {
               const urgency = getUrgencyLevel(assignment.due_date);
-              const urgencyStyles = getUrgencyStyles(urgency);
+
+              const urgencyColor =
+                urgency === "critical"
+                  ? "red"
+                  : urgency === "urgent"
+                    ? "orange"
+                    : "amber";
 
               return (
-                <div
+                <motion.div
                   key={assignment.id}
-                  className={`group relative rounded-xl p-3 sm:p-4 transition-all duration-200 hover:shadow-sm animate-fade-in ${urgencyStyles.bg} ${urgencyStyles.border} hover:scale-[1.01] sm:hover:scale-[1.02]`}
-                  style={{
-                    animationDelay: `${index * 100}ms`,
-                    animationFillMode: "both",
-                  }}
+                  variants={itemVariants}
+                  className={`group relative rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1 border-2 ${
+                    urgency === "critical"
+                      ? "bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
+                      : urgency === "urgent"
+                        ? "bg-orange-50/50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-900/30"
+                        : "bg-white dark:bg-gray-800/50 border-gray-100 dark:border-gray-700 hover:border-amber-200 dark:hover:border-amber-800"
+                  }`}
                 >
-                  {/* Urgency indicator stripe */}
-                  <div
-                    className={`absolute left-0 top-0 bottom-0 w-1 ${urgencyStyles.accent} rounded-l-xl`}
-                  ></div>
-
-                  <div className="flex flex-col sm:flex-row items-start justify-between ml-2">
+                  <div className="flex flex-col sm:flex-row items-start justify-between">
                     <div className="flex-1 w-full">
-                      <div className="flex items-start justify-between mb-2">
+                      <div className="flex items-start justify-between mb-4">
                         <div className="flex-1 min-w-0">
-                          <h4 className="font-semibold text-gray-900 dark:text-white text-sm sm:text-base truncate">
+                          <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
                             {assignment.title}
                           </h4>
                           {assignment.course && (
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
                               {assignment.course.code}:{" "}
                               {assignment.course.title}
                             </p>
                           )}
                         </div>
-                        <div className="ml-2 flex-shrink-0">
-                          <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                        <div className="ml-4 flex-shrink-0">
+                          <span
+                            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-${urgencyColor}-100 text-${urgencyColor}-700 dark:bg-${urgencyColor}-900/30 dark:text-${urgencyColor}-400`}
+                          >
                             {assignment.pendingSubmissions} pending
                           </span>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-4 text-xs text-gray-600 dark:text-gray-400">
-                        <span>
+                      <div className="flex flex-wrap items-center gap-4 text-xs font-bold uppercase tracking-wide text-gray-500 dark:text-gray-400 mb-4">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
                           Due:{" "}
                           {new Date(assignment.due_date).toLocaleDateString()}
                         </span>
                         <span>{assignment.max_score} pts</span>
-                        <span className="capitalize">
-                          {assignment.submission_type}
-                        </span>
+                        <span>{assignment.submission_type}</span>
                       </div>
 
                       {/* Show first few pending submissions */}
                       {assignment.submissions &&
                         assignment.submissions.length > 0 && (
-                          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
-                            <p className="text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
-                              Recent submissions:
+                          <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700/50">
+                            <p className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-3">
+                              Recent submissions
                             </p>
                             <div className="space-y-2">
                               {assignment.submissions
@@ -641,14 +513,24 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                                 .map((submission) => (
                                   <div
                                     key={submission.id}
-                                    className="flex items-center justify-between text-xs"
+                                    className="flex items-center justify-between text-sm p-3 bg-white/50 dark:bg-gray-900/50 rounded-xl"
                                   >
-                                    <span className="text-gray-600 dark:text-gray-400">
-                                      {submission.student?.first_name}{" "}
-                                      {submission.student?.last_name}
-                                    </span>
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-xs font-bold">
+                                        {submission.student?.first_name?.charAt(
+                                          0,
+                                        )}
+                                        {submission.student?.last_name?.charAt(
+                                          0,
+                                        )}
+                                      </div>
+                                      <span className="font-bold text-gray-700 dark:text-gray-200">
+                                        {submission.student?.first_name}{" "}
+                                        {submission.student?.last_name}
+                                      </span>
+                                    </div>
                                     <span
-                                      className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${
+                                      className={`px-2 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
                                         submission.status === "submitted"
                                           ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
                                           : "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400"
@@ -659,7 +541,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                                   </div>
                                 ))}
                               {assignment.pendingSubmissions > 2 && (
-                                <div className="text-xs text-gray-500 dark:text-gray-400">
+                                <div className="text-xs text-center font-bold text-gray-500 dark:text-gray-400 mt-2">
                                   +{assignment.pendingSubmissions - 2} more
                                   submissions
                                 </div>
@@ -669,175 +551,110 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                         )}
                     </div>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
           </div>
-        </div>
+        </motion.div>
       )}
 
       {/* Activity Timeline - Enhanced Mobile Design */}
-      <div className="bg-white/90 dark:bg-gray-900/40 backdrop-blur-xl rounded-2xl border border-gray-200/60 dark:border-gray-800/30 p-4 sm:p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-          <div className="flex items-center space-x-2 sm:space-x-3">
-            <div className="p-1.5 sm:p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
-              <svg
-                className="h-4 w-4 sm:h-5 sm:w-5 text-purple-600"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
+      <motion.div
+        variants={itemVariants}
+        className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-500">
+              <Clock className="w-7 h-7" />
             </div>
             <div>
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">
                 Recent Activity
               </h3>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-base font-medium text-gray-500 dark:text-gray-400">
                 Your latest interactions and progress
               </p>
             </div>
           </div>
           <Link to="/assignments">
-            <button className="text-xs sm:text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium transition-colors px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/30 self-start sm:self-auto">
-              View all →
+            <button className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+              View all
             </button>
           </Link>
         </div>
 
-        <div className="space-y-2 sm:space-y-3">
+        <div className="space-y-4">
           {data?.recentActivity && data.recentActivity.length > 0 ? (
-            data.recentActivity
-              .slice(0, 4)
-              .map((activity: RecentActivity, index: number) => (
+            data.recentActivity.slice(0, 4).map((activity: RecentActivity) => (
+              <motion.div
+                key={activity.id}
+                variants={itemVariants}
+                className="group relative flex items-start gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
+              >
+                {/* Activity icon */}
                 <div
-                  key={activity.id}
-                  className="group relative flex items-start space-x-3 sm:space-x-4 p-3 sm:p-4 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200 animate-fade-in"
-                  style={{
-                    animationDelay: `${index * 100}ms`,
-                    animationFillMode: "both",
-                  }}
+                  className={`relative z-10 flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 group-hover:scale-110 ${
+                    activity.type === "assignment"
+                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                      : activity.type === "submission"
+                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+                        : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
+                  }`}
                 >
-                  {/* Timeline line */}
-                  <div className="absolute left-4 sm:left-6 top-8 sm:top-12 bottom-0 w-px bg-gray-200 dark:bg-gray-700 group-last:hidden"></div>
+                  {activity.type === "assignment" && (
+                    <ListTodo className="w-6 h-6" />
+                  )}
+                  {activity.type === "submission" && (
+                    <CheckCircle className="w-6 h-6" />
+                  )}
+                  {activity.type === "course" && (
+                    <BookOpen className="w-6 h-6" />
+                  )}
+                </div>
 
-                  {/* Activity icon */}
-                  <div
-                    className={`relative z-10 flex-shrink-0 w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center transition-all duration-200 group-hover:scale-105 sm:group-hover:scale-110 ${
-                      activity.type === "assignment"
-                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                        : activity.type === "submission"
-                          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
-                          : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
-                    }`}
-                  >
-                    {activity.type === "assignment" && (
-                      <svg
-                        className="h-4 w-4 sm:h-5 sm:w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                    )}
-                    {activity.type === "submission" && (
-                      <svg
-                        className="h-4 w-4 sm:h-5 sm:w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
-                        />
-                      </svg>
-                    )}
-                    {activity.type === "course" && (
-                      <svg
-                        className="h-4 w-4 sm:h-5 sm:w-5"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                        />
-                      </svg>
-                    )}
-                  </div>
-
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                      <div className="flex-1">
-                        <p className="text-xs sm:text-sm font-semibold text-gray-900 dark:text-white truncate">
-                          {activity.title}
-                        </p>
-                        <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 mt-0.5 sm:mt-1 line-clamp-2">
-                          {activity.description}
-                        </p>
-                      </div>
-                      <div className="flex-shrink-0">
-                        <span className="inline-flex items-center px-2 sm:px-2.5 py-0.5 sm:py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-                          {new Date(activity.timestamp).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "numeric",
-                            },
-                          )}
-                        </span>
-                      </div>
+                {/* Content */}
+                <div className="flex-1 min-w-0 pt-1">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                    <div className="flex-1">
+                      <p className="text-base font-bold text-gray-900 dark:text-white truncate">
+                        {activity.title}
+                      </p>
+                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                        {activity.description}
+                      </p>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                        {new Date(activity.timestamp).toLocaleDateString(
+                          "en-US",
+                          {
+                            month: "short",
+                            day: "numeric",
+                          },
+                        )}
+                      </span>
                     </div>
                   </div>
                 </div>
-              ))
+              </motion.div>
+            ))
           ) : (
-            <div className="text-center py-8 sm:py-12">
-              <div className="mx-auto h-16 w-16 sm:h-20 sm:w-20 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3 sm:mb-4">
-                <svg
-                  className="h-8 w-8 sm:h-10 sm:w-10 text-gray-400"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
+            <div className="text-center py-12">
+              <div className="mx-auto h-20 w-20 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                <Clock className="w-10 h-10 text-gray-400" />
               </div>
-              <h3 className="text-base sm:text-lg font-medium text-gray-900 dark:text-white mb-1 sm:mb-2">
+              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
                 No recent activity yet
               </h3>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 max-w-sm mx-auto px-4">
+              <p className="text-sm font-medium text-gray-500 dark:text-gray-400 max-w-sm mx-auto px-4">
                 Activity will appear here as you interact with courses and
                 assignments.
               </p>
             </div>
           )}
         </div>
-      </div>
+      </motion.div>
 
       {/* Mobile-optimized floating elements */}
       <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-none">
@@ -927,7 +744,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
           animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite;
         }
       `}</style>
-    </div>
+    </motion.div>
   );
 };
 

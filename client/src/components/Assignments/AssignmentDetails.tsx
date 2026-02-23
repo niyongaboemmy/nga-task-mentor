@@ -281,10 +281,15 @@ const AssignmentDetails = () => {
 
   const userSubmission = () =>
     submissions?.find(
-      (submission) => submission.student?.id.toString() === user?.id.toString(),
+      (submission) =>
+        (submission.student?.id?.toString() ||
+          submission.student_id?.toString()) === user?.id?.toString(),
     );
 
-  const isStudent = user?.role === "student";
+  const isStudent = !!(
+    user?.role === "student" ||
+    user?.roles?.some((r) => r.name.toLowerCase() === "student")
+  );
   const dueDate = assignment ? new Date(assignment.due_date) : null;
   const isOverdue = dueDate
     ? (() => {
@@ -295,8 +300,15 @@ const AssignmentDetails = () => {
     : false;
 
   const canSubmit = isStudent && !userSubmission() && !!user && !isOverdue;
-  const canManageAssignment =
-    user?.role === "instructor" || user?.role === "admin";
+  const canManageAssignment = !!(
+    user?.role === "instructor" ||
+    user?.role === "admin" ||
+    user?.roles?.some(
+      (r) =>
+        r.name.toLowerCase() === "instructor" ||
+        r.name.toLowerCase() === "admin",
+    )
+  );
 
   const handleStatusChange = useCallback(
     async (
@@ -329,7 +341,7 @@ const AssignmentDetails = () => {
       try {
         await api.patch(`/submissions/${submissionId}/grade`, {
           score,
-          maxScore: parseInt(assignment!.max_score),
+          maxScore: parseFloat(assignment!.max_score),
           feedback,
           rubricScores,
         });
@@ -554,7 +566,7 @@ const AssignmentDetails = () => {
                     d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                <span>Details</span>
+                <span>Grading Criteria</span>
               </button>
             </nav>
           </div>
@@ -603,20 +615,23 @@ const AssignmentDetails = () => {
                   transition={{ duration: 0.2 }}
                   className="space-y-8"
                 >
-                  <div className="prose prose-blue dark:prose-invert max-w-none">
+                  {/* <div className="prose prose-blue dark:prose-invert max-w-none">
                     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
                       Assignment Description
                     </h3>
-                    <div
-                      className="text-gray-700 dark:text-gray-300 leading-relaxed"
-                      dangerouslySetInnerHTML={{
-                        __html: assignment.description,
-                      }}
-                    />
-                  </div>
+
+                    <div className="prose prose-sm sm:prose-base max-w-none dark:prose-invert">
+                      <div
+                        className="assignment-description leading-relaxed text-black dark:text-white"
+                        dangerouslySetInnerHTML={{
+                          __html: assignment.description,
+                        }}
+                      />
+                    </div>
+                  </div> */}
 
                   {parsedRubric.length > 0 && (
-                    <div className="space-y-6 pt-6 border-t border-gray-100 dark:border-gray-800 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+                    <div className="space-y-6 pt-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400">
                           <Award className="w-5 h-5" />
@@ -678,7 +693,7 @@ const AssignmentDetails = () => {
             id: assignment.id,
             title: assignment.title,
             submission_type: assignment.submission_type,
-            max_score: parseInt(assignment.max_score),
+            max_score: parseFloat(assignment.max_score),
             due_date: assignment.due_date,
             status: assignment.status,
           }}
@@ -686,7 +701,7 @@ const AssignmentDetails = () => {
             fetchAssignment();
             fetchSubmissions();
           }}
-          existingSubmission={userSubmission}
+          existingSubmission={userSubmission()}
         />
 
         <AssignmentForm

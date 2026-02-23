@@ -116,6 +116,10 @@ api.interceptors.response.use(
       }
 
       console.warn("Session expired or unauthorized. Redirecting to login.");
+      // Clear tokens to prevent redirect loops if the login page checks for existing items
+      localStorage.removeItem("nga_auth_token");
+      localStorage.removeItem("misToken");
+
       // Cookies will be cleared by server or expire. Relogin needed.
       const loginPath = (import.meta.env.BASE_URL + "/login").replace(
         /\/+/g,

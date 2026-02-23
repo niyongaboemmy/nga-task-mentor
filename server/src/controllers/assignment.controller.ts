@@ -18,6 +18,8 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
   try {
     const { courseId } = req.params;
 
+    const isStudent = req.user.role === "student";
+
     const assignments = await Assignment.findAll({
       where: { course_id: courseId },
       include: [
@@ -28,6 +30,8 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
         },
         {
           model: Submission,
+          required: false, // Don't filter out assignments without submissions
+          where: isStudent ? { student_id: req.user.id } : {}, // If student, only their submission
           include: [
             {
               model: User,
@@ -175,10 +179,31 @@ export const createAssignment = async (req: Request, res: Response) => {
       });
     }
 
-    if (!max_score || max_score < 0) {
+    if (!utcDueDate) {
       return res.status(400).json({
         success: false,
-        message: "Valid maximum score is required",
+        message: "Due date is required",
+      });
+    }
+
+    // New assignments should ideally have a future due date
+    if (utcDueDate <= new Date()) {
+      return res.status(400).json({
+        success: false,
+        message: "Due date must be in the future for new assignments",
+      });
+    }
+
+    const parsedMaxScore = parseFloat(max_score);
+    if (
+      max_score === undefined ||
+      max_score === null ||
+      isNaN(parsedMaxScore) ||
+      parsedMaxScore <= 0
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "A positive maximum score is required",
       });
     }
 
@@ -193,41 +218,73 @@ export const createAssignment = async (req: Request, res: Response) => {
       });
     }
 
+    // Parse and validate rubric
+    let parsedRubric = [];
+    if (rubric) {
+      try {
+        parsedRubric = typeof rubric === "string" ? JSON.parse(rubric) : rubric;
+        if (!Array.isArray(parsedRubric)) throw new Error();
+
+        let rubricTotal = 0;
+        for (const item of parsedRubric) {
+          if (
+            !item.criteria ||
+            !item.criteria.trim() ||
+            !item.max_score ||
+            isNaN(parseFloat(item.max_score))
+          ) {
+            return res.status(400).json({
+              success: false,
+              message: "All rubric criteria must have a name and a valid score",
+            });
+          }
+          rubricTotal += parseFloat(item.max_score);
+        }
+
+        // Ensure rubric total doesn't exceed max_score (optional, but good for consistency)
+        if (rubricTotal > parsedMaxScore + 0.01) {
+          // Allowance for floating point
+          return res.status(400).json({
+            success: false,
+            message: `Sum of rubric scores (${rubricTotal}) cannot exceed assignment max score (${parsedMaxScore})`,
+          });
+        }
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid rubric data format",
+        });
+      }
+    }
+
     const assignment = await Assignment.create({
       title: title.trim(),
-      description: description.trim(), // Rich text HTML content is stored as-is
+      description: description.trim(),
       due_date: utcDueDate,
-      max_score: parseFloat(max_score),
+      max_score: parsedMaxScore,
       course_id: parseInt(finalCourseId),
       submission_type,
       created_by: req.user.id,
       attachments,
-      rubric: (() => {
-        if (!rubric) return [];
-        if (typeof rubric === "string") {
-          try {
-            return JSON.parse(rubric);
-          } catch (e) {
-            return [];
-          }
-        }
-        return rubric;
-      })(),
+      rubric: parsedRubric,
       allowed_file_types: (() => {
-        if (!allowed_file_types) return [];
+        if (!allowed_file_types) return null;
+        let types: string[] = [];
         if (typeof allowed_file_types === "string") {
           try {
-            return JSON.parse(allowed_file_types);
+            types = JSON.parse(allowed_file_types);
           } catch (e) {
-            return allowed_file_types
+            types = allowed_file_types
               .split(",")
               .map((t: string) => t.trim().toLowerCase())
               .filter((t: string) => t !== "");
           }
+        } else {
+          types = allowed_file_types;
         }
-        return allowed_file_types;
+        return types.length > 0 ? types : null;
       })(),
-    } as any); // Cast to any to allow status field
+    } as any);
 
     res.status(201).json({
       success: true,
@@ -390,35 +447,86 @@ export const updateAssignment = async (req: Request, res: Response) => {
         });
       }
     }
-    if (max_score !== undefined) assignment.max_score = max_score;
-    if (submission_type !== undefined)
+    if (max_score !== undefined) {
+      const parsedMax = parseFloat(max_score);
+      if (isNaN(parsedMax) || parsedMax <= 0) {
+        return res.status(400).json({
+          success: false,
+          message: "A positive maximum score is required",
+        });
+      }
+      assignment.max_score = parsedMax;
+    }
+
+    if (submission_type !== undefined) {
+      const validTypes = ["file", "text", "both"];
+      if (!validTypes.includes(submission_type)) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid submission type",
+        });
+      }
       assignment.submission_type = submission_type;
+    }
+
     if (allowed_file_types !== undefined) {
       if (typeof allowed_file_types === "string") {
         try {
-          assignment.allowed_file_types = JSON.parse(allowed_file_types);
+          const parsed = JSON.parse(allowed_file_types);
+          assignment.allowed_file_types =
+            Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
         } catch (e) {
-          assignment.allowed_file_types = allowed_file_types
+          const types = allowed_file_types
             .split(",")
             .map((t: string) => t.trim().toLowerCase())
             .filter((t: string) => t !== "");
+          assignment.allowed_file_types = types.length > 0 ? types : null;
         }
       } else {
-        assignment.allowed_file_types = allowed_file_types;
+        assignment.allowed_file_types =
+          Array.isArray(allowed_file_types) && allowed_file_types.length > 0
+            ? allowed_file_types
+            : null;
       }
     }
 
     if (rubric !== undefined) {
-      if (typeof rubric === "string") {
-        try {
-          assignment.rubric = JSON.parse(rubric);
-        } catch (e) {
-          assignment.rubric = [];
+      try {
+        const parsed = typeof rubric === "string" ? JSON.parse(rubric) : rubric;
+        if (!Array.isArray(parsed)) throw new Error();
+
+        let rubricTotal = 0;
+        for (const item of parsed) {
+          if (
+            !item.criteria ||
+            !item.criteria.trim() ||
+            !item.max_score ||
+            isNaN(parseFloat(item.max_score))
+          ) {
+            return res.status(400).json({
+              success: false,
+              message: "All rubric criteria must have a name and a valid score",
+            });
+          }
+          rubricTotal += parseFloat(item.max_score);
         }
-      } else {
-        assignment.rubric = rubric;
+
+        const currentMaxScore = assignment.max_score;
+        if (rubricTotal > currentMaxScore + 0.01) {
+          return res.status(400).json({
+            success: false,
+            message: `Sum of rubric scores (${rubricTotal}) cannot exceed assignment max score (${currentMaxScore})`,
+          });
+        }
+        assignment.rubric = parsed;
+      } catch (e) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid rubric data format",
+        });
       }
     }
+
     if (status !== undefined) {
       const validStatuses = ["draft", "published", "completed", "removed"];
       if (!validStatuses.includes(status)) {
@@ -514,13 +622,17 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
             "last_name",
             "email",
             "profile_image",
+            "mis_user_id",
           ],
         },
       ],
     });
 
     // If user is a student, return only their own submission
-    if (req.user.role === "student") {
+    // Support multi-role users by prioritizing instructor/admin roles
+    const isStudentOnly = req.user.role === "student";
+
+    if (isStudentOnly) {
       const userSubmission = existingSubmissions.find(
         (submission) => String(submission.student_id) === String(req.user.id),
       );
@@ -567,25 +679,32 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
       // Continue with existing submissions only
     }
 
-    // Create a map of existing submissions by student_id for quick lookup
-    const submissionsMap = new Map();
-    existingSubmissions.forEach((submission) => {
-      submissionsMap.set(submission.student_id, submission);
+    // Create a set of MIS user IDs from existing submissions for quick lookup
+    const existingStudentMisIds = new Set();
+    existingSubmissions.forEach((s: any) => {
+      if (s.User?.mis_user_id) {
+        existingStudentMisIds.add(String(s.User.mis_user_id));
+      } else if (s.student?.mis_user_id) {
+        existingStudentMisIds.add(String(s.student.mis_user_id));
+      }
     });
 
-    // Create comprehensive submission list including non-submitters
-    const allSubmissions = enrolledStudents.map((student: any) => {
-      const existingSubmission = submissionsMap.get(student.id);
+    // Start with all actual submissions from our database
+    let allSubmissions = [...existingSubmissions];
 
-      if (existingSubmission) {
-        // Student has submitted - return the actual submission
-        return existingSubmission;
-      } else {
+    // Add placeholders ONLY for students from MIS who haven't submitted yet
+    enrolledStudents.forEach((student: any) => {
+      const misId = String(
+        student.id || student.user_id || student.student_id || student.userId,
+      );
+
+      if (!existingStudentMisIds.has(misId)) {
         // Student hasn't submitted - create a placeholder submission object
-        return {
+        // Use 'any' cast to satisfy TypeScript for non-DB placeholder object
+        const placeholder: any = {
           id: null,
           assignment_id: parseInt(req.params.id),
-          student_id: student.id,
+          student_id: null, // We don't have a local ID yet
           status: "pending",
           submitted_at: null,
           text_submission: null,
@@ -598,7 +717,7 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
           createdAt: null,
           updatedAt: null,
           student: {
-            id: student.id,
+            id: misId,
             first_name: student.first_name || student.firstName,
             last_name: student.last_name || student.lastName,
             email: student.email,
@@ -607,6 +726,7 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
           // Add a flag to indicate this is a placeholder for non-submitters
           _isPlaceholder: true,
         };
+        allSubmissions.push(placeholder);
       }
     });
 
@@ -644,6 +764,18 @@ export const getEnrolledAssignments = async (req: Request, res: Response) => {
       where: {
         status: "published",
       },
+      include: [
+        {
+          model: User,
+          as: "creator",
+          attributes: ["id", "first_name", "last_name"],
+        },
+        {
+          model: Submission,
+          required: false,
+          where: { student_id: req.user.id },
+        },
+      ],
       order: [["due_date", "ASC"]],
     });
 

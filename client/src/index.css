@@ -32,13 +32,96 @@
   @apply text-gray-700 dark:text-gray-300 italic;
 }
 
-.assignment-description ul,
+.assignment-description ul {
+  @apply list-disc list-outside mb-4 ml-6;
+}
+
 .assignment-description ol {
-  @apply text-gray-700 dark:text-gray-300;
+  @apply list-decimal list-outside mb-4 ml-6;
 }
 
 .assignment-description li {
-  @apply text-gray-700 dark:text-gray-300;
+  @apply mb-1;
+}
+
+.assignment-description li p {
+  @apply inline;
+}
+
+/* Ensure Tiptap prose is extremely compact - absolute zero margins */
+.prose>* {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
+
+.prose p {
+  margin: 0 !important;
+}
+
+.prose ul {
+  @apply list-disc ml-6;
+  margin: 0 !important;
+}
+
+.prose ol {
+  @apply list-decimal ml-6;
+  margin: 0 !important;
+}
+
+.prose li {
+  margin: 0 !important;
+  font-size: inherit;
+}
+
+/* Force list markers to match text size - more aggressive approach */
+.prose ul li::marker {
+  font-size: 16px !important;
+}
+
+.prose ol li::marker {
+  font-size: 16px !important;
+}
+
+/* Ensure list items with inline font-size pass it to markers */
+.prose li[style*="font-size"]::marker {
+  font-size: inherit !important;
+}
+
+.prose li p {
+  margin: 0 !important;
+}
+
+/* Placeholder styling */
+.prose .is-empty::before {
+  @apply text-gray-400 dark:text-gray-600 float-left h-0 pointer-events-none;
+  content: attr(data-placeholder);
+  font-size: inherit;
+  line-height: inherit;
+}
+
+/* Ensure task lists are styled correctly */
+ul[data-type="taskList"] {
+  @apply list-none ml-0 p-0;
+}
+
+ul[data-type="taskList"] li {
+  @apply flex items-start mb-1;
+}
+
+ul[data-type="taskList"] label {
+  @apply flex-shrink-0 mr-3 select-none;
+}
+
+ul[data-type="taskList"] input[type="checkbox"] {
+  @apply cursor-pointer;
+}
+
+ul[data-type="taskList"] div {
+  @apply flex-1;
+}
+
+.assignment-description li p {
+  padding: 0 !important;
 }
 
 .assignment-description a {
@@ -76,6 +159,7 @@
     opacity: 0;
     transform: translateY(10px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -87,13 +171,16 @@
     opacity: 0;
     transform: scale(0.3);
   }
+
   50% {
     opacity: 1;
     transform: scale(1.05);
   }
+
   70% {
     transform: scale(0.9);
   }
+
   100% {
     opacity: 1;
     transform: scale(1);

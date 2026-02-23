@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import axios from "../utils/axiosConfig";
 import { toast } from "react-toastify";
 import { Bar, Doughnut } from "react-chartjs-2";
+import { motion } from "framer-motion";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -13,6 +14,20 @@ import {
   Legend,
   ArcElement,
 } from "chart.js";
+import {
+  BarChart3,
+  Download,
+  RefreshCw,
+  Search,
+  TrendingUp,
+  Users,
+  AlertCircle,
+  CheckCircle2,
+  Award,
+  Zap,
+  ArrowLeft,
+  GraduationCap,
+} from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../store";
 import { fetchCourses } from "../store/slices/courseSlice";
@@ -78,6 +93,28 @@ interface AssessmentMeta {
   max_score: number;
 }
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 100,
+    },
+  },
+};
+
 const CourseReportsPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const dispatch = useDispatch<AppDispatch>();
@@ -98,6 +135,8 @@ const CourseReportsPage: React.FC = () => {
   const courseState = useSelector((state: RootState) => state.course);
   const currentCourse = courseState?.currentCourse;
   const courses = courseState?.courses || [];
+  const authUser = useSelector((state: RootState) => state.auth.user);
+  const isStudent = authUser?.role === "student";
 
   // Derive course data
   const course = React.useMemo(() => {
@@ -309,7 +348,12 @@ const CourseReportsPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen">
+    <motion.div
+      className="min-h-screen"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
       {/* Modal */}
       <StudentGradeModal
         isOpen={isModalOpen}
@@ -318,389 +362,710 @@ const CourseReportsPage: React.FC = () => {
       />
 
       {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+      {/* Header */}
+      <motion.div
+        variants={itemVariants}
+        className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6"
+      >
         <div>
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-3">
             <Link
               to={`/courses/${courseId}`}
-              className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
+              className="group flex items-center gap-2 px-4 py-2 bg-white/50 dark:bg-gray-800/30 rounded-full border border-gray-200/50 dark:border-gray-700/50 text-sm font-bold text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-all hover:bg-white dark:hover:bg-gray-800 hover:shadow-lg hover:shadow-blue-500/10"
             >
-              Back to Course
+              <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+              <span>Back to Course</span>
             </Link>
-            <span className="text-gray-300">/</span>
-            <span className="text-blue-600 font-medium">Reports</span>
-          </div>
-          <div className="flex items-center gap-3">
-            {course && (
-              <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl md:flex items-center justify-center shadow-lg text-white font-bold text-lg hidden">
-                {course.code ? course.code.substring(0, 2) : "C"}
-              </div>
-            )}
-            <h1 className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-black to-black dark:from-white dark:to-white">
-              {course ? `${course.title}` : "Student Performance Reports"}
-            </h1>
           </div>
 
-          <p className="text-gray-500 dark:text-gray-400 mt-1 md:ml-14 text-sm">
-            {course ? `${course.code} • ` : ""} Comprehensive overview of
-            student grades.
-          </p>
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={fetchGrades}
-            className="px-4 py-2 bg-white dark:bg-gray-800/40 border border-gray-200 dark:border-gray-700/30 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors shadow-sm flex items-center gap-2"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
-            Refresh
-          </button>
-          <button
-            onClick={handleExportCSV}
-            className="px-4 py-2 bg-blue-600 text-sm text-white rounded-full hover:bg-blue-700 transition-all hover:shadow-blue-500/30 flex items-center gap-2 font-normal"
-          >
-            <svg
-              className="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-              />
-            </svg>
-            Export CSV
-          </button>
-        </div>
-      </div>
-
-      {/* Dashboard Statistics Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800/40 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/30 relative overflow-hidden group">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-          <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-2">
-            Average Grade
-          </h3>
-          <p className="text-4xl font-bold text-gray-900 dark:text-white">
-            {Math.round(averageGrade)}%
-          </p>
-          <div className="w-full bg-gray-200 dark:bg-gray-700 h-1.5 rounded-full mt-4 overflow-hidden">
-            <div
-              className={`h-full rounded-full transition-all duration-1000 ${
-                averageGrade >= 80
-                  ? "bg-green-500"
-                  : averageGrade >= 60
-                    ? "bg-yellow-500"
-                    : "bg-red-500"
-              }`}
-              style={{ width: `${averageGrade}%` }}
-            ></div>
+          <div className="flex items-center gap-4">
+            <div className="w-16 h-16 rounded-[1.5rem] bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white shadow-2xl shadow-blue-500/30 transform rotate-3">
+              <GraduationCap className="w-8 h-8" />
+            </div>
+            <div>
+              <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
+                {course ? `${course.title}` : "Course Reports"}
+              </h1>
+              <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium flex items-center gap-2">
+                {course ? (
+                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-black uppercase tracking-wider">
+                    {course.code}
+                  </span>
+                ) : (
+                  ""
+                )}
+                <span>
+                  {isStudent
+                    ? "Academic Performance Dashboard"
+                    : "Student Performance Analytics"}
+                </span>
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800/40 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/30 relative overflow-hidden group">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-green-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-          <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-2">
-            Passing Students
-          </h3>
-          <p className="text-4xl font-bold text-gray-900 dark:text-white">
-            {passingCount}
-          </p>
-          <span className="text-green-500 text-sm font-medium">
-            {Math.round((passingCount / (data.students.length || 1)) * 100)}% of
-            class
-          </span>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800/40 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/30 relative overflow-hidden group">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-red-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-          <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-2">
-            Needs Attention (Failing)
-          </h3>
-          <p className="text-4xl font-bold text-gray-900 dark:text-white">
-            {failingCount}
-          </p>
-          <span className="text-red-500 text-sm font-medium">
-            Students &lt; 60%
-          </span>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800/40 rounded-2xl p-6 shadow-sm border border-gray-100 dark:border-gray-700/30 relative overflow-hidden group">
-          <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110"></div>
-          <h3 className="text-gray-500 dark:text-gray-400 text-sm font-medium mb-2">
-            Total Students
-          </h3>
-          <p className="text-4xl font-bold text-gray-900 dark:text-white">
-            {data.students.length}
-          </p>
-          <span className="text-purple-500 text-sm font-medium">Enrolled</span>
-        </div>
-      </div>
-
-      {/* Analytics Section */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-        <div className="bg-white dark:bg-gray-800/40 p-6 rounded-2xl border border-gray-200 dark:border-gray-700/30 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-            Grade Distribution
-          </h3>
-          <div className="h-64 flex justify-center">
-            <Bar data={barChartData} options={chartOptions} />
-          </div>
-        </div>
-
-        <div className="bg-white dark:bg-gray-800/40 p-6 rounded-2xl border border-gray-200 dark:border-gray-700/30 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">
-            Class Performance Ratio
-          </h3>
-          <div className="h-64 flex justify-center">
-            <Doughnut data={doughnutData} options={chartOptions} />
-          </div>
-        </div>
-      </div>
-
-      {/* Filters & Controls */}
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-gray-800/40 p-4 rounded-2xl border border-gray-200 dark:border-gray-700/30 shadow-sm mb-6 gap-4">
-        <div className="relative w-full md:w-96">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg
-              className="h-5 w-5 text-gray-400"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
-          </div>
-          <input
-            type="text"
-            className="block w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600/50 rounded-xl leading-5 bg-white dark:bg-gray-800/40 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
-            placeholder="Search students..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-          />
-        </div>
-
-        <div className="flex gap-2">
-          {["all", "passing", "failing"].map((type) => (
+        {!isStudent && (
+          <div className="flex gap-3">
             <button
-              key={type}
-              onClick={() => setFilterType(type as any)}
-              className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-                filterType === type
-                  ? "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-                  : "text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700"
-              }`}
+              onClick={fetchGrades}
+              className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-black text-xs uppercase tracking-wider text-gray-600 dark:text-gray-300"
             >
-              {type.charAt(0).toUpperCase() + type.slice(1)}
+              <RefreshCw className="w-4 h-4" />
+              <span>Refresh Data</span>
             </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Data Table */}
-      <div className="bg-white dark:bg-gray-800/40 rounded-xl shadow-sm border border-gray-200 dark:border-gray-700/30 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-900/50">
-              <tr>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider sticky left-0 z-10 bg-gray-50 dark:bg-gray-900"
-                >
-                  Student
-                </th>
-                <th
-                  scope="col"
-                  className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider sticky left-40 z-10 bg-gray-50 dark:bg-gray-900 border-r border-gray-200 dark:border-gray-700"
-                >
-                  Total Grade
-                </th>
-                {data.assignments.map((assignment) => (
-                  <th
-                    key={`h-a-${assignment.id}`}
-                    scope="col"
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[120px]"
-                  >
-                    <div className="flex flex-col">
-                      <span
-                        className="font-bold text-gray-700 dark:text-gray-300 truncate max-w-[150px]"
-                        title={assignment.title}
-                      >
-                        {assignment.title}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        (Assign) / {assignment.max_score}
-                      </span>
-                    </div>
-                  </th>
-                ))}
-                {data.quizzes.map((quiz) => (
-                  <th
-                    key={`h-q-${quiz.id}`}
-                    scope="col"
-                    className="px-6 py-3 text-center text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wider min-w-[120px]"
-                  >
-                    <div className="flex flex-col">
-                      <span
-                        className="font-bold text-gray-700 dark:text-gray-300 truncate max-w-[150px]"
-                        title={quiz.title}
-                      >
-                        {quiz.title}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        (Quiz) / {quiz.max_score}
-                      </span>
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-800/40 divide-y divide-gray-200 dark:divide-gray-700">
-              {filteredStudents.map((student) => (
-                <tr
-                  key={student.student.id}
-                  onClick={() => handleStudentClick(student)}
-                  className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors cursor-pointer group"
-                >
-                  <td className="px-6 py-4 whitespace-nowrap sticky left-0 z-10 bg-white dark:bg-gray-800/40 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/50 transition-colors border-r border-transparent">
-                    <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10">
-                        {student.student.profile_image ? (
-                          <img
-                            className="h-10 w-10 rounded-full object-cover border border-gray-200 dark:border-gray-700"
-                            src={student.student.profile_image}
-                            alt=""
-                          />
-                        ) : (
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white font-bold">
-                            {student.student.name.charAt(0)}
-                          </div>
-                        )}
-                      </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                          {student.student.name}
-                        </div>
-                        <div className="text-sm text-gray-500 dark:text-gray-400">
-                          {student.student.email}
-                        </div>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center sticky left-40 z-10 bg-white dark:bg-gray-800/40 group-hover:bg-gray-50 dark:group-hover:bg-gray-700/50 border-r border-gray-200 dark:border-gray-700/30 transition-colors">
-                    <div
-                      className={`text-lg font-bold ${
-                        student.summary.total_percentage >= 80
-                          ? "text-green-600 dark:text-green-400"
-                          : student.summary.total_percentage >= 60
-                            ? "text-yellow-600 dark:text-yellow-400"
-                            : "text-red-600 dark:text-red-400"
-                      }`}
-                    >
-                      {student.summary.total_percentage}%
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {student.summary.total_points_earned} /{" "}
-                      {student.summary.total_max_points} pts
-                    </div>
-                  </td>
-
-                  {/* Assignments */}
-                  {data.assignments.map((assignment) => {
-                    const grade = student.assignments.find(
-                      (a) => a.assignment_id === assignment.id,
-                    );
-                    return (
-                      <td
-                        key={`g-a-${student.student.id}-${assignment.id}`}
-                        className="px-6 py-4 whitespace-nowrap text-center"
-                      >
-                        {grade?.submitted ? (
-                          grade.grade !== null ? (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
-                              {grade.grade}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                              Pending
-                            </span>
-                          )
-                        ) : (
-                          <span className="text-gray-300 dark:text-gray-600 text-xl">
-                            -
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-
-                  {/* Quizzes */}
-                  {data.quizzes.map((quiz) => {
-                    const grade = student.quizzes.find(
-                      (q) => q.quiz_id === quiz.id,
-                    );
-                    return (
-                      <td
-                        key={`g-q-${student.student.id}-${quiz.id}`}
-                        className="px-6 py-4 whitespace-nowrap text-center"
-                      >
-                        {grade?.submitted ? (
-                          grade.score !== null ? (
-                            <div className="flex flex-col items-center">
-                              <span
-                                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-sm font-medium ${
-                                  grade.passed
-                                    ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                                    : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                                }`}
-                              >
-                                {grade.score}
-                              </span>
-                            </div>
-                          ) : (
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300">
-                              Pending
-                            </span>
-                          )
-                        ) : (
-                          <span className="text-gray-300 dark:text-gray-600 text-xl">
-                            -
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        {filteredStudents.length === 0 && (
-          <div className="p-8 text-center text-gray-500 dark:text-gray-400">
-            No students found based on your filters.
+            <button
+              onClick={handleExportCSV}
+              className="px-6 py-3 bg-blue-600 text-white rounded-3xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 font-black text-xs uppercase tracking-wider hover:scale-105 active:scale-95"
+            >
+              <Download className="w-4 h-4" />
+              <span>Export CSV</span>
+            </button>
           </div>
         )}
-      </div>
-    </div>
+      </motion.div>
+
+      {isStudent && data.students.length > 0 ? (
+        // STUDENT VIEW
+        (() => {
+          const student = data.students[0];
+          return (
+            <motion.div className="space-y-6" variants={containerVariants}>
+              {/* Student Summary Cards */}
+              <motion.div
+                variants={itemVariants}
+                className="grid grid-cols-1 md:grid-cols-3 gap-6"
+              >
+                <motion.div
+                  variants={itemVariants}
+                  className="bg-white dark:bg-gray-900 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group"
+                >
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
+
+                  <div className="relative z-10">
+                    <p className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                      <Award className="w-4 h-4" />
+                      Total Grade
+                    </p>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-5xl font-black text-gray-900 dark:text-white tabular-nums">
+                        {student.summary.total_percentage}%
+                      </p>
+                    </div>
+
+                    <div className="mt-6 w-full bg-gray-100 dark:bg-gray-800 rounded-full h-3 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all duration-1000 ${
+                          student.summary.total_percentage >= 80
+                            ? "bg-green-500"
+                            : student.summary.total_percentage >= 60
+                              ? "bg-blue-500"
+                              : "bg-red-500"
+                        }`}
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            student.summary.total_percentage,
+                          )}%`,
+                        }}
+                      ></div>
+                    </div>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  variants={itemVariants}
+                  className="bg-white dark:bg-gray-900 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden"
+                >
+                  <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
+                  <div className="relative z-10">
+                    <p className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                      <Zap className="w-4 h-4" />
+                      Points Earned
+                    </p>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-4xl font-black text-gray-900 dark:text-white tabular-nums">
+                        {student.summary.total_points_earned}
+                      </p>
+                      <span className="text-xl font-bold text-gray-400 dark:text-gray-600 uppercase tracking-tighter">
+                        / {student.summary.total_max_points}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-gray-400 mt-4 leading-relaxed">
+                      You have accummulated{" "}
+                      <span className="text-gray-900 dark:text-white font-bold">
+                        {student.summary.total_points_earned} points
+                      </span>{" "}
+                      across all assignments and quizzes.
+                    </p>
+                  </div>
+                </motion.div>
+
+                <motion.div
+                  variants={itemVariants}
+                  className="bg-white dark:bg-gray-900 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden"
+                >
+                  <div
+                    className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl -mr-16 -mt-16 ${student.summary.total_percentage >= 60 ? "bg-green-500/5" : "bg-red-500/5"}`}
+                  />
+                  <div className="relative z-10">
+                    <p
+                      className={`text-xs font-black uppercase tracking-widest flex items-center gap-2 mb-4 ${student.summary.total_percentage >= 60 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                    >
+                      {student.summary.total_percentage >= 60 ? (
+                        <CheckCircle2 className="w-4 h-4" />
+                      ) : (
+                        <AlertCircle className="w-4 h-4" />
+                      )}
+                      Current Status
+                    </p>
+
+                    <div className="flex items-center gap-3">
+                      <span
+                        className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wider ${
+                          student.summary.total_percentage >= 60
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                        }`}
+                      >
+                        {student.summary.total_percentage >= 60
+                          ? "PASSING"
+                          : "FAILING"}
+                      </span>
+                    </div>
+                    <p className="text-xs font-medium text-gray-400 mt-4 leading-relaxed">
+                      {student.summary.total_percentage >= 60
+                        ? "Great job! Keep maintaining your performance."
+                        : "Grade is below passing threshold. Review pending tasks."}
+                    </p>
+                  </div>
+                </motion.div>
+              </motion.div>
+
+              <motion.div
+                variants={itemVariants}
+                className="grid grid-cols-1 lg:grid-cols-2 gap-6"
+              >
+                {/* Assignments Section */}
+                {/* Assignments Section */}
+                <motion.div
+                  variants={itemVariants}
+                  className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
+                >
+                  <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/30 dark:bg-black/20 backdrop-blur-sm">
+                    <h3 className="font-black text-xl flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+                      <span className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-lg shadow-blue-500/10">
+                        <BarChart3 className="w-5 h-5" />
+                      </span>
+                      Assignments
+                    </h3>
+                    <span className="text-xs font-black uppercase tracking-widest bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-4 py-1.5 rounded-xl">
+                      Avg: {student.summary.assignment_percentage}%
+                    </span>
+                  </div>
+                  <div className="p-6 space-y-4">
+                    {student.assignments.length > 0 ? (
+                      student.assignments.map((assignment) => (
+                        <div
+                          key={assignment.assignment_id}
+                          className="flex items-center justify-between p-5 bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-300 group"
+                        >
+                          <div className="flex-1 min-w-0 pr-6">
+                            <p className="font-bold text-gray-900 dark:text-white truncate text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                              {assignment.title}
+                            </p>
+                            <div className="flex items-center gap-3 mt-2">
+                              <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                                Max Score: {assignment.max_score}
+                              </span>
+                              {!assignment.submitted && (
+                                <span className="text-[10px] font-black uppercase tracking-widest text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-lg">
+                                  Missing
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {assignment.submitted ? (
+                              assignment.grade !== null ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">
+                                    {assignment.grade}
+                                  </span>
+                                  {assignment.max_score && (
+                                    <div className="w-16 h-1 mt-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                                      <div
+                                        className="h-full bg-blue-500 rounded-full"
+                                        style={{
+                                          width: `${(Number(assignment.grade) / Number(assignment.max_score)) * 100}%`,
+                                        }}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-xs font-bold uppercase tracking-wider text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1.5 rounded-xl">
+                                  Pending
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-2xl font-black text-gray-200 dark:text-gray-700">
+                                -
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-12 flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-300">
+                          <BarChart3 className="w-8 h-8" />
+                        </div>
+                        <p className="text-gray-500 font-medium">
+                          No assignments found.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+
+                {/* Quizzes Section */}
+                <motion.div
+                  variants={itemVariants}
+                  className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
+                >
+                  <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/30 dark:bg-black/20 backdrop-blur-sm">
+                    <h3 className="font-black text-xl flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+                      <span className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-lg shadow-purple-500/10">
+                        <Zap className="w-5 h-5" />
+                      </span>
+                      Quizzes
+                    </h3>
+                    <span className="text-xs font-black uppercase tracking-widest bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-4 py-1.5 rounded-xl">
+                      Avg: {student.summary.quiz_percentage}%
+                    </span>
+                  </div>
+                  <motion.div variants={itemVariants} className="p-6 space-y-4">
+                    {student.quizzes.length > 0 ? (
+                      student.quizzes.map((quiz) => (
+                        <div
+                          key={quiz.quiz_id}
+                          className="flex items-center justify-between p-5 bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-300 group"
+                        >
+                          <div className="flex-1 min-w-0 pr-6">
+                            <p className="font-bold text-gray-900 dark:text-white truncate text-base group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                              {quiz.title}
+                            </p>
+                            <div className="flex items-center gap-3 mt-2">
+                              <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                                Max: {quiz.max_score}
+                              </span>
+                              {quiz.submitted && (
+                                <span
+                                  className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${
+                                    quiz.passed
+                                      ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                                      : "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                                  }`}
+                                >
+                                  {quiz.passed ? "PASSED" : "FAILED"}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {quiz.submitted ? (
+                              quiz.score !== null ? (
+                                <div className="flex flex-col items-end">
+                                  <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">
+                                    {quiz.score}
+                                  </span>
+                                  <span className="text-[10px] font-bold text-gray-400">
+                                    {quiz.percentage}%
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="text-xs font-bold uppercase tracking-wider text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1.5 rounded-xl">
+                                  Pending
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-2xl font-black text-gray-200 dark:text-gray-700">
+                                -
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-12 flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-300">
+                          <Zap className="w-8 h-8" />
+                        </div>
+                        <p className="text-gray-500 font-medium">
+                          No quizzes found.
+                        </p>
+                      </div>
+                    )}
+                  </motion.div>
+                </motion.div>
+              </motion.div>
+            </motion.div>
+          );
+        })()
+      ) : isStudent ? (
+        <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/40 rounded-2xl">
+          <p className="text-gray-500">No grade data available yet.</p>
+        </div>
+      ) : (
+        <>
+          {/* Dashboard Statistics Cards */}
+          {/* Dashboard Statistics Cards */}
+          <motion.div
+            variants={containerVariants}
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10"
+          >
+            <motion.div
+              variants={itemVariants}
+              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
+            >
+              <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4 text-blue-500" />
+                Average Grade
+              </p>
+              <p className="text-5xl font-black text-gray-900 dark:text-white mb-4">
+                {Math.round(averageGrade)}
+                <span className="text-2xl text-gray-400">%</span>
+              </p>
+              <div className="w-full bg-gray-100 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-1000 ${
+                    averageGrade >= 80
+                      ? "bg-green-500"
+                      : averageGrade >= 60
+                        ? "bg-yellow-500"
+                        : "bg-red-500"
+                  }`}
+                  style={{ width: `${averageGrade}%` }}
+                ></div>
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={itemVariants}
+              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
+            >
+              <div className="absolute right-0 top-0 w-32 h-32 bg-green-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+                <CheckCircle2 className="w-4 h-4 text-green-500" />
+                Passing
+              </p>
+              <p className="text-5xl font-black text-gray-900 dark:text-white mb-2">
+                {passingCount}
+              </p>
+              <span className="inline-flex items-center px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-xs font-black uppercase tracking-wider">
+                {Math.round((passingCount / (data.students.length || 1)) * 100)}
+                % of class
+              </span>
+            </motion.div>
+
+            <motion.div
+              variants={itemVariants}
+              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
+            >
+              <div className="absolute right-0 top-0 w-32 h-32 bg-red-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-red-500" />
+                Needs Attention
+              </p>
+              <p className="text-5xl font-black text-gray-900 dark:text-white mb-2">
+                {failingCount}
+              </p>
+              <span className="inline-flex items-center px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-xs font-black uppercase tracking-wider">
+                Student{failingCount !== 1 ? "s" : ""} &lt; 60%
+              </span>
+            </motion.div>
+
+            <motion.div
+              variants={itemVariants}
+              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
+            >
+              <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div>
+              <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Users className="w-4 h-4 text-purple-500" />
+                Total Students
+              </p>
+              <p className="text-5xl font-black text-gray-900 dark:text-white mb-2">
+                {data.students.length}
+              </p>
+              <span className="inline-flex items-center px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-black uppercase tracking-wider">
+                Currently Enrolled
+              </span>
+            </motion.div>
+          </motion.div>
+
+          {/* Analytics Section */}
+          <motion.div
+            variants={containerVariants}
+            className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10"
+          >
+            <motion.div
+              variants={itemVariants}
+              className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none"
+            >
+              <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-blue-500" />
+                Grade Distribution
+              </h3>
+              <div className="h-64 flex justify-center">
+                <Bar data={barChartData} options={chartOptions} />
+              </div>
+            </motion.div>
+
+            <motion.div
+              variants={itemVariants}
+              className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none"
+            >
+              <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+                <Award className="w-4 h-4 text-yellow-500" />
+                Performance Ratio
+              </h3>
+              <div className="h-64 flex justify-center">
+                <Doughnut data={doughnutData} options={chartOptions} />
+              </div>
+            </motion.div>
+          </motion.div>
+
+          {/* Filters & Controls */}
+          <motion.div
+            variants={itemVariants}
+            className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none mb-8 gap-4"
+          >
+            <div className="relative w-full md:w-96 group">
+              <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-blue-500">
+                <Search className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+              </div>
+              <input
+                type="text"
+                className="block w-full pl-12 pr-4 py-3 border border-gray-200 dark:border-gray-700 rounded-2xl leading-5 bg-gray-50 dark:bg-gray-900 placeholder-gray-400 focus:outline-none focus:placeholder-gray-300 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 focus:bg-white dark:focus:bg-gray-800 sm:text-sm font-medium transition-all duration-300 ease-in-out shadow-sm"
+                placeholder="Search students..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+
+            <div className="flex bg-gray-100 dark:bg-gray-900 p-1.5 rounded-3xl">
+              {["all", "passing", "failing"].map((type) => (
+                <button
+                  key={type}
+                  onClick={() => setFilterType(type as any)}
+                  className={`px-6 py-2 rounded-[1.5rem] text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                    filterType === type
+                      ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-md shadow-gray-200/50 dark:shadow-black/30 transform scale-105"
+                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                  }`}
+                >
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </button>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* Data Table */}
+          <motion.div
+            variants={itemVariants}
+            className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
+          >
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">
+                <thead className="bg-gray-50/80 dark:bg-gray-900/50 backdrop-blur-sm">
+                  <tr>
+                    <th
+                      scope="col"
+                      className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] sticky left-0 z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800"
+                    >
+                      Student
+                    </th>
+                    <th
+                      scope="col"
+                      className="px-8 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] sticky left-[120px] md:left-[240px] z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 border-b shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)]"
+                    >
+                      Total Grade
+                    </th>
+                    {data.assignments.map((assignment) => (
+                      <th
+                        key={`h-a-${assignment.id}`}
+                        scope="col"
+                        className="px-6 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
+                      >
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className="text-gray-700 dark:text-gray-300 truncate max-w-[120px]"
+                            title={assignment.title}
+                          >
+                            {assignment.title}
+                          </span>
+                          <span className="text-[9px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                            Assign / {assignment.max_score}
+                          </span>
+                        </div>
+                      </th>
+                    ))}
+                    {data.quizzes.map((quiz) => (
+                      <th
+                        key={`h-q-${quiz.id}`}
+                        scope="col"
+                        className="px-6 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
+                      >
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className="text-gray-700 dark:text-gray-300 truncate max-w-[120px]"
+                            title={quiz.title}
+                          >
+                            {quiz.title}
+                          </span>
+                          <span className="text-[9px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                            Quiz / {quiz.max_score}
+                          </span>
+                        </div>
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-50 dark:divide-gray-800/50">
+                  {filteredStudents.map((student) => (
+                    <tr
+                      key={student.student.id}
+                      onClick={() => handleStudentClick(student)}
+                      className="hover:bg-blue-50/50 dark:hover:bg-blue-900/10 transition-colors cursor-pointer group"
+                    >
+                      <td className="px-8 py-5 whitespace-nowrap sticky left-0 z-10 bg-white dark:bg-gray-800 group-hover:bg-blue-50/50 dark:group-hover:bg-blue-900/10 transition-colors">
+                        <div className="flex items-center">
+                          <div className="flex-shrink-0 h-10 w-10 transition-transform group-hover:scale-110 duration-300">
+                            {student.student.profile_image ? (
+                              <img
+                                className="h-10 w-10 rounded-2xl object-cover shadow-sm ring-2 ring-white dark:ring-gray-700"
+                                src={student.student.profile_image}
+                                alt=""
+                              />
+                            ) : (
+                              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/20 text-sm">
+                                {student.student.name.charAt(0)}
+                              </div>
+                            )}
+                          </div>
+                          <div className="ml-4">
+                            <div className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                              {student.student.name}
+                            </div>
+                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                              {student.student.email}
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-8 py-5 whitespace-nowrap text-center sticky left-[120px] md:left-[240px] z-10 bg-white dark:bg-gray-800 group-hover:bg-blue-50/50 dark:group-hover:bg-blue-900/10 transition-colors border-r border-gray-100 dark:border-gray-800 shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)]">
+                        <div
+                          className={`text-xl font-black ${
+                            student.summary.total_percentage >= 80
+                              ? "text-green-500"
+                              : student.summary.total_percentage >= 60
+                                ? "text-yellow-500"
+                                : "text-red-500"
+                          }`}
+                        >
+                          {student.summary.total_percentage}%
+                        </div>
+                        <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mt-1">
+                          {student.summary.total_points_earned} /{" "}
+                          {student.summary.total_max_points} pts
+                        </div>
+                      </td>
+
+                      {/* Assignments */}
+                      {data.assignments.map((assignment) => {
+                        const grade = student.assignments.find(
+                          (a) => a.assignment_id === assignment.id,
+                        );
+                        return (
+                          <td
+                            key={`g-a-${student.student.id}-${assignment.id}`}
+                            className="px-6 py-5 whitespace-nowrap text-center"
+                          >
+                            {grade?.submitted ? (
+                              grade.grade !== null ? (
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-sm font-bold bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 group-hover:bg-white dark:group-hover:bg-gray-600 group-hover:shadow-sm transition-all">
+                                  {grade.grade}
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400">
+                                  Pending
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-gray-200 dark:text-gray-700 font-black text-lg">
+                                -
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+
+                      {/* Quizzes */}
+                      {data.quizzes.map((quiz) => {
+                        const grade = student.quizzes.find(
+                          (q) => q.quiz_id === quiz.id,
+                        );
+                        return (
+                          <td
+                            key={`g-q-${student.student.id}-${quiz.id}`}
+                            className="px-6 py-5 whitespace-nowrap text-center"
+                          >
+                            {grade?.submitted ? (
+                              grade.score !== null ? (
+                                <div className="flex flex-col items-center">
+                                  <span
+                                    className={`inline-flex items-center px-3 py-1.5 rounded-xl text-sm font-bold ${
+                                      grade.passed
+                                        ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400 group-hover:bg-green-100 dark:group-hover:bg-green-900/30"
+                                        : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400 group-hover:bg-red-100 dark:group-hover:bg-red-900/30"
+                                    } transition-colors`}
+                                  >
+                                    {grade.score}
+                                  </span>
+                                </div>
+                              ) : (
+                                <span className="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400">
+                                  Pending
+                                </span>
+                              )
+                            ) : (
+                              <span className="text-gray-200 dark:text-gray-700 font-black text-lg">
+                                -
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {filteredStudents.length === 0 && (
+              <div className="p-12 text-center flex flex-col items-center gap-4">
+                <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center text-gray-300">
+                  <Search className="w-8 h-8" />
+                </div>
+                <p className="text-gray-500 dark:text-gray-400 font-medium">
+                  No students found based on your filters.
+                </p>
+              </div>
+            )}
+          </motion.div>
+        </>
+      )}
+    </motion.div>
   );
 };
 

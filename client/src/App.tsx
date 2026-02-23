@@ -45,6 +45,7 @@ import QuizProctoringAnalyticsPage from "./components/Quizzes/QuizProctoringAnal
 import { LiveProctoringDashboard } from "./components/Proctoring";
 import QuizListPage from "./pages/QuizListPage";
 import CourseReportsPage from "./pages/CourseReportsPage";
+import StudentReportsPage from "./pages/StudentReportsPage";
 
 // Wrapper components for routes that need useParams
 const QuizViewWrapper = () => {
@@ -188,9 +189,19 @@ function AppContent() {
               }
             />
             <Route
+              path="/reports"
+              element={
+                <ProtectedRoute roles={["student"]}>
+                  <Layout>
+                    <StudentReportsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/courses/:courseId/reports"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin", "student"]}>
                   <Layout>
                     <CourseReportsPage />
                   </Layout>
@@ -210,7 +221,7 @@ function AppContent() {
             <Route
               path="/assignments/create"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <CreateAssignmentPage />
                   </Layout>
@@ -230,7 +241,7 @@ function AppContent() {
             <Route
               path="/assignments/:assignmentId/edit"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <UpdateAssignmentPage />
                 </ProtectedRoute>
               }
@@ -248,7 +259,7 @@ function AppContent() {
             <Route
               path="/students"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <Students />
                   </Layout>
@@ -258,7 +269,7 @@ function AppContent() {
             <Route
               path="/students/:studentId"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <StudentDetails />
                   </Layout>
@@ -278,7 +289,7 @@ function AppContent() {
             <Route
               path="/quizzes/:quizId/questions/create"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <CreateQuestionPageWrapper />
                   </Layout>
@@ -308,7 +319,7 @@ function AppContent() {
             <Route
               path="/quizzes/:quizId/questions/:questionId/edit"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <EditQuestionPageWrapper />
                   </Layout>
@@ -318,7 +329,7 @@ function AppContent() {
             <Route
               path="/courses/:courseId/quizzes/create"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <CreateQuizPageWrapper />
                   </Layout>
@@ -378,7 +389,7 @@ function AppContent() {
             <Route
               path="/proctoring/live"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <LiveProctoringDashboard />
                   </Layout>
@@ -388,7 +399,7 @@ function AppContent() {
             <Route
               path="/quizzes/:quizId/settings"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <EditQuizPageWrapper />
                   </Layout>
@@ -398,7 +409,7 @@ function AppContent() {
             <Route
               path="/quizzes/:quizId/proctoring"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <QuizProctoringPageWrapper />
                   </Layout>
@@ -408,7 +419,7 @@ function AppContent() {
             <Route
               path="/quizzes/:quizId/analytics"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <QuizAnalyticsPageWrapper />
                   </Layout>
@@ -418,7 +429,7 @@ function AppContent() {
             <Route
               path="/quizzes/:quizId/proctoring/settings"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <QuizProctoringSettingsPageWrapper />
                   </Layout>
@@ -428,7 +439,7 @@ function AppContent() {
             <Route
               path="/quizzes/:quizId/proctoring/monitoring"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <QuizProctoringMonitoringPageWrapper />
                   </Layout>
@@ -438,7 +449,7 @@ function AppContent() {
             <Route
               path="/quizzes/:quizId/proctoring/analytics"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <QuizProctoringAnalyticsPageWrapper />
                   </Layout>
@@ -448,7 +459,7 @@ function AppContent() {
             <Route
               path="/quizzes/:quizId/submissions"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <QuizSubmissionsPageWrapper />
                   </Layout>

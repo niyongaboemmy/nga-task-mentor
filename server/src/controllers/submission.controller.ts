@@ -146,6 +146,49 @@ export const updateSubmission = async (req: Request, res: Response) => {
         .json({ success: false, message: "Submission not found" });
     }
 
+    // Check if assignment is overdue
+    const assignment = await Assignment.findByPk(submission.assignment_id);
+    if (!assignment) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Assignment not found" });
+    }
+
+    if (isPastDate(assignment.due_date)) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update submission. The due date has passed.",
+      });
+    }
+
+    // Check if assignment is completed
+    if (assignment.status === "completed") {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Cannot update submission. This assignment is marked as completed.",
+      });
+    }
+
+    // Check if submission is already graded
+    if (
+      submission.status === "graded" ||
+      submission.status === ("completed" as any)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message:
+          "Cannot update submission. It has already been graded or completed.",
+      });
+    }
+
+    if (submission.grade !== null && submission.grade !== undefined) {
+      return res.status(400).json({
+        success: false,
+        message: "Cannot update submission. It has already been graded.",
+      });
+    }
+
     // Check if user owns the submission or is instructor/admin
     if (
       submission.student_id !== userId &&
@@ -159,9 +202,27 @@ export const updateSubmission = async (req: Request, res: Response) => {
     }
 
     // Update fields
-    submission.text_submission = text_submission || submission.text_submission;
-    submission.file_submissions =
-      file_submissions || submission.file_submissions;
+    submission.text_submission =
+      text_submission !== undefined
+        ? text_submission
+        : submission.text_submission;
+
+    // Handle file update
+    if ((req as any).file) {
+      const file = (req as any).file;
+      submission.file_submissions = [
+        {
+          filename: file.filename,
+          originalname: file.originalname,
+          path: file.path,
+          size: file.size,
+          mimetype: file.mimetype,
+        },
+      ];
+    } else if (file_submissions !== undefined) {
+      // Allows clearing files or setting from body if not using multer (though here we are)
+      submission.file_submissions = file_submissions;
+    }
 
     await submission.save();
 
