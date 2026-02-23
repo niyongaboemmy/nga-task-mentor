@@ -129,7 +129,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-5xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-2xl overflow-hidden dark:border dark:border-gray-800 flex flex-col"
+        className="w-full max-w-5xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-[1.6rem] shadow-2xl overflow-hidden dark:border dark:border-gray-800 flex flex-col"
       >
         {/* Premium Header */}
         <div className="px-8 py-6 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 dark:from-black dark:via-gray-900 dark:to-black text-white relative">
@@ -229,7 +229,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
 
             {/* Rubric Breakdown for Student */}
             {submission.grade && rubric.length > 0 && (
-              <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 overflow-hidden shadow-gray-200/30">
+              <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] border border-gray-100 dark:border-gray-800 overflow-hidden shadow-gray-200/30">
                 <button
                   onClick={() => setShowBreakdown(!showBreakdown)}
                   className="w-full px-8 py-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -493,7 +493,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   )}
                 </div>
 
-                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-[2.5rem] mt-4 flex items-center gap-4 border border-gray-200 dark:border-gray-700">
+                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-[1.6rem] mt-4 flex items-center gap-4 border border-gray-200 dark:border-gray-700">
                   <textarea
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}

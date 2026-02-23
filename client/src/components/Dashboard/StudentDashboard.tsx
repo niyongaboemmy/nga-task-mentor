@@ -162,7 +162,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
       {/* Welcome Section - Enhanced Mobile Design */}
       <motion.div
         variants={itemVariants}
-        className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-[2.5rem] p-8 shadow-xl shadow-blue-500/20"
+        className="relative overflow-hidden bg-gradient-to-br from-blue-600 via-blue-700 to-blue-800 rounded-[1.6rem] p-8 shadow-xl shadow-blue-500/20"
       >
         <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-20 mix-blend-overlay"></div>
         {/* Abstract shapes */}
@@ -252,7 +252,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
       {data?.pendingAssignments && data.pendingAssignments.length > 0 && (
         <motion.div
           variants={itemVariants}
-          className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
+          className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
             <div className="flex items-center gap-4">
@@ -310,7 +310,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
       {data?.availableQuizzes && data.availableQuizzes.length > 0 && (
         <motion.div
           variants={itemVariants}
-          className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
+          className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
         >
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
             <div className="flex items-center gap-4">
@@ -596,7 +596,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
       {/* Recent Activity Section */}
       <motion.div
         variants={itemVariants}
-        className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
+        className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-8">
           <div className="flex items-center gap-4">

@@ -225,7 +225,7 @@ const StudentReportsPage: React.FC = () => {
         className="grid grid-cols-1 md:grid-cols-3 gap-6"
       >
         {/* Overall Grade Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
 
           <div className="relative z-10">
@@ -254,7 +254,7 @@ const StudentReportsPage: React.FC = () => {
         </div>
 
         {/* Completion Rate Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-green-500/10 transition-colors duration-700" />
           <div className="relative z-10">
             <p className="text-xs font-black text-green-600 dark:text-green-400 uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -280,7 +280,7 @@ const StudentReportsPage: React.FC = () => {
         </div>
 
         {/* Course Count Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-[2.5rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-purple-500/10 transition-colors duration-700" />
           <div className="relative z-10">
             <p className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -323,7 +323,7 @@ const StudentReportsPage: React.FC = () => {
         {/* Left Column: Grade Distribution Chart */}
         <motion.div
           variants={itemVariants}
-          className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-8"
+          className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-[1.6rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-8"
         >
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
@@ -342,7 +342,7 @@ const StudentReportsPage: React.FC = () => {
         <div className="space-y-6">
           <motion.div
             variants={itemVariants}
-            className="bg-white dark:bg-gray-900 rounded-[2.5rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-8"
+            className="bg-white dark:bg-gray-900 rounded-[1.6rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-8"
           >
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">

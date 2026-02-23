@@ -130,7 +130,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
     <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Grade Header / Dial */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 flex items-center gap-6 p-8 bg-white dark:bg-gray-900 rounded-[2.5rem] border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none relative overflow-hidden group">
+        <div className="lg:col-span-2 flex items-center gap-6 p-8 bg-white dark:bg-gray-900 rounded-[1.6rem] border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
 
           <div className="relative w-32 h-32 flex-shrink-0">
@@ -195,7 +195,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-[2.5rem] p-8 text-white flex flex-col justify-between shadow-xl shadow-blue-500/20 relative overflow-hidden">
+        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-[1.6rem] p-8 text-white flex flex-col justify-between shadow-xl shadow-blue-500/20 relative overflow-hidden">
           <Zap className="absolute top-4 right-4 w-24 h-24 text-white/10" />
           <div className="relative">
             <h5 className="text-lg font-bold mb-1 italic opacity-90">

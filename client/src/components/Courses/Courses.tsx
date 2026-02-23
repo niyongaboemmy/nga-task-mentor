@@ -13,18 +13,21 @@ const Courses: React.FC = () => {
   const [filter, _setFilter] = useState<"all" | "enrolled" | "teaching">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Get courses from Redux store
   // Get courses from Redux store with defensive checks
-  const { courses, loading } = useSelector((state: RootState) => ({
+  const { courses, loading, error } = useSelector((state: RootState) => ({
     courses: state.course?.courses || [],
     loading: !!state.course?.loading?.courses,
+    error: state.course?.error?.courses || null,
   }));
 
   useEffect(() => {
-    if (courses.length === 0 && !loading) {
+    // Prevent infinite retry loop when the initial fetch fails:
+    // only attempt to load courses if we have no data yet, we're not
+    // currently loading, and there is no recorded error.
+    if (courses.length === 0 && !loading && !error) {
       dispatch(fetchCourses());
     }
-  }, [courses.length, loading, dispatch]);
+  }, [courses.length, loading, error, dispatch]);
 
   // Filter courses based on search query
   const filteredCourses = useMemo(() => {
