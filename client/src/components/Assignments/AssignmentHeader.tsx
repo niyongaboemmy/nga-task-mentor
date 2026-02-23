@@ -160,20 +160,6 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
                   </div>
                 </div>
               </Link>
-
-              {/* <div className="flex items-center gap-2">
-                <span className="text-gray-400 dark:text-gray-600">•</span>
-                <div
-                  className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium border ${getStatusColor(
-                    assignment.status
-                  )}`}
-                >
-                  <span className="w-2 h-2 rounded-full bg-current mr-2"></span>
-                  <span className="capitalize">
-                    {assignment.status || "Draft"}
-                  </span>
-                </div>
-              </div> */}
             </div>
 
             {/* Management Actions */}
@@ -214,7 +200,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
           </div>
 
           {/* Title */}
-          <h1 className="text-xl sm:text-xl lg:text-2xl font-semibold text-gray-900 dark:text-white mb-4 leading-tight">
+          <h1 className="text-xl sm:text-xl lg:text-xl font-semibold text-gray-900 dark:text-blue-500 mb-4 leading-tight">
             {assignment.title}
           </h1>
 
@@ -222,25 +208,25 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {/* Due Date */}
             <div
-              className={`bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 border ${
+              className={`bg-gray-50 dark:bg-gray-800/40 rounded-3xl p-4 border ${
                 isOverdue
-                  ? "border-gray-300 dark:border-gray-600/30"
-                  : "border-gray-200 dark:border-gray-700/30"
+                  ? "border-gray-100 dark:border-gray-600/10"
+                  : "border-gray-100 dark:border-gray-700/10"
               }`}
             >
               <div className="flex items-center gap-3">
                 <div
-                  className={`h-10 w-10 rounded-lg flex items-center justify-center ${
+                  className={`h-10 w-10 rounded-xl flex items-center justify-center ${
                     isOverdue
-                      ? "bg-gray-200 dark:bg-gray-700"
+                      ? "bg-white dark:bg-gray-800"
                       : "bg-gray-100 dark:bg-gray-800"
                   }`}
                 >
                   <svg
                     className={`w-5 h-5 ${
                       isOverdue
-                        ? "text-gray-600 dark:text-gray-400"
-                        : "text-gray-600 dark:text-gray-400"
+                        ? "text-blue-500 dark:text-blue-500"
+                        : "text-blue-500 dark:text-blue-500"
                     }`}
                     fill="none"
                     stroke="currentColor"
@@ -278,11 +264,11 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
             </div>
 
             {/* Points */}
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700/30">
+            <div className="bg-gray-50 dark:bg-gray-800/40 rounded-3xl p-4 border border-gray-100 dark:border-gray-700/20">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                <div className="h-10 w-10 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center">
                   <svg
-                    className="w-5 h-5 text-gray-600 dark:text-gray-400"
+                    className="w-5 h-5 text-blue-500 dark:text-blue-500"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -307,9 +293,9 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
             </div>
 
             {/* Submission Type */}
-            <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4 border border-gray-200 dark:border-gray-700/30">
+            <div className="bg-gray-50 dark:bg-gray-800/40 rounded-3xl p-4 border border-gray-100 dark:border-gray-700/20">
               <div className="flex items-center gap-3">
-                <div className="h-10 w-10 bg-white dark:bg-gray-700 rounded-lg flex items-center justify-center border border-gray-200 dark:border-gray-600">
+                <div className="h-10 w-10 bg-white dark:bg-gray-800 text-blue-500 dark:text-blue-500 rounded-xl flex items-center justify-center border border-gray-100 dark:border-gray-800">
                   {submissionTypeInfo.icon}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -325,7 +311,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
           </div>
 
           {/* Description */}
-          <div className="bg-white dark:bg-gray-800/60 rounded-2xl p-6 border border-gray-200 dark:border-gray-800/80">
+          <div className="bg-white dark:bg-gray-800/30 rounded-3xl p-6 border border-gray-200 dark:border-gray-800/50">
             <div className="prose prose-sm sm:prose-base max-w-none dark:prose-invert">
               <div
                 className="assignment-description leading-relaxed text-black dark:text-white"

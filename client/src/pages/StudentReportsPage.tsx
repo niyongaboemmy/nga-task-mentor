@@ -184,7 +184,7 @@ const StudentReportsPage: React.FC = () => {
 
   return (
     <motion.div
-      className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 min-h-screen"
+      className="pb-8 pt-5 space-y-8 min-h-screen"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -194,16 +194,16 @@ const StudentReportsPage: React.FC = () => {
         variants={itemVariants}
         className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
       >
-        <div className="flex items-center gap-5">
+        <div className="flex flex-col md:flex-row items-center gap-5">
           <div className="w-16 h-16 rounded-[1.5rem] bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-2xl shadow-blue-500/30 transform -rotate-3">
             <LayoutDashboard className="w-8 h-8" />
           </div>
           <div>
-            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
+            <h1 className="text-4xl text-center md:text-left font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
               Academic Performance
             </h1>
-            <p className="mt-1 text-gray-500 dark:text-gray-400 font-medium flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-black uppercase tracking-wider">
+            <p className="mt-1 text-center md:text-left text-gray-500 dark:text-gray-400 font-medium flex items-center gap-2">
+              <span className="hidden md:inline-block px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-black uppercase tracking-wider">
                 Student Report
               </span>
               <span>Comprehensive overview of your grades and progress.</span>

@@ -187,7 +187,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                 <h1 className="text-3xl font-black text-white tracking-tight">
                   Welcome back, {data.user.first_name}!
                 </h1>
-                <span className="px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 text-white text-xs font-bold uppercase tracking-wider rounded-lg">
+                <span className="px-3 py-1 bg-white/20 backdrop-blur-md border border-white/10 text-white text-xs font-bold uppercase tracking-wider rounded-full">
                   {data.user.roles && data.user.roles.length > 0
                     ? data.user.roles[0].name
                     : "Student"}
@@ -270,7 +270,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
             </div>
             <Link
               to="/assignments"
-              className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               View All
             </Link>
@@ -333,7 +333,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
             </div>
             <Link
               to="/courses"
-              className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+              className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
             >
               Go to Courses
             </Link>
@@ -613,7 +613,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
             </div>
           </div>
           <Link to="/assignments">
-            <button className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
+            <button className="px-6 py-3 bg-gray-50 dark:bg-gray-800 font-bold text-gray-900 dark:text-white rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
               View all
             </button>
           </Link>
@@ -625,7 +625,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
               <motion.div
                 key={activity.id}
                 variants={itemVariants}
-                className="group relative flex items-start gap-4 p-4 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
+                className="group relative flex items-start gap-4 p-4 rounded-3xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
               >
                 {/* Activity icon */}
                 <div

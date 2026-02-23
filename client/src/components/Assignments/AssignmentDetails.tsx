@@ -451,7 +451,7 @@ const AssignmentDetails = () => {
     <div className="min-h-screen">
       <div className="space-y-4 pb-10">
         {/* Clean Header */}
-        <div className="bg-white dark:bg-gray-900 rounded-3xl border border-white dark:border-gray-800 overflow-hidden">
+        <div className="bg-white dark:bg-gray-900/60 rounded-3xl border border-white dark:border-gray-800/30 overflow-hidden">
           <AssignmentHeader
             assignment={{
               ...assignment,
@@ -469,7 +469,7 @@ const AssignmentDetails = () => {
               <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
                 Attachments
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3">
                 {assignment.attachments.map((file, index) => (
                   <button
                     key={index}
@@ -482,9 +482,9 @@ const AssignmentDetails = () => {
                         : `${baseUrl}${file.url.startsWith("/") ? "" : "/"}${file.url}`;
                       setPreviewFile({ url: fullUrl, name: file.name });
                     }}
-                    className="flex items-center p-3 bg-gray-50 dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
+                    className="flex items-center p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-none rounded-3xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 mr-3 group-hover:scale-110 transition-transform">
+                    <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 mr-3 group-hover:scale-110 transition-transform">
                       <svg
                         className="w-5 h-5"
                         fill="none"
@@ -631,7 +631,7 @@ const AssignmentDetails = () => {
                   </div> */}
 
                   {parsedRubric.length > 0 && (
-                    <div className="space-y-6 pt-6 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+                    <div className="space-y-6 pt-0 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
                       <div className="flex items-center gap-3">
                         <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-center text-blue-600 dark:text-blue-400">
                           <Award className="w-5 h-5" />
@@ -650,7 +650,7 @@ const AssignmentDetails = () => {
                         {parsedRubric.map((criterion, idx) => (
                           <div
                             key={idx}
-                            className="group bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-3 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all hover:shadow-md"
+                            className="group bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-3 border border-transparent hover:border-gray-200 dark:hover:border-gray-700 transition-all"
                           >
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex items-start gap-3">

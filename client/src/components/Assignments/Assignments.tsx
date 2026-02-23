@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { ClipboardList } from "lucide-react";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
 import AssignmentCard, { type AssignmentInterface } from "./AssignmentCard";
@@ -37,6 +38,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
   const [filter, setFilter] = useState<
     "all" | "published" | "draft" | "completed" | "removed"
   >("all");
+  const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
 
   const fetchAssignments = useCallback(async () => {
@@ -141,10 +143,24 @@ const Assignments: React.FC<AssignmentsProps> = ({
         return false;
       }
 
-      if (filter === "all") return true;
-      return assignment.status === filter;
+      if (filter !== "all" && assignment.status !== filter) {
+        return false;
+      }
+
+      if (!searchQuery) return true;
+
+      const query = searchQuery.toLowerCase();
+      const title = (assignment.title || "").toLowerCase();
+      const courseCode = assignment.course?.code?.toLowerCase() || "";
+      const courseTitle = assignment.course?.title?.toLowerCase() || "";
+
+      return (
+        title.includes(query) ||
+        courseCode.includes(query) ||
+        courseTitle.includes(query)
+      );
     });
-  }, [assignments, user?.role, filter]);
+  }, [assignments, user?.role, filter, searchQuery]);
 
   const canManageAssignments = useMemo(() => {
     return user?.role === "instructor" || user?.role === "admin";
@@ -152,49 +168,56 @@ const Assignments: React.FC<AssignmentsProps> = ({
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+      <div className="flex items-center justify-center min-h-[50vh]">
+        <div className="flex flex-col items-center space-y-3">
+          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Loading assignments...
+          </p>
+        </div>
       </div>
     );
   }
 
   return (
     <>
-      <div className="space-y-6">
+      <div className="space-y-5">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div className="flex items-center justify-between w-full gap-3">
-            {/* Filter */}
-            {assignments && assignments.length > 0 && (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">Filter:</span>
-                <select
-                  value={filter}
-                  onChange={(e) => setFilter(e.target.value as any)}
-                  className="text-sm border border-gray-300 rounded-lg px-3 py-2 bg-white dark:bg-gray-900 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="all">All Status</option>
-                  <option value="published">Published</option>
-                  <option value="completed">Completed</option>
-                  {/* Only show removed filter for instructors/admins */}
-                  {canManageAssignments && (
-                    <option value="removed">Removed</option>
-                  )}
-                  <option value="draft">Draft</option>
-                </select>
+        <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 px-5 py-4">
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center">
+                  <ClipboardList className="w-6 h-6 md:w-7 md:h-7" />
+                </div>
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+                    Assignments
+                  </h1>
+                  <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                    {currentCourseId
+                      ? "Manage and review assignments for this course"
+                      : user?.role === "student"
+                        ? "Your course assignments"
+                        : "All course assignments"}
+                  </p>
+                </div>
               </div>
-            )}
 
-            {/* Create Button */}
-            {showCreateButton &&
-              canManageAssignments &&
-              assignments.length > 0 && (
-                <Link
-                  to={`/assignments/create?courseId=${currentCourseId}`}
-                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
-                >
+              <div className="hidden md:flex items-center gap-2">
+                <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                  {assignments.length} item
+                  {assignments.length === 1 ? "" : "s"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              {/* Search */}
+              <div className="w-full relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg
-                    className="h-4 w-4 mr-2"
+                    className="h-5 w-5 text-gray-400"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -203,12 +226,69 @@ const Assignments: React.FC<AssignmentsProps> = ({
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       strokeWidth={2}
-                      d="M12 4v16m8-8H4"
+                      d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                     />
                   </svg>
-                  Create Assignment
-                </Link>
-              )}
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search assignments by title or course..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full font-normal pl-10 pr-3 py-2.5 text-sm rounded-2xl leading-5 bg-gray-50 dark:bg-gray-800/40 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:text-white"
+                />
+              </div>
+
+              <div className="flex items-center justify-between md:justify-end gap-3">
+                {/* Filter */}
+                {assignments && assignments.length > 0 && (
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Filter:
+                    </span>
+                    <select
+                      value={filter}
+                      onChange={(e) => setFilter(e.target.value as any)}
+                      className="text-sm rounded-2xl px-3 py-2.5 bg-gray-50 dark:bg-gray-900 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="all">All Status</option>
+                      <option value="published">Published</option>
+                      <option value="completed">Completed</option>
+                      {/* Only show removed filter for instructors/admins */}
+                      {canManageAssignments && (
+                        <option value="removed">Removed</option>
+                      )}
+                      <option value="draft">Draft</option>
+                    </select>
+                  </div>
+                )}
+
+                {/* Create Button */}
+                {showCreateButton &&
+                  canManageAssignments &&
+                  assignments.length > 0 && (
+                    <Link
+                      to={`/assignments/create?courseId=${currentCourseId}`}
+                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:scale-105 active:scale-95"
+                    >
+                      <svg
+                        className="h-4 w-4 mr-2"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 4v16m8-8H4"
+                        />
+                      </svg>
+                      Create Assignment
+                    </Link>
+                  )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -284,7 +364,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                 <div className="mt-4">
                   <Link
                     to={`/assignments/create?courseId=${currentCourseId}`}
-                    className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:scale-105 active:scale-95 shadow-sm hover:shadow-md"
+                    className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:scale-105 active:scale-95"
                   >
                     <svg
                       className="h-4 w-4 mr-2"

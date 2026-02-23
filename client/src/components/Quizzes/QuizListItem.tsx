@@ -33,7 +33,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
   };
 
   return (
-    <div className="group bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/50 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 hover:-translate-y-0.5 p-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
+    <div className="group bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/50 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:-translate-y-0.5 p-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex items-center justify-between gap-4">
         {/* Left side - Quiz info */}
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -133,7 +133,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
           <div className="flex items-center gap-2">
             <Link
               to={`/quizzes/${quiz.id}`}
-              className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105 hover:shadow-md shadow-lg"
+              className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105"
             >
               View
             </Link>
@@ -142,7 +142,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
               <button
                 onClick={() => onDelete(quiz.id)}
                 disabled={deleteLoading === quiz.id.toString()}
-                className="inline-flex items-center px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 shadow-lg"
+                className="inline-flex items-center px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105 disabled:opacity-50"
               >
                 {deleteLoading === quiz.id.toString() ? "..." : "Delete"}
               </button>
@@ -152,7 +152,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
               <button
                 onClick={() => onTogglePublic(quiz.id, quiz.is_public || false)}
                 disabled={publicLoading === quiz.id.toString()}
-                className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors shadow-lg ${
+                className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors ${
                   quiz.is_public
                     ? "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
                     : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"

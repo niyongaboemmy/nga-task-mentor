@@ -150,7 +150,7 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              className="bg-green-50 dark:bg-green-900/20 rounded-2xl p-6 border border-green-200 dark:border-green-700"
+              className="bg-green-50 dark:bg-green-900/20 rounded-3xl p-6 border border-green-200 dark:border-green-700"
             >
               <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                 <div className="flex items-center gap-4 flex-1">
@@ -303,8 +303,8 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
       )}
 
       {/* First submission CTA for students */}
-      {canSubmit && submissions.length === 0 && (
-        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-8 border border-blue-200 dark:border-blue-700">
+      {canSubmit && submissions.length === 1 && (
+        <div className="bg-blue-50 dark:bg-blue-900/20 rounded-3xl p-8 border border-blue-200 dark:border-blue-700">
           <div className="flex flex-col items-center gap-6 text-center">
             <div className="w-20 h-20 bg-blue-100 dark:bg-blue-800 rounded-2xl flex items-center justify-center">
               <svg

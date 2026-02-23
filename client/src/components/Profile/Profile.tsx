@@ -13,6 +13,29 @@ import {
   BookOpen,
 } from "lucide-react";
 
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.08,
+    },
+  },
+};
+
+const itemVariants = {
+  hidden: { opacity: 0, y: 16 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      type: "spring" as const,
+      stiffness: 110,
+      damping: 18,
+    },
+  },
+};
+
 const Profile: React.FC = () => {
   const { user, updateProfileImage } = useAuth();
   const [message, setMessage] = useState<{
@@ -38,7 +61,14 @@ const Profile: React.FC = () => {
 
   if (!user)
     return (
-      <div className="p-10 text-center text-gray-500">Loading profile...</div>
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-gray-500 dark:text-gray-400 font-medium">
+            Loading profile...
+          </p>
+        </div>
+      </div>
     );
 
   // Data Card Component
@@ -52,9 +82,8 @@ const Profile: React.FC = () => {
     children: React.ReactNode;
   }) => (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-gray-900 rounded-2xl p-5 shadow-sm border border-gray-100 dark:border-gray-800 h-full"
+      variants={itemVariants}
+      className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-5 border border-gray-100 dark:border-gray-800 h-full"
     >
       <div className="flex items-center gap-2 mb-4 text-gray-900 dark:text-white font-semibold pb-3 border-b border-gray-100 dark:border-gray-800">
         <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
@@ -112,12 +141,16 @@ const Profile: React.FC = () => {
   );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 pb-10">
-      {/* Compact Header */}
+    <motion.div
+      className="max-w-5xl mx-auto space-y-6 pb-10"
+      variants={containerVariants}
+      initial="hidden"
+      animate="visible"
+    >
+      {/* Header */}
       <motion.div
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden"
+        variants={itemVariants}
+        className="bg-white dark:bg-gray-900 rounded-[1.6rem] border border-gray-200 dark:border-gray-800 overflow-hidden"
       >
         <div className="h-24 bg-gradient-to-r from-blue-600 to-blue-600 relative">
           <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20" />
@@ -126,8 +159,8 @@ const Profile: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-5 items-end -mt-10">
             {/* Profile Picture & Upload */}
             <div className="relative group">
-              <div className="p-1.5 bg-white dark:bg-gray-900 rounded-2xl shadow-sm inline-block">
-                <div className="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-xl overflow-hidden relative">
+              <div className="p-1.5 bg-white dark:bg-gray-900 rounded-[1.6rem] inline-block">
+                <div className="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-[1.4rem] overflow-hidden relative">
                   <ProfilePictureUpload
                     onUploadSuccess={handleProfilePictureUpdate}
                   />
@@ -186,7 +219,7 @@ const Profile: React.FC = () => {
                   <Mail size={14} /> {user.email}
                 </span>
                 <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full hidden sm:block" />
-                <span className="capitalize px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-gray-600 dark:text-gray-300 text-xs font-medium border border-gray-200 dark:border-gray-700">
+                <span className="capitalize px-3 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 text-xs font-medium border border-gray-200 dark:border-gray-700">
                   {user.role}
                 </span>
               </div>
@@ -211,7 +244,10 @@ const Profile: React.FC = () => {
       </motion.div>
 
       {/* Info Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+      <motion.div
+        variants={itemVariants}
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
+      >
         {/* Personal Details */}
         <DataCard title="Personal Information" icon={User}>
           <Field label="First Name" value={user.first_name} />
@@ -262,7 +298,7 @@ const Profile: React.FC = () => {
                 {user.assigned_programs.map((prog: any, i: number) => (
                   <span
                     key={i}
-                    className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-100 dark:border-blue-800/50"
+                    className="inline-flex items-center px-3 py-1 rounded-2xl text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-100 dark:border-blue-800/50"
                   >
                     <BookOpen size={12} className="mr-1.5 opacity-70" />
                     {prog.name || prog}
@@ -272,8 +308,8 @@ const Profile: React.FC = () => {
             </div>
           )}
         </DataCard>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

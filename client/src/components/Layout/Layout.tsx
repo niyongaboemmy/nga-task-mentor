@@ -75,7 +75,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     ...(user?.role === "student"
       ? [
           {
-            name: "📝 My Quizzes",
+            name: "My Quizzes",
             href: "/my-quizzes",
             current: location.pathname === "/my-quizzes",
           },

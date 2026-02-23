@@ -14,15 +14,15 @@ const CourseCard: React.FC<CourseCardProps> = ({
 }) => {
   return (
     <div
-      className={`bg-white/80 backdrop-blur-xl rounded-2xl border border-gray-200/70 dark:bg-gray-900/60 dark:border-gray-800/50 hover:shadow-lg transition-all duration-200 group-hover:scale-[1.01] cursor-pointer ${
-        compact ? "p-3" : "p-4"
+      className={`bg-white/80 backdrop-blur-xl rounded-3xl border border-gray-200/70 dark:bg-gray-900/60 dark:border-gray-800/50 hover:border-gray-300/80 dark:hover:border-gray-700/80 transition-all duration-200 group-hover:scale-[1.01] cursor-pointer ${
+        compact ? "p-4" : "p-5"
       }`}
       onClick={onClick}
     >
       {/* Header row with course code icon and status */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
+          <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
             <span className="text-white font-bold text-base">
               {(course.code || "??").substring(0, 2)}
             </span>
