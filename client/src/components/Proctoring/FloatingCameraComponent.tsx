@@ -99,7 +99,7 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
         // Handle AbortError specifically
         if (error instanceof DOMException && error.name === "AbortError") {
           console.warn(
-            "Video play was aborted, likely due to new load request. This is normal."
+            "Video play was aborted, likely due to new load request. This is normal.",
           );
         } else {
           console.error("Error playing video in floating camera:", error);
@@ -135,18 +135,15 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
       ];
 
       const hadCriticalWarnings = previousWarnings.some((w) =>
-        criticalWarnings.some((cw) => w.includes(cw))
+        criticalWarnings.some((cw) => w.includes(cw)),
       );
 
       const hasCriticalWarnings = warnings.some((w) =>
-        criticalWarnings.some((cw) => w.includes(cw))
+        criticalWarnings.some((cw) => w.includes(cw)),
       );
 
       // If we had critical warnings but now don't, call resolved
       if (hadCriticalWarnings && !hasCriticalWarnings && onViolationResolved) {
-        console.log(
-          "Critical violations resolved - calling violation resolved"
-        );
         onViolationResolved();
       }
 
@@ -204,7 +201,7 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
               videoElement,
               {
                 minConfidence: settings.faceDetectionSensitivity / 100,
-              }
+              },
             );
             // Draw face borders on overlay canvas
             drawFaceBorders(faceResult.faceDetails || []);
@@ -424,7 +421,7 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
 
         // Draw confidence score in a box
         const confidence = Math.round(
-          (face.score || face.confidence || 0) * 100
+          (face.score || face.confidence || 0) * 100,
         );
 
         // Background for confidence text
@@ -538,7 +535,7 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
             <div
               key={`${warning}-${index}`}
               className={`flex items-center gap-2 p-2 rounded-md border text-xs mb-1 transition-all duration-300 ease-in-out ${getWarningColor(
-                warning
+                warning,
               )}`}
             >
               {getWarningIcon(warning)}

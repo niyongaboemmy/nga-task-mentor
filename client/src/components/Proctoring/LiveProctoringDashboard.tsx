@@ -124,9 +124,6 @@ const LiveProctoringDashboard: React.FC = () => {
       if (stream.stream) {
         const videoEl = videoRefs.current.get(stream.sessionToken);
         if (videoEl && videoEl.srcObject !== stream.stream) {
-          console.log(
-            `Assigning stream to video element for ${stream.sessionToken}`,
-          );
           videoEl.srcObject = stream.stream;
           videoEl.play().catch((e) => console.error("Play error:", e));
         }
@@ -137,9 +134,6 @@ const LiveProctoringDashboard: React.FC = () => {
   // Establish WebRTC connections when socket connects or streams are loaded
   useEffect(() => {
     if (socketConnected && activeStreams.length > 0) {
-      console.log(
-        "Socket connected/streams loaded, attempting to establish WebRTC connections",
-      );
       // Small delay to ensure socket is fully ready
       const connectTimeout = setTimeout(() => {
         activeStreams.forEach((stream) => {
@@ -147,7 +141,6 @@ const LiveProctoringDashboard: React.FC = () => {
             stream.isLive &&
             !peerConnectionsRef.current.has(stream.sessionToken)
           ) {
-            console.log(`Establishing connection for ${stream.sessionToken}`);
             joinStream(stream);
           }
         });
@@ -159,21 +152,12 @@ const LiveProctoringDashboard: React.FC = () => {
 
   // Auto-join all active streams
   useEffect(() => {
-    console.log("Active streams changed:", activeStreams.length);
     activeStreams.forEach((stream) => {
-      console.log(
-        `Stream ${stream.sessionToken}: isLive=${
-          stream.isLive
-        }, hasConnection=${peerConnectionsRef.current.has(stream.sessionToken)}`,
-      );
       if (
         stream.isLive &&
         !peerConnectionsRef.current.has(stream.sessionToken) &&
         socketConnected
       ) {
-        console.log(
-          `Attempting to join stream for ${stream.student.first_name} ${stream.student.last_name}`,
-        );
         // Auto-join live streams
         joinStream(stream);
       }
@@ -184,10 +168,6 @@ const LiveProctoringDashboard: React.FC = () => {
   useEffect(() => {
     const liveStreams = getFilteredStreams().filter((stream) => stream.isLive);
     if (liveStreams.length > 0 && !selectedStream && socketConnected) {
-      console.log(
-        "Auto-joining first live stream:",
-        liveStreams[0].student.first_name,
-      );
       // Add a small delay to ensure socket is connected
       setTimeout(() => {
         if (!peerConnectionsRef.current.has(liveStreams[0].sessionToken)) {
@@ -200,10 +180,6 @@ const LiveProctoringDashboard: React.FC = () => {
   // Auto-join stream when modal opens
   useEffect(() => {
     if (selectedStreamForModal && socketConnected) {
-      console.log(
-        "Auto-joining stream for modal:",
-        selectedStreamForModal.sessionToken,
-      );
       // Only join if not already connected
       if (
         !peerConnectionsRef.current.has(selectedStreamForModal.sessionToken)
@@ -231,29 +207,26 @@ const LiveProctoringDashboard: React.FC = () => {
       },
     );
 
-    // Global socket listener for debugging - log all incoming events
-    socketRef.current.onAny((eventName, ...args) => {
-      console.log("📥 Dashboard socket received:", eventName, args);
-    });
+    // Global socket listener for debugging
+    // socketRef.current.onAny((eventName, ...args) => {
+    // });
 
     socketRef.current.on("connect", () => {
-      console.log(
-        "Dashboard Socket.IO connected with ID:",
-        socketRef.current?.id,
-      );
+      //   "Dashboard Socket.IO connected with ID:",
+      //   socketRef.current?.id,
+      // );
       setSocketConnected(true);
       addStatusMessage("Connected to socket server", "success");
 
       // Debug: Log all outgoing events
-      if (socketRef.current) {
-        const originalEmit = socketRef.current.emit.bind(socketRef.current);
-        socketRef.current.emit = function (eventName: string, ...args: any[]) {
-          if (eventName.includes("webrtc") || eventName.includes("offer")) {
-            console.log("🔍 CLIENT EMIT:", eventName, args);
-          }
-          return originalEmit(eventName, ...args);
-        };
-      }
+      // if (socketRef.current) {
+      //   const originalEmit = socketRef.current.emit.bind(socketRef.current);
+      //   socketRef.current.emit = function (eventName: string, ...args: any[]) {
+      //     if (eventName.includes("webrtc") || eventName.includes("offer")) {
+      //     }
+      //     return originalEmit(eventName, ...args);
+      //   };
+      // }
 
       // Request current active streams when connected
       socketRef.current?.emit("get-active-streams");
@@ -275,7 +248,6 @@ const LiveProctoringDashboard: React.FC = () => {
     });
 
     socketRef.current.on("disconnect", (reason) => {
-      console.log("Dashboard Socket.IO disconnected:", reason);
       setSocketConnected(false);
     });
 
@@ -289,23 +261,20 @@ const LiveProctoringDashboard: React.FC = () => {
     socketRef.current.on(
       "webrtc-offer",
       async (data: { offer: any; from: string; sessionToken: string }) => {
-        console.log("Dashboard received WebRTC offer:", data);
         // Dashboard should NOT receive offers - it sends them!
-        console.error(
-          "DASHBOARD RECEIVED OFFER - THIS SHOULD NOT HAPPEN!",
-          data,
-        );
+        // console.error(
+        //   "DASHBOARD RECEIVED OFFER - THIS SHOULD NOT HAPPEN!",
+        //   data,
+        // );
       },
     );
 
     socketRef.current.on(
       "webrtc-answer",
       (data: { answer: any; sessionToken: string; from: string }) => {
-        console.log("Dashboard received WebRTC answer:", data);
-        console.log(
-          "Dashboard handling WebRTC answer for session:",
-          data.sessionToken,
-        );
+        //   "Dashboard handling WebRTC answer for session:",
+        //   data.sessionToken,
+        // );
         handleWebRTCAnswerDashboard(data.answer, data.sessionToken);
       },
     );
@@ -317,18 +286,12 @@ const LiveProctoringDashboard: React.FC = () => {
         sessionToken?: string | null;
         from: string;
       }) => {
-        console.log("Dashboard received WebRTC ICE candidate:", data);
-
         // Handle case where sessionToken might be missing or null (fallback from server)
         let effectiveSessionToken = data.sessionToken;
 
         // If sessionToken is missing or null, try to find it from the socket ID mapping
         if (!effectiveSessionToken && data.from) {
           effectiveSessionToken = socketIdToSessionRef.current.get(data.from);
-          console.log(
-            "Dashboard using mapped sessionToken from socket ID:",
-            effectiveSessionToken,
-          );
         }
 
         // If we still don't have a sessionToken, try to find from activeStreams
@@ -337,10 +300,6 @@ const LiveProctoringDashboard: React.FC = () => {
           const liveStreams = activeStreamsRef.current.filter((s) => s.isLive);
           if (liveStreams.length > 0) {
             effectiveSessionToken = liveStreams[0].sessionToken;
-            console.log(
-              "Dashboard using fallback sessionToken from first live stream:",
-              effectiveSessionToken,
-            );
           }
         }
 
@@ -349,29 +308,18 @@ const LiveProctoringDashboard: React.FC = () => {
         if (!effectiveSessionToken && data.from) {
           // The ICE candidate has a 'from' socket ID - the student is in a proctoring session
           // We need to guess the session token from the URL or create a placeholder
-          console.log(
-            "Dashboard: No sessionToken found, checking for pending sessions from URL params",
-          );
 
           // Try to get session from URL params (common pattern: ?session=xxx)
           const urlParams = new URLSearchParams(window.location.search);
           const urlSession = urlParams.get("session");
           if (urlSession) {
             effectiveSessionToken = urlSession;
-            console.log(
-              "Dashboard using sessionToken from URL params:",
-              effectiveSessionToken,
-            );
           }
         }
 
         // If we still don't have a sessionToken, we need to queue the candidate
         // BUT also try to trigger a stream discovery
         if (!effectiveSessionToken) {
-          console.log(
-            "Dashboard queuing ICE candidate and requesting active streams - no session token available yet, from:",
-            data.from,
-          );
           // Request active streams from server to see if we missed the stream-started event
           if (socketRef.current?.connected) {
             socketRef.current.emit("get-active-streams");
@@ -391,16 +339,8 @@ const LiveProctoringDashboard: React.FC = () => {
 
         // Handle ICE candidates from students
         if (peerConnectionsRef.current.has(effectiveSessionToken)) {
-          console.log(
-            "Dashboard handling ICE candidate for session:",
-            effectiveSessionToken,
-          );
           handleICECandidate(data.candidate, effectiveSessionToken);
         } else {
-          console.log(
-            "Dashboard queuing ICE candidate for later - no peer connection yet for session:",
-            effectiveSessionToken,
-          );
           // Queue the ICE candidate for when peer connection is created
           if (!pendingICECandidatesRef.current.has(effectiveSessionToken)) {
             pendingICECandidatesRef.current.set(effectiveSessionToken, []);
@@ -417,10 +357,6 @@ const LiveProctoringDashboard: React.FC = () => {
             stream &&
             !peerConnectionsRef.current.has(effectiveSessionToken)
           ) {
-            console.log(
-              "Auto-joining stream from ICE candidate:",
-              effectiveSessionToken,
-            );
             joinStream(stream);
           }
         }
@@ -433,7 +369,6 @@ const LiveProctoringDashboard: React.FC = () => {
 
     // Listen for student ready signal globally (moved from joinStream)
     socketRef.current.on("student-webrtc-ready", async (data: any) => {
-      console.log("🚨 Dashboard received student-webrtc-ready signal:", data);
       const { sessionToken } = data;
 
       // Check if we have a peer connection for this session
@@ -443,14 +378,8 @@ const LiveProctoringDashboard: React.FC = () => {
         const pcAny = peerConnection as any;
         if (pcAny.offerTimeout) {
           clearTimeout(pcAny.offerTimeout);
-          console.log("🚨 Cleared fallback offer timeout for", sessionToken);
         }
 
-        console.log(
-          "🚨 Peer connection exists for",
-          sessionToken,
-          "- creating offer",
-        );
         // Check if peer connection is still valid before creating offer
         if (
           peerConnection.signalingState === "closed" ||
@@ -465,6 +394,19 @@ const LiveProctoringDashboard: React.FC = () => {
           return;
         }
 
+        // Check signaling state before creating offer
+        // Allow "stable" (new connection) and "have-local-offer" (offer created, waiting for answer)
+        if (
+          peerConnection.signalingState !== "stable" &&
+          peerConnection.signalingState !== "have-local-offer"
+        ) {
+          console.log(
+            "WebRTC: Not in valid state for offer, current state:",
+            peerConnection.signalingState,
+          );
+          return;
+        }
+
         try {
           const offer = await peerConnection.createOffer();
           await peerConnection.setLocalDescription(offer);
@@ -474,13 +416,8 @@ const LiveProctoringDashboard: React.FC = () => {
               offer: offer,
               sessionToken: sessionToken,
             };
-            console.log("🚨 Dashboard about to emit webrtc-offer:", {
-              sessionToken: offerData.sessionToken,
-              hasOffer: !!offerData.offer,
-              socketId: socketRef.current.id,
-            });
+
             socketRef.current.emit("webrtc-offer", offerData);
-            console.log("🚨 Dashboard sent offer for", sessionToken);
           }
         } catch (error) {
           console.error(
@@ -490,25 +427,14 @@ const LiveProctoringDashboard: React.FC = () => {
           );
         }
       } else {
-        console.log(
-          "🚨 No peer connection found for session",
-          sessionToken,
-          "when student signaled ready",
-        );
-        console.log(
-          "🚨 Available peer connections:",
-          Array.from(peerConnectionsRef.current.keys()),
-        );
       }
     });
   };
 
   const loadActiveStreams = async () => {
     try {
-      console.log("Loading active streams...");
       setIsLoading(true);
       const data = await ProctoringApiService.getActiveStreams();
-      console.log("Active streams response:", data);
 
       // Don't clear existing streams and peer connections on refresh
       // Instead, merge with existing data to preserve connections
@@ -527,10 +453,8 @@ const LiveProctoringDashboard: React.FC = () => {
 
       // Request current live status from socket server to update online/offline state
       if (socketRef.current?.connected) {
-        console.log("Requesting live streams status from socket server...");
         socketRef.current.emit("get-active-streams");
       } else {
-        console.log("Socket not connected, cannot request live streams status");
       }
 
       setError(null); // Clear any previous errors
@@ -544,17 +468,11 @@ const LiveProctoringDashboard: React.FC = () => {
 
   // Handle real-time stream updates
   const handleStreamStarted = (streamData: any) => {
-    console.log("🚨 Stream started event received:", streamData);
-    console.log("🚨 Current activeStreams count:", activeStreams.length);
     setActiveStreams((prev) => {
       const existing = prev.find(
         (s) => s.sessionToken === streamData.sessionToken,
       );
       if (existing) {
-        console.log(
-          "🚨 Stream already exists, updating:",
-          streamData.sessionToken,
-        );
         return prev.map((s) =>
           s.sessionToken === streamData.sessionToken
             ? {
@@ -565,14 +483,12 @@ const LiveProctoringDashboard: React.FC = () => {
             : s,
         );
       } else {
-        console.log("🚨 NEW stream added:", streamData.sessionToken);
         return [...prev, { ...streamData, isLive: true }];
       }
     });
   };
 
   const handleStreamEnded = (data: { sessionToken: string }) => {
-    console.log("Stream ended:", data.sessionToken);
     setActiveStreams((prev) =>
       prev.map((s) =>
         s.sessionToken === data.sessionToken ? { ...s, isLive: false } : s,
@@ -581,8 +497,6 @@ const LiveProctoringDashboard: React.FC = () => {
   };
 
   const handleActiveStreamsUpdate = (streams: any[]) => {
-    console.log("Active streams update:", streams);
-
     // If the server returns empty array, show a warning and DON'T clear local streams!
     // The server is currently sending [] for active streams because they aren't fully synced in DB/memory.
     if (!streams || streams.length === 0) {
@@ -634,7 +548,6 @@ const LiveProctoringDashboard: React.FC = () => {
     reason: string;
     disconnectedAt: string;
   }) => {
-    console.log("Stream paused:", data);
     setActiveStreams((prev) =>
       prev.map((s) =>
         s.sessionToken === data.sessionToken
@@ -649,7 +562,6 @@ const LiveProctoringDashboard: React.FC = () => {
     resumedAt: string;
     wasDisconnected: boolean;
   }) => {
-    console.log("Stream resumed:", data);
     setActiveStreams((prev) =>
       prev.map((s) =>
         s.sessionToken === data.sessionToken
@@ -680,24 +592,17 @@ const LiveProctoringDashboard: React.FC = () => {
     setStatusMessages((prev) =>
       [...prev, { id, message, type, timestamp: new Date() }].slice(-10),
     );
-    console.log(`[Dashboard Status - ${type}]: ${message}`);
   };
 
   const joinStream = async (stream: LiveStream) => {
     // Prevent concurrent join attempts for the same stream
     if (joiningStreamsRef.current.has(stream.sessionToken)) {
-      console.log(
-        `Already joining stream for ${stream.sessionToken}, skipping`,
-      );
       return;
     }
 
     joiningStreamsRef.current.add(stream.sessionToken);
 
     try {
-      console.log(
-        `Joining stream for ${stream.student.first_name} ${stream.student.last_name} (${stream.sessionToken})`,
-      );
       setSelectedStream(stream);
 
       // Check if we already have a peer connection for this stream
@@ -710,15 +615,10 @@ const LiveProctoringDashboard: React.FC = () => {
           existingConnection.signalingState !== "closed" &&
           existingConnection.connectionState !== "closed"
         ) {
-          console.log(
-            `Already have active peer connection for ${stream.sessionToken}`,
-          );
           return;
         } else {
           // Clean up the closed connection
-          console.log(
-            `Cleaning up closed peer connection for ${stream.sessionToken}`,
-          );
+
           existingConnection.close();
           peerConnectionsRef.current.delete(stream.sessionToken);
         }
@@ -736,7 +636,6 @@ const LiveProctoringDashboard: React.FC = () => {
         stream.sessionToken,
         socketRef.current?.id || "",
       );
-      console.log("Join stream API result:", joinResult);
 
       // Initialize WebRTC peer connection for receiving stream
       const peerConnection = new RTCPeerConnection({
@@ -747,16 +646,12 @@ const LiveProctoringDashboard: React.FC = () => {
       });
 
       peerConnectionsRef.current.set(stream.sessionToken, peerConnection);
-      console.log(`Created peer connection for ${stream.sessionToken}`);
 
       // Process any queued ICE candidates for this session
       const queuedCandidates = pendingICECandidatesRef.current.get(
         stream.sessionToken,
       );
       if (queuedCandidates && queuedCandidates.length > 0) {
-        console.log(
-          `Processing ${queuedCandidates.length} queued ICE candidates for ${stream.sessionToken}`,
-        );
         for (const candidate of queuedCandidates) {
           handleICECandidate(candidate, stream.sessionToken);
         }
@@ -765,17 +660,10 @@ const LiveProctoringDashboard: React.FC = () => {
 
       // Handle remote stream
       peerConnection.ontrack = (event) => {
-        console.log(
-          `Received remote track for ${stream.sessionToken}: ${event.track.kind}`,
-          event.streams[0],
-        );
-
         let remoteStream = event.streams[0];
         if (!remoteStream) {
           remoteStream = new MediaStream([event.track]);
         }
-
-        console.log(`Dashboard stream tracks:`, remoteStream.getTracks());
 
         // Update the stream in activeStreams
         setActiveStreams((prev) =>
@@ -803,7 +691,6 @@ const LiveProctoringDashboard: React.FC = () => {
         // Try to assign to video element using videoRefs
         const videoEl = videoRefs.current.get(stream.sessionToken);
         if (videoEl) {
-          console.log(`Direct video assignment for ${stream.sessionToken}`);
           videoEl.srcObject = remoteStream;
           videoEl.play().catch((e) => console.error("Play failed:", e));
         }
@@ -816,9 +703,6 @@ const LiveProctoringDashboard: React.FC = () => {
           videoElements.forEach((videoEl) => {
             const video = videoEl as HTMLVideoElement;
             if (video && video.srcObject !== remoteStream) {
-              console.log(
-                `Force updating video element for ${stream.sessionToken}`,
-              );
               video.srcObject = remoteStream;
               video
                 .play()
@@ -830,10 +714,6 @@ const LiveProctoringDashboard: React.FC = () => {
 
       // Add connection state handlers
       peerConnection.onconnectionstatechange = () => {
-        console.log(
-          `Peer connection state for ${stream.sessionToken}:`,
-          peerConnection.connectionState,
-        );
         // Add status message for connection state
         if (peerConnection.connectionState === "connected") {
           addStatusMessage(
@@ -853,10 +733,6 @@ const LiveProctoringDashboard: React.FC = () => {
 
       // Add ICE state handlers
       peerConnection.oniceconnectionstatechange = () => {
-        console.log(
-          `ICE connection state for ${stream.sessionToken}:`,
-          peerConnection.iceConnectionState,
-        );
         // Add status message for ICE state
         if (peerConnection.iceConnectionState === "checking") {
           addStatusMessage(
@@ -880,28 +756,16 @@ const LiveProctoringDashboard: React.FC = () => {
       };
 
       // Handle signaling state changes
-      peerConnection.onsignalingstatechange = () => {
-        console.log(
-          `Signaling state for ${stream.sessionToken}:`,
-          peerConnection.signalingState,
-        );
-      };
+      // peerConnection.onsignalingstatechange = () => {};
 
       // Handle ICE candidates
       peerConnection.onicecandidate = (event) => {
         if (event.candidate && socketRef.current?.connected) {
-          console.log(
-            `Dashboard sending ICE candidate for ${stream.sessionToken}:`,
-            event.candidate,
-          );
           socketRef.current.emit("webrtc-ice-candidate", {
             sessionToken: stream.sessionToken,
             candidate: event.candidate,
           });
         } else if (!event.candidate) {
-          console.log(
-            `Dashboard ICE gathering complete for ${stream.sessionToken}`,
-          );
         }
       };
 
@@ -911,9 +775,6 @@ const LiveProctoringDashboard: React.FC = () => {
           sessionToken: stream.sessionToken,
           role: "dashboard",
         });
-        console.log(
-          `Joined proctoring session room: ${stream.sessionToken} as dashboard`,
-        );
       } else {
         console.error("Socket not connected when trying to join room");
         setError("Lost connection to server. Please refresh the page.");
@@ -934,28 +795,18 @@ const LiveProctoringDashboard: React.FC = () => {
       // WAIT for student-webrtc-ready signal before sending offer
       // This ensures the student is in the room and ready to receive the offer
       // The student-webrtc-ready handler will create and send the offer
-      console.log(
-        "📡 Waiting for student-webrtc-ready signal before sending offer...",
-      );
 
       // Set a timeout as fallback - if no ready signal after 5 seconds, send offer anyway
       const offerTimeout = setTimeout(async () => {
         // Check if offer was already sent (by student-webrtc-ready handler)
         const pc = peerConnectionsRef.current.get(stream.sessionToken);
         if (pc && pc.signalingState === "stable") {
-          console.log(
-            "📡 Connection already established, skipping fallback offer",
-          );
           return;
         }
         if (pc && pc.localDescription) {
-          console.log("📡 Offer already sent, skipping fallback");
           return;
         }
 
-        console.log(
-          "📡 Timeout - sending fallback offer after waiting for student",
-        );
         try {
           const offer = await peerConnection.createOffer();
           await peerConnection.setLocalDescription(offer);
@@ -964,14 +815,7 @@ const LiveProctoringDashboard: React.FC = () => {
               offer: offer,
               sessionToken: stream.sessionToken,
             };
-            console.log(
-              `📡 Dashboard sending FALLBACK offer for ${stream.sessionToken}: `,
-              { sessionToken: offerData.sessionToken },
-            );
             socketRef.current.emit("webrtc-offer", offerData);
-            console.log(
-              `📡 Dashboard sent TIMEOUT fallback offer for ${stream.sessionToken}`,
-            );
           }
         } catch (error) {
           console.error(
@@ -983,6 +827,20 @@ const LiveProctoringDashboard: React.FC = () => {
 
       // Store timeout ID so we can cancel it when student-webrtc-ready is received
       (peerConnection as any).offerTimeout = offerTimeout;
+
+      // Check signaling state before creating offer
+      // Allow "stable" (new connection) and "have-local-offer" (offer created, waiting for answer)
+      if (
+        peerConnection.signalingState !== "stable" &&
+        peerConnection.signalingState !== "have-local-offer"
+      ) {
+        console.log(
+          "WebRTC: Not in valid state for offer, current state:",
+          peerConnection.signalingState,
+        );
+        return;
+      }
+
       try {
         const offer = await peerConnection.createOffer({
           offerToReceiveAudio: true,
@@ -996,17 +854,8 @@ const LiveProctoringDashboard: React.FC = () => {
             offer: offer,
             sessionToken: stream.sessionToken,
           };
-          console.log(
-            `📡 Dashboard about to emit INITIAL offer for ${stream.sessionToken}:`,
-            {
-              sessionToken: offerData.sessionToken,
-              hasOffer: !!offerData.offer,
-            },
-          );
+
           socketRef.current.emit("webrtc-offer", offerData);
-          console.log(
-            `Dashboard sent initial offer for ${stream.sessionToken}`,
-          );
         }
       } catch (error) {
         console.error(
@@ -1014,10 +863,6 @@ const LiveProctoringDashboard: React.FC = () => {
           error,
         );
       }
-
-      console.log(
-        `Dashboard WebRTC setup complete for ${stream.sessionToken} - waiting for student to initiate connection`,
-      );
     } catch (error) {
       console.error("Error joining stream:", error);
       setError("Failed to join stream. Please try again.");
@@ -1032,24 +877,13 @@ const LiveProctoringDashboard: React.FC = () => {
     sessionToken: string,
   ) => {
     try {
-      console.log(
-        `Dashboard received WebRTC answer for ${sessionToken} (may be renegotiation)`,
-      );
       const peerConnection = peerConnectionsRef.current.get(sessionToken);
       if (peerConnection) {
-        // Accept answer in various signaling states (including renegotiation)
-        if (
-          peerConnection.signalingState === "have-local-offer" ||
-          peerConnection.signalingState === "stable"
-        ) {
-          console.log(
-            `Setting remote description for ${sessionToken}, current state: ${peerConnection.signalingState}`,
-          );
+        // Only accept answer when we have a local offer (not when already stable)
+        // This prevents "Called in wrong state: stable" errors
+        if (peerConnection.signalingState === "have-local-offer") {
           await peerConnection.setRemoteDescription(
             new RTCSessionDescription(answer),
-          );
-          console.log(
-            `Successfully set remote description for ${sessionToken}`,
           );
 
           // Process queued ICE candidates
@@ -1065,9 +899,7 @@ const LiveProctoringDashboard: React.FC = () => {
             pcAny.pendingCandidates = [];
           }
         } else {
-          console.log(
-            `Cannot set remote description, signaling state: ${peerConnection.signalingState}`,
-          );
+          // Signaling state is already stable, answer may be duplicate - ignore
         }
       } else {
         console.error(`No peer connection found for session ${sessionToken}`);
@@ -1158,8 +990,16 @@ const LiveProctoringDashboard: React.FC = () => {
         const audioTrack = localAudioStream.getAudioTracks()[0];
         const sender = peerConnection.addTrack(audioTrack, localAudioStream);
 
+        // Check signaling state before renegotiation
+        if (peerConnection.signalingState !== "stable") {
+          console.log(
+            "WebRTC: Not in stable state for renegotiation, current state:",
+            peerConnection.signalingState,
+          );
+          return;
+        }
+
         // Trigger renegotiation by creating new offer
-        console.log("Creating renegotiation offer for microphone");
         const offer = await peerConnection.createOffer();
         await peerConnection.setLocalDescription(offer);
 
@@ -1169,22 +1009,9 @@ const LiveProctoringDashboard: React.FC = () => {
             offer: offer,
             sessionToken: sessionToken,
           };
-          console.log(
-            "🎤 Dashboard sending RENEGOTIATION offer to:",
-            sessionToken,
-            { sessionToken: offerData.sessionToken },
-          );
-          socketRef.current.emit("webrtc-offer", offerData);
-          console.log(
-            "Sent renegotiation offer for microphone to:",
-            sessionToken,
-          );
-        }
 
-        console.log(
-          "Added microphone track and renegotiated connection for:",
-          sessionToken,
-        );
+          socketRef.current.emit("webrtc-offer", offerData);
+        }
       } else {
         // Remove microphone
         const localAudioStream = localAudioStreamsRef.current.get(sessionToken);
@@ -1199,10 +1026,6 @@ const LiveProctoringDashboard: React.FC = () => {
             peerConnection.removeTrack(sender);
           }
         });
-        console.log(
-          "Removed microphone track from peer connection for:",
-          sessionToken,
-        );
       }
     } catch (error) {
       console.error("Error toggling microphone:", error);
@@ -1216,11 +1039,6 @@ const LiveProctoringDashboard: React.FC = () => {
     micGain?: number,
   ) => {
     if (socketRef.current?.connected) {
-      console.log(
-        "Sending force audio settings command to student:",
-        sessionToken,
-        { volume, micGain },
-      );
       socketRef.current.emit("force-student-audio", {
         sessionToken: sessionToken,
         volume: volume || 0.5, // Default to 50% volume

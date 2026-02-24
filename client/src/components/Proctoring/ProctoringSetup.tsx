@@ -209,18 +209,11 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         // Store audio context for cleanup
         (window as any).proctoringAudioContext = audioContext;
         (window as any).masterGainNode = masterGainNode;
-
-        console.log(`System audio volume set to ${(volume * 100).toFixed(0)}%`);
       } else {
         // Fallback to basic audio element control
         const instructorAudio = (window as any).instructorAudio;
         if (instructorAudio) {
           instructorAudio.volume = volume;
-          console.log(
-            `Audio volume set to ${(volume * 100).toFixed(
-              0,
-            )}% (fallback method)`,
-          );
         }
       }
 
@@ -252,19 +245,10 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
             // Store for cleanup
             (window as any).micAudioContext = micAudioContext;
             (window as any).micGainNode = micGainNode;
-
-            console.log(
-              `Microphone gain set to ${(micGain * 100).toFixed(0)}%`,
-            );
           } catch (micError) {
             console.warn(
               "Could not apply microphone gain adjustment:",
               micError,
-            );
-            console.log(
-              `Microphone gain setting requested: ${(micGain * 100).toFixed(
-                0,
-              )}%`,
             );
           }
         }
@@ -371,13 +355,10 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         },
       );
 
-      // Global socket listener for debugging - log all incoming events
-      socket.onAny((eventName, ...args) => {
-        console.log("📥 Student socket received:", eventName, args);
-      });
+      // Global socket listener for debugging
+      // socket.onAny((eventName, ...args) => {});
 
       socket.on("connect", () => {
-        console.log("🟢 Student connected to socket server:", socket.id);
         setSocketConnected(true);
         setShowConnectionPopup(true);
         setConnectionError(null);
@@ -389,10 +370,8 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
             sessionToken,
             role: "student",
           });
-          console.log("📤 Joined proctoring session for:", sessionToken);
 
           // Then notify server that student stream has started
-          console.log("📤 Emitting student-stream-started for:", sessionToken);
           socket.emit("student-stream-started", {
             sessionToken,
             studentInfo: {
@@ -430,11 +409,6 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
         // Handle remote audio stream from dashboard
         peerConnection.ontrack = (event) => {
-          console.log(
-            "Student received remote track:",
-            event.track.kind,
-            event.streams[0],
-          );
           if (event.track.kind === "audio") {
             // Create audio element to play instructor's voice
             const audioElement = new Audio();
@@ -444,39 +418,24 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
             // Store reference for cleanup and volume control
             (window as any).instructorAudio = audioElement;
-
-            console.log(
-              "Student set up instructor audio playback at 50% volume",
-            );
           }
         };
 
         // Handle ICE candidates
         peerConnection.onicecandidate = (event) => {
           if (event.candidate && socket?.connected) {
-            console.log("Student sending ICE candidate:", event.candidate);
             socket.emit("webrtc-ice-candidate", {
               sessionToken,
               candidate: event.candidate,
             });
           } else if (!event.candidate) {
-            console.log("Student ICE gathering complete");
           }
         };
 
         // Add connection state monitoring
-        peerConnection.onconnectionstatechange = () => {
-          console.log(
-            "Student peer connection state:",
-            peerConnection.connectionState,
-          );
-        };
+        // peerConnection.onconnectionstatechange = () => {};
 
         peerConnection.oniceconnectionstatechange = () => {
-          console.log(
-            "Student ICE connection state:",
-            peerConnection.iceConnectionState,
-          );
           // Update WebRTC connection status
           if (
             peerConnection.iceConnectionState === "connected" ||
@@ -496,12 +455,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           }
         };
 
-        peerConnection.onsignalingstatechange = () => {
-          console.log(
-            "Student signaling state:",
-            peerConnection.signalingState,
-          );
-        };
+        // peerConnection.onsignalingstatechange = () => {};
 
         // Signal to dashboard that student is ready for WebRTC connection
         if (socket.connected) {
@@ -509,57 +463,37 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
             sessionToken,
             message: "Student is ready for WebRTC connection",
           });
-          console.log("Student signaled readiness for WebRTC connection");
         }
-
-        // Wait for dashboard to send offer - student is passive receiver
-        console.log(
-          "Student WebRTC setup complete - waiting for dashboard offer",
-        );
 
         // Handle remote offer from dashboard (including renegotiation)
         socket.on("webrtc-offer", async (data: any) => {
-          console.log("📥 Student received webrtc-offer:", data);
-          console.log(
-            "📥 Data sessionToken:",
-            data.sessionToken,
-            "vs local:",
-            sessionToken,
-          );
-          console.log("📥 Match:", data.sessionToken === sessionToken);
-
           // Debug: Log what data looks like
-          console.log("📥 Full data object keys:", Object.keys(data || {}));
 
           // Workaround: If sessionToken is undefined but we have a local sessionToken,
           // use our local sessionToken (server might not be forwarding it correctly)
           const effectiveSessionToken = data.sessionToken || sessionToken;
-          console.log(
-            "📥 Using effective sessionToken:",
-            effectiveSessionToken,
-          );
 
           if (effectiveSessionToken) {
-            console.log("📥 Session token MATCH - processing offer...");
             try {
               const currentPeerConnection =
                 (window as any).proctoringPeerConnection || peerConnection;
               if (currentPeerConnection) {
-                // Check if this is a renegotiation (connection already established)
-                const isRenegotiation =
-                  currentPeerConnection.signalingState !== "stable";
+                // Check signaling state before setting remote description
+                // Allow both "stable" (first offer) and "have-remote-offer" (renegotiation)
+                const signalingState = currentPeerConnection.signalingState;
 
-                console.log(
-                  "Signaling state:",
-                  currentPeerConnection.signalingState,
-                  "Is renegotiation:",
-                  isRenegotiation,
-                );
+                // If already stable after processing, we might have a duplicate - but allow it
+                // The key is we cannot set remote description if we have a local offer
+                if (signalingState === "have-local-offer") {
+                  console.log(
+                    "WebRTC: In have-local-offer state, cannot accept remote offer",
+                  );
+                  return;
+                }
 
                 await currentPeerConnection.setRemoteDescription(
                   new RTCSessionDescription(data.offer),
                 );
-                console.log("Student set remote description successfully");
 
                 // Process queued ICE candidates
                 const pcAny = currentPeerConnection as any;
@@ -578,23 +512,27 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                 }
 
                 // Create and send answer
-                console.log("📝 Creating WebRTC answer...");
+                // Check signaling state before setting local description
+                if (
+                  currentPeerConnection.signalingState !==
+                    "have-remote-offer" &&
+                  currentPeerConnection.signalingState !== "stable"
+                ) {
+                  console.log(
+                    "WebRTC: Cannot create answer, current state:",
+                    currentPeerConnection.signalingState,
+                  );
+                  return;
+                }
+
                 const answer = await currentPeerConnection.createAnswer();
-                console.log("📝 Answer created, setting local description...");
                 await currentPeerConnection.setLocalDescription(answer);
-                console.log(
-                  "📝 Student sending WebRTC answer for renegotiation:",
-                  answer,
-                );
+
                 if (socket.connected) {
                   socket.emit("webrtc-answer", {
                     sessionToken,
                     answer,
                   });
-                  console.log(
-                    "📤 Student sent WebRTC answer for:",
-                    sessionToken,
-                  );
                 } else {
                   console.error(
                     "Socket not connected when sending WebRTC answer",
@@ -607,7 +545,6 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
               }
             } catch (error) {
               console.error("❌ Error handling WebRTC offer:", error);
-              console.error("❌ Stack trace:", error);
             }
           }
         });
@@ -615,10 +552,6 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         // Handle dashboard reconnection notification
         socket.on("dashboard-reconnected", async (data: any) => {
           if (data.sessionToken === sessionToken) {
-            console.log(
-              "Student received dashboard reconnection notification:",
-              data,
-            );
             // Reset the peer connection to allow dashboard to reconnect
             try {
               // Close existing peer connection
@@ -648,11 +581,6 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
               // Re-setup ontrack handler for instructor audio
               newPeerConnection.ontrack = (event) => {
-                console.log(
-                  "Student reconnected and received remote track:",
-                  event.track.kind,
-                  event.streams[0],
-                );
                 if (event.track.kind === "audio") {
                   // Check if we already have an audio element, reuse it
                   let audioElement = (window as any).instructorAudio;
@@ -663,19 +591,12 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                     (window as any).instructorAudio = audioElement;
                   }
                   audioElement.srcObject = event.streams[0];
-                  console.log(
-                    "Student reconnected instructor audio playback at 50% volume",
-                  );
                 }
               };
 
               // Re-setup event handlers
               newPeerConnection.onicecandidate = (event) => {
                 if (event.candidate && socket?.connected) {
-                  console.log(
-                    "Student resending ICE candidate after reconnection:",
-                    event.candidate,
-                  );
                   socket.emit("webrtc-ice-candidate", {
                     sessionToken,
                     candidate: event.candidate,
@@ -683,26 +604,9 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                 }
               };
 
-              newPeerConnection.onconnectionstatechange = () => {
-                console.log(
-                  "Student peer connection state after reconnection:",
-                  newPeerConnection.connectionState,
-                );
-              };
-
-              newPeerConnection.oniceconnectionstatechange = () => {
-                console.log(
-                  "Student ICE connection state after reconnection:",
-                  newPeerConnection.iceConnectionState,
-                );
-              };
-
-              newPeerConnection.onsignalingstatechange = () => {
-                console.log(
-                  "Student signaling state after reconnection:",
-                  newPeerConnection.signalingState,
-                );
-              };
+              // newPeerConnection.onconnectionstatechange = () => {};
+              // newPeerConnection.oniceconnectionstatechange = () => {};
+              // newPeerConnection.onsignalingstatechange = () => {};
 
               // Update the stored peer connection reference
               (window as any).proctoringPeerConnection = newPeerConnection;
@@ -714,14 +618,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                   message:
                     "Student is ready for WebRTC connection (reconnected)",
                 });
-                console.log(
-                  "Student re-signaled readiness for WebRTC connection after dashboard reconnection",
-                );
               }
-
-              console.log(
-                "Student reset WebRTC connection for dashboard reconnection",
-              );
             } catch (error) {
               console.error("Error resetting WebRTC connection:", error);
             }
@@ -734,7 +631,6 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           const effectiveSessionToken = data.sessionToken || sessionToken;
 
           if (effectiveSessionToken === sessionToken && data.candidate) {
-            console.log("Student received ICE candidate:", data.candidate);
             try {
               const currentPeerConnection =
                 (window as any).proctoringPeerConnection || peerConnection;
@@ -743,9 +639,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                   await currentPeerConnection.addIceCandidate(
                     new RTCIceCandidate(data.candidate),
                   );
-                  console.log("Student added ICE candidate successfully");
                 } else {
-                  console.log("Student queueing ICE candidate");
                   const pcAny = currentPeerConnection as any;
                   pcAny.pendingCandidates = pcAny.pendingCandidates || [];
                   pcAny.pendingCandidates.push(data.candidate);
@@ -762,7 +656,6 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         // Handle force audio settings command from dashboard
         socket.on("force-student-audio", async (data: any) => {
           if (data.sessionToken === sessionToken) {
-            console.log("Student received force audio settings command:", data);
             await applySystemAudioSettings(
               data.volume || 0.5,
               data.micGain || 0.6,
@@ -1619,21 +1512,13 @@ const FaceVerificationStep: React.FC<{
   useEffect(() => {
     const startCamera = async () => {
       try {
-        console.log("Requesting camera access...");
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 480, facingMode: "user" },
         });
-        console.log("Camera access granted, stream:", mediaStream);
         setStream(mediaStream);
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
           videoRef.current.onloadedmetadata = () => {
-            console.log(
-              "Video metadata loaded, dimensions:",
-              videoRef.current?.videoWidth,
-              "x",
-              videoRef.current?.videoHeight,
-            );
             videoRef.current?.play();
           };
         }
@@ -1675,9 +1560,7 @@ const FaceVerificationStep: React.FC<{
 
     // Load face detection models
     try {
-      console.log("Loading face detection models...");
       await faceDetectionService.loadModels();
-      console.log("Face detection models loaded successfully");
     } catch (error) {
       console.error("Error loading face detection models:", error);
       setError("Failed to load face detection models");
@@ -1694,20 +1577,16 @@ const FaceVerificationStep: React.FC<{
         videoRef.current.videoWidth === 0 ||
         videoRef.current.videoHeight === 0
       ) {
-        console.log("Video not ready yet, skipping detection");
         return;
       }
 
       try {
-        console.log("Running face detection...");
         const result = await faceDetectionService.detectFaces(
           videoRef.current,
           {
             minConfidence: 0.2, // Lower threshold for better detection
           },
         );
-
-        console.log("Face detection result:", result);
 
         const warnings: string[] = [];
         if (!result.hasFace) {
@@ -2136,13 +2015,11 @@ const FaceVerificationStep: React.FC<{
           <Button
             onClick={async () => {
               if (!videoRef.current) return;
-              console.log("Manual detection test...");
               try {
                 const result = await faceDetectionService.detectFaces(
                   videoRef.current,
                   { minConfidence: 0.1 }
                 );
-                console.log("Manual detection result:", result);
                 alert(
                   `Detection result: ${
                     result.faceCount

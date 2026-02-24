@@ -102,9 +102,6 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
         setSettings(response.data.data);
       } else {
         // No settings exist, keep default settings
-        console.log(
-          "No proctoring settings found for this quiz, using defaults",
-        );
       }
     } catch (error: any) {
       console.error("Error loading proctoring settings:", error);

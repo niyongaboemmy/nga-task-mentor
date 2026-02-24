@@ -90,7 +90,6 @@ const ProctoringMonitorComponent: React.FC<ProctoringMonitorComponentProps> = ({
       });
 
       monitorStartedRef.current = true;
-      console.log("Proctoring monitoring started successfully");
     } catch (error) {
       console.error("Failed to start proctoring monitoring:", error);
       toast.error("Failed to start proctoring monitoring");

@@ -101,10 +101,8 @@ class ProctoringMonitor {
   async startMonitoring(config: ProctoringMonitorConfig): Promise<void> {
     // Check if we're already monitoring a different session
     if (this.isMonitoring && this.sessionId !== config.sessionToken) {
-      console.log("Switching to new proctoring session:", config.sessionToken);
       await this.stopMonitoring();
     } else if (this.isMonitoring) {
-      console.log("Already monitoring session:", config.sessionToken);
       return;
     }
 
@@ -125,8 +123,6 @@ class ProctoringMonitor {
 
       // Set up event listeners
       this.setupEventListeners();
-
-      console.log("Proctoring monitoring started");
     } catch (error) {
       console.error("Error starting proctoring monitoring:", error);
       throw error;
@@ -151,8 +147,6 @@ class ProctoringMonitor {
       this.socket.disconnect();
       this.socket = null;
     }
-
-    console.log("Proctoring monitoring stopped");
   }
 
   /**
@@ -173,7 +167,6 @@ class ProctoringMonitor {
       );
 
       this.socket.on("connect", () => {
-        console.log("Proctoring monitor connected to socket server");
         if (this.config) {
           this.socket.emit("join-proctoring-session", {
             sessionToken: this.config.sessionToken,
@@ -186,20 +179,9 @@ class ProctoringMonitor {
         console.error("Proctoring monitor socket connection error:", error);
       });
 
-      this.socket.on("disconnect", (reason: any) => {
-        console.log(
-          "Proctoring monitor disconnected from socket server:",
-          reason,
-        );
-      });
+      this.socket.on("disconnect", (reason: any) => {});
 
-      this.socket.on("reconnect", (attemptNumber: any) => {
-        console.log(
-          "Proctoring monitor reconnected to socket server after",
-          attemptNumber,
-          "attempts",
-        );
-      });
+      this.socket.on("reconnect", (attemptNumber: any) => {});
 
       this.socket.on("reconnect_error", (error: any) => {
         console.error("Proctoring monitor failed to reconnect:", error);
@@ -509,23 +491,18 @@ class ProctoringMonitor {
   private handleVisibilityChange = (): void => {
     if (document.hidden) {
       // Tab switched away - this could be flagged
-      console.log("Tab visibility changed - student may have switched tabs");
     }
   };
 
   /**
    * Handle window blur
    */
-  private handleWindowBlur = (): void => {
-    console.log("Window lost focus - potential tab switching");
-  };
+  private handleWindowBlur = (): void => {};
 
   /**
    * Handle window focus
    */
-  private handleWindowFocus = (): void => {
-    console.log("Window regained focus");
-  };
+  private handleWindowFocus = (): void => {};
 
   /**
    * Get current status

@@ -133,7 +133,6 @@ const StreamModal: React.FC<StreamModalProps> = ({
         );
 
         socketRef.current.on("connect", () => {
-          console.log("StreamModal connected to socket server");
           if (stream) {
             socketRef.current.emit("join-proctoring-session", {
               sessionToken: stream.sessionToken,
