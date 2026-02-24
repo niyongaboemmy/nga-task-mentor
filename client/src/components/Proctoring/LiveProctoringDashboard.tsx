@@ -26,6 +26,7 @@ interface LiveStream {
   stream?: MediaStream;
   disconnectedAt?: string;
   lastReconnection?: string;
+  examStatus?: "active" | "paused" | "ended" | "warning";
 }
 
 interface ProctoringEvent {
@@ -367,6 +368,29 @@ const LiveProctoringDashboard: React.FC = () => {
       setEvents((prev) => [event, ...prev.slice(0, 49)]); // Keep last 50 events
     });
 
+    // Listen for exam status changes from students
+    socketRef.current.on(
+      "exam-status-changed",
+      (data: {
+        sessionToken: string;
+        status: "active" | "paused" | "ended" | "warning";
+      }) => {
+        setActiveStreams((prev) =>
+          prev.map((s) =>
+            s.sessionToken === data.sessionToken
+              ? { ...s, examStatus: data.status }
+              : s,
+          ),
+        );
+        // Also update selectedStreamForModal if it's the same session
+        setSelectedStreamForModal((prev) =>
+          prev?.sessionToken === data.sessionToken
+            ? { ...prev, examStatus: data.status }
+            : prev,
+        );
+      },
+    );
+
     // Listen for student ready signal globally (moved from joinStream)
     socketRef.current.on("student-webrtc-ready", async (data: any) => {
       const { sessionToken } = data;
@@ -400,10 +424,6 @@ const LiveProctoringDashboard: React.FC = () => {
           peerConnection.signalingState !== "stable" &&
           peerConnection.signalingState !== "have-local-offer"
         ) {
-          console.log(
-            "WebRTC: Not in valid state for offer, current state:",
-            peerConnection.signalingState,
-          );
           return;
         }
 
@@ -834,10 +854,6 @@ const LiveProctoringDashboard: React.FC = () => {
         peerConnection.signalingState !== "stable" &&
         peerConnection.signalingState !== "have-local-offer"
       ) {
-        console.log(
-          "WebRTC: Not in valid state for offer, current state:",
-          peerConnection.signalingState,
-        );
         return;
       }
 
@@ -992,10 +1008,6 @@ const LiveProctoringDashboard: React.FC = () => {
 
         // Check signaling state before renegotiation
         if (peerConnection.signalingState !== "stable") {
-          console.log(
-            "WebRTC: Not in stable state for renegotiation, current state:",
-            peerConnection.signalingState,
-          );
           return;
         }
 
@@ -1064,6 +1076,16 @@ const LiveProctoringDashboard: React.FC = () => {
           timestamp: new Date(),
         },
       ]);
+    } else {
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Failed to pause exam: Socket not connected. Please refresh the page.`,
+          type: "error",
+          timestamp: new Date(),
+        },
+      ]);
     }
   };
 
@@ -1078,6 +1100,16 @@ const LiveProctoringDashboard: React.FC = () => {
           id: Date.now(),
           message: `Exam resumed for session ${sessionToken}`,
           type: "success",
+          timestamp: new Date(),
+        },
+      ]);
+    } else {
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Failed to resume exam: Socket not connected. Please refresh the page.`,
+          type: "error",
           timestamp: new Date(),
         },
       ]);
@@ -1096,6 +1128,16 @@ const LiveProctoringDashboard: React.FC = () => {
           id: Date.now(),
           message: `Warning sent to student: ${message}`,
           type: "warning",
+          timestamp: new Date(),
+        },
+      ]);
+    } else {
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Failed to send warning: Socket not connected. Please refresh the page.`,
+          type: "error",
           timestamp: new Date(),
         },
       ]);
@@ -1248,116 +1290,6 @@ const LiveProctoringDashboard: React.FC = () => {
           </div>
         )}
 
-        {/* Status Messages Panel */}
-        {statusMessages.length > 0 && (
-          <div className="bg-white/90 border border-blue-200 rounded-xl p-4 mb-4 dark:bg-gray-900 dark:border-gray-800 mx-2">
-            <div className="flex items-center gap-2 mb-3">
-              <div className="w-6 h-6 bg-gradient-to-r from-blue-400 to-blue-500 rounded-lg flex items-center justify-center">
-                <svg
-                  className="w-4 h-4 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                Connection Status
-              </h3>
-            </div>
-            <div className="space-y-2 max-h-40 overflow-y-auto">
-              {statusMessages
-                .slice()
-                .reverse()
-                .map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
-                      msg.type === "success"
-                        ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300"
-                        : msg.type === "error"
-                          ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300"
-                          : msg.type === "warning"
-                            ? "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300"
-                            : "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
-                    }`}
-                  >
-                    {msg.type === "success" && (
-                      <svg
-                        className="w-4 h-4 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    )}
-                    {msg.type === "error" && (
-                      <svg
-                        className="w-4 h-4 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M6 18L18 6M6 6l12 12"
-                        />
-                      </svg>
-                    )}
-                    {msg.type === "warning" && (
-                      <svg
-                        className="w-4 h-4 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-                        />
-                      </svg>
-                    )}
-                    {msg.type === "info" && (
-                      <svg
-                        className="w-4 h-4 flex-shrink-0"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                        />
-                      </svg>
-                    )}
-                    <span className="flex-1">{msg.message}</span>
-                    <span className="text-xs opacity-70">
-                      {msg.timestamp.toLocaleTimeString()}
-                    </span>
-                  </div>
-                ))}
-            </div>
-          </div>
-        )}
-
         {/* Live Student Videos Section */}
         <div className="bg-white/90 border border-blue-200 rounded-2xl p-6 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-300 mx-2">
           <div className="mb-6">
@@ -1506,6 +1438,24 @@ const LiveProctoringDashboard: React.FC = () => {
                     <h3 className="text-sm font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors dark:text-gray-200">
                       {stream.student.first_name} {stream.student.last_name}
                     </h3>
+                    {/* Exam Status Badge */}
+                    {stream.examStatus && stream.examStatus !== "active" && (
+                      <div
+                        className={`mb-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          stream.examStatus === "paused"
+                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                            : stream.examStatus === "ended"
+                              ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                              : stream.examStatus === "warning"
+                                ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
+                                : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                        }`}
+                      >
+                        {stream.examStatus === "paused" && "⏸ Paused"}
+                        {stream.examStatus === "ended" && "⏹ Ended"}
+                        {stream.examStatus === "warning" && "⚠ Warning"}
+                      </div>
+                    )}
                     <p className="text-xs text-gray-600 line-clamp-1 mb-3 dark:text-gray-400">
                       {stream.quiz.title}
                     </p>

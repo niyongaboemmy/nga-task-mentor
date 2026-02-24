@@ -90,6 +90,7 @@ interface LiveStream {
   isLive: boolean;
   stream?: MediaStream;
   disconnectedAt?: string;
+  examStatus?: "active" | "paused" | "ended" | "warning";
 }
 
 interface StreamModalProps {
@@ -576,12 +577,25 @@ const StreamModal: React.FC<StreamModalProps> = ({
   };
 
   const handleSendWarning = () => {
-    if (!warningMessage.trim() || !stream) return;
+    console.log("handleSendWarning called", {
+      warningMessage: warningMessage.trim(),
+      stream,
+      onSendWarning,
+    });
+    if (!warningMessage.trim() || !stream) {
+      console.log("handleSendWarning early return");
+      return;
+    }
     setIsSendingWarning(true);
     try {
       // Use the onSendWarning prop from parent (LiveProctoringDashboard)
       // which has the proper socket connection
       if (onSendWarning) {
+        console.log(
+          "Calling onSendWarning with",
+          stream.sessionToken,
+          warningMessage,
+        );
         onSendWarning(stream.sessionToken, warningMessage);
       }
       setShowWarningModal(false);
@@ -594,16 +608,30 @@ const StreamModal: React.FC<StreamModalProps> = ({
   };
 
   const handlePauseExam = () => {
-    if (!stream || !onPauseExam) return;
+    console.log("handlePauseExam called", { stream, onPauseExam });
+    if (!stream || !onPauseExam) {
+      console.log(
+        "handlePauseExam early return - missing stream or onPauseExam",
+      );
+      return;
+    }
     // Use the onPauseExam prop from parent (LiveProctoringDashboard)
     // which has the proper socket connection
+    console.log("Calling onPauseExam with", stream.sessionToken);
     onPauseExam(stream.sessionToken);
   };
 
   const handleResumeExam = () => {
-    if (!stream || !onResumeExam) return;
+    console.log("handleResumeExam called", { stream, onResumeExam });
+    if (!stream || !onResumeExam) {
+      console.log(
+        "handleResumeExam early return - missing stream or onResumeExam",
+      );
+      return;
+    }
     // Use the onResumeExam prop from parent (LiveProctoringDashboard)
     // which has the proper socket connection
+    console.log("Calling onResumeExam with", stream.sessionToken);
     onResumeExam(stream.sessionToken);
   };
 
@@ -713,6 +741,41 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 {stream.flagsCount}
               </span>
             </span>
+            {/* Exam Status Indicator */}
+            {stream.examStatus && stream.examStatus !== "active" && (
+              <>
+                <span className="text-xs text-gray-400 dark:text-gray-500">
+                  |
+                </span>
+                <span
+                  className={`flex items-center gap-1 text-xs font-medium ${
+                    stream.examStatus === "paused"
+                      ? "text-yellow-600 dark:text-yellow-400"
+                      : stream.examStatus === "ended"
+                        ? "text-red-600 dark:text-red-400"
+                        : stream.examStatus === "warning"
+                          ? "text-orange-600 dark:text-orange-400"
+                          : "text-gray-500"
+                  }`}
+                >
+                  {stream.examStatus === "paused" && (
+                    <>
+                      <PauseCircle className="w-3 h-3" /> Paused
+                    </>
+                  )}
+                  {stream.examStatus === "ended" && (
+                    <>
+                      <Ban className="w-3 h-3" /> Ended
+                    </>
+                  )}
+                  {stream.examStatus === "warning" && (
+                    <>
+                      <AlertTriangle className="w-3 h-3" /> Warning
+                    </>
+                  )}
+                </span>
+              </>
+            )}
           </div>
           {/* Events Dropdown on the right */}
           <EventsDropdown
@@ -871,7 +934,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
               <div className="grid grid-cols-3 gap-1.5 lg:gap-2">
                 <button
                   onClick={handlePauseExam}
-                  disabled={!stream.isLive}
+                  disabled={!stream || !onPauseExam}
                   className="flex flex-col items-center gap-1 px-2 py-2.5 bg-gradient-to-b from-amber-50 to-amber-100/50 dark:from-amber-900/30 dark:to-amber-800/20 hover:from-amber-100 hover:to-amber-100/80 dark:hover:from-amber-900/50 dark:hover:to-amber-800/30 border border-amber-200/60 dark:border-amber-800/30 rounded-lg text-amber-700 dark:text-amber-400 text-xs font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg hover:shadow-amber-500/20"
                 >
                   <PauseCircle className="w-4 h-4" />
@@ -879,7 +942,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 </button>
                 <button
                   onClick={handleResumeExam}
-                  disabled={!stream.isLive}
+                  disabled={!stream || !onResumeExam}
                   className="flex flex-col items-center gap-1 px-2 py-2.5 bg-gradient-to-b from-green-50 to-green-100/50 dark:from-green-900/30 dark:to-green-800/20 hover:from-green-100 hover:to-green-100/80 dark:hover:from-green-900/50 dark:hover:to-green-800/30 border border-green-200/60 dark:border-green-800/30 rounded-lg text-green-700 dark:text-green-400 text-xs font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg hover:shadow-green-500/20"
                 >
                   <Play className="w-4 h-4" />
@@ -887,7 +950,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 </button>
                 <button
                   onClick={() => setShowWarningModal(true)}
-                  disabled={!stream.isLive}
+                  disabled={!stream || !onSendWarning}
                   className="flex flex-col items-center gap-1 px-2 py-2.5 bg-gradient-to-b from-orange-50 to-orange-100/50 dark:from-orange-900/30 dark:to-orange-800/20 hover:from-orange-100 hover:to-orange-100/80 dark:hover:from-orange-900/50 dark:hover:to-orange-800/30 border border-orange-200/60 dark:border-orange-800/30 rounded-lg text-orange-700 dark:text-orange-400 text-xs font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg hover:shadow-orange-500/20"
                 >
                   <AlertTriangle className="w-4 h-4" />

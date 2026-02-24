@@ -375,6 +375,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
             sessionToken,
             role: "student",
           });
+          console.log("Student joined proctoring session room:", sessionToken);
 
           // Then notify server that student stream has started
           socket.emit("student-stream-started", {
@@ -490,9 +491,6 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                 // If already stable after processing, we might have a duplicate - but allow it
                 // The key is we cannot set remote description if we have a local offer
                 if (signalingState === "have-local-offer") {
-                  console.log(
-                    "WebRTC: In have-local-offer state, cannot accept remote offer",
-                  );
                   return;
                 }
 
@@ -523,10 +521,6 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                     "have-remote-offer" &&
                   currentPeerConnection.signalingState !== "stable"
                 ) {
-                  console.log(
-                    "WebRTC: Cannot create answer, current state:",
-                    currentPeerConnection.signalingState,
-                  );
                   return;
                 }
 
@@ -670,10 +664,15 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
         // Handle warning from dashboard
         socket.on("send-warning-to-student", (data: any) => {
+          console.log("Student received send-warning-to-student", data);
           if (data.sessionToken === sessionToken) {
             setWarningMessage(data.message || "Warning from instructor");
             setShowWarning(true);
-            // Play alert sound
+            // Notify dashboard of warning status
+            socket.emit("exam-status-changed", {
+              sessionToken,
+              status: "warning",
+            });
             const audio = new Audio(
               "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleRAxA3Tv9/W5diYKLfrw9/K4fiIGKv799vK3eiAKLfr29/K3eyAKK/fs9vK2eR8LK/n09vK1eR4LK/jz9vK0eB0MK/bz9vKzeBwNK/X09vKyeBsOKvT19vKxeRsPKfP19vKweRsPKPL19vKvdxsPKPH19vKudxsPKO/19vGsdhoOKO709vGqdRkNKOnz9vGpdBkMKOjy9vCodBkLJ+fx9vCodBgKJuXu9vGndBcKJuPt9vGldBYKJuHs9vGkexYJJeDr9vGhexYJJOHq9vGhexYJI+Dp9vCfexYIIt/m9vCdexYII9/k9vCcexYIIt/l9vCdexYII9/k9vCdexYII9/k9vCdexYII9/k9vCdexYII9/k9vCdehYII9/k9vCdexYII9/k9vCdehYII9/k9vCdehYII+Dp9vCfexYIIt/m9vCdexYII9/k9vCcexYIIt/l9vCdexYII9/k9vCdexYII9/k9vCdexYII9/k9vCdexYII9/k9vCdexYII9/l9vCdexYJI+Dp9vCfexYJIt/m9vCdexYJI9/k9vCcexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vCdexYJI9/l9vCdehYJI+Dp9vCfexYJIt/m9vCdehYJI9/k9vCcexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vGdexYJI9/k9vGdexYJI+Dp9vGfexYJIt/m9vGdexYJI9/k9vGcexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/l9vGdehYJI+Dp9vGfexYJIt/m9vGdehYJI9/k9vGcexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/l9vGdehYJI+Dp9vGfexYJIt/m9vGdehYJI9/k9vGcexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/l9vGdehYJI+Dp9vGfexYJIt/m9",
             );
@@ -683,16 +682,27 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
         // Handle pause exam command from dashboard
         socket.on("pause-student-exam", (data: any) => {
+          console.log("Student received pause-student-exam", data);
           if (data.sessionToken === sessionToken) {
             setIsExamPaused(true);
-            // Could also emit an event to pause the quiz timer
+            // Notify dashboard of paused status
+            socket.emit("exam-status-changed", {
+              sessionToken,
+              status: "paused",
+            });
           }
         });
 
         // Handle resume exam command from dashboard
         socket.on("resume-student-exam", (data: any) => {
+          console.log("Student received resume-student-exam", data);
           if (data.sessionToken === sessionToken) {
             setIsExamPaused(false);
+            // Notify dashboard of active status
+            socket.emit("exam-status-changed", {
+              sessionToken,
+              status: "active",
+            });
           }
         });
 

@@ -58,29 +58,19 @@ class FaceDetectionService {
 
   private async loadModelsInternal(): Promise<void> {
     try {
-      console.log("Starting model loading process...");
-
       // Set TensorFlow.js backend
-      console.log("Setting TensorFlow.js backend to WebGL...");
       await tf.setBackend("webgl");
       await tf.ready();
-      console.log("TensorFlow.js backend ready");
 
       // Load COCO-SSD model for object detection
-      console.log("Loading COCO-SSD model...");
       this.objectDetector = await cocoSsd.load();
-      console.log("COCO-SSD object detection model loaded successfully");
 
       // Try to load MediaPipe Tasks Vision Face Detector
       let mediaPipeLoaded = false;
       try {
-        console.log(
-          "Attempting to load MediaPipe Tasks Vision Face Detector..."
-        );
         const vision = await FilesetResolver.forVisionTasks(
-          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm"
+          "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm",
         );
-        console.log("MediaPipe vision resolver loaded");
 
         this.faceDetector = await FaceDetector.createFromOptions(vision, {
           baseOptions: {
@@ -94,18 +84,12 @@ class FaceDetectionService {
 
         this.useMediaPipe = true;
         mediaPipeLoaded = true;
-        console.log("MediaPipe Tasks Vision Face Detector loaded successfully");
       } catch (mediaPipeError) {
-        console.warn(
-          "MediaPipe Tasks Vision failed, falling back to face-api.js:",
-          mediaPipeError
-        );
         this.useMediaPipe = false;
       }
 
       // Load face-api.js models (either as primary or fallback)
       if (!mediaPipeLoaded) {
-        console.log("Loading face-api.js models...");
         const MODEL_URL =
           "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/";
 
@@ -118,21 +102,15 @@ class FaceDetectionService {
           ]);
 
           this.faceApiModelsLoaded = true;
-          console.log("face-api.js models loaded successfully");
         } catch (faceApiError) {
-          console.error("Failed to load face-api.js models:", faceApiError);
+          // console.error("Failed to load face-api.js models:", faceApiError);
           throw new Error("Both MediaPipe and face-api.js failed to load");
         }
       }
 
       this.modelsLoaded = true;
-      console.log(
-        `Face detection models loaded successfully. Using: ${
-          this.useMediaPipe ? "MediaPipe" : "face-api.js"
-        }`
-      );
     } catch (error) {
-      console.error("Error loading detection models:", error);
+      // console.error("Error loading detection models:", error);
       this.modelsLoaded = false;
       throw error;
     }
@@ -146,7 +124,7 @@ class FaceDetectionService {
     options?: {
       minConfidence?: number;
       maxResults?: number;
-    }
+    },
   ): Promise<FaceDetectionResult> {
     // Ensure models are loaded
     if (!this.modelsLoaded) {
@@ -155,17 +133,9 @@ class FaceDetectionService {
 
     const { minConfidence = 0.5 } = options || {};
 
-    console.log(
-      "Video element dimensions:",
-      videoElement.videoWidth,
-      "x",
-      videoElement.videoHeight
-    );
-    console.log("Video ready state:", videoElement.readyState);
-
     // Check if video is ready
     if (videoElement.readyState < 2) {
-      console.warn("Video element not ready for detection");
+      // console.warn("Video element not ready for detection");
       return {
         hasFace: false,
         faceCount: 0,
@@ -175,29 +145,23 @@ class FaceDetectionService {
     // Try MediaPipe Tasks Vision first (if loaded)
     if (this.useMediaPipe && this.faceDetector) {
       try {
-        console.log("Trying MediaPipe Tasks Vision detection...");
-
         // Detect faces directly (synchronous call)
         const results = this.faceDetector.detectForVideo(
           videoElement,
-          performance.now()
+          performance.now(),
         );
-
-        console.log("MediaPipe Tasks Vision results:", results);
 
         // Filter detections by confidence
         const validDetections = (results.detections || [])
           .filter(
             (detection: any) =>
-              (detection.categories?.[0]?.score || 0) >= minConfidence
+              (detection.categories?.[0]?.score || 0) >= minConfidence,
           )
           .map((detection: any) => ({
             ...detection,
             score: detection.categories?.[0]?.score || 0,
             boundingBox: detection.boundingBox,
           }));
-
-        console.log("Valid MediaPipe detections:", validDetections.length);
 
         if (validDetections.length > 0) {
           return {
@@ -208,7 +172,7 @@ class FaceDetectionService {
           };
         }
       } catch (mediaPipeError) {
-        console.warn("MediaPipe Tasks Vision failed:", mediaPipeError);
+        // console.warn("MediaPipe Tasks Vision failed:", mediaPipeError);
         this.useMediaPipe = false;
       }
     }
@@ -216,27 +180,19 @@ class FaceDetectionService {
     // Try face-api.js as fallback or primary method
     if (this.faceApiModelsLoaded) {
       try {
-        console.log("Trying face-api.js detection with landmarks...");
         const detections = await faceapi
           .detectAllFaces(
             videoElement,
             new faceapi.TinyFaceDetectorOptions({
               inputSize: 512,
               scoreThreshold: minConfidence - 0.2, // Lower threshold for detection
-            })
+            }),
           )
           .withFaceLandmarks();
 
-        console.log("face-api.js detections with landmarks:", detections);
-
         // Filter detections by confidence
         const validDetections = detections.filter(
-          (detection) => detection.detection.score >= minConfidence
-        );
-
-        console.log(
-          "Valid detections after filtering:",
-          validDetections.length
+          (detection) => detection.detection.score >= minConfidence,
         );
 
         return {
@@ -247,12 +203,12 @@ class FaceDetectionService {
             validDetections.length > 0 ? validDetections[0].detection.score : 0,
         };
       } catch (faceApiError) {
-        console.error("face-api.js face detection failed:", faceApiError);
+        // console.error("face-api.js face detection failed:", faceApiError);
       }
     }
 
     // If all methods fail, return empty result
-    console.error("All face detection methods failed");
+    // console.error("All face detection methods failed");
     return {
       hasFace: false,
       faceCount: 0,
@@ -263,7 +219,7 @@ class FaceDetectionService {
    * Analyze gaze direction based on eye landmarks
    */
   private analyzeGazeDirection(
-    landmarks: faceapi.FaceLandmarks68
+    landmarks: faceapi.FaceLandmarks68,
   ): "center" | "left" | "right" | "up" | "down" | "away" {
     try {
       const leftEye = landmarks.getLeftEye();
@@ -318,12 +274,6 @@ class FaceDetectionService {
       const horizontalThreshold = 0.15; // 15% of eye separation
       const verticalThreshold = 0.1; // 10% of eye separation
 
-      console.log(
-        `Gaze analysis - Horizontal: ${horizontalGaze.toFixed(
-          3
-        )}, Vertical: ${verticalGaze.toFixed(3)}`
-      );
-
       // Determine gaze direction
       if (Math.abs(horizontalGaze) > horizontalThreshold) {
         if (Math.abs(verticalGaze) > verticalThreshold) {
@@ -342,7 +292,7 @@ class FaceDetectionService {
 
       return "center";
     } catch (error) {
-      console.error("Error analyzing gaze direction:", error);
+      // console.error("Error analyzing gaze direction:", error);
       return "away";
     }
   }
@@ -414,7 +364,7 @@ class FaceDetectionService {
       const eyeRoll =
         Math.atan2(
           rightEyeCenter.y - leftEyeCenter.y,
-          rightEyeCenter.x - leftEyeCenter.x
+          rightEyeCenter.x - leftEyeCenter.x,
         ) *
         (180 / Math.PI);
 
@@ -428,19 +378,13 @@ class FaceDetectionService {
       // Combine eye and jaw roll for more accurate measurement
       const roll = (eyeRoll + jawRoll) / 2;
 
-      console.log(
-        `Head pose - Yaw: ${yaw.toFixed(3)}, Pitch: ${pitch.toFixed(
-          3
-        )}, Roll: ${roll.toFixed(1)}°`
-      );
-
       return {
         yaw: Math.max(-1, Math.min(1, yaw)), // Normalize to -1 to 1
         pitch: Math.max(-1, Math.min(1, pitch)),
         roll: roll, // Keep in degrees
       };
     } catch (error) {
-      console.error("Error analyzing head pose:", error);
+      // console.error("Error analyzing head pose:", error);
       return { yaw: 0, pitch: 0, roll: 0 };
     }
   }
@@ -450,7 +394,7 @@ class FaceDetectionService {
    */
   private calculateAttentionScore(
     gazeDirection: string,
-    headPose: { yaw: number; pitch: number; roll: number }
+    headPose: { yaw: number; pitch: number; roll: number },
   ): number {
     let score = 100;
 
@@ -480,7 +424,7 @@ class FaceDetectionService {
    */
   private updateLookingAwayTracking(
     gazeDirection: string,
-    headPose: { yaw: number; pitch: number; roll: number }
+    headPose: { yaw: number; pitch: number; roll: number },
   ): { lookingAway: boolean; duration: number } {
     // Define thresholds for looking away
     const yawThreshold = 0.25; // 25% of normalized range
@@ -501,10 +445,8 @@ class FaceDetectionService {
     if (isLookingAway) {
       if (this.lookingAwayStartTime === null) {
         this.lookingAwayStartTime = now;
-        console.log("Started looking away tracking");
       }
       const duration = (now - this.lookingAwayStartTime) / 1000; // Convert to seconds
-      console.log(`Looking away for ${duration.toFixed(1)} seconds`);
       return { lookingAway: true, duration };
     } else {
       // Record the completed looking away event
@@ -516,14 +458,11 @@ class FaceDetectionService {
             start: this.lookingAwayStartTime,
             duration,
           });
-          console.log(
-            `Recorded looking away event: ${duration.toFixed(1)} seconds`
-          );
         }
         // Keep only recent events (last 10 minutes)
         const tenMinutesAgo = now - 10 * 60 * 1000;
         this.lookingAwayEvents = this.lookingAwayEvents.filter(
-          (event) => event.start > tenMinutesAgo
+          (event) => event.start > tenMinutesAgo,
         );
       }
       this.lookingAwayStartTime = null;
@@ -545,7 +484,7 @@ class FaceDetectionService {
     // Check for long total looking away time (more than 2 minutes in last 10 minutes)
     const totalLookingAwayTime = this.lookingAwayEvents.reduce(
       (total, event) => total + event.duration,
-      0
+      0,
     );
     if (totalLookingAwayTime > 120) {
       // 2 minutes
@@ -581,7 +520,7 @@ class FaceDetectionService {
       faceDetectionSensitivity: number;
       enableObjectDetection: boolean;
       objectDetectionSensitivity: number;
-    }
+    },
   ): Promise<ProctoringDetectionResult> {
     const result: ProctoringDetectionResult = {
       faceDetected: false,
@@ -626,7 +565,7 @@ class FaceDetectionService {
           try {
             // Analyze gaze direction
             result.gazeDirection = this.analyzeGazeDirection(
-              detection.landmarks
+              detection.landmarks,
             );
 
             // Analyze head pose
@@ -635,13 +574,13 @@ class FaceDetectionService {
             // Calculate attention score
             result.attentionScore = this.calculateAttentionScore(
               result.gazeDirection,
-              result.headPose
+              result.headPose,
             );
 
             // Track looking away
             const lookingAwayInfo = this.updateLookingAwayTracking(
               result.gazeDirection,
-              result.headPose
+              result.headPose,
             );
             result.lookingAway = lookingAwayInfo.lookingAway;
             result.lookingAwayDuration = lookingAwayInfo.duration;
@@ -651,19 +590,19 @@ class FaceDetectionService {
               if (result.lookingAwayDuration > 3) {
                 result.warnings.push(
                   `Extended looking away detected (${result.lookingAwayDuration.toFixed(
-                    1
-                  )}s)`
+                    1,
+                  )}s)`,
                 );
               } else if (result.gazeDirection !== "center") {
                 result.warnings.push(
-                  `Gaze not centered (${result.gazeDirection})`
+                  `Gaze not centered (${result.gazeDirection})`,
                 );
               }
             }
 
             if (result.attentionScore < 50) {
               result.warnings.push(
-                `Low attention score (${result.attentionScore.toFixed(0)})`
+                `Low attention score (${result.attentionScore.toFixed(0)})`,
               );
             }
 
@@ -677,7 +616,7 @@ class FaceDetectionService {
               result.warnings.push(flag);
             });
           } catch (behavioralError) {
-            console.error("Error in behavioral analysis:", behavioralError);
+            // console.error("Error in behavioral analysis:", behavioralError);
           }
         }
       }
@@ -687,14 +626,14 @@ class FaceDetectionService {
         result.warnings.push("No face detected in camera feed");
       } else if (faceResult.faceCount > 1) {
         result.warnings.push(
-          "Multiple faces detected - only one person should be visible"
+          "Multiple faces detected - only one person should be visible",
         );
       } else if (
         faceResult.confidence &&
         faceResult.confidence < settings.faceDetectionSensitivity / 100
       ) {
         result.warnings.push(
-          "Face detection confidence is low - ensure proper lighting and positioning"
+          "Face detection confidence is low - ensure proper lighting and positioning",
         );
       }
 
@@ -702,7 +641,7 @@ class FaceDetectionService {
       if (settings.enableObjectDetection) {
         const objects = await this.detectObjects(
           videoElement,
-          settings.objectDetectionSensitivity
+          settings.objectDetectionSensitivity,
         );
         result.objectsDetected = objects;
 
@@ -721,7 +660,7 @@ class FaceDetectionService {
         }
       }
     } catch (error) {
-      console.error("Error in proctoring compliance check:", error);
+      // console.error("Error in proctoring compliance check:", error);
       result.warnings.push("Face detection system error");
     }
 
@@ -733,18 +672,16 @@ class FaceDetectionService {
    */
   private async detectObjects(
     videoElement: HTMLVideoElement,
-    sensitivity: number
+    sensitivity: number,
   ): Promise<string[]> {
     if (!this.objectDetector) {
-      console.warn("Object detector not loaded");
+      // console.warn("Object detector not loaded");
       return [];
     }
 
     try {
-      console.log("Running object detection...");
       // Run object detection on the video element
       const predictions = await this.objectDetector.detect(videoElement);
-      console.log("Object detection predictions:", predictions);
 
       // Comprehensive list of prohibited objects for proctoring
       const prohibitedObjects = {
@@ -792,61 +729,50 @@ class FaceDetectionService {
       const detectedObjects: string[] = [];
       const confidenceThreshold = sensitivity / 100;
 
-      console.log(`Using confidence threshold: ${confidenceThreshold}`);
-
       for (const prediction of predictions) {
         if (prediction.score >= confidenceThreshold) {
           const className = prediction.class.toLowerCase().trim();
-          console.log(
-            `Checking object: ${className} (confidence: ${prediction.score})`
-          );
 
           // Check phones
           if (
             prohibitedObjects.phones.some(
-              (phone) => className.includes(phone) || phone.includes(className)
+              (phone) => className.includes(phone) || phone.includes(className),
             )
           ) {
             detectedObjects.push("mobile_phone");
-            console.log("Detected phone-like object");
           }
           // Check devices
           else if (
             prohibitedObjects.devices.some(
               (device) =>
-                className.includes(device) || device.includes(className)
+                className.includes(device) || device.includes(className),
             )
           ) {
             detectedObjects.push("unauthorized_device");
-            console.log("Detected unauthorized device");
           }
           // Check materials
           else if (
             prohibitedObjects.materials.some(
               (material) =>
-                className.includes(material) || material.includes(className)
+                className.includes(material) || material.includes(className),
             )
           ) {
             detectedObjects.push("unauthorized_material");
-            console.log("Detected unauthorized material");
           }
           // Check other prohibited items
           else if (
             prohibitedObjects.other.some(
-              (item) => className.includes(item) || item.includes(className)
+              (item) => className.includes(item) || item.includes(className),
             )
           ) {
             detectedObjects.push("prohibited_item");
-            console.log("Detected prohibited item");
           }
         }
       }
 
       const uniqueObjects = [...new Set(detectedObjects)];
-      console.log("Final detected objects:", uniqueObjects);
       return uniqueObjects;
     } catch (error) {
-      console.error("Error in object detection:", error);
       return [];
     }
   }
@@ -885,7 +811,7 @@ class FaceDetectionService {
         // Check microphone level
         if (audioTrack) {
           const microphone = this.audioContext.createMediaStreamSource(
-            new MediaStream([audioTrack])
+            new MediaStream([audioTrack]),
           );
           microphone.connect(analyser);
 
@@ -943,7 +869,7 @@ class FaceDetectionService {
           });
         }
       } catch (error) {
-        console.error("Error checking media levels:", error);
+        // console.error("Error checking media levels:", error);
         resolve({
           cameraLevel: 50,
           microphoneLevel: 0,
@@ -969,7 +895,7 @@ class FaceDetectionService {
    * Request fullscreen mode
    */
   async requestFullscreen(
-    element: HTMLElement = document.documentElement
+    element: HTMLElement = document.documentElement,
   ): Promise<boolean> {
     try {
       if (element.requestFullscreen) {
@@ -983,7 +909,7 @@ class FaceDetectionService {
       }
       return true;
     } catch (error) {
-      console.error("Error requesting fullscreen:", error);
+      // console.error("Error requesting fullscreen:", error);
       return false;
     }
   }

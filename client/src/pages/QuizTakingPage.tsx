@@ -159,7 +159,7 @@ const QuizTakingPage: React.FC = () => {
           const parsedAnswers = JSON.parse(savedAnswers);
           setAnswers(parsedAnswers);
         } catch (error) {
-          console.error("Error parsing saved answers:", error);
+          // console.error("Error parsing saved answers:", error);
           localStorage.removeItem(quizSessionKey);
         }
       }
@@ -175,7 +175,7 @@ const QuizTakingPage: React.FC = () => {
             setQuizStartTime(new Date(savedStartTime));
           }
         } catch (error) {
-          console.error("Error parsing saved timer state:", error);
+          // console.error("Error parsing saved timer state:", error);
           localStorage.removeItem(timerSessionKey);
         }
       }
@@ -240,9 +240,6 @@ const QuizTakingPage: React.FC = () => {
           );
 
           socket.on("connect", () => {
-            console.log(
-              "QuizTakingPage connected to socket server for audio confirmation",
-            );
             setSocketConnected(true);
             setShowConnectionPopup(true);
             setConnectionError(null);
@@ -255,7 +252,6 @@ const QuizTakingPage: React.FC = () => {
           // Listen for audio confirmation requests from proctor
           socket.on("request-student-audio-confirmation", (data: any) => {
             if (data.sessionToken === proctoringSession.session_token) {
-              console.log("Student received audio confirmation request:", data);
               setAudioConfirmationRequest({
                 volume: data.volume || 0.5,
                 micGain: data.micGain || 0.6,
@@ -268,7 +264,6 @@ const QuizTakingPage: React.FC = () => {
           // Listen for quiz termination from proctor
           socket.on("quiz-terminated", (data: any) => {
             if (data.sessionToken === proctoringSession.session_token) {
-              console.log("Quiz terminated by proctor:", data);
               setTerminationReason(
                 data.reason || "Quiz terminated by instructor",
               );
@@ -281,7 +276,7 @@ const QuizTakingPage: React.FC = () => {
           });
 
           socket.on("connect_error", (error: any) => {
-            console.error("QuizTakingPage socket connection error:", error);
+            // console.error("QuizTakingPage socket connection error:", error);
           });
 
           setSocketRef(socket);
@@ -319,7 +314,7 @@ const QuizTakingPage: React.FC = () => {
 
       setQuiz(response.data as QuizTakingQuiz);
     } catch (error: any) {
-      console.error("Error fetching quiz:", error);
+      // console.error("Error fetching quiz:", error);
 
       // Extract error message from response
       let errorMessage = "Failed to load quiz. Please try again.";
@@ -393,7 +388,7 @@ const QuizTakingPage: React.FC = () => {
         setShowInstructions(false);
       }
     } catch (error: any) {
-      console.error("Error checking existing submission:", error);
+      // console.error("Error checking existing submission:", error);
       // Don't show error for this check, just log it
     }
   };
@@ -412,7 +407,7 @@ const QuizTakingPage: React.FC = () => {
       setShowVolumeCheck(true);
       await startVolumeCheck();
     } catch (error: any) {
-      console.error("Error starting quiz:", error);
+      // console.error("Error starting quiz:", error);
 
       // Extract error message from response
       let errorMessage = "Failed to start quiz. Please try again.";
@@ -458,7 +453,7 @@ const QuizTakingPage: React.FC = () => {
       // No proctoring, start quiz normally
       await startQuizNormally();
     } catch (error: any) {
-      console.error("Error proceeding with quiz start:", error);
+      // console.error("Error proceeding with quiz start:", error);
       setError("Failed to start quiz. Please try again.");
     }
   };
@@ -513,7 +508,7 @@ const QuizTakingPage: React.FC = () => {
             await startQuizNormally();
           }, 500);
         } catch (error) {
-          console.error("Failed to enter fullscreen:", error);
+          // console.error("Failed to enter fullscreen:", error);
           // Fallback to showing prompt if auto-fullscreen fails
           setShowFullscreenPrompt(true);
           return;
@@ -587,18 +582,11 @@ const QuizTakingPage: React.FC = () => {
         // Store audio context for cleanup
         (window as any).proctoringAudioContext = audioContext;
         (window as any).masterGainNode = masterGainNode;
-
-        console.log(`System audio volume set to ${(volume * 100).toFixed(0)}%`);
       } else {
         // Fallback to basic audio element control
         const instructorAudio = (window as any).instructorAudio;
         if (instructorAudio) {
           instructorAudio.volume = volume;
-          console.log(
-            `Audio volume set to ${(volume * 100).toFixed(
-              0,
-            )}% (fallback method)`,
-          );
         }
       }
 
@@ -630,20 +618,11 @@ const QuizTakingPage: React.FC = () => {
             // Store for cleanup
             (window as any).micAudioContext = micAudioContext;
             (window as any).micGainNode = micGainNode;
-
-            console.log(
-              `Microphone gain set to ${(micGain * 100).toFixed(0)}%`,
-            );
           } catch (micError) {
-            console.warn(
-              "Could not apply microphone gain adjustment:",
-              micError,
-            );
-            console.log(
-              `Microphone gain setting requested: ${(micGain * 100).toFixed(
-                0,
-              )}%`,
-            );
+            // console.warn(
+            //   "Could not apply microphone gain adjustment:",
+            //   micError,
+            // );
           }
         }
       }
@@ -677,10 +656,8 @@ const QuizTakingPage: React.FC = () => {
           notification.parentNode.removeChild(notification);
         }
       }, 8000);
-
-      console.log("🎯 BROWSER AUDIO SYSTEM FORCED - MAXIMUM VOLUME APPLIED");
     } catch (error) {
-      console.error("Error applying system audio settings:", error);
+      // console.error("Error applying system audio settings:", error);
 
       // Fallback notification
       const notification = document.createElement("div");
@@ -737,18 +714,10 @@ const QuizTakingPage: React.FC = () => {
       setAudioContext(audioCtx);
       setAnalyser(analyserNode);
 
-      console.log("Audio context state:", audioCtx.state);
-      console.log("Stream active:", stream.active);
-      console.log("Audio tracks:", stream.getAudioTracks().length);
-      console.log("Analyser created and connected");
-
       // Start monitoring volume levels with the analyser directly
-      console.log("About to call checkVolumeLevels...");
       checkVolumeLevels(analyserNode);
-
-      console.log("Volume check started - microphone access granted");
     } catch (error) {
-      console.error("Error starting volume check:", error);
+      // console.error("Error starting volume check:", error);
       setError(
         "Unable to access microphone. Please check your browser permissions and try again.",
       );
@@ -759,7 +728,6 @@ const QuizTakingPage: React.FC = () => {
   function checkVolumeLevels(providedAnalyser?: AnalyserNode) {
     const analyserToUse = providedAnalyser || analyser;
     if (!analyserToUse) {
-      console.log("No analyser available for volume check");
       return;
     }
 
@@ -768,16 +736,8 @@ const QuizTakingPage: React.FC = () => {
 
     const checkLevels = () => {
       if (!analyserToUse) {
-        console.log(
-          "Volume check skipped - analyser:",
-          !!analyserToUse,
-          "isCheckingVolume:",
-          isCheckingVolume,
-        );
         return;
       }
-
-      console.log("Volume check executing...");
 
       // Try time domain data first (more reliable for volume detection)
       analyserToUse.getFloatTimeDomainData(dataArray);
@@ -791,26 +751,14 @@ const QuizTakingPage: React.FC = () => {
       const volumePercent = Math.min(100, Math.max(0, rms * 2000)); // Scale RMS to percentage (adjusted scaling)
 
       // Also log raw RMS for debugging
-      console.log("Raw RMS value:", rms);
 
       // Simple check: if RMS is above a very low threshold, there's audio input
       const hasAudioInput = rms > 0.001; // Very low threshold for any audio
-      console.log("Has audio input:", hasAudioInput);
-
-      console.log(
-        "Volume check - RMS:",
-        rms,
-        "volumePercent:",
-        volumePercent,
-        "dataArray length:",
-        dataArray.length,
-      );
 
       setVolumeLevel(volumePercent);
 
       // Check if volume meets threshold
       if (volumePercent >= 80) {
-        console.log("Volume threshold reached! Passing volume check.");
         setVolumeCheckPassed(true);
         stopVolumeCheck();
         return;
@@ -819,7 +767,6 @@ const QuizTakingPage: React.FC = () => {
       // For testing: if RMS is very high (like speaking loudly), also pass
       if (rms > 0.05) {
         // This would be very loud audio
-        console.log("High RMS detected, passing volume check for testing");
         setVolumeCheckPassed(true);
         stopVolumeCheck();
         return;
@@ -869,7 +816,7 @@ const QuizTakingPage: React.FC = () => {
         (window as any).AudioContext || (window as any).webkitAudioContext;
 
       if (!AudioContextClass) {
-        console.warn("Web Audio API not supported for speaker test");
+        // console.warn("Web Audio API not supported for speaker test");
         setIsPlayingSpeakerTest(false);
         return;
       }
@@ -900,12 +847,12 @@ const QuizTakingPage: React.FC = () => {
           oscillator.stop();
           ctx.close();
         } catch (e) {
-          console.warn("Error stopping speaker test tone", e);
+          // console.warn("Error stopping speaker test tone", e);
         }
         setIsPlayingSpeakerTest(false);
       }, 1500);
     } catch (error) {
-      console.error("Error playing speaker test tone:", error);
+      // console.error("Error playing speaker test tone:", error);
       setIsPlayingSpeakerTest(false);
     }
   };
@@ -936,11 +883,6 @@ const QuizTakingPage: React.FC = () => {
 
     if (shouldDisableContent) {
       setContentDisabled(true);
-      console.log(
-        "Content disabled due to violation:",
-        violation.type,
-        violation.severity,
-      );
     }
 
     // Show warning popup for high and critical violations
@@ -1042,7 +984,7 @@ const QuizTakingPage: React.FC = () => {
             answer,
           );
         } catch (error: any) {
-          console.error("Error saving answer to database:", error);
+          // console.error("Error saving answer to database:", error);
           // Don't show error for answer saving failures, just log them
         }
       }
@@ -1055,7 +997,7 @@ const QuizTakingPage: React.FC = () => {
     try {
       await submitQuiz();
     } catch (error) {
-      console.error("Error auto-submitting quiz:", error);
+      // console.error("Error auto-submitting quiz:", error);
     } finally {
       setIsSubmitting(false);
     }
@@ -1121,7 +1063,7 @@ const QuizTakingPage: React.FC = () => {
         });
       }
     } catch (error: any) {
-      console.error("Error submitting quiz:", error);
+      // console.error("Error submitting quiz:", error);
 
       // Extract error message from response
       let errorMessage = "Failed to submit quiz. Please try again.";
@@ -1205,7 +1147,7 @@ const QuizTakingPage: React.FC = () => {
         await (document.documentElement as any).msRequestFullscreen();
       }
     } catch (error) {
-      console.error("Error requesting fullscreen:", error);
+      // console.error("Error requesting fullscreen:", error);
       setError(
         "Unable to enter fullscreen mode. Please try again or contact your instructor.",
       );
@@ -2208,7 +2150,7 @@ const QuizTakingPage: React.FC = () => {
                     }
                     return text || "Question text not available";
                   } catch (error) {
-                    console.error("Error parsing question text:", error);
+                    // console.error("Error parsing question text:", error);
                     return "Question text not available";
                   }
                 })()}

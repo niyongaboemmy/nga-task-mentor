@@ -133,17 +133,22 @@ const Modal: React.FC<ModalProps> = ({
                       {title}
                     </h2>
                   )}
-                  {subtitle && (
-                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                      {subtitle}
-                    </p>
-                  )}
+                  {subtitle &&
+                    (typeof subtitle === "string" ? (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                        {subtitle}
+                      </p>
+                    ) : (
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        {subtitle}
+                      </div>
+                    ))}
                 </div>
 
                 {showCloseButton && (
                   <button
                     onClick={onClose}
-                    className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ml-2"
+                    className="flex-shrink-0 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors ml-2"
                   >
                     <X className="w-5 h-5" />
                   </button>
