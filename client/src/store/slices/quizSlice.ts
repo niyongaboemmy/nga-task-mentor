@@ -39,9 +39,14 @@ export const fetchQuiz = createAsyncThunk(
 
 export const createQuiz = createAsyncThunk(
   "quiz/createQuiz",
-  async (quizData: CreateQuizRequest, { rejectWithValue }) => {
+  async (
+    { courseId, quizData }: { courseId: number; quizData: CreateQuizRequest },
+    { rejectWithValue }
+  ) => {
     try {
-      return await handleQuizApiCall(() => QuizApiService.createQuiz(quizData));
+      return await handleQuizApiCall(() =>
+        QuizApiService.createQuiz(courseId, quizData)
+      );
     } catch (error: any) {
       return rejectWithValue(error.message);
     }
@@ -454,7 +459,7 @@ const quizSlice = createSlice({
     setCurrentQuestion: (state, action: PayloadAction<QuizQuestion>) => {
       state.currentQuestion = action.payload;
     },
-    resetQuizState: (_state) => {
+    resetQuizState: (state) => {
       return initialState;
     },
   },

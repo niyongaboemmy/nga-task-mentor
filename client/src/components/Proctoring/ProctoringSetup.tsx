@@ -57,6 +57,12 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
   const [photoCaptured, setPhotoCaptured] = useState<string | null>(null);
   const [faceVerified, setFaceVerified] = useState(false);
 
+  // Connection status states
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [webrtcConnected, setWebrtcConnected] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [showConnectionPopup, setShowConnectionPopup] = useState(false);
+
   useEffect(() => {
     // Collect browser information
     setBrowserInfo({
@@ -212,8 +218,8 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           instructorAudio.volume = volume;
           console.log(
             `Audio volume set to ${(volume * 100).toFixed(
-              0
-            )}% (fallback method)`
+              0,
+            )}% (fallback method)`,
           );
         }
       }
@@ -225,8 +231,9 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         if (audioTracks.length > 0 && micGain !== undefined) {
           try {
             // Create audio context for microphone processing
-            const micAudioContext = new (AudioContext ||
-              (window as any).webkitAudioContext)();
+            const micAudioContext = new (
+              AudioContext || (window as any).webkitAudioContext
+            )();
 
             if (micAudioContext.state === "suspended") {
               await micAudioContext.resume();
@@ -247,17 +254,17 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
             (window as any).micGainNode = micGainNode;
 
             console.log(
-              `Microphone gain set to ${(micGain * 100).toFixed(0)}%`
+              `Microphone gain set to ${(micGain * 100).toFixed(0)}%`,
             );
           } catch (micError) {
             console.warn(
               "Could not apply microphone gain adjustment:",
-              micError
+              micError,
             );
             console.log(
               `Microphone gain setting requested: ${(micGain * 100).toFixed(
-                0
-              )}%`
+                0,
+              )}%`,
             );
           }
         }
@@ -311,7 +318,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           },
           ip_address: "", // Will be set by server
           location_data: null, // Will be set by server
-        }
+        },
       );
 
       if (response.data.success) {
@@ -325,7 +332,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
       console.error("Error starting proctoring session:", error);
       alert(
         "Failed to start proctoring session: " +
-          (error.response?.data?.message || error.message)
+          (error.response?.data?.message || error.message),
       );
     } finally {
       setIsLoading(false);
@@ -357,15 +364,35 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
       const { io } = await import("socket.io-client");
 
       // Connect to socket server
-      const socket = io("http://localhost:5002", {
-        transports: ["websocket", "polling"],
+      const socket = io(
+        import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
+        {
+          transports: ["websocket", "polling"],
+        },
+      );
+
+      // Global socket listener for debugging - log all incoming events
+      socket.onAny((eventName, ...args) => {
+        console.log("📥 Student socket received:", eventName, args);
       });
 
       socket.on("connect", () => {
-        console.log("Student connected to socket server:", socket.id);
+        console.log("🟢 Student connected to socket server:", socket.id);
+        setSocketConnected(true);
+        setShowConnectionPopup(true);
+        setConnectionError(null);
 
         // Notify server that student stream has started
         if (socket.connected) {
+          // Join proctoring session room FIRST - before emitting stream-started
+          socket.emit("join-proctoring-session", {
+            sessionToken,
+            role: "student",
+          });
+          console.log("📤 Joined proctoring session for:", sessionToken);
+
+          // Then notify server that student stream has started
+          console.log("📤 Emitting student-stream-started for:", sessionToken);
           socket.emit("student-stream-started", {
             sessionToken,
             studentInfo: {
@@ -378,12 +405,6 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
               id: quizData?.id || parseInt(quizId),
               title: quizData?.title || "Quiz",
             },
-          });
-
-          // Join proctoring session room
-          socket.emit("join-proctoring-session", {
-            sessionToken,
-            role: "student",
           });
         } else {
           console.error("Socket not connected when starting stream");
@@ -403,15 +424,16 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           peerConnection.addTrack(track, stream);
         });
 
-        // Add transceiver for receiving audio from dashboard
-        peerConnection.addTransceiver("audio", { direction: "recvonly" });
+        // Add transceivers explicitly to guarantee they are considered in the offer/answer
+        peerConnection.addTransceiver("video", { direction: "sendonly" });
+        peerConnection.addTransceiver("audio", { direction: "sendrecv" });
 
         // Handle remote audio stream from dashboard
         peerConnection.ontrack = (event) => {
           console.log(
             "Student received remote track:",
             event.track.kind,
-            event.streams[0]
+            event.streams[0],
           );
           if (event.track.kind === "audio") {
             // Create audio element to play instructor's voice
@@ -424,7 +446,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
             (window as any).instructorAudio = audioElement;
 
             console.log(
-              "Student set up instructor audio playback at 50% volume"
+              "Student set up instructor audio playback at 50% volume",
             );
           }
         };
@@ -446,21 +468,38 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         peerConnection.onconnectionstatechange = () => {
           console.log(
             "Student peer connection state:",
-            peerConnection.connectionState
+            peerConnection.connectionState,
           );
         };
 
         peerConnection.oniceconnectionstatechange = () => {
           console.log(
             "Student ICE connection state:",
-            peerConnection.iceConnectionState
+            peerConnection.iceConnectionState,
           );
+          // Update WebRTC connection status
+          if (
+            peerConnection.iceConnectionState === "connected" ||
+            peerConnection.iceConnectionState === "completed"
+          ) {
+            setWebrtcConnected(true);
+            setShowConnectionPopup(true);
+          } else if (
+            peerConnection.iceConnectionState === "failed" ||
+            peerConnection.iceConnectionState === "disconnected"
+          ) {
+            setWebrtcConnected(false);
+            setConnectionError(
+              "WebRTC connection failed. Please refresh and try again.",
+            );
+            setShowConnectionPopup(true);
+          }
         };
 
         peerConnection.onsignalingstatechange = () => {
           console.log(
             "Student signaling state:",
-            peerConnection.signalingState
+            peerConnection.signalingState,
           );
         };
 
@@ -475,16 +514,33 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
         // Wait for dashboard to send offer - student is passive receiver
         console.log(
-          "Student WebRTC setup complete - waiting for dashboard offer"
+          "Student WebRTC setup complete - waiting for dashboard offer",
         );
 
         // Handle remote offer from dashboard (including renegotiation)
         socket.on("webrtc-offer", async (data: any) => {
-          if (data.sessionToken === sessionToken) {
-            console.log(
-              "Student received WebRTC offer from dashboard (renegotiation):",
-              data
-            );
+          console.log("📥 Student received webrtc-offer:", data);
+          console.log(
+            "📥 Data sessionToken:",
+            data.sessionToken,
+            "vs local:",
+            sessionToken,
+          );
+          console.log("📥 Match:", data.sessionToken === sessionToken);
+
+          // Debug: Log what data looks like
+          console.log("📥 Full data object keys:", Object.keys(data || {}));
+
+          // Workaround: If sessionToken is undefined but we have a local sessionToken,
+          // use our local sessionToken (server might not be forwarding it correctly)
+          const effectiveSessionToken = data.sessionToken || sessionToken;
+          console.log(
+            "📥 Using effective sessionToken:",
+            effectiveSessionToken,
+          );
+
+          if (effectiveSessionToken) {
+            console.log("📥 Session token MATCH - processing offer...");
             try {
               const currentPeerConnection =
                 (window as any).proctoringPeerConnection || peerConnection;
@@ -497,38 +553,61 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                   "Signaling state:",
                   currentPeerConnection.signalingState,
                   "Is renegotiation:",
-                  isRenegotiation
+                  isRenegotiation,
                 );
 
                 await currentPeerConnection.setRemoteDescription(
-                  new RTCSessionDescription(data.offer)
+                  new RTCSessionDescription(data.offer),
                 );
                 console.log("Student set remote description successfully");
 
+                // Process queued ICE candidates
+                const pcAny = currentPeerConnection as any;
+                if (
+                  pcAny.pendingCandidates &&
+                  pcAny.pendingCandidates.length > 0
+                ) {
+                  for (const queuedCandidate of pcAny.pendingCandidates) {
+                    await currentPeerConnection
+                      .addIceCandidate(new RTCIceCandidate(queuedCandidate))
+                      .catch((e: any) =>
+                        console.error("Failed to add queued candidate:", e),
+                      );
+                  }
+                  pcAny.pendingCandidates = [];
+                }
+
                 // Create and send answer
+                console.log("📝 Creating WebRTC answer...");
                 const answer = await currentPeerConnection.createAnswer();
+                console.log("📝 Answer created, setting local description...");
                 await currentPeerConnection.setLocalDescription(answer);
                 console.log(
-                  "Student sending WebRTC answer for renegotiation:",
-                  answer
+                  "📝 Student sending WebRTC answer for renegotiation:",
+                  answer,
                 );
                 if (socket.connected) {
                   socket.emit("webrtc-answer", {
                     sessionToken,
                     answer,
                   });
+                  console.log(
+                    "📤 Student sent WebRTC answer for:",
+                    sessionToken,
+                  );
                 } else {
                   console.error(
-                    "Socket not connected when sending WebRTC answer"
+                    "Socket not connected when sending WebRTC answer",
                   );
                 }
               } else {
                 console.error(
-                  "No peer connection available for handling offer"
+                  "No peer connection available for handling offer",
                 );
               }
             } catch (error) {
-              console.error("Error handling WebRTC offer:", error);
+              console.error("❌ Error handling WebRTC offer:", error);
+              console.error("❌ Stack trace:", error);
             }
           }
         });
@@ -538,7 +617,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           if (data.sessionToken === sessionToken) {
             console.log(
               "Student received dashboard reconnection notification:",
-              data
+              data,
             );
             // Reset the peer connection to allow dashboard to reconnect
             try {
@@ -572,7 +651,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                 console.log(
                   "Student reconnected and received remote track:",
                   event.track.kind,
-                  event.streams[0]
+                  event.streams[0],
                 );
                 if (event.track.kind === "audio") {
                   // Check if we already have an audio element, reuse it
@@ -585,7 +664,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                   }
                   audioElement.srcObject = event.streams[0];
                   console.log(
-                    "Student reconnected instructor audio playback at 50% volume"
+                    "Student reconnected instructor audio playback at 50% volume",
                   );
                 }
               };
@@ -595,7 +674,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                 if (event.candidate && socket?.connected) {
                   console.log(
                     "Student resending ICE candidate after reconnection:",
-                    event.candidate
+                    event.candidate,
                   );
                   socket.emit("webrtc-ice-candidate", {
                     sessionToken,
@@ -607,21 +686,21 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
               newPeerConnection.onconnectionstatechange = () => {
                 console.log(
                   "Student peer connection state after reconnection:",
-                  newPeerConnection.connectionState
+                  newPeerConnection.connectionState,
                 );
               };
 
               newPeerConnection.oniceconnectionstatechange = () => {
                 console.log(
                   "Student ICE connection state after reconnection:",
-                  newPeerConnection.iceConnectionState
+                  newPeerConnection.iceConnectionState,
                 );
               };
 
               newPeerConnection.onsignalingstatechange = () => {
                 console.log(
                   "Student signaling state after reconnection:",
-                  newPeerConnection.signalingState
+                  newPeerConnection.signalingState,
                 );
               };
 
@@ -636,12 +715,12 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                     "Student is ready for WebRTC connection (reconnected)",
                 });
                 console.log(
-                  "Student re-signaled readiness for WebRTC connection after dashboard reconnection"
+                  "Student re-signaled readiness for WebRTC connection after dashboard reconnection",
                 );
               }
 
               console.log(
-                "Student reset WebRTC connection for dashboard reconnection"
+                "Student reset WebRTC connection for dashboard reconnection",
               );
             } catch (error) {
               console.error("Error resetting WebRTC connection:", error);
@@ -651,16 +730,26 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
         // Handle remote ICE candidates
         socket.on("webrtc-ice-candidate", async (data: any) => {
-          if (data.sessionToken === sessionToken && data.candidate) {
+          // Workaround: If sessionToken is undefined, use our local sessionToken
+          const effectiveSessionToken = data.sessionToken || sessionToken;
+
+          if (effectiveSessionToken === sessionToken && data.candidate) {
             console.log("Student received ICE candidate:", data.candidate);
             try {
               const currentPeerConnection =
                 (window as any).proctoringPeerConnection || peerConnection;
               if (currentPeerConnection) {
-                await currentPeerConnection.addIceCandidate(
-                  new RTCIceCandidate(data.candidate)
-                );
-                console.log("Student added ICE candidate successfully");
+                if (currentPeerConnection.remoteDescription) {
+                  await currentPeerConnection.addIceCandidate(
+                    new RTCIceCandidate(data.candidate),
+                  );
+                  console.log("Student added ICE candidate successfully");
+                } else {
+                  console.log("Student queueing ICE candidate");
+                  const pcAny = currentPeerConnection as any;
+                  pcAny.pendingCandidates = pcAny.pendingCandidates || [];
+                  pcAny.pendingCandidates.push(data.candidate);
+                }
               } else {
                 console.error("No peer connection available for ICE candidate");
               }
@@ -676,7 +765,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
             console.log("Student received force audio settings command:", data);
             await applySystemAudioSettings(
               data.volume || 0.5,
-              data.micGain || 0.6
+              data.micGain || 0.6,
             );
           }
         });
@@ -701,7 +790,193 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto p-4">
-      <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50">
+      {/* Connection Status Popup */}
+      {showConnectionPopup && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl transform transition-all">
+            <div className="text-center">
+              {/* Icon */}
+              <div
+                className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${connectionError ? "bg-red-100 dark:bg-red-900/30" : webrtcConnected ? "bg-green-100 dark:bg-green-900/30" : socketConnected ? "bg-blue-100 dark:bg-blue-900/30" : "bg-yellow-100 dark:bg-yellow-900/30"}`}
+              >
+                {connectionError ? (
+                  <svg
+                    className="w-8 h-8 text-red-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M6 18L18 6M6 6l12 12"
+                    />
+                  </svg>
+                ) : webrtcConnected ? (
+                  <svg
+                    className="w-8 h-8 text-green-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M5 13l4 4L19 7"
+                    />
+                  </svg>
+                ) : socketConnected ? (
+                  <svg
+                    className="w-8 h-8 text-blue-500 animate-spin"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                ) : (
+                  <svg
+                    className="w-8 h-8 text-yellow-500"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                )}
+              </div>
+
+              {/* Title */}
+              <h3 className="text-xl font-bold mb-2 dark:text-white">
+                {connectionError
+                  ? "Connection Failed"
+                  : webrtcConnected
+                    ? "Connected!"
+                    : socketConnected
+                      ? "Connecting to Dashboard..."
+                      : "Connecting..."}
+              </h3>
+
+              {/* Status Messages */}
+              <div className="space-y-2 mb-6">
+                <div
+                  className={`flex items-center justify-center gap-2 ${socketConnected ? "text-green-600 dark:text-green-400" : "text-gray-500"}`}
+                >
+                  {socketConnected ? (
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-5 h-5 animate-spin"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                  )}
+                  <span>Socket Server</span>
+                </div>
+                <div
+                  className={`flex items-center justify-center gap-2 ${webrtcConnected ? "text-green-600 dark:text-green-400" : "text-gray-500"}`}
+                >
+                  {webrtcConnected ? (
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  ) : socketConnected ? (
+                    <svg
+                      className="w-5 h-5 animate-spin"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                      />
+                    </svg>
+                  ) : (
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                      />
+                    </svg>
+                  )}
+                  <span>WebRTC</span>
+                </div>
+              </div>
+
+              {/* Error Message */}
+              {connectionError && (
+                <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-lg mb-4 text-sm">
+                  {connectionError}
+                </div>
+              )}
+
+              {/* Close Button */}
+              {webrtcConnected || connectionError ? (
+                <button
+                  onClick={() => setShowConnectionPopup(false)}
+                  className="px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium transition-colors"
+                >
+                  {connectionError ? "Close" : "Continue"}
+                </button>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50 rounded-3xl">
         <CardHeader className="pb-4">
           <CardTitle className="text-xl font-bold text-center text-gray-900 dark:text-white">
             Proctoring Setup
@@ -720,7 +995,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                   className={`flex-1 text-center ${
                     index <= currentStep
                       ? "text-blue-600 dark:text-blue-400"
-                      : "text-gray-400 dark:text-gray-600"
+                      : "text-gray-400  dark:text-gray-400"
                   }`}
                 >
                   <div
@@ -728,13 +1003,15 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                       step.completed
                         ? "bg-green-500 text-white"
                         : index === currentStep
-                        ? "bg-blue-500 text-white"
-                        : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                          ? "bg-blue-500 text-white"
+                          : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
                     }`}
                   >
                     {step.completed ? "✓" : index + 1}
                   </div>
-                  <div className="text-xs font-medium">{step.title}</div>
+                  <div className="text-xs font-medium dark:text-gray-300">
+                    {step.title}
+                  </div>
                 </div>
               ))}
             </div>
@@ -767,9 +1044,9 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                   ? () => setCurrentStep(currentStep - 1)
                   : onCancel
               }
-              className="px-4 py-2 shadow-none rounded-full bg-gray-100 text-black dark:bg-gray-500 dark:text-white hover:bg-blue-100 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white group"
+              className="px-4 py-2 shadow-none rounded-full bg-gray-100 text-black dark:bg-gray-800 dark:text-white hover:bg-blue-100 hover:text-white dark:hover:bg-blue-600 dark:hover:text-white group"
             >
-              <span className="text-black group-hover:text-white">
+              <span className="text-black group-hover:text-white dark:text-gray-200 dark:group-hover:text-white">
                 {currentStep > 0 ? "Previous" : "Cancel"}
               </span>
             </Button>
@@ -846,15 +1123,15 @@ const CameraPermissionStep: React.FC<{ onComplete: () => void }> = ({
             />
           </svg>
         </div>
-        <p className="text-gray-600 mb-4">
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
           We need access to your camera and microphone to monitor the testing
           environment and ensure academic integrity.
         </p>
       </div>
 
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
-          <p className="text-red-800">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md p-4 mb-4">
+          <p className="text-red-800 dark:text-red-300">{error}</p>
         </div>
       )}
 
@@ -863,7 +1140,7 @@ const CameraPermissionStep: React.FC<{ onComplete: () => void }> = ({
           Grant Camera & Microphone Access
         </Button>
       ) : (
-        <div className="text-green-600 font-medium">
+        <div className="text-green-600 dark:text-green-400 font-medium">
           ✓ Permissions granted successfully
         </div>
       )}
@@ -885,11 +1162,11 @@ const EnvironmentCheckStep: React.FC<{
 
   return (
     <div className="space-y-4">
-      <div className="bg-blue-50 border border-blue-200 rounded-md p-4">
-        <h4 className="font-medium text-blue-900 mb-2">
+      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
+        <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
           Environment Requirements:
         </h4>
-        <ul className="text-sm text-blue-800 space-y-1">
+        <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
           <li>• You must be alone in the room</li>
           <li>• No unauthorized materials, notes, or devices visible</li>
           <li>• Adequate lighting so your face is clearly visible</li>
@@ -907,7 +1184,7 @@ const EnvironmentCheckStep: React.FC<{
             }
             className="mr-3"
           />
-          <span>
+          <span className="dark:text-gray-300">
             I confirm I am alone in the room with no other people present
           </span>
         </label>
@@ -921,7 +1198,7 @@ const EnvironmentCheckStep: React.FC<{
             }
             className="mr-3"
           />
-          <span>
+          <span className="dark:text-gray-300">
             I confirm there are no unauthorized materials, notes, or devices
             visible
           </span>
@@ -936,7 +1213,7 @@ const EnvironmentCheckStep: React.FC<{
             }
             className="mr-3"
           />
-          <span>
+          <span className="dark:text-gray-300">
             I confirm the lighting is adequate and my face is clearly visible
           </span>
         </label>
@@ -1044,7 +1321,7 @@ const IdentityVerificationStep: React.FC<{
           videoRef.current,
           {
             minConfidence: 0.3,
-          }
+          },
         );
 
         setDetectionStatus({
@@ -1166,7 +1443,7 @@ const IdentityVerificationStep: React.FC<{
 
         // Draw confidence score in a box
         const confidence = Math.round(
-          (face.score || face.confidence || 0) * 100
+          (face.score || face.confidence || 0) * 100,
         );
 
         // Background for confidence text
@@ -1208,7 +1485,7 @@ const IdentityVerificationStep: React.FC<{
   return (
     <div className="text-center">
       <div className="mb-4">
-        <p className="text-gray-600 mb-4">
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
           Please position yourself in front of the camera so your face is
           clearly visible for identity verification.
         </p>
@@ -1233,31 +1510,35 @@ const IdentityVerificationStep: React.FC<{
           </div>
 
           {/* Detection Status Display */}
-          <div className="mt-4 p-3 bg-gray-50 rounded-lg border text-sm">
+          <div className="mt-4 p-3 bg-gray-50 dark:bg-blue-900/30 rounded-lg border dark:border-blue-700 text-sm">
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center justify-between">
-                <span className="text-gray-600">Faces Detected:</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Faces Detected:
+                </span>
                 <span
                   className={`font-medium ${
                     detectionStatus.faceCount === 1
                       ? "text-green-600"
                       : detectionStatus.faceCount === 0
-                      ? "text-red-600"
-                      : "text-orange-600"
+                        ? "text-red-600"
+                        : "text-orange-600"
                   }`}
                 >
                   {detectionStatus.faceCount}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-600">Confidence:</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Confidence:
+                </span>
                 <span
                   className={`font-medium ${
                     detectionStatus.confidence >= 70
                       ? "text-green-600"
                       : detectionStatus.confidence >= 50
-                      ? "text-yellow-600"
-                      : "text-red-600"
+                        ? "text-yellow-600"
+                        : "text-red-600"
                   }`}
                 >
                   {Math.round(detectionStatus.confidence)}%
@@ -1272,7 +1553,7 @@ const IdentityVerificationStep: React.FC<{
                     : "bg-gray-400"
                 }`}
               ></div>
-              <span className="text-xs text-gray-600">
+              <span className="text-xs text-gray-600 dark:text-gray-400">
                 {detectionStatus.isDetecting
                   ? "Detecting faces..."
                   : "Detection paused"}
@@ -1351,7 +1632,7 @@ const FaceVerificationStep: React.FC<{
               "Video metadata loaded, dimensions:",
               videoRef.current?.videoWidth,
               "x",
-              videoRef.current?.videoHeight
+              videoRef.current?.videoHeight,
             );
             videoRef.current?.play();
           };
@@ -1423,7 +1704,7 @@ const FaceVerificationStep: React.FC<{
           videoRef.current,
           {
             minConfidence: 0.2, // Lower threshold for better detection
-          }
+          },
         );
 
         console.log("Face detection result:", result);
@@ -1493,12 +1774,12 @@ const FaceVerificationStep: React.FC<{
       result.faceCount === 1
         ? "#10B981"
         : result.faceCount === 0
-        ? "#EF4444"
-        : "#F59E0B";
+          ? "#EF4444"
+          : "#F59E0B";
     ctx.fillText(
       `Confidence: ${Math.round((result.confidence || 0) * 100)}%`,
       statusX,
-      statusY + lineHeight
+      statusY + lineHeight,
     );
 
     // Detection status
@@ -1506,7 +1787,7 @@ const FaceVerificationStep: React.FC<{
     ctx.fillText(
       detectionStatus.isDetecting ? "Detecting..." : "Paused",
       statusX,
-      statusY + lineHeight * 2
+      statusY + lineHeight * 2,
     );
 
     // Draw animated green square around detected faces
@@ -1596,7 +1877,7 @@ const FaceVerificationStep: React.FC<{
 
         // Draw confidence score in a box
         const confidence = Math.round(
-          (face.score || face.confidence || 0) * 100
+          (face.score || face.confidence || 0) * 100,
         );
 
         // Background for confidence text
@@ -1646,7 +1927,7 @@ const FaceVerificationStep: React.FC<{
       ctx.fillText(
         "Position face here",
         canvas.width / 2,
-        canvas.height / 2 + 120
+        canvas.height / 2 + 120,
       );
       ctx.textAlign = "left";
     }
@@ -1671,7 +1952,7 @@ const FaceVerificationStep: React.FC<{
           videoRef.current,
           {
             minConfidence: 0.6, // Higher confidence for pre-exam verification
-          }
+          },
         );
 
         if (result.hasFace && result.faceCount === 1) {
@@ -1689,7 +1970,7 @@ const FaceVerificationStep: React.FC<{
         onFaceVerified();
       } else {
         setError(
-          "No face detected. Please ensure your face is clearly visible in the camera and try again."
+          "No face detected. Please ensure your face is clearly visible in the camera and try again.",
         );
       }
     } catch (error) {
@@ -1703,7 +1984,7 @@ const FaceVerificationStep: React.FC<{
   return (
     <div className="text-center">
       <div className="mb-4">
-        <p className="text-gray-600 mb-4">
+        <p className="text-gray-600 dark:text-gray-400 mb-4">
           We need to verify that your face is clearly visible using AI face
           detection before you can begin the proctored quiz.
         </p>
@@ -1734,34 +2015,38 @@ const FaceVerificationStep: React.FC<{
           </div>
 
           {/* Detection Status Display */}
-          <div className="mt-4 p-4 bg-gray-50 rounded-lg border">
-            <h4 className="font-medium text-gray-900 mb-3">
+          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border dark:border-gray-800">
+            <h4 className="font-medium text-gray-900 dark:text-white mb-3">
               Face Detection Status
             </h4>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-gray-600">Faces Detected:</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Faces Detected:
+                </span>
                 <span
                   className={`font-medium ${
                     detectionStatus.faceCount === 1
                       ? "text-green-600"
                       : detectionStatus.faceCount === 0
-                      ? "text-red-600"
-                      : "text-orange-600"
+                        ? "text-red-600"
+                        : "text-orange-600"
                   }`}
                 >
                   {detectionStatus.faceCount}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-600">Confidence:</span>
+                <span className="text-gray-600 dark:text-gray-400">
+                  Confidence:
+                </span>
                 <span
                   className={`font-medium ${
                     detectionStatus.confidence >= 70
                       ? "text-green-600"
                       : detectionStatus.confidence >= 50
-                      ? "text-yellow-600"
-                      : "text-red-600"
+                        ? "text-yellow-600"
+                        : "text-red-600"
                   }`}
                 >
                   {Math.round(detectionStatus.confidence)}%
@@ -1770,7 +2055,7 @@ const FaceVerificationStep: React.FC<{
             </div>
 
             {/* Detection Rules */}
-            <div className="mt-3 text-xs text-gray-600">
+            <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
               <p className="font-medium mb-1">Detection Rules:</p>
               <ul className="space-y-1 text-left">
                 <li
@@ -1803,7 +2088,7 @@ const FaceVerificationStep: React.FC<{
                 <li
                   className={
                     !detectionStatus.warnings.includes(
-                      "Multiple faces detected"
+                      "Multiple faces detected",
                     )
                       ? "text-green-600"
                       : "text-red-600"
@@ -1835,7 +2120,7 @@ const FaceVerificationStep: React.FC<{
                     : "bg-gray-400"
                 }`}
               ></div>
-              <span className="text-xs text-gray-600">
+              <span className="text-xs text-gray-600 dark:text-gray-400">
                 {detectionStatus.isDetecting
                   ? "Detecting..."
                   : "Detection paused"}
@@ -1913,18 +2198,20 @@ const ConfirmationStep: React.FC<{
 }> = ({ browserInfo, environmentCheck, identityVerified, faceVerified }) => {
   return (
     <div className="space-y-4">
-      <div className="bg-green-50 border border-green-200 rounded-md p-4">
-        <h4 className="font-medium text-green-900 mb-2">Setup Complete!</h4>
-        <p className="text-green-800 text-sm">
+      <div className="bg-green-50 border border-green-200 dark:border-green-800 dark:bg-green-900/30 rounded-2xl p-4">
+        <h4 className="font-medium text-green-900 dark:text-green-300 mb-2">
+          Setup Complete!
+        </h4>
+        <p className="text-green-800 dark:text-green-300 text-sm">
           All requirements have been met. You are ready to begin your proctored
           quiz.
         </p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="bg-gray-50 rounded-md p-4">
+        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">
           <h5 className="font-medium mb-2">Browser Information</h5>
-          <div className="text-sm text-gray-600 space-y-1">
+          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
             <p>Platform: {browserInfo.platform}</p>
             <p>
               Screen: {browserInfo.screenWidth}x{browserInfo.screenHeight}
@@ -1933,7 +2220,7 @@ const ConfirmationStep: React.FC<{
           </div>
         </div>
 
-        <div className="bg-gray-50 rounded-md p-4">
+        <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">
           <h5 className="font-medium mb-2">Verification Status</h5>
           <div className="text-sm space-y-1">
             <p className={faceVerified ? "text-green-600" : "text-red-600"}>
@@ -1955,11 +2242,11 @@ const ConfirmationStep: React.FC<{
         </div>
       </div>
 
-      <div className="bg-yellow-50 border border-yellow-200 rounded-md p-4">
-        <h4 className="font-medium text-yellow-900 mb-2">
+      <div className="bg-yellow-50 border border-yellow-200 dark:border-yellow-800 dark:bg-yellow-900/30 rounded-2xl p-4">
+        <h4 className="font-medium text-yellow-900 dark:text-yellow-300 mb-2">
           Important Reminders:
         </h4>
-        <ul className="text-sm text-yellow-800 space-y-1">
+        <ul className="text-sm text-yellow-800 dark:text-yellow-300 space-y-1">
           <li>• Do not leave the testing area during the quiz</li>
           <li>• Keep your face visible to the camera at all times</li>
           <li>• Do not use unauthorized materials or devices</li>

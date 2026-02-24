@@ -2,11 +2,15 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "../ui/Card";
 import { Button } from "../ui/Button";
+import axios from "../../utils/axiosConfig";
 import {
   BarChart3,
+  TrendingUp,
   Users,
   Clock,
   Target,
+  Award,
+  AlertTriangle,
   CheckCircle,
   XCircle,
 } from "lucide-react";
@@ -60,35 +64,14 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
         setLoading(true);
 
         // Load quiz details
-        const quizResponse = await fetch(`/quizzes/${quizId}`, {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        });
-
-        if (!quizResponse.ok) {
-          throw new Error("Failed to load quiz");
-        }
-
-        const quizData = await quizResponse.json();
-        setQuiz(quizData.data);
+        const quizResponse = await axios.get(`/quizzes/${quizId}`);
+        setQuiz(quizResponse.data.data);
 
         // Load analytics
-        const analyticsResponse = await fetch(
+        const analyticsResponse = await axios.get(
           `/quizzes/${quizId}/analytics?timeRange=${timeRange}`,
-          {
-            headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
-            },
-          }
         );
-
-        if (!analyticsResponse.ok) {
-          throw new Error("Failed to load analytics");
-        }
-
-        const analyticsData = await analyticsResponse.json();
-        setAnalytics(analyticsData.data);
+        setAnalytics(analyticsResponse.data.data);
       } catch (error) {
         console.error("Error loading data:", error);
         setError("Failed to load analytics data");
@@ -317,7 +300,7 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
                         </span>
                         <span
                           className={`font-medium ${getScoreColor(
-                            question.correctRate * 100
+                            question.correctRate * 100,
                           )}`}
                         >
                           {Math.round(question.correctRate * 100)}% correct
@@ -370,7 +353,7 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
                       <div className="text-right">
                         <p
                           className={`text-sm font-medium ${getScoreColor(
-                            attempt.score
+                            attempt.score,
                           )}`}
                         >
                           {attempt.score}%

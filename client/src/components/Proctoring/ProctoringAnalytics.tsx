@@ -50,7 +50,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }
+        },
       );
 
       const data = await response.json();
@@ -72,7 +72,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
           headers: {
             Authorization: `Bearer ${localStorage.getItem("token")}`,
           },
-        }
+        },
       );
 
       const blob = await response.blob();
@@ -275,10 +275,10 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
                           level === "critical"
                             ? "bg-red-500"
                             : level === "high"
-                            ? "bg-orange-500"
-                            : level === "medium"
-                            ? "bg-yellow-500"
-                            : "bg-green-500"
+                              ? "bg-orange-500"
+                              : level === "medium"
+                                ? "bg-yellow-500"
+                                : "bg-green-500"
                         }`}
                         style={{
                           width: `${
@@ -294,7 +294,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
                     {count}
                   </div>
                 </div>
-              )
+              ),
             )}
           </div>
         </CardContent>
@@ -373,10 +373,10 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
                           session.risk_score >= 80
                             ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                             : session.risk_score >= 60
-                            ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
-                            : session.risk_score >= 30
-                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-                            : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                              ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
+                              : session.risk_score >= 30
+                                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                                : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
                         }`}
                       >
                         {session.risk_score}
@@ -391,8 +391,8 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
                           session.status === "flagged"
                             ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
                             : session.status === "completed"
-                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                            : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
+                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
+                              : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
                         }`}
                       >
                         {session.status}

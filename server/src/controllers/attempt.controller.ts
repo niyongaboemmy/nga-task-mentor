@@ -123,7 +123,7 @@ export const startQuizAttempt = async (req: Request, res: Response) => {
         passed: false,
         attempt_number: attemptNumber,
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();
@@ -233,7 +233,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     // Normalize answers for consistent grading
     const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
       answer_data,
-      question.question_type
+      question.question_type,
     );
     const normalizedCorrectAnswer =
       AdvancedQuizGrader.normalizeCorrectAnswer(question);
@@ -244,7 +244,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     try {
       gradingResult = await QuizGrader.gradeQuestion(
         question,
-        normalizedSubmittedAnswer.data
+        normalizedSubmittedAnswer.data,
       );
     } catch (error) {
       console.error("Grading error:", error);
@@ -274,7 +274,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
         started_at: new Date(),
         completed_at: new Date(),
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();
@@ -379,7 +379,7 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
       // Normalize answers for consistent grading
       const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
         answer_data,
-        question.question_type
+        question.question_type,
       );
       const normalizedCorrectAnswer =
         AdvancedQuizGrader.normalizeCorrectAnswer(question);
@@ -390,7 +390,7 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
       try {
         gradingResult = await QuizGrader.gradeQuestion(
           question,
-          normalizedSubmittedAnswer.data
+          normalizedSubmittedAnswer.data,
         );
       } catch (error) {
         console.error("Grading error:", error);
@@ -420,7 +420,7 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
           started_at: new Date(),
           completed_at: new Date(),
         },
-        { transaction }
+        { transaction },
       );
 
       return attempt;
@@ -514,14 +514,14 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
       submission.attempts?.reduce(
         (sum, attempt) =>
           sum + (parseFloat(String(attempt.points_earned)) || 0),
-        0
+        0,
       ) || 0;
     const maxPossible = questions.reduce((sum, q) => sum + q.points, 0);
 
     // Calculate remaining time using end_time if available
     let timeRemaining = null;
     let timeElapsed = Math.floor(
-      (Date.now() - submission.started_at.getTime()) / 1000
+      (Date.now() - submission.started_at.getTime()) / 1000,
     );
     let isTimeExpired = false;
 
@@ -628,7 +628,7 @@ export const submitQuiz = async (req: Request, res: Response) => {
     // Calculate final scores
     const totalEarned = attempts.reduce(
       (sum, attempt) => sum + (parseFloat(String(attempt.points_earned)) || 0),
-      0
+      0,
     );
     const maxPossible =
       quiz?.questions?.reduce((sum, q) => sum + q.points, 0) || 0;
@@ -648,12 +648,12 @@ export const submitQuiz = async (req: Request, res: Response) => {
         status: "completed",
         completed_at: new Date(),
         time_taken: Math.floor(
-          (Date.now() - submission.started_at.getTime()) / 1000
+          (Date.now() - submission.started_at.getTime()) / 1000,
         ),
         passed,
         grade_status: quiz?.type === "graded" ? "pending" : "auto_graded",
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();
@@ -812,21 +812,7 @@ export const getStudentQuizHistory = async (req: Request, res: Response) => {
         {
           model: Quiz,
           as: "quiz",
-          attributes: ["id", "title", "description", "course_id"],
-          include: [
-            {
-              model: sequelize.models.Course,
-              as: "quizCourse",
-              attributes: ["id", "title", "code"],
-              include: [
-                {
-                  model: sequelize.models.User,
-                  as: "instructor",
-                  attributes: ["id", "first_name", "last_name"],
-                },
-              ],
-            },
-          ],
+          attributes: ["id", "title", "description", "course_id", "createdAt"],
         },
       ],
       order: [["completed_at", "DESC"]],
@@ -840,9 +826,9 @@ export const getStudentQuizHistory = async (req: Request, res: Response) => {
         quiz_id: submission.quiz_id,
         quiz_title: submission.quiz?.title || "Unknown Quiz",
         quiz_description: submission.quiz?.description,
-        course_name: (submission.quiz as any)?.quizCourse?.title,
-        instructor_name: (submission.quiz as any)?.quizCourse?.instructor
-          ?.full_name,
+        course_id: submission.quiz?.course_id,
+        course_name: null, // Course info available via MIS API if needed
+        instructor_name: null, // Instructor info available via MIS API if needed
         final_score: submission.total_score,
         max_score: submission.max_score,
         percentage: submission.percentage,
@@ -874,7 +860,7 @@ function getGradeFromPercentage(percentage: number): string {
 // Helper function to grade answers based on question type
 async function gradeAnswer(
   question: QuizQuestion,
-  answerData: AnswerDataType
+  answerData: AnswerDataType,
 ): Promise<GradingResult> {
   let isCorrect = false;
   let pointsEarned = 0;
@@ -916,8 +902,8 @@ async function gradeAnswer(
 
         isCorrect = acceptableAnswers.some((acceptable: any) =>
           acceptable.answers.some(
-            (ans: string) => ans.toLowerCase().trim() === userAnswerStr2
-          )
+            (ans: string) => ans.toLowerCase().trim() === userAnswerStr2,
+          ),
         );
         pointsEarned = isCorrect ? question.points : 0;
         break;
@@ -982,7 +968,7 @@ async function gradeAnswer(
           let correctDropdowns = 0;
 
           for (const [dropdownId, correctValue] of Object.entries(
-            correctAnswers
+            correctAnswers,
           )) {
             if (userAnswers[dropdownId] === correctValue) {
               correctDropdowns++;
@@ -1008,7 +994,7 @@ async function gradeAnswer(
           Array.isArray(codingData.required_keywords)
         ) {
           const hasKeywords = codingData.required_keywords.every(
-            (keyword: string) => userCode.includes(keyword)
+            (keyword: string) => userCode.includes(keyword),
           );
           isCorrect = isCorrect && hasKeywords;
         }

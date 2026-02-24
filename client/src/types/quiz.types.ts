@@ -43,7 +43,7 @@ export interface MultipleChoiceData {
 }
 
 export interface TrueFalseData {
-  correct_answer?: boolean;
+  correct_answer: boolean;
 }
 
 export interface MatchingData {
@@ -70,7 +70,7 @@ export interface DropdownData {
 }
 
 export interface NumericalData {
-  correct_answer: number; // Required to match backend validation
+  correct_answer: number;
   tolerance?: number;
   precision?: number;
   units?: string;
@@ -285,12 +285,6 @@ export interface Quiz {
   is_available?: boolean;
   is_active?: boolean;
   is_public?: boolean;
-  attachments?: Array<{
-    name: string;
-    url: string;
-    type: string;
-    size: number;
-  }>;
 }
 
 export interface QuizQuestion {
@@ -303,20 +297,13 @@ export interface QuizQuestion {
   explanation?: string;
   points: number;
   order: number;
-  time_limit_seconds: number;
+  time_limit?: number;
+  time_limit_seconds?: number;
   is_required: boolean;
-  created_by: number;
   created_at: string;
   updated_at: string;
   quiz?: Quiz;
   attempts?: QuizAttempt[];
-  time_limit?: string;
-  attachments?: Array<{
-    name: string;
-    url: string;
-    type: string;
-    size: number;
-  }>;
 }
 
 export interface QuizAttempt {
@@ -325,8 +312,7 @@ export interface QuizAttempt {
   question_id: number;
   student_id: number;
   submission_id?: number;
-  submitted_answer?: object;
-  correct_answer?: object;
+  answer_data: AnswerDataType;
   is_correct?: boolean;
   points_earned?: number;
   time_taken?: number;

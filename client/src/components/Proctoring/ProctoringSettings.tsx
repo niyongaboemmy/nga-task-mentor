@@ -95,7 +95,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
     setError(null);
     try {
       const response = await axios.get(
-        `/proctoring/quizzes/${quizId}/proctoring-settings`
+        `/proctoring/quizzes/${quizId}/proctoring-settings`,
       );
 
       if (response.data.success && response.data.data) {
@@ -103,7 +103,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
       } else {
         // No settings exist, keep default settings
         console.log(
-          "No proctoring settings found for this quiz, using defaults"
+          "No proctoring settings found for this quiz, using defaults",
         );
       }
     } catch (error: any) {
@@ -123,7 +123,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
 
       const response = await axios[method](
         `/proctoring/quizzes/${quizId}/proctoring-settings`,
-        settings
+        settings,
       );
 
       if (response.data.success) {
@@ -136,7 +136,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
     } catch (error: any) {
       console.error("Error saving proctoring settings:", error);
       setError(
-        error.response?.data?.message || "Network error while saving settings"
+        error.response?.data?.message || "Network error while saving settings",
       );
     } finally {
       setIsSaving(false);
@@ -145,7 +145,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
 
   const handleInputChange = (
     field: keyof ProctoringSettingsData,
-    value: any
+    value: any,
   ) => {
     setSettings((prev) => ({
       ...prev,
@@ -226,7 +226,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "risk_threshold",
-                      parseInt(e.target.value)
+                      parseInt(e.target.value),
                     )
                   }
                   className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
@@ -251,7 +251,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "max_flags_allowed",
-                      parseInt(e.target.value)
+                      parseInt(e.target.value),
                     )
                   }
                   className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
@@ -271,7 +271,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "recording_retention_days",
-                      parseInt(e.target.value)
+                      parseInt(e.target.value),
                     )
                   }
                   className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
@@ -291,7 +291,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "face_detection_sensitivity",
-                      parseInt(e.target.value)
+                      parseInt(e.target.value),
                     )
                   }
                   className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
@@ -314,7 +314,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "require_identity_verification",
-                      e.target.checked
+                      e.target.checked,
                     )
                   }
                   className="mr-2"
@@ -332,7 +332,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "require_environment_scan",
-                      e.target.checked
+                      e.target.checked,
                     )
                   }
                   className="mr-2"
@@ -358,7 +358,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "allow_video_monitoring",
-                      e.target.checked
+                      e.target.checked,
                     )
                   }
                   className="mr-2"
@@ -376,7 +376,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "allow_audio_monitoring",
-                      e.target.checked
+                      e.target.checked,
                     )
                   }
                   className="mr-2"
@@ -394,7 +394,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "allow_screen_recording",
-                      e.target.checked
+                      e.target.checked,
                     )
                   }
                   className="mr-2"
@@ -412,7 +412,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "suspicious_behavior_detection",
-                      e.target.checked
+                      e.target.checked,
                     )
                   }
                   className="mr-2"
@@ -463,7 +463,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     onChange={(e) =>
                       handleInputChange(
                         "min_camera_level",
-                        parseInt(e.target.value)
+                        parseInt(e.target.value),
                       )
                     }
                     className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
@@ -486,7 +486,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     onChange={(e) =>
                       handleInputChange(
                         "min_microphone_level",
-                        parseInt(e.target.value)
+                        parseInt(e.target.value),
                       )
                     }
                     className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
@@ -509,7 +509,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     onChange={(e) =>
                       handleInputChange(
                         "min_speaker_level",
-                        parseInt(e.target.value)
+                        parseInt(e.target.value),
                       )
                     }
                     className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
@@ -530,7 +530,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     onChange={(e) =>
                       handleInputChange(
                         "enable_face_detection",
-                        e.target.checked
+                        e.target.checked,
                       )
                     }
                     className="mr-2"
@@ -548,7 +548,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     onChange={(e) =>
                       handleInputChange(
                         "enable_object_detection",
-                        e.target.checked
+                        e.target.checked,
                       )
                     }
                     className="mr-2"
@@ -573,7 +573,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "object_detection_sensitivity",
-                      parseInt(e.target.value)
+                      parseInt(e.target.value),
                     )
                   }
                   className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
@@ -630,7 +630,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "prevent_window_minimization",
-                      e.target.checked
+                      e.target.checked,
                     )
                   }
                   className="mr-2"
@@ -701,7 +701,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "auto_terminate_on_high_risk",
-                      e.target.checked
+                      e.target.checked,
                     )
                   }
                   className="mr-2"
@@ -719,7 +719,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   onChange={(e) =>
                     handleInputChange(
                       "require_proctor_approval",
-                      e.target.checked
+                      e.target.checked,
                     )
                   }
                   className="mr-2"

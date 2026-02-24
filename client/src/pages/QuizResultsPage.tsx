@@ -57,13 +57,14 @@ interface QuizResult {
     enable_automatic_grading: boolean;
     require_manual_grading: boolean;
     show_grades: boolean;
+    show_correct_answers?: boolean;
   };
   answers: Array<{
     question_id: number;
     user_answer: any;
     correct_answer: any;
-    is_correct: boolean;
-    points_earned: number;
+    is_correct: boolean | null;
+    points_earned: number | null;
     max_points: number;
     explanation?: string;
   }>;
@@ -76,11 +77,11 @@ const QuizResultsPage: React.FC = () => {
   const [result, setResult] = useState<QuizResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [submissionData] = useState<SubmissionData | null>(
-    location.state?.submissionData || null
+    location.state?.submissionData || null,
   );
   const [answers] = useState<Answer[]>(location.state?.answers || []);
   const [completedResults] = useState<any>(
-    location.state?.completedResults || null
+    location.state?.completedResults || null,
   );
 
   useEffect(() => {
@@ -162,7 +163,7 @@ const QuizResultsPage: React.FC = () => {
             correct_answer: result.correct_answer,
             is_correct: result.is_correct,
             points_earned: parseFloat(result.points_earned) || 0,
-            max_points: parseFloat(result.max_points) || 1,
+            max_points: result.question_type === "coding" ? 5 : 1, // Assuming coding questions are worth 5 points
             explanation: result.explanation || "No explanation provided.",
           })) || [],
       };
@@ -220,7 +221,7 @@ const QuizResultsPage: React.FC = () => {
 
   const checkAnswerCorrectness = (
     question: QuizQuestion,
-    userAnswer: any
+    userAnswer: any,
   ): boolean => {
     if (!userAnswer) return false;
 
@@ -231,9 +232,8 @@ const QuizResultsPage: React.FC = () => {
         const correctOption = question.options?.find((opt) => opt.is_correct);
         return correctOption?.id === userAnswer;
       case "coding":
-        // For basic client-side check, we can't easily verify coding execution
-        // Fallback: check if it matches sample solution or if it's non-empty
-        return !!userAnswer && (userAnswer === question.coding_data?.expected_output);
+        // For basic client-side check, compare with expected output if available
+        return question.coding_data?.expected_output === userAnswer;
       case "ordering":
         return (
           JSON.stringify(question.ordering_data?.correct_order) ===
@@ -252,7 +252,7 @@ const QuizResultsPage: React.FC = () => {
       case "short_answer":
         // Basic string comparison, could be improved with fuzzy matching
         return (
-          (userAnswer?.toLowerCase().trim() || "") ===
+          userAnswer.toLowerCase().trim() ===
           (question.options?.[0]?.text || "").toLowerCase().trim()
         );
       default:
@@ -502,7 +502,7 @@ const QuizResultsPage: React.FC = () => {
                           ? `bg-gradient-to-br ${
                               getGradeTheme(result.grade).primary
                             } border-${getGradeTheme(
-                              result.grade
+                              result.grade,
                             ).accent.replace("600", "400")}`
                           : "bg-gray-500 border-gray-400"
                       }`}
@@ -531,8 +531,8 @@ const QuizResultsPage: React.FC = () => {
                                 getGradeTheme(result.grade).accent
                               } text-white`
                             : result.passed
-                            ? "bg-emerald-500 text-white"
-                            : "bg-red-500 text-white"
+                              ? "bg-emerald-500 text-white"
+                              : "bg-red-500 text-white"
                         }`}
                       >
                         {result.passed ? "PASSED!" : "FAILED"}

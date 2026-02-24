@@ -185,32 +185,34 @@ const Assignments: React.FC<AssignmentsProps> = ({
         {/* Header */}
         <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 px-5 py-4">
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center">
-                  <ClipboardList className="w-6 h-6 md:w-7 md:h-7" />
+            {compact && (
+              <div className="flex items-center justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center">
+                    <ClipboardList className="w-6 h-6 md:w-7 md:h-7" />
+                  </div>
+                  <div>
+                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+                      Assignments
+                    </h1>
+                    <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                      {currentCourseId
+                        ? "Manage and review assignments for this course"
+                        : user?.role === "student"
+                          ? "Your course assignments"
+                          : "All course assignments"}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
-                    Assignments
-                  </h1>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                    {currentCourseId
-                      ? "Manage and review assignments for this course"
-                      : user?.role === "student"
-                        ? "Your course assignments"
-                        : "All course assignments"}
-                  </p>
-                </div>
-              </div>
 
-              <div className="hidden md:flex items-center gap-2">
-                <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                  {assignments.length} item
-                  {assignments.length === 1 ? "" : "s"}
-                </span>
+                <div className="hidden md:flex items-center gap-2">
+                  <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                    {assignments.length} item
+                    {assignments.length === 1 ? "" : "s"}
+                  </span>
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               {/* Search */}
@@ -284,7 +286,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                           d="M12 4v16m8-8H4"
                         />
                       </svg>
-                      Create Assignment
+                      <div className="truncate">Create Assignment</div>
                     </Link>
                   )}
               </div>

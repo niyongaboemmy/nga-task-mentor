@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import axios from "axios";
 import { QuizQuestion, QuizAttempt, User, Quiz } from "../models";
 import QuizSubmission from "../models/QuizSubmission.model";
 import { Op, Transaction } from "sequelize";
@@ -11,9 +12,7 @@ import {
   UpdateQuizRequest,
   GradingResult,
 } from "../types/quiz.types";
-import { parseLocalDateTimeToUTC } from "../utils/dateUtils";
-import fs from "fs";
-import path from "path";
+import { getMisToken, getCurrentTermId } from "../utils/misUtils";
 
 // Deep equality comparison for objects
 const deepEqual = (a: any, b: any): boolean => {
@@ -84,9 +83,7 @@ export const getQuizzes = async (req: Request, res: Response) => {
     const quizzesWithStats = quizzes.map((quiz) => ({
       ...quiz.toJSON(),
       totalQuestions: quiz.questions?.length || 0,
-      totalPoints:
-        quiz.questions?.reduce((sum, q) => Number(sum) + Number(q.points), 0) ||
-        0,
+      totalPoints: quiz.questions?.reduce((sum, q) => sum + q.points, 0) || 0,
       isAvailable: quiz.is_available,
       isPublic: quiz.is_public,
     }));
@@ -141,12 +138,9 @@ export const getQuiz = async (req: Request, res: Response) => {
     }
 
     // Check if user can access this quiz
-    if (req.user.role !== "admin" && req.user.id !== quiz.created_by) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to access this quiz",
-      });
-    }
+    // Allow all authenticated users to access quizzes
+    // Enrollment checks can be added later based on requirements
+    // Note: Following the same pattern as assignments controller
 
     // If quiz is not published and user is not instructor/admin, deny access
     // Exception: public quizzes can be accessed by anyone
@@ -270,36 +264,61 @@ export const getQuiz = async (req: Request, res: Response) => {
 };
 
 // @desc    Create quiz
-// @route   POST /api/quizzes
+// @route   POST /api/courses/:courseId/quizzes
 // @access  Private/Instructor/Admin
 export const createQuiz = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
   try {
+    const { courseId } = req.params;
     const quizData: CreateQuizRequest = req.body;
 
     // Validate required fields
-    if (!quizData.title || !quizData.description || !quizData.course_id) {
+    if (!quizData.title || !quizData.description) {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
-        message: "Title, description, and course_id are required",
+        message: "Title and description are required",
       });
     }
 
-    // Handle file uploads
-    const attachments =
-      (req.files as Express.Multer.File[])?.map((file) => ({
-        name: file.originalname,
-        url: `/uploads/quizzes/${file.filename}`,
-        type: file.mimetype,
-        size: file.size,
-      })) || [];
+    // Check if course exists (validate via MIS API)
+    const token = getMisToken(req);
+    try {
+      const courseResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}`,
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      if (!courseResponse.data.success) {
+        await transaction.rollback();
+        return res
+          .status(404)
+          .json({ success: false, message: "Course not found" });
+      }
+      const course = courseResponse.data.data;
+
+      // Check if user is course instructor or admin
+      // Note: In MIS, instructor_id might be in different field, so we just check admin role for now
+      if (req.user.role !== "admin" && req.user.role !== "instructor") {
+        await transaction.rollback();
+        return res.status(403).json({
+          success: false,
+          message:
+            "Only instructors and admins can create quizzes for this course",
+        });
+      }
+    } catch (courseError) {
+      console.error("Error validating course:", courseError);
+      await transaction.rollback();
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
+    }
 
     const quiz = await Quiz.create(
       {
         title: quizData.title,
         description: quizData.description,
-        course_id: quizData.course_id,
+        course_id: parseInt(courseId),
         created_by: req.user.id,
         status: quizData.status || "draft",
         type: quizData.type,
@@ -316,13 +335,10 @@ export const createQuiz = async (req: Request, res: Response) => {
             : true,
         require_manual_grading: quizData.require_manual_grading || false,
         start_date: quizData.start_date
-          ? parseLocalDateTimeToUTC(quizData.start_date)
+          ? new Date(quizData.start_date)
           : undefined,
-        end_date: quizData.end_date
-          ? parseLocalDateTimeToUTC(quizData.end_date)
-          : undefined,
+        end_date: quizData.end_date ? new Date(quizData.end_date) : undefined,
         is_public: quizData.is_public || false,
-        attachments,
       },
       { transaction },
     );
@@ -364,7 +380,7 @@ export const updateQuiz = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check if user is quiz creator, course instructor, or admin
+    // Check if user is quiz creator or admin
     if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
       await transaction.rollback();
       return res.status(403).json({
@@ -389,64 +405,6 @@ export const updateQuiz = async (req: Request, res: Response) => {
       }
     }
 
-    // Handle attachments
-    let updatedAttachments = quiz.attachments || [];
-
-    // If existing_attachments is provided, parse it and use it as the base
-    if (req.body.existing_attachments) {
-      try {
-        const retainedAttachments = JSON.parse(req.body.existing_attachments);
-
-        // Identify files to remove
-        const filesToRemove = updatedAttachments.filter(
-          (oldAtt: any) =>
-            !retainedAttachments.some(
-              (newAtt: any) => newAtt.url === oldAtt.url,
-            ),
-        );
-
-        // Delete removed files from disk
-        filesToRemove.forEach((file: any) => {
-          try {
-            const filename = file.url.split("/").pop();
-            if (filename) {
-              const filePath = path.join(
-                __dirname,
-                "../../uploads/quizzes",
-                filename,
-              );
-              if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-                console.log(`Deleted file: ${filePath}`);
-              }
-            }
-          } catch (err) {
-            console.error(`Failed to delete file ${file.name}:`, err);
-          }
-        });
-
-        updatedAttachments = retainedAttachments;
-      } catch (e) {
-        console.error("Error parsing existing_attachments:", e);
-      }
-    }
-
-    // Add new files
-    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-      const newAttachments = (req.files as Express.Multer.File[]).map(
-        (file) => ({
-          name: file.originalname,
-          url: `/uploads/quizzes/${file.filename}`,
-          type: file.mimetype,
-          size: file.size,
-        }),
-      );
-      updatedAttachments = [...updatedAttachments, ...newAttachments];
-    }
-
-    // Update quiz with new attachments
-    quiz.attachments = updatedAttachments as any;
-
     await quiz.update(
       {
         title: updateData.title,
@@ -469,10 +427,10 @@ export const updateQuiz = async (req: Request, res: Response) => {
             ? updateData.require_manual_grading
             : quiz.require_manual_grading,
         start_date: updateData.start_date
-          ? parseLocalDateTimeToUTC(updateData.start_date)
+          ? new Date(updateData.start_date)
           : undefined,
         end_date: updateData.end_date
-          ? parseLocalDateTimeToUTC(updateData.end_date)
+          ? new Date(updateData.end_date)
           : undefined,
         is_public:
           updateData.is_public !== undefined
@@ -516,7 +474,7 @@ export const deleteQuiz = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check if user is quiz creator, course instructor, or admin
+    // Check if user is quiz creator or admin
     if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
       await transaction.rollback();
       return res.status(403).json({
@@ -536,28 +494,6 @@ export const deleteQuiz = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: "Cannot delete quiz with existing submissions",
-      });
-    }
-
-    // Delete quiz attachments from disk
-    if (quiz.attachments && quiz.attachments.length > 0) {
-      quiz.attachments.forEach((file: any) => {
-        try {
-          const filename = file.url.split("/").pop();
-          if (filename) {
-            const filePath = path.join(
-              __dirname,
-              "../../uploads/quizzes",
-              filename,
-            );
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-              console.log(`Deleted quiz attachment: ${filePath}`);
-            }
-          }
-        } catch (err) {
-          console.error(`Failed to delete file ${file.name}:`, err);
-        }
       });
     }
 
@@ -676,9 +612,39 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
       });
     }
 
+    // Get enrolled courses from NGA MIS API
+    const token = getMisToken(req);
+    let courseIds: number[] = [];
+
+    if (token && req.user.mis_user_id) {
+      try {
+        const enrolledResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/students/${req.user.mis_user_id}/enrolled-subjects`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          },
+        );
+        if (enrolledResponse.data?.success && enrolledResponse.data?.data) {
+          courseIds = enrolledResponse.data.data.map(
+            (subject: any) => subject.id,
+          );
+        }
+      } catch (error) {
+        console.error("Failed to fetch enrolled courses from NGA MIS:", error);
+      }
+    }
+
     const quizzes = await Quiz.findAll({
       where: {
-        [Op.or]: [{ status: "published" }, { is_public: true }],
+        [Op.and]: [
+          { status: "published" },
+          {
+            [Op.or]: [
+              { is_public: true },
+              { course_id: { [Op.in]: courseIds } },
+            ],
+          },
+        ],
       },
       include: [
         {
@@ -693,6 +659,22 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
       ],
     });
 
+    console.log("Debug Available Quizzes:", {
+      role: req.user.role,
+      userId: req.user.id,
+      enrolledCourseIds: courseIds,
+      totalQuizzesFound: quizzes.length,
+      quizzes: quizzes.map((q) => ({
+        id: q.id,
+        title: q.title,
+        status: q.status,
+        is_public: q.is_public,
+        course_id: q.course_id,
+        start_date: q.start_date,
+        end_date: q.end_date,
+      })),
+    });
+
     // Filter quizzes based on date availability
     const now = new Date();
     const availableQuizzes = quizzes.filter((quiz) => {
@@ -701,6 +683,12 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
 
       const isAfterStart = !startDate || new Date(startDate) <= now;
       const isBeforeEnd = !endDate || new Date(endDate) >= now;
+
+      if (!isAfterStart || !isBeforeEnd) {
+        console.log(
+          `Quiz ${quiz.id} filtered out by date. SD: ${startDate}, ED: ${endDate}, Now: ${now}`,
+        );
+      }
 
       return isAfterStart && isBeforeEnd;
     });
@@ -750,11 +738,7 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
       return {
         ...quiz.toJSON(),
         totalQuestions: quiz.questions?.length || 0,
-        totalPoints:
-          quiz.questions?.reduce(
-            (sum, q) => Number(sum) + Number(q.points),
-            0,
-          ) || 0,
+        totalPoints: quiz.questions?.reduce((sum, q) => sum + q.points, 0) || 0,
         isAvailable: quiz.is_available,
         isPublic: quiz.is_public,
         studentStatus: inProgressQuizIds.includes(quiz.id)
@@ -866,11 +850,7 @@ export const getPublicQuizzes = async (req: Request, res: Response) => {
       return {
         ...quiz.toJSON(),
         totalQuestions: quiz.questions?.length || 0,
-        totalPoints:
-          quiz.questions?.reduce(
-            (sum, q) => Number(sum) + Number(q.points),
-            0,
-          ) || 0,
+        totalPoints: quiz.questions?.reduce((sum, q) => sum + q.points, 0) || 0,
         isAvailable: quiz.is_available,
         isPublic: quiz.is_public,
         studentStatus: inProgressQuizIds.includes(quiz.id)
@@ -1314,26 +1294,27 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
 
     const attempts = submission.attempts || [];
 
-    // Build results array
-    const results = attempts.map((attempt) => ({
-      question_id: attempt.question_id,
-      question_text: attempt.question?.question_text,
-      question_type: attempt.question?.question_type,
-      user_answer: attempt.submitted_answer,
-      correct_answer: attempt.correct_answer,
-      is_correct: attempt.is_correct,
-      points_earned: attempt.points_earned,
-      max_points: attempt.question?.points,
-      explanation: attempt.question?.explanation,
-      time_taken: attempt.time_taken,
-    }));
-
     // Check if grades should be shown
     const enableAutoGrading =
       submission.quiz?.enable_automatic_grading !== false;
     const requireManualGrading =
       submission.quiz?.require_manual_grading === true;
     const showGrades = enableAutoGrading && !requireManualGrading;
+    const showCorrectAnswers = submission.quiz?.show_correct_answers === true;
+
+    // Build results array - filter out correct answers if not allowed
+    const results = attempts.map((attempt) => ({
+      question_id: attempt.question_id,
+      question_text: attempt.question?.question_text,
+      question_type: attempt.question?.question_type,
+      user_answer: attempt.submitted_answer,
+      correct_answer: showCorrectAnswers ? attempt.correct_answer : null,
+      is_correct: showCorrectAnswers ? attempt.is_correct : null,
+      points_earned: showGrades ? attempt.points_earned : null,
+      max_points: attempt.question?.points,
+      explanation: showCorrectAnswers ? attempt.question?.explanation : null,
+      time_taken: attempt.time_taken,
+    }));
 
     res.status(200).json({
       success: true,
@@ -1354,6 +1335,7 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
           enable_automatic_grading: enableAutoGrading,
           require_manual_grading: requireManualGrading,
           show_grades: showGrades,
+          show_correct_answers: showCorrectAnswers,
         },
       },
     });

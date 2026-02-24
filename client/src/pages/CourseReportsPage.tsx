@@ -244,18 +244,22 @@ const CourseReportsPage: React.FC = () => {
 
   // Calculate Statistics
   const averageGrade =
-    data && data.students.length > 0
-      ? data.students.reduce((sum, s) => sum + s.summary.total_percentage, 0) /
-        data.students.length
+    filteredStudents && filteredStudents.length > 0
+      ? filteredStudents.reduce(
+          (sum, s) => sum + (s.summary?.total_percentage || 0),
+          0,
+        ) / filteredStudents.length
       : 0;
 
   const passingCount =
-    data?.students.filter((s) => s.summary.total_percentage >= 60).length || 0;
+    filteredStudents.filter((s) => (s.summary?.total_percentage || 0) >= 60)
+      .length || 0;
   const failingCount =
-    data?.students.filter((s) => s.summary.total_percentage < 60).length || 0;
+    filteredStudents.filter((s) => (s.summary?.total_percentage || 0) < 60)
+      .length || 0;
 
   // Chart Data Preparation
-  const gradeDistribution = data?.students.reduce(
+  const gradeDistribution = filteredStudents.reduce(
     (acc, student) => {
       const grade = student.summary.total_percentage;
       if (grade >= 90) acc["90-100"]++;

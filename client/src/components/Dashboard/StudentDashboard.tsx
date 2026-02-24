@@ -385,7 +385,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
 
                       <Link
                         to={`/quizzes/${quiz.id}/take`}
-                        className={`w-full py-3 rounded-xl flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider transition-all ${
+                        className={`w-full py-3 rounded-full flex items-center justify-center gap-2 text-xs font-black uppercase tracking-wider transition-all ${
                           isExpired
                             ? "bg-gray-200 text-gray-500 cursor-not-allowed"
                             : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"

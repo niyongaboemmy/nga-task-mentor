@@ -4,17 +4,14 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "path";
-import fs from "fs";
 import dotenv from "dotenv";
 import { Sequelize } from "sequelize-typescript";
-import { Server as SocketIOServer, Socket } from "socket.io";
 import http from "http";
 import {
   sequelize as sequelizeInstance,
   testConnection,
 } from "./config/database";
 import { setupAssociations } from "./models";
-import { ProctoringSession } from "./models";
 
 // Load environment variables
 dotenv.config();
@@ -29,14 +26,6 @@ console.log("Server timezone set to:", process.env.TZ);
 
 const app: Application = express();
 const server = http.createServer(app);
-const io = new SocketIOServer(server, {
-  cors: {
-    origin: true,
-    credentials: true,
-    methods: ["GET", "POST"],
-  },
-  allowEIO3: true,
-});
 
 // Import routes
 import authRoutes from "./routes/auth";
@@ -49,8 +38,6 @@ import quizRoutes from "./routes/quizzes";
 import proctoringRoutes from "./routes/proctoring";
 
 import cookieParser from "cookie-parser";
-
-// ...
 
 // Security middleware
 app.set("trust proxy", 1); // Trust one proxy (e.g., cPanel)
@@ -182,100 +169,9 @@ const startServer = async (): Promise<void> => {
 
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
-    });
-
-    // Socket.IO setup for proctoring
-    io.on("connection", (socket: any) => {
-      console.log("Client connected:", socket.id);
-
-      // Join proctoring session room
-      socket.on("join-proctoring-session", (sessionToken: string) => {
-        socket.join(`proctoring-${sessionToken}`);
-        console.log(
-          `Client ${socket.id} joined proctoring session: ${sessionToken}`,
-        );
-      });
-
-      // Leave proctoring session room
-      socket.on("leave-proctoring-session", (sessionToken: string) => {
-        socket.leave(`proctoring-${sessionToken}`);
-        console.log(
-          `Client ${socket.id} left proctoring session: ${sessionToken}`,
-        );
-      });
-
-      // WebRTC signaling for video streaming
-      socket.on(
-        "webrtc-offer",
-        (data: { sessionToken: string; offer: any; targetUserId?: string }) => {
-          socket.to(`proctoring-${data.sessionToken}`).emit("webrtc-offer", {
-            offer: data.offer,
-            from: socket.id,
-            targetUserId: data.targetUserId,
-          });
-        },
+      console.log(
+        `Note: Socket functionality moved to live-server (port 5002)`,
       );
-
-      socket.on(
-        "webrtc-answer",
-        (data: {
-          sessionToken: string;
-          answer: any;
-          targetUserId?: string;
-        }) => {
-          socket.to(`proctoring-${data.sessionToken}`).emit("webrtc-answer", {
-            answer: data.answer,
-            from: socket.id,
-            targetUserId: data.targetUserId,
-          });
-        },
-      );
-
-      socket.on(
-        "webrtc-ice-candidate",
-        (data: {
-          sessionToken: string;
-          candidate: any;
-          targetUserId?: string;
-        }) => {
-          socket
-            .to(`proctoring-${data.sessionToken}`)
-            .emit("webrtc-ice-candidate", {
-              candidate: data.candidate,
-              from: socket.id,
-              targetUserId: data.targetUserId,
-            });
-        },
-      );
-
-      // Proctoring events
-      socket.on(
-        "proctoring-event",
-        (data: { sessionToken: string; event: any }) => {
-          socket
-            .to(`proctoring-${data.sessionToken}`)
-            .emit("proctoring-event", data.event);
-        },
-      );
-
-      socket.on("disconnect", () => {
-        console.log("Client disconnected:", socket.id);
-
-        // Update database when student disconnects
-        // Find any active proctoring sessions for this socket and mark as disconnected
-        ProctoringSession.update(
-          { is_connected: false },
-          {
-            where: {
-              status: "active",
-              // Note: We would need to track socket_id in the session to properly map this
-              // For now, we'll handle this in the socket server
-            },
-          },
-        ).catch((err: any) =>
-          console.error("Error updating session on disconnect:", err),
-        );
-      });
     });
 
     // Handle unhandled promise rejections

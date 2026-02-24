@@ -68,7 +68,7 @@ interface StreamModalProps {
   onForceAudioSettings?: (
     sessionToken: string,
     volume?: number,
-    micGain?: number
+    micGain?: number,
   ) => void;
 }
 
@@ -93,7 +93,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
     string | null
   >(null);
   const [sessionData, setSessionData] = useState<ProctoringSession | null>(
-    null
+    null,
   );
   const [events, setEvents] = useState<ProctoringEvent[]>([]);
   const [showEndQuizModal, setShowEndQuizModal] = useState(false);
@@ -104,7 +104,12 @@ const StreamModal: React.FC<StreamModalProps> = ({
 
   useEffect(() => {
     if (videoRef.current && stream?.stream) {
-      videoRef.current.srcObject = stream.stream;
+      if (videoRef.current.srcObject !== stream.stream) {
+        videoRef.current.srcObject = stream.stream;
+        videoRef.current
+          .play()
+          .catch((e) => console.error("Video play failed:", e));
+      }
     }
   }, [stream?.stream]);
 
@@ -120,9 +125,12 @@ const StreamModal: React.FC<StreamModalProps> = ({
     const initializeSocket = async () => {
       try {
         const { io } = await import("socket.io-client");
-        socketRef.current = io("http://localhost:5002", {
-          transports: ["websocket", "polling"],
-        });
+        socketRef.current = io(
+          import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
+          {
+            transports: ["websocket", "polling"],
+          },
+        );
 
         socketRef.current.on("connect", () => {
           console.log("StreamModal connected to socket server");
@@ -150,7 +158,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 onForceAudioSettings(
                   stream.sessionToken,
                   volumeLevel / 100,
-                  micGainLevel / 100
+                  micGainLevel / 100,
                 );
               }
             } else {
@@ -293,13 +301,13 @@ const StreamModal: React.FC<StreamModalProps> = ({
       const activeStreamsResponse =
         await ProctoringApiService.getActiveStreams();
       const activeStream = activeStreamsResponse.data.find(
-        (s: any) => s.sessionToken === stream.sessionToken
+        (s: any) => s.sessionToken === stream.sessionToken,
       );
 
       if (activeStream && activeStream.id) {
         // Fetch the full session details including events
         const sessionResponse = await ProctoringApiService.getProctoringSession(
-          activeStream.id
+          activeStream.id,
         );
         const session = sessionResponse.data;
 
@@ -354,7 +362,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
     try {
       await ProctoringApiService.endProctoringSession(
         sessionData.id,
-        endQuizReason.trim()
+        endQuizReason.trim(),
       );
 
       // Send socket event to notify student
@@ -425,8 +433,8 @@ const StreamModal: React.FC<StreamModalProps> = ({
                     {stream.isLive
                       ? "Connecting to stream..."
                       : stream.disconnectedAt
-                      ? "Reconnecting..."
-                      : "Stream offline"}
+                        ? "Reconnecting..."
+                        : "Stream offline"}
                   </p>
                 </div>
               </div>
@@ -449,8 +457,8 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 {stream.isLive
                   ? "LIVE"
                   : stream.disconnectedAt
-                  ? "Reconnecting"
-                  : "Offline"}
+                    ? "Reconnecting"
+                    : "Offline"}
               </div>
             </div>
 
@@ -522,30 +530,36 @@ const StreamModal: React.FC<StreamModalProps> = ({
 
         {/* Student Information Cards with Modern Design */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200 transition-shadow duration-300">
+          <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 border border-blue-200 dark:from-gray-800/50 dark:border-gray-800 transition-shadow duration-300">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-blue-500 rounded-xl flex items-center justify-center shadow-md">
                 <User className="w-6 h-6 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-blue-800">
+              <h3 className="text-xl font-bold text-blue-800 dark:text-blue-400">
                 Student Information
               </h3>
             </div>
             <div className="space-y-5">
-              <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl">
-                <span className="text-blue-700 font-semibold">Name:</span>
-                <span className="font-bold text-blue-900 text-right">
+              <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl dark:bg-gray-800">
+                <span className="text-blue-700 font-semibold dark:text-white">
+                  Name:
+                </span>
+                <span className="font-bold text-blue-900 dark:text-white text-right">
                   {stream.student.first_name} {stream.student.last_name}
                 </span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl">
-                <span className="text-blue-700 font-semibold">Email:</span>
-                <span className="font-bold text-blue-900 text-sm text-right break-all">
+              <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl dark:bg-gray-800">
+                <span className="text-blue-700 font-semibold dark:text-white">
+                  Email:
+                </span>
+                <span className="font-bold text-blue-900 text-sm text-right dark:text-white break-all">
                   {stream.student.email}
                 </span>
               </div>
-              <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl">
-                <span className="text-blue-700 font-semibold">Status:</span>
+              <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl dark:bg-gray-800">
+                <span className="text-blue-700 font-semibold dark:text-white">
+                  Status:
+                </span>
                 <span
                   className={`font-bold text-sm px-4 py-2 rounded-full shadow-md ${
                     stream.isLive
@@ -556,16 +570,16 @@ const StreamModal: React.FC<StreamModalProps> = ({
                   {stream.isLive
                     ? "Active"
                     : stream.disconnectedAt
-                    ? "Reconnecting"
-                    : "Offline"}
+                      ? "Reconnecting"
+                      : "Offline"}
                 </span>
               </div>
               {stream.lastConnectionTime && (
-                <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl">
-                  <span className="text-blue-700 font-semibold">
+                <div className="flex justify-between items-center p-3 bg-white/50 rounded-xl dark:bg-gray-800">
+                  <span className="text-blue-700 font-semibold dark:text-white">
                     Last Connected:
                   </span>
-                  <span className="font-bold text-blue-900 text-sm text-right">
+                  <span className="font-bold text-blue-900 text-sm text-right dark:text-white">
                     {new Date(stream.lastConnectionTime).toLocaleString()}
                   </span>
                 </div>
@@ -573,25 +587,25 @@ const StreamModal: React.FC<StreamModalProps> = ({
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-white to-white rounded-2xl p-6 border border-yellow-200 transition-shadow duration-300">
+          <div className="bg-gradient-to-br from-white to-white rounded-2xl p-6 border border-yellow-200 dark:from-yellow-800/20 dark:to-yellow-800/10 dark:border-yellow-800/30 transition-shadow duration-300">
             <div className="flex items-center gap-3 mb-6 w-full">
               <div className="w-12 h-12 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-xl flex items-center justify-center shadow-md">
                 <Circle className="w-6 h-6 text-white fill-current" />
               </div>
-              <h3 className="text-xl font-bold text-yellow-800">
+              <h3 className="text-xl font-bold text-yellow-800 dark:text-white">
                 Session Details
               </h3>
             </div>
             <div className="space-y-5">
               <div className="flex justify-between items-center p-3 border-b dark:border-gray-700">
                 <span className="font-semibold">Quiz:</span>
-                <span className="font-bold text-yellow-900 text-sm text-right">
+                <span className="font-bold text-yellow-900 dark:text-yellow-400 text-sm text-right">
                   {stream.quiz.title}
                 </span>
               </div>
               <div className="flex justify-between items-center p-3 border-b dark:border-gray-700">
                 <span className="font-semibold">Started:</span>
-                <span className="font-bold text-yellow-900 text-sm text-right">
+                <span className="font-bold text-yellow-900 dark:text-yellow-400 text-sm text-right">
                   {new Date(stream.startTime).toLocaleString()}
                 </span>
               </div>
@@ -599,7 +613,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 <span className="font-semibold">Risk Score:</span>
                 <span
                   className={`font-bold text-sm px-4 py-2 rounded-full shadow-md ${getRiskColor(
-                    stream.riskScore
+                    stream.riskScore,
                   )}`}
                 >
                   {stream.riskScore}
@@ -607,19 +621,19 @@ const StreamModal: React.FC<StreamModalProps> = ({
               </div>
               <div className="flex justify-between items-center p-3 border-b dark:border-gray-700">
                 <span className="font-semibold">Flags:</span>
-                <span className="font-bold text-yellow-900 text-sm flex items-center gap-2">
+                <span className="font-bold text-yellow-900 dark:text-yellow-400 text-sm flex items-center gap-2">
                   <Flag className="w-5 h-5 text-red-500" />
                   {stream.flagsCount}
                 </span>
               </div>
             </div>
 
-            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-6 border border-red-200 transition-shadow duration-300 mt-2">
+            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-2xl p-6 border border-red-200 dark:from-yellow-800/20 dark:to-yellow-900/20 dark:border-none transition-shadow duration-300 mt-2">
               <div className="flex items-center gap-3 mb-6">
                 <div className="w-12 h-12 bg-gradient-to-r from-red-400 to-red-500 rounded-xl flex items-center justify-center shadow-md">
                   <Flag className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-xl font-bold text-red-800">
+                <h3 className="text-xl font-bold text-red-800 dark:text-red-300">
                   Flags & Warnings
                 </h3>
               </div>
@@ -641,7 +655,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                       >
                         <div
                           className={`w-3 h-3 rounded-full ${getSeverityColor(
-                            event.severity
+                            event.severity,
                           )}`}
                         ></div>
                         <div className="flex-1 min-w-0">

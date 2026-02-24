@@ -17,8 +17,6 @@ import {
   BarChart3,
   Play,
   ArrowLeft,
-  FileText,
-  Download,
 } from "lucide-react";
 import type { RootState, AppDispatch } from "../../store";
 import {
@@ -41,8 +39,9 @@ const QuizHeader: React.FC<{
   quiz: any;
   questions: QuizQuestion[];
   editing: boolean;
+  onEdit: () => void;
   onNavigate: (path: string) => void;
-}> = ({ quiz, questions, editing, onNavigate }) => {
+}> = ({ quiz, questions, editing, onEdit, onNavigate }) => {
   const navigate = useNavigate();
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -103,7 +102,7 @@ const QuizHeader: React.FC<{
                   <div className="flex flex-wrap items-center gap-2 mb-4">
                     <span
                       className={`px-3 py-1 text-xs font-semibold rounded-xl border ${getStatusColor(
-                        quiz.status,
+                        quiz.status
                       )} shadow-sm hover:shadow-md transition-all duration-200`}
                     >
                       <div className="flex items-center gap-1">
@@ -112,8 +111,8 @@ const QuizHeader: React.FC<{
                             quiz.status === "published"
                               ? "bg-emerald-500"
                               : quiz.status === "draft"
-                                ? "bg-amber-500"
-                                : "bg-blue-500"
+                              ? "bg-amber-500"
+                              : "bg-blue-500"
                           }`}
                         ></div>
                         {quiz.status.charAt(0).toUpperCase() +
@@ -122,7 +121,7 @@ const QuizHeader: React.FC<{
                     </span>
                     <span
                       className={`px-3 py-1 text-xs font-semibold rounded-xl border ${getTypeColor(
-                        quiz.type,
+                        quiz.type
                       )} shadow-sm hover:shadow-md transition-all duration-200`}
                     >
                       <div className="flex items-center gap-1">
@@ -131,10 +130,10 @@ const QuizHeader: React.FC<{
                             quiz.type === "exam"
                               ? "bg-red-500"
                               : quiz.type === "graded"
-                                ? "bg-green-500"
-                                : quiz.type === "practice"
-                                  ? "bg-orange-500"
-                                  : "bg-gray-500"
+                              ? "bg-green-500"
+                              : quiz.type === "practice"
+                              ? "bg-orange-500"
+                              : "bg-gray-500"
                           }`}
                         ></div>
                         {quiz.type.charAt(0).toUpperCase() + quiz.type.slice(1)}
@@ -157,43 +156,6 @@ const QuizHeader: React.FC<{
                       </span>
                     )}
                   </div>
-
-                  {/* Quiz Attachments */}
-                  {quiz.attachments && quiz.attachments.length > 0 && (
-                    <div className="mt-4 p-4 bg-blue-50/50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                      <h4 className="text-sm font-semibold text-gray-900 dark:text-white mb-3 flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                        Quiz Materials
-                      </h4>
-                      <div className="space-y-2">
-                        {quiz.attachments.map(
-                          (attachment: any, index: number) => (
-                            <a
-                              key={index}
-                              href={attachment.url}
-                              download={attachment.name}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg border border-gray-200 dark:border-gray-700 transition-colors group"
-                            >
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-                                <span className="text-sm font-medium text-gray-700 dark:text-gray-300 truncate">
-                                  {attachment.name}
-                                </span>
-                                {attachment.size && (
-                                  <span className="text-xs text-gray-500 flex-shrink-0">
-                                    ({(attachment.size / 1024).toFixed(1)} KB)
-                                  </span>
-                                )}
-                              </div>
-                              <Download className="w-4 h-4 text-gray-400 group-hover:text-blue-600 dark:group-hover:text-blue-400 flex-shrink-0 ml-2" />
-                            </a>
-                          ),
-                        )}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
               {/* Stats Cards */}
@@ -285,7 +247,15 @@ const QuizHeader: React.FC<{
           )}
         </div>
 
+        {/* Right Column - Action Buttons */}
         <div className="lg:w-72 space-y-2">
+          {/* <button
+            onClick={onEdit}
+            className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium border border-gray-300 text-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-200 hover:scale-105 transform"
+          >
+            <Edit3 className="w-4 h-4" />
+            Edit Quiz
+          </button> */}
           <button
             onClick={() => onNavigate(`/quizzes/${quiz.id}/settings`)}
             className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium border border-gray-300 text-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-200 hover:scale-105 transform"
@@ -481,8 +451,8 @@ const QuestionCard: React.FC<{
         isDragging
           ? "opacity-50 scale-95 shadow-lg ring-2 ring-blue-400 ring-opacity-50"
           : isDragOver
-            ? "border-blue-400 bg-blue-50 scale-105 shadow-md ring-2 ring-blue-400 ring-opacity-50 border-dashed"
-            : "hover:border-gray-300 dark:hover:border-gray-600"
+          ? "border-blue-400 bg-blue-50 scale-105 shadow-md ring-2 ring-blue-400 ring-opacity-50 border-dashed"
+          : "hover:border-gray-300 dark:hover:border-gray-600"
       } ${!editing && !isReordering ? "cursor-move" : ""} ${
         isReordering ? "pointer-events-none opacity-75" : ""
       }`}
@@ -625,7 +595,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { currentQuiz, questions, loading, error } = useSelector(
-    (state: RootState) => state.quiz,
+    (state: RootState) => state.quiz
   );
 
   const [editing, setEditing] = useState(false);
@@ -638,7 +608,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
   });
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewQuestion, setPreviewQuestion] = useState<QuizQuestion | null>(
-    null,
+    null
   );
   const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
 
@@ -716,7 +686,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
   const handleDeleteQuestion = async (questionId: number) => {
     if (
       !confirm(
-        "Are you sure you want to delete this question? This action cannot be undone.",
+        "Are you sure you want to delete this question? This action cannot be undone."
       )
     ) {
       return;
@@ -789,6 +759,8 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
     }
   }, [currentQuiz]);
 
+  const handleEdit = () => setEditing(true);
+
   const handleSave = async () => {
     try {
       await dispatch(updateQuiz({ quizId, quizData: editForm })).unwrap();
@@ -859,6 +831,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                 quiz={currentQuiz}
                 questions={questions}
                 editing={editing}
+                onEdit={handleEdit}
                 onNavigate={navigate}
               />
             </div>
@@ -927,7 +900,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                         onPreview={() => handlePreview(question)}
                         onEdit={() =>
                           navigate(
-                            `/quizzes/${quizId}/questions/${question.id}/edit`,
+                            `/quizzes/${quizId}/questions/${question.id}/edit`
                           )
                         }
                         onDelete={() => handleDeleteQuestion(question.id)}

@@ -161,13 +161,16 @@ class ProctoringMonitor {
   private async initializeSocket(): Promise<void> {
     try {
       const { io } = await import("socket.io-client");
-      this.socket = io("http://localhost:5002", {
-        transports: ["websocket", "polling"],
-        timeout: 5000,
-        reconnection: true,
-        reconnectionAttempts: 3,
-        reconnectionDelay: 1000,
-      });
+      this.socket = io(
+        import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
+        {
+          transports: ["websocket", "polling"],
+          timeout: 5000,
+          reconnection: true,
+          reconnectionAttempts: 3,
+          reconnectionDelay: 1000,
+        },
+      );
 
       this.socket.on("connect", () => {
         console.log("Proctoring monitor connected to socket server");
@@ -186,7 +189,7 @@ class ProctoringMonitor {
       this.socket.on("disconnect", (reason: any) => {
         console.log(
           "Proctoring monitor disconnected from socket server:",
-          reason
+          reason,
         );
       });
 
@@ -194,7 +197,7 @@ class ProctoringMonitor {
         console.log(
           "Proctoring monitor reconnected to socket server after",
           attemptNumber,
-          "attempts"
+          "attempts",
         );
       });
 
@@ -247,7 +250,7 @@ class ProctoringMonitor {
 
     // Check media levels
     const mediaLevels = await faceDetectionService.checkMediaLevels(
-      this.config.stream
+      this.config.stream,
     );
     this.status.cameraLevel = mediaLevels.cameraLevel;
     this.status.microphoneLevel = mediaLevels.microphoneLevel;
@@ -309,7 +312,7 @@ class ProctoringMonitor {
             enableObjectDetection: this.config.settings.enable_object_detection,
             objectDetectionSensitivity:
               this.config.settings.object_detection_sensitivity,
-          }
+          },
         );
 
       this.status.faceDetected = detectionResult.faceDetected;
@@ -398,7 +401,7 @@ class ProctoringMonitor {
 
     try {
       // Send to server
-      await axios.post(" /proctoring/events", {
+      await axios.post("/proctoring/events", {
         session_token: this.config.sessionToken,
         event_type: violation.type,
         severity: violation.severity,
@@ -430,15 +433,15 @@ class ProctoringMonitor {
     document.addEventListener("fullscreenchange", this.handleFullscreenChange);
     document.addEventListener(
       "webkitfullscreenchange",
-      this.handleFullscreenChange
+      this.handleFullscreenChange,
     );
     document.addEventListener(
       "mozfullscreenchange",
-      this.handleFullscreenChange
+      this.handleFullscreenChange,
     );
     document.addEventListener(
       "MSFullscreenChange",
-      this.handleFullscreenChange
+      this.handleFullscreenChange,
     );
 
     // Listen for visibility changes (tab switching)
@@ -455,24 +458,24 @@ class ProctoringMonitor {
   private removeEventListeners(): void {
     document.removeEventListener(
       "fullscreenchange",
-      this.handleFullscreenChange
+      this.handleFullscreenChange,
     );
     document.removeEventListener(
       "webkitfullscreenchange",
-      this.handleFullscreenChange
+      this.handleFullscreenChange,
     );
     document.removeEventListener(
       "mozfullscreenchange",
-      this.handleFullscreenChange
+      this.handleFullscreenChange,
     );
     document.removeEventListener(
       "MSFullscreenChange",
-      this.handleFullscreenChange
+      this.handleFullscreenChange,
     );
 
     document.removeEventListener(
       "visibilitychange",
-      this.handleVisibilityChange
+      this.handleVisibilityChange,
     );
 
     window.removeEventListener("blur", this.handleWindowBlur);

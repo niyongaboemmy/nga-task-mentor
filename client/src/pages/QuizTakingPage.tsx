@@ -20,7 +20,6 @@ import { ProctoringSetup } from "../components/Proctoring";
 import ProctoringMonitorComponent from "../components/Proctoring/ProctoringMonitorComponent";
 import FloatingCameraComponent from "../components/Proctoring/FloatingCameraComponent";
 import type { Quiz, QuizQuestion, AnswerDataType } from "../types/quiz.types";
-import { toast } from "react-toastify";
 
 interface QuizTakingQuiz extends Quiz {
   quiz_completed?: boolean;
@@ -68,11 +67,14 @@ const QuizTakingPage: React.FC = () => {
   // Proctoring state
   const [showProctoringSetup, setShowProctoringSetup] = useState(false);
   const [proctoringSession, setProctoringSession] = useState<any>(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const [showConnectionPopup, setShowConnectionPopup] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
   const [proctoringSettings, setProctoringSettings] = useState<any>(null);
   const [proctoringVideoElement, setProctoringVideoElement] =
     useState<HTMLVideoElement | null>(null);
   const [proctoringStream, setProctoringStream] = useState<MediaStream | null>(
-    null
+    null,
   );
   const [proctoringMonitorActive, setProctoringMonitorActive] = useState(false);
   const [proctoringError, setProctoringError] = useState<string | null>(null);
@@ -97,7 +99,7 @@ const QuizTakingPage: React.FC = () => {
   const [isCheckingVolume, setIsCheckingVolume] = useState(false);
   const [volumeCheckPassed, setVolumeCheckPassed] = useState(false);
   const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
-  const [audioContext, setAudioContext] = useState<any>(null);
+  const [audioContext, setAudioContext] = useState<AudioContext | null>(null);
   const [analyser, setAnalyser] = useState<AnalyserNode | null>(null);
   const [isPlayingSpeakerTest, setIsPlayingSpeakerTest] = useState(false);
   const [speakerTestConfirmed, setSpeakerTestConfirmed] = useState(false);
@@ -118,7 +120,7 @@ const QuizTakingPage: React.FC = () => {
       } minutes to complete this quiz. The timer will start once you begin.`,
     },
     {
-      icon: <Target className="h-8 w-8 text-purple-600" />,
+      icon: <Target className="h-8 w-8 text-blue-600" />,
       title: "Answer All Questions",
       description:
         "Make sure to answer all questions. You can navigate between questions using the buttons at the bottom.",
@@ -212,7 +214,7 @@ const QuizTakingPage: React.FC = () => {
               JSON.stringify({
                 timeLeft: newTimeLeft,
                 quizStartTime: quizStartTime.toISOString(),
-              })
+              }),
             );
           }
 
@@ -230,11 +232,20 @@ const QuizTakingPage: React.FC = () => {
       const initializeSocket = async () => {
         try {
           const { io } = await import("socket.io-client");
-          const socket = io("http://localhost:5002", {
-            transports: ["websocket", "polling"],
-          });
+          const socket = io(
+            import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
+            {
+              transports: ["websocket", "polling"],
+            },
+          );
 
           socket.on("connect", () => {
+            console.log(
+              "QuizTakingPage connected to socket server for audio confirmation",
+            );
+            setSocketConnected(true);
+            setShowConnectionPopup(true);
+            setConnectionError(null);
             socket.emit("join-proctoring-session", {
               sessionToken: proctoringSession.session_token,
               role: "student",
@@ -244,6 +255,7 @@ const QuizTakingPage: React.FC = () => {
           // Listen for audio confirmation requests from proctor
           socket.on("request-student-audio-confirmation", (data: any) => {
             if (data.sessionToken === proctoringSession.session_token) {
+              console.log("Student received audio confirmation request:", data);
               setAudioConfirmationRequest({
                 volume: data.volume || 0.5,
                 micGain: data.micGain || 0.6,
@@ -256,8 +268,9 @@ const QuizTakingPage: React.FC = () => {
           // Listen for quiz termination from proctor
           socket.on("quiz-terminated", (data: any) => {
             if (data.sessionToken === proctoringSession.session_token) {
+              console.log("Quiz terminated by proctor:", data);
               setTerminationReason(
-                data.reason || "Quiz terminated by instructor"
+                data.reason || "Quiz terminated by instructor",
               );
               setShowQuizTerminated(true);
               // Auto-submit the quiz
@@ -336,7 +349,7 @@ const QuizTakingPage: React.FC = () => {
   const checkExistingSubmission = async () => {
     try {
       const response = await axios.get(
-        `/quizzes/submissions?quiz_id=${id}&status=in_progress`
+        `/quizzes/submissions?quiz_id=${id}&status=in_progress`,
       );
       const submissions = response.data.data;
 
@@ -351,7 +364,7 @@ const QuizTakingPage: React.FC = () => {
               question_id: answer.question_id,
               answer: answer.answer_data || answer.user_answer,
               time_taken: answer.time_taken || 0,
-            }))
+            })),
           );
         }
 
@@ -372,7 +385,7 @@ const QuizTakingPage: React.FC = () => {
             JSON.stringify({
               timeLeft: remainingTime,
               quizStartTime: startedAt.toISOString(),
-            })
+            }),
           );
         }
 
@@ -470,7 +483,7 @@ const QuizTakingPage: React.FC = () => {
         JSON.stringify({
           timeLeft: (quiz?.time_limit || 0) * 60,
           quizStartTime: new Date().toISOString(),
-        })
+        }),
       );
     }
 
@@ -500,7 +513,7 @@ const QuizTakingPage: React.FC = () => {
             await startQuizNormally();
           }, 500);
         } catch (error) {
-          toast.error("Failed to enter fullscreen. Please enable fullscreen manually to proceed.");
+          console.error("Failed to enter fullscreen:", error);
           // Fallback to showing prompt if auto-fullscreen fails
           setShowFullscreenPrompt(true);
           return;
@@ -515,7 +528,7 @@ const QuizTakingPage: React.FC = () => {
 
   const handleVideoReady = (
     videoElement: HTMLVideoElement,
-    stream: MediaStream
+    stream: MediaStream,
   ) => {
     setProctoringVideoElement(videoElement);
     setProctoringStream(stream);
@@ -534,7 +547,7 @@ const QuizTakingPage: React.FC = () => {
     if (confirmed) {
       applySystemAudioSettings(
         audioConfirmationRequest.volume,
-        audioConfirmationRequest.micGain
+        audioConfirmationRequest.micGain,
       );
     }
 
@@ -574,11 +587,18 @@ const QuizTakingPage: React.FC = () => {
         // Store audio context for cleanup
         (window as any).proctoringAudioContext = audioContext;
         (window as any).masterGainNode = masterGainNode;
+
+        console.log(`System audio volume set to ${(volume * 100).toFixed(0)}%`);
       } else {
         // Fallback to basic audio element control
         const instructorAudio = (window as any).instructorAudio;
         if (instructorAudio) {
           instructorAudio.volume = volume;
+          console.log(
+            `Audio volume set to ${(volume * 100).toFixed(
+              0,
+            )}% (fallback method)`,
+          );
         }
       }
 
@@ -589,8 +609,9 @@ const QuizTakingPage: React.FC = () => {
         if (audioTracks.length > 0 && micGain !== undefined) {
           try {
             // Create audio context for microphone processing
-            const micAudioContext = new (AudioContext ||
-              (window as any).webkitAudioContext)();
+            const micAudioContext = new (
+              AudioContext || (window as any).webkitAudioContext
+            )();
 
             if (micAudioContext.state === "suspended") {
               await micAudioContext.resume();
@@ -607,46 +628,73 @@ const QuizTakingPage: React.FC = () => {
             micGainNode.connect(micAudioContext.destination);
 
             // Store for cleanup
+            (window as any).micAudioContext = micAudioContext;
             (window as any).micGainNode = micGainNode;
+
+            console.log(
+              `Microphone gain set to ${(micGain * 100).toFixed(0)}%`,
+            );
           } catch (micError) {
             console.warn(
               "Could not apply microphone gain adjustment:",
-              micError
+              micError,
+            );
+            console.log(
+              `Microphone gain setting requested: ${(micGain * 100).toFixed(
+                0,
+              )}%`,
             );
           }
         }
       }
 
-      // Show user feedback - replace custom DOM element with toast
-      toast.error(
-        <div className="flex flex-col gap-1">
-          <span className="font-bold text-lg">BROWSER FORCED TO MAXIMUM VOLUME</span>
-          <span className="text-sm">Volume: {(volume * 100).toFixed(0)}% | Mic: {(micGain * 100).toFixed(0)}%</span>
-        </div>,
-        {
-          position: "top-right",
-          autoClose: 8000,
-          hideProgressBar: false,
-          closeOnClick: true,
-          pauseOnHover: true,
-          draggable: true,
-          style: {
-            background: "#EF4444", // red-500
-            color: "#FFFFFF",
-            fontWeight: "bold",
-          }
-        }
-      );
+      // Show user feedback - BROWSER FORCED TO MAXIMUM VOLUME
+      const notification = document.createElement("div");
+      notification.className =
+        "fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl z-[10000] font-bold border-2 border-red-400 animate-pulse";
+      notification.innerHTML = `
+        <div class="flex items-center gap-2">
+          <span class="text-2xl">🔊</span>
+          <div>
+            <div class="text-lg font-bold">BROWSER FORCED TO MAXIMUM VOLUME</div>
+            <div class="text-sm opacity-90">Volume: ${(volume * 100).toFixed(
+              0,
+            )}% | Mic: ${(micGain * 100).toFixed(0)}%</div>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(notification);
 
       // Force browser focus and volume
       document.body.focus();
       if (document.documentElement.requestFullscreen) {
         document.documentElement.requestFullscreen().catch(() => {});
       }
+
+      // Remove notification after 8 seconds
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 8000);
+
+      console.log("🎯 BROWSER AUDIO SYSTEM FORCED - MAXIMUM VOLUME APPLIED");
     } catch (error) {
       console.error("Error applying system audio settings:", error);
 
-      toast.warning("Audio settings applied (limited browser support)");
+      // Fallback notification
+      const notification = document.createElement("div");
+      notification.className =
+        "fixed top-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-[10000]";
+      notification.textContent =
+        "Audio settings applied (limited browser support)";
+      document.body.appendChild(notification);
+
+      setTimeout(() => {
+        if (notification.parentNode) {
+          notification.parentNode.removeChild(notification);
+        }
+      }, 3000);
     }
   };
 
@@ -670,8 +718,9 @@ const QuizTakingPage: React.FC = () => {
       setAudioStream(stream);
 
       // Create audio context and analyser
-      const audioCtx = new (AudioContext ||
-        (window as any).webkitAudioContext)();
+      const audioCtx = new (
+        AudioContext || (window as any).webkitAudioContext
+      )();
 
       // Resume audio context if suspended (required by browser autoplay policies)
       if (audioCtx.state === "suspended") {
@@ -688,14 +737,20 @@ const QuizTakingPage: React.FC = () => {
       setAudioContext(audioCtx);
       setAnalyser(analyserNode);
 
-      setAnalyser(analyserNode);
+      console.log("Audio context state:", audioCtx.state);
+      console.log("Stream active:", stream.active);
+      console.log("Audio tracks:", stream.getAudioTracks().length);
+      console.log("Analyser created and connected");
 
       // Start monitoring volume levels with the analyser directly
+      console.log("About to call checkVolumeLevels...");
       checkVolumeLevels(analyserNode);
+
+      console.log("Volume check started - microphone access granted");
     } catch (error) {
       console.error("Error starting volume check:", error);
       setError(
-        "Unable to access microphone. Please check your browser permissions and try again."
+        "Unable to access microphone. Please check your browser permissions and try again.",
       );
       setIsCheckingVolume(false);
     }
@@ -704,6 +759,7 @@ const QuizTakingPage: React.FC = () => {
   function checkVolumeLevels(providedAnalyser?: AnalyserNode) {
     const analyserToUse = providedAnalyser || analyser;
     if (!analyserToUse) {
+      console.log("No analyser available for volume check");
       return;
     }
 
@@ -712,10 +768,16 @@ const QuizTakingPage: React.FC = () => {
 
     const checkLevels = () => {
       if (!analyserToUse) {
+        console.log(
+          "Volume check skipped - analyser:",
+          !!analyserToUse,
+          "isCheckingVolume:",
+          isCheckingVolume,
+        );
         return;
       }
 
-
+      console.log("Volume check executing...");
 
       // Try time domain data first (more reliable for volume detection)
       analyserToUse.getFloatTimeDomainData(dataArray);
@@ -728,8 +790,21 @@ const QuizTakingPage: React.FC = () => {
       const rms = Math.sqrt(sum / dataArray.length);
       const volumePercent = Math.min(100, Math.max(0, rms * 2000)); // Scale RMS to percentage (adjusted scaling)
 
-      // Simple check: if RMS is above a very low threshold, there's audio input
+      // Also log raw RMS for debugging
+      console.log("Raw RMS value:", rms);
 
+      // Simple check: if RMS is above a very low threshold, there's audio input
+      const hasAudioInput = rms > 0.001; // Very low threshold for any audio
+      console.log("Has audio input:", hasAudioInput);
+
+      console.log(
+        "Volume check - RMS:",
+        rms,
+        "volumePercent:",
+        volumePercent,
+        "dataArray length:",
+        dataArray.length,
+      );
 
       setVolumeLevel(volumePercent);
 
@@ -864,7 +939,7 @@ const QuizTakingPage: React.FC = () => {
       console.log(
         "Content disabled due to violation:",
         violation.type,
-        violation.severity
+        violation.severity,
       );
     }
 
@@ -937,7 +1012,7 @@ const QuizTakingPage: React.FC = () => {
         question_id: questionId,
         answer,
         time_taken: Math.floor(
-          (Date.now() - (quizStartTime?.getTime() || 0)) / 1000
+          (Date.now() - (quizStartTime?.getTime() || 0)) / 1000,
         ), // Convert to seconds
       };
 
@@ -945,7 +1020,7 @@ const QuizTakingPage: React.FC = () => {
         const existing = prev.find((a) => a.question_id === questionId);
         if (existing) {
           return prev.map((a) =>
-            a.question_id === questionId ? newAnswer : a
+            a.question_id === questionId ? newAnswer : a,
           );
         }
         return [...prev, newAnswer];
@@ -964,7 +1039,7 @@ const QuizTakingPage: React.FC = () => {
           await QuizApiService.submitQuestionAnswer(
             existingSubmission.id,
             questionId,
-            answer
+            answer,
           );
         } catch (error: any) {
           console.error("Error saving answer to database:", error);
@@ -972,7 +1047,7 @@ const QuizTakingPage: React.FC = () => {
         }
       }
     },
-    [answers, quizStartTime, existingSubmission, id]
+    [answers, quizStartTime, existingSubmission, id],
   );
 
   const handleAutoSubmit = async () => {
@@ -1014,7 +1089,7 @@ const QuizTakingPage: React.FC = () => {
       // Submit the quiz
       const response = await axios.post(
         `/quizzes/${quiz.id}/submit`,
-        submissionData
+        submissionData,
       );
       const submissionResult = response.data.data;
 
@@ -1097,7 +1172,7 @@ const QuizTakingPage: React.FC = () => {
     if (!isResizing) return;
 
     const container = document.querySelector(
-      "[data-resizable-container]"
+      "[data-resizable-container]",
     ) as HTMLElement;
     if (!container) return;
 
@@ -1132,7 +1207,7 @@ const QuizTakingPage: React.FC = () => {
     } catch (error) {
       console.error("Error requesting fullscreen:", error);
       setError(
-        "Unable to enter fullscreen mode. Please try again or contact your instructor."
+        "Unable to enter fullscreen mode. Please try again or contact your instructor.",
       );
     }
   };
@@ -1208,15 +1283,15 @@ const QuizTakingPage: React.FC = () => {
       document.removeEventListener("fullscreenchange", handleFullscreenChange);
       document.removeEventListener(
         "webkitfullscreenchange",
-        handleFullscreenChange
+        handleFullscreenChange,
       );
       document.removeEventListener(
         "mozfullscreenchange",
-        handleFullscreenChange
+        handleFullscreenChange,
       );
       document.removeEventListener(
         "MSFullscreenChange",
-        handleFullscreenChange
+        handleFullscreenChange,
       );
     };
   }, [
@@ -1228,7 +1303,7 @@ const QuizTakingPage: React.FC = () => {
 
   const renderQuestion = (question: QuizQuestion) => {
     const currentAnswer = answers.find(
-      (a) => a.question_id === question.id
+      (a) => a.question_id === question.id,
     )?.answer;
 
     return (
@@ -1255,7 +1330,7 @@ const QuizTakingPage: React.FC = () => {
     if (!currentQuestion) return;
 
     const currentAnswer = answers.find(
-      (a) => a.question_id === currentQuestion.id
+      (a) => a.question_id === currentQuestion.id,
     )?.answer;
 
     if (currentAnswer) {
@@ -1267,8 +1342,8 @@ const QuizTakingPage: React.FC = () => {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-purple-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">Loading quiz...</p>
+          <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-200">Loading quiz...</p>
         </div>
       </div>
     );
@@ -1282,14 +1357,14 @@ const QuizTakingPage: React.FC = () => {
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
             Quiz Not Found
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 mb-6">
+          <p className="text-gray-600 dark:text-gray-200 mb-6">
             {error ||
               "The quiz you're looking for doesn't exist or is not available."}
           </p>
           <Link
             to="/my-quizzes"
             onClick={() => setError(null)}
-            className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Quizzes
@@ -1323,7 +1398,7 @@ const QuizTakingPage: React.FC = () => {
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
               Audio Volume Check
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">
+            <p className="text-gray-600 dark:text-gray-200 mb-4 text-sm">
               Please speak or make noise to test your microphone volume. The
               quiz will only start when your audio volume reaches at least 80%.
             </p>
@@ -1331,7 +1406,7 @@ const QuizTakingPage: React.FC = () => {
             {/* Volume Level Indicator */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                   Current Volume
                 </span>
                 <span
@@ -1350,7 +1425,7 @@ const QuizTakingPage: React.FC = () => {
                   style={{ width: `${Math.min(volumeLevel, 100)}%` }}
                 />
               </div>
-              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <div className="flex justify-between text-xs text-gray-500 dark:text-gray-200 mt-1">
                 <span>0%</span>
                 <span className="font-semibold text-blue-600">
                   80% Required
@@ -1365,7 +1440,7 @@ const QuizTakingPage: React.FC = () => {
                   type="button"
                   onClick={playSpeakerTestTone}
                   disabled={isPlayingSpeakerTest}
-                  className="px-3 py-1.5 rounded-full bg-purple-600 hover:bg-purple-700 text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-3 py-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isPlayingSpeakerTest
                     ? "Playing test sound..."
@@ -1401,11 +1476,12 @@ const QuizTakingPage: React.FC = () => {
             <div className="flex gap-3 justify-center">
               <button
                 onClick={() => {
+                  // Skip the volume check and proceed with quiz
                   stopVolumeCheck();
                   setShowVolumeCheck(false);
-                  setShowInstructions(true);
+                  proceedWithQuizStart();
                 }}
-                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 Skip Check
               </button>
@@ -1481,7 +1557,7 @@ const QuizTakingPage: React.FC = () => {
             Fullscreen Required
           </h2>
 
-          <p className="text-lg text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+          <p className="text-lg text-gray-600 dark:text-gray-200 mb-6 leading-relaxed">
             This quiz requires fullscreen mode to ensure academic integrity.
             Please click the button below to enter fullscreen mode and begin the
             quiz.
@@ -1527,7 +1603,7 @@ const QuizTakingPage: React.FC = () => {
                 setShowFullscreenPrompt(false);
                 setShowInstructions(true);
               }}
-              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 font-medium"
+              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 font-medium"
             >
               ← Back to Instructions
             </button>
@@ -1622,7 +1698,7 @@ const QuizTakingPage: React.FC = () => {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
               Quiz Instructions
             </h2>
-            <p className="text-gray-600 dark:text-gray-400">
+            <p className="text-gray-600 dark:text-gray-200">
               Step {currentInstructionStep + 1} of {instructions.length}
             </p>
           </div>
@@ -1634,7 +1710,7 @@ const QuizTakingPage: React.FC = () => {
             <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
               {currentInstruction.title}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
+            <p className="text-gray-600 dark:text-gray-200 leading-relaxed">
               {currentInstruction.description}
             </p>
           </div>
@@ -1643,7 +1719,7 @@ const QuizTakingPage: React.FC = () => {
             <button
               onClick={prevInstruction}
               disabled={currentInstructionStep === 0}
-              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Previous
@@ -1655,10 +1731,10 @@ const QuizTakingPage: React.FC = () => {
                   key={index}
                   className={`w-2 h-2 rounded-full transition-all duration-300 ${
                     index === currentInstructionStep
-                      ? "bg-purple-600 animate-pulse"
+                      ? "bg-blue-600 animate-pulse"
                       : index < currentInstructionStep
-                      ? "bg-emerald-500"
-                      : "bg-gray-300 dark:bg-gray-600"
+                        ? "bg-emerald-500"
+                        : "bg-gray-300 dark:bg-gray-600"
                   }`}
                 />
               ))}
@@ -1691,6 +1767,45 @@ const QuizTakingPage: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-white dark:bg-gray-900 overflow-auto z-50">
+      {/* Connection Status Popup */}
+      {showConnectionPopup && proctoringSession && (
+        <div className="fixed bottom-4 right-4 z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 max-w-sm">
+          <div className="flex items-center gap-3">
+            <div
+              className={`w-3 h-3 rounded-full ${socketConnected ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`}
+            ></div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
+                {socketConnected
+                  ? "Connected to proctoring server"
+                  : "Connecting to proctoring server..."}
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Live monitoring active
+              </p>
+            </div>
+            <button
+              onClick={() => setShowConnectionPopup(false)}
+              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Main quiz content container */}
       <div>
         {/* Fullscreen Required Overlay */}
@@ -1715,7 +1830,7 @@ const QuizTakingPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Fullscreen Required
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+              <p className="text-gray-600 dark:text-gray-200 mb-6 text-sm">
                 You must be in fullscreen mode to continue taking this quiz.
                 Click the button below to enter fullscreen.
               </p>
@@ -1752,7 +1867,7 @@ const QuizTakingPage: React.FC = () => {
               <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
                 Quiz Temporarily Disabled
               </h3>
-              <p className="text-gray-700 dark:text-gray-300 mb-6 text-lg leading-relaxed">
+              <p className="text-gray-700 dark:text-gray-200 mb-6 text-lg leading-relaxed">
                 Your quiz interaction has been paused due to a proctoring
                 violation. Please check your camera feed and resolve the issue
                 to continue.
@@ -1768,7 +1883,7 @@ const QuizTakingPage: React.FC = () => {
                   <li>• Stay in fullscreen mode if required</li>
                 </ul>
               </div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-gray-500 dark:text-gray-200">
                 The floating camera monitor shows real-time status and specific
                 issues.
               </p>
@@ -1783,8 +1898,8 @@ const QuizTakingPage: React.FC = () => {
                 currentViolation.severity === "critical"
                   ? "border-red-500 bg-red-50 dark:bg-red-900/20"
                   : currentViolation.severity === "high"
-                  ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
-                  : "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
+                    ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
+                    : "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
               }`}
             >
               <div className="flex items-start gap-3">
@@ -1793,8 +1908,8 @@ const QuizTakingPage: React.FC = () => {
                     currentViolation.severity === "critical"
                       ? "bg-red-500"
                       : currentViolation.severity === "high"
-                      ? "bg-orange-500"
-                      : "bg-yellow-500"
+                        ? "bg-orange-500"
+                        : "bg-yellow-500"
                   }`}
                 >
                   <AlertCircle className="w-4 h-4 text-white" />
@@ -1805,8 +1920,8 @@ const QuizTakingPage: React.FC = () => {
                       currentViolation.severity === "critical"
                         ? "text-red-800 dark:text-red-200"
                         : currentViolation.severity === "high"
-                        ? "text-orange-800 dark:text-orange-200"
-                        : "text-yellow-800 dark:text-yellow-200"
+                          ? "text-orange-800 dark:text-orange-200"
+                          : "text-yellow-800 dark:text-yellow-200"
                     }`}
                   >
                     Proctoring Alert
@@ -1816,13 +1931,13 @@ const QuizTakingPage: React.FC = () => {
                       currentViolation.severity === "critical"
                         ? "text-red-700 dark:text-red-300"
                         : currentViolation.severity === "high"
-                        ? "text-orange-700 dark:text-orange-300"
-                        : "text-yellow-700 dark:text-yellow-300"
+                          ? "text-orange-700 dark:text-orange-300"
+                          : "text-yellow-700 dark:text-yellow-300"
                     }`}
                   >
                     {currentViolation.message}
                   </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-400 mt-2">
+                  <p className="text-xs text-gray-600 dark:text-gray-200 mt-2">
                     Please ensure you follow all testing guidelines to avoid
                     violations.
                   </p>
@@ -1836,8 +1951,8 @@ const QuizTakingPage: React.FC = () => {
                     currentViolation.severity === "critical"
                       ? "text-red-600"
                       : currentViolation.severity === "high"
-                      ? "text-orange-600"
-                      : "text-yellow-600"
+                        ? "text-orange-600"
+                        : "text-yellow-600"
                   }`}
                 >
                   ×
@@ -1960,7 +2075,7 @@ const QuizTakingPage: React.FC = () => {
                 <h1 className="text-xl font-bold text-gray-900 dark:text-white">
                   {quiz.title}
                 </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
+                <p className="text-sm text-gray-600 dark:text-gray-200">
                   Question {currentQuestionIndex + 1} of {totalQuestions}
                 </p>
               </div>
@@ -1970,7 +2085,7 @@ const QuizTakingPage: React.FC = () => {
           <div className="flex items-center gap-4">
             {/* Progress Indicator */}
             <div className="hidden sm:flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
                 Progress
               </span>
               <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
@@ -1979,7 +2094,7 @@ const QuizTakingPage: React.FC = () => {
                   style={{ width: `${progress}%` }}
                 />
               </div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 min-w-[3rem]">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-200 min-w-[3rem]">
                 {answeredQuestions}/{totalQuestions}
               </span>
             </div>
@@ -1992,7 +2107,7 @@ const QuizTakingPage: React.FC = () => {
                 onTimeout={() => {
                   // Auto-submit current question and move to next
                   const currentAnswer = answers.find(
-                    (a) => a.question_id === currentQuestion.id
+                    (a) => a.question_id === currentQuestion.id,
                   )?.answer;
 
                   if (currentAnswer) {
@@ -2077,7 +2192,7 @@ const QuizTakingPage: React.FC = () => {
               <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
                 Problem Statement
               </h3>
-              <div className="text-gray-700 dark:text-gray-300 leading-relaxed">
+              <div className="text-gray-700 dark:text-gray-200 leading-relaxed">
                 {(() => {
                   try {
                     // Handle case where question_text might be stored as JSON
@@ -2109,7 +2224,7 @@ const QuizTakingPage: React.FC = () => {
                   <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
                     Constraints
                   </h4>
-                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed">
+                  <p className="text-gray-700 dark:text-gray-200 leading-relaxed">
                     {(currentQuestion.question_data as any).constraints}
                   </p>
                 </div>
@@ -2160,7 +2275,7 @@ const QuizTakingPage: React.FC = () => {
               setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))
             }
             disabled={currentQuestionIndex === 0 || contentDisabled}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2 inline" />
             Previous
@@ -2169,7 +2284,7 @@ const QuizTakingPage: React.FC = () => {
           <div className="flex items-center gap-2">
             {quizQuestions.map((question, index) => {
               const isAnswered = answers.find(
-                (a) => a.question_id === question.id
+                (a) => a.question_id === question.id,
               );
               return (
                 <button
@@ -2180,8 +2295,8 @@ const QuizTakingPage: React.FC = () => {
                     index === currentQuestionIndex
                       ? "bg-blue-500 text-white"
                       : isAnswered
-                      ? "bg-green-500 text-white"
-                      : "bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-400 dark:hover:bg-gray-600"
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
                   } ${contentDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
                 >
                   {index + 1}
@@ -2194,7 +2309,7 @@ const QuizTakingPage: React.FC = () => {
             onClick={async () => {
               await submitCurrentAnswer();
               setCurrentQuestionIndex((prev) =>
-                Math.min(totalQuestions - 1, prev + 1)
+                Math.min(totalQuestions - 1, prev + 1),
               );
             }}
             disabled={
@@ -2217,7 +2332,7 @@ const QuizTakingPage: React.FC = () => {
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Ready to Submit?
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
+              <p className="text-gray-600 dark:text-gray-200 mb-6 text-sm">
                 You have answered {answeredQuestions} out of {totalQuestions}{" "}
                 questions.
                 <br />
@@ -2226,7 +2341,7 @@ const QuizTakingPage: React.FC = () => {
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setShowConfirmSubmit(false)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
                   Continue Quiz
                 </button>
@@ -2321,78 +2436,86 @@ const QuizTakingPage: React.FC = () => {
       {/* Grade Summary Modal */}
       {showGradeSummary && gradeSummary && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-8 text-center shadow-2xl border border-gray-200">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-lg w-full p-8 text-center shadow-2xl border border-gray-200 dark:border-gray-800">
             <div className="mb-6">
-              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-3xl">🎉</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Quiz Submitted Successfully!
               </h2>
-              <p className="text-gray-600">{gradeSummary.quiz_title}</p>
+              <p className="text-gray-600 dark:text-gray-200">
+                {gradeSummary.quiz_title}
+              </p>
             </div>
 
             <div className="space-y-4 mb-8">
-              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-2xl p-6">
+              <div className="bg-gradient-to-r from-blue-50 to-blue-50 dark:from-blue-900/30 dark:to-blue-900/30 rounded-2xl p-6">
                 <div className="text-center">
                   <div
                     className={`text-5xl font-bold mb-2 ${
                       gradeSummary.percentage >= 90
-                        ? "text-green-600"
+                        ? "text-green-600 dark:text-green-400"
                         : gradeSummary.percentage >= 80
-                        ? "text-blue-600"
-                        : gradeSummary.percentage >= 70
-                        ? "text-yellow-600"
-                        : gradeSummary.percentage >= 60
-                        ? "text-orange-600"
-                        : "text-red-600"
+                          ? "text-blue-600 dark:text-blue-400"
+                          : gradeSummary.percentage >= 70
+                            ? "text-yellow-600 dark:text-yellow-400"
+                            : gradeSummary.percentage >= 60
+                              ? "text-orange-600 dark:text-orange-400"
+                              : "text-red-600 dark:text-red-400"
                     }`}
                   >
                     {Math.round(gradeSummary.percentage)}%
                   </div>
-                  <div className="text-lg font-semibold text-gray-700 mb-1">
+                  <div className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-1">
                     Grade:{" "}
                     {gradeSummary.percentage >= 90
                       ? "A"
                       : gradeSummary.percentage >= 80
-                      ? "B"
-                      : gradeSummary.percentage >= 70
-                      ? "C"
-                      : gradeSummary.percentage >= 60
-                      ? "D"
-                      : "F"}
+                        ? "B"
+                        : gradeSummary.percentage >= 70
+                          ? "C"
+                          : gradeSummary.percentage >= 60
+                            ? "D"
+                            : "F"}
                   </div>
                   <div
                     className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
                       gradeSummary.passed
-                        ? "bg-green-100 text-green-800"
-                        : "bg-red-100 text-red-800"
+                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
+                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
                     }`}
                   >
-                    {gradeSummary.passed ? "✓ Passed" : "✗ Failed"}
+                    {gradeSummary.passed && gradeSummary.percentage >= 50
+                      ? "✓ Passed"
+                      : "✗ Failed"}
                   </div>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="text-2xl font-bold text-gray-900">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
                     {gradeSummary.final_score}
                   </div>
-                  <div className="text-sm text-gray-600">Points Earned</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-200">
+                    Points Earned
+                  </div>
                 </div>
-                <div className="bg-gray-50 rounded-xl p-4">
-                  <div className="text-2xl font-bold text-gray-900">
+                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
+                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
                     {gradeSummary.max_score}
                   </div>
-                  <div className="text-sm text-gray-600">Total Points</div>
+                  <div className="text-sm text-gray-600 dark:text-gray-200">
+                    Total Points
+                  </div>
                 </div>
               </div>
             </div>
 
-            <div className="text-center text-sm text-gray-500">
+            <div className="text-center text-sm text-gray-500 dark:text-gray-200">
               <p>Redirecting to detailed results in a few seconds...</p>
-              <div className="mt-2 w-full bg-gray-200 rounded-full h-1">
+              <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
                 <div className="bg-blue-500 h-1 rounded-full animate-pulse"></div>
               </div>
             </div>
@@ -2403,31 +2526,31 @@ const QuizTakingPage: React.FC = () => {
       {/* Quiz Terminated Modal */}
       {showQuizTerminated && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-8 text-center shadow-2xl border border-red-300">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-lg w-full p-8 text-center shadow-2xl border border-red-300 dark:border-red-800">
             <div className="mb-6">
               <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertCircle className="w-10 h-10 text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 mb-2">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                 Quiz Terminated
               </h2>
-              <p className="text-gray-600 mb-4">
+              <p className="text-gray-600 dark:text-gray-200 mb-4">
                 Your quiz session has been terminated by the instructor.
               </p>
             </div>
 
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-6 mb-6">
-              <h3 className="text-lg font-semibold text-red-800 mb-2">
+            <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-2xl p-6 mb-6">
+              <h3 className="text-lg font-semibold text-red-800 dark:text-red-300 mb-2">
                 Reason:
               </h3>
-              <p className="text-red-700 leading-relaxed">
+              <p className="text-red-700 dark:text-red-400 leading-relaxed">
                 {terminationReason}
               </p>
             </div>
 
-            <div className="text-center text-sm text-gray-500">
+            <div className="text-center text-sm text-gray-500 dark:text-gray-200">
               <p>Your quiz will be submitted automatically...</p>
-              <div className="mt-2 w-full bg-red-200 rounded-full h-2">
+              <div className="mt-2 w-full bg-red-200 dark:bg-red-800 rounded-full h-2">
                 <div className="bg-red-500 h-2 rounded-full animate-pulse"></div>
               </div>
             </div>

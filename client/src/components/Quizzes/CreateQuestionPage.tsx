@@ -5,11 +5,9 @@ import { toast } from "react-toastify";
 import type { AppDispatch } from "../../store";
 import {
   createQuestion,
-  updateQuestion,
   fetchQuizQuestions,
   clearQuizError,
 } from "../../store/slices/quizSlice";
-import { useAutoSave } from "../../hooks/useAutoSave";
 import {
   DropdownQuestionForm,
   AlgorithmicQuestionForm,
@@ -23,17 +21,6 @@ import {
   MatchingQuestionForm,
   OrderingQuestionForm,
 } from "./QuestionForms";
-import {
-  ArrowLeft,
-  PlusCircle,
-  Clock,
-  Trophy,
-  MessageCircle,
-  Layers,
-  FileText,
-  Paperclip,
-} from "lucide-react";
-import FileDropzone from "../Common/FileDropzone";
 import type {
   CreateQuestionRequest,
   QuestionType,
@@ -152,67 +139,6 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
     time_limit_seconds: 60,
     is_required: true,
   });
-  const [attachments, setAttachments] = useState<File[]>([]);
-  const [createdQuestionId, setCreatedQuestionId] = useState<number | null>(
-    null,
-  );
-
-  // Helper to prepare FormData
-  const prepareFormData = (data: CreateQuestionRequest, files?: File[]) => {
-    const submitData = new FormData();
-    submitData.append("question_type", data.question_type);
-    submitData.append("question_text", data.question_text);
-    submitData.append("points", data.points.toString());
-    submitData.append("order", data.order.toString());
-    submitData.append("time_limit_seconds", data.time_limit_seconds.toString());
-    submitData.append("is_required", data.is_required.toString());
-
-    if (data.explanation) {
-      submitData.append("explanation", data.explanation);
-    }
-
-    submitData.append("question_data", JSON.stringify(data.question_data));
-
-    if (data.correct_answer !== undefined) {
-      submitData.append("correct_answer", JSON.stringify(data.correct_answer));
-    }
-
-    if (files) {
-      files.forEach((file) => {
-        submitData.append("attachments", file);
-      });
-    }
-
-    return submitData;
-  };
-
-  const { saving: autoSaving, lastSaved: autoLastSaved } = useAutoSave(
-    formData,
-    async (data) => {
-      // Basic validation for auto-save
-      if (!data.question_text.trim()) return;
-
-      const submitData = prepareFormData(data);
-
-      if (createdQuestionId) {
-        await dispatch(
-          updateQuestion({
-            questionId: createdQuestionId,
-            questionData: submitData as any,
-          }),
-        ).unwrap();
-      } else {
-        const result = await dispatch(
-          createQuestion({ quizId, questionData: submitData as any }),
-        ).unwrap();
-        setCreatedQuestionId(result.id);
-      }
-    },
-    {
-      delay: 3000,
-      enabled: !loading,
-    },
-  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -222,14 +148,13 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
     if (formData.question_type === "coding") {
       const codingData = getCodingData();
       const hasInvalidTestCases = codingData.test_cases.some(
-        (testCase) =>
-          !testCase.input.trim() || !testCase.expected_output.trim(),
+        (testCase) => !testCase.input.trim() || !testCase.expected_output.trim()
       );
 
       if (hasInvalidTestCases) {
         const invalidCount = codingData.test_cases.filter(
           (testCase) =>
-            !testCase.input.trim() || !testCase.expected_output.trim(),
+            !testCase.input.trim() || !testCase.expected_output.trim()
         ).length;
 
         toast.error(
@@ -241,7 +166,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
             closeOnClick: true,
             pauseOnHover: true,
             draggable: true,
-          },
+          }
         );
         return;
       }
@@ -251,23 +176,12 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
     dispatch(clearQuizError("questions"));
 
     try {
-      const submitData = prepareFormData(formData, attachments);
-
-      if (createdQuestionId) {
-        await dispatch(
-          updateQuestion({
-            questionId: createdQuestionId,
-            questionData: submitData as any,
-          }),
-        ).unwrap();
-      } else {
-        await dispatch(
-          createQuestion({
-            quizId: quizId,
-            questionData: submitData as any,
-          }),
-        ).unwrap();
-      }
+      await dispatch(
+        createQuestion({
+          quizId: quizId,
+          questionData: formData,
+        })
+      ).unwrap();
 
       toast.success("Question created successfully!", {
         position: "top-right",
@@ -342,7 +256,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
       const codingData = getCodingData();
       const hasInvalidTestCases = codingData.test_cases.some(
         (testCase: any) =>
-          !testCase.input.trim() || !testCase.expected_output.trim(),
+          !testCase.input.trim() || !testCase.expected_output.trim()
       );
       if (hasInvalidTestCases) return false;
     }
@@ -438,125 +352,51 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
     <div className="pb-8">
       <div className="">
         <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-lg p-6 md:p-9">
-          <div className="flex items-center justify-between mb-8 pb-6 border-b border-gray-100 dark:border-gray-800">
-            <div className="flex items-center gap-3">
-              <div className="p-3 bg-blue-50 dark:bg-blue-900/30 rounded-2xl">
-                <PlusCircle className="w-8 h-8 text-blue-600 dark:text-blue-400" />
-              </div>
-              <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-                  Create New Question
-                </h1>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  Define your question and its metadata
-                </p>
-                <div className="h-5 mt-1">
-                  {autoSaving ? (
-                    <span className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 bg-blue-600 dark:bg-blue-400 rounded-full animate-pulse"></span>
-                      Saving draft...
-                    </span>
-                  ) : autoLastSaved ? (
-                    <span className="text-xs text-gray-400 dark:text-gray-500">
-                      Draft saved {autoLastSaved.toLocaleTimeString()}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-            </div>
+          <div className="mb-6">
+            <h1 className="text-2xl font-bold mb-2">Create Question</h1>
             <button
               onClick={() => navigate(`/quizzes/${quizId}`)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+              className="text-blue-600 hover:text-blue-800"
             >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Quiz
+              ← Back to Quiz
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Primary Details Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-6 bg-gray-50/50 dark:bg-gray-800/30 rounded-3xl border border-gray-100 dark:border-gray-800">
-              {/* Question Type */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                  <Layers className="w-4 h-4 text-gray-400" />
-                  Question Type
-                </label>
-                <select
-                  value={formData.question_type}
-                  onChange={(e) => {
-                    const newType = e.target.value as QuestionType;
-                    setFormData((prev) => ({
-                      ...prev,
-                      question_type: newType,
-                      question_data: createQuestionData(newType),
-                    }));
-                  }}
-                  className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
-                >
-                  <option value="single_choice">Single Choice</option>
-                  <option value="multiple_choice">Multiple Choice</option>
-                  <option value="true_false">True/False</option>
-                  <option value="numerical">Numerical</option>
-                  <option value="fill_blank">Fill in the Blank</option>
-                  <option value="short_answer">Short Answer</option>
-                  <option value="matching">Matching</option>
-                  <option value="ordering">Ordering</option>
-                  <option value="dropdown">Dropdown</option>
-                  <option value="algorithmic">Algorithmic</option>
-                  <option value="coding">Coding</option>
-                </select>
-              </div>
-
-              {/* Scoring & Time Grid */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    <Trophy className="w-4 h-4 text-gray-400" />
-                    Points
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.points}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        points: parseInt(e.target.value),
-                      }))
-                    }
-                    min="1"
-                    max="100"
-                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                    <Clock className="w-4 h-4 text-gray-400" />
-                    Time (sec)
-                  </label>
-                  <input
-                    type="number"
-                    value={formData.time_limit_seconds}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        time_limit_seconds: parseInt(e.target.value),
-                      }))
-                    }
-                    min="10"
-                    max="3600"
-                    className="w-full px-4 py-2.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm font-medium"
-                    required
-                  />
-                </div>
-              </div>
+            {/* Question Type */}
+            <div>
+              <label className="block text-sm font-normal text-gray-700 mb-2 dark:text-gray-300">
+                Question Type
+              </label>
+              <select
+                value={formData.question_type}
+                onChange={(e) => {
+                  const newType = e.target.value as QuestionType;
+                  setFormData((prev) => ({
+                    ...prev,
+                    question_type: newType,
+                    question_data: createQuestionData(newType),
+                  }));
+                }}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="single_choice">Single Choice</option>
+                <option value="multiple_choice">Multiple Choice</option>
+                <option value="true_false">True/False</option>
+                <option value="numerical">Numerical</option>
+                <option value="fill_blank">Fill in the Blank</option>
+                <option value="short_answer">Short Answer</option>
+                <option value="matching">Matching</option>
+                <option value="ordering">Ordering</option>
+                <option value="dropdown">Dropdown</option>
+                <option value="algorithmic">Algorithmic</option>
+                <option value="coding">Coding</option>
+              </select>
             </div>
 
             {/* Question Text */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                <FileText className="w-4 h-4 text-gray-400" />
+            <div>
+              <label className="block text-sm font-normal text-gray-700 mb-2 dark:text-gray-300">
                 Question Text *
               </label>
               <textarea
@@ -567,9 +407,9 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                     question_text: e.target.value,
                   }))
                 }
-                placeholder="Enter your clear and concise question prompt here..."
-                rows={4}
-                className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none"
+                placeholder="Enter your question..."
+                rows={3}
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               />
             </div>
@@ -643,9 +483,8 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
             </div>
 
             {/* Explanation */}
-            <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300">
-                <MessageCircle className="w-4 h-4 text-gray-400" />
+            <div>
+              <label className="block text-sm font-normal text-gray-700 mb-2 dark:text-gray-300">
                 Explanation (optional)
               </label>
               <textarea
@@ -656,78 +495,10 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                     explanation: e.target.value,
                   }))
                 }
-                placeholder="Briefly explain the correct answer to help students learn..."
+                placeholder="Explain the correct answer..."
                 rows={3}
-                className="w-full px-4 py-3 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all text-sm resize-none"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
-            </div>
-
-            {/* Attachments Section */}
-            <div className="space-y-4">
-              <div className="flex items-center gap-2">
-                <Paperclip className="w-5 h-5 text-gray-400" />
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  Question Attachments
-                </h3>
-              </div>
-              <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-100 dark:border-gray-800">
-                <FileDropzone
-                  onFilesSelected={(files: File[]) =>
-                    setAttachments([...attachments, ...files])
-                  }
-                  allowedTypes=".pdf, .png, .jpg, .jpeg, .doc, .docx, .xls, .xlsx, .zip"
-                  maxFiles={3 - attachments.length}
-                />
-
-                {/* Selected Files List */}
-                {attachments.length > 0 && (
-                  <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {attachments.map((file, index) => (
-                      <div
-                        key={`new-${index}`}
-                        className="flex items-center justify-between p-3 bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
-                            <FileText className="w-4 h-4" />
-                          </div>
-                          <div className="min-w-0">
-                            <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                              {file.name}
-                            </p>
-                            <p className="text-xs text-gray-500">
-                              {(file.size / 1024 / 1024).toFixed(2)} MB
-                            </p>
-                          </div>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            const newFiles = [...attachments];
-                            newFiles.splice(index, 1);
-                            setAttachments(newFiles);
-                          }}
-                          className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
-                        >
-                          <svg
-                            className="w-4 h-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M6 18L18 6M6 6l12 12"
-                            />
-                          </svg>
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
             </div>
 
             {/* Action Buttons */}

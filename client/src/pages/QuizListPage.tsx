@@ -9,10 +9,10 @@ import {
   updateQuiz,
 } from "../store/slices/quizSlice";
 import QuizListItem from "../components/Quizzes/QuizListItem";
-import { useAuth } from "../contexts/AuthContext";
 import {
   ChevronLeft,
   ChevronRight,
+  Filter,
   Search,
   BookOpen,
   Plus,
@@ -26,10 +26,9 @@ import {
 const QuizListPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const dispatch = useDispatch<AppDispatch>();
-  const { quizzes, loading } = useSelector((state: RootState) => state.quiz);
-  const { user } = useAuth();
-  const canManageQuizzes =
-    user?.role === "instructor" || user?.role === "admin";
+  const { quizzes, loading, error } = useSelector(
+    (state: RootState) => state.quiz,
+  );
 
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [publicLoading, setPublicLoading] = useState<string | null>(null);
@@ -40,6 +39,7 @@ const QuizListPage: React.FC = () => {
   const [sortBy, setSortBy] = useState<string>("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [viewMode, setViewMode] = useState<"list" | "grid">("list");
+  const [showFilters, setShowFilters] = useState(false);
 
   const itemsPerPage = 12;
 
@@ -80,8 +80,8 @@ const QuizListPage: React.FC = () => {
 
       switch (sortBy) {
         case "title":
-          aValue = (a.title || "").toLowerCase();
-          bValue = (b.title || "").toLowerCase();
+          aValue = a.title.toLowerCase();
+          bValue = b.title.toLowerCase();
           break;
         case "created_at":
           aValue = new Date(a.created_at || 0).getTime();
@@ -99,8 +99,6 @@ const QuizListPage: React.FC = () => {
           return 0;
       }
 
-      if (aValue === bValue) return 0;
-
       if (sortOrder === "asc") {
         return aValue > bValue ? 1 : -1;
       } else {
@@ -111,13 +109,6 @@ const QuizListPage: React.FC = () => {
     return filtered;
   }, [quizzes, searchTerm, statusFilter, typeFilter, sortBy, sortOrder]);
 
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedQuizzes.length / itemsPerPage);
-  const paginatedQuizzes = filteredAndSortedQuizzes.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage,
-  );
-
   // Group quizzes by status
   const groupedQuizzes = useMemo(() => {
     const groups: { [key: string]: typeof filteredAndSortedQuizzes } = {
@@ -126,7 +117,7 @@ const QuizListPage: React.FC = () => {
       completed: [],
     };
 
-    paginatedQuizzes.forEach((quiz) => {
+    filteredAndSortedQuizzes.forEach((quiz) => {
       if (groups[quiz.status]) {
         groups[quiz.status].push(quiz);
       } else {
@@ -135,7 +126,14 @@ const QuizListPage: React.FC = () => {
     });
 
     return groups;
-  }, [paginatedQuizzes]);
+  }, [filteredAndSortedQuizzes]);
+
+  // Pagination
+  const totalPages = Math.ceil(filteredAndSortedQuizzes.length / itemsPerPage);
+  const paginatedQuizzes = filteredAndSortedQuizzes.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
 
   const handlePageChange = (page: number) => {
     setCurrentPage(page);
@@ -230,11 +228,9 @@ const QuizListPage: React.FC = () => {
   if (loading.quizzes) {
     return (
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-600 dark:text-gray-400 font-medium">
-            Loading quizzes...
-          </p>
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600 dark:text-gray-400">Loading quizzes...</p>
         </div>
       </div>
     );
@@ -264,22 +260,20 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            {canManageQuizzes && (
-              <div className="flex items-center gap-3">
-                <Link
-                  to={`/courses/${courseId}/quizzes/create`}
-                  className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-200 hover:scale-105"
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Create Quiz
-                </Link>
-              </div>
-            )}
+            <div className="flex items-center gap-3">
+              <Link
+                to={`/courses/${courseId}/quizzes/create`}
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Create Quiz
+              </Link>
+            </div>
           </div>
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 transition-all duration-300">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -293,7 +287,7 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 transition-all duration-300">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -307,7 +301,7 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 transition-all duration-300">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -321,7 +315,7 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 transition-all duration-300">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600 dark:text-gray-400">
@@ -459,12 +453,8 @@ const QuizListPage: React.FC = () => {
                       <QuizListItem
                         key={quiz.id}
                         quiz={quiz}
-                        onDelete={
-                          canManageQuizzes ? handleDeleteQuiz : undefined
-                        }
-                        onTogglePublic={
-                          canManageQuizzes ? handleTogglePublic : undefined
-                        }
+                        onDelete={handleDeleteQuiz}
+                        onTogglePublic={handleTogglePublic}
                         deleteLoading={deleteLoading}
                         publicLoading={publicLoading}
                         showActions={true}
@@ -476,7 +466,7 @@ const QuizListPage: React.FC = () => {
                     {quizzes.map((quiz) => (
                       <div
                         key={quiz.id}
-                        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 transition-all hover:-translate-y-1 hover:border-gray-300 dark:hover:border-gray-600"
+                        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-all hover:-translate-y-1"
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
@@ -521,40 +511,38 @@ const QuizListPage: React.FC = () => {
                             View Quiz
                           </Link>
 
-                          {canManageQuizzes && (
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() =>
-                                  handleTogglePublic(
-                                    quiz.id,
-                                    quiz.is_public || false,
-                                  )
-                                }
-                                disabled={publicLoading === quiz.id.toString()}
-                                className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
-                                  quiz.is_public
-                                    ? "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
-                                    : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
-                                } disabled:opacity-50`}
-                              >
-                                {publicLoading === quiz.id.toString()
-                                  ? "..."
-                                  : quiz.is_public
-                                    ? "Private"
-                                    : "Public"}
-                              </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                handleTogglePublic(
+                                  quiz.id,
+                                  quiz.is_public || false,
+                                )
+                              }
+                              disabled={publicLoading === quiz.id.toString()}
+                              className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                                quiz.is_public
+                                  ? "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
+                                  : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                              } disabled:opacity-50`}
+                            >
+                              {publicLoading === quiz.id.toString()
+                                ? "..."
+                                : quiz.is_public
+                                  ? "Private"
+                                  : "Public"}
+                            </button>
 
-                              <button
-                                onClick={() => handleDeleteQuiz(quiz.id)}
-                                disabled={deleteLoading === quiz.id.toString()}
-                                className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-full disabled:opacity-50"
-                              >
-                                {deleteLoading === quiz.id.toString()
-                                  ? "..."
-                                  : "Delete"}
-                              </button>
-                            </div>
-                          )}
+                            <button
+                              onClick={() => handleDeleteQuiz(quiz.id)}
+                              disabled={deleteLoading === quiz.id.toString()}
+                              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-full disabled:opacity-50"
+                            >
+                              {deleteLoading === quiz.id.toString()
+                                ? "..."
+                                : "Delete"}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -571,7 +559,7 @@ const QuizListPage: React.FC = () => {
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105"
+              className="p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -588,7 +576,7 @@ const QuizListPage: React.FC = () => {
                     onClick={() => handlePageChange(pageNum)}
                     className={`px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
                       currentPage === pageNum
-                        ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white"
+                        ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
                         : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
                     }`}
                   >
@@ -601,7 +589,7 @@ const QuizListPage: React.FC = () => {
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105"
+              className="p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -625,18 +613,15 @@ const QuizListPage: React.FC = () => {
                 : "Create your first quiz to start assessing student learning and progress."}
             </p>
 
-            {!searchTerm &&
-              statusFilter === "all" &&
-              typeFilter === "all" &&
-              canManageQuizzes && (
-                <Link
-                  to={`/quizzes/${courseId}/questions/create`}
-                  className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl font-medium transition-all duration-200 hover:scale-105"
-                >
-                  <Plus className="h-5 w-5 mr-2" />
-                  Create Your First Quiz
-                </Link>
-              )}
+            {!searchTerm && statusFilter === "all" && typeFilter === "all" && (
+              <Link
+                to={`/courses/${courseId}/quizzes/create`}
+                className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                Create Your First Quiz
+              </Link>
+            )}
           </div>
         )}
       </div>

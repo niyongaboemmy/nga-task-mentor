@@ -80,12 +80,12 @@ const StudentQuizzesPage: React.FC = () => {
         setLoading(true);
 
         // Fetch completed quiz results
-        const resultsResponse = await axios.get(" /quizzes/my-results");
+        const resultsResponse = await axios.get("/quizzes/my-results");
         const results = resultsResponse.data.data || [];
         setQuizResults(results);
 
         // Fetch available quizzes
-        const availableResponse = await axios.get(" /quizzes/available");
+        const availableResponse = await axios.get("/quizzes/available");
         const available = availableResponse.data.data || [];
         setAvailableQuizzes(available);
 
@@ -395,71 +395,50 @@ const StudentQuizzesPage: React.FC = () => {
       <div className="pb-8">
         {/* Header */}
         <div className="mb-6">
-          <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 px-5 py-4">
-            <div className="flex flex-col gap-4">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center">
-                    <BookOpen className="w-6 h-6 md:w-7 md:h-7" />
-                  </div>
-                  <div>
-                    <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
-                      My Quiz Results
-                    </h1>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                      Track your progress and review your quiz performance
-                    </p>
-                  </div>
-                </div>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+                My Quiz Results
+              </h1>
+              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                Track your progress and review your quiz performance
+              </p>
+            </div>
 
-                <div className="hidden md:flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                    {quizResults.length} quiz
-                    {quizResults.length === 1 ? "" : "es"}
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search quizzes..."
+                  value={filters.search}
+                  onChange={(e) => updateFilter("search", e.target.value)}
+                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full text-sm"
+                />
+              </div>
+
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 hover:shadow-md"
+              >
+                <Filter className="h-4 w-4 mr-2" />
+                Filters
+                {(filters.status !== "all" ||
+                  filters.course !== "all" ||
+                  filters.dateRange !== "all" ||
+                  filters.scoreRange !== "all") && (
+                  <span className="ml-2 bg-pink-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
+                    {
+                      [
+                        filters.status,
+                        filters.course,
+                        filters.dateRange,
+                        filters.scoreRange,
+                      ].filter((f) => f !== "all").length
+                    }
                   </span>
-                </div>
-              </div>
-
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                {/* Search */}
-                <div className="w-full relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <Search className="h-4 w-4 text-gray-400" />
-                  </div>
-                  <input
-                    type="text"
-                    placeholder="Search quizzes, courses, or tags..."
-                    value={filters.search}
-                    onChange={(e) => updateFilter("search", e.target.value)}
-                    className="block w-full font-normal pl-10 pr-3 py-2.5 text-sm rounded-2xl leading-5 bg-gray-50 dark:bg-gray-800/40 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:text-white"
-                  />
-                </div>
-
-                <div className="flex items-center justify-between md:justify-end gap-3">
-                  <button
-                    onClick={() => setShowFilters(!showFilters)}
-                    className="inline-flex items-center px-4 py-2 bg-gray-50 dark:bg-gray-800/50 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 hover:scale-105"
-                  >
-                    <Filter className="h-4 w-4 mr-2" />
-                    Filters
-                    {(filters.status !== "all" ||
-                      filters.course !== "all" ||
-                      filters.dateRange !== "all" ||
-                      filters.scoreRange !== "all") && (
-                      <span className="ml-2 bg-pink-500 text-white text-xs px-2 py-1 rounded-full animate-pulse">
-                        {
-                          [
-                            filters.status,
-                            filters.course,
-                            filters.dateRange,
-                            filters.scoreRange,
-                          ].filter((f) => f !== "all").length
-                        }
-                      </span>
-                    )}
-                  </button>
-                </div>
-              </div>
+                )}
+              </button>
             </div>
           </div>
         </div>

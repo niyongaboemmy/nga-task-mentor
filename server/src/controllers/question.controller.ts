@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
+import axios from "axios";
 import { QuizQuestion, Quiz, QuizAttempt } from "../models";
 import { Transaction, Op } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
 import { QuestionType, CreateQuestionRequest } from "../types/quiz.types";
-import fs from "fs";
-import path from "path";
+import { getMisToken, getCurrentTermId } from "../utils/misUtils";
 
 // @desc    Get questions for a quiz
 // @route   GET /api/quizzes/:quizId/questions
@@ -23,15 +23,29 @@ export const getQuizQuestions = async (req: Request, res: Response) => {
 
     // Check if user can access this quiz
     if (req.user.role !== "admin" && req.user.id !== quiz.created_by) {
-      // Check if student is enrolled in the course
-      const enrollment = await sequelize.models.UserCourse.findOne({
-        where: {
-          user_id: req.user.id,
-          course_id: quiz.course_id,
-        },
-      });
+      // Check if student is enrolled in the course via MIS API
+      const token = getMisToken(req);
+      const termId = await getCurrentTermId(req);
 
-      if (!enrollment) {
+      try {
+        const enrollmentResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${quiz.course_id}/terms/${termId}/students`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        );
+
+        const enrolledStudents = enrollmentResponse.data.data || [];
+        const isEnrolled = enrolledStudents.some(
+          (s: any) => s.user_id === req.user.id || s.id === req.user.id,
+        );
+
+        if (!isEnrolled) {
+          return res.status(403).json({
+            success: false,
+            message: "Not authorized to access this quiz",
+          });
+        }
+      } catch (enrollmentError) {
+        console.error("Error checking enrollment:", enrollmentError);
         return res.status(403).json({
           success: false,
           message: "Not authorized to access this quiz",
@@ -149,39 +163,6 @@ export const createQuestion = async (req: Request, res: Response) => {
     const { quizId } = req.params;
     const questionData: CreateQuestionRequest = req.body;
 
-    // Parse JSON fields if they are strings (happens with FormData)
-    if (typeof questionData.question_data === "string") {
-      try {
-        questionData.question_data = JSON.parse(questionData.question_data);
-      } catch (e) {
-        console.error("Failed to parse question_data:", e);
-      }
-    }
-
-    if (typeof questionData.correct_answer === "string") {
-      try {
-        questionData.correct_answer = JSON.parse(questionData.correct_answer);
-      } catch (e) {
-        console.error("Failed to parse correct_answer:", e);
-      }
-    }
-
-    // Parse numeric fields if they are strings
-    if (typeof questionData.points === "string") {
-      questionData.points = parseFloat(questionData.points);
-    }
-    if (typeof questionData.order === "string") {
-      questionData.order = parseInt(questionData.order);
-    }
-    if (typeof questionData.time_limit_seconds === "string") {
-      questionData.time_limit_seconds = parseInt(
-        questionData.time_limit_seconds,
-      );
-    }
-    if (typeof questionData.is_required === "string") {
-      questionData.is_required = questionData.is_required === "true";
-    }
-
     // Find the quiz
     const quiz = await Quiz.findByPk(quizId, { transaction });
     if (!quiz) {
@@ -191,7 +172,7 @@ export const createQuestion = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check if user is quiz creator, course instructor, or admin
+    // Check if user is quiz creator or admin
     if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
       await transaction.rollback();
       return res.status(403).json({
@@ -204,7 +185,6 @@ export const createQuestion = async (req: Request, res: Response) => {
     const validation = QuestionValidator.validateQuestionData(
       questionData.question_type,
       questionData.question_data,
-      questionData.correct_answer,
     );
 
     if (!validation.isValid) {
@@ -217,26 +197,6 @@ export const createQuestion = async (req: Request, res: Response) => {
       });
     }
 
-    // Set correct_answer based on question type
-    let correctAnswer = questionData.correct_answer;
-    if (questionData.question_type === "single_choice") {
-      const singleChoiceData = questionData.question_data as any;
-      if (singleChoiceData?.correct_option_index !== undefined) {
-        correctAnswer = singleChoiceData.correct_option_index;
-      }
-    } else if (questionData.question_type === "multiple_choice") {
-      const multipleChoiceData = questionData.question_data as any;
-      if (multipleChoiceData?.correct_option_indices) {
-        correctAnswer = multipleChoiceData.correct_option_indices;
-      }
-    } else if (questionData.question_type === "true_false") {
-      const trueFalseData = questionData.question_data as any;
-      if (trueFalseData?.correct_answer !== undefined) {
-        correctAnswer = trueFalseData.correct_answer;
-      }
-    }
-    // For other question types, correct_answer remains as provided or null
-
     // Get the next order number
     const maxOrder = (await QuizQuestion.max("order", {
       where: { quiz_id: quizId },
@@ -244,23 +204,12 @@ export const createQuestion = async (req: Request, res: Response) => {
     })) as number | undefined;
     const nextOrder = (maxOrder || 0) + 1;
 
-    // Handle file uploads
-    const attachments =
-      (req.files as Express.Multer.File[])?.map((file) => ({
-        name: file.originalname,
-        url: `/uploads/questions/${file.filename}`,
-        type: file.mimetype,
-        size: file.size,
-      })) || [];
-
     const question = await QuizQuestion.create(
       {
         ...questionData,
-        correct_answer: correctAnswer,
         quiz_id: parseInt(quizId),
         order: nextOrder,
         created_by: req.user.id,
-        attachments,
       },
       { transaction },
     );
@@ -294,39 +243,6 @@ export const updateQuestion = async (req: Request, res: Response) => {
   try {
     const questionData = req.body;
 
-    // Parse JSON fields if they are strings (happens with FormData)
-    if (typeof questionData.question_data === "string") {
-      try {
-        questionData.question_data = JSON.parse(questionData.question_data);
-      } catch (e) {
-        console.error("Failed to parse question_data:", e);
-      }
-    }
-
-    if (typeof questionData.correct_answer === "string") {
-      try {
-        questionData.correct_answer = JSON.parse(questionData.correct_answer);
-      } catch (e) {
-        console.error("Failed to parse correct_answer:", e);
-      }
-    }
-
-    // Parse numeric fields if they are strings
-    if (typeof questionData.points === "string") {
-      questionData.points = parseFloat(questionData.points);
-    }
-    if (typeof questionData.order === "string") {
-      questionData.order = parseInt(questionData.order);
-    }
-    if (typeof questionData.time_limit_seconds === "string") {
-      questionData.time_limit_seconds = parseInt(
-        questionData.time_limit_seconds,
-      );
-    }
-    if (typeof questionData.is_required === "string") {
-      questionData.is_required = questionData.is_required === "true";
-    }
-
     const question = await QuizQuestion.findByPk(req.params.id, {
       include: [
         {
@@ -349,40 +265,37 @@ export const updateQuestion = async (req: Request, res: Response) => {
     // Check if user is authorized to update this question
     // Admin can update any question
     // Quiz creator can update any question in their quiz
-    // Course instructor can update any question in courses they teach
     // Instructor can update questions they created
-    // const userId = parseInt(String(req.user.id));
-    // const quizCreatorId = parseInt(String(quiz?.created_by));
-    // const questionCreatorId = parseInt(String(question.created_by));
+    const userId = parseInt(String(req.user.id));
+    const quizCreatorId = parseInt(String(quiz?.created_by));
+    const questionCreatorId = parseInt(String(question.created_by));
 
-    // Set correct_answer based on question type if question data is being updated
-    let correctAnswer = questionData.correct_answer;
+    // Simplified authorization - check quiz creator or admin
+    const isAuthorized =
+      req.user.role === "admin" ||
+      quizCreatorId === userId ||
+      (req.user.role === "instructor" && questionCreatorId === userId) ||
+      (req.user.role === "instructor" &&
+        (question.created_by === null || question.created_by === 0)); // Fallback for legacy questions
+
+    if (!isAuthorized) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        message:
+          "Not authorized to update this question. Only the question creator, quiz creator, or admin can update questions.",
+      });
+    }
+
+    // If updating question data, validate it
     if (questionData.question_type || questionData.question_data) {
       const questionType = questionData.question_type || question.question_type;
-      const questionDataToUpdate =
+      const questionDataToValidate =
         questionData.question_data || question.question_data;
-
-      if (questionType === "single_choice") {
-        const singleChoiceData = questionDataToUpdate as any;
-        if (singleChoiceData?.correct_option_index !== undefined) {
-          correctAnswer = singleChoiceData.correct_option_index;
-        }
-      } else if (questionType === "multiple_choice") {
-        const multipleChoiceData = questionDataToUpdate as any;
-        if (multipleChoiceData?.correct_option_indices) {
-          correctAnswer = multipleChoiceData.correct_option_indices;
-        }
-      } else if (questionType === "true_false") {
-        const trueFalseData = questionDataToUpdate as any;
-        if (trueFalseData?.correct_answer !== undefined) {
-          correctAnswer = trueFalseData.correct_answer;
-        }
-      }
 
       const validation = QuestionValidator.validateQuestionData(
         questionType,
-        questionDataToUpdate,
-        correctAnswer,
+        questionDataToValidate,
       );
 
       if (!validation.isValid) {
@@ -396,62 +309,7 @@ export const updateQuestion = async (req: Request, res: Response) => {
       }
     }
 
-    // Handle attachments
-    let updatedAttachments = question.attachments || [];
-
-    if (req.body.existing_attachments) {
-      try {
-        const retainedAttachments = JSON.parse(req.body.existing_attachments);
-        const filesToRemove = updatedAttachments.filter(
-          (oldAtt: any) =>
-            !retainedAttachments.some(
-              (newAtt: any) => newAtt.url === oldAtt.url,
-            ),
-        );
-
-        filesToRemove.forEach((file: any) => {
-          try {
-            const filename = file.url.split("/").pop();
-            if (filename) {
-              const filePath = path.join(
-                __dirname,
-                "../../uploads/questions",
-                filename,
-              );
-              if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-                console.log(`Deleted file: ${filePath}`);
-              }
-            }
-          } catch (err) {
-            console.error(`Failed to delete file ${file.name}:`, err);
-          }
-        });
-
-        updatedAttachments = retainedAttachments;
-      } catch (e) {
-        console.error("Error parsing existing_attachments:", e);
-      }
-    }
-
-    if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-      const newAttachments = (req.files as Express.Multer.File[]).map(
-        (file) => ({
-          name: file.originalname,
-          url: `/uploads/questions/${file.filename}`,
-          type: file.mimetype,
-          size: file.size,
-        }),
-      );
-      updatedAttachments = [...updatedAttachments, ...newAttachments];
-    }
-
-    question.attachments = updatedAttachments as any;
-
-    await question.update(
-      { ...questionData, correct_answer: correctAnswer },
-      { transaction },
-    );
+    await question.update(questionData, { transaction });
     await transaction.commit();
 
     // Fetch updated question
@@ -590,28 +448,6 @@ export const deleteQuestion = async (req: Request, res: Response) => {
       });
     }
 
-    // Delete question attachments from disk
-    if (question.attachments && question.attachments.length > 0) {
-      question.attachments.forEach((file: any) => {
-        try {
-          const filename = file.url.split("/").pop();
-          if (filename) {
-            const filePath = path.join(
-              __dirname,
-              "../../uploads/questions",
-              filename,
-            );
-            if (fs.existsSync(filePath)) {
-              fs.unlinkSync(filePath);
-              console.log(`Deleted question attachment: ${filePath}`);
-            }
-          }
-        } catch (err) {
-          console.error(`Failed to delete file ${file.name}:`, err);
-        }
-      });
-    }
-
     // Delete the question
     await question.destroy({ transaction });
 
@@ -723,7 +559,7 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check authorization
+    // Check authorization - allow quiz creator or admin
     if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
       await transaction.rollback();
       return res.status(403).json({
@@ -739,7 +575,6 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
       const validation = QuestionValidator.validateQuestionData(
         question.question_type,
         question.question_data,
-        question.correct_answer,
       );
 
       if (!validation.isValid) {

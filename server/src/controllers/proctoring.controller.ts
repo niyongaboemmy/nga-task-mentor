@@ -136,7 +136,7 @@ export const updateProctoringSettings = async (req: Request, res: Response) => {
           quiz_id: parseInt(quizId),
           ...updateData,
         },
-        { transaction }
+        { transaction },
       );
     }
 
@@ -245,10 +245,10 @@ export const startProctoringSession = async (req: Request, res: Response) => {
         mode: (quiz.proctoringSettings.mode === "automated"
           ? "automated_proctoring"
           : quiz.proctoringSettings.mode === "live"
-          ? "live_proctoring"
-          : quiz.proctoringSettings.mode === "record_review"
-          ? "record_review"
-          : "automated_proctoring") as
+            ? "live_proctoring"
+            : quiz.proctoringSettings.mode === "record_review"
+              ? "record_review"
+              : "automated_proctoring") as
           | "live_proctoring"
           | "automated_proctoring"
           | "record_review",
@@ -264,7 +264,7 @@ export const startProctoringSession = async (req: Request, res: Response) => {
         is_connected: true,
         last_connection_time: new Date(),
       },
-      { transaction }
+      { transaction },
     );
 
     // Log session start event
@@ -283,7 +283,7 @@ export const startProctoringSession = async (req: Request, res: Response) => {
         }),
         reviewed: false,
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();
@@ -393,7 +393,7 @@ export const updateProctoringSession = async (req: Request, res: Response) => {
           description: `Session status changed to ${status}`,
           reviewed: false,
         },
-        { transaction }
+        { transaction },
       );
     }
 
@@ -495,9 +495,11 @@ export const logProctoringEvent = async (req: Request, res: Response) => {
     // Update session flags count and risk score
     if (severity === "high" || severity === "critical") {
       await session.increment("flags_count");
-      await session.increment("risk_score", {
-        by: severity === "critical" ? 20 : 10,
-      });
+
+      // Calculate the increment amount, but cap at 100
+      const incrementBy = severity === "critical" ? 20 : 10;
+      const newRiskScore = Math.min(session.risk_score + incrementBy, 100);
+      await session.update({ risk_score: newRiskScore });
     }
 
     res.status(201).json({
@@ -1102,7 +1104,7 @@ export const endProctoringSession = async (req: Request, res: Response) => {
         status: "terminated",
         end_time: new Date(),
       },
-      { transaction }
+      { transaction },
     );
 
     // Log termination event
@@ -1119,7 +1121,7 @@ export const endProctoringSession = async (req: Request, res: Response) => {
         }),
         reviewed: false,
       },
-      { transaction }
+      { transaction },
     );
 
     await transaction.commit();

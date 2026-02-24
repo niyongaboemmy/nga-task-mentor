@@ -4,7 +4,6 @@ import { useDispatch } from "react-redux";
 import type { AppDispatch } from "../../store";
 import { createQuiz, clearQuizError } from "../../store/slices/quizSlice";
 import ProctoringSettings from "../Proctoring/ProctoringSettings";
-import { parseLocalDateTimeToUTC } from "../../utils/dateUtils";
 import type { CreateQuizRequest } from "../../types/quiz.types";
 import { Card, CardContent, CardHeader } from "../ui/Card";
 
@@ -48,18 +47,12 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
     dispatch(clearQuizError("quiz"));
 
     try {
-      // Convert local dates to UTC for API
-      const submissionData = {
-        ...formData,
-        start_date: formData.start_date
-          ? parseLocalDateTimeToUTC(formData.start_date).toISOString()
-          : undefined,
-        end_date: formData.end_date
-          ? parseLocalDateTimeToUTC(formData.end_date).toISOString()
-          : undefined,
-      };
-
-      const result = await dispatch(createQuiz(submissionData)).unwrap();
+      const result = await dispatch(
+        createQuiz({
+          courseId,
+          quizData: formData,
+        }),
+      ).unwrap();
 
       setCreatedQuizId(result.id);
 
@@ -232,7 +225,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
               onChange={(e) =>
                 handleChange(
                   "time_limit",
-                  e.target.value ? parseInt(e.target.value) : undefined
+                  e.target.value ? parseInt(e.target.value) : undefined,
                 )
               }
               placeholder="No limit"
@@ -257,7 +250,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
               onChange={(e) =>
                 handleChange(
                   "max_attempts",
-                  e.target.value ? parseInt(e.target.value) : undefined
+                  e.target.value ? parseInt(e.target.value) : undefined,
                 )
               }
               placeholder="Unlimited"
@@ -282,7 +275,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
               onChange={(e) =>
                 handleChange(
                   "passing_score",
-                  e.target.value ? parseFloat(e.target.value) : undefined
+                  e.target.value ? parseFloat(e.target.value) : undefined,
                 )
               }
               placeholder="60%"
@@ -291,41 +284,6 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
               step="0.1"
               className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
-          </div>
-
-          {/* Availability Dates */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label
-                htmlFor="start_date"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                Start Date & Time (Optional)
-              </label>
-              <input
-                type="datetime-local"
-                id="start_date"
-                value={formData.start_date || ""}
-                onChange={(e) => handleChange("start_date", e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="end_date"
-                className="block text-sm font-medium text-gray-700 mb-2"
-              >
-                End Date & Time (Optional)
-              </label>
-              <input
-                type="datetime-local"
-                id="end_date"
-                value={formData.end_date || ""}
-                onChange={(e) => handleChange("end_date", e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
           </div>
 
           {/* Options */}
@@ -431,8 +389,8 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
                 {formData.require_manual_grading
                   ? "Students will see 'Pending' until instructor reviews and grades the quiz manually."
                   : formData.enable_automatic_grading
-                  ? "Grades will be calculated automatically and shown immediately."
-                  : "Grades will be hidden from students (manual grading required)."}
+                    ? "Grades will be calculated automatically and shown immediately."
+                    : "Grades will be hidden from students (manual grading required)."}
               </div>
             </div>
 

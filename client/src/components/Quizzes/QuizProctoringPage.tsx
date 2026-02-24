@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { Card, CardContent } from "../ui/Card";
+import { Card, CardContent, CardHeader } from "../ui/Card";
 import { Button } from "../ui/Button";
 import ProctoringAnalytics from "../Proctoring/ProctoringAnalytics";
 import LiveProctoringDashboard from "../Proctoring/LiveProctoringDashboard";
@@ -10,6 +10,7 @@ import {
   BarChart3,
   Shield,
   Users,
+  Clock,
   AlertTriangle,
   CheckCircle,
   Settings,

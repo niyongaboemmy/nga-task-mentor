@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "server": "npm run dev --prefix server",
+    "live-server": "npm run dev --prefix live-server",
     "client": "npm run dev --prefix client",
     "dev": "concurrently \"npm run server\" \"npm run client\""
   },

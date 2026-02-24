@@ -38,7 +38,7 @@ interface ProctoringEvent {
 
 const LiveProctoringDashboard: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
-  const [selectedQuiz, _setSelectedQuiz] = useState<number | null>(
+  const [selectedQuiz, setSelectedQuiz] = useState<number | null>(
     quizId ? Number(quizId) : null,
   );
   const [activeStreams, setActiveStreams] = useState<LiveStream[]>([]);
@@ -50,21 +50,54 @@ const LiveProctoringDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
   const [isReconnecting, setIsReconnecting] = useState(false);
-  const [_availableQuizzes, setAvailableQuizzes] = useState<
+  const [availableQuizzes, setAvailableQuizzes] = useState<
     { id: number; title: string }[]
+  >([]);
+  const [statusMessages, setStatusMessages] = useState<
+    {
+      id: number;
+      message: string;
+      type: "info" | "success" | "error" | "warning";
+      timestamp: Date;
+    }[]
   >([]);
 
   const socketRef = useRef<Socket | null>(null);
-  // const _videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRefs = useRef<Map<string, HTMLVideoElement>>(new Map()); // Store video element refs by session token
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localAudioStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const joiningStreamsRef = useRef<Set<string>>(new Set()); // Track streams currently being joined
+  const pendingICECandidatesRef = useRef<Map<string, any[]>>(new Map()); // Queue ICE candidates until peer connection is ready
+  const socketIdToSessionRef = useRef<Map<string, string>>(new Map()); // Map socket IDs to session tokens
+  const activeStreamsRef = useRef<LiveStream[]>([]); // Ref for current active streams
+
+  // Helper to update activeStreams in both state and ref
+  const updateActiveStreams = (
+    updater: (prev: LiveStream[]) => LiveStream[],
+  ) => {
+    setActiveStreams((prev) => {
+      const newStreams = updater(prev);
+      activeStreamsRef.current = newStreams;
+      return newStreams;
+    });
+  };
+
+  // Keep activeStreamsRef in sync with activeStreams state
+  useEffect(() => {
+    activeStreamsRef.current = activeStreams;
+  }, [activeStreams]);
 
   useEffect(() => {
     loadActiveStreams();
     initializeSocket();
 
     return () => {
+      // Clear the stream refresh interval
+      if ((window as any).streamRefreshInterval) {
+        clearInterval((window as any).streamRefreshInterval);
+        (window as any).streamRefreshInterval = null;
+      }
       if (socketRef.current) {
         socketRef.current.disconnect();
       }
@@ -78,8 +111,28 @@ const LiveProctoringDashboard: React.FC = () => {
       localAudioStreamsRef.current.clear();
       // Clear joining streams set
       joiningStreamsRef.current.clear();
+      // Clear pending ICE candidates
+      pendingICECandidatesRef.current.clear();
+      // Clear socket ID to session mapping
+      socketIdToSessionRef.current.clear();
     };
   }, []);
+
+  // Effect to handle video stream assignment when streams change
+  useEffect(() => {
+    activeStreams.forEach((stream) => {
+      if (stream.stream) {
+        const videoEl = videoRefs.current.get(stream.sessionToken);
+        if (videoEl && videoEl.srcObject !== stream.stream) {
+          console.log(
+            `Assigning stream to video element for ${stream.sessionToken}`,
+          );
+          videoEl.srcObject = stream.stream;
+          videoEl.play().catch((e) => console.error("Play error:", e));
+        }
+      }
+    });
+  }, [activeStreams]); // Re-run when activeStreams changes
 
   // Establish WebRTC connections when socket connects or streams are loaded
   useEffect(() => {
@@ -171,8 +224,16 @@ const LiveProctoringDashboard: React.FC = () => {
   }, [activeStreams]);
 
   const initializeSocket = () => {
-    socketRef.current = io("http://localhost:5002", {
-      transports: ["websocket", "polling"],
+    socketRef.current = io(
+      import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
+      {
+        transports: ["websocket", "polling"],
+      },
+    );
+
+    // Global socket listener for debugging - log all incoming events
+    socketRef.current.onAny((eventName, ...args) => {
+      console.log("📥 Dashboard socket received:", eventName, args);
     });
 
     socketRef.current.on("connect", () => {
@@ -181,9 +242,32 @@ const LiveProctoringDashboard: React.FC = () => {
         socketRef.current?.id,
       );
       setSocketConnected(true);
+      addStatusMessage("Connected to socket server", "success");
+
+      // Debug: Log all outgoing events
+      if (socketRef.current) {
+        const originalEmit = socketRef.current.emit.bind(socketRef.current);
+        socketRef.current.emit = function (eventName: string, ...args: any[]) {
+          if (eventName.includes("webrtc") || eventName.includes("offer")) {
+            console.log("🔍 CLIENT EMIT:", eventName, args);
+          }
+          return originalEmit(eventName, ...args);
+        };
+      }
 
       // Request current active streams when connected
       socketRef.current?.emit("get-active-streams");
+
+      // Set up periodic refresh of active streams every 10 seconds
+      // This ensures the live status stays in sync even if events are missed
+      const refreshInterval = setInterval(() => {
+        if (socketRef.current?.connected) {
+          socketRef.current.emit("get-active-streams");
+        }
+      }, 10000);
+
+      // Store interval ID for cleanup
+      (window as any).streamRefreshInterval = refreshInterval;
     });
 
     socketRef.current.on("connect_error", (error) => {
@@ -228,20 +312,117 @@ const LiveProctoringDashboard: React.FC = () => {
 
     socketRef.current.on(
       "webrtc-ice-candidate",
-      (data: { candidate: any; sessionToken: string; from: string }) => {
+      (data: {
+        candidate: any;
+        sessionToken?: string | null;
+        from: string;
+      }) => {
         console.log("Dashboard received WebRTC ICE candidate:", data);
+
+        // Handle case where sessionToken might be missing or null (fallback from server)
+        let effectiveSessionToken = data.sessionToken;
+
+        // If sessionToken is missing or null, try to find it from the socket ID mapping
+        if (!effectiveSessionToken && data.from) {
+          effectiveSessionToken = socketIdToSessionRef.current.get(data.from);
+          console.log(
+            "Dashboard using mapped sessionToken from socket ID:",
+            effectiveSessionToken,
+          );
+        }
+
+        // If we still don't have a sessionToken, try to find from activeStreams
+        if (!effectiveSessionToken) {
+          // Use the first live stream as fallback for single-student scenarios
+          const liveStreams = activeStreamsRef.current.filter((s) => s.isLive);
+          if (liveStreams.length > 0) {
+            effectiveSessionToken = liveStreams[0].sessionToken;
+            console.log(
+              "Dashboard using fallback sessionToken from first live stream:",
+              effectiveSessionToken,
+            );
+          }
+        }
+
+        // If we STILL don't have a sessionToken - check if there's a pending stream waiting
+        // This handles the case where ICE candidates arrive BEFORE stream-started event
+        if (!effectiveSessionToken && data.from) {
+          // The ICE candidate has a 'from' socket ID - the student is in a proctoring session
+          // We need to guess the session token from the URL or create a placeholder
+          console.log(
+            "Dashboard: No sessionToken found, checking for pending sessions from URL params",
+          );
+
+          // Try to get session from URL params (common pattern: ?session=xxx)
+          const urlParams = new URLSearchParams(window.location.search);
+          const urlSession = urlParams.get("session");
+          if (urlSession) {
+            effectiveSessionToken = urlSession;
+            console.log(
+              "Dashboard using sessionToken from URL params:",
+              effectiveSessionToken,
+            );
+          }
+        }
+
+        // If we still don't have a sessionToken, we need to queue the candidate
+        // BUT also try to trigger a stream discovery
+        if (!effectiveSessionToken) {
+          console.log(
+            "Dashboard queuing ICE candidate and requesting active streams - no session token available yet, from:",
+            data.from,
+          );
+          // Request active streams from server to see if we missed the stream-started event
+          if (socketRef.current?.connected) {
+            socketRef.current.emit("get-active-streams");
+          }
+
+          // Also queue the candidate for potential later use
+          if (data.from && !pendingICECandidatesRef.current.has(data.from)) {
+            pendingICECandidatesRef.current.set(data.from, []);
+          }
+          if (data.from) {
+            pendingICECandidatesRef.current
+              .get(data.from)
+              ?.push(data.candidate);
+          }
+          return;
+        }
+
         // Handle ICE candidates from students
-        if (peerConnectionsRef.current.has(data.sessionToken)) {
+        if (peerConnectionsRef.current.has(effectiveSessionToken)) {
           console.log(
             "Dashboard handling ICE candidate for session:",
-            data.sessionToken,
+            effectiveSessionToken,
           );
-          handleICECandidate(data.candidate, data.sessionToken);
+          handleICECandidate(data.candidate, effectiveSessionToken);
         } else {
           console.log(
-            "Dashboard ignoring ICE candidate - no peer connection for session:",
-            data.sessionToken,
+            "Dashboard queuing ICE candidate for later - no peer connection yet for session:",
+            effectiveSessionToken,
           );
+          // Queue the ICE candidate for when peer connection is created
+          if (!pendingICECandidatesRef.current.has(effectiveSessionToken)) {
+            pendingICECandidatesRef.current.set(effectiveSessionToken, []);
+          }
+          pendingICECandidatesRef.current
+            .get(effectiveSessionToken)
+            ?.push(data.candidate);
+
+          // Try to auto-join the stream if we have it in activeStreams
+          const stream = activeStreamsRef.current.find(
+            (s) => s.sessionToken === effectiveSessionToken,
+          );
+          if (
+            stream &&
+            !peerConnectionsRef.current.has(effectiveSessionToken)
+          ) {
+            console.log(
+              "Auto-joining stream from ICE candidate:",
+              effectiveSessionToken,
+            );
+            joinStream(stream);
+          }
         }
       },
     );
@@ -252,23 +433,33 @@ const LiveProctoringDashboard: React.FC = () => {
 
     // Listen for student ready signal globally (moved from joinStream)
     socketRef.current.on("student-webrtc-ready", async (data: any) => {
-      console.log("Dashboard received student WebRTC ready signal:", data);
+      console.log("🚨 Dashboard received student-webrtc-ready signal:", data);
       const { sessionToken } = data;
 
       // Check if we have a peer connection for this session
       const peerConnection = peerConnectionsRef.current.get(sessionToken);
       if (peerConnection) {
-        console.log(
-          `Student signaled ready for ${sessionToken}, creating offer`,
-        );
+        // Clear the fallback timeout since student is ready
+        const pcAny = peerConnection as any;
+        if (pcAny.offerTimeout) {
+          clearTimeout(pcAny.offerTimeout);
+          console.log("🚨 Cleared fallback offer timeout for", sessionToken);
+        }
 
+        console.log(
+          "🚨 Peer connection exists for",
+          sessionToken,
+          "- creating offer",
+        );
         // Check if peer connection is still valid before creating offer
         if (
           peerConnection.signalingState === "closed" ||
           peerConnection.connectionState === "closed"
         ) {
           console.error(
-            `Peer connection for ${sessionToken} is closed, cannot create offer`,
+            "🚨 Peer connection for",
+            sessionToken,
+            "is closed, cannot create offer",
           );
           peerConnectionsRef.current.delete(sessionToken);
           return;
@@ -279,21 +470,34 @@ const LiveProctoringDashboard: React.FC = () => {
           await peerConnection.setLocalDescription(offer);
 
           if (socketRef.current?.connected) {
-            socketRef.current.emit("webrtc-offer", {
+            const offerData = {
               offer: offer,
               sessionToken: sessionToken,
+            };
+            console.log("🚨 Dashboard about to emit webrtc-offer:", {
+              sessionToken: offerData.sessionToken,
+              hasOffer: !!offerData.offer,
+              socketId: socketRef.current.id,
             });
-            console.log(`Dashboard sent offer for ${sessionToken}`);
+            socketRef.current.emit("webrtc-offer", offerData);
+            console.log("🚨 Dashboard sent offer for", sessionToken);
           }
         } catch (error) {
           console.error(
-            `Failed to create/send offer for ${sessionToken}:`,
+            "🚨 Failed to create/send offer for",
+            sessionToken + ":",
             error,
           );
         }
       } else {
         console.log(
-          `No peer connection found for session ${sessionToken} when student signaled ready`,
+          "🚨 No peer connection found for session",
+          sessionToken,
+          "when student signaled ready",
+        );
+        console.log(
+          "🚨 Available peer connections:",
+          Array.from(peerConnectionsRef.current.keys()),
         );
       }
     });
@@ -340,18 +544,28 @@ const LiveProctoringDashboard: React.FC = () => {
 
   // Handle real-time stream updates
   const handleStreamStarted = (streamData: any) => {
-    console.log("Stream started:", streamData);
+    console.log("🚨 Stream started event received:", streamData);
+    console.log("🚨 Current activeStreams count:", activeStreams.length);
     setActiveStreams((prev) => {
       const existing = prev.find(
         (s) => s.sessionToken === streamData.sessionToken,
       );
       if (existing) {
+        console.log(
+          "🚨 Stream already exists, updating:",
+          streamData.sessionToken,
+        );
         return prev.map((s) =>
           s.sessionToken === streamData.sessionToken
-            ? { ...s, ...streamData, isLive: true }
+            ? {
+                ...s,
+                ...streamData,
+                isLive: streamData.isLive !== false,
+              }
             : s,
         );
       } else {
+        console.log("🚨 NEW stream added:", streamData.sessionToken);
         return [...prev, { ...streamData, isLive: true }];
       }
     });
@@ -368,17 +582,51 @@ const LiveProctoringDashboard: React.FC = () => {
 
   const handleActiveStreamsUpdate = (streams: any[]) => {
     console.log("Active streams update:", streams);
+
+    // If the server returns empty array, show a warning and DON'T clear local streams!
+    // The server is currently sending [] for active streams because they aren't fully synced in DB/memory.
+    if (!streams || streams.length === 0) {
+      console.warn(
+        "⚠️ WARNING: Server returned empty active streams! Showing warning to user.",
+      );
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          type: "warning" as const,
+          message:
+            "⚠️ No active proctoring sessions found on server. Students may not have started proctoring yet.",
+          timestamp: new Date(),
+        },
+      ]);
+      // Don't return - we want to preserve local state
+      // But we also want to show the warning to the user
+    }
+
     // Update existing streams to mark them as live if they're in the socket server's active list
-    setActiveStreams((prev) =>
-      prev.map((existingStream) => {
+    // Also add new streams that don't exist in local state yet
+    setActiveStreams((prev) => {
+      const updatedStreams = prev.map((existingStream) => {
         const socketStream = streams.find(
           (s) => s.sessionToken === existingStream.sessionToken,
         );
         return socketStream
-          ? { ...existingStream, isLive: true, ...socketStream }
+          ? {
+              ...existingStream,
+              isLive: socketStream.isLive !== false,
+              ...socketStream,
+            }
           : existingStream;
-      }),
-    );
+      });
+
+      // Add new streams from server that don't exist in local state
+      const existingTokens = new Set(prev.map((s) => s.sessionToken));
+      const newStreams = streams
+        .filter((s) => !existingTokens.has(s.sessionToken))
+        .map((s) => ({ ...s, isLive: s.isLive !== false }));
+
+      return [...updatedStreams, ...newStreams];
+    });
   };
 
   const handleStreamPaused = (data: {
@@ -421,6 +669,18 @@ const LiveProctoringDashboard: React.FC = () => {
       return activeStreams;
     }
     return activeStreams.filter((stream) => stream.quiz.id === selectedQuiz);
+  };
+
+  // Helper function to add status messages
+  const addStatusMessage = (
+    message: string,
+    type: "info" | "success" | "error" | "warning" = "info",
+  ) => {
+    const id = Date.now();
+    setStatusMessages((prev) =>
+      [...prev, { id, message, type, timestamp: new Date() }].slice(-10),
+    );
+    console.log(`[Dashboard Status - ${type}]: ${message}`);
   };
 
   const joinStream = async (stream: LiveStream) => {
@@ -489,62 +749,134 @@ const LiveProctoringDashboard: React.FC = () => {
       peerConnectionsRef.current.set(stream.sessionToken, peerConnection);
       console.log(`Created peer connection for ${stream.sessionToken}`);
 
+      // Process any queued ICE candidates for this session
+      const queuedCandidates = pendingICECandidatesRef.current.get(
+        stream.sessionToken,
+      );
+      if (queuedCandidates && queuedCandidates.length > 0) {
+        console.log(
+          `Processing ${queuedCandidates.length} queued ICE candidates for ${stream.sessionToken}`,
+        );
+        for (const candidate of queuedCandidates) {
+          handleICECandidate(candidate, stream.sessionToken);
+        }
+        pendingICECandidatesRef.current.delete(stream.sessionToken);
+      }
+
       // Handle remote stream
       peerConnection.ontrack = (event) => {
         console.log(
-          `Received remote stream for ${stream.sessionToken}`,
+          `Received remote track for ${stream.sessionToken}: ${event.track.kind}`,
           event.streams[0],
         );
-        if (event.streams[0]) {
-          console.log(`Dashboard stream tracks:`, event.streams[0].getTracks());
-          // Update the stream in activeStreams
-          setActiveStreams((prev) =>
-            prev.map((s) =>
-              s.sessionToken === stream.sessionToken
-                ? { ...s, stream: event.streams[0] }
-                : s,
-            ),
-          );
 
-          // Also update the modal stream if this is the selected stream
-          if (selectedStreamForModal?.sessionToken === stream.sessionToken) {
-            setSelectedStreamForModal((prev) =>
-              prev ? { ...prev, stream: event.streams[0] || undefined } : null,
-            );
-          }
-
-          // Force video element update
-          setTimeout(() => {
-            const videoElements = document.querySelectorAll(
-              `[data-session-token="${stream.sessionToken}"]`,
-            );
-            videoElements.forEach((videoEl) => {
-              const video = videoEl as HTMLVideoElement;
-              if (video && video.srcObject !== event.streams[0]) {
-                console.log(
-                  `Force updating video element for ${stream.sessionToken}`,
-                );
-                video.srcObject = event.streams[0];
-              }
-            });
-          }, 100);
+        let remoteStream = event.streams[0];
+        if (!remoteStream) {
+          remoteStream = new MediaStream([event.track]);
         }
+
+        console.log(`Dashboard stream tracks:`, remoteStream.getTracks());
+
+        // Update the stream in activeStreams
+        setActiveStreams((prev) =>
+          prev.map((s) => {
+            if (s.sessionToken === stream.sessionToken) {
+              const existingStream = s.stream;
+              if (!event.streams[0] && existingStream) {
+                // If browser didn't group tracks, manually group them
+                existingStream.addTrack(event.track);
+                remoteStream = existingStream;
+              }
+              return { ...s, stream: remoteStream };
+            }
+            return s;
+          }),
+        );
+
+        // Also update the modal stream if this is the selected stream
+        if (selectedStreamForModal?.sessionToken === stream.sessionToken) {
+          setSelectedStreamForModal((prev) =>
+            prev ? { ...prev, stream: remoteStream } : null,
+          );
+        }
+
+        // Try to assign to video element using videoRefs
+        const videoEl = videoRefs.current.get(stream.sessionToken);
+        if (videoEl) {
+          console.log(`Direct video assignment for ${stream.sessionToken}`);
+          videoEl.srcObject = remoteStream;
+          videoEl.play().catch((e) => console.error("Play failed:", e));
+        }
+
+        // Force video element update (fallback)
+        setTimeout(() => {
+          const videoElements = document.querySelectorAll(
+            `[data-session-token="${stream.sessionToken}"]`,
+          );
+          videoElements.forEach((videoEl) => {
+            const video = videoEl as HTMLVideoElement;
+            if (video && video.srcObject !== remoteStream) {
+              console.log(
+                `Force updating video element for ${stream.sessionToken}`,
+              );
+              video.srcObject = remoteStream;
+              video
+                .play()
+                .catch((e) => console.error("Play failed via timeout:", e));
+            }
+          });
+        }, 100);
       };
 
-      // Handle connection state changes
+      // Add connection state handlers
       peerConnection.onconnectionstatechange = () => {
         console.log(
           `Peer connection state for ${stream.sessionToken}:`,
           peerConnection.connectionState,
         );
+        // Add status message for connection state
+        if (peerConnection.connectionState === "connected") {
+          addStatusMessage(
+            `Connected to ${stream.student.first_name} ${stream.student.last_name}'s stream`,
+            "success",
+          );
+        } else if (
+          peerConnection.connectionState === "failed" ||
+          peerConnection.connectionState === "disconnected"
+        ) {
+          addStatusMessage(
+            `Connection lost to ${stream.student.first_name} ${stream.student.last_name}`,
+            "error",
+          );
+        }
       };
 
-      // Handle ICE connection state changes
+      // Add ICE state handlers
       peerConnection.oniceconnectionstatechange = () => {
         console.log(
           `ICE connection state for ${stream.sessionToken}:`,
           peerConnection.iceConnectionState,
         );
+        // Add status message for ICE state
+        if (peerConnection.iceConnectionState === "checking") {
+          addStatusMessage(
+            `Connecting to ${stream.student.first_name} ${stream.student.last_name}...`,
+            "info",
+          );
+        } else if (
+          peerConnection.iceConnectionState === "connected" ||
+          peerConnection.iceConnectionState === "completed"
+        ) {
+          addStatusMessage(
+            `WebRTC connected to ${stream.student.first_name} ${stream.student.last_name}`,
+            "success",
+          );
+        } else if (peerConnection.iceConnectionState === "failed") {
+          addStatusMessage(
+            `WebRTC connection failed for ${stream.student.first_name} ${stream.student.last_name}`,
+            "error",
+          );
+        }
       };
 
       // Handle signaling state changes
@@ -589,24 +921,89 @@ const LiveProctoringDashboard: React.FC = () => {
       }
 
       // Add transceivers for receiving video and audio from student
+      // Setting directions before offering explicitly creates the m-lines in the SDP
       peerConnection.addTransceiver("video", { direction: "recvonly" });
       peerConnection.addTransceiver("audio", { direction: "recvonly" });
 
-      // Add transceiver for sending audio to student (initially inactive)
+      // Add transceiver for sending audio to student
       peerConnection.addTransceiver("audio", { direction: "sendonly" });
 
-      // Wait a bit for transceivers to be ready
-      await new Promise((resolve) => setTimeout(resolve, 100));
+      // Allow microtask queue to process transceivers
+      await new Promise((resolve) => setTimeout(resolve, 500));
 
-      // Create and send initial offer immediately, in case student is already ready
+      // WAIT for student-webrtc-ready signal before sending offer
+      // This ensures the student is in the room and ready to receive the offer
+      // The student-webrtc-ready handler will create and send the offer
+      console.log(
+        "📡 Waiting for student-webrtc-ready signal before sending offer...",
+      );
+
+      // Set a timeout as fallback - if no ready signal after 5 seconds, send offer anyway
+      const offerTimeout = setTimeout(async () => {
+        // Check if offer was already sent (by student-webrtc-ready handler)
+        const pc = peerConnectionsRef.current.get(stream.sessionToken);
+        if (pc && pc.signalingState === "stable") {
+          console.log(
+            "📡 Connection already established, skipping fallback offer",
+          );
+          return;
+        }
+        if (pc && pc.localDescription) {
+          console.log("📡 Offer already sent, skipping fallback");
+          return;
+        }
+
+        console.log(
+          "📡 Timeout - sending fallback offer after waiting for student",
+        );
+        try {
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+          if (socketRef.current?.connected) {
+            const offerData = {
+              offer: offer,
+              sessionToken: stream.sessionToken,
+            };
+            console.log(
+              `📡 Dashboard sending FALLBACK offer for ${stream.sessionToken}: `,
+              { sessionToken: offerData.sessionToken },
+            );
+            socketRef.current.emit("webrtc-offer", offerData);
+            console.log(
+              `📡 Dashboard sent TIMEOUT fallback offer for ${stream.sessionToken}`,
+            );
+          }
+        } catch (error) {
+          console.error(
+            `📡 Failed to send fallback offer for ${stream.sessionToken}:`,
+            error,
+          );
+        }
+      }, 5000); // Wait 5 seconds for student to be ready
+
+      // Store timeout ID so we can cancel it when student-webrtc-ready is received
+      (peerConnection as any).offerTimeout = offerTimeout;
       try {
-        const offer = await peerConnection.createOffer();
+        const offer = await peerConnection.createOffer({
+          offerToReceiveAudio: true,
+          offerToReceiveVideo: true,
+        });
         await peerConnection.setLocalDescription(offer);
+
+        // Ensure we send it AFTER setting local description
         if (socketRef.current?.connected) {
-          socketRef.current.emit("webrtc-offer", {
+          const offerData = {
             offer: offer,
             sessionToken: stream.sessionToken,
-          });
+          };
+          console.log(
+            `📡 Dashboard about to emit INITIAL offer for ${stream.sessionToken}:`,
+            {
+              sessionToken: offerData.sessionToken,
+              hasOffer: !!offerData.offer,
+            },
+          );
+          socketRef.current.emit("webrtc-offer", offerData);
           console.log(
             `Dashboard sent initial offer for ${stream.sessionToken}`,
           );
@@ -654,6 +1051,19 @@ const LiveProctoringDashboard: React.FC = () => {
           console.log(
             `Successfully set remote description for ${sessionToken}`,
           );
+
+          // Process queued ICE candidates
+          const pcAny = peerConnection as any;
+          if (pcAny.pendingCandidates && pcAny.pendingCandidates.length > 0) {
+            for (const queuedCandidate of pcAny.pendingCandidates) {
+              await peerConnection
+                .addIceCandidate(new RTCIceCandidate(queuedCandidate))
+                .catch((e) =>
+                  console.error("Failed to add queued candidate:", e),
+                );
+            }
+            pcAny.pendingCandidates = [];
+          }
         } else {
           console.log(
             `Cannot set remote description, signaling state: ${peerConnection.signalingState}`,
@@ -671,19 +1081,26 @@ const LiveProctoringDashboard: React.FC = () => {
     try {
       const peerConnection = peerConnectionsRef.current.get(sessionToken);
       if (peerConnection) {
-        await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        if (peerConnection.remoteDescription) {
+          await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+        } else {
+          // Queue the candidate if remote description is not yet set
+          const pcAny = peerConnection as any;
+          pcAny.pendingCandidates = pcAny.pendingCandidates || [];
+          pcAny.pendingCandidates.push(candidate);
+        }
       }
     } catch (error) {
       console.error("Error handling ICE candidate:", error);
     }
   };
 
-  // const _getRiskColor = (score: number) => {
-  //   if (score >= 80) return "text-red-600 bg-red-50";
-  //   if (score >= 60) return "text-orange-600 bg-orange-50";
-  //   if (score >= 30) return "text-yellow-600 bg-yellow-50";
-  //   return "text-green-600 bg-green-50";
-  // };
+  const getRiskColor = (score: number) => {
+    if (score >= 80) return "text-red-600 bg-red-50";
+    if (score >= 60) return "text-orange-600 bg-orange-50";
+    if (score >= 30) return "text-yellow-600 bg-yellow-50";
+    return "text-green-600 bg-green-50";
+  };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -738,8 +1155,8 @@ const LiveProctoringDashboard: React.FC = () => {
         localAudioStreamsRef.current.set(sessionToken, localAudioStream);
 
         // Add audio track to peer connection
-        // const audioTrack = localAudioStream.getAudioTracks()[0];
-        // const _sender = peerConnection.addTrack(audioTrack, localAudioStream);
+        const audioTrack = localAudioStream.getAudioTracks()[0];
+        const sender = peerConnection.addTrack(audioTrack, localAudioStream);
 
         // Trigger renegotiation by creating new offer
         console.log("Creating renegotiation offer for microphone");
@@ -748,10 +1165,16 @@ const LiveProctoringDashboard: React.FC = () => {
 
         // Send the new offer to student for renegotiation
         if (socketRef.current?.connected) {
-          socketRef.current.emit("webrtc-offer", {
+          const offerData = {
             offer: offer,
             sessionToken: sessionToken,
-          });
+          };
+          console.log(
+            "🎤 Dashboard sending RENEGOTIATION offer to:",
+            sessionToken,
+            { sessionToken: offerData.sessionToken },
+          );
+          socketRef.current.emit("webrtc-offer", offerData);
           console.log(
             "Sent renegotiation offer for microphone to:",
             sessionToken,
@@ -857,15 +1280,15 @@ const LiveProctoringDashboard: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
       <div className="w-full py-6 pt-0">
         {/* Header */}
-        <div className="bg-white/90 border-b border-blue-100 dark:border-gray-800 dark:bg-gray-900 p-3 mb-3">
+        <div className="bg-white/90 border-b border-blue-100 dark:bg-gray-900 dark:border-gray-800 p-3 mb-3">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <button
                 onClick={() => window.history.back()}
-                className="p-3 hover:bg-blue-50 transition-all duration-300 rounded-xl group"
+                className="p-3 hover:bg-blue-50 transition-all duration-300 rounded-xl group dark:hover:bg-gray-800"
               >
                 <svg
-                  className="w-6 h-6 text-gray-600 group-hover:text-gray-800 transition-colors"
+                  className="w-6 h-6 text-gray-600 group-hover:text-gray-800 transition-colors dark:text-gray-400 dark:group-hover:text-gray-200"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -879,7 +1302,7 @@ const LiveProctoringDashboard: React.FC = () => {
                 </svg>
               </button>
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-blue-500 rounded-xl flex items-center justify-center">
+                <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-blue-500 rounded-xl flex items-center justify-center dark:from-blue-600 dark:to-blue-700">
                   <svg
                     className="w-6 h-6 text-white"
                     fill="none"
@@ -895,7 +1318,7 @@ const LiveProctoringDashboard: React.FC = () => {
                   </svg>
                 </div>
                 <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+                  <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:from-gray-200 dark:to-gray-400">
                     Live Proctoring Dashboard
                   </h1>
                   <p className="text-sm text-gray-600 flex items-center gap-1">
@@ -918,7 +1341,7 @@ const LiveProctoringDashboard: React.FC = () => {
               </button>
               <button
                 onClick={loadActiveStreams}
-                className="px-6 py-3 bg-white/90 hover:bg-white border border-blue-200 hover:border-blue-300 text-gray-700 text-sm font-semibold transition-all duration-300 rounded-full flex items-center gap-2"
+                className="px-6 py-3 bg-white/90 hover:bg-white border border-blue-200 hover:border-blue-300 text-gray-700 text-sm font-semibold transition-all duration-300 rounded-full flex items-center gap-2 dark:bg-gray-900 dark:hover:bg-gray-800 dark:border-gray-700 dark:hover:border-gray-600 dark:text-gray-300"
               >
                 <svg
                   className="w-4 h-4"
@@ -941,10 +1364,10 @@ const LiveProctoringDashboard: React.FC = () => {
 
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50/90 border border-red-200 p-4 mb-6 rounded-xl">
+          <div className="bg-red-50/90 border border-red-200 p-4 mb-6 rounded-xl dark:bg-red-900/20 dark:border-red-700">
             <div className="flex items-center">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center dark:bg-red-700">
                   <AlertTriangle className="w-5 h-5 text-white" />
                 </div>
               </div>
@@ -955,22 +1378,132 @@ const LiveProctoringDashboard: React.FC = () => {
           </div>
         )}
 
+        {/* Status Messages Panel */}
+        {statusMessages.length > 0 && (
+          <div className="bg-white/90 border border-blue-200 rounded-xl p-4 mb-4 dark:bg-gray-900 dark:border-gray-800 mx-2">
+            <div className="flex items-center gap-2 mb-3">
+              <div className="w-6 h-6 bg-gradient-to-r from-blue-400 to-blue-500 rounded-lg flex items-center justify-center">
+                <svg
+                  className="w-4 h-4 text-white"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                Connection Status
+              </h3>
+            </div>
+            <div className="space-y-2 max-h-40 overflow-y-auto">
+              {statusMessages
+                .slice()
+                .reverse()
+                .map((msg) => (
+                  <div
+                    key={msg.id}
+                    className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg ${
+                      msg.type === "success"
+                        ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-300"
+                        : msg.type === "error"
+                          ? "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-300"
+                          : msg.type === "warning"
+                            ? "bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-300"
+                            : "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300"
+                    }`}
+                  >
+                    {msg.type === "success" && (
+                      <svg
+                        className="w-4 h-4 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
+                        />
+                      </svg>
+                    )}
+                    {msg.type === "error" && (
+                      <svg
+                        className="w-4 h-4 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M6 18L18 6M6 6l12 12"
+                        />
+                      </svg>
+                    )}
+                    {msg.type === "warning" && (
+                      <svg
+                        className="w-4 h-4 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                        />
+                      </svg>
+                    )}
+                    {msg.type === "info" && (
+                      <svg
+                        className="w-4 h-4 flex-shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                      </svg>
+                    )}
+                    <span className="flex-1">{msg.message}</span>
+                    <span className="text-xs opacity-70">
+                      {msg.timestamp.toLocaleTimeString()}
+                    </span>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
         {/* Live Student Videos Section */}
-        <div className="bg-white/90 dark:bg-gray-900 border border-blue-200 rounded-2xl dark:border-none p-6">
+        <div className="bg-white/90 border border-blue-200 rounded-2xl p-6 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-300 mx-2">
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-blue-500 rounded-lg flex items-center justify-center">
+              <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-blue-500 rounded-lg flex items-center justify-center dark:from-blue-600 dark:to-blue-700">
                 <Circle className="w-4 h-4 text-white fill-current animate-pulse" />
               </div>
-              <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
+              <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:from-gray-200 dark:to-gray-400">
                 Live Student Videos
               </h2>
               <div className="flex items-center gap-2 ml-auto">
-                <div className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1">
+                <div className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1 dark:bg-green-900/20 dark:text-green-300">
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   {getFilteredStreams().filter((s) => s.isLive).length} Live
                 </div>
-                <div className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full">
+                <div className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full dark:bg-gray-800/30 dark:text-gray-400">
                   {getFilteredStreams().length} Total
                 </div>
               </div>
@@ -980,7 +1513,7 @@ const LiveProctoringDashboard: React.FC = () => {
           {getFilteredStreams().length === 0 ? (
             <div className="flex items-center justify-center py-20">
               <div className="text-center">
-                <div className="w-24 h-24 bg-gradient-to-r from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-6">
+                <div className="w-24 h-24 bg-gradient-to-r from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-6 dark:from-gray-800/30 dark:to-gray-700/30">
                   <svg
                     className="w-12 h-12 text-gray-400"
                     fill="none"
@@ -995,10 +1528,10 @@ const LiveProctoringDashboard: React.FC = () => {
                     />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                <h3 className="text-xl font-semibold text-gray-800 mb-2 dark:text-gray-200">
                   No students found for this quiz
                 </h3>
-                <p className="text-gray-600">
+                <p className="text-gray-600 dark:text-gray-400">
                   {selectedQuiz
                     ? "No connected students for the selected quiz."
                     : "Students will appear here when they start their quiz sessions"}
@@ -1010,10 +1543,10 @@ const LiveProctoringDashboard: React.FC = () => {
               {getFilteredStreams().map((stream, index) => (
                 <div
                   key={index + 1}
-                  className="group bg-white rounded-2xl hover:bg-blue-50 transition-all duration-300 cursor-pointer overflow-hidden border border-blue-100"
+                  className="group bg-white rounded-2xl hover:bg-blue-50 transition-all duration-300 cursor-pointer overflow-hidden border border-blue-100 dark:bg-gray-900 dark:hover:bg-gray-800 dark:border-gray-700"
                   onClick={() => setSelectedStreamForModal(stream)}
                 >
-                  <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden">
+                  <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden dark:from-gray-800/30 dark:to-gray-700/30">
                     {stream.stream ? (
                       <>
                         <video
@@ -1023,20 +1556,32 @@ const LiveProctoringDashboard: React.FC = () => {
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                           data-session-token={stream.sessionToken}
                           ref={(el) => {
-                            if (el && stream.stream) {
-                              el.srcObject = stream.stream;
+                            if (el) {
+                              videoRefs.current.set(stream.sessionToken, el);
+                              // Try to assign stream if available
+                              if (
+                                stream.stream &&
+                                el.srcObject !== stream.stream
+                              ) {
+                                el.srcObject = stream.stream;
+                                el.play().catch((e) =>
+                                  console.error("Play error:", e),
+                                );
+                              }
+                            } else {
+                              videoRefs.current.delete(stream.sessionToken);
                             }
                           }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 dark:from-white/20"></div>
                       </>
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100">
+                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/30 dark:to-gray-700/30">
                         <div className="text-center">
                           <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-3">
-                            <User className="w-8 h-8 text-gray-400" />
+                            <User className="w-8 h-8 text-gray-400 dark:text-gray-400" />
                           </div>
-                          <p className="text-xs text-gray-500 font-medium">
+                          <p className="text-xs text-gray-500 font-medium dark:text-gray-400">
                             {stream.isLive ? "Connecting..." : "No Stream"}
                           </p>
                         </div>
@@ -1046,7 +1591,7 @@ const LiveProctoringDashboard: React.FC = () => {
                     {/* YouTube-style LIVE indicator */}
                     <div className="absolute top-3 left-3">
                       {stream.isLive && (
-                        <div className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-xs font-bold rounded">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-xs font-bold rounded dark:bg-red-700 dark:text-white">
                           <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
                           LIVE
                         </div>
@@ -1056,7 +1601,7 @@ const LiveProctoringDashboard: React.FC = () => {
                     {/* Risk score indicator */}
                     {stream.riskScore >= 60 && (
                       <div className="absolute top-3 right-3">
-                        <div className="flex items-center gap-1 px-2 py-1 bg-orange-500 text-white text-xs font-bold rounded">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-orange-500 text-white text-xs font-bold rounded dark:bg-orange-700 dark:text-white">
                           <AlertTriangle className="w-3 h-3" />
                           {stream.riskScore}
                         </div>
@@ -1066,7 +1611,7 @@ const LiveProctoringDashboard: React.FC = () => {
                     {/* Flags indicator */}
                     {stream.flagsCount > 0 && (
                       <div className="absolute bottom-3 right-3">
-                        <div className="flex items-center gap-1 px-2 py-1 bg-red-600/90 text-white text-xs font-medium rounded backdrop-blur-sm">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-red-600/90 text-white text-xs font-medium rounded backdrop-blur-sm dark:bg-red-700/90 dark:text-white">
                           <Flag className="w-3 h-3" />
                           {stream.flagsCount}
                         </div>
@@ -1075,9 +1620,9 @@ const LiveProctoringDashboard: React.FC = () => {
 
                     {/* Play overlay on hover */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center backdrop-blur-sm">
+                      <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center backdrop-blur-sm dark:bg-gray-900/90">
                         <svg
-                          className="w-6 h-6 text-gray-800 ml-1"
+                          className="w-6 h-6 text-gray-800 ml-1 dark:text-gray-200"
                           fill="currentColor"
                           viewBox="0 0 24 24"
                         >
@@ -1088,10 +1633,10 @@ const LiveProctoringDashboard: React.FC = () => {
                   </div>
 
                   <div className="p-4">
-                    <h3 className="text-sm font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors">
+                    <h3 className="text-sm font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors dark:text-gray-200">
                       {stream.student.first_name} {stream.student.last_name}
                     </h3>
-                    <p className="text-xs text-gray-600 line-clamp-1 mb-3">
+                    <p className="text-xs text-gray-600 line-clamp-1 mb-3 dark:text-gray-400">
                       {stream.quiz.title}
                     </p>
                     <div className="flex items-center justify-between">
@@ -1103,11 +1648,11 @@ const LiveProctoringDashboard: React.FC = () => {
                               : "bg-gray-400"
                           }`}
                         ></div>
-                        <span className="text-xs text-gray-500 font-medium">
+                        <span className="text-xs text-gray-500 font-medium dark:text-gray-400">
                           {stream.isLive ? "Live" : "Offline"}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-400">
+                      <span className="text-xs text-gray-400 dark:text-gray-400">
                         {new Date(stream.startTime).toLocaleTimeString()}
                       </span>
                     </div>
@@ -1117,79 +1662,6 @@ const LiveProctoringDashboard: React.FC = () => {
             </div>
           )}
         </div>
-
-        {/* Recent Events Section */}
-        {events.length > 0 && (
-          <div className="mt-6">
-            <div className="bg-white/90 border border-blue-200 rounded-2xl p-6">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-8 h-8 bg-gradient-to-r from-orange-400 to-red-500 rounded-lg flex items-center justify-center">
-                  <AlertTriangle className="w-4 h-4 text-white" />
-                </div>
-                <div>
-                  <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent">
-                    Recent Events
-                  </h2>
-                  <p className="text-sm text-gray-600">
-                    Latest proctoring alerts and notifications
-                  </p>
-                </div>
-                <div className="ml-auto">
-                  <div className="px-3 py-1 bg-orange-100 text-orange-700 text-xs font-semibold rounded-full">
-                    {events.length} Events
-                  </div>
-                </div>
-              </div>
-
-              <div className="max-h-80 overflow-y-auto">
-                <div className="space-y-3">
-                  {events.slice(0, 50).map((event, _eventIndex) => (
-                    <div
-                      key={event.id}
-                      className="flex items-center gap-4 p-4 bg-white/50 hover:bg-blue-50/50 rounded-xl transition-all duration-200 border border-blue-100/50 hover:border-blue-200"
-                    >
-                      <div
-                        className={`w-3 h-3 rounded-full ${getSeverityColor(
-                          event.severity,
-                        )}`}
-                      ></div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between">
-                          <p className="text-sm text-gray-800 font-medium leading-relaxed">
-                            {event.description}
-                          </p>
-                          <div className="ml-3 flex-shrink-0">
-                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded-full">
-                              {new Date(event.timestamp).toLocaleTimeString()}
-                            </span>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-2 mt-2">
-                          <span
-                            className={`text-xs px-2 py-1 rounded-full font-medium ${
-                              event.severity === "critical"
-                                ? "bg-red-100 text-red-700"
-                                : event.severity === "high"
-                                  ? "bg-orange-100 text-orange-700"
-                                  : event.severity === "medium"
-                                    ? "bg-yellow-100 text-yellow-700"
-                                    : "bg-blue-100 text-blue-700"
-                            }`}
-                          >
-                            {event.severity.toUpperCase()}
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {event.event_type}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       <StreamModal
