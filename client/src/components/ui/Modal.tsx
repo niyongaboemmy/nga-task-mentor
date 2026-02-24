@@ -5,8 +5,8 @@ import { X } from "lucide-react";
 interface ModalProps {
   isOpen: boolean;
   onClose: () => void;
-  title?: string;
-  subtitle?: string;
+  title?: string | React.ReactNode;
+  subtitle?: string | React.ReactNode;
   children: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl" | "xxl" | "full";
   showCloseButton?: boolean;
@@ -44,14 +44,22 @@ const Modal: React.FC<ModalProps> = ({
   }, [isOpen, closeOnEscape, onClose]);
 
   // Prevent body scroll when modal is open
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = "unset";
-      };
-    }
-  }, [isOpen]);
+  // useEffect(() => {
+  //   if (isOpen) {
+  //     // Use a custom scroll lock instead of setting body overflow
+  //     // This prevents the page from jumping
+  //     const scrollBarWidth =
+  //       window.innerWidth - document.documentElement.clientWidth;
+  //     if (scrollBarWidth > 0) {
+  //       document.body.style.paddingRight = `${scrollBarWidth}px`;
+  //     }
+  //     document.body.style.overflow = "hidden";
+  //     return () => {
+  //       document.body.style.overflow = "unset";
+  //       document.body.style.paddingRight = "";
+  //     };
+  //   }
+  // }, [isOpen]);
 
   const sizeClasses = {
     sm: "max-w-sm mx-4",
@@ -100,7 +108,7 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[99999] flex items-center justify-center p-2 sm:p-4 bg-black/50 overflow-hidden"
+        className="fixed inset-0 z-[99999] flex justify-center p-2 sm:p-4 bg-black/50 overflow-hidden"
         variants={backdropVariants}
         initial="hidden"
         animate="visible"
@@ -108,14 +116,14 @@ const Modal: React.FC<ModalProps> = ({
         onClick={closeOnBackdropClick ? onClose : undefined}
       >
         <motion.div
-          className={`relative w-full max-h-[90vh] ${sizeClasses[size]} ${className}`}
+          className={`relative w-full max-h-screen ${sizeClasses[size]} ${className}`}
           variants={modalVariants}
           initial="hidden"
           animate="visible"
           exit="exit"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="relative bg-white dark:bg-gray-900 rounded-2xl overflow-hidden max-h-[90vh] flex flex-col">
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl overflow-hidden max-h-screen flex flex-col">
             {/* Header */}
             {(title || showCloseButton) && (
               <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -144,7 +152,7 @@ const Modal: React.FC<ModalProps> = ({
             )}
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto p-4">{children}</div>
+            <div className="overflow-y-auto p-4">{children}</div>
           </div>
         </motion.div>
       </motion.div>

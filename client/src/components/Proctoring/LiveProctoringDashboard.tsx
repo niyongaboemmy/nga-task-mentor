@@ -1041,12 +1041,64 @@ const LiveProctoringDashboard: React.FC = () => {
     if (socketRef.current?.connected) {
       socketRef.current.emit("force-student-audio", {
         sessionToken: sessionToken,
-        volume: volume || 0.5, // Default to 50% volume
-        micGain: micGain || 0.6, // Default to 60% microphone gain
+        volume: volume || 0.5,
+        micGain: micGain || 0.6,
       });
     } else {
       console.error("Socket not connected, cannot send force audio command");
       setError("Connection lost. Please refresh the page.");
+    }
+  };
+
+  const handlePauseExam = (sessionToken: string) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("pause-student-exam", {
+        sessionToken: sessionToken,
+      });
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Exam paused for session ${sessionToken}`,
+          type: "warning",
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  };
+
+  const handleResumeExam = (sessionToken: string) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("resume-student-exam", {
+        sessionToken: sessionToken,
+      });
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Exam resumed for session ${sessionToken}`,
+          type: "success",
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  };
+
+  const handleSendWarning = (sessionToken: string, message: string) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("send-warning-to-student", {
+        sessionToken: sessionToken,
+        message: message,
+      });
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Warning sent to student: ${message}`,
+          type: "warning",
+          timestamp: new Date(),
+        },
+      ]);
     }
   };
 
@@ -1488,6 +1540,9 @@ const LiveProctoringDashboard: React.FC = () => {
         onJoinStream={joinStream}
         onToggleMic={handleToggleMic}
         onForceAudioSettings={handleForceAudioSettings}
+        onPauseExam={handlePauseExam}
+        onResumeExam={handleResumeExam}
+        onSendWarning={handleSendWarning}
       />
     </div>
   );

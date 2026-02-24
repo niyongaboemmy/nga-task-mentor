@@ -63,6 +63,11 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [showConnectionPopup, setShowConnectionPopup] = useState(false);
 
+  // Exam control states
+  const [isExamPaused, setIsExamPaused] = useState(false);
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningMessage, setWarningMessage] = useState("");
+
   useEffect(() => {
     // Collect browser information
     setBrowserInfo({
@@ -663,6 +668,34 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           }
         });
 
+        // Handle warning from dashboard
+        socket.on("send-warning-to-student", (data: any) => {
+          if (data.sessionToken === sessionToken) {
+            setWarningMessage(data.message || "Warning from instructor");
+            setShowWarning(true);
+            // Play alert sound
+            const audio = new Audio(
+              "data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2teleRAxA3Tv9/W5diYKLfrw9/K4fiIGKv799vK3eiAKLfr29/K3eyAKK/fs9vK2eR8LK/n09vK1eR4LK/jz9vK0eB0MK/bz9vKzeBwNK/X09vKyeBsOKvT19vKxeRsPKfP19vKweRsPKPL19vKvdxsPKPH19vKudxsPKO/19vGsdhoOKO709vGqdRkNKOnz9vGpdBkMKOjy9vCodBkLJ+fx9vCodBgKJuXu9vGndBcKJuPt9vGldBYKJuHs9vGkexYJJeDr9vGhexYJJOHq9vGhexYJI+Dp9vCfexYIIt/m9vCdexYII9/k9vCcexYIIt/l9vCdexYII9/k9vCdexYII9/k9vCdexYII9/k9vCdexYII9/k9vCdehYII9/k9vCdexYII9/k9vCdehYII9/k9vCdehYII+Dp9vCfexYIIt/m9vCdexYII9/k9vCcexYIIt/l9vCdexYII9/k9vCdexYII9/k9vCdexYII9/k9vCdexYII9/k9vCdexYII9/l9vCdexYJI+Dp9vCfexYJIt/m9vCdexYJI9/k9vCcexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vCdexYJI9/l9vCdehYJI+Dp9vCfexYJIt/m9vCdehYJI9/k9vCcexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vCdexYJI9/k9vGdexYJI9/k9vGdexYJI+Dp9vGfexYJIt/m9vGdexYJI9/k9vGcexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/l9vGdehYJI+Dp9vGfexYJIt/m9vGdehYJI9/k9vGcexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/l9vGdehYJI+Dp9vGfexYJIt/m9vGdehYJI9/k9vGcexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/k9vGdexYJI9/l9vGdehYJI+Dp9vGfexYJIt/m9",
+            );
+            audio.play().catch(() => {});
+          }
+        });
+
+        // Handle pause exam command from dashboard
+        socket.on("pause-student-exam", (data: any) => {
+          if (data.sessionToken === sessionToken) {
+            setIsExamPaused(true);
+            // Could also emit an event to pause the quiz timer
+          }
+        });
+
+        // Handle resume exam command from dashboard
+        socket.on("resume-student-exam", (data: any) => {
+          if (data.sessionToken === sessionToken) {
+            setIsExamPaused(false);
+          }
+        });
+
         // Store peer connection for cleanup
         (window as any).proctoringPeerConnection = peerConnection;
         (window as any).proctoringSocket = socket;
@@ -683,6 +716,73 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
   return (
     <div className="max-w-4xl mx-auto p-4">
+      {/* Warning Modal - Displayed when instructor sends a warning */}
+      {showWarning && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-red-900/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 max-w-lg w-full mx-4 shadow-2xl transform animate-pulse">
+            <div className="text-center">
+              <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+                <svg
+                  className="w-10 h-10 text-red-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
+                WARNING
+              </h3>
+              <p className="text-gray-700 dark:text-gray-300 mb-6 text-lg">
+                {warningMessage}
+              </p>
+              <button
+                onClick={() => setShowWarning(false)}
+                className="px-8 py-3 bg-red-600 hover:bg-red-700 text-white rounded-full font-bold transition-colors"
+              >
+                I Understand
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Exam Paused Overlay */}
+      {isExamPaused && (
+        <div className="fixed inset-0 z-40 bg-yellow-900/80 backdrop-blur-sm flex items-center justify-center">
+          <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl text-center">
+            <div className="w-20 h-20 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
+              <svg
+                className="w-10 h-10 text-yellow-600"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+            </div>
+            <h3 className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mb-4">
+              Exam Paused
+            </h3>
+            <p className="text-gray-600 dark:text-gray-400 mb-6">
+              Your exam has been paused by the instructor. Please wait until it
+              resumes.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Connection Status Popup */}
       {showConnectionPopup && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
