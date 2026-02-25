@@ -13,6 +13,7 @@ import {
   createQuizSubmission,
   getQuizSubmissions,
   updateQuizSubmission,
+  resetQuizSubmission,
 } from "../controllers/quiz.controller";
 import {
   getQuizQuestions,
@@ -73,23 +74,23 @@ router.get("/questions/:id", getQuestion);
 router.post(
   "/:quizId/questions",
   authorize("instructor", "admin"),
-  createQuestion
+  createQuestion,
 );
 router.put("/questions/:id", authorize("instructor", "admin"), updateQuestion);
 router.delete(
   "/questions/:id",
   authorize("instructor", "admin"),
-  deleteQuestion
+  deleteQuestion,
 );
 router.put(
   "/:quizId/questions/reorder",
   authorize("instructor", "admin"),
-  reorderQuestions
+  reorderQuestions,
 );
 router.post(
   "/:quizId/questions/bulk",
   authorize("instructor", "admin"),
-  bulkImportQuestions
+  bulkImportQuestions,
 );
 
 // Quiz submission routes
@@ -97,72 +98,77 @@ router.post("/submissions", authorize("student"), createQuizSubmission);
 router.patch(
   "/submissions/:id",
   authorize("student", "instructor", "admin"),
-  updateQuizSubmission
+  updateQuizSubmission,
+);
+router.post(
+  "/submissions/:id/reset",
+  authorize("instructor", "admin"),
+  resetQuizSubmission,
 );
 router.post("/:quizId/start", authorize("student"), startQuizAttempt);
 router.get(
   "/attempts/:submissionId",
   authorize("student"),
-  getQuizAttemptStatus
+  getQuizAttemptStatus,
 );
 router.post("/attempts/:submissionId/submit", authorize("student"), submitQuiz);
 router.get(
   "/attempts/:submissionId/results",
   authorize("student"),
-  getQuizResults
+  getQuizResults,
 );
 
 // Question answering routes
 router.post(
   "/attempts/:submissionId/questions/:questionId/answer",
   authorize("student"),
-  submitQuestionAnswer
+  submitQuestionAnswer,
 );
 router.post(
   "/attempts/:submissionId/submit-all",
   authorize("student"),
-  submitAllAnswers
+  submitAllAnswers,
 );
 
 // Student quiz history
 router.get(
   "/students/:studentId/history",
   authorize("instructor", "admin", "student"),
-  getStudentQuizHistory
+  getStudentQuizHistory,
 );
 
 // Grading routes (for instructors and admins)
 router.get(
   "/submissions/pending",
   authorize("instructor", "admin"),
-  getPendingSubmissions
+  getPendingSubmissions,
 );
 router.get(
   "/submissions/:submissionId/grade",
   authorize("instructor", "admin"),
-  getSubmissionForGrading
+  getSubmissionForGrading,
 );
 router.post(
   "/submissions/:submissionId/grade",
   authorize("instructor", "admin"),
-  gradeSubmission
+  gradeSubmission,
 );
 router.put(
   "/submissions/:submissionId/feedback",
   authorize("instructor", "admin"),
-  updateSubmissionFeedback
+  updateSubmissionFeedback,
 );
 
 // Quiz submissions and analytics
 router.get(
   "/:quizId/submissions",
   authorize("instructor", "admin"),
-  getInstructorQuizSubmissions
+  getInstructorQuizSubmissions,
 );
 router.get(
   "/:quizId/analytics",
   authorize("instructor", "admin"),
-  getQuizAnalytics
+  getQuizAnalytics,
 );
 
 export default router;

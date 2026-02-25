@@ -1571,3 +1571,53 @@ export const updateQuizSubmission = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// @desc    Reset quiz submission (delete all answers and reset status)
+// @route   POST /api/quizzes/submissions/:id/reset
+// @access  Private/Instructor/Admin
+export const resetQuizSubmission = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const transaction = await sequelize.transaction();
+
+  try {
+    // Find the submission
+    const submission = await QuizSubmission.findByPk(id, { transaction });
+
+    if (!submission) {
+      await transaction.rollback();
+      return res.status(404).json({
+        success: false,
+        message: "Quiz submission not found",
+      });
+    }
+
+    // Delete all quiz attempts for this submission
+    await QuizAttempt.destroy({
+      where: { submission_id: id },
+      transaction,
+    });
+
+    // Reset submission status and scores
+    submission.status = "in_progress" as any;
+    submission.total_score = 0;
+    submission.percentage = 0;
+    submission.grade_status = "pending" as any;
+    submission.time_taken = 0;
+    submission.started_at = new Date();
+    submission.completed_at = undefined;
+    submission.passed = false;
+
+    await submission.save({ transaction });
+    await transaction.commit();
+
+    res.status(200).json({
+      success: true,
+      message: "Quiz submission has been reset",
+      data: submission,
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Reset quiz submission error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

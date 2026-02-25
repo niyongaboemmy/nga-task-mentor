@@ -108,6 +108,7 @@ interface StreamModalProps {
   onSendWarning?: (sessionToken: string, message: string) => void;
   onSendNote?: (sessionToken: string, message: string) => void;
   onEndExam?: (sessionToken: string, reason: string) => void;
+  onRestartQuiz?: (sessionToken: string, submissionId: number) => void;
 }
 
 // Events Dropdown Component for Title Bar - Opens Modal when clicked
@@ -426,6 +427,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
   onSendWarning,
   onSendNote,
   onEndExam,
+  onRestartQuiz,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -437,6 +439,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
   const [events, setEvents] = useState<ProctoringEvent[]>([]);
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [showEndQuizModal, setShowEndQuizModal] = useState(false);
+  const [showRestartQuizModal, setShowRestartQuizModal] = useState(false);
   const [endQuizReason, setEndQuizReason] = useState("");
   const [isEndingQuiz, setIsEndingQuiz] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
@@ -579,6 +582,18 @@ const StreamModal: React.FC<StreamModalProps> = ({
       console.error(e);
     } finally {
       setIsEndingQuiz(false);
+    }
+  };
+
+  const handleRestartQuiz = async () => {
+    if (!stream || !onRestartQuiz) return;
+    try {
+      // Get submissionId from stream or use 0 for now (parent will handle)
+      const submissionId = (stream as any).submissionId || 0;
+      onRestartQuiz(stream.sessionToken, submissionId);
+      setShowRestartQuizModal(false);
+    } catch (e) {
+      console.error(e);
     }
   };
 
@@ -975,6 +990,14 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 >
                   <FileText className="w-4 h-4" />
                   Note
+                </button>
+                <button
+                  onClick={() => setShowRestartQuizModal(true)}
+                  disabled={!stream.isLive}
+                  className="flex flex-col items-center gap-1 px-2 py-2.5 bg-gradient-to-b from-purple-50 to-purple-100/50 dark:from-purple-900/30 dark:to-purple-800/20 hover:from-purple-100 hover:to-purple-100/80 dark:hover:from-purple-900/50 dark:hover:to-purple-800/30 border border-purple-200/60 dark:border-purple-800/30 rounded-lg text-purple-700 dark:text-purple-400 text-xs font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg hover:shadow-purple-500/20"
+                >
+                  <RefreshCw className="w-4 h-4" />
+                  Restart
                 </button>
                 <button
                   onClick={() => setShowEndQuizModal(true)}
@@ -1374,6 +1397,39 @@ const StreamModal: React.FC<StreamModalProps> = ({
                   className="px-5 py-2 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-full font-medium transition-all disabled:opacity-50 text-sm shadow-lg shadow-red-500/20"
                 >
                   {isEndingQuiz ? "Ending..." : "End Quiz"}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Restart Quiz Modal */}
+        {showRestartQuizModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-[100] p-4">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full p-5 border border-purple-200/60 dark:border-purple-800/30 shadow-2xl shadow-purple-500/10 animate-in fade-in zoom-in duration-200">
+              <div className="text-center mb-4">
+                <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg shadow-purple-500/30">
+                  <RefreshCw className="w-8 h-8 text-white" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  Restart Student Quiz?
+                </h3>
+                <p className="text-sm text-gray-500 mt-1">
+                  This will clear all student answers and restart the quiz
+                </p>
+              </div>
+              <div className="flex gap-2 justify-center">
+                <button
+                  onClick={() => setShowRestartQuizModal(false)}
+                  className="px-5 py-2 border border-gray-300/60 dark:border-gray-600/50 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleRestartQuiz}
+                  className="px-5 py-2 bg-gradient-to-r from-purple-500 to-purple-600 hover:from-purple-600 hover:to-purple-700 text-white rounded-full font-medium transition-all text-sm shadow-lg shadow-purple-500/20"
+                >
+                  Restart Quiz
                 </button>
               </div>
             </div>

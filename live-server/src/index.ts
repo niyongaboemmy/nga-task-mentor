@@ -648,6 +648,34 @@ io.on("connection", (socket: Socket) => {
     });
   });
 
+  // Handle exam status changed from student
+  socket.on("exam-status-changed", (data: any) => {
+    console.log("Received exam-status-changed:", data);
+    const { sessionToken, status } = data;
+
+    // Broadcast the status change to all clients in the room and globally
+    socket.to("proctoring-" + sessionToken).emit("exam-status-changed", {
+      sessionToken,
+      status,
+    });
+
+    io.emit("exam-status-changed", {
+      sessionToken,
+      status,
+    });
+  });
+
+  // Handle restart quiz command from instructor
+  socket.on("restart-student-quiz", (data: any) => {
+    console.log("Received restart-student-quiz:", data);
+    const { sessionToken } = data;
+
+    // Forward the restart command to the student
+    socket.to("proctoring-" + sessionToken).emit("restart-student-quiz", {
+      sessionToken,
+    });
+  });
+
   socket.on("proctoring-violation", (data: any) => {
     console.log("Received proctoring violation:", data);
     const { sessionToken, quizId, violation } = data;

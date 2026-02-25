@@ -154,6 +154,16 @@ export class ProctoringApiService {
     });
     return response.data;
   }
+
+  // Reset quiz submission (instructor/admin only)
+  static async resetQuizSubmission(
+    submissionId: number,
+  ): Promise<{ success: boolean; data: any; message: string }> {
+    const response = await axios.post(
+      `/quizzes/submissions/${submissionId}/reset`,
+    );
+    return response.data;
+  }
 }
 
 // Error handling utility for proctoring API

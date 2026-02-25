@@ -3,7 +3,15 @@ import { useParams } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
 import StreamModal from "./StreamModal";
 import { ProctoringApiService } from "../../services/proctoringApi";
-import { User, AlertTriangle, Flag, Circle, RefreshCw } from "lucide-react";
+import {
+  User,
+  AlertTriangle,
+  Flag,
+  Circle,
+  RefreshCw,
+  PauseCircle,
+  Ban,
+} from "lucide-react";
 
 interface LiveStream {
   id?: number;
@@ -258,6 +266,21 @@ const LiveProctoringDashboard: React.FC = () => {
     socketRef.current.on("stream-paused", handleStreamPaused);
     socketRef.current.on("stream-resumed", handleStreamResumed);
     socketRef.current.on("active-streams", handleActiveStreamsUpdate);
+
+    // Listen for exam status changes (paused, active, warning)
+    socketRef.current.on(
+      "exam-status-changed",
+      (data: { sessionToken: string; status: string }) => {
+        console.log("Received exam-status-changed:", data);
+        setActiveStreams((prev) =>
+          prev.map((stream) =>
+            stream.sessionToken === data.sessionToken
+              ? { ...stream, examStatus: data.status as any }
+              : stream,
+          ),
+        );
+      },
+    );
 
     socketRef.current.on(
       "webrtc-offer",
@@ -1188,6 +1211,42 @@ const LiveProctoringDashboard: React.FC = () => {
     }
   };
 
+  const handleRestartQuiz = async (
+    sessionToken: string,
+    submissionId: number,
+  ) => {
+    try {
+      // Call the API to reset the quiz submission
+      await ProctoringApiService.resetQuizSubmission(submissionId);
+
+      if (socketRef.current?.connected) {
+        socketRef.current.emit("restart-student-quiz", {
+          sessionToken,
+        });
+        setStatusMessages((prev) => [
+          ...prev,
+          {
+            id: Date.now(),
+            message: `Quiz restarted for session ${sessionToken}`,
+            type: "success",
+            timestamp: new Date(),
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error("Failed to restart quiz:", error);
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Failed to restart quiz: ${error}`,
+          type: "error",
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50 flex items-center justify-center">
@@ -1444,6 +1503,30 @@ const LiveProctoringDashboard: React.FC = () => {
                       )}
                     </div>
 
+                    {/* Exam Status Indicator */}
+                    {stream.examStatus && stream.examStatus !== "active" && (
+                      <div className="absolute top-3 left-3">
+                        {stream.examStatus === "paused" && (
+                          <div className="flex items-center gap-1 px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded dark:bg-yellow-600 dark:text-white">
+                            <PauseCircle className="w-3 h-3" />
+                            PAUSED
+                          </div>
+                        )}
+                        {stream.examStatus === "ended" && (
+                          <div className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-xs font-bold rounded dark:bg-red-700 dark:text-white">
+                            <Ban className="w-3 h-3" />
+                            ENDED
+                          </div>
+                        )}
+                        {stream.examStatus === "warning" && (
+                          <div className="flex items-center gap-1 px-2 py-1 bg-orange-500 text-white text-xs font-bold rounded dark:bg-orange-600 dark:text-white">
+                            <AlertTriangle className="w-3 h-3" />
+                            WARNING
+                          </div>
+                        )}
+                      </div>
+                    )}
+
                     {/* Risk score indicator */}
                     {stream.riskScore >= 60 && (
                       <div className="absolute top-3 right-3">
@@ -1538,6 +1621,7 @@ const LiveProctoringDashboard: React.FC = () => {
         onResumeExam={handleResumeExam}
         onSendWarning={handleSendWarning}
         onSendNote={handleSendNote}
+        onRestartQuiz={handleRestartQuiz}
       />
     </div>
   );

@@ -206,7 +206,7 @@ const QuizTakingPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (timeLeft > 0 && quizStartTime && !showInstructions) {
+    if (timeLeft > 0 && quizStartTime && !showInstructions && !isExamPaused) {
       const timer = setTimeout(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -309,6 +309,11 @@ const QuizTakingPage: React.FC = () => {
               setPauseReason(data.reason || "Exam paused by instructor");
               setIsExamPaused(true);
               setContentDisabled(true);
+              // Emit status change to server
+              socket.emit("exam-status-changed", {
+                sessionToken: proctoringSession.session_token,
+                status: "paused",
+              });
             }
           });
 
@@ -318,6 +323,34 @@ const QuizTakingPage: React.FC = () => {
             if (data.sessionToken === proctoringSession.session_token) {
               setIsExamPaused(false);
               setPauseReason("");
+              setContentDisabled(false);
+              // Emit status change to server
+              socket.emit("exam-status-changed", {
+                sessionToken: proctoringSession.session_token,
+                status: "active",
+              });
+            }
+          });
+
+          // Listen for quiz restart command from instructor
+          socket.on("restart-student-quiz", (data: any) => {
+            console.log("Student received restart-student-quiz", data);
+            if (data.sessionToken === proctoringSession.session_token) {
+              // Clear localStorage and reset quiz state
+              if (id) {
+                const quizSessionKey = `quiz_${id}_answers`;
+                const timerSessionKey = `quiz_${id}_timer`;
+                localStorage.removeItem(quizSessionKey);
+                localStorage.removeItem(timerSessionKey);
+              }
+              // Reset quiz state
+              setAnswers([]);
+              setCurrentQuestionIndex(0);
+              setTimeLeft((quiz?.time_limit || 0) * 60);
+              setQuizStartTime(new Date());
+              setIsExamPaused(false);
+              setShowWarning(false);
+              setShowNote(false);
               setContentDisabled(false);
             }
           });
