@@ -1152,6 +1152,42 @@ const LiveProctoringDashboard: React.FC = () => {
     }
   };
 
+  const handleSendNote = async (sessionToken: string, message: string) => {
+    // Log the note event to the database
+    try {
+      await ProctoringApiService.logWarningEvent(sessionToken);
+    } catch (error) {
+      console.error("Failed to log note event:", error);
+      // Continue even if logging fails - the note will still be sent to the student
+    }
+
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("send-note-to-student", {
+        sessionToken: sessionToken,
+        message: message,
+      });
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Note sent to student: ${message}`,
+          type: "info",
+          timestamp: new Date(),
+        },
+      ]);
+    } else {
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Failed to send note: Socket not connected. Please refresh the page.`,
+          type: "error",
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50 flex items-center justify-center">
@@ -1501,6 +1537,7 @@ const LiveProctoringDashboard: React.FC = () => {
         onPauseExam={handlePauseExam}
         onResumeExam={handleResumeExam}
         onSendWarning={handleSendWarning}
+        onSendNote={handleSendNote}
       />
     </div>
   );

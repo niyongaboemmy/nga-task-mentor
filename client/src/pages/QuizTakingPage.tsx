@@ -20,6 +20,8 @@ import { ProctoringSetup } from "../components/Proctoring";
 import ProctoringMonitorComponent from "../components/Proctoring/ProctoringMonitorComponent";
 import FloatingCameraComponent from "../components/Proctoring/FloatingCameraComponent";
 import WarningNotification from "../components/Proctoring/WarningNotification";
+import NoteNotification from "../components/Proctoring/NoteNotification";
+import PauseOverlay from "../components/Proctoring/PauseOverlay";
 import type { Quiz, QuizQuestion, AnswerDataType } from "../types/quiz.types";
 
 interface QuizTakingQuiz extends Quiz {
@@ -81,6 +83,10 @@ const QuizTakingPage: React.FC = () => {
   const [proctoringError, setProctoringError] = useState<string | null>(null);
   const [showWarning, setShowWarning] = useState(false);
   const [warningMessage, setWarningMessage] = useState("");
+  const [showNote, setShowNote] = useState(false);
+  const [noteMessage, setNoteMessage] = useState("");
+  const [isExamPaused, setIsExamPaused] = useState(false);
+  const [pauseReason, setPauseReason] = useState("");
   const [showViolationWarning, setShowViolationWarning] = useState(false);
   const [currentViolation, setCurrentViolation] = useState<any>(null);
   const [contentDisabled, setContentDisabled] = useState(false);
@@ -284,6 +290,35 @@ const QuizTakingPage: React.FC = () => {
             if (data.sessionToken === proctoringSession.session_token) {
               setWarningMessage(data.message || "Warning from instructor");
               setShowWarning(true);
+            }
+          });
+
+          // Listen for note from instructor
+          socket.on("send-note-to-student", (data: any) => {
+            console.log("Student received send-note-to-student", data);
+            if (data.sessionToken === proctoringSession.session_token) {
+              setNoteMessage(data.message || "Note from instructor");
+              setShowNote(true);
+            }
+          });
+
+          // Listen for exam pause from instructor
+          socket.on("pause-student-exam", (data: any) => {
+            console.log("Student received pause-student-exam", data);
+            if (data.sessionToken === proctoringSession.session_token) {
+              setPauseReason(data.reason || "Exam paused by instructor");
+              setIsExamPaused(true);
+              setContentDisabled(true);
+            }
+          });
+
+          // Listen for exam resume from instructor
+          socket.on("resume-student-exam", (data: any) => {
+            console.log("Student received resume-student-exam", data);
+            if (data.sessionToken === proctoringSession.session_token) {
+              setIsExamPaused(false);
+              setPauseReason("");
+              setContentDisabled(false);
             }
           });
 
@@ -1727,6 +1762,16 @@ const QuizTakingPage: React.FC = () => {
         isVisible={showWarning}
         onClose={() => setShowWarning(false)}
       />
+
+      {/* Note Notification - Blue popup at top of browser */}
+      <NoteNotification
+        message={noteMessage}
+        isVisible={showNote}
+        onClose={() => setShowNote(false)}
+      />
+
+      {/* Pause Overlay - When exam is paused */}
+      <PauseOverlay isVisible={isExamPaused} reason={pauseReason} />
 
       {/* Connection Status Popup */}
       {showConnectionPopup && proctoringSession && (

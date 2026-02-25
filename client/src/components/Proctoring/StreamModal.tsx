@@ -106,6 +106,8 @@ interface StreamModalProps {
   onPauseExam?: (sessionToken: string) => void;
   onResumeExam?: (sessionToken: string) => void;
   onSendWarning?: (sessionToken: string, message: string) => void;
+  onSendNote?: (sessionToken: string, message: string) => void;
+  onEndExam?: (sessionToken: string, reason: string) => void;
 }
 
 // Events Dropdown Component for Title Bar - Opens Modal when clicked
@@ -422,6 +424,8 @@ const StreamModal: React.FC<StreamModalProps> = ({
   onPauseExam,
   onResumeExam,
   onSendWarning,
+  onSendNote,
+  onEndExam,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -436,9 +440,11 @@ const StreamModal: React.FC<StreamModalProps> = ({
   const [endQuizReason, setEndQuizReason] = useState("");
   const [isEndingQuiz, setIsEndingQuiz] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
-  const [warningMessage, setWarningMessage] = useState("");
-  const [isSendingWarning, setIsSendingWarning] = useState(false);
   const [showNoteModal, setShowNoteModal] = useState(false);
+  const [warningMessage, setWarningMessage] = useState("");
+  const [noteMessage, setNoteMessage] = useState("");
+  const [endReason, setEndReason] = useState("");
+  const [isSendingWarning, setIsSendingWarning] = useState(false);
   const [noteContent, setNoteContent] = useState("");
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [eventFilter, setEventFilter] = useState<string>("all");
@@ -636,15 +642,22 @@ const StreamModal: React.FC<StreamModalProps> = ({
   };
 
   const handleSaveNote = async () => {
-    if (!noteContent.trim()) return;
+    if (!noteContent.trim() || !stream) return;
     setIsSavingNote(true);
     try {
+      // Log the note event to the database
       await ProctoringApiService.logEvent({
-        session_token: stream?.sessionToken || "",
+        session_token: stream.sessionToken,
         event_type: "instructor_note",
         severity: "low",
         description: `Note: ${noteContent}`,
       });
+
+      // Send the note to the student via socket
+      if (onSendNote) {
+        onSendNote(stream.sessionToken, noteContent);
+      }
+
       setShowNoteModal(false);
       setNoteContent("");
     } catch (e) {

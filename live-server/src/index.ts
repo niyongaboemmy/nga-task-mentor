@@ -613,6 +613,41 @@ io.on("connection", (socket: Socket) => {
     });
   });
 
+  // Handle note sent from instructor to student
+  socket.on("send-note-to-student", (data: any) => {
+    console.log("Received send-note-to-student:", data);
+    const { sessionToken, message } = data;
+
+    // Forward the note to the student in the proctoring session
+    socket.to("proctoring-" + sessionToken).emit("send-note-to-student", {
+      sessionToken,
+      message,
+    });
+  });
+
+  // Handle pause exam command from instructor
+  socket.on("pause-student-exam", (data: any) => {
+    console.log("Received pause-student-exam:", data);
+    const { sessionToken, reason } = data;
+
+    // Forward the pause command to the student
+    socket.to("proctoring-" + sessionToken).emit("pause-student-exam", {
+      sessionToken,
+      reason: reason || "Exam paused by instructor",
+    });
+  });
+
+  // Handle resume exam command from instructor
+  socket.on("resume-student-exam", (data: any) => {
+    console.log("Received resume-student-exam:", data);
+    const { sessionToken } = data;
+
+    // Forward the resume command to the student
+    socket.to("proctoring-" + sessionToken).emit("resume-student-exam", {
+      sessionToken,
+    });
+  });
+
   socket.on("proctoring-violation", (data: any) => {
     console.log("Received proctoring violation:", data);
     const { sessionToken, quizId, violation } = data;

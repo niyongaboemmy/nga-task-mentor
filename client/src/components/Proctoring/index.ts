@@ -4,5 +4,7 @@ export { default as ProctoringSettings } from "./ProctoringSettings";
 export { default as ProctoringAnalytics } from "./ProctoringAnalytics";
 export { default as LiveProctoringDashboard } from "./LiveProctoringDashboard";
 export { default as WarningNotification } from "./WarningNotification";
+export { default as NoteNotification } from "./NoteNotification";
+export { default as PauseOverlay } from "./PauseOverlay";
 export { default as QuizProctoringContainer } from "./QuizProctoringContainer";
 export { default as ProctoringContainer } from "./QuizProctoringContainer";
