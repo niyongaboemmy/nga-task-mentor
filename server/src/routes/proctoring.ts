@@ -13,6 +13,7 @@ import {
   leaveLiveStream,
   getActiveStreams,
   endProctoringSession,
+  getSessionEvents,
 } from "../controllers/proctoring.controller";
 import { protect } from "../middleware/auth";
 
@@ -50,5 +51,8 @@ router.get("/my-sessions", getMyProctoringSessions);
 router.post("/sessions/:sessionToken/join-stream", joinLiveStream);
 router.post("/sessions/:sessionToken/leave-stream", leaveLiveStream);
 router.get("/live-streams", getActiveStreams);
+
+// Session events (including screenshots)
+router.get("/sessions/:sessionToken/events", getSessionEvents);
 
 export default router;

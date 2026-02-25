@@ -155,6 +155,16 @@ export class ProctoringApiService {
     return response.data;
   }
 
+  // Get session events including screenshots
+  static async getSessionEvents(
+    sessionToken: string,
+  ): Promise<{ success: boolean; count: number; data: any[] }> {
+    const response = await axios.get(
+      `/proctoring/sessions/${sessionToken}/events`,
+    );
+    return response.data;
+  }
+
   // Reset quiz submission (instructor/admin only)
   static async resetQuizSubmission(
     submissionId: number,

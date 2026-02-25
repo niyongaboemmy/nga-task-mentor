@@ -865,7 +865,7 @@ const QuizTakingPage: React.FC = () => {
       // Show user feedback - BROWSER FORCED TO MAXIMUM VOLUME
       const notification = document.createElement("div");
       notification.className =
-        "fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl z-[10000] font-bold border-2 border-red-400 animate-pulse";
+        "fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl z-50 font-bold border-2 border-red-400 animate-pulse";
       notification.innerHTML = `
         <div class="flex items-center gap-2">
           <span class="text-2xl">🔊</span>
@@ -897,7 +897,7 @@ const QuizTakingPage: React.FC = () => {
       // Fallback notification
       const notification = document.createElement("div");
       notification.className =
-        "fixed top-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-[10000]";
+        "fixed top-4 right-4 bg-yellow-500 text-white px-4 py-2 rounded-lg shadow-lg z-50";
       notification.textContent =
         "Audio settings applied (limited browser support)";
       document.body.appendChild(notification);
@@ -2004,7 +2004,7 @@ const QuizTakingPage: React.FC = () => {
       <div>
         {/* Fullscreen Required Overlay */}
         {proctoringSettings?.require_fullscreen && !isFullscreenMode && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center">
             <div className="bg-white dark:bg-gray-900 rounded-lg p-8 max-w-md w-full mx-4 text-center shadow-2xl border border-gray-200 dark:border-gray-700">
               <div className="w-16 h-16 bg-gradient-to-br from-amber-400/20 to-amber-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
                 <svg
@@ -2053,7 +2053,7 @@ const QuizTakingPage: React.FC = () => {
 
         {/* Content Disabled Overlay */}
         {contentDisabled && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-40 flex items-center justify-center">
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center">
             <div className="bg-white dark:bg-gray-900 rounded-lg p-8 max-w-lg w-full mx-4 text-center shadow-2xl border border-red-300 dark:border-red-700">
               <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
                 <AlertCircle className="w-10 h-10 text-red-600 dark:text-red-400" />
@@ -2200,7 +2200,7 @@ const QuizTakingPage: React.FC = () => {
 
       {/* Proctoring Error Display */}
       {proctoringError && (
-        <div className="fixed bottom-4 left-4 z-40 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 max-w-xs">
+        <div className="fixed bottom-4 left-4 z-50 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 max-w-xs">
           <div className="flex items-center gap-2">
             <AlertCircle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
             <div className="flex-1 min-w-0">

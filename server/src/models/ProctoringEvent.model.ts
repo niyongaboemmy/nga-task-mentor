@@ -35,7 +35,10 @@ export type ProctoringEventType =
   | "mobile_phone_detected"
   | "unauthorized_object_detected"
   // Warning event type for instructor warnings
-  | "instructor_warning";
+  | "instructor_warning"
+  // Screenshot event types for instructor-captured screenshots
+  | "instructor_screenshot"
+  | "instructor_interface_screenshot";
 
 export type ProctoringEventSeverity = "low" | "medium" | "high" | "critical";
 
@@ -116,6 +119,9 @@ export class ProctoringEvent extends Model<
       "unauthorized_object_detected",
       // Warning event type for instructor warnings
       "instructor_warning",
+      // Screenshot event types for instructor-captured screenshots
+      "instructor_screenshot",
+      "instructor_interface_screenshot",
     ),
     allowNull: false,
     field: "event_type",

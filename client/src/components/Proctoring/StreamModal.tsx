@@ -465,6 +465,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
   const [severityFilter, setSeverityFilter] = useState<string>("all");
   const [expandedEvent, setExpandedEvent] = useState<number | null>(null);
   const [showScreenshots, setShowScreenshots] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [matrixRain, setMatrixRain] = useState(false);
   const [showEventsModal, setShowEventsModal] = useState(false);
   const controlsTimeoutRef = useRef<number | null>(null);
@@ -1291,7 +1292,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                   <div
                     key={i}
                     className="relative group cursor-pointer rounded-xl overflow-hidden"
-                    onClick={() => window.open(s, "_blank")}
+                    onClick={() => setPreviewImage(s)}
                   >
                     <img
                       src={s}
@@ -1304,6 +1305,40 @@ const StreamModal: React.FC<StreamModalProps> = ({
                   </div>
                 ))}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Image Preview Modal */}
+        {previewImage && (
+          <div
+            className="fixed inset-0 bg-black/90 flex items-center justify-center z-[110] p-4"
+            onClick={() => setPreviewImage(null)}
+          >
+            <button
+              className="absolute top-4 right-4 p-2 bg-white/10 hover:bg-white/20 rounded-full transition-colors"
+              onClick={() => setPreviewImage(null)}
+            >
+              <XCircle className="w-8 h-8 text-white" />
+            </button>
+            <img
+              src={previewImage}
+              alt="Preview"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            />
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+              <button
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 text-white rounded-full text-sm font-medium transition-colors"
+                onClick={() => {
+                  const link = document.createElement("a");
+                  link.href = previewImage;
+                  link.download = `screenshot-${Date.now()}.png`;
+                  link.click();
+                }}
+              >
+                Download
+              </button>
             </div>
           </div>
         )}

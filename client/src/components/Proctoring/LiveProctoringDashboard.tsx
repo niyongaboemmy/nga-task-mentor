@@ -422,12 +422,27 @@ const LiveProctoringDashboard: React.FC = () => {
     // Listen for camera screenshots from students
     socketRef.current.on(
       "student-camera-screenshot",
-      (data: {
+      async (data: {
         sessionToken: string;
         screenshot: string;
         timestamp: string;
       }) => {
         console.log("Received student camera screenshot:", data);
+
+        // Save screenshot to database
+        try {
+          await ProctoringApiService.logEvent({
+            session_token: data.sessionToken,
+            event_type: "instructor_screenshot",
+            severity: "low",
+            description: "Camera screenshot captured by instructor",
+            screenshot_url: data.screenshot,
+          });
+          console.log("Camera screenshot saved to database");
+        } catch (error) {
+          console.error("Failed to save camera screenshot to database:", error);
+        }
+
         setActiveStreams((prev) =>
           prev.map((s) =>
             s.sessionToken === data.sessionToken
@@ -467,12 +482,30 @@ const LiveProctoringDashboard: React.FC = () => {
     // Listen for interface screenshots from students
     socketRef.current.on(
       "student-interface-screenshot",
-      (data: {
+      async (data: {
         sessionToken: string;
         screenshot: string;
         timestamp: string;
       }) => {
         console.log("Received student interface screenshot:", data);
+
+        // Save screenshot to database
+        try {
+          await ProctoringApiService.logEvent({
+            session_token: data.sessionToken,
+            event_type: "instructor_interface_screenshot",
+            severity: "low",
+            description: "Interface screenshot captured by instructor",
+            screenshot_url: data.screenshot,
+          });
+          console.log("Interface screenshot saved to database");
+        } catch (error) {
+          console.error(
+            "Failed to save interface screenshot to database:",
+            error,
+          );
+        }
+
         setActiveStreams((prev) =>
           prev.map((s) =>
             s.sessionToken === data.sessionToken
@@ -588,6 +621,36 @@ const LiveProctoringDashboard: React.FC = () => {
             : newStream;
         });
       });
+
+      // Load saved screenshots from database for each stream
+      for (const stream of data.data) {
+        try {
+          const screenshotsData = await ProctoringApiService.getSessionEvents(
+            stream.sessionToken,
+          );
+          if (screenshotsData.success && screenshotsData.data.length > 0) {
+            // Add saved screenshots to the stream
+            setActiveStreams((prev) =>
+              prev.map((s) =>
+                s.sessionToken === stream.sessionToken
+                  ? {
+                      ...s,
+                      screenshots: [
+                        ...(s.screenshots || []),
+                        ...screenshotsData.data,
+                      ].slice(-20), // Keep last 20 screenshots
+                    }
+                  : s,
+              ),
+            );
+          }
+        } catch (screenshotError) {
+          console.error(
+            `Failed to load screenshots for session ${stream.sessionToken}:`,
+            screenshotError,
+          );
+        }
+      }
 
       // Request current live status from socket server to update online/offline state
       if (socketRef.current?.connected) {

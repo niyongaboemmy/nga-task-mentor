@@ -370,9 +370,7 @@ function AppContent() {
               path="/quizzes/:id/take"
               element={
                 <ProtectedRoute>
-                  <Layout>
-                    <QuizTakingPageWrapper />
-                  </Layout>
+                  <QuizTakingPageWrapper />
                 </ProtectedRoute>
               }
             />

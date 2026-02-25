@@ -543,6 +543,104 @@ export const logProctoringEvent = async (req: Request, res: Response) => {
   }
 };
 
+// @desc    Get session events including screenshots
+// @route   GET /api/proctoring/sessions/:sessionToken/events
+// @access  Private (instructor, admin)
+export const getSessionEvents = async (req: Request, res: Response) => {
+  try {
+    const { sessionToken } = req.params;
+    const { eventTypes } = req.query;
+
+    // Validate sessionToken
+    if (!sessionToken) {
+      return res.status(400).json({
+        success: false,
+        message: "Session token is required",
+      });
+    }
+
+    // Find session by token
+    const session = await ProctoringSession.findOne({
+      where: { session_token: sessionToken },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: "Proctoring session not found",
+      });
+    }
+
+    // Check if user is authorized (instructor who created the quiz or admin)
+    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only instructors can view session events",
+      });
+    }
+
+    // Build query options
+    const whereClause: any = { session_id: session.id };
+
+    // Filter by event types if provided
+    if (eventTypes) {
+      const types = (eventTypes as string).split(",");
+      whereClause.event_type = { [Op.in]: types };
+    } else {
+      // By default, only get screenshot events
+      whereClause.event_type = {
+        [Op.in]: ["instructor_screenshot", "instructor_interface_screenshot"],
+      };
+    }
+
+    // Get events
+    const events = await ProctoringEvent.findAll({
+      where: whereClause,
+      order: [["timestamp", "DESC"]],
+      attributes: [
+        "id",
+        "event_type",
+        "severity",
+        "timestamp",
+        "description",
+        "screenshot_url",
+        "video_timestamp",
+      ],
+    });
+
+    // Format response - convert screenshot URLs to the format expected by frontend
+    const screenshots = events
+      .filter((e) => e.screenshot_url)
+      .map((e) => ({
+        type: e.event_type === "instructor_screenshot" ? "camera" : "interface",
+        image: e.screenshot_url,
+        timestamp: e.timestamp,
+      }));
+
+    res.status(200).json({
+      success: true,
+      count: screenshots.length,
+      data: screenshots,
+    });
+  } catch (error) {
+    console.error("Get session events error:", error);
+
+    if (error instanceof Error) {
+      if (error.message.includes("connect")) {
+        return res.status(500).json({
+          success: false,
+          message: "Database connection error. Please try again later.",
+        });
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message: "An unexpected error occurred while fetching session events.",
+    });
+  }
+};
+
 // @desc    Log instructor warning event (message is NOT stored)
 // @route   POST /api/proctoring/warning-events
 // @access  Private (instructor, admin)
