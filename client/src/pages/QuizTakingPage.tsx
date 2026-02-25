@@ -19,6 +19,7 @@ import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
 import { ProctoringSetup } from "../components/Proctoring";
 import ProctoringMonitorComponent from "../components/Proctoring/ProctoringMonitorComponent";
 import FloatingCameraComponent from "../components/Proctoring/FloatingCameraComponent";
+import WarningNotification from "../components/Proctoring/WarningNotification";
 import type { Quiz, QuizQuestion, AnswerDataType } from "../types/quiz.types";
 
 interface QuizTakingQuiz extends Quiz {
@@ -78,6 +79,8 @@ const QuizTakingPage: React.FC = () => {
   );
   const [proctoringMonitorActive, setProctoringMonitorActive] = useState(false);
   const [proctoringError, setProctoringError] = useState<string | null>(null);
+  const [showWarning, setShowWarning] = useState(false);
+  const [warningMessage, setWarningMessage] = useState("");
   const [showViolationWarning, setShowViolationWarning] = useState(false);
   const [currentViolation, setCurrentViolation] = useState<any>(null);
   const [contentDisabled, setContentDisabled] = useState(false);
@@ -272,6 +275,15 @@ const QuizTakingPage: React.FC = () => {
               setTimeout(() => {
                 handleAutoSubmit();
               }, 3000); // Give student time to read the message
+            }
+          });
+
+          // Listen for warning from instructor
+          socket.on("send-warning-to-student", (data: any) => {
+            console.log("Student received send-warning-to-student", data);
+            if (data.sessionToken === proctoringSession.session_token) {
+              setWarningMessage(data.message || "Warning from instructor");
+              setShowWarning(true);
             }
           });
 
@@ -1709,6 +1721,13 @@ const QuizTakingPage: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-white dark:bg-gray-900 overflow-auto z-50">
+      {/* Warning Notification - Orange popup at top of browser */}
+      <WarningNotification
+        message={warningMessage}
+        isVisible={showWarning}
+        onClose={() => setShowWarning(false)}
+      />
+
       {/* Connection Status Popup */}
       {showConnectionPopup && proctoringSession && (
         <div className="fixed bottom-4 right-4 z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 max-w-sm">

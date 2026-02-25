@@ -543,6 +543,89 @@ export const logProctoringEvent = async (req: Request, res: Response) => {
   }
 };
 
+// @desc    Log instructor warning event (message is NOT stored)
+// @route   POST /api/proctoring/warning-events
+// @access  Private (instructor, admin)
+export const logWarningEvent = async (req: Request, res: Response) => {
+  try {
+    const { session_token } = req.body;
+
+    // Validate request
+    if (!session_token) {
+      return res.status(400).json({
+        success: false,
+        message: "Session token is required",
+      });
+    }
+
+    // Only instructors and admins can log warning events
+    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only instructors can send warnings to students",
+      });
+    }
+
+    // Find session by token
+    const session = await ProctoringSession.findOne({
+      where: { session_token },
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        message: "Proctoring session not found",
+      });
+    }
+
+    // Create warning event - message is NOT stored, only the event is recorded
+    const event = await ProctoringEvent.create({
+      session_id: session.id,
+      event_type: "instructor_warning",
+      severity: "medium",
+      timestamp: new Date(),
+      description: "Instructor sent a warning to student",
+      metadata: JSON.stringify({
+        instructor_id: req.user.id,
+        instructor_name: req.user.first_name + " " + req.user.last_name,
+        // Note: message content is intentionally NOT stored
+        // to protect student privacy and comply with data minimization principles
+      }),
+      reviewed: false,
+    });
+
+    // Update session flags count for warning
+    await session.increment("flags_count");
+
+    res.status(201).json({
+      success: true,
+      data: {
+        event_id: event.id,
+        session_id: session.id,
+        timestamp: event.timestamp,
+      },
+      message: "Warning event logged successfully",
+    });
+  } catch (error) {
+    console.error("Log warning event error:", error);
+
+    if (error instanceof Error) {
+      if (error.message.includes("connect")) {
+        return res.status(500).json({
+          success: false,
+          message: "Database connection error. Please try again later.",
+        });
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      message:
+        "An unexpected error occurred while logging the warning event. Please contact support if this persists.",
+    });
+  }
+};
+
 // @desc    Get proctoring sessions for a quiz
 // @route   GET /api/quizzes/:quizId/proctoring/sessions
 // @access  Private (instructor, admin)

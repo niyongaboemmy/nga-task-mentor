@@ -601,6 +601,18 @@ io.on("connection", (socket: Socket) => {
     });
   });
 
+  // Handle warning sent from instructor to student
+  socket.on("send-warning-to-student", (data: any) => {
+    console.log("Received send-warning-to-student:", data);
+    const { sessionToken, message } = data;
+
+    // Forward the warning to the student in the proctoring session
+    socket.to("proctoring-" + sessionToken).emit("send-warning-to-student", {
+      sessionToken,
+      message,
+    });
+  });
+
   socket.on("proctoring-violation", (data: any) => {
     console.log("Received proctoring violation:", data);
     const { sessionToken, quizId, violation } = data;

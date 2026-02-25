@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import faceDetectionService from "../../utils/faceDetection";
 import { useAuth } from "../../contexts/AuthContext";
 import { QuizApiService } from "../../services/quizApi";
+import WarningNotification from "./WarningNotification";
 
 interface ProctoringSetupProps {
   quizId: string;
@@ -36,6 +37,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
   } | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sessionTokenRef = useRef<string>("");
 
   const [browserInfo, setBrowserInfo] = useState({
     userAgent: "",
@@ -329,6 +331,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
   };
 
   const startWebRTCStream = async (sessionToken: string) => {
+    sessionTokenRef.current = sessionToken;
     try {
       // Get user media (camera and microphone)
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -372,14 +375,14 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         if (socket.connected) {
           // Join proctoring session room FIRST - before emitting stream-started
           socket.emit("join-proctoring-session", {
-            sessionToken,
+            sessionToken: sessionTokenRef.current,
             role: "student",
           });
           console.log("Student joined proctoring session room:", sessionToken);
 
           // Then notify server that student stream has started
           socket.emit("student-stream-started", {
-            sessionToken,
+            sessionToken: sessionTokenRef.current,
             studentInfo: {
               id: parseInt(user?.id || "1"),
               first_name: user?.first_name || "Student",
@@ -431,7 +434,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         peerConnection.onicecandidate = (event) => {
           if (event.candidate && socket?.connected) {
             socket.emit("webrtc-ice-candidate", {
-              sessionToken,
+              sessionToken: sessionTokenRef.current,
               candidate: event.candidate,
             });
           } else if (!event.candidate) {
@@ -466,7 +469,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         // Signal to dashboard that student is ready for WebRTC connection
         if (socket.connected) {
           socket.emit("student-webrtc-ready", {
-            sessionToken,
+            sessionToken: sessionTokenRef.current,
             message: "Student is ready for WebRTC connection",
           });
         }
@@ -475,7 +478,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         socket.on("webrtc-offer", async (data: any) => {
           // Debug: Log what data looks like
 
-          // Workaround: If sessionToken is undefined but we have a local sessionToken,
+          // Workaround: If sessionToken is undefined but we have a local sessionToken: sessionTokenRef.current,
           // use our local sessionToken (server might not be forwarding it correctly)
           const effectiveSessionToken = data.sessionToken || sessionToken;
 
@@ -529,7 +532,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
                 if (socket.connected) {
                   socket.emit("webrtc-answer", {
-                    sessionToken,
+                    sessionToken: sessionTokenRef.current,
                     answer,
                   });
                 } else {
@@ -550,7 +553,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
         // Handle dashboard reconnection notification
         socket.on("dashboard-reconnected", async (data: any) => {
-          if (data.sessionToken === sessionToken) {
+          if (data.sessionToken === sessionTokenRef.current) {
             // Reset the peer connection to allow dashboard to reconnect
             try {
               // Close existing peer connection
@@ -597,7 +600,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
               newPeerConnection.onicecandidate = (event) => {
                 if (event.candidate && socket?.connected) {
                   socket.emit("webrtc-ice-candidate", {
-                    sessionToken,
+                    sessionToken: sessionTokenRef.current,
                     candidate: event.candidate,
                   });
                 }
@@ -613,7 +616,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
               // Re-signal readiness for WebRTC connection
               if (socket.connected) {
                 socket.emit("student-webrtc-ready", {
-                  sessionToken,
+                  sessionToken: sessionTokenRef.current,
                   message:
                     "Student is ready for WebRTC connection (reconnected)",
                 });
@@ -654,7 +657,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
         // Handle force audio settings command from dashboard
         socket.on("force-student-audio", async (data: any) => {
-          if (data.sessionToken === sessionToken) {
+          if (data.sessionToken === sessionTokenRef.current) {
             await applySystemAudioSettings(
               data.volume || 0.5,
               data.micGain || 0.6,
@@ -665,12 +668,12 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         // Handle warning from dashboard
         socket.on("send-warning-to-student", (data: any) => {
           console.log("Student received send-warning-to-student", data);
-          if (data.sessionToken === sessionToken) {
+          if (data.sessionToken === sessionTokenRef.current) {
             setWarningMessage(data.message || "Warning from instructor");
             setShowWarning(true);
             // Notify dashboard of warning status
             socket.emit("exam-status-changed", {
-              sessionToken,
+              sessionToken: sessionTokenRef.current,
               status: "warning",
             });
             const audio = new Audio(
@@ -683,11 +686,11 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         // Handle pause exam command from dashboard
         socket.on("pause-student-exam", (data: any) => {
           console.log("Student received pause-student-exam", data);
-          if (data.sessionToken === sessionToken) {
+          if (data.sessionToken === sessionTokenRef.current) {
             setIsExamPaused(true);
             // Notify dashboard of paused status
             socket.emit("exam-status-changed", {
-              sessionToken,
+              sessionToken: sessionTokenRef.current,
               status: "paused",
             });
           }
@@ -696,11 +699,11 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         // Handle resume exam command from dashboard
         socket.on("resume-student-exam", (data: any) => {
           console.log("Student received resume-student-exam", data);
-          if (data.sessionToken === sessionToken) {
+          if (data.sessionToken === sessionTokenRef.current) {
             setIsExamPaused(false);
             // Notify dashboard of active status
             socket.emit("exam-status-changed", {
-              sessionToken,
+              sessionToken: sessionTokenRef.current,
               status: "active",
             });
           }
@@ -1605,6 +1608,7 @@ const FaceVerificationStep: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const sessionTokenRef = useRef<string>("");
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [detectionStatus, setDetectionStatus] = useState<{
     faceCount: number;

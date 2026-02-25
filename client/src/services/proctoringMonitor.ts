@@ -156,7 +156,7 @@ class ProctoringMonitor {
     try {
       const { io } = await import("socket.io-client");
       this.socket = io(
-        import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
+        import.meta.env.VITE_SOCKET_URL || "http://localhost:5003",
         {
           transports: ["websocket", "polling"],
           timeout: 5000,

@@ -5,6 +5,7 @@ import {
   startProctoringSession,
   updateProctoringSession,
   logProctoringEvent,
+  logWarningEvent,
   getProctoringSessions,
   getProctoringSession,
   getMyProctoringSessions,
@@ -34,6 +35,9 @@ router.patch("/sessions/:sessionId/end", endProctoringSession);
 
 // Proctoring event logging
 router.post("/events", logProctoringEvent);
+
+// Instructor warning event logging (message is NOT stored)
+router.post("/warning-events", logWarningEvent);
 
 // Proctoring session management (instructors/admins)
 router.get("/quizzes/:quizId/proctoring/sessions", getProctoringSessions);

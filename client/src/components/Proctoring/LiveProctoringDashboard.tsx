@@ -202,7 +202,7 @@ const LiveProctoringDashboard: React.FC = () => {
 
   const initializeSocket = () => {
     socketRef.current = io(
-      import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
+      import.meta.env.VITE_SOCKET_URL || "http://localhost:5003",
       {
         transports: ["websocket", "polling"],
       },
@@ -1116,7 +1116,15 @@ const LiveProctoringDashboard: React.FC = () => {
     }
   };
 
-  const handleSendWarning = (sessionToken: string, message: string) => {
+  const handleSendWarning = async (sessionToken: string, message: string) => {
+    // First, log the warning event to the database (message is NOT stored)
+    try {
+      await ProctoringApiService.logWarningEvent(sessionToken);
+    } catch (error) {
+      console.error("Failed to log warning event:", error);
+      // Continue even if logging fails - the warning will still be sent to the student
+    }
+
     if (socketRef.current?.connected) {
       socketRef.current.emit("send-warning-to-student", {
         sessionToken: sessionToken,

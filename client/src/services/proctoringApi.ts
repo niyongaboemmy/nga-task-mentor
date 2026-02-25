@@ -144,6 +144,16 @@ export class ProctoringApiService {
     );
     return response.data;
   }
+
+  // Log warning event (message is NOT stored, only the event is recorded)
+  static async logWarningEvent(
+    sessionToken: string,
+  ): Promise<{ success: boolean; data: any; message: string }> {
+    const response = await axios.post("/proctoring/warning-events", {
+      session_token: sessionToken,
+    });
+    return response.data;
+  }
 }
 
 // Error handling utility for proctoring API

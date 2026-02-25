@@ -3,3 +3,6 @@ export { default as ProctoringMonitor } from "./ProctoringMonitor";
 export { default as ProctoringSettings } from "./ProctoringSettings";
 export { default as ProctoringAnalytics } from "./ProctoringAnalytics";
 export { default as LiveProctoringDashboard } from "./LiveProctoringDashboard";
+export { default as WarningNotification } from "./WarningNotification";
+export { default as QuizProctoringContainer } from "./QuizProctoringContainer";
+export { default as ProctoringContainer } from "./QuizProctoringContainer";

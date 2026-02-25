@@ -33,7 +33,9 @@ export type ProctoringEventType =
   | "microphone_level_low"
   | "speaker_level_low"
   | "mobile_phone_detected"
-  | "unauthorized_object_detected";
+  | "unauthorized_object_detected"
+  // Warning event type for instructor warnings
+  | "instructor_warning";
 
 export type ProctoringEventSeverity = "low" | "medium" | "high" | "critical";
 
@@ -111,7 +113,9 @@ export class ProctoringEvent extends Model<
       "microphone_level_low",
       "speaker_level_low",
       "mobile_phone_detected",
-      "unauthorized_object_detected"
+      "unauthorized_object_detected",
+      // Warning event type for instructor warnings
+      "instructor_warning",
     ),
     allowNull: false,
     field: "event_type",
