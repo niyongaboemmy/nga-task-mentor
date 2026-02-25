@@ -35,6 +35,11 @@ interface LiveStream {
   disconnectedAt?: string;
   lastReconnection?: string;
   examStatus?: "active" | "paused" | "ended" | "warning";
+  screenshots?: {
+    type: "camera" | "interface";
+    image: string;
+    timestamp: string;
+  }[];
 }
 
 interface ProctoringEvent {
@@ -409,6 +414,96 @@ const LiveProctoringDashboard: React.FC = () => {
         setSelectedStreamForModal((prev) =>
           prev?.sessionToken === data.sessionToken
             ? { ...prev, examStatus: data.status }
+            : prev,
+        );
+      },
+    );
+
+    // Listen for camera screenshots from students
+    socketRef.current.on(
+      "student-camera-screenshot",
+      (data: {
+        sessionToken: string;
+        screenshot: string;
+        timestamp: string;
+      }) => {
+        console.log("Received student camera screenshot:", data);
+        setActiveStreams((prev) =>
+          prev.map((s) =>
+            s.sessionToken === data.sessionToken
+              ? {
+                  ...s,
+                  screenshots: [
+                    ...(s.screenshots || []).slice(-19), // Keep last 20 screenshots
+                    {
+                      type: "camera",
+                      image: data.screenshot,
+                      timestamp: data.timestamp,
+                    },
+                  ],
+                }
+              : s,
+          ),
+        );
+        // Also update selectedStreamForModal
+        setSelectedStreamForModal((prev) =>
+          prev?.sessionToken === data.sessionToken
+            ? {
+                ...prev,
+                screenshots: [
+                  ...(prev.screenshots || []).slice(-19),
+                  {
+                    type: "camera",
+                    image: data.screenshot,
+                    timestamp: data.timestamp,
+                  },
+                ],
+              }
+            : prev,
+        );
+      },
+    );
+
+    // Listen for interface screenshots from students
+    socketRef.current.on(
+      "student-interface-screenshot",
+      (data: {
+        sessionToken: string;
+        screenshot: string;
+        timestamp: string;
+      }) => {
+        console.log("Received student interface screenshot:", data);
+        setActiveStreams((prev) =>
+          prev.map((s) =>
+            s.sessionToken === data.sessionToken
+              ? {
+                  ...s,
+                  screenshots: [
+                    ...(s.screenshots || []).slice(-19),
+                    {
+                      type: "interface",
+                      image: data.screenshot,
+                      timestamp: data.timestamp,
+                    },
+                  ],
+                }
+              : s,
+          ),
+        );
+        // Also update selectedStreamForModal
+        setSelectedStreamForModal((prev) =>
+          prev?.sessionToken === data.sessionToken
+            ? {
+                ...prev,
+                screenshots: [
+                  ...(prev.screenshots || []).slice(-19),
+                  {
+                    type: "interface",
+                    image: data.screenshot,
+                    timestamp: data.timestamp,
+                  },
+                ],
+              }
             : prev,
         );
       },
@@ -1247,6 +1342,42 @@ const LiveProctoringDashboard: React.FC = () => {
     }
   };
 
+  // Request camera screenshot from student
+  const handleRequestCameraScreenshot = (sessionToken: string) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("request-student-camera-screenshot", {
+        sessionToken,
+      });
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Requested camera screenshot from student`,
+          type: "info",
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  };
+
+  // Request interface screenshot from student
+  const handleRequestInterfaceScreenshot = (sessionToken: string) => {
+    if (socketRef.current?.connected) {
+      socketRef.current.emit("request-student-interface-screenshot", {
+        sessionToken,
+      });
+      setStatusMessages((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          message: `Requested interface screenshot from student`,
+          type: "info",
+          timestamp: new Date(),
+        },
+      ]);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50 flex items-center justify-center">
@@ -1622,6 +1753,8 @@ const LiveProctoringDashboard: React.FC = () => {
         onSendWarning={handleSendWarning}
         onSendNote={handleSendNote}
         onRestartQuiz={handleRestartQuiz}
+        onRequestCameraScreenshot={handleRequestCameraScreenshot}
+        onRequestInterfaceScreenshot={handleRequestInterfaceScreenshot}
       />
     </div>
   );

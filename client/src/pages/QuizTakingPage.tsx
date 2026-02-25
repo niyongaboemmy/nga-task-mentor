@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "../utils/axiosConfig";
+import html2canvas from "html2canvas";
 import { QuizApiService } from "../services/quizApi";
 import { ProctoringApiService } from "../services/proctoringApi";
 import {
@@ -288,8 +289,20 @@ const QuizTakingPage: React.FC = () => {
           socket.on("send-warning-to-student", (data: any) => {
             console.log("Student received send-warning-to-student", data);
             if (data.sessionToken === proctoringSession.session_token) {
+              console.log("Setting warning state - message:", data.message);
               setWarningMessage(data.message || "Warning from instructor");
               setShowWarning(true);
+              console.log(
+                "showWarning set to true, warningMessage:",
+                data.message,
+              );
+            } else {
+              console.log(
+                "Session token mismatch:",
+                data.sessionToken,
+                "vs",
+                proctoringSession.session_token,
+              );
             }
           });
 
@@ -355,11 +368,43 @@ const QuizTakingPage: React.FC = () => {
             }
           });
 
+          // Listen for camera screenshot request from instructor
+          socket.on("request-student-camera-screenshot", async (data: any) => {
+            console.log(
+              "Student received request-student-camera-screenshot",
+              data,
+            );
+            console.log("Current state:", {
+              hasProctoringSession: !!proctoringSession,
+              sessionToken: proctoringSession?.session_token,
+              hasVideoElement: !!proctoringVideoElement,
+              hasSocketRef: !!socketRef,
+            });
+            if (data.sessionToken === proctoringSession?.session_token) {
+              await captureAndSendCameraScreenshot(socket);
+            }
+          });
+
+          // Listen for interface screenshot request from instructor
+          socket.on(
+            "request-student-interface-screenshot",
+            async (data: any) => {
+              console.log(
+                "Student received request-student-interface-screenshot",
+                data,
+              );
+              if (data.sessionToken === proctoringSession.session_token) {
+                await captureAndSendInterfaceScreenshot(socket);
+              }
+            },
+          );
+
           socket.on("connect_error", (error: any) => {
             // console.error("QuizTakingPage socket connection error:", error);
           });
 
           setSocketRef(socket);
+          console.log("Socket ref set, socket id:", socket.id);
         } catch (error) {
           console.error("Error initializing socket in QuizTakingPage:", error);
         }
@@ -607,6 +652,116 @@ const QuizTakingPage: React.FC = () => {
   ) => {
     setProctoringVideoElement(videoElement);
     setProctoringStream(stream);
+  };
+
+  // Capture camera screenshot and send to instructor
+  // Accept optional socket parameter to avoid closure issues
+  const captureAndSendCameraScreenshot = async (socket?: any) => {
+    const activeSocket = socket || socketRef;
+
+    console.log("captureAndSendCameraScreenshot called:", {
+      hasVideoElement: !!proctoringVideoElement,
+      hasProctoringStream: !!proctoringStream,
+      hasSocket: !!activeSocket,
+      proctoringSession: !!proctoringSession,
+    });
+
+    // Try to get video element from DOM if not in state
+    let videoEl = proctoringVideoElement;
+    if (!videoEl) {
+      const videos = document.querySelectorAll("video");
+      console.log("Found videos in DOM:", videos.length);
+      if (videos.length > 0) {
+        videoEl = videos[0] as HTMLVideoElement;
+      }
+    }
+
+    if (!videoEl || !activeSocket) {
+      console.warn(
+        "Cannot capture camera screenshot: missing video element or socket",
+        {
+          hasVideoElement: !!videoEl,
+          hasSocket: !!activeSocket,
+        },
+      );
+      return;
+    }
+
+    try {
+      // Create a canvas to capture the video frame
+      const canvas = document.createElement("canvas");
+      canvas.width = videoEl.videoWidth || 640;
+      canvas.height = videoEl.videoHeight || 480;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        console.error("Could not get canvas context");
+        return;
+      }
+
+      // Draw the current video frame to canvas
+      ctx.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+
+      // Convert to base64 JPEG with moderate quality
+      const screenshot = canvas.toDataURL("image/jpeg", 0.7);
+
+      // Send to instructor via socket
+      activeSocket.emit("student-camera-screenshot", {
+        sessionToken: proctoringSession?.session_token,
+        screenshot,
+      });
+
+      console.log("Camera screenshot captured and sent");
+    } catch (error) {
+      console.error("Error capturing camera screenshot:", error);
+    }
+  };
+
+  // Capture quiz interface screenshot and send to instructor
+  // Accept optional socket parameter to avoid closure issues
+  const captureAndSendInterfaceScreenshot = async (socket?: any) => {
+    const activeSocket = socket || socketRef;
+
+    console.log("captureAndSendInterfaceScreenshot called:", {
+      hasSocket: !!activeSocket,
+      sessionToken: proctoringSession?.session_token,
+    });
+
+    if (!activeSocket || !proctoringSession?.session_token) {
+      console.warn(
+        "Cannot capture interface screenshot: missing socket or session",
+        {
+          hasSocket: !!activeSocket,
+          sessionToken: proctoringSession?.session_token,
+        },
+      );
+      return;
+    }
+
+    try {
+      // Get the root element of the quiz page
+      const rootElement = document.getElementById("root") || document.body;
+
+      // Capture the interface using html2canvas
+      const canvas = await html2canvas(rootElement, {
+        logging: false,
+        useCORS: true,
+        scale: 0.8, // Reduce scale for better performance
+      });
+
+      // Convert to base64 JPEG with moderate quality
+      const screenshot = canvas.toDataURL("image/jpeg", 0.6);
+
+      // Send to instructor via socket
+      activeSocket.emit("student-interface-screenshot", {
+        sessionToken: proctoringSession.session_token,
+        screenshot,
+      });
+
+      console.log("Interface screenshot captured and sent");
+    } catch (error) {
+      console.error("Error capturing interface screenshot:", error);
+    }
   };
 
   const handleAudioConfirmation = (confirmed: boolean) => {
@@ -1788,7 +1943,7 @@ const QuizTakingPage: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 bg-white dark:bg-gray-900 overflow-auto z-50">
+    <div className="fixed inset-0 bg-white dark:bg-gray-900 overflow-auto">
       {/* Warning Notification - Orange popup at top of browser */}
       <WarningNotification
         message={warningMessage}

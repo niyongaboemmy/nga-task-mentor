@@ -676,6 +676,58 @@ io.on("connection", (socket: Socket) => {
     });
   });
 
+  // Handle request for student screenshot (camera)
+  socket.on("request-student-camera-screenshot", (data: any) => {
+    console.log("Received request-student-camera-screenshot:", data);
+    const { sessionToken } = data;
+
+    // Forward the request to the student
+    socket
+      .to("proctoring-" + sessionToken)
+      .emit("request-student-camera-screenshot", {
+        sessionToken,
+      });
+  });
+
+  // Handle student sending camera screenshot
+  socket.on("student-camera-screenshot", (data: any) => {
+    console.log("Received student-camera-screenshot:", data);
+    const { sessionToken, screenshot } = data;
+
+    // Broadcast to instructor dashboard
+    io.emit("student-camera-screenshot", {
+      sessionToken,
+      screenshot,
+      timestamp: new Date(),
+    });
+  });
+
+  // Handle request for student interface screenshot
+  socket.on("request-student-interface-screenshot", (data: any) => {
+    console.log("Received request-student-interface-screenshot:", data);
+    const { sessionToken } = data;
+
+    // Forward the request to the student
+    socket
+      .to("proctoring-" + sessionToken)
+      .emit("request-student-interface-screenshot", {
+        sessionToken,
+      });
+  });
+
+  // Handle student sending interface screenshot
+  socket.on("student-interface-screenshot", (data: any) => {
+    console.log("Received student-interface-screenshot:", data);
+    const { sessionToken, screenshot } = data;
+
+    // Broadcast to instructor dashboard
+    io.emit("student-interface-screenshot", {
+      sessionToken,
+      screenshot,
+      timestamp: new Date(),
+    });
+  });
+
   socket.on("proctoring-violation", (data: any) => {
     console.log("Received proctoring violation:", data);
     const { sessionToken, quizId, violation } = data;

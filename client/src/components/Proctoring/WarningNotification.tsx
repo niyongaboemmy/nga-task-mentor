@@ -89,7 +89,7 @@ const WarningNotification: React.FC<WarningNotificationProps> = ({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 animate-slide-down">
+    <div className="fixed top-0 left-0 right-0 z-[10000] animate-slide-down">
       <div className="bg-gradient-to-r from-orange-500 to-orange-600 dark:from-orange-600 dark:to-orange-700 shadow-lg border-b-4 border-orange-700 dark:border-orange-800">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">

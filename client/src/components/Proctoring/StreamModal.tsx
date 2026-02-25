@@ -20,6 +20,7 @@ import {
   CheckCircle,
   XCircle,
   Image,
+  Camera,
   ChevronDown,
   ChevronUp,
   Send,
@@ -91,6 +92,11 @@ interface LiveStream {
   stream?: MediaStream;
   disconnectedAt?: string;
   examStatus?: "active" | "paused" | "ended" | "warning";
+  screenshots?: {
+    type: "camera" | "interface";
+    image: string;
+    timestamp: string;
+  }[];
 }
 
 interface StreamModalProps {
@@ -109,6 +115,8 @@ interface StreamModalProps {
   onSendNote?: (sessionToken: string, message: string) => void;
   onEndExam?: (sessionToken: string, reason: string) => void;
   onRestartQuiz?: (sessionToken: string, submissionId: number) => void;
+  onRequestCameraScreenshot?: (sessionToken: string) => void;
+  onRequestInterfaceScreenshot?: (sessionToken: string) => void;
 }
 
 // Events Dropdown Component for Title Bar - Opens Modal when clicked
@@ -428,6 +436,8 @@ const StreamModal: React.FC<StreamModalProps> = ({
   onSendNote,
   onEndExam,
   onRestartQuiz,
+  onRequestCameraScreenshot,
+  onRequestInterfaceScreenshot,
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(true);
@@ -437,7 +447,8 @@ const StreamModal: React.FC<StreamModalProps> = ({
   const [isMicEnabled, setIsMicEnabled] = useState(false);
   const [volumeLevel, setVolumeLevel] = useState(50);
   const [events, setEvents] = useState<ProctoringEvent[]>([]);
-  const [screenshots, setScreenshots] = useState<string[]>([]);
+  // Screenshots come from stream prop now
+  const screenshotImages = stream?.screenshots?.map((s) => s.image) || [];
   const [showEndQuizModal, setShowEndQuizModal] = useState(false);
   const [showRestartQuizModal, setShowRestartQuizModal] = useState(false);
   const [endQuizReason, setEndQuizReason] = useState("");
@@ -556,14 +567,12 @@ const StreamModal: React.FC<StreamModalProps> = ({
           .filter((e: ProctoringEvent) => e.screenshot_url)
           .map((e: ProctoringEvent) => e.screenshot_url);
         setEvents(session.events || []);
-        setScreenshots(ss);
+        // Screenshots now come from live stream socket events
       } else {
         setEvents([]);
-        setScreenshots([]);
       }
     } catch (e) {
       setEvents([]);
-      setScreenshots([]);
     }
   };
 
@@ -1008,6 +1017,38 @@ const StreamModal: React.FC<StreamModalProps> = ({
                   End
                 </button>
                 <button
+                  onClick={() => {
+                    if (onRequestCameraScreenshot && stream) {
+                      onRequestCameraScreenshot(stream.sessionToken);
+                    }
+                  }}
+                  disabled={!stream || !onRequestCameraScreenshot}
+                  className="flex flex-col items-center gap-1 px-2 py-2.5 bg-gradient-to-b from-cyan-50 to-cyan-100/50 dark:from-cyan-900/30 dark:to-cyan-800/20 hover:from-cyan-100 hover:to-cyan-100/80 dark:hover:from-cyan-900/50 dark:hover:to-cyan-800/30 border border-cyan-200/60 dark:border-cyan-800/30 rounded-lg text-cyan-700 dark:text-cyan-400 text-xs font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg hover:shadow-cyan-500/20"
+                >
+                  <Camera className="w-4 h-4" />
+                  Photo
+                </button>
+                <button
+                  onClick={() => {
+                    if (onRequestInterfaceScreenshot && stream) {
+                      onRequestInterfaceScreenshot(stream.sessionToken);
+                    }
+                  }}
+                  disabled={!stream || !onRequestInterfaceScreenshot}
+                  className="flex flex-col items-center gap-1 px-2 py-2.5 bg-gradient-to-b from-indigo-50 to-indigo-100/50 dark:from-indigo-900/30 dark:to-indigo-800/20 hover:from-indigo-100 hover:to-indigo-100/80 dark:hover:from-indigo-900/50 dark:hover:to-indigo-800/30 border border-indigo-200/60 dark:border-indigo-800/30 rounded-lg text-indigo-700 dark:text-indigo-400 text-xs font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg hover:shadow-indigo-500/20"
+                >
+                  <Image className="w-4 h-4" />
+                  Screen
+                </button>
+                <button
+                  onClick={() => setShowScreenshots(true)}
+                  disabled={screenshotImages.length === 0}
+                  className="flex flex-col items-center gap-1 px-2 py-2.5 bg-gradient-to-b from-pink-50 to-pink-100/50 dark:from-pink-900/30 dark:to-pink-800/20 hover:from-pink-100 hover:to-pink-100/80 dark:hover:from-pink-900/50 dark:hover:to-pink-800/30 border border-pink-200/60 dark:border-pink-800/30 rounded-lg text-pink-700 dark:text-pink-400 text-xs font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed active:scale-95 hover:shadow-lg hover:shadow-pink-500/20"
+                >
+                  <Image className="w-4 h-4" />
+                  Gallery ({screenshotImages.length})
+                </button>
+                <button
                   onClick={() => setMatrixRain(!matrixRain)}
                   className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-xs font-semibold transition-all duration-200 active:scale-95 hover:shadow-lg ${matrixRain ? "bg-gradient-to-b from-green-500 to-green-600 text-white shadow-green-500/40" : "bg-gradient-to-b from-gray-100 to-gray-200/50 dark:from-gray-800 dark:to-gray-700 border border-gray-200/60 dark:border-gray-600/40 text-gray-700 dark:text-gray-300 hover:shadow-gray-500/20"}`}
                 >
@@ -1227,7 +1268,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
         </div>
 
         {/* Screenshot Gallery Modal */}
-        {showScreenshots && screenshots.length > 0 && (
+        {showScreenshots && screenshotImages.length > 0 && (
           <div className="fixed inset-0 bg-black/85 flex items-center justify-center z-[100] p-4">
             <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 max-w-5xl w-full max-h-[90vh] overflow-y-auto border border-gray-200/60 dark:border-gray-700/40">
               <div className="flex items-center justify-between mb-4">
@@ -1235,7 +1276,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                   <Terminal className="w-5 h-5 text-purple-500" />
                   Screenshots Gallery{" "}
                   <span className="text-xs bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 px-2 py-0.5 rounded-full">
-                    {screenshots.length}
+                    {screenshotImages.length}
                   </span>
                 </h3>
                 <button
@@ -1246,7 +1287,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 </button>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                {screenshots.map((s, i) => (
+                {screenshotImages.map((s: string, i: number) => (
                   <div
                     key={i}
                     className="relative group cursor-pointer rounded-xl overflow-hidden"
