@@ -298,25 +298,52 @@ export interface Quiz {
   is_public?: boolean;
 }
 
-export interface QuizQuestion {
+export interface QuestionBankEntry {
   id: number;
-  quiz_id: number;
+  course_id: number;
   question_type: QuestionType;
   question_text: string;
   question_data: QuestionDataType;
-  correct_answer?: object;
-  explanation?: string;
-  points: number;
-  order: number;
-  time_limit?: number;
-  time_limit_seconds?: number;
-  is_required: boolean;
+  correct_answer?: object | null;
+  explanation?: string | null;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }> | null;
+  created_by: number;
   blooms_taxonomy_level_id?: number | null;
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;
   bloomsLevel?: BloomsTaxonomyLevel | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface QuizQuestion {
+  id: number;
+  quiz_id: number;
+  question_id: number; // FK → question_bank
+  order: number;
+  points: number;
+  time_limit_seconds: number;
+  is_required: boolean;
+  created_at: string;
+  updated_at: string;
+  // Deprecated direct access - use questionBank instead
+  question_text?: string;
+  question_type?: QuestionType;
+  question_data?: QuestionDataType;
+  explanation?: string | null;
+  correct_answer?: any;
+  attachments?: any;
+  tags?: string[] | null;
+  difficulty_level?: DifficultyLevel | null;
+  blooms_taxonomy_level_id?: number | null;
+  bloomsLevel?: BloomsTaxonomyLevel | null;
+  // Joined question content from question_bank
+  questionBank?: QuestionBankEntry;
   quiz?: Quiz;
   attempts?: QuizAttempt[];
 }
@@ -405,15 +432,42 @@ export interface UpdateQuizRequest extends Partial<CreateQuizRequest> {
 }
 
 export interface CreateQuestionRequest {
-  question_type: QuestionType;
-  question_text: string;
-  question_data: QuestionDataType;
-  correct_answer?: object;
-  explanation?: string;
+  // Option 1: reference an existing bank question by id
+  question_id?: number;
+  // Option 2: provide full content (creates new bank entry)
+  question_type?: QuestionType;
+  question_text?: string;
+  question_data?: QuestionDataType;
+  correct_answer?: object | null;
+  explanation?: string | null;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }> | null;
+  blooms_taxonomy_level_id?: number | null;
+  tags?: string[] | null;
+  difficulty_level?: DifficultyLevel | null;
+  // Quiz assignment fields
   points: number;
   order: number;
   time_limit_seconds: number;
   is_required: boolean;
+}
+
+export interface CreateCourseQuestionRequest {
+  question_type: QuestionType;
+  question_text: string;
+  question_data: QuestionDataType;
+  correct_answer?: object | null;
+  explanation?: string | null;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }> | null;
   blooms_taxonomy_level_id?: number | null;
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;

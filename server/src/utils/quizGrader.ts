@@ -96,8 +96,8 @@ export class ChoiceQuestionGrader {
         feedback: `Question has no valid correct answer. correctAnswerData: ${JSON.stringify(
           correctAnswerData,
         )}, question_data: ${JSON.stringify(
-          question.question_data,
-        )}, correct_answer: ${JSON.stringify(question.correct_answer)}`,
+          question.questionBank?.question_data,
+        )}, correct_answer: ${JSON.stringify(question.questionBank?.correct_answer)}`,
       };
     }
 
@@ -321,7 +321,7 @@ export class TextInputGrader {
     answerData: AnswerDataType,
   ): GradingResult {
     // Validate question data structure
-    if (!question || !question.question_data) {
+    if (!question || !question.questionBank?.question_data) {
       return {
         is_correct: false,
         points_earned: 0,
@@ -329,7 +329,7 @@ export class TextInputGrader {
       };
     }
 
-    let questionData = question.question_data as any;
+    let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
       try {
@@ -434,7 +434,7 @@ export class TextInputGrader {
     answerData: AnswerDataType,
   ): GradingResult {
     // Validate question data structure
-    if (!question || !question.question_data) {
+    if (!question || !question.questionBank?.question_data) {
       return {
         is_correct: false,
         points_earned: 0,
@@ -442,7 +442,7 @@ export class TextInputGrader {
       };
     }
 
-    let questionData = question.question_data as any;
+    let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
       try {
@@ -563,7 +563,7 @@ export class TextInputGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): GradingResult {
-    let questionData = question.question_data as any;
+    let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
       try {
@@ -635,7 +635,7 @@ export class InteractiveGrader {
     answerData: AnswerDataType,
   ): GradingResult {
     // Validate question data structure
-    if (!question || !question.question_data) {
+    if (!question || !question.questionBank?.question_data) {
       return {
         is_correct: false,
         points_earned: 0,
@@ -643,7 +643,7 @@ export class InteractiveGrader {
       };
     }
 
-    let questionData = question.question_data as any;
+    let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
       try {
@@ -713,11 +713,12 @@ export class InteractiveGrader {
     ) {
       correctMappings = questionData.correct_matches;
     } else if (
-      question.correct_answer &&
-      (question.correct_answer as any).mappings &&
-      typeof (question.correct_answer as any).mappings === "object"
+      question.questionBank?.correct_answer &&
+      (question.questionBank?.correct_answer as any).mappings &&
+      typeof (question.questionBank?.correct_answer as any).mappings ===
+        "object"
     ) {
-      correctMappings = (question.correct_answer as any).mappings;
+      correctMappings = (question.questionBank?.correct_answer as any).mappings;
     }
 
     if (!correctMappings || Object.keys(correctMappings).length === 0) {
@@ -766,7 +767,7 @@ export class InteractiveGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): GradingResult {
-    let questionData = question.question_data as any;
+    let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
       try {
@@ -816,7 +817,7 @@ export class InteractiveGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): GradingResult {
-    let questionData = question.question_data as any;
+    let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
       try {
@@ -825,7 +826,7 @@ export class InteractiveGrader {
         questionData = {};
       }
     }
-    const correctAnswer = question.correct_answer as any;
+    const correctAnswer = question.questionBank?.correct_answer as any;
     const answer = answerData as any;
 
     if (!Array.isArray(answer.selections)) {
@@ -893,7 +894,7 @@ export class CodingGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): Promise<GradingResult> {
-    let questionData = question.question_data as any;
+    let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
       try {
@@ -1159,7 +1160,7 @@ export class AdvancedQuizGrader {
   static normalizeCorrectAnswer(
     question: QuizQuestion,
   ): NormalizedCorrectAnswer {
-    let questionData = question.question_data as any;
+    let questionData = question.questionBank?.question_data as any;
     if (typeof questionData === "string") {
       try {
         questionData = JSON.parse(questionData);
@@ -1168,7 +1169,7 @@ export class AdvancedQuizGrader {
       }
     }
 
-    let correctAnswer = question.correct_answer as any;
+    let correctAnswer = question.questionBank?.correct_answer as any;
     if (typeof correctAnswer === "string") {
       try {
         correctAnswer = JSON.parse(correctAnswer);
@@ -1179,7 +1180,7 @@ export class AdvancedQuizGrader {
 
     let normalizedData: any;
 
-    switch (question.question_type) {
+    switch (question.questionBank?.question_type) {
       case "single_choice":
         let correctOptionIndex: number | null = null;
 
@@ -1225,7 +1226,7 @@ export class AdvancedQuizGrader {
             questionData.correct_answer.selected_option_index;
         }
 
-        // Fallback to question.correct_answer column
+        // Fallback to question.questionBank?.correct_answer column
         if (
           correctOptionIndex === null &&
           correctAnswer !== undefined &&
@@ -1426,9 +1427,9 @@ export class AdvancedQuizGrader {
     }
 
     return {
-      type: question.question_type,
+      type: question.questionBank?.question_type,
       data: normalizedData,
-      explanation: question.explanation,
+      explanation: question.questionBank?.explanation || undefined,
     };
   }
 
@@ -1438,7 +1439,7 @@ export class AdvancedQuizGrader {
     config?: QuestionGradingConfig,
   ): Promise<AdvancedGradingResult> {
     const gradingConfig =
-      config || this.getDefaultConfig(question.question_type);
+      config || this.getDefaultConfig(question.questionBank?.question_type);
     const maxPoints = parseFloat(String(question.points));
 
     switch (gradingConfig.type) {
@@ -1593,7 +1594,7 @@ export class AdvancedQuizGrader {
 
     // Apply penalty for wrong selections if configured
     if (config.penalty_per_wrong_selection > 0 && !basicResult.is_correct) {
-      let questionData = question.question_data as any;
+      let questionData = question.questionBank?.question_data as any;
       if (typeof questionData === "string") {
         try {
           questionData = JSON.parse(questionData);
@@ -1938,7 +1939,7 @@ export class QuizGrader {
     answerData: AnswerDataType,
   ): Promise<GradingResult> {
     try {
-      switch (question.question_type) {
+      switch (question.questionBank?.question_type) {
         // Choice Questions
         case "single_choice":
           return ChoiceQuestionGrader.gradeSingleChoice(question, answerData);
@@ -2010,7 +2011,7 @@ export class QuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): GradingResult {
-    const questionData = question.question_data as any;
+    const questionData = question.questionBank?.question_data as any;
     const answer = answerData as any;
 
     if (typeof answer.answer !== "number") {
@@ -2053,7 +2054,7 @@ export class QuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): GradingResult {
-    const questionData = question.question_data as any;
+    const questionData = question.questionBank?.question_data as any;
     const answer = answerData as any;
 
     if (!Array.isArray(answer.answers)) {
@@ -2119,7 +2120,7 @@ export class QuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): GradingResult {
-    const questionData = question.question_data as any;
+    const questionData = question.questionBank?.question_data as any;
     const answer = answerData as any;
 
     if (typeof answer.answer !== "string") {
@@ -2173,8 +2174,8 @@ export class QuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): GradingResult {
-    const questionData = question.question_data as any;
-    const correctAnswer = question.correct_answer as any;
+    const questionData = question.questionBank?.question_data as any;
+    const correctAnswer = question.questionBank?.correct_answer as any;
     const answer = answerData as any;
 
     if (!answer.matches || typeof answer.matches !== "object") {
@@ -2234,8 +2235,8 @@ export class QuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): GradingResult {
-    const questionData = question.question_data as any;
-    const correctAnswer = question.correct_answer as any;
+    const questionData = question.questionBank?.question_data as any;
+    const correctAnswer = question.questionBank?.correct_answer as any;
     const answer = answerData as any;
 
     if (!Array.isArray(answer.ordered_item_ids)) {
@@ -2296,7 +2297,7 @@ export class QuizGrader {
     answerData: AnswerDataType,
   ): GradingResult {
     // Validate question data structure
-    if (!question || !question.question_data) {
+    if (!question || !question.questionBank?.question_data) {
       return {
         is_correct: false,
         points_earned: 0,
@@ -2304,7 +2305,7 @@ export class QuizGrader {
       };
     }
 
-    let questionData = question.question_data as any;
+    let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
       try {
@@ -2395,10 +2396,12 @@ export class QuizGrader {
         }
         // Then check correct_answer column
         else if (
-          question.correct_answer &&
-          Array.isArray(question.correct_answer)
+          question.questionBank?.correct_answer &&
+          Array.isArray(question.questionBank?.correct_answer)
         ) {
-          const correctItem = (question.correct_answer as any[]).find(
+          const correctItem = (
+            question.questionBank?.correct_answer as any[]
+          ).find(
             (item: any) =>
               item && typeof item === "object" && item.dropdown_index === index,
           );
@@ -2442,7 +2445,7 @@ export class QuizGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): Promise<GradingResult> {
-    const questionData = question.question_data as any;
+    const questionData = question.questionBank?.question_data as any;
     const answer = answerData as any;
 
     // Validate answer format
@@ -2616,7 +2619,7 @@ export class QuizGrader {
       // Normalize answers for consistent comparison
       const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
         attempt.submitted_answer as AnswerDataType,
-        attempt.question.question_type,
+        attempt.question.questionBank?.question_type,
       );
       const normalizedCorrectAnswer = AdvancedQuizGrader.normalizeCorrectAnswer(
         attempt.question,
@@ -2639,7 +2642,7 @@ export class QuizGrader {
             "matching",
             "ordering",
             "dropdown",
-          ].includes(attempt.question.question_type)
+          ].includes(attempt.question.questionBank?.question_type)
         ) {
           // Parse JSON if stored as strings and compare objects
           let submitted = normalizedSubmittedAnswer.data;
@@ -2667,7 +2670,9 @@ export class QuizGrader {
           feedback = isCorrect ? "Correct!" : "Incorrect";
         }
         // For multiple_choice, use advanced grading for partial credit
-        else if (attempt.question.question_type === "multiple_choice") {
+        else if (
+          attempt.question.questionBank?.question_type === "multiple_choice"
+        ) {
           const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
             attempt.question,
             attempt.submitted_answer as AnswerDataType,
@@ -2677,7 +2682,7 @@ export class QuizGrader {
           feedback = gradingResult.feedback;
         }
         // For coding, use existing grading
-        else if (attempt.question.question_type === "coding") {
+        else if (attempt.question.questionBank?.question_type === "coding") {
           const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
             attempt.question,
             attempt.submitted_answer as AnswerDataType,

@@ -1,4 +1,5 @@
 import React from "react";
+import { createPortal } from "react-dom";
 import { Pause, Play, AlertCircle } from "lucide-react";
 
 interface PauseOverlayProps {
@@ -14,8 +15,8 @@ const PauseOverlay: React.FC<PauseOverlayProps> = ({
 }) => {
   if (!isVisible) return null;
 
-  return (
-    <div className="fixed inset-0 z-[9998] bg-gray-900/95 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[99999] bg-gray-900/95 flex items-center justify-center p-4">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full p-8 text-center">
         {/* Pause Icon */}
         <div className="w-20 h-20 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
@@ -60,7 +61,8 @@ const PauseOverlay: React.FC<PauseOverlayProps> = ({
           }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body,
   );
 };
 

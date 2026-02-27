@@ -5,6 +5,7 @@ import {
   QuizSubmission,
   QuizAttempt,
   User,
+  QuestionBank,
 } from "../models";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
@@ -233,7 +234,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     // Normalize answers for consistent grading
     const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
       answer_data,
-      question.question_type,
+      question.questionBank?.question_type,
     );
     const normalizedCorrectAnswer =
       AdvancedQuizGrader.normalizeCorrectAnswer(question);
@@ -379,7 +380,7 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
       // Normalize answers for consistent grading
       const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
         answer_data,
-        question.question_type,
+        question.questionBank?.question_type,
       );
       const normalizedCorrectAnswer =
         AdvancedQuizGrader.normalizeCorrectAnswer(question);
@@ -466,7 +467,14 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
             {
               model: QuizQuestion,
               as: "quizQuestions",
-              attributes: ["id", "question_type", "points", "order"],
+              attributes: ["id", "points", "order"],
+              include: [
+                {
+                  model: QuestionBank,
+                  as: "questionBank",
+                  attributes: ["question_type"],
+                },
+              ],
             },
           ],
         },
@@ -477,7 +485,14 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
             {
               model: QuizQuestion,
               as: "attemptQuestion",
-              attributes: ["id", "question_text", "question_type"],
+              attributes: ["id"],
+              include: [
+                {
+                  model: QuestionBank,
+                  as: "questionBank",
+                  attributes: ["question_text", "question_type"],
+                },
+              ],
             },
           ],
         },
@@ -547,9 +562,9 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
         progress,
         current_score: totalEarned,
         max_score: maxPossible,
-        attempts: submission.attempts?.map((attempt) => ({
+        attempts: submission.attempts?.map((attempt: any) => ({
           question_id: attempt.question_id,
-          question_text: attempt.question?.question_text,
+          question_text: attempt.attemptQuestion?.questionBank?.question_text,
           is_correct: attempt.is_correct,
           points_earned: attempt.points_earned,
           time_taken: attempt.time_taken,
@@ -706,12 +721,18 @@ export const getQuizResults = async (req: Request, res: Response) => {
             {
               model: QuizQuestion,
               as: "attemptQuestion",
-              attributes: [
-                "id",
-                "question_text",
-                "question_type",
-                "explanation",
-                "correct_answer",
+              attributes: ["id", "points", "order"],
+              include: [
+                {
+                  model: QuestionBank,
+                  as: "questionBank",
+                  attributes: [
+                    "question_text",
+                    "question_type",
+                    "explanation",
+                    "correct_answer",
+                  ],
+                },
               ],
             },
           ],
@@ -771,15 +792,15 @@ export const getQuizResults = async (req: Request, res: Response) => {
         percentage: submission.percentage,
         passed: submission.passed,
         grade_status: submission.grade_status,
-        attempts: attempts.map((attempt) => ({
+        attempts: attempts.map((attempt: any) => ({
           question_id: attempt.question_id,
-          question_text: attempt.question?.question_text,
-          question_type: attempt.question?.question_type,
+          question_text: attempt.attemptQuestion?.questionBank?.question_text,
+          question_type: attempt.attemptQuestion?.questionBank?.question_type,
           is_correct: attempt.is_correct,
           points_earned: attempt.points_earned,
           time_taken: attempt.time_taken,
           correct_answer: attempt.correct_answer,
-          explanation: attempt.question?.explanation,
+          explanation: attempt.attemptQuestion?.questionBank?.explanation,
         })),
         submitted_at: submission.completed_at,
       },
@@ -867,22 +888,24 @@ async function gradeAnswer(
   let feedback = "";
 
   try {
-    switch (question.question_type) {
+    switch (question.questionBank?.question_type) {
       case "single_choice":
       case "multiple_choice":
       case "true_false":
         // For choice-based questions, compare with correct answer
-        const correctAnswer = question.correct_answer;
+        const correctAnswer = question.questionBank?.correct_answer;
         isCorrect = answerData === correctAnswer;
         pointsEarned = isCorrect ? question.points : 0;
         break;
 
       case "numerical":
         // For numerical questions, check within tolerance
-        const numData = question.question_data as any;
+        const numData = question.questionBank?.question_data as any;
         const tolerance = numData?.tolerance || 0;
         const userAnswerStr = String(answerData || "").trim();
-        const correctAnswerStr = String(question.correct_answer || "").trim();
+        const correctAnswerStr = String(
+          question.questionBank?.correct_answer || "",
+        ).trim();
         const userAnswer = parseFloat(userAnswerStr);
         const correctNum = parseFloat(correctAnswerStr);
 
@@ -894,7 +917,7 @@ async function gradeAnswer(
 
       case "fill_blank":
         // For fill-in-the-blank, check against acceptable answers
-        const fillData = question.question_data as any;
+        const fillData = question.questionBank?.question_data as any;
         const acceptableAnswers = fillData?.acceptable_answers || [];
         const userAnswerStr2 = String(answerData || "")
           .toLowerCase()
@@ -910,7 +933,7 @@ async function gradeAnswer(
 
       case "short_answer":
         // For short answer, basic length check (would need more sophisticated grading)
-        const shortData = question.question_data as any;
+        const shortData = question.questionBank?.question_data as any;
         const minLength = shortData?.min_length || 10;
         const userAnswerLen = String(answerData || "").trim().length;
 
@@ -923,7 +946,7 @@ async function gradeAnswer(
 
       case "matching":
         // For matching questions, check if all pairs match
-        const matchingData = question.question_data as any;
+        const matchingData = question.questionBank?.question_data as any;
         const correctMatches = matchingData?.correct_matches || {};
         const userMatches = answerData as any;
 
@@ -946,7 +969,7 @@ async function gradeAnswer(
 
       case "ordering":
         // For ordering questions, check if order matches
-        const orderingData = question.question_data as any;
+        const orderingData = question.questionBank?.question_data as any;
         const correctOrder = orderingData?.correct_order || [];
         const userOrder = answerData as any;
 
@@ -959,8 +982,8 @@ async function gradeAnswer(
 
       case "dropdown":
         // For dropdown questions, check each dropdown
-        const dropdownData = question.question_data as any;
-        const correctAnswers = question.correct_answer as any;
+        const dropdownData = question.questionBank?.question_data as any;
+        const correctAnswers = question.questionBank?.correct_answer as any;
         const userAnswers = answerData as any;
 
         if (correctAnswers && userAnswers && typeof userAnswers === "object") {
@@ -984,7 +1007,7 @@ async function gradeAnswer(
 
       case "coding":
         // For coding questions, basic validation (would need code execution)
-        const codingData = question.question_data as any;
+        const codingData = question.questionBank?.question_data as any;
         const userCode = String(answerData || "").trim();
 
         // Basic checks: non-empty, contains expected keywords

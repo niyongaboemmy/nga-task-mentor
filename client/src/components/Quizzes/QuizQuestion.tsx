@@ -26,12 +26,22 @@ export const QuizQuestion: React.FC<QuizQuestionProps> = ({
     <div className={`quiz-question`}>
       <BaseQuestion
         questionId={question.id}
-        questionType={question.question_type}
-        questionText={question.question_text}
+        questionType={
+          question.question_type ||
+          question.questionBank?.question_type ||
+          "single_choice"
+        }
+        questionText={
+          question.question_text || question.questionBank?.question_text || ""
+        }
         points={question.points}
-        timeLimit={question.time_limit}
+        timeLimit={question.time_limit_seconds}
         isRequired={question.is_required}
-        explanation={question.explanation}
+        explanation={
+          question.explanation ||
+          question.questionBank?.explanation ||
+          undefined
+        }
         showCorrectAnswer={showCorrectAnswer}
         className=""
       >

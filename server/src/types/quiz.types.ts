@@ -301,20 +301,54 @@ export interface UpdateQuizRequest extends Partial<CreateQuizRequest> {
   status?: QuizStatus;
 }
 
-// Question creation interfaces
-export interface CreateQuestionRequest {
+// Question Bank – the course-level question content
+export interface QuestionBankEntry {
+  id: number;
+  course_id: number;
   question_type: QuestionType;
   question_text: string;
   question_data: QuestionDataType;
-  correct_answer?: object;
-  explanation?: string;
+  correct_answer?: object | null;
+  explanation?: string | null;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }> | null;
+  created_by: number;
+  blooms_taxonomy_level_id?: number | null;
+  tags?: string[] | null;
+  difficulty_level?: DifficultyLevel | null;
+  bloomsLevel?: { id: number; name: string; level_order: number } | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// Question creation interfaces
+export interface CreateQuestionRequest {
+  // Option 1: reference an existing bank question
+  question_id?: number;
+  // Option 2: provide full question content (creates a new bank entry)
+  question_type?: QuestionType;
+  question_text?: string;
+  question_data?: QuestionDataType;
+  correct_answer?: object | null;
+  explanation?: string | null;
+  attachments?: Array<{
+    name: string;
+    url: string;
+    type: string;
+    size?: number;
+  }> | null;
+  blooms_taxonomy_level_id?: number | null;
+  tags?: string[] | null;
+  difficulty_level?: DifficultyLevel | null;
+  // Quiz assignment fields (always required)
   points: number;
   order: number;
   time_limit_seconds: number;
   is_required: boolean;
-  blooms_taxonomy_level_id?: number | null;
-  tags?: string[] | null;
-  difficulty_level?: DifficultyLevel | null;
 }
 
 // Quiz attempt interfaces

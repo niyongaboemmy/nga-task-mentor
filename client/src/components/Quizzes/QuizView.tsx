@@ -17,6 +17,7 @@ import {
   BarChart3,
   Play,
   ArrowLeft,
+  Library,
 } from "lucide-react";
 import type { RootState, AppDispatch } from "../../store";
 import {
@@ -29,6 +30,9 @@ import {
 } from "../../store/slices/quizSlice";
 import type { QuizStatus, QuizQuestion } from "../../types/quiz.types";
 import QuestionPreviewModal from "./QuestionPreviewModal";
+import QuestionBankSelectorModal from "./QuestionBankSelectorModal";
+import QuestionBankModal from "../QuestionBank/QuestionBankModal";
+import type { QuestionBankEntry } from "../../types/quiz.types";
 
 interface QuizViewProps {
   quizId: number;
@@ -102,7 +106,7 @@ const QuizHeader: React.FC<{
                   <div className="flex flex-wrap items-center gap-2 mb-4">
                     <span
                       className={`px-3 py-1 text-xs font-semibold rounded-xl border ${getStatusColor(
-                        quiz.status
+                        quiz.status,
                       )} shadow-sm hover:shadow-md transition-all duration-200`}
                     >
                       <div className="flex items-center gap-1">
@@ -111,8 +115,8 @@ const QuizHeader: React.FC<{
                             quiz.status === "published"
                               ? "bg-emerald-500"
                               : quiz.status === "draft"
-                              ? "bg-amber-500"
-                              : "bg-blue-500"
+                                ? "bg-amber-500"
+                                : "bg-blue-500"
                           }`}
                         ></div>
                         {quiz.status.charAt(0).toUpperCase() +
@@ -121,7 +125,7 @@ const QuizHeader: React.FC<{
                     </span>
                     <span
                       className={`px-3 py-1 text-xs font-semibold rounded-xl border ${getTypeColor(
-                        quiz.type
+                        quiz.type,
                       )} shadow-sm hover:shadow-md transition-all duration-200`}
                     >
                       <div className="flex items-center gap-1">
@@ -130,10 +134,10 @@ const QuizHeader: React.FC<{
                             quiz.type === "exam"
                               ? "bg-red-500"
                               : quiz.type === "graded"
-                              ? "bg-green-500"
-                              : quiz.type === "practice"
-                              ? "bg-orange-500"
-                              : "bg-gray-500"
+                                ? "bg-green-500"
+                                : quiz.type === "practice"
+                                  ? "bg-orange-500"
+                                  : "bg-gray-500"
                           }`}
                         ></div>
                         {quiz.type.charAt(0).toUpperCase() + quiz.type.slice(1)}
@@ -451,8 +455,8 @@ const QuestionCard: React.FC<{
         isDragging
           ? "opacity-50 scale-95 shadow-lg ring-2 ring-blue-400 ring-opacity-50"
           : isDragOver
-          ? "border-blue-400 bg-blue-50 scale-105 shadow-md ring-2 ring-blue-400 ring-opacity-50 border-dashed"
-          : "hover:border-gray-300 dark:hover:border-gray-600"
+            ? "border-blue-400 bg-blue-50 scale-105 shadow-md ring-2 ring-blue-400 ring-opacity-50 border-dashed"
+            : "hover:border-gray-300 dark:hover:border-gray-600"
       } ${!editing && !isReordering ? "cursor-move" : ""} ${
         isReordering ? "pointer-events-none opacity-75" : ""
       }`}
@@ -462,7 +466,7 @@ const QuestionCard: React.FC<{
       onDragLeave={onDragLeave}
       onDrop={onDrop}
       role="listitem"
-      aria-label={`Question ${index + 1}: ${question.question_text}`}
+      aria-label={`Question ${index + 1}: ${question.questionBank?.question_text || "Unknown"}`}
     >
       <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div className="flex-1">
@@ -472,20 +476,21 @@ const QuestionCard: React.FC<{
             </span>
             <span className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
               <span className="text-base">
-                {getTypeIcon(question.question_type)}
+                {getTypeIcon(question.questionBank?.question_type || "unknown")}
               </span>
-              {question.question_type.replace("_", " ")}
+              {question.questionBank?.question_type?.replace("_", " ") ||
+                "Unknown"}
             </span>
             <span className="px-2 py-1 text-xs font-medium rounded-xl bg-blue-100 text-blue-700 border border-blue-200 dark:bg-blue-900/50 dark:text-blue-300 dark:border-blue-800">
               {question.points}pt
             </span>
           </div>
           <h3 className="text-base font-medium text-gray-900 dark:text-white mb-2 leading-tight">
-            {question.question_text}
+            {question.questionBank?.question_text || "Unknown"}
           </h3>
-          {question.explanation && (
+          {question.questionBank?.explanation && (
             <div className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-700/50 p-3 rounded-xl border border-gray-100 dark:border-gray-600">
-              💡 {question.explanation}
+              💡 {question.questionBank.explanation}
             </div>
           )}
         </div>
@@ -595,7 +600,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { currentQuiz, questions, loading, error } = useSelector(
-    (state: RootState) => state.quiz
+    (state: RootState) => state.quiz,
   );
 
   const [editing, setEditing] = useState(false);
@@ -608,9 +613,13 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
   });
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
   const [previewQuestion, setPreviewQuestion] = useState<QuizQuestion | null>(
-    null
+    null,
   );
   const [deleteLoading, setDeleteLoading] = useState<number | null>(null);
+  const [bankSelectorOpen, setBankSelectorOpen] = useState(false);
+  const [questionModalOpen, setQuestionModalOpen] = useState(false);
+  const [selectedBankQuestion, setSelectedBankQuestion] =
+    useState<QuestionBankEntry | null>(null);
 
   // Drag and drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
@@ -686,7 +695,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
   const handleDeleteQuestion = async (questionId: number) => {
     if (
       !confirm(
-        "Are you sure you want to delete this question? This action cannot be undone."
+        "Are you sure you want to delete this question? This action cannot be undone.",
       )
     ) {
       return;
@@ -864,16 +873,26 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                     </span>
                   ) : null}
                 </div>
-                {questions.length > 0 && (
-                  <button
-                    onClick={() =>
-                      navigate(`/quizzes/${quizId}/questions/create`)
-                    }
-                    className="btn-facebook px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-normal transition-all duration-200 focus-ring shadow-lg hover:shadow-xl"
-                  >
-                    <Plus className="w-4 h-4 inline mr-2" />
-                    Add Question
-                  </button>
+                {questions.length >= 0 && (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => setBankSelectorOpen(true)}
+                      className="px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 dark:text-indigo-300 rounded-full font-medium transition-all duration-200 focus-ring hover:scale-105"
+                    >
+                      <Library className="w-4 h-4 inline mr-2" />
+                      Add from Bank
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedBankQuestion(null);
+                        setQuestionModalOpen(true);
+                      }}
+                      className="btn-facebook px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-normal transition-all duration-200 focus-ring shadow-lg hover:shadow-xl"
+                    >
+                      <Plus className="w-4 h-4 inline mr-2" />
+                      Add Question
+                    </button>
+                  </div>
                 )}
               </div>
 
@@ -898,11 +917,12 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                         question={question}
                         index={index}
                         onPreview={() => handlePreview(question)}
-                        onEdit={() =>
-                          navigate(
-                            `/quizzes/${quizId}/questions/${question.id}/edit`
-                          )
-                        }
+                        onEdit={() => {
+                          setSelectedBankQuestion(
+                            question.questionBank || null,
+                          );
+                          setQuestionModalOpen(true);
+                        }}
                         onDelete={() => handleDeleteQuestion(question.id)}
                         isDeleting={deleteLoading === question.id}
                         isDragging={draggedIndex === index}
@@ -919,9 +939,10 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                 </div>
               ) : (
                 <EmptyQuestionsState
-                  onAddQuestion={() =>
-                    navigate(`/quizzes/${quizId}/questions/create`)
-                  }
+                  onAddQuestion={() => {
+                    setSelectedBankQuestion(null);
+                    setQuestionModalOpen(true);
+                  }}
                 />
               )}
             </div>
@@ -936,6 +957,35 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
               questionNumber={
                 questions.findIndex((q) => q.id === previewQuestion.id) + 1
               }
+            />
+          )}
+
+          {/* Question Bank Selector Modal */}
+          {currentQuiz && (
+            <QuestionBankSelectorModal
+              isOpen={bankSelectorOpen}
+              onClose={() => setBankSelectorOpen(false)}
+              courseId={currentQuiz.course_id}
+              quizId={quizId}
+              onQuestionsAssigned={() => {
+                dispatch(fetchQuizQuestions(quizId));
+                dispatch(fetchQuiz(quizId)); // Updates total_points
+              }}
+            />
+          )}
+
+          {/* Question Bank CRUD Modal */}
+          {currentQuiz && (
+            <QuestionBankModal
+              isOpen={questionModalOpen}
+              onClose={() => setQuestionModalOpen(false)}
+              courseId={currentQuiz.course_id}
+              quizId={quizId}
+              question={selectedBankQuestion}
+              onSuccess={() => {
+                dispatch(fetchQuizQuestions(quizId));
+                dispatch(fetchQuiz(quizId));
+              }}
             />
           )}
         </div>

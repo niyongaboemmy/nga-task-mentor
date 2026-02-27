@@ -68,6 +68,14 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
     return typeMap[type] || type.replace("_", " ").toUpperCase();
   };
 
+  const currentType =
+    question.question_type || question.questionBank?.question_type;
+  const currentTags = question.tags || question.questionBank?.tags || [];
+  const currentDifficulty =
+    question.difficulty_level || question.questionBank?.difficulty_level;
+  const currentBlooms =
+    question.bloomsLevel || question.questionBank?.bloomsLevel;
+
   return (
     <Modal
       isOpen={isOpen}
@@ -235,8 +243,10 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
               <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                 Type
               </div>
-              <div className="font-medium text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm leading-snug">
-                {getQuestionTypeDisplay(question.question_type)}
+              <div className="font-medium text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
+                <span>
+                  {getQuestionTypeDisplay(currentType || "single_choice")}
+                </span>
               </div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
@@ -260,7 +270,9 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                 Time Limit
               </div>
               <div className="font-medium text-gray-900 dark:text-gray-100 mt-1">
-                {question.time_limit ? `${question.time_limit}s` : "None"}
+                {question.time_limit_seconds
+                  ? `${question.time_limit_seconds}s`
+                  : "None"}
               </div>
             </div>
           </div>
@@ -278,10 +290,9 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
           )}
 
           {/* Metadata Row: Bloom's / Difficulty / Tags */}
-          {(question.difficulty_level ||
-            question.blooms_taxonomy_level_id ||
-            question.bloomsLevel ||
-            (question.tags && question.tags.length > 0)) && (
+          {(currentDifficulty ||
+            currentBlooms ||
+            (currentTags && currentTags.length > 0)) && (
             <div className="mt-4 space-y-3">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-violet-500 rounded-full" />
@@ -291,72 +302,53 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
               </div>
 
               <div className="flex flex-wrap gap-3">
-                {/* Difficulty Level */}
-                {question.difficulty_level && (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20 min-w-[120px]">
-                    <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">
-                      Difficulty
-                    </div>
-                    <span
-                      className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
-                        question.difficulty_level === "EASY"
-                          ? "text-green-600 dark:text-green-400"
-                          : question.difficulty_level === "MEDIUM"
-                            ? "text-yellow-600 dark:text-yellow-400"
-                            : "text-red-600 dark:text-red-400"
-                      }`}
-                    >
-                      <span>
-                        {question.difficulty_level === "EASY"
-                          ? "🟢"
-                          : question.difficulty_level === "MEDIUM"
-                            ? "🟡"
-                            : "🔴"}
-                      </span>
-                      {question.difficulty_level.charAt(0) +
-                        question.difficulty_level.slice(1).toLowerCase()}
-                    </span>
+                {/* Bloom's Taxonomy Level */}
+                {currentBlooms && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 rounded-2xl text-xs font-medium border border-purple-100 dark:border-purple-800">
+                    <Smartphone className="h-3 w-3" />
+                    {currentBlooms.name}
                   </div>
                 )}
 
-                {/* Bloom's Taxonomy Level */}
-                {(question.bloomsLevel ||
-                  question.blooms_taxonomy_level_id) && (
-                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20 min-w-[160px]">
-                    <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">
-                      Bloom's Level
-                    </div>
-                    <div className="text-sm font-medium text-violet-700 dark:text-violet-300">
-                      {question.bloomsLevel ? (
-                        <>
-                          <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">
-                            L{question.bloomsLevel.level_order}
-                          </span>
-                          {question.bloomsLevel.name}
-                        </>
-                      ) : (
-                        <span className="text-gray-400 dark:text-gray-500">
-                          ID {question.blooms_taxonomy_level_id}
-                        </span>
-                      )}
-                    </div>
+                {/* Difficulty Level */}
+                {currentDifficulty && (
+                  <div
+                    className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl text-xs font-medium border ${
+                      currentDifficulty === "EASY"
+                        ? "bg-green-50 dark:bg-green-900/30 text-green-600 dark:text-green-400 border-green-100 dark:border-green-800"
+                        : currentDifficulty === "MEDIUM"
+                          ? "bg-yellow-50 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400 border-yellow-100 dark:border-yellow-800"
+                          : "bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 border-red-100 dark:border-red-800"
+                    }`}
+                  >
+                    <div
+                      className={`w-1.5 h-1.5 rounded-full ${
+                        currentDifficulty === "EASY"
+                          ? "bg-green-500"
+                          : currentDifficulty === "MEDIUM"
+                            ? "bg-yellow-500"
+                            : "bg-red-500"
+                      }`}
+                    />
+                    {currentDifficulty.charAt(0).toUpperCase() +
+                      currentDifficulty.slice(1).toLowerCase()}
                   </div>
                 )}
               </div>
 
               {/* Tags */}
-              {question.tags && question.tags.length > 0 && (
+              {currentTags && currentTags.length > 0 && (
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
                   <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-2">
                     Tags
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {question.tags.map((tag) => (
+                    {currentTags.map((tag) => (
                       <span
                         key={tag}
-                        className="inline-flex items-center px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium border border-blue-100 dark:border-blue-800"
+                        className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-medium rounded-lg"
                       >
-                        #{tag}
+                        {tag}
                       </span>
                     ))}
                   </div>

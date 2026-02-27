@@ -2369,17 +2369,27 @@ const QuizTakingPage: React.FC = () => {
         >
           <div className="space-y-6">
             {/* Question Image */}
-            {currentQuestion?.question_data &&
-              typeof currentQuestion.question_data === "object" &&
-              "question_image" in currentQuestion.question_data && (
-                <div>
-                  <img
-                    src={(currentQuestion.question_data as any).question_image}
-                    alt="Question"
-                    className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-600"
-                  />
-                </div>
-              )}
+            {(() => {
+              const qData =
+                currentQuestion?.question_data ||
+                currentQuestion?.questionBank?.question_data;
+              if (
+                qData &&
+                typeof qData === "object" &&
+                "question_image" in qData
+              ) {
+                return (
+                  <div>
+                    <img
+                      src={(qData as any).question_image}
+                      alt="Question"
+                      className="w-full h-auto rounded-lg border border-gray-200 dark:border-gray-600"
+                    />
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             {/* Problem Statement */}
             <div>
@@ -2390,7 +2400,9 @@ const QuizTakingPage: React.FC = () => {
                 {(() => {
                   try {
                     // Handle case where question_text might be stored as JSON
-                    const text = currentQuestion?.question_text;
+                    const text =
+                      currentQuestion?.question_text ||
+                      currentQuestion?.questionBank?.question_text;
                     if (typeof text === "string") {
                       // Try to parse as JSON first, fallback to string
                       try {
@@ -2410,19 +2422,29 @@ const QuizTakingPage: React.FC = () => {
             </div>
 
             {/* Constraints */}
-            {currentQuestion?.question_data &&
-              typeof currentQuestion.question_data === "object" &&
-              "constraints" in currentQuestion.question_data &&
-              (currentQuestion.question_data as any).constraints && (
-                <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                  <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-                    Constraints
-                  </h4>
-                  <p className="text-gray-700 dark:text-gray-200 leading-relaxed">
-                    {(currentQuestion.question_data as any).constraints}
-                  </p>
-                </div>
-              )}
+            {(() => {
+              const qData =
+                currentQuestion?.question_data ||
+                currentQuestion?.questionBank?.question_data;
+              if (
+                qData &&
+                typeof qData === "object" &&
+                "constraints" in qData &&
+                (qData as any).constraints
+              ) {
+                return (
+                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
+                    <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+                      Constraints
+                    </h4>
+                    <p className="text-gray-700 dark:text-gray-200 leading-relaxed">
+                      {(qData as any).constraints}
+                    </p>
+                  </div>
+                );
+              }
+              return null;
+            })()}
           </div>
         </div>
 

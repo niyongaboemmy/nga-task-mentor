@@ -9,6 +9,7 @@ import ProctoringSession from "./ProctoringSession.model";
 import ProctoringEvent from "./ProctoringEvent.model";
 import ProctoringSettings from "./ProctoringSettings.model";
 import BloomsTaxonomyLevel from "./BloomsTaxonomyLevel.model";
+import QuestionBank from "./QuestionBank.model";
 
 // Set up associations after all models are imported
 const setupAssociations = () => {
@@ -76,15 +77,29 @@ const setupAssociations = () => {
   });
 
   // ----------------------
-  // BloomsTaxonomyLevel Associations
+  // QuestionBank Associations
   // ----------------------
-  BloomsTaxonomyLevel.hasMany(QuizQuestion, {
-    foreignKey: "blooms_taxonomy_level_id",
-    as: "levelQuestions",
-  });
-  // Note: QuizQuestion.belongsTo(BloomsTaxonomyLevel) is already declared
-  // via the @BelongsTo decorator in QuizQuestion.model.ts — no duplicate here.
 
+  // A question bank entry belongs to BloomsTaxonomyLevel
+  // Note: QuestionBank.belongsTo(BloomsTaxonomyLevel) is already declared
+  // via the @BelongsTo decorator in QuestionBank.model.ts — no duplicate here.
+  BloomsTaxonomyLevel.hasMany(QuestionBank, {
+    foreignKey: "blooms_taxonomy_level_id",
+    as: "bankQuestions",
+  });
+
+  // QuizQuestion (join table) belongs to QuestionBank is already defined in QuizQuestion.model.ts
+  // via @BelongsTo decorator.
+
+  // A QuestionBank entry can be assigned to many QuizQuestions
+  QuestionBank.hasMany(QuizQuestion, {
+    foreignKey: "question_id",
+    as: "quizAssignments",
+  });
+
+  // ----------------------
+  // Quiz Submission Associations
+  // ----------------------
   Quiz.hasMany(QuizSubmission, {
     foreignKey: "quiz_id",
     as: "quizSubmissions",
@@ -115,6 +130,9 @@ const setupAssociations = () => {
     as: "submissionGrader",
   });
 
+  // ----------------------
+  // QuizAttempt Associations
+  // ----------------------
   QuizQuestion.hasMany(QuizAttempt, {
     foreignKey: "question_id",
     as: "questionAttempts",
@@ -195,6 +213,7 @@ export {
   ProctoringEvent,
   ProctoringSettings,
   BloomsTaxonomyLevel,
+  QuestionBank,
   setupAssociations,
 };
 
@@ -210,5 +229,6 @@ export default {
   ProctoringEvent,
   ProctoringSettings,
   BloomsTaxonomyLevel,
+  QuestionBank,
   setupAssociations,
 };

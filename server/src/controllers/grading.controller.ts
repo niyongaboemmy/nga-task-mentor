@@ -5,8 +5,9 @@ import {
   Quiz,
   User,
   QuizQuestion,
-  // Course, // Model removed - managed by MIS
+  QuestionBank,
 } from "../models";
+import { getQuestionBankInclude } from "../utils/quizUtils";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 
@@ -97,6 +98,12 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
             {
               model: QuizQuestion,
               as: "questions",
+              include: [
+                {
+                  model: QuestionBank,
+                  as: "questionBank",
+                },
+              ],
               order: [["order", "ASC"]],
             },
             /* {
@@ -124,12 +131,17 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
             {
               model: QuizQuestion,
               as: "attemptQuestion",
-              attributes: [
-                "id",
-                "question_text",
-                "question_type",
-                "correct_answer",
-                "explanation",
+              include: [
+                {
+                  model: QuestionBank,
+                  as: "questionBank",
+                  attributes: [
+                    "question_text",
+                    "question_type",
+                    "correct_answer",
+                    "explanation",
+                  ],
+                },
               ],
             },
           ],
@@ -186,12 +198,12 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
         passed: submission.passed,
         questions: questions.map((question) => ({
           question_id: question.id,
-          question_text: question.question_text,
-          question_type: question.question_type,
+          question_text: question.questionBank?.question_text,
+          question_type: question.questionBank?.question_type,
           points: question.points,
           order: question.order,
-          explanation: question.explanation,
-          correct_answer: question.correct_answer,
+          explanation: question.questionBank?.explanation,
+          correct_answer: question.questionBank?.correct_answer,
           student_answer: attemptsByQuestion[question.id]?.submitted_answer,
           is_correct: attemptsByQuestion[question.id]?.is_correct,
           points_earned: attemptsByQuestion[question.id]?.points_earned,
@@ -219,6 +231,13 @@ export const gradeSubmission = async (req: Request, res: Response) => {
         {
           model: Quiz,
           as: "quiz",
+          include: [
+            {
+              model: QuizQuestion,
+              as: "questions",
+              attributes: ["id", "points"],
+            },
+          ],
         },
         {
           model: QuizAttempt,
@@ -358,7 +377,13 @@ export const getQuizAnalytics = async (req: Request, res: Response) => {
         {
           model: QuizQuestion,
           as: "attemptQuestion",
-          attributes: ["id", "question_text", "question_type", "points"],
+          include: [
+            {
+              model: QuestionBank,
+              as: "questionBank",
+              attributes: ["question_text", "question_type"],
+            },
+          ],
         },
       ],
     });
@@ -390,7 +415,10 @@ export const getQuizAnalytics = async (req: Request, res: Response) => {
         questionStats[questionId] = {
           question_id: questionId,
           question_text:
-            attempt.question?.question_text?.substring(0, 50) + "...",
+            (
+              attempt as any
+            ).attemptQuestion?.questionBank?.question_text?.substring(0, 50) +
+            "...",
           total_attempts: 0,
           correct_attempts: 0,
           average_points: 0,

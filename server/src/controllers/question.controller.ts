@@ -1,11 +1,13 @@
 import { Request, Response } from "express";
 import axios from "axios";
-import { QuizQuestion, Quiz, QuizAttempt } from "../models";
+import { QuizQuestion, Quiz, QuizAttempt, QuestionBank } from "../models";
 import { Transaction, Op } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
 import { QuestionType, CreateQuestionRequest } from "../types/quiz.types";
 import { getMisToken, getCurrentTermId } from "../utils/misUtils";
+import BloomsTaxonomyLevel from "../models/BloomsTaxonomyLevel.model";
+import { getQuestionBankInclude } from "../utils/quizUtils";
 
 // @desc    Get questions for a quiz
 // @route   GET /api/quizzes/:quizId/questions
@@ -55,6 +57,7 @@ export const getQuizQuestions = async (req: Request, res: Response) => {
 
     const questions = await QuizQuestion.findAll({
       where: { quiz_id: quizId },
+      include: getQuestionBankInclude(),
       order: [["order", "ASC"]],
     });
 
@@ -62,9 +65,13 @@ export const getQuizQuestions = async (req: Request, res: Response) => {
     let questionsData = questions.map((q) => q.toJSON());
 
     if (req.user.role === "student" && !quiz.show_correct_answers) {
-      questionsData = questionsData.map((q) => {
-        const { correct_answer, explanation, ...questionWithoutAnswer } = q;
-        return questionWithoutAnswer;
+      questionsData = questionsData.map((q: any) => {
+        if (q.questionBank) {
+          const { correct_answer, explanation, ...bankWithoutAnswer } =
+            q.questionBank;
+          return { ...q, questionBank: bankWithoutAnswer };
+        }
+        return q;
       });
     }
 
@@ -79,7 +86,7 @@ export const getQuizQuestions = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Get single question
+// @desc    Get single question (by quiz_question id)
 // @route   GET /api/questions/:id
 // @access  Private (instructor, admin, enrolled students)
 export const getQuestion = async (req: Request, res: Response) => {
@@ -87,7 +94,7 @@ export const getQuestion = async (req: Request, res: Response) => {
     const question = await QuizQuestion.findByPk(req.params.id, {
       include: [
         {
-          model: Quiz,
+          model: sequelize.models.Quiz,
           as: "questionQuiz",
           attributes: [
             "id",
@@ -97,6 +104,7 @@ export const getQuestion = async (req: Request, res: Response) => {
             "show_correct_answers",
           ],
         },
+        ...getQuestionBankInclude(),
       ],
     });
 
@@ -108,43 +116,15 @@ export const getQuestion = async (req: Request, res: Response) => {
 
     const quiz = (question as any).questionQuiz;
 
-    // Check if user can access this question
-    if (req.user.role !== "admin" && req.user.id !== quiz?.created_by) {
-      // For non-admin users, check if they are the quiz creator or course instructor
-      // or enrolled in the course
-      const course = await sequelize.models.Course.findByPk(quiz?.course_id);
-      if (!course) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Course not found" });
-      }
-
-      const courseData = course.toJSON();
-      if (req.user.id !== courseData.instructor_id) {
-        // Check if student is enrolled in the course
-        const enrollment = await sequelize.models.UserCourse.findOne({
-          where: {
-            user_id: req.user.id,
-            course_id: quiz?.course_id,
-          },
-        });
-
-        if (!enrollment) {
-          return res.status(403).json({
-            success: false,
-            message: "Not authorized to access this question",
-          });
-        }
-      }
-    }
-
-    let questionData = question.toJSON();
+    let questionData: any = question.toJSON();
 
     // For students, don't include correct answers unless show_correct_answers is true
     if (req.user.role === "student" && !quiz?.show_correct_answers) {
-      const { correct_answer, explanation, ...questionWithoutAnswer } =
-        questionData;
-      questionData = questionWithoutAnswer;
+      if (questionData.questionBank) {
+        const { correct_answer, explanation, ...bankWithoutAnswer } =
+          questionData.questionBank;
+        questionData = { ...questionData, questionBank: bankWithoutAnswer };
+      }
     }
 
     res.status(200).json({ success: true, data: questionData });
@@ -154,19 +134,23 @@ export const getQuestion = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Create question for a quiz
+// @desc    Add a question to a quiz (either by referencing existing bank question or creating new)
 // @route   POST /api/quizzes/:quizId/questions
 // @access  Private/Instructor/Admin (quiz creator or course instructor)
 export const createQuestion = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
   try {
     const { quizId } = req.params;
-    const questionData: CreateQuestionRequest = req.body;
+    const body = req.body;
 
     // Find the quiz
     const quiz = await Quiz.findByPk(quizId, { transaction });
     if (!quiz) {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res
         .status(404)
         .json({ success: false, message: "Quiz not found" });
@@ -174,27 +158,101 @@ export const createQuestion = async (req: Request, res: Response) => {
 
     // Check if user is quiz creator or admin
     if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res.status(403).json({
         success: false,
         message: "Not authorized to add questions to this quiz",
       });
     }
 
-    // Validate question data
-    const validation = QuestionValidator.validateQuestionData(
-      questionData.question_type,
-      questionData.question_data,
-    );
+    let bankQuestionId: number;
 
-    if (!validation.isValid) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Invalid question data",
-        errors: validation.errors,
-        warnings: validation.warnings,
+    if (body.question_id) {
+      // Referencing an existing bank question
+      const existing = await QuestionBank.findByPk(body.question_id, {
+        transaction,
       });
+      if (!existing) {
+        try {
+          await transaction.rollback();
+        } catch (re) {
+          // Ignore if transaction already finished
+        }
+        return res.status(404).json({
+          success: false,
+          message: "Question bank entry not found",
+        });
+      }
+      bankQuestionId = existing.id!;
+    } else {
+      // Creating a new question in the bank as part of adding to quiz
+      const {
+        question_type,
+        question_text,
+        question_data,
+        correct_answer,
+        explanation,
+        attachments,
+        blooms_taxonomy_level_id,
+        tags,
+        difficulty_level,
+      } = body;
+
+      // Validate required fields when creating a new bank entry
+      if (!question_type || !question_text || !question_data) {
+        try {
+          await transaction.rollback();
+        } catch (re) {
+          // Ignore if transaction already finished
+        }
+        return res.status(400).json({
+          success: false,
+          message:
+            "Must provide question_id (existing bank question) or question_type, question_text, and question_data (new question)",
+        });
+      }
+
+      const validation = QuestionValidator.validateQuestionData(
+        question_type,
+        question_data,
+      );
+
+      if (!validation.isValid) {
+        try {
+          await transaction.rollback();
+        } catch (re) {
+          // Ignore if transaction already finished
+        }
+        return res.status(400).json({
+          success: false,
+          message: "Invalid question data",
+          errors: validation.errors,
+          warnings: validation.warnings,
+        });
+      }
+
+      const bankQuestion = await QuestionBank.create(
+        {
+          course_id: quiz.course_id!,
+          question_type,
+          question_text,
+          question_data,
+          correct_answer: correct_answer ?? null,
+          explanation: explanation ?? null,
+          attachments: attachments ?? null,
+          created_by: req.user.id,
+          blooms_taxonomy_level_id: blooms_taxonomy_level_id ?? null,
+          tags: tags ?? null,
+          difficulty_level: difficulty_level ?? null,
+        },
+        { transaction },
+      );
+
+      bankQuestionId = bankQuestion.id!;
     }
 
     // Get the next order number
@@ -204,82 +262,89 @@ export const createQuestion = async (req: Request, res: Response) => {
     })) as number | undefined;
     const nextOrder = (maxOrder || 0) + 1;
 
-    const question = await QuizQuestion.create(
+    const quizQuestion = await QuizQuestion.create(
       {
-        ...questionData,
         quiz_id: parseInt(quizId),
-        order: nextOrder,
-        created_by: req.user.id,
+        question_id: bankQuestionId,
+        order: body.order ?? nextOrder,
+        points: body.points ?? 1,
+        time_limit_seconds: body.time_limit_seconds ?? 60,
+        is_required: body.is_required ?? true,
       },
       { transaction },
     );
 
     await transaction.commit();
 
-    // Fetch the created question with associations
-    const createdQuestion = await QuizQuestion.findByPk(question.id, {
+    // Fetch the created question with all data
+    const createdQuestion = await QuizQuestion.findByPk(quizQuestion.id, {
       include: [
         {
-          model: Quiz,
+          model: sequelize.models.Quiz,
           as: "questionQuiz",
           attributes: ["id", "title"],
         },
+        ...getQuestionBankInclude(),
       ],
     });
 
     res.status(201).json({ success: true, data: createdQuestion });
   } catch (error) {
-    await transaction.rollback();
+    try {
+      await transaction.rollback();
+    } catch (re) {
+      // Ignore if transaction already finished
+    }
     console.error("Create question error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// @desc    Update question
+// @desc    Update question assignment (order/points/time) and/or question bank content
 // @route   PUT /api/questions/:id
-// @access  Private/Instructor/Admin (quiz creator or course instructor)
+// @access  Private/Instructor/Admin
 export const updateQuestion = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
   try {
-    const questionData = req.body;
+    const body = req.body;
 
-    const question = await QuizQuestion.findByPk(req.params.id, {
+    const quizQuestion = await QuizQuestion.findByPk(req.params.id, {
       include: [
-        {
-          model: Quiz,
-          as: "questionQuiz",
-        },
+        { model: sequelize.models.Quiz, as: "questionQuiz" },
+        ...getQuestionBankInclude(),
       ],
       transaction,
     });
 
-    if (!question) {
-      await transaction.rollback();
+    if (!quizQuestion) {
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res
         .status(404)
         .json({ success: false, message: "Question not found" });
     }
 
-    const quiz = question.quiz;
+    const quiz = quizQuestion.quiz;
+    const bankQuestion = (quizQuestion as any).questionBank as QuestionBank;
 
-    // Check if user is authorized to update this question
-    // Admin can update any question
-    // Quiz creator can update any question in their quiz
-    // Instructor can update questions they created
     const userId = parseInt(String(req.user.id));
     const quizCreatorId = parseInt(String(quiz?.created_by));
-    const questionCreatorId = parseInt(String(question.created_by));
+    const questionCreatorId = parseInt(String(bankQuestion?.created_by));
 
-    // Simplified authorization - check quiz creator or admin
     const isAuthorized =
       req.user.role === "admin" ||
       quizCreatorId === userId ||
-      (req.user.role === "instructor" && questionCreatorId === userId) ||
-      (req.user.role === "instructor" &&
-        (question.created_by === null || question.created_by === 0)); // Fallback for legacy questions
+      (req.user.role === "instructor" && questionCreatorId === userId);
 
     if (!isAuthorized) {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res.status(403).json({
         success: false,
         message:
@@ -287,190 +352,182 @@ export const updateQuestion = async (req: Request, res: Response) => {
       });
     }
 
-    // If updating question data, validate it
-    if (questionData.question_type || questionData.question_data) {
-      const questionType = questionData.question_type || question.question_type;
-      const questionDataToValidate =
-        questionData.question_data || question.question_data;
+    // Split into bank-level and assignment-level updates
+    const {
+      order,
+      points,
+      time_limit_seconds,
+      is_required,
+      // Everything else goes to the bank
+      ...bankUpdates
+    } = body;
 
-      const validation = QuestionValidator.validateQuestionData(
-        questionType,
-        questionDataToValidate,
-      );
+    // Update assignment metadata on quiz_questions row
+    const assignmentUpdate: any = {};
+    if (order !== undefined) assignmentUpdate.order = order;
+    if (points !== undefined) assignmentUpdate.points = points;
+    if (time_limit_seconds !== undefined)
+      assignmentUpdate.time_limit_seconds = time_limit_seconds;
+    if (is_required !== undefined) assignmentUpdate.is_required = is_required;
 
-      if (!validation.isValid) {
-        await transaction.rollback();
-        return res.status(400).json({
-          success: false,
-          message: "Invalid question data",
-          errors: validation.errors,
-          warnings: validation.warnings,
-        });
-      }
+    if (Object.keys(assignmentUpdate).length > 0) {
+      await quizQuestion.update(assignmentUpdate, { transaction });
     }
 
-    await question.update(questionData, { transaction });
+    // Update question content in the bank
+    if (Object.keys(bankUpdates).length > 0 && bankQuestion) {
+      if (bankUpdates.question_type || bankUpdates.question_data) {
+        const questionType =
+          bankUpdates.question_type || bankQuestion.question_type;
+        const questionDataToValidate =
+          bankUpdates.question_data || bankQuestion.question_data;
+
+        const validation = QuestionValidator.validateQuestionData(
+          questionType as QuestionType,
+          questionDataToValidate,
+        );
+
+        if (!validation.isValid) {
+          try {
+            await transaction.rollback();
+          } catch (re) {
+            // Ignore if transaction already finished
+          }
+          return res.status(400).json({
+            success: false,
+            message: "Invalid question data",
+            errors: validation.errors,
+            warnings: validation.warnings,
+          });
+        }
+      }
+
+      await bankQuestion.update(bankUpdates, { transaction });
+    }
+
     await transaction.commit();
 
     // Fetch updated question
-    const updatedQuestion = await QuizQuestion.findByPk(question.id, {
+    const updatedQuestion = await QuizQuestion.findByPk(quizQuestion.id, {
       include: [
         {
-          model: Quiz,
+          model: sequelize.models.Quiz,
           as: "questionQuiz",
           attributes: ["id", "title"],
         },
+        ...getQuestionBankInclude(),
       ],
     });
 
     res.status(200).json({ success: true, data: updatedQuestion });
   } catch (error) {
-    await transaction.rollback();
+    try {
+      await transaction.rollback();
+    } catch (re) {
+      // Ignore if transaction already finished
+    }
     console.error("Update question error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// @desc    Delete question
+// @desc    Remove question from quiz (delete quiz_question row)
 // @route   DELETE /api/questions/:id
-// @access  Private/Instructor/Admin (quiz creator or course instructor)
+// @access  Private/Instructor/Admin
 export const deleteQuestion = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
   try {
-    const question = await QuizQuestion.findByPk(req.params.id, {
+    const quizQuestion = await QuizQuestion.findByPk(req.params.id, {
       include: [
         {
-          model: Quiz,
+          model: sequelize.models.Quiz,
           as: "questionQuiz",
           attributes: ["id", "title", "created_by", "course_id"],
-          include: [
-            {
-              model: sequelize.models.Course,
-              as: "course",
-              attributes: ["id", "instructor_id"],
-            },
-          ],
         },
+        ...getQuestionBankInclude(),
       ],
       transaction,
     });
 
-    if (!question) {
-      await transaction.rollback();
+    if (!quizQuestion) {
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res
         .status(404)
         .json({ success: false, message: "Question not found" });
     }
 
-    const quiz = (question as any).questionQuiz;
+    const quiz = (quizQuestion as any).questionQuiz;
 
-    // Check if user is authorized to delete this question
-    // Admin can delete any question
-    // Quiz creator can delete any question in their quiz
-    // Course instructor can delete any question in courses they teach
-    // Instructor can delete questions they created
     const userId = parseInt(String(req.user.id));
     const quizCreatorId = parseInt(String(quiz?.created_by));
-    const courseInstructorId = parseInt(String(quiz?.course?.instructor_id));
-    const questionCreatorId = parseInt(String(question.created_by));
+    const bankQuestion = (quizQuestion as any).questionBank as QuestionBank;
+    const questionCreatorId = parseInt(String(bankQuestion?.created_by));
 
-    // Additional check: if course association failed, try to fetch course directly
-    let actualCourseInstructorId = courseInstructorId;
-    if (isNaN(courseInstructorId) && quiz?.course_id) {
-      try {
-        const course = (await sequelize.models.Course.findByPk(quiz.course_id, {
-          transaction,
-        })) as any;
-        actualCourseInstructorId = parseInt(String(course?.instructor_id));
-        console.log(
-          "Fetched course instructor directly:",
-          actualCourseInstructorId,
-        );
-      } catch (error) {
-        console.error("Failed to fetch course:", error);
-      }
-    }
-
-    console.log("Delete authorization check:", {
-      userId,
-      userRole: req.user.role,
-      quizCreatorId,
-      courseInstructorId,
-      questionCreatorId,
-      questionId: question.id,
-    });
-
-    // Use the corrected course instructor ID
-    const effectiveCourseInstructorId = !isNaN(actualCourseInstructorId)
-      ? actualCourseInstructorId
-      : courseInstructorId;
-
-    // Handle case where question.created_by might be null/0 for legacy questions
     const isAuthorized =
       req.user.role === "admin" ||
-      quizCreatorId === userId ||
-      effectiveCourseInstructorId === userId ||
-      (req.user.role === "instructor" && questionCreatorId === userId) ||
-      (req.user.role === "instructor" &&
-        (question.created_by === null || question.created_by === 0) &&
-        effectiveCourseInstructorId === userId); // Fallback for legacy questions - allow course instructors to delete
-
-    console.log("Authorization result:", {
-      isAuthorized,
-      isAdmin: req.user.role === "admin",
-      isQuizCreator: quizCreatorId === userId,
-      isCourseInstructor: courseInstructorId === userId,
-      isQuestionCreator:
-        req.user.role === "instructor" && questionCreatorId === userId,
-      questionCreatorIdValid: !isNaN(questionCreatorId),
-    });
+      userId === quizCreatorId ||
+      (req.user.role === "instructor" && questionCreatorId === userId);
 
     if (!isAuthorized) {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res.status(403).json({
         success: false,
-        message:
-          "Not authorized to delete this question. Only the question creator, course instructor, or admin can delete questions.",
+        message: "Not authorized to remove this question from the quiz.",
       });
     }
 
-    // Check if there are any attempts for this question
+    // Check if there are any attempts for this quiz_question
     const attemptCount = await QuizAttempt.count({
-      where: { question_id: question.id },
+      where: { question_id: quizQuestion.id },
       transaction,
     });
 
     if (attemptCount > 0) {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res.status(400).json({
         success: false,
-        message: "Cannot delete question with existing attempts",
+        message: "Cannot remove question with existing attempts",
       });
     }
 
-    // Delete the question
-    await question.destroy({ transaction });
+    const deletedOrder = quizQuestion.order;
+    const deletedQuizId = quizQuestion.quiz_id;
 
-    // Reorder remaining questions
-    await reorderQuestionsAfterDelete(
-      question.quiz_id,
-      question.order,
-      transaction,
-    );
+    // Delete the quiz_question link row only
+    await quizQuestion.destroy({ transaction });
+
+    // Reorder remaining questions in the quiz
+    await reorderQuestionsAfterDelete(deletedQuizId, deletedOrder, transaction);
 
     await transaction.commit();
 
     res.status(200).json({ success: true, data: {} });
   } catch (error) {
-    await transaction.rollback();
+    try {
+      await transaction.rollback();
+    } catch (re) {
+      // Ignore if transaction already finished
+    }
     console.error("Delete question error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// @desc    Reorder questions
+// @desc    Reorder questions in a quiz
 // @route   PUT /api/quizzes/:quizId/questions/reorder
-// @access  Private/Instructor/Admin (quiz creator or course instructor)
+// @access  Private/Instructor/Admin
 export const reorderQuestions = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
   try {
@@ -478,32 +535,41 @@ export const reorderQuestions = async (req: Request, res: Response) => {
     const { questionOrders } = req.body; // Array of { id, order }
 
     if (!Array.isArray(questionOrders)) {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res.status(400).json({
         success: false,
         message: "questionOrders must be an array",
       });
     }
 
-    // Find the quiz
     const quiz = await Quiz.findByPk(quizId, { transaction });
     if (!quiz) {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res
         .status(404)
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check authorization
     if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res.status(403).json({
         success: false,
         message: "Not authorized to reorder questions",
       });
     }
 
-    // Update orders in batch
     for (const { id, order } of questionOrders) {
       await QuizQuestion.update(
         { order },
@@ -516,9 +582,9 @@ export const reorderQuestions = async (req: Request, res: Response) => {
 
     await transaction.commit();
 
-    // Fetch updated questions
     const updatedQuestions = await QuizQuestion.findAll({
       where: { quiz_id: quizId },
+      include: getQuestionBankInclude(),
       order: [["order", "ASC"]],
     });
 
@@ -527,41 +593,55 @@ export const reorderQuestions = async (req: Request, res: Response) => {
       data: updatedQuestions,
     });
   } catch (error) {
-    await transaction.rollback();
+    try {
+      await transaction.rollback();
+    } catch (re) {
+      // Ignore if transaction already finished
+    }
     console.error("Reorder questions error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
 
-// @desc    Bulk import questions
+// @desc    Bulk import questions to a quiz
 // @route   POST /api/quizzes/:quizId/questions/bulk
-// @access  Private/Instructor/Admin (quiz creator or course instructor)
+// @access  Private/Instructor/Admin
 export const bulkImportQuestions = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
   try {
     const { quizId } = req.params;
-    const { questions } = req.body; // Array of question objects
+    const { questions } = req.body;
 
     if (!Array.isArray(questions)) {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res.status(400).json({
         success: false,
         message: "Questions must be an array",
       });
     }
 
-    // Find the quiz
     const quiz = await Quiz.findByPk(quizId, { transaction });
     if (!quiz) {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res
         .status(404)
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check authorization - allow quiz creator or admin
     if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res.status(403).json({
         success: false,
         message: "Not authorized to add questions to this quiz",
@@ -570,23 +650,25 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
 
     // Validate all questions first
     const validationErrors: Array<{ index: number; errors: string[] }> = [];
-
     questions.forEach((question, index) => {
-      const validation = QuestionValidator.validateQuestionData(
-        question.question_type,
-        question.question_data,
-      );
-
-      if (!validation.isValid) {
-        validationErrors.push({
-          index,
-          errors: validation.errors,
-        });
+      if (!question.question_id) {
+        // Only validate if creating new bank questions
+        const validation = QuestionValidator.validateQuestionData(
+          question.question_type,
+          question.question_data,
+        );
+        if (!validation.isValid) {
+          validationErrors.push({ index, errors: validation.errors });
+        }
       }
     });
 
     if (validationErrors.length > 0) {
-      await transaction.rollback();
+      try {
+        await transaction.rollback();
+      } catch (re) {
+        // Ignore if transaction already finished
+      }
       return res.status(400).json({
         success: false,
         message: "Some questions have validation errors",
@@ -594,38 +676,76 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
       });
     }
 
-    // Get current max order
     const maxOrder = (await QuizQuestion.max("order", {
       where: { quiz_id: quizId },
       transaction,
     })) as number | undefined;
 
-    // Create questions
     const createdQuestions = [];
     for (let i = 0; i < questions.length; i++) {
-      const questionData = questions[i];
-      const question = await QuizQuestion.create(
+      const qData = questions[i];
+      let bankQuestionId: number;
+
+      if (qData.question_id) {
+        // Existing bank question
+        bankQuestionId = qData.question_id;
+      } else {
+        // Create new bank question
+        const bankQuestion = await QuestionBank.create(
+          {
+            course_id: quiz.course_id!,
+            question_type: qData.question_type,
+            question_text: qData.question_text,
+            question_data: qData.question_data,
+            correct_answer: qData.correct_answer ?? null,
+            explanation: qData.explanation ?? null,
+            attachments: qData.attachments ?? null,
+            created_by: req.user.id,
+            blooms_taxonomy_level_id: qData.blooms_taxonomy_level_id ?? null,
+            tags: qData.tags ?? null,
+            difficulty_level: qData.difficulty_level ?? null,
+          },
+          { transaction },
+        );
+        bankQuestionId = bankQuestion.id!;
+      }
+
+      const quizQuestion = await QuizQuestion.create(
         {
-          ...questionData,
           quiz_id: parseInt(quizId),
+          question_id: bankQuestionId,
           order: (maxOrder || 0) + i + 1,
-          created_by: req.user.id,
+          points: qData.points ?? 1,
+          time_limit_seconds: qData.time_limit_seconds ?? 60,
+          is_required: qData.is_required ?? true,
         },
         { transaction },
       );
 
-      createdQuestions.push(question);
+      createdQuestions.push(quizQuestion);
     }
 
     await transaction.commit();
 
+    // Fetch with full data
+    const resultIds = createdQuestions.map((q) => q.id);
+    const result = await QuizQuestion.findAll({
+      where: { id: resultIds },
+      include: getQuestionBankInclude(),
+      order: [["order", "ASC"]],
+    });
+
     res.status(201).json({
       success: true,
-      count: createdQuestions.length,
-      data: createdQuestions,
+      count: result.length,
+      data: result,
     });
   } catch (error) {
-    await transaction.rollback();
+    try {
+      await transaction.rollback();
+    } catch (re) {
+      // Ignore if transaction already finished
+    }
     console.error("Bulk import questions error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }

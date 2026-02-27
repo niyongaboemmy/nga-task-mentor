@@ -7,6 +7,7 @@ import { QuizList } from "../Quizzes/QuizList";
 import { fetchCourse, fetchCourses } from "../../store/slices/courseSlice";
 import type { RootState, AppDispatch } from "../../store";
 import type { Course } from "../../types/course.types";
+import { Library } from "lucide-react";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -44,11 +45,7 @@ const CourseDetails: React.FC = () => {
   const authUser = useSelector((state: RootState) => state.auth.user);
 
   // Get courses and loading state from Redux store
-  // Get courses and loading state from Redux store
-  const courseState = useSelector((state: RootState) => {
-    // console.log("Redux State Debug:", state.course); // Optional debug
-    return state.course;
-  });
+  const courseState = useSelector((state: RootState) => state.course);
 
   const currentCourse = courseState?.currentCourse;
   const courses = courseState?.courses || [];
@@ -208,7 +205,7 @@ const CourseDetails: React.FC = () => {
                         />
                       </svg>
                     </div>
-                    <div>Report</div>
+                    <span>Report</span>
                   </Link>
 
                   <Link
@@ -354,7 +351,6 @@ const CourseDetails: React.FC = () => {
             ]
               .filter((tab: any) => {
                 if (tab.restricted) {
-                  // Only allow instructors and admins to see restricted tabs
                   return ["instructor", "admin"].includes(
                     authUser?.role || "student",
                   );
@@ -369,7 +365,7 @@ const CourseDetails: React.FC = () => {
                     activeTab === tab.id
                       ? "border-blue-500 text-blue-600 dark:text-blue-500"
                       : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
-                  } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2`}
+                  } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors`}
                 >
                   <svg
                     className="h-4 w-4"
@@ -387,6 +383,17 @@ const CourseDetails: React.FC = () => {
                   {tab.label}
                 </button>
               ))}
+
+            {/* Question Bank Link */}
+            {["instructor", "admin"].includes(authUser?.role || "") && (
+              <Link
+                to={`/courses/${courseId}/question-bank`}
+                className="border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors"
+              >
+                <Library className="h-4 w-4" />
+                Question Bank
+              </Link>
+            )}
           </nav>
         </div>
 
@@ -394,35 +401,38 @@ const CourseDetails: React.FC = () => {
           {activeTab === "overview" && (
             <div className="space-y-8 p-3">
               <div>
-                <div className="font-bold mb-2">{course.title}</div>
-                <div className="text-sm font-light mb-1 opacity-50">
+                <div className="font-bold mb-2 text-xl">{course.title}</div>
+                <div className="text-sm font-light mb-1 opacity-60">
                   {course.description || "No description available."}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                  <h4 className="text-lg font-medium mb-4">
+                  <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
+                    <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
                     Course Information
                   </h4>
                   <dl className="space-y-3">
                     <div className="flex gap-2">
-                      <dt className="text-sm text-gray-500 dark:text-gray-400">
+                      <dt className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                         Course Code:
                       </dt>
-                      <dd className="text-sm">{course.code}</dd>
+                      <dd className="text-sm font-semibold">{course.code}</dd>
                     </div>
                     <div className="flex gap-2">
-                      <dt className="text-sm text-gray-500 dark:text-gray-400">
+                      <dt className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                         Credits:
                       </dt>
-                      <dd className="text-sm">{course.credits}</dd>
+                      <dd className="text-sm font-semibold">
+                        {course.credits}
+                      </dd>
                     </div>
                     <div className="flex gap-2">
-                      <dt className="text-sm text-gray-500 dark:text-gray-400">
+                      <dt className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                         Enrollment:
                       </dt>
-                      <dd className="text-sm">
+                      <dd className="text-sm font-semibold">
                         {course.enrolledStudents?.length || 0} students enrolled
                       </dd>
                     </div>
@@ -445,86 +455,56 @@ const CourseDetails: React.FC = () => {
             <QuizList
               courseId={parseInt(courseId!)}
               showCreateButton={true}
-              limit={5}
+              limit={10}
               showViewAllButton={true}
             />
           )}
 
           {activeTab === "students" && (
-            <div className="space-y-2">
-              {course.enrolledStudents &&
-                course.enrolledStudents.length > 0 && (
-                  <div className="flex justify-between items-center mb-3">
-                    <h3 className="text-lg font-medium">Enrolled Students</h3>
-                  </div>
-                )}
+            <div className="space-y-6 p-4">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-xl font-bold flex items-center gap-2">
+                  <span className="w-1.5 h-6 bg-green-500 rounded-full"></span>
+                  Enrolled Students
+                </h3>
+                <span className="px-3 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full text-xs font-bold">
+                  {course.enrolledStudents?.length || 0} Active
+                </span>
+              </div>
 
               {course.enrolledStudents && course.enrolledStudents.length > 0 ? (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {course.enrolledStudents.map((student) => (
-                    <div
+                    <Link
                       key={student.user?.user_id || student.user?.id}
-                      className="pb-2 mb-2 border-b border-gray-200/50 dark:border-gray-800/50"
+                      to={`/students/${student.user?.user_id || student.user?.id}`}
+                      className="flex items-center p-4 bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-all hover:shadow-lg group"
                     >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center">
-                          <div className="flex-shrink-0">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 dark:from-blue-600 to-blue-500 dark:to-blue-800 rounded-full flex items-center justify-center">
-                              <span className="text-white font-semibold text-sm">
-                                {student.profile?.first_name?.[0] ||
-                                  student.user?.first_name?.[0] ||
-                                  "U"}
-                                {student.profile?.last_name?.[0] ||
-                                  student.user?.last_name?.[0] ||
-                                  ""}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="ml-4">
-                            <h4 className="text-normal font-normal text-gray-900 dark:text-gray-300">
-                              <Link
-                                to={`/students/${
-                                  student.user?.user_id || student.user?.id
-                                }`}
-                                className="hover:text-blue-600 transition-colors"
-                              >
-                                {student.profile?.first_name ||
-                                  student.user?.first_name}{" "}
-                                {student.profile?.last_name ||
-                                  student.user?.last_name}
-                              </Link>
-                            </h4>
-                            <p className="text-gray-600 text-xs dark:text-gray-500">
-                              {student.user?.email}
-                            </p>
-                          </div>
+                      <div className="flex-shrink-0">
+                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
+                          {student.profile?.first_name?.[0] ||
+                            student.user?.first_name?.[0] ||
+                            "U"}
                         </div>
                       </div>
-                    </div>
+                      <div className="ml-4 overflow-hidden">
+                        <h4 className="font-bold text-gray-900 dark:text-white truncate">
+                          {student.profile?.first_name ||
+                            student.user?.first_name}{" "}
+                          {student.profile?.last_name ||
+                            student.user?.last_name}
+                        </h4>
+                        <p className="text-gray-500 text-xs truncate">
+                          {student.user?.email}
+                        </p>
+                      </div>
+                    </Link>
                   ))}
                 </div>
               ) : (
-                <div className="text-center py-12 bg-gray-50/50 dark:bg-gray-800/20 rounded-2xl border border-dashed border-gray-300 dark:border-gray-700">
-                  <div className="mx-auto w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                    <svg
-                      className="h-8 w-8 text-gray-400"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
-                    No students enrolled
-                  </h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                    There are no students currently enrolled in this course.
+                <div className="text-center py-16 bg-gray-50/50 dark:bg-gray-800/20 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+                  <p className="text-gray-500 font-medium mt-4">
+                    No students enrolled in this course.
                   </p>
                 </div>
               )}

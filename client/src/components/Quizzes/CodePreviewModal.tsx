@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { createPortal } from "react-dom";
 import {
   X,
   RefreshCw,
@@ -23,7 +24,7 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
   language,
 }) => {
   const [device, setDevice] = useState<"desktop" | "tablet" | "phone">(
-    "desktop"
+    "desktop",
   );
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -130,8 +131,8 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black bg-opacity-50">
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] bg-black bg-opacity-50">
       <div className="bg-white dark:bg-gray-800 w-full h-full overflow-hidden">
         {/* Browser Window Header */}
         <div className="bg-gray-100 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600 px-4 py-3 flex items-center justify-between">
@@ -235,14 +236,15 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
               device === "desktop"
                 ? "w-full h-full"
                 : device === "tablet"
-                ? "w-full max-w-4xl h-full"
-                : "w-full max-w-sm h-full"
+                  ? "w-full max-w-4xl h-full"
+                  : "w-full max-w-sm h-full"
             }`}
           >
             {renderPreview()}
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };

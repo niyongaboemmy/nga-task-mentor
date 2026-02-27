@@ -25,7 +25,16 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = (props) => {
   const { question: originalQuestion, ...restProps } = props;
 
   // Create a safe copy of the question with parsed data if needed
-  let questionData = originalQuestion.question_data;
+  const questionType =
+    originalQuestion.question_type ||
+    originalQuestion.questionBank?.question_type;
+  const questionText =
+    originalQuestion.question_text ||
+    originalQuestion.questionBank?.question_text;
+  let questionData =
+    originalQuestion.question_data ||
+    originalQuestion.questionBank?.question_data;
+
   if (typeof questionData === "string") {
     try {
       questionData = JSON.parse(questionData);
@@ -34,15 +43,24 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = (props) => {
         "Failed to parse question_data for question ID:",
         originalQuestion.id,
       );
-      console.error("Invalid JSON:", questionData);
-      console.error(error);
       questionData = {}; // Fallback to empty object
     }
   }
 
   const question = {
     ...originalQuestion,
+    question_type: questionType,
+    question_text: questionText,
     question_data: questionData,
+    explanation:
+      originalQuestion.explanation ||
+      originalQuestion.questionBank?.explanation,
+    correct_answer:
+      originalQuestion.correct_answer ||
+      originalQuestion.questionBank?.correct_answer,
+    attachments:
+      originalQuestion.attachments ||
+      originalQuestion.questionBank?.attachments,
   };
 
   switch (question.question_type) {

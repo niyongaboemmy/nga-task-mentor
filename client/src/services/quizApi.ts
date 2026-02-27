@@ -2,9 +2,11 @@ import axios from "../utils/axiosConfig";
 import type {
   Quiz,
   QuizQuestion,
+  QuestionBankEntry,
   CreateQuizRequest,
   UpdateQuizRequest,
   CreateQuestionRequest,
+  CreateCourseQuestionRequest,
   QuizAnalytics,
   AnswerDataType,
 } from "../types/quiz.types";
@@ -79,8 +81,7 @@ export class QuizApiService {
       `/quizzes/${quizId}/questions`,
       questionData,
     );
-    // API returns QuizQuestion directly, so wrap it in the expected format
-    return { success: true, data: response.data };
+    return response.data;
   }
 
   static async updateQuestion(
@@ -91,8 +92,7 @@ export class QuizApiService {
       `/quizzes/questions/${questionId}`,
       questionData,
     );
-    // API returns QuizQuestion directly, so wrap it in the expected format
-    return { success: true, data: response.data };
+    return response.data;
   }
 
   static async deleteQuestion(
@@ -310,6 +310,107 @@ export class QuizApiService {
     id: number,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.delete(`/quizzes/blooms-levels/${id}`);
+    return response.data;
+  }
+}
+
+// Question Bank API Service
+export class QuestionBankApiService {
+  /**
+   * List all questions in a course's question bank.
+   * Supports optional filters: question_type, difficulty_level, blooms_taxonomy_level_id, search, page, limit.
+   */
+  static async getCourseQuestions(
+    courseId: number,
+    filters?: {
+      question_type?: string;
+      difficulty_level?: string;
+      blooms_taxonomy_level_id?: number;
+      search?: string;
+      page?: number;
+      limit?: number;
+    },
+  ): Promise<{
+    success: boolean;
+    count: number;
+    page: number;
+    total_pages: number;
+    data: QuestionBankEntry[];
+  }> {
+    const response = await axios.get(`/courses/${courseId}/question-bank`, {
+      params: filters,
+    });
+    return response.data;
+  }
+
+  /** Get a single question bank entry. */
+  static async getQuestionBankQuestion(
+    courseId: number,
+    id: number,
+  ): Promise<{ success: boolean; data: QuestionBankEntry }> {
+    const response = await axios.get(
+      `/courses/${courseId}/question-bank/${id}`,
+    );
+    return response.data;
+  }
+
+  /** Create a new question in the course bank. */
+  static async createCourseQuestion(
+    courseId: number,
+    data: CreateCourseQuestionRequest,
+  ): Promise<{ success: boolean; data: QuestionBankEntry }> {
+    const response = await axios.post(
+      `/courses/${courseId}/question-bank`,
+      data,
+    );
+    return response.data;
+  }
+
+  /** Update a question in the bank. */
+  static async updateCourseQuestion(
+    courseId: number,
+    id: number,
+    data: Partial<CreateCourseQuestionRequest>,
+  ): Promise<{ success: boolean; data: QuestionBankEntry }> {
+    const response = await axios.put(
+      `/courses/${courseId}/question-bank/${id}`,
+      data,
+    );
+    return response.data;
+  }
+
+  /** Delete a question from the bank (fails if still assigned to any quiz). */
+  static async deleteCourseQuestion(
+    courseId: number,
+    id: number,
+  ): Promise<{ success: boolean; data: any }> {
+    const response = await axios.delete(
+      `/courses/${courseId}/question-bank/${id}`,
+    );
+    return response.data;
+  }
+
+  /**
+   * Add an existing bank question to a quiz.
+   * Wraps QuizApiService.createQuestion with question_id shorthand.
+   */
+  static async addQuestionToQuiz(
+    quizId: number,
+    questionId: number,
+    assignment: {
+      points?: number;
+      time_limit_seconds?: number;
+      is_required?: boolean;
+      order?: number;
+    },
+  ): Promise<{ success: boolean; data: QuizQuestion }> {
+    const response = await axios.post(`/quizzes/${quizId}/questions`, {
+      question_id: questionId,
+      points: assignment.points ?? 1,
+      time_limit_seconds: assignment.time_limit_seconds ?? 60,
+      is_required: assignment.is_required ?? true,
+      order: assignment.order,
+    });
     return response.data;
   }
 }

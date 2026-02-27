@@ -47,6 +47,7 @@ import QuizListPage from "./pages/QuizListPage";
 import CourseReportsPage from "./pages/CourseReportsPage";
 import StudentReportsPage from "./pages/StudentReportsPage";
 import BloomsTaxonomyManagementPage from "./components/Quizzes/BloomsTaxonomyManagementPage";
+import QuestionBankPage from "./pages/QuestionBankPage";
 
 // Wrapper components for routes that need useParams
 const QuizViewWrapper = () => {
@@ -116,6 +117,10 @@ const QuizProctoringMonitoringPageWrapper = () => {
 
 const QuizProctoringAnalyticsPageWrapper = () => {
   return <QuizProctoringAnalyticsPage />;
+};
+
+const QuestionBankPageWrapper = () => {
+  return <QuestionBankPage />;
 };
 
 const QuizSubmissionsPageWrapper = () => {
@@ -205,6 +210,16 @@ function AppContent() {
                 <ProtectedRoute roles={["instructor", "admin", "student"]}>
                   <Layout>
                     <CourseReportsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/courses/:courseId/question-bank"
+              element={
+                <ProtectedRoute roles={["instructor", "admin"]}>
+                  <Layout>
+                    <QuestionBankPageWrapper />
                   </Layout>
                 </ProtectedRoute>
               }

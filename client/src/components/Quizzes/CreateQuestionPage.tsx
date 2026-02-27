@@ -155,7 +155,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.question_text.trim()) return;
+    if (!formData.question_text?.trim()) return;
 
     // Validate coding questions
     if (formData.question_type === "coding") {
@@ -261,7 +261,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
   const getCodingData = () => formData.question_data as CodingData;
 
   const isFormValid = () => {
-    if (!formData.question_text.trim()) return false;
+    if (!formData.question_text?.trim()) return false;
     if (!formData.time_limit_seconds || formData.time_limit_seconds < 10)
       return false;
 
@@ -434,7 +434,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
             {/* Validation Messages */}
             {formData.question_type === "coding" &&
               !isFormValid() &&
-              formData.question_text.trim() && (
+              formData.question_text?.trim() && (
                 <div className="p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
                   <div className="flex items-center gap-2">
                     <span className="text-red-600 dark:text-red-400">⚠️</span>

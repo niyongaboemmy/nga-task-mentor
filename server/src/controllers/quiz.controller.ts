@@ -1,11 +1,12 @@
 import { Request, Response } from "express";
 import axios from "axios";
-import { QuizQuestion, QuizAttempt, User, Quiz } from "../models";
+import { QuizQuestion, QuizAttempt, User, Quiz, QuestionBank } from "../models";
 import QuizSubmission from "../models/QuizSubmission.model";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
 import { QuizGrader, AdvancedQuizGrader } from "../utils/quizGrader";
+import { getQuestionBankInclude } from "../utils/quizUtils";
 import {
   QuestionType,
   CreateQuizRequest,
@@ -72,7 +73,7 @@ export const getQuizzes = async (req: Request, res: Response) => {
         },
         {
           model: QuizQuestion,
-          attributes: ["id", "question_type", "points", "order"],
+          attributes: ["id", "points", "order"],
           required: false,
         },
       ],
@@ -125,6 +126,7 @@ export const getQuiz = async (req: Request, res: Response) => {
                 "points_earned",
               ],
             },
+            ...getQuestionBankInclude(),
           ],
           order: [["order", "ASC"]],
         },
@@ -176,12 +178,18 @@ export const getQuiz = async (req: Request, res: Response) => {
               {
                 model: QuizQuestion,
                 as: "question",
-                attributes: [
-                  "id",
-                  "question_text",
-                  "question_type",
-                  "explanation",
-                  "correct_answer",
+                attributes: ["id", "points"],
+                include: [
+                  {
+                    model: QuestionBank,
+                    as: "questionBank",
+                    attributes: [
+                      "question_text",
+                      "question_type",
+                      "explanation",
+                      "correct_answer",
+                    ],
+                  },
                 ],
               },
             ],
@@ -219,14 +227,14 @@ export const getQuiz = async (req: Request, res: Response) => {
         // Build results array
         const results = attempts.map((attempt) => ({
           question_id: attempt.question_id,
-          question_text: attempt.question?.question_text,
-          question_type: attempt.question?.question_type,
+          question_text: attempt.question?.questionBank?.question_text,
+          question_type: attempt.question?.questionBank?.question_type,
           user_answer: attempt.submitted_answer,
           correct_answer: attempt.correct_answer,
           is_correct: attempt.is_correct,
           points_earned: attempt.points_earned,
           max_points: attempt.question?.points,
-          explanation: attempt.question?.explanation,
+          explanation: attempt.question?.questionBank?.explanation,
           time_taken: attempt.time_taken,
         }));
 
@@ -566,7 +574,8 @@ export const getQuizStats = async (req: Request, res: Response) => {
         const question = await QuizQuestion.findByPk(attemptStat.question_id);
         return {
           question_id: attemptStat.question_id,
-          question_text: question?.question_text?.substring(0, 50) + "...",
+          question_text:
+            question?.questionBank?.question_text?.substring(0, 50) + "...",
           total_attempts: parseInt(attemptStat.total_attempts),
           correct_rate:
             attemptStat.total_attempts > 0
@@ -974,6 +983,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
 
     for (const answer of answers) {
       const question = await QuizQuestion.findByPk(answer.question_id, {
+        include: getQuestionBankInclude(),
         transaction,
       });
 
@@ -982,7 +992,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       }
 
       calculatedMaxScore += Number(question.points);
-      const questionData = question.question_data as any;
+      const questionData = question.questionBank?.question_data as any;
 
       // Check if question has individual time limit and if it was exceeded
       let questionTimedOut = false;
@@ -1009,7 +1019,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         // Compare normalized answers directly for accurate grading
         const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
           answer.answer,
-          question.question_type,
+          question.questionBank?.question_type,
         );
         const normalizedCorrectAnswer =
           AdvancedQuizGrader.normalizeCorrectAnswer(question);
@@ -1026,7 +1036,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
               "matching",
               "ordering",
               "dropdown",
-            ].includes(question.question_type)
+            ].includes(question.questionBank?.question_type)
           ) {
             // Parse JSON if stored as strings and compare objects
             let submitted = normalizedSubmittedAnswer.data;
@@ -1052,7 +1062,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
             pointsEarned = isCorrect ? parseFloat(String(question.points)) : 0;
           }
           // For multiple_choice and coding, use advanced grading
-          else if (question.question_type === "multiple_choice") {
+          else if (question.questionBank?.question_type === "multiple_choice") {
             try {
               const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
                 question,
@@ -1068,7 +1078,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
               isCorrect = false;
               pointsEarned = 0;
             }
-          } else if (question.question_type === "coding") {
+          } else if (question.questionBank?.question_type === "coding") {
             try {
               const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
                 question,
@@ -1098,7 +1108,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       // Normalize submitted and correct answers for better comparison
       const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
         answer.answer,
-        question.question_type,
+        question.questionBank?.question_type,
       );
       const normalizedCorrectAnswer =
         AdvancedQuizGrader.normalizeCorrectAnswer(question);
@@ -1143,11 +1153,13 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         question_id: question.id,
         user_answer: answer.answer,
         correct_answer:
-          question.correct_answer || getCorrectAnswerForQuestion(question),
+          question.questionBank?.correct_answer ||
+          getCorrectAnswerForQuestion(question.questionBank),
         is_correct: isCorrect,
         points_earned: pointsEarned,
         max_points: Number(question.points),
-        explanation: question.explanation || "No explanation provided.",
+        explanation:
+          question.questionBank?.explanation || "No explanation provided.",
         timed_out: questionTimedOut,
         time_limit_seconds: question.time_limit_seconds,
       });
@@ -1250,14 +1262,19 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
             {
               model: QuizQuestion,
               as: "question",
-              attributes: [
-                "id",
-                "question_text",
-                "question_type",
-                "question_data",
-                "explanation",
-                "correct_answer",
-                "points",
+              attributes: ["id", "points"],
+              include: [
+                {
+                  model: QuestionBank,
+                  as: "questionBank",
+                  attributes: [
+                    "question_text",
+                    "question_type",
+                    "question_data",
+                    "explanation",
+                    "correct_answer",
+                  ],
+                },
               ],
             },
           ],
@@ -1305,14 +1322,16 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
     // Build results array - filter out correct answers if not allowed
     const results = attempts.map((attempt) => ({
       question_id: attempt.question_id,
-      question_text: attempt.question?.question_text,
-      question_type: attempt.question?.question_type,
+      question_text: attempt.question?.questionBank?.question_text,
+      question_type: attempt.question?.questionBank?.question_type,
       user_answer: attempt.submitted_answer,
       correct_answer: showCorrectAnswers ? attempt.correct_answer : null,
       is_correct: showCorrectAnswers ? attempt.is_correct : null,
       points_earned: showGrades ? attempt.points_earned : null,
       max_points: attempt.question?.points,
-      explanation: showCorrectAnswers ? attempt.question?.explanation : null,
+      explanation: showCorrectAnswers
+        ? attempt.question?.questionBank?.explanation
+        : null,
       time_taken: attempt.time_taken,
     }));
 
