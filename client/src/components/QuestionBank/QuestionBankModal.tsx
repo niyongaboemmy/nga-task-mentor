@@ -25,6 +25,7 @@ import type {
 } from "../../types/quiz.types";
 import { toast } from "react-toastify";
 import * as QuestionForms from "../Quizzes/QuestionForms";
+import RichEditor from "../ui/RichEditor";
 
 interface QuestionBankModalProps {
   isOpen: boolean;
@@ -336,22 +337,17 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
           {activeTab === "general" && (
             <div className="space-y-6 animate-in slide-in-from-left-2 duration-300">
               {/* Question Text */}
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 mt-1">
-                  Question Prompt <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  value={formData.question_text}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      question_text: e.target.value,
-                    }))
-                  }
-                  placeholder="Enter the main question text here..."
-                  className="w-full min-h-[120px] px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
-                />
-              </div>
+              <RichEditor
+                label="Question Prompt"
+                value={formData.question_text}
+                onChange={(value: string) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    question_text: value,
+                  }))
+                }
+                placeholder="Enter the main question text here..."
+              />
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Type Selection */}

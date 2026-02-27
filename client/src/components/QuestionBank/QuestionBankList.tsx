@@ -475,7 +475,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                           className="text-gray-900 dark:text-gray-100 line-clamp-2 max-w-xl"
                           title={question.question_text}
                         >
-                          {question.question_text}
+                          <RichTextDisplay content={question.question_text || ""} />
                         </div>
                         {question.explanation && (
                           <div className="mt-1 text-xs text-blue-500 dark:text-blue-400 flex items-center gap-1">

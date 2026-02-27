@@ -88,7 +88,7 @@ const QuizHeader: React.FC<{
                     <div className="animate-fade-in">
                       <button
                         onClick={() => navigate(`/courses/${quiz.course_id}`)}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-full transition-all duration-200 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
                       >
                         <ArrowLeft className="w-4 h-4" />
                         <div className="truncate">Back</div>
@@ -107,7 +107,7 @@ const QuizHeader: React.FC<{
                     <span
                       className={`px-3 py-1 text-xs font-semibold rounded-xl border ${getStatusColor(
                         quiz.status,
-                      )} shadow-sm hover:shadow-md transition-all duration-200`}
+                      )} transition-all duration-200`}
                     >
                       <div className="flex items-center gap-1">
                         <div
@@ -126,7 +126,7 @@ const QuizHeader: React.FC<{
                     <span
                       className={`px-3 py-1 text-xs font-semibold rounded-xl border ${getTypeColor(
                         quiz.type,
-                      )} shadow-sm hover:shadow-md transition-all duration-200`}
+                      )} transition-all duration-200`}
                     >
                       <div className="flex items-center gap-1">
                         <div
@@ -144,7 +144,7 @@ const QuizHeader: React.FC<{
                       </div>
                     </span>
                     {quiz.is_available && (
-                      <span className="px-3 py-1 text-xs font-semibold rounded-xl border bg-emerald-100 text-emerald-700 border-emerald-200 shadow-sm hover:shadow-md transition-all duration-200">
+                      <span className="px-3 py-1 text-xs font-semibold rounded-xl border bg-emerald-100 text-emerald-700 border-emerald-200 transition-all duration-200">
                         <div className="flex items-center gap-1">
                           <Play className="w-3 h-3" />
                           Available
@@ -152,7 +152,7 @@ const QuizHeader: React.FC<{
                       </span>
                     )}
                     {quiz.is_public && (
-                      <span className="px-3 py-1 text-xs font-semibold rounded-xl border bg-orange-100 text-orange-700 border-orange-200 shadow-sm hover:shadow-md transition-all duration-200">
+                      <span className="px-3 py-1 text-xs font-semibold rounded-xl border bg-orange-100 text-orange-700 border-orange-200 transition-all duration-200">
                         <div className="flex items-center gap-1">
                           <Eye className="w-3 h-3" />
                           Public
@@ -237,9 +237,9 @@ const QuizHeader: React.FC<{
 
           {/* Instructions */}
           {quiz.instructions && (
-            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4 shadow-sm">
+            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4">
               <div className="flex items-center gap-2 mb-3">
-                <div className="w-3 h-3 bg-blue-500 rounded-full shadow-sm"></div>
+                <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
                 <span className="text-base font-semibold text-blue-900 dark:text-blue-100">
                   Instructions
                 </span>
@@ -453,9 +453,9 @@ const QuestionCard: React.FC<{
     <div
       className={`bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50 rounded-xl md:rounded-2xl p-4 hover:border-gray-300 dark:hover:border-gray-600 transition-all duration-200 ${
         isDragging
-          ? "opacity-50 scale-95 shadow-lg ring-2 ring-blue-400 ring-opacity-50"
+          ? "opacity-50 scale-95 ring-2 ring-blue-400 ring-opacity-50"
           : isDragOver
-            ? "border-blue-400 bg-blue-50 scale-105 shadow-md ring-2 ring-blue-400 ring-opacity-50 border-dashed"
+            ? "border-blue-400 bg-blue-50 scale-105 ring-2 ring-blue-400 ring-opacity-50 border-dashed"
             : "hover:border-gray-300 dark:hover:border-gray-600"
       } ${!editing && !isReordering ? "cursor-move" : ""} ${
         isReordering ? "pointer-events-none opacity-75" : ""
@@ -549,7 +549,7 @@ const EmptyQuestionsState: React.FC<{
   onAddQuestion: () => void;
 }> = ({ onAddQuestion }) => (
   <div className="text-center pb-12">
-    <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center shadow-lg">
+    <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
       <BookOpen className="w-8 h-8 text-blue-500 dark:text-blue-400" />
     </div>
     <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -561,7 +561,7 @@ const EmptyQuestionsState: React.FC<{
     </p>
     <button
       onClick={onAddQuestion}
-      className="inline-flex items-center px-4 py-2.5 text-sm font-normal bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl hover:scale-105 transform"
+      className="inline-flex items-center px-4 py-2.5 text-sm font-normal bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all duration-200 hover:scale-105 transform"
     >
       <Plus className="w-4 h-4 mr-2" />
       Add Your First Question
@@ -887,7 +887,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                         setSelectedBankQuestion(null);
                         setQuestionModalOpen(true);
                       }}
-                      className="btn-facebook px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-normal transition-all duration-200 focus-ring shadow-lg hover:shadow-xl"
+                      className="btn-facebook px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-normal transition-all duration-200 focus-ring"
                     >
                       <Plus className="w-4 h-4 inline mr-2" />
                       Add Question

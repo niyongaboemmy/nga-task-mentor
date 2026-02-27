@@ -284,7 +284,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
           </div>
         </div>
         <p className="text-gray-700 whitespace-pre-wrap">
-          {question.question_text}
+          <RichTextDisplay content={question.question_text || ""} />
         </p>
 
         <div className="mt-3 flex gap-4 text-sm">

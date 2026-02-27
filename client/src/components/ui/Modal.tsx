@@ -68,7 +68,7 @@ const Modal: React.FC<ModalProps> = ({
     lg: "max-w-lg mx-4",
     xl: "max-w-2xl mx-4",
     xxl: "max-w-4xl mx-4",
-    full: "max-w-full mx-4",
+    full: "max-w-full",
   };
 
   const modalVariants = {
@@ -109,7 +109,7 @@ const Modal: React.FC<ModalProps> = ({
   return createPortal(
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/50 overflow-hidden"
+        className={`fixed inset-0 z-[99999] flex items-center justify-center bg-black/50 overflow-hidden ${size === "full" ? "p-0" : "p-4 sm:p-6"}`}
         variants={backdropVariants}
         initial="hidden"
         animate="visible"
@@ -124,7 +124,9 @@ const Modal: React.FC<ModalProps> = ({
           exit="exit"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="relative bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col flex-1 min-h-0 w-full">
+          <div
+            className={`relative bg-white dark:bg-gray-950 overflow-hidden shadow-2xl flex flex-col flex-1 min-h-0 w-full ${size === "full" ? "rounded-none" : "rounded-2xl"}`}
+          >
             {/* Header */}
             {(title || showCloseButton) && (
               <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">

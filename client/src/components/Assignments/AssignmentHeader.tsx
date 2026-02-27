@@ -1,6 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import AssignmentStatusToggle from "./AssignmentStatusToggle";
+import RichTextDisplay from "../Common/RichTextDisplay";
 
 interface AssignmentHeaderProps {
   assignment: {
@@ -313,9 +314,9 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
           {/* Description */}
           <div className="bg-white dark:bg-gray-800/30 rounded-3xl p-6 border border-gray-200 dark:border-gray-800/50">
             <div className="prose prose-sm sm:prose-base max-w-none dark:prose-invert">
-              <div
+              <RichTextDisplay
+                content={assignment.description}
                 className="assignment-description leading-relaxed text-black dark:text-white"
-                dangerouslySetInnerHTML={{ __html: assignment.description }}
               />
             </div>
           </div>

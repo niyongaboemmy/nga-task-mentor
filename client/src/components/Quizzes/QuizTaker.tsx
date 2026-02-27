@@ -613,7 +613,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                     </h3>
                     <div className="prose prose-sm max-w-none">
                       <div className="text-gray-800 leading-relaxed">
-                        {currentQuestion.question_text}
+                        <RichTextDisplay content={currentQuestion.question_text || ""} />
                       </div>
                       {/* Display question image if available */}
                       {currentQuestion.question_data &&

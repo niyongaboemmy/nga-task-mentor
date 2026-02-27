@@ -1,6 +1,7 @@
 import React from "react";
 import type { QuestionType } from "../../types/quiz.types";
 import { Clock, AlertCircle } from "lucide-react";
+import RichTextDisplay from "../Common/RichTextDisplay";
 
 interface BaseQuestionProps {
   questionId: number;
@@ -63,7 +64,7 @@ export const BaseQuestion: React.FC<BaseQuestionProps> = ({
               )}
             </div>
             <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 leading-snug break-words">
-              {questionText}
+              <RichTextDisplay content={questionText} />
             </h3>
           </div>
 

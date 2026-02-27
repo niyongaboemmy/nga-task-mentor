@@ -11,6 +11,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@aarkue/tiptap-math-extension": "^1.4.0",
     "@cyntler/react-doc-viewer": "^1.17.1",
     "@hookform/resolvers": "^5.2.2",
     "@mediapipe/face_detection": "^0.4.1646425229",
@@ -48,6 +49,8 @@
     "@tiptap/pm": "^3.15.3",
     "@tiptap/react": "^3.15.3",
     "@tiptap/starter-kit": "^3.15.3",
+    "@types/jquery": "^4.0.0",
+    "@types/sanitize-html": "^2.16.0",
     "@types/socket.io": "^3.0.1",
     "axios": "^1.12.2",
     "chart.js": "^4.5.1",
@@ -55,8 +58,11 @@
     "framer-motion": "^12.23.24",
     "html2canvas": "^1.4.1",
     "jodit-react": "^5.2.26",
+    "jquery": "^4.0.0",
+    "katex": "^0.16.33",
     "lowlight": "^3.3.0",
     "lucide-react": "^0.546.0",
+    "mathlive": "^0.108.3",
     "react": "^19.1.1",
     "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.1.1",
@@ -64,8 +70,11 @@
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.9.4",
     "react-toastify": "^11.0.5",
+    "rich-text-editor": "^8.10.4",
+    "sanitize-html": "^2.17.1",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
+    "tiptap-extension-resize-image": "^1.3.3",
     "yup": "^1.7.1"
   },
   "devDependencies": {

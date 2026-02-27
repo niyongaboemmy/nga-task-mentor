@@ -36,6 +36,7 @@ import type {
   BloomsTaxonomyLevel,
 } from "../../types/quiz.types";
 import { QuizApiService } from "../../services/quizApi";
+import RichEditor from "../ui/RichEditor";
 
 // Helper function to create typed question data
 const createQuestionData = (type: QuestionType) => {
@@ -409,24 +410,17 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
             </div>
 
             {/* Question Text */}
-            <div>
-              <label className="block text-sm font-normal text-gray-700 mb-2 dark:text-gray-300">
-                Question Text *
-              </label>
-              <textarea
-                value={formData.question_text}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    question_text: e.target.value,
-                  }))
-                }
-                placeholder="Enter your question..."
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
+            <RichEditor
+              label="Question Text *"
+              value={formData.question_text || ""}
+              onChange={(value: string) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  question_text: value,
+                }))
+              }
+              placeholder="Enter your question..."
+            />
 
             {/* Question-specific fields */}
             {renderQuestionTypeFields()}

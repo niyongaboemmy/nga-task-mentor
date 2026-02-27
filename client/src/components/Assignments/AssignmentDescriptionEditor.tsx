@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Edit3, X, Save } from "lucide-react";
 import { Button } from "../ui/Button";
 import RichTextEditor from "../Common/RichTextEditor";
+import RichTextDisplay from "../Common/RichTextDisplay";
 
 interface AssignmentDescriptionEditorProps {
   description: string;
@@ -46,9 +47,9 @@ const AssignmentDescriptionEditor: React.FC<
           } text-black dark:text-white`}
       >
         {description ? (
-          <div
-            className="assignment-description prose prose-sm dark:prose-invert max-w-full line-clamp-6 opacity-80 group-hover:opacity-100 transition-opacity dark:text-white"
-            dangerouslySetInnerHTML={{ __html: description }}
+          <RichTextDisplay
+            content={description}
+            className="assignment-description line-clamp-6 opacity-80 group-hover:opacity-100 transition-opacity dark:text-white"
           />
         ) : (
           <div className="flex flex-col items-center justify-center py-4 text-gray-400 dark:text-gray-500">

@@ -123,7 +123,7 @@ export const MatchingQuestion: React.FC<QuestionComponentProps> = ({
           Matching Question
         </h3>
         <p className="text-gray-700 dark:text-gray-300 mb-3">
-          {question.question_text}
+          <RichTextDisplay content={question.question_text || ""} />
         </p>
       </div>
 

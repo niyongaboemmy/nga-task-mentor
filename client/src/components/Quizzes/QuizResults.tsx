@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../../store";
 import { fetchQuizResults } from "../../store/slices/quizSlice";
 import { QuestionRenderer } from "./QuestionRenderer";
+import RichTextDisplay from "../Common/RichTextDisplay";
 
 interface QuizResultsProps {
   submissionId: number;
@@ -13,7 +14,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { quizResults, loading, error } = useSelector(
-    (state: RootState) => state.quiz
+    (state: RootState) => state.quiz,
   );
 
   const submissionError = error?.submission || null;
@@ -131,12 +132,12 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                     quizResults.percentage >= 90
                       ? "#10B981"
                       : quizResults.percentage >= 80
-                      ? "#3B82F6"
-                      : quizResults.percentage >= 70
-                      ? "#F59E0B"
-                      : quizResults.percentage >= 60
-                      ? "#F97316"
-                      : "#EF4444",
+                        ? "#3B82F6"
+                        : quizResults.percentage >= 70
+                          ? "#F59E0B"
+                          : quizResults.percentage >= 60
+                            ? "#F97316"
+                            : "#EF4444",
                   clipPath: `polygon(0 0, ${quizResults.percentage}% 0, ${quizResults.percentage}% 100%, 0 100%)`,
                 }}
               ></div>
@@ -149,12 +150,12 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                 quizResults.percentage >= 90
                   ? "bg-green-500 text-white"
                   : quizResults.percentage >= 80
-                  ? "bg-blue-500 text-white"
-                  : quizResults.percentage >= 70
-                  ? "bg-yellow-500 text-white"
-                  : quizResults.percentage >= 60
-                  ? "bg-orange-500 text-white"
-                  : "bg-red-500 text-white"
+                    ? "bg-blue-500 text-white"
+                    : quizResults.percentage >= 70
+                      ? "bg-yellow-500 text-white"
+                      : quizResults.percentage >= 60
+                        ? "bg-orange-500 text-white"
+                        : "bg-red-500 text-white"
               }`}
             >
               Grade: {getScoreLetter(quizResults.percentage)}
@@ -327,7 +328,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                       </div>
                     </div>
                     <h3 className="text-lg font-semibold text-gray-900 mb-3 leading-relaxed">
-                      {attempt.question_text}
+                      <RichTextDisplay content={attempt.question_text || ""} />
                     </h3>
                   </div>
                 </div>

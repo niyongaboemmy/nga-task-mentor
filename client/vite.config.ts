@@ -9,6 +9,14 @@ export default defineConfig({
     port: 5173,
     host: true,
   },
+  optimizeDeps: {
+    include: ["sanitize-html", "jquery"],
+  },
+  resolve: {
+    alias: {
+      "sanitize-html": "sanitize-html",
+    },
+  },
   build: {
     outDir: "dist",
     sourcemap: true,

@@ -251,7 +251,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
         <h3 className="font-semibold text-lg mb-2">
           Logical Expression Question
         </h3>
-        <p className="text-gray-700 mb-3">{question.question_text}</p>
+        <p className="text-gray-700 mb-3"><RichTextDisplay content={question.question_text || ""} /></p>
         <div className="text-sm text-gray-600">
           <strong>Expression Format:</strong> {logicalData.expression_format}
         </div>

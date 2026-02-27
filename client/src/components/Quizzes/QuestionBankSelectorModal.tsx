@@ -211,7 +211,7 @@ const QuestionResultCard: React.FC<{
         </div>
 
         <p className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2 leading-relaxed">
-          {question.question_text}
+          <RichTextDisplay content={question.question_text || ""} />
         </p>
 
         {question.tags && question.tags.length > 0 && (
