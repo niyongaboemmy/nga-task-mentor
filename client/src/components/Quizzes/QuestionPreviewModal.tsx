@@ -29,7 +29,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
   onNavigate,
 }) => {
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
-    "desktop"
+    "desktop",
   );
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [showCodePreview, setShowCodePreview] = useState(false);
@@ -75,15 +75,15 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
       title="Question Preview"
       subtitle="This is exactly how students will see this question"
       size="xl"
-      className="max-w-6xl"
+      className="max-w-4xl w-full"
     >
       <div className="space-y-3">
         {/* Preview Controls */}
-        <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-2">
-          <div className="flex items-center gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-gray-50 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-2">
+          <div className="flex flex-wrap items-center gap-2 flex-1">
             {/* Device Preview Toggle */}
             <div className="flex items-center gap-2">
-              <div className="flex bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-1">
+              <div className="flex bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-1">
                 <button
                   onClick={() => setPreviewMode("desktop")}
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
@@ -93,7 +93,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                   }`}
                 >
                   <Monitor className="h-4 w-4" />
-                  Desktop
+                  <span className="hidden sm:inline">Desktop</span>
                 </button>
                 <button
                   onClick={() => setPreviewMode("mobile")}
@@ -104,7 +104,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                   }`}
                 >
                   <Smartphone className="h-4 w-4" />
-                  Mobile
+                  <span className="hidden sm:inline">Mobile</span>
                 </button>
               </div>
             </div>
@@ -118,8 +118,11 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                   className="flex items-center gap-1 px-3 py-1.5 text-sm bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-md hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
                 >
                   <ChevronLeft className="h-4 w-4" />
-                  Previous
+                  Prev
                 </button>
+                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  {currentIndex + 1} / {allQuestions.length}
+                </span>
                 <button
                   onClick={handleNext}
                   disabled={currentIndex === allQuestions.length - 1}
@@ -136,9 +139,9 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
           {allQuestions.length > 1 && (
             <button
               onClick={() => setShowAllQuestions(!showAllQuestions)}
-              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium whitespace-nowrap px-2"
             >
-              {showAllQuestions ? "Hide" : "Show"} All Questions
+              {showAllQuestions ? "Hide" : "Show"} All
             </button>
           )}
         </div>
@@ -220,23 +223,23 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
         </div>
 
         {/* Question Details */}
-        <div className="bg-gray-50 dark:bg-gray-800 rounded-2xl p-4">
+        <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
             <h4 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               Question Details
             </h4>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
               <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                 Type
               </div>
-              <div className="font-medium text-gray-900 dark:text-gray-100 mt-1">
+              <div className="font-medium text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm leading-snug">
                 {getQuestionTypeDisplay(question.question_type)}
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
               <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                 Points
               </div>
@@ -244,7 +247,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                 {question.points}
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
               <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                 Required
               </div>
@@ -252,7 +255,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                 {question.is_required ? "Yes" : "No"}
               </div>
             </div>
-            <div className="bg-white dark:bg-gray-900 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700">
+            <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
               <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
                 Time Limit
               </div>
@@ -264,13 +267,101 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
 
           {/* Additional Info */}
           {question.explanation && (
-            <div className="mt-4 bg-white dark:bg-gray-900 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700">
+            <div className="mt-4 bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
               <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">
                 Explanation
               </div>
               <div className="text-sm text-gray-900 dark:text-gray-100">
                 {question.explanation}
               </div>
+            </div>
+          )}
+
+          {/* Metadata Row: Bloom's / Difficulty / Tags */}
+          {(question.difficulty_level ||
+            question.blooms_taxonomy_level_id ||
+            question.bloomsLevel ||
+            (question.tags && question.tags.length > 0)) && (
+            <div className="mt-4 space-y-3">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 bg-violet-500 rounded-full" />
+                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                  Metadata
+                </span>
+              </div>
+
+              <div className="flex flex-wrap gap-3">
+                {/* Difficulty Level */}
+                {question.difficulty_level && (
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20 min-w-[120px]">
+                    <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">
+                      Difficulty
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1.5 text-sm font-semibold ${
+                        question.difficulty_level === "EASY"
+                          ? "text-green-600 dark:text-green-400"
+                          : question.difficulty_level === "MEDIUM"
+                            ? "text-yellow-600 dark:text-yellow-400"
+                            : "text-red-600 dark:text-red-400"
+                      }`}
+                    >
+                      <span>
+                        {question.difficulty_level === "EASY"
+                          ? "🟢"
+                          : question.difficulty_level === "MEDIUM"
+                            ? "🟡"
+                            : "🔴"}
+                      </span>
+                      {question.difficulty_level.charAt(0) +
+                        question.difficulty_level.slice(1).toLowerCase()}
+                    </span>
+                  </div>
+                )}
+
+                {/* Bloom's Taxonomy Level */}
+                {(question.bloomsLevel ||
+                  question.blooms_taxonomy_level_id) && (
+                  <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20 min-w-[160px]">
+                    <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">
+                      Bloom's Level
+                    </div>
+                    <div className="text-sm font-medium text-violet-700 dark:text-violet-300">
+                      {question.bloomsLevel ? (
+                        <>
+                          <span className="text-xs text-gray-400 dark:text-gray-500 mr-1">
+                            L{question.bloomsLevel.level_order}
+                          </span>
+                          {question.bloomsLevel.name}
+                        </>
+                      ) : (
+                        <span className="text-gray-400 dark:text-gray-500">
+                          ID {question.blooms_taxonomy_level_id}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Tags */}
+              {question.tags && question.tags.length > 0 && (
+                <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
+                  <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-2">
+                    Tags
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {question.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center px-3 py-1 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-full text-xs font-medium border border-blue-100 dark:border-blue-800"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

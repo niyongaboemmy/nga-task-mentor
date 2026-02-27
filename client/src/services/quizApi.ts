@@ -13,14 +13,14 @@ import type {
 export class QuizApiService {
   // Quiz Management
   static async getQuizzes(
-    courseId: number
+    courseId: number,
   ): Promise<{ success: boolean; count: number; data: Quiz[] }> {
     const response = await axios.get(`/courses/${courseId}/quizzes`);
     return response.data;
   }
 
   static async getQuiz(
-    quizId: number
+    quizId: number,
   ): Promise<{ success: boolean; data: Quiz }> {
     const response = await axios.get(`/quizzes/${quizId}`);
     return response.data;
@@ -28,32 +28,29 @@ export class QuizApiService {
 
   static async createQuiz(
     courseId: number,
-    quizData: CreateQuizRequest
+    quizData: CreateQuizRequest,
   ): Promise<{ success: boolean; data: Quiz }> {
-    const response = await axios.post(
-      `/courses/${courseId}/quizzes`,
-      quizData
-    );
+    const response = await axios.post(`/courses/${courseId}/quizzes`, quizData);
     return response.data;
   }
 
   static async updateQuiz(
     quizId: number,
-    quizData: UpdateQuizRequest
+    quizData: UpdateQuizRequest,
   ): Promise<{ success: boolean; data: Quiz }> {
     const response = await axios.put(`/quizzes/${quizId}`, quizData);
     return response.data;
   }
 
   static async deleteQuiz(
-    quizId: number
+    quizId: number,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.delete(`/quizzes/${quizId}`);
     return response.data;
   }
 
   static async getQuizStats(
-    quizId: number
+    quizId: number,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.get(`/quizzes/${quizId}/stats`);
     return response.data;
@@ -61,14 +58,14 @@ export class QuizApiService {
 
   // Question Management
   static async getQuizQuestions(
-    quizId: number
+    quizId: number,
   ): Promise<{ success: boolean; count: number; data: QuizQuestion[] }> {
     const response = await axios.get(`/quizzes/${quizId}/questions`);
     return response.data;
   }
 
   static async getQuestion(
-    questionId: number
+    questionId: number,
   ): Promise<{ success: boolean; data: QuizQuestion }> {
     const response = await axios.get(`/quizzes/questions/${questionId}`);
     return response.data;
@@ -76,11 +73,11 @@ export class QuizApiService {
 
   static async createQuestion(
     quizId: number,
-    questionData: CreateQuestionRequest
+    questionData: CreateQuestionRequest,
   ): Promise<{ success: boolean; data: QuizQuestion }> {
     const response = await axios.post(
       `/quizzes/${quizId}/questions`,
-      questionData
+      questionData,
     );
     // API returns QuizQuestion directly, so wrap it in the expected format
     return { success: true, data: response.data };
@@ -88,18 +85,18 @@ export class QuizApiService {
 
   static async updateQuestion(
     questionId: number,
-    questionData: Partial<CreateQuestionRequest>
+    questionData: Partial<CreateQuestionRequest>,
   ): Promise<{ success: boolean; data: QuizQuestion }> {
     const response = await axios.put(
       `/quizzes/questions/${questionId}`,
-      questionData
+      questionData,
     );
     // API returns QuizQuestion directly, so wrap it in the expected format
     return { success: true, data: response.data };
   }
 
   static async deleteQuestion(
-    questionId: number
+    questionId: number,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.delete(`/quizzes/questions/${questionId}`);
     return response.data;
@@ -107,18 +104,17 @@ export class QuizApiService {
 
   static async reorderQuestions(
     quizId: number,
-    questionOrders: Array<{ id: number; order: number }>
+    questionOrders: Array<{ id: number; order: number }>,
   ): Promise<{ success: boolean; data: QuizQuestion[] }> {
-    const response = await axios.put(
-      `/quizzes/${quizId}/questions/reorder`,
-      { questionOrders }
-    );
+    const response = await axios.put(`/quizzes/${quizId}/questions/reorder`, {
+      questionOrders,
+    });
     return response.data;
   }
 
   static async bulkImportQuestions(
     quizId: number,
-    questions: CreateQuestionRequest[]
+    questions: CreateQuestionRequest[],
   ): Promise<{ success: boolean; count: number; data: QuizQuestion[] }> {
     const response = await axios.post(`/quizzes/${quizId}/questions/bulk`, {
       questions,
@@ -154,7 +150,7 @@ export class QuizApiService {
   }
 
   static async getQuizAttemptStatus(
-    submissionId: number
+    submissionId: number,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.get(`/quizzes/attempts/${submissionId}`);
     return response.data;
@@ -163,50 +159,48 @@ export class QuizApiService {
   static async submitQuestionAnswer(
     submissionId: number,
     questionId: number,
-    answerData: AnswerDataType
+    answerData: AnswerDataType,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.post(
       `/quizzes/attempts/${submissionId}/questions/${questionId}/answer`,
-      { answer_data: answerData }
+      { answer_data: answerData },
     );
     return response.data;
   }
 
   static async submitAllAnswers(
     submissionId: number,
-    answers: Array<{ question_id: number; answer_data: AnswerDataType }>
+    answers: Array<{ question_id: number; answer_data: AnswerDataType }>,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.post(
       `/quizzes/attempts/${submissionId}/submit-all`,
-      { answers }
+      { answers },
     );
     return response.data;
   }
 
   static async submitQuiz(
-    submissionId: number
+    submissionId: number,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.post(
-      `/quizzes/attempts/${submissionId}/submit`
+      `/quizzes/attempts/${submissionId}/submit`,
     );
     return response.data;
   }
 
   static async getQuizResults(
-    submissionId: number
+    submissionId: number,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.get(
-      `/quizzes/attempts/${submissionId}/results`
+      `/quizzes/attempts/${submissionId}/results`,
     );
     return response.data;
   }
 
   static async getStudentQuizHistory(
-    studentId: number
+    studentId: number,
   ): Promise<{ success: boolean; count: number; data: any[] }> {
-    const response = await axios.get(
-      `/quizzes/students/${studentId}/history`
-    );
+    const response = await axios.get(`/quizzes/students/${studentId}/history`);
     return response.data;
   }
 
@@ -221,7 +215,7 @@ export class QuizApiService {
 
   // Grading and Analytics
   static async getPendingSubmissions(
-    courseId?: number
+    courseId?: number,
   ): Promise<{ success: boolean; count: number; data: any[] }> {
     const params = courseId ? { courseId } : {};
     const response = await axios.get("/quizzes/submissions/pending", {
@@ -231,10 +225,10 @@ export class QuizApiService {
   }
 
   static async getSubmissionForGrading(
-    submissionId: number
+    submissionId: number,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.get(
-      `/quizzes/submissions/${submissionId}/grade`
+      `/quizzes/submissions/${submissionId}/grade`,
     );
     return response.data;
   }
@@ -242,28 +236,28 @@ export class QuizApiService {
   static async gradeSubmission(
     submissionId: number,
     grades: Record<number, number>,
-    feedback?: string
+    feedback?: string,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.post(
       `/quizzes/submissions/${submissionId}/grade`,
-      { grades, feedback }
+      { grades, feedback },
     );
     return response.data;
   }
 
   static async updateSubmissionFeedback(
     submissionId: number,
-    feedback: string
+    feedback: string,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.put(
       `/quizzes/submissions/${submissionId}/feedback`,
-      { feedback }
+      { feedback },
     );
     return response.data;
   }
 
   static async getQuizAnalytics(
-    quizId: number
+    quizId: number,
   ): Promise<{ success: boolean; data: QuizAnalytics }> {
     const response = await axios.get(`/quizzes/${quizId}/analytics`);
     return response.data;
@@ -271,11 +265,51 @@ export class QuizApiService {
 
   static async getQuizSubmissions(
     quizId: number,
-    filters?: { status?: string; grade_status?: string; student_id?: number }
+    filters?: { status?: string; grade_status?: string; student_id?: number },
   ): Promise<{ success: boolean; count: number; data: any[] }> {
     const response = await axios.get(`/quizzes/${quizId}/submissions`, {
       params: filters,
     });
+    return response.data;
+  }
+
+  // Bloom's Taxonomy Levels
+  static async getBloomsTaxonomyLevels(): Promise<{
+    success: boolean;
+    count: number;
+    data: import("../types/quiz.types").BloomsTaxonomyLevel[];
+  }> {
+    const response = await axios.get("/quizzes/blooms-levels");
+    return response.data;
+  }
+
+  static async createBloomsTaxonomyLevel(data: {
+    name: string;
+    description?: string;
+    level_order?: number;
+  }): Promise<{
+    success: boolean;
+    data: import("../types/quiz.types").BloomsTaxonomyLevel;
+  }> {
+    const response = await axios.post("/quizzes/blooms-levels", data);
+    return response.data;
+  }
+
+  static async updateBloomsTaxonomyLevel(
+    id: number,
+    data: { name?: string; description?: string; level_order?: number },
+  ): Promise<{
+    success: boolean;
+    data: import("../types/quiz.types").BloomsTaxonomyLevel;
+  }> {
+    const response = await axios.put(`/quizzes/blooms-levels/${id}`, data);
+    return response.data;
+  }
+
+  static async deleteBloomsTaxonomyLevel(
+    id: number,
+  ): Promise<{ success: boolean; data: any }> {
+    const response = await axios.delete(`/quizzes/blooms-levels/${id}`);
     return response.data;
   }
 }
@@ -300,7 +334,7 @@ export async function handleQuizApiCall<T>(
     data: T;
     message?: string;
     errors?: any[];
-  }>
+  }>,
 ): Promise<T> {
   try {
     const response = await apiCall();
@@ -309,7 +343,7 @@ export async function handleQuizApiCall<T>(
       throw new QuizApiError(
         response.message || "API call failed",
         400,
-        response.errors
+        response.errors,
       );
     }
 
@@ -320,7 +354,7 @@ export async function handleQuizApiCall<T>(
       throw new QuizApiError(
         error.response.data.message || "Server error",
         error.response.status,
-        error.response.data.errors
+        error.response.data.errors,
       );
     } else if (error.request) {
       // Network error

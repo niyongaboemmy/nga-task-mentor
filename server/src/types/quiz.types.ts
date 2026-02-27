@@ -15,6 +15,8 @@ export type QuestionType =
   | "drag_drop"
   | "ordering";
 
+export type DifficultyLevel = "EASY" | "MEDIUM" | "DIFFICULT";
+
 // Base interface for all question data
 export interface BaseQuestionData {
   explanation?: string;
@@ -310,6 +312,9 @@ export interface CreateQuestionRequest {
   order: number;
   time_limit_seconds: number;
   is_required: boolean;
+  blooms_taxonomy_level_id?: number | null;
+  tags?: string[] | null;
+  difficulty_level?: DifficultyLevel | null;
 }
 
 // Quiz attempt interfaces

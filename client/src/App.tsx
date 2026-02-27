@@ -46,6 +46,7 @@ import { LiveProctoringDashboard } from "./components/Proctoring";
 import QuizListPage from "./pages/QuizListPage";
 import CourseReportsPage from "./pages/CourseReportsPage";
 import StudentReportsPage from "./pages/StudentReportsPage";
+import BloomsTaxonomyManagementPage from "./components/Quizzes/BloomsTaxonomyManagementPage";
 
 // Wrapper components for routes that need useParams
 const QuizViewWrapper = () => {
@@ -460,6 +461,16 @@ function AppContent() {
                 <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <QuizSubmissionsPageWrapper />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/blooms-taxonomy"
+              element={
+                <ProtectedRoute roles={["admin"]}>
+                  <Layout>
+                    <BloomsTaxonomyManagementPage />
                   </Layout>
                 </ProtectedRoute>
               }

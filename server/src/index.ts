@@ -88,6 +88,7 @@ const initializeDatabase = async (): Promise<void> => {
       ProctoringSession,
       ProctoringEvent,
       ProctoringSettings,
+      BloomsTaxonomyLevel,
     } = await import("./models");
 
     // Add models to Sequelize instance
@@ -102,6 +103,7 @@ const initializeDatabase = async (): Promise<void> => {
       ProctoringSession,
       ProctoringEvent,
       ProctoringSettings,
+      BloomsTaxonomyLevel,
     ]);
 
     // Set up model associations

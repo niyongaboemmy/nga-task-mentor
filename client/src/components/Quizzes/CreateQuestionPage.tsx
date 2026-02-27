@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { toast } from "react-toastify";
@@ -33,7 +33,9 @@ import type {
   DropdownData,
   AlgorithmicData,
   CodingData,
+  BloomsTaxonomyLevel,
 } from "../../types/quiz.types";
+import { QuizApiService } from "../../services/quizApi";
 
 // Helper function to create typed question data
 const createQuestionData = (type: QuestionType) => {
@@ -130,6 +132,8 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
   const dispatch = useDispatch<AppDispatch>();
 
   const [loading, setLoading] = useState(false);
+  const [bloomsLevels, setBloomsLevels] = useState<BloomsTaxonomyLevel[]>([]);
+  const [tagInput, setTagInput] = useState("");
   const [formData, setFormData] = useState<CreateQuestionRequest>({
     question_type: "single_choice",
     question_text: "",
@@ -138,7 +142,16 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
     order: 1,
     time_limit_seconds: 60,
     is_required: true,
+    blooms_taxonomy_level_id: null,
+    tags: [],
+    difficulty_level: null,
   });
+
+  useEffect(() => {
+    QuizApiService.getBloomsTaxonomyLevels()
+      .then((res) => setBloomsLevels(res.data))
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -148,13 +161,14 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
     if (formData.question_type === "coding") {
       const codingData = getCodingData();
       const hasInvalidTestCases = codingData.test_cases.some(
-        (testCase) => !testCase.input.trim() || !testCase.expected_output.trim()
+        (testCase) =>
+          !testCase.input.trim() || !testCase.expected_output.trim(),
       );
 
       if (hasInvalidTestCases) {
         const invalidCount = codingData.test_cases.filter(
           (testCase) =>
-            !testCase.input.trim() || !testCase.expected_output.trim()
+            !testCase.input.trim() || !testCase.expected_output.trim(),
         ).length;
 
         toast.error(
@@ -166,7 +180,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
             closeOnClick: true,
             pauseOnHover: true,
             draggable: true,
-          }
+          },
         );
         return;
       }
@@ -180,7 +194,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
         createQuestion({
           quizId: quizId,
           questionData: formData,
-        })
+        }),
       ).unwrap();
 
       toast.success("Question created successfully!", {
@@ -256,7 +270,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
       const codingData = getCodingData();
       const hasInvalidTestCases = codingData.test_cases.some(
         (testCase: any) =>
-          !testCase.input.trim() || !testCase.expected_output.trim()
+          !testCase.input.trim() || !testCase.expected_output.trim(),
       );
       if (hasInvalidTestCases) return false;
     }
@@ -499,6 +513,134 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                 rows={3}
                 className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
+            </div>
+
+            {/* ── Metadata Section ───────────────────────────── */}
+            <div className="pt-4 border-t border-gray-100 dark:border-gray-800">
+              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+                Question Metadata
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Bloom's Taxonomy Level */}
+                <div>
+                  <label className="block text-sm font-normal text-gray-700 mb-2 dark:text-gray-300">
+                    Bloom's Taxonomy Level
+                  </label>
+                  <select
+                    value={formData.blooms_taxonomy_level_id ?? ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        blooms_taxonomy_level_id: e.target.value
+                          ? parseInt(e.target.value)
+                          : null,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— None —</option>
+                    {bloomsLevels.map((level) => (
+                      <option key={level.id} value={level.id}>
+                        {level.level_order}. {level.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Difficulty Level */}
+                <div>
+                  <label className="block text-sm font-normal text-gray-700 mb-2 dark:text-gray-300">
+                    Difficulty Level
+                  </label>
+                  <select
+                    value={formData.difficulty_level ?? ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        difficulty_level: (e.target.value as any) || null,
+                      }))
+                    }
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">— None —</option>
+                    <option value="EASY">🟢 Easy</option>
+                    <option value="MEDIUM">🟡 Medium</option>
+                    <option value="DIFFICULT">🔴 Difficult</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div className="mt-4">
+                <label className="block text-sm font-normal text-gray-700 mb-2 dark:text-gray-300">
+                  Tags
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (
+                        (e.key === "Enter" || e.key === ",") &&
+                        tagInput.trim()
+                      ) {
+                        e.preventDefault();
+                        const newTag = tagInput.trim().toLowerCase();
+                        if (!formData.tags?.includes(newTag)) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            tags: [...(prev.tags ?? []), newTag],
+                          }));
+                        }
+                        setTagInput("");
+                      }
+                    }}
+                    placeholder="Type a tag and press Enter or comma"
+                    className="flex-1 px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newTag = tagInput.trim().toLowerCase();
+                      if (newTag && !formData.tags?.includes(newTag)) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          tags: [...(prev.tags ?? []), newTag],
+                        }));
+                      }
+                      setTagInput("");
+                    }}
+                    className="px-4 py-2 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
+                  >
+                    Add
+                  </button>
+                </div>
+                {(formData.tags ?? []).length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {(formData.tags ?? []).map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-sm"
+                      >
+                        #{tag}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              tags: prev.tags?.filter((t) => t !== tag),
+                            }))
+                          }
+                          className="ml-1 hover:text-blue-900 dark:hover:text-blue-100"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Action Buttons */}

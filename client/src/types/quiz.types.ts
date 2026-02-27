@@ -15,6 +15,17 @@ export type QuestionType =
   | "drag_drop"
   | "ordering";
 
+export type DifficultyLevel = "EASY" | "MEDIUM" | "DIFFICULT";
+
+export interface BloomsTaxonomyLevel {
+  id: number;
+  name: string;
+  description?: string | null;
+  level_order: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export type QuizStatus = "draft" | "published" | "completed";
 export type QuizType = "practice" | "graded" | "exam";
 export type AttemptStatus =
@@ -300,6 +311,10 @@ export interface QuizQuestion {
   time_limit?: number;
   time_limit_seconds?: number;
   is_required: boolean;
+  blooms_taxonomy_level_id?: number | null;
+  tags?: string[] | null;
+  difficulty_level?: DifficultyLevel | null;
+  bloomsLevel?: BloomsTaxonomyLevel | null;
   created_at: string;
   updated_at: string;
   quiz?: Quiz;
@@ -399,6 +414,9 @@ export interface CreateQuestionRequest {
   order: number;
   time_limit_seconds: number;
   is_required: boolean;
+  blooms_taxonomy_level_id?: number | null;
+  tags?: string[] | null;
+  difficulty_level?: DifficultyLevel | null;
 }
 
 export interface StartQuizAttemptRequest {

@@ -108,7 +108,7 @@ const Modal: React.FC<ModalProps> = ({
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[99999] flex justify-center p-2 sm:p-4 bg-black/50 overflow-hidden"
+        className="fixed inset-0 z-[99999] flex items-center justify-center p-4 sm:p-6 bg-black/50 overflow-hidden"
         variants={backdropVariants}
         initial="hidden"
         animate="visible"
@@ -116,14 +116,14 @@ const Modal: React.FC<ModalProps> = ({
         onClick={closeOnBackdropClick ? onClose : undefined}
       >
         <motion.div
-          className={`relative w-full max-h-screen ${sizeClasses[size]} ${className}`}
+          className={`relative w-full max-h-full flex flex-col ${sizeClasses[size]} ${className}`}
           variants={modalVariants}
           initial="hidden"
           animate="visible"
           exit="exit"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="relative bg-white dark:bg-gray-900 rounded-2xl overflow-hidden max-h-screen flex flex-col">
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl overflow-hidden shadow-2xl flex flex-col flex-1 min-h-0 w-full">
             {/* Header */}
             {(title || showCloseButton) && (
               <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
@@ -157,7 +157,7 @@ const Modal: React.FC<ModalProps> = ({
             )}
 
             {/* Content */}
-            <div className="overflow-y-auto p-4">{children}</div>
+            <div className="flex-1 overflow-y-auto min-h-0 p-4">{children}</div>
           </div>
         </motion.div>
       </motion.div>

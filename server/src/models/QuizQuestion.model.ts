@@ -9,6 +9,7 @@ import {
 } from "sequelize-typescript";
 import Quiz from "./Quiz.model";
 import QuizAttempt from "./QuizAttempt.model";
+import BloomsTaxonomyLevel from "./BloomsTaxonomyLevel.model";
 
 export type QuestionType =
   | "single_choice"
@@ -24,6 +25,8 @@ export type QuestionType =
   | "logical_expression"
   | "drag_drop"
   | "ordering";
+
+export type DifficultyLevel = "EASY" | "MEDIUM" | "DIFFICULT";
 
 export interface IQuestionAttributes {
   id?: number;
@@ -44,6 +47,9 @@ export interface IQuestionAttributes {
     size?: number;
   }> | null;
   created_by: number; // User who created this question
+  blooms_taxonomy_level_id?: number | null;
+  tags?: string[] | null;
+  difficulty_level?: DifficultyLevel | null;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -355,9 +361,55 @@ export class QuizQuestion extends Model<
   })
   created_by!: number;
 
+  @ForeignKey(() => BloomsTaxonomyLevel)
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    defaultValue: null,
+    field: "blooms_taxonomy_level_id",
+  })
+  blooms_taxonomy_level_id?: number | null;
+
+  @Column({
+    type: DataType.TEXT,
+    allowNull: true,
+    defaultValue: null,
+    field: "tags",
+    get() {
+      const parsed = this.getDataValue("tags");
+      if (typeof parsed === "string") {
+        try {
+          return JSON.parse(parsed);
+        } catch (e) {
+          return [];
+        }
+      }
+      return parsed ? parsed : null;
+    },
+    set(value: string[] | null) {
+      if (value) {
+        this.setDataValue("tags", JSON.stringify(value) as any);
+      } else {
+        this.setDataValue("tags", null as any);
+      }
+    },
+  })
+  tags?: string[] | null;
+
+  @Column({
+    type: DataType.ENUM("EASY", "MEDIUM", "DIFFICULT"),
+    allowNull: true,
+    defaultValue: null,
+    field: "difficulty_level",
+  })
+  difficulty_level?: DifficultyLevel | null;
+
   // Associations
   @BelongsTo(() => Quiz, "quiz_id")
   quiz!: Quiz;
+
+  @BelongsTo(() => BloomsTaxonomyLevel, "blooms_taxonomy_level_id")
+  bloomsLevel?: BloomsTaxonomyLevel;
 
   @HasMany(() => QuizAttempt, "question_id")
   attempts!: QuizAttempt[];

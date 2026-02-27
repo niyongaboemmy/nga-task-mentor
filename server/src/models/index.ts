@@ -8,6 +8,7 @@ import QuizSubmission from "./QuizSubmission.model";
 import ProctoringSession from "./ProctoringSession.model";
 import ProctoringEvent from "./ProctoringEvent.model";
 import ProctoringSettings from "./ProctoringSettings.model";
+import BloomsTaxonomyLevel from "./BloomsTaxonomyLevel.model";
 
 // Set up associations after all models are imported
 const setupAssociations = () => {
@@ -73,6 +74,16 @@ const setupAssociations = () => {
     foreignKey: "quiz_id",
     as: "questionQuiz",
   });
+
+  // ----------------------
+  // BloomsTaxonomyLevel Associations
+  // ----------------------
+  BloomsTaxonomyLevel.hasMany(QuizQuestion, {
+    foreignKey: "blooms_taxonomy_level_id",
+    as: "levelQuestions",
+  });
+  // Note: QuizQuestion.belongsTo(BloomsTaxonomyLevel) is already declared
+  // via the @BelongsTo decorator in QuizQuestion.model.ts — no duplicate here.
 
   Quiz.hasMany(QuizSubmission, {
     foreignKey: "quiz_id",
@@ -183,6 +194,7 @@ export {
   ProctoringSession,
   ProctoringEvent,
   ProctoringSettings,
+  BloomsTaxonomyLevel,
   setupAssociations,
 };
 
@@ -197,5 +209,6 @@ export default {
   ProctoringSession,
   ProctoringEvent,
   ProctoringSettings,
+  BloomsTaxonomyLevel,
   setupAssociations,
 };

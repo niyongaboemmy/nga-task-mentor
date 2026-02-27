@@ -41,12 +41,32 @@ import {
   updateSubmissionFeedback,
   getQuizSubmissions as getInstructorQuizSubmissions,
 } from "../controllers/grading.controller";
+import {
+  getBloomsTaxonomyLevels,
+  getBloomsTaxonomyLevel,
+  createBloomsTaxonomyLevel,
+  updateBloomsTaxonomyLevel,
+  deleteBloomsTaxonomyLevel,
+} from "../controllers/bloomsTaxonomy.controller";
 import { protect, authorize } from "../middleware/auth";
 
 const router = Router();
 
 // Apply authentication middleware to all routes
 router.use(protect);
+
+// -------------------------------------------------------
+// Bloom's Taxonomy Level routes
+// -------------------------------------------------------
+router.get("/blooms-levels", getBloomsTaxonomyLevels);
+router.get("/blooms-levels/:id", getBloomsTaxonomyLevel);
+router.post("/blooms-levels", authorize("admin"), createBloomsTaxonomyLevel);
+router.put("/blooms-levels/:id", authorize("admin"), updateBloomsTaxonomyLevel);
+router.delete(
+  "/blooms-levels/:id",
+  authorize("admin"),
+  deleteBloomsTaxonomyLevel,
+);
 
 // Quiz management routes (for instructors and admins)
 router

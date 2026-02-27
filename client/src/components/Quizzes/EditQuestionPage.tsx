@@ -4,6 +4,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 import type { RootState, AppDispatch } from "../../store";
 import { updateQuestion, fetchQuestion } from "../../store/slices/quizSlice";
+import { QuizApiService } from "../../services/quizApi";
 import {
   DropdownQuestionForm,
   AlgorithmicQuestionForm,
@@ -34,6 +35,7 @@ import type {
   ShortAnswerData,
   LogicalExpressionData,
   DragDropData,
+  BloomsTaxonomyLevel,
 } from "../../types/quiz.types";
 
 interface EditQuestionPageProps {
@@ -49,9 +51,11 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
   const dispatch = useDispatch<AppDispatch>();
 
   const { currentQuestion, loading } = useSelector(
-    (state: RootState) => state.quiz
+    (state: RootState) => state.quiz,
   );
   const [formData, setFormData] = useState<Partial<QuizQuestion>>({});
+  const [bloomsLevels, setBloomsLevels] = useState<BloomsTaxonomyLevel[]>([]);
+  const [tagInput, setTagInput] = useState("");
 
   // Helper functions for type-safe data access
   const handleQuestionDataChange = (data: typeof formData.question_data) => {
@@ -85,6 +89,12 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
       setFormData(currentQuestion);
     }
   }, [currentQuestion]);
+
+  useEffect(() => {
+    QuizApiService.getBloomsTaxonomyLevels()
+      .then((res) => setBloomsLevels(res.data))
+      .catch(() => {});
+  }, []);
 
   const renderQuestionTypeFields = () => {
     if (!formData.question_type) return null;
@@ -201,7 +211,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
         updateQuestion({
           questionId: questionId,
           questionData: formData,
-        })
+        }),
       ).unwrap();
 
       toast.success("Question updated successfully!", {
@@ -371,6 +381,134 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                 rows={4}
                 className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
               />
+            </div>
+
+            {/* ── Metadata Section ───────────────────────────── */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
+                Question Metadata
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Bloom's Taxonomy Level */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Bloom's Taxonomy Level
+                  </label>
+                  <select
+                    value={formData.blooms_taxonomy_level_id ?? ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        blooms_taxonomy_level_id: e.target.value
+                          ? parseInt(e.target.value)
+                          : null,
+                      }))
+                    }
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  >
+                    <option value="">— None —</option>
+                    {bloomsLevels.map((level) => (
+                      <option key={level.id} value={level.id}>
+                        {level.level_order}. {level.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Difficulty Level */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    Difficulty Level
+                  </label>
+                  <select
+                    value={formData.difficulty_level ?? ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        difficulty_level: (e.target.value as any) || null,
+                      }))
+                    }
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
+                  >
+                    <option value="">— None —</option>
+                    <option value="EASY">🟢 Easy</option>
+                    <option value="MEDIUM">🟡 Medium</option>
+                    <option value="DIFFICULT">🔴 Difficult</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Tags */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                  Tags
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (
+                        (e.key === "Enter" || e.key === ",") &&
+                        tagInput.trim()
+                      ) {
+                        e.preventDefault();
+                        const newTag = tagInput.trim().toLowerCase();
+                        if (!formData.tags?.includes(newTag)) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            tags: [...(prev.tags ?? []), newTag],
+                          }));
+                        }
+                        setTagInput("");
+                      }
+                    }}
+                    placeholder="Type a tag and press Enter or comma"
+                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const newTag = tagInput.trim().toLowerCase();
+                      if (newTag && !formData.tags?.includes(newTag)) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          tags: [...(prev.tags ?? []), newTag],
+                        }));
+                      }
+                      setTagInput("");
+                    }}
+                    className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
+                  >
+                    Add
+                  </button>
+                </div>
+                {(formData.tags ?? []).length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-3">
+                    {(formData.tags ?? []).map((tag) => (
+                      <span
+                        key={tag}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-sm"
+                      >
+                        #{tag}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              tags: prev.tags?.filter((t) => t !== tag),
+                            }))
+                          }
+                          className="ml-1 hover:text-blue-900 dark:hover:text-blue-100 font-bold"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Action Buttons */}
