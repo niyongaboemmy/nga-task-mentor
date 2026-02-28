@@ -10,8 +10,9 @@ import {
 import type {
   QuestionComponentProps,
   OrderingData,
-  OrderingAnswer
+  OrderingAnswer,
 } from "../../../types/quiz.types";
+import RichTextDisplay from "../../Common/RichTextDisplay";
 
 export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
   question,
@@ -25,19 +26,21 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
 
   // Convert OrderingData items to internal format with content field
   const [items, setItems] = useState(() => {
-    const dataItems = orderingData.items.map(item => ({
+    const dataItems = orderingData.items.map((item) => ({
       id: item.id,
       content: item.text,
-      correctPosition: item.order
+      correctPosition: item.order,
     }));
 
     // If we have existing answer, reorder items based on ordered_item_ids
     if (answer && (answer as OrderingAnswer)?.ordered_item_ids) {
       const orderedIds = (answer as OrderingAnswer).ordered_item_ids;
-      const orderedItems = orderedIds.map(id =>
-        dataItems.find(item => item.id === id)
-      ).filter((item): item is NonNullable<typeof item> => item !== undefined);
-      return orderedItems.length === dataItems.length ? orderedItems : dataItems;
+      const orderedItems = orderedIds
+        .map((id) => dataItems.find((item) => item.id === id))
+        .filter((item): item is NonNullable<typeof item> => item !== undefined);
+      return orderedItems.length === dataItems.length
+        ? orderedItems
+        : dataItems;
     }
 
     return dataItems;
@@ -50,14 +53,16 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
     if (answer) {
       const orderingAnswer = answer as OrderingAnswer;
       if (orderingAnswer?.ordered_item_ids) {
-        const orderedItems = orderingAnswer.ordered_item_ids.map(id =>
-          orderingData.items.find(item => item.id === id)
-        ).filter((item): item is NonNullable<typeof item> => item !== undefined)
-        .map(item => ({
-          id: item.id,
-          content: item.text,
-          correctPosition: item.order
-        }));
+        const orderedItems = orderingAnswer.ordered_item_ids
+          .map((id) => orderingData.items.find((item) => item.id === id))
+          .filter(
+            (item): item is NonNullable<typeof item> => item !== undefined,
+          )
+          .map((item) => ({
+            id: item.id,
+            content: item.text,
+            correctPosition: item.order,
+          }));
         if (orderedItems.length === orderingData.items.length) {
           setItems(orderedItems);
         }
@@ -94,7 +99,7 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
     setDraggedIndex(null);
     setDragOverIndex(null);
 
-    const orderedIds = newItems.map(item => item.id);
+    const orderedIds = newItems.map((item) => item.id);
     onAnswerChange({ ordered_item_ids: orderedIds } as OrderingAnswer);
   };
 
@@ -111,26 +116,24 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
     ];
 
     setItems(newItems);
-    const orderedIds = newItems.map(item => item.id);
+    const orderedIds = newItems.map((item) => item.id);
     onAnswerChange({ ordered_item_ids: orderedIds } as OrderingAnswer);
   };
 
   const resetOrder = () => {
-    const resetItems = orderingData.items.map(item => ({
+    const resetItems = orderingData.items.map((item) => ({
       id: item.id,
       content: item.text,
-      correctPosition: item.order
+      correctPosition: item.order,
     }));
     setItems(resetItems);
 
-    const orderedIds = resetItems.map(item => item.id);
+    const orderedIds = resetItems.map((item) => item.id);
     onAnswerChange({ ordered_item_ids: orderedIds } as OrderingAnswer);
   };
 
   const getCorrectItems = () => {
-    return [...orderingData.items].sort(
-      (a, b) => a.order - b.order
-    );
+    return [...orderingData.items].sort((a, b) => a.order - b.order);
   };
 
   const isCorrectOrder = () => {
@@ -144,28 +147,20 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Question Text */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <h3 className="font-semibold text-lg mb-2">Ordering Question</h3>
-        <p className="text-gray-700 mb-3">
-          <RichTextDisplay content={question.question_text || ""} />
-        </p>
-      </div>
-
       {/* Instruction */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-900 font-medium">
+      <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 transition-colors duration-200">
+        <p className="text-sm text-blue-900 dark:text-blue-300 font-medium">
           Arrange the items in the correct order
         </p>
-        <p className="text-xs text-blue-700 mt-1">
+        <p className="text-xs text-blue-700 dark:text-blue-400 mt-1">
           Drag items to reorder them, or use the arrow buttons.
         </p>
       </div>
 
       {/* Ordering Interface */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 transition-all duration-200">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-sm text-gray-700">
+          <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
             {showCorrectAnswer ? "Your Answer" : "Arrange in Order"}
           </h3>
         </div>
@@ -174,10 +169,14 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
           {items.map((item, index) => {
             const isDragging = draggedIndex === index;
             const isDragOver = dragOverIndex === index;
-            const correct = showCorrectAnswer ? (() => {
-              const correctItem = getCorrectItems()[index];
-              return correctItem ? item.correctPosition === index + 1 : false;
-            })() : null;
+            const correct = showCorrectAnswer
+              ? (() => {
+                  const correctItem = getCorrectItems()[index];
+                  return correctItem
+                    ? item.correctPosition === index + 1
+                    : false;
+                })()
+              : null;
 
             return (
               <div
@@ -191,14 +190,16 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
                   isDragging
                     ? "opacity-50 scale-95"
                     : isDragOver
-                    ? "border-blue-400 bg-blue-50 scale-105"
-                    : showCorrectAnswer
-                    ? correct
-                      ? "border-green-400 bg-green-50"
-                      : "border-red-400 bg-red-50"
-                    : "border-gray-300 bg-white hover:border-gray-400"
+                      ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 scale-105"
+                      : showCorrectAnswer
+                        ? correct
+                          ? "border-green-400 bg-green-50 dark:bg-green-900/20"
+                          : "border-red-400 bg-red-50 dark:bg-red-900/20"
+                        : "border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-gray-400 dark:hover:border-gray-500"
                 } ${
-                  !disabled && !showCorrectAnswer ? "cursor-move" : "cursor-default"
+                  !disabled && !showCorrectAnswer
+                    ? "cursor-move"
+                    : "cursor-default text-gray-400"
                 }`}
               >
                 {/* Drag Handle */}
@@ -208,19 +209,21 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
 
                 {/* Position Number */}
                 <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 ${
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold flex-shrink-0 transition-colors ${
                     showCorrectAnswer
                       ? correct
-                        ? "bg-green-200 text-green-800"
-                        : "bg-red-200 text-red-800"
-                      : "bg-blue-100 text-blue-700"
+                        ? "bg-green-200 dark:bg-green-900/40 text-green-800 dark:text-green-300"
+                        : "bg-red-200 dark:bg-red-900/40 text-red-800 dark:text-red-300"
+                      : "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300"
                   }`}
                 >
                   {index + 1}
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 text-sm font-medium">{item.content}</div>
+                <div className="flex-1 text-sm font-medium">
+                  <RichTextDisplay content={item.content || ""} />
+                </div>
 
                 {/* Feedback Icons */}
                 {showCorrectAnswer && (
@@ -244,7 +247,7 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
                     <button
                       onClick={() => moveItem(index, "up")}
                       disabled={disabled || index === 0}
-                      className="p-1 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                       title="Move up"
                     >
                       <ArrowUp className="w-4 h-4" />
@@ -271,10 +274,10 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
           <button
             onClick={resetOrder}
             disabled={disabled}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-6 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded-2xl hover:bg-gray-700 dark:hover:bg-gray-600 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
           >
             <RotateCcw className="w-4 h-4" />
-            Reset
+            Reset Order
           </button>
         </div>
       )}
@@ -282,27 +285,30 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
       {/* Feedback */}
       {showCorrectAnswer && (
         <div
-          className={`border rounded-lg p-4 ${
+          className={`border-2 rounded-2xl p-6 ${
             isCorrectOrder()
-              ? "border-green-200 bg-green-50"
-              : "border-yellow-200 bg-yellow-50"
+              ? "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10"
+              : "border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-900/10"
           }`}
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-4">
             {isCorrectOrder() ? (
-              <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
+              <div className="bg-green-500 text-white rounded-full p-2">
+                <CheckCircle className="w-6 h-6" />
+              </div>
             ) : (
-              <XCircle className="w-6 h-6 text-yellow-600 flex-shrink-0" />
+              <div className="bg-yellow-500 text-white rounded-full p-2">
+                <XCircle className="w-6 h-6" />
+              </div>
             )}
             <div>
-              <h3 className="font-semibold text-lg mb-1">
+              <h3 className="font-bold text-xl mb-1 text-gray-900 dark:text-gray-100">
                 {isCorrectOrder() ? "Perfect Order!" : "Not Quite Right"}
               </h3>
-              <p className="text-sm text-gray-700 mb-2">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
                 {isCorrectOrder()
-                  ? "All items are in the correct order!"
-                  : "Review the items marked with ✗ to see their correct positions."
-                }
+                  ? "All items are in the correct sequence! Excellent work."
+                  : "Review the items marked with ✗ to see where they should go."}
               </p>
               {!isCorrectOrder() && (
                 <button
@@ -320,21 +326,24 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Correct Answer Display */}
       {showCorrectAnswer && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-lg mb-3 text-blue-900">
-            Correct Order
+        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-2xl p-6 shadow-sm">
+          <h3 className="font-bold text-lg mb-4 text-blue-900 dark:text-blue-300 flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
+            Correct Sequence
           </h3>
-          <div className="space-y-2">
+          <div className="space-y-3">
             {getCorrectItems().map((item, index) => (
               <div
                 key={item.id}
-                className="flex items-center gap-3 p-3 bg-white rounded-lg border border-blue-200"
+                className="flex items-center gap-3 p-4 bg-white dark:bg-gray-800 rounded-xl border border-blue-200 dark:border-blue-700 shadow-sm"
               >
-                <div className="w-8 h-8 rounded-full bg-blue-200 text-blue-800 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 flex items-center justify-center text-sm font-bold flex-shrink-0">
                   {index + 1}
                 </div>
-                <div className="flex-1 text-sm font-medium">{item.text}</div>
-                <CheckCircle className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                <div className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <RichTextDisplay content={item.text || ""} />
+                </div>
+                <CheckCircle className="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0" />
               </div>
             ))}
           </div>

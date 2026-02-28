@@ -60,6 +60,10 @@ export interface TrueFalseGradingConfig extends BaseGradingConfig {
   explanation_bonus: number; // Extra points for correct explanation
 }
 
+export interface AlgorithmicGradingConfig extends BaseGradingConfig {
+  test_case_weights: "equal" | "custom";
+}
+
 export type QuestionGradingConfig =
   | { type: "single_choice" | "true_false"; config: TrueFalseGradingConfig }
   | { type: "multiple_choice"; config: MultipleChoiceGradingConfig }
@@ -69,7 +73,10 @@ export type QuestionGradingConfig =
   | { type: "matching"; config: MatchingGradingConfig }
   | { type: "ordering"; config: OrderingGradingConfig }
   | { type: "dropdown"; config: BaseGradingConfig }
-  | { type: "coding"; config: CodingGradingConfig };
+  | { type: "coding"; config: CodingGradingConfig }
+  | { type: "algorithmic"; config: AlgorithmicGradingConfig }
+  | { type: "logical_expression"; config: BaseGradingConfig }
+  | { type: "drag_drop"; config: BaseGradingConfig };
 
 export interface QuizGradingConfig {
   question_configs: Record<string, QuestionGradingConfig>; // question_type -> config

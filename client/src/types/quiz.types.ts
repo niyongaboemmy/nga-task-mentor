@@ -93,6 +93,7 @@ export interface NumericalData {
 
 export interface AlgorithmicData {
   algorithm_description: string;
+  algorithm_code?: string;
   input_format: string;
   output_format: string;
   constraints?: string;

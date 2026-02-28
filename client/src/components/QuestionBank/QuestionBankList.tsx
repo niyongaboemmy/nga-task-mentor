@@ -17,9 +17,15 @@ import {
   Brain,
   Tag,
   Loader2,
+  FileText,
+  Eye,
 } from "lucide-react";
 import { QuestionBankApiService, QuizApiService } from "../../services/quizApi";
 import QuestionBankModal from "./QuestionBankModal";
+import DocxUploadModal from "./DocxUploadModal";
+import QuestionPreviewModal from "../Quizzes/QuestionPreviewModal";
+import RichTextDisplay from "../Common/RichTextDisplay";
+
 import type {
   QuestionBankEntry,
   QuestionType,
@@ -54,19 +60,21 @@ const DIFFICULTY_LEVELS: {
   {
     value: "EASY",
     label: "Easy",
-    color: "bg-green-100 text-green-700",
+    color:
+      "bg-green-100 text-green-700 dark:text-green-400 dark:bg-green-900/20",
     dot: "bg-green-500",
   },
   {
     value: "MEDIUM",
     label: "Medium",
-    color: "bg-amber-100 text-amber-700",
+    color:
+      "bg-amber-100 text-amber-700 dark:text-amber-400 dark:bg-amber-900/20",
     dot: "bg-amber-500",
   },
   {
     value: "DIFFICULT",
     label: "Difficult",
-    color: "bg-red-100 text-red-700",
+    color: "bg-red-100 text-red-700 dark:text-red-400 dark:bg-red-900/20",
     dot: "bg-red-500",
   },
 ];
@@ -120,7 +128,11 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isDocxModalOpen, setIsDocxModalOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] =
+    useState<QuestionBankEntry | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [previewQuestion, setPreviewQuestion] =
     useState<QuestionBankEntry | null>(null);
 
   // Pagination
@@ -220,8 +232,11 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
   };
 
   const handleAdd = () => {
-    setSelectedQuestion(null);
     setIsModalOpen(true);
+  };
+  const handlePreview = (question: QuestionBankEntry) => {
+    setPreviewQuestion(question);
+    setIsPreviewOpen(true);
   };
 
   return (
@@ -252,6 +267,13 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
               ) : (
                 <ChevronDown className="w-4 h-4" />
               )}
+            </button>
+
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-xl transition-colors border border-gray-200 dark:border-gray-700"
+              onClick={() => setIsDocxModalOpen(true)}
+            >
+              <FileText className="w-4 h-4" /> Import from Word
             </button>
 
             <button
@@ -348,7 +370,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                         <PillToggle
                           key={bl.id}
                           active={selectedBlooms.includes(bl.id)}
-                          activeClass="bg-violet-600 text-white border-violet-600 "
+                          activeClass="bg-blue-600 text-white border-blue-600 "
                           onClick={() => {
                             setSelectedBlooms(
                               toggleInArray(selectedBlooms, bl.id),
@@ -445,12 +467,12 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
             <table className="w-full text-sm text-left">
               <thead className="bg-gray-50 dark:bg-gray-800/50 text-gray-600 dark:text-gray-400 font-medium border-b border-gray-200 dark:border-gray-800">
                 <tr>
-                  <th className="px-6 py-4 rounded-tl-xl whitespace-nowrap lg:w-3/5">
+                  <th className="px-6 py-4 whitespace-nowrap lg:w-3/5">
                     Question Text
                   </th>
                   <th className="px-6 py-4 whitespace-nowrap">Type / Tags</th>
                   <th className="px-6 py-4 whitespace-nowrap">Taxonomy</th>
-                  <th className="px-6 py-4 whitespace-nowrap text-right rounded-tr-xl">
+                  <th className="px-6 py-4 whitespace-nowrap text-right">
                     Actions
                   </th>
                 </tr>
@@ -475,7 +497,9 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                           className="text-gray-900 dark:text-gray-100 line-clamp-2 max-w-xl"
                           title={question.question_text}
                         >
-                          <RichTextDisplay content={question.question_text || ""} />
+                          <RichTextDisplay
+                            content={question.question_text || ""}
+                          />
                         </div>
                         {question.explanation && (
                           <div className="mt-1 text-xs text-blue-500 dark:text-blue-400 flex items-center gap-1">
@@ -495,7 +519,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                               {question.tags.slice(0, 2).map((tag) => (
                                 <span
                                   key={tag}
-                                  className="text-[10px] px-1.5 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded"
+                                  className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full"
                                 >
                                   #{tag}
                                 </span>
@@ -522,7 +546,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                           )}
 
                           {question.bloomsLevel && (
-                            <span className="inline-flex items-center w-max px-2 py-0.5 rounded bg-violet-50 dark:bg-violet-900/20 text-violet-700 dark:text-violet-400 text-xs font-medium border border-violet-100 dark:border-violet-800">
+                            <span className="inline-flex items-center w-max px-2 py-0.5 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-400 text-xs font-medium border border-blue-100 dark:border-blue-800">
                               L{question.bloomsLevel.level_order}:{" "}
                               {question.bloomsLevel.name}
                             </span>
@@ -532,8 +556,15 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={() => handleEdit(question)}
+                            onClick={() => handlePreview(question)}
                             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
+                            title="Preview Question"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => handleEdit(question)}
+                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition-colors"
                             title="Edit Question"
                           >
                             <Edit2 className="w-4 h-4" />
@@ -604,6 +635,22 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
         question={selectedQuestion}
         onSuccess={fetchQuestions}
       />
+
+      <DocxUploadModal
+        isOpen={isDocxModalOpen}
+        onClose={() => setIsDocxModalOpen(false)}
+        courseId={courseId}
+        onSuccess={fetchQuestions}
+      />
+
+      {isPreviewOpen && previewQuestion && (
+        <QuestionPreviewModal
+          isOpen={isPreviewOpen}
+          onClose={() => setIsPreviewOpen(false)}
+          question={previewQuestion as any}
+          questionNumber={1}
+        />
+      )}
     </>
   );
 };

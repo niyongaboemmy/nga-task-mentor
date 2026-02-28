@@ -144,14 +144,22 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
     let correctCount = 0;
     let totalCount = 0;
 
+    // Get correct answers from the question object or fall back to the first option
+    const correctSelections =
+      (question.correct_answer as any)?.selections || [];
+
     dropdownData.dropdown_options.forEach((dropdownOption) => {
       totalCount++;
       const userAnswer = selections[dropdownOption.dropdown_index];
 
-      // For dropdown questions, we need to determine the correct answer
-      // This would typically come from a separate correct_answers field
-      // For now, we'll assume the first option is correct for demonstration
-      const correctAnswer = dropdownOption.options[0];
+      // Try to find the correct answer for this dropdown in the selections array
+      const correctSel = correctSelections.find(
+        (s: any) => s.dropdown_index === dropdownOption.dropdown_index,
+      );
+
+      const correctAnswer = correctSel
+        ? correctSel.selected_option
+        : dropdownOption.options[0];
 
       const isCorrect = userAnswer === correctAnswer;
       newFeedback[dropdownOption.dropdown_index] = isCorrect;
@@ -206,11 +214,12 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
   return (
     <div className="space-y-6">
       {/* Question Prompt */}
-      <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl p-4">
-        <h3 className="font-semibold text-lg mb-3 text-gray-900 dark:text-gray-100">
+      <div className="bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 rounded-3xl p-8 shadow-sm">
+        <h3 className="font-bold text-xl mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <CheckCircle className="w-6 h-6 text-blue-500" />
           Complete the Statement
         </h3>
-        <div className="text-gray-700 dark:text-gray-300 leading-relaxed">
+        <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-lg">
           {segments.map((segment, index) => {
             if (segment.type === "text") {
               return (
@@ -247,16 +256,16 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                       disabled={disabled || submitted}
                       className={`appearance-none w-full px-4 py-2 pr-10 border-2 rounded-lg text-sm font-medium transition-all ${
                         disabled || submitted
-                          ? "cursor-not-allowed bg-gray-50"
-                          : "cursor-pointer bg-white hover:border-blue-400"
+                          ? "cursor-not-allowed bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
+                          : "cursor-pointer bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-500"
                       } ${
                         status === true
-                          ? "border-green-400 bg-green-50 text-green-900"
+                          ? "border-green-400 bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-300"
                           : status === false
-                            ? "border-red-400 bg-red-50 text-red-900"
+                            ? "border-red-400 bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-300"
                             : selectedValue
-                              ? "border-blue-400 bg-blue-50"
-                              : "border-gray-300"
+                              ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-300"
+                              : "border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
                       } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     >
                       <option value="" disabled>
@@ -280,10 +289,10 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
 
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
                       {status === true && (
-                        <CheckCircle className="w-4 h-4 text-green-600" />
+                        <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                       )}
                       {status === false && (
-                        <XCircle className="w-4 h-4 text-red-600" />
+                        <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                       )}
                       {!submitted && (
                         <ChevronDown className="w-4 h-4 text-gray-400" />
@@ -305,7 +314,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
           <button
             onClick={validateAnswer}
             disabled={disabled || !allDropdownsFilled}
-            className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium"
           >
             <CheckCircle className="w-4 h-4" />
             Submit Answer
@@ -314,7 +323,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
           <button
             onClick={resetAnswer}
             disabled={disabled || Object.keys(selections).length === 0}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-6 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded-2xl hover:bg-gray-700 dark:hover:bg-gray-600 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm font-medium"
           >
             <XCircle className="w-4 h-4" />
             Clear
@@ -325,25 +334,32 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
       {/* Feedback */}
       {submitted && (
         <div
-          className={`border rounded-lg p-4 ${
+          className={`border-2 rounded-2xl p-6 ${
             allCorrect
-              ? "border-green-200 bg-green-50"
-              : "border-yellow-200 bg-yellow-50"
+              ? "border-green-200 dark:border-green-800 bg-green-50/50 dark:bg-green-900/10"
+              : "border-yellow-200 dark:border-yellow-800 bg-yellow-50/50 dark:bg-yellow-900/10"
           }`}
         >
-          <div className="flex items-start gap-3">
+          <div className="flex items-start gap-4">
             {allCorrect ? (
-              <CheckCircle className="w-6 h-6 text-green-600 flex-shrink-0" />
+              <div className="bg-green-500 text-white rounded-full p-2">
+                <CheckCircle className="w-6 h-6" />
+              </div>
             ) : (
-              <AlertCircle className="w-6 h-6 text-yellow-600 flex-shrink-0" />
+              <div className="bg-yellow-500 text-white rounded-full p-2">
+                <AlertCircle className="w-6 h-6" />
+              </div>
             )}
             <div className="flex-1">
-              <h3 className="font-semibold text-lg mb-1">
-                {allCorrect ? "Perfect!" : "Review Your Answer"}
+              <h3 className="font-bold text-xl mb-1 text-gray-900 dark:text-gray-100">
+                {allCorrect ? "Perfect Score!" : "Review Your Answer"}
               </h3>
-              <p className="text-sm text-gray-700 mb-2">
-                Score: {score.toFixed(0)}% (
-                {Object.values(feedback).filter((v) => v).length}/
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                Score:{" "}
+                <span className="font-bold text-blue-600 dark:text-blue-400">
+                  {score.toFixed(0)}%
+                </span>{" "}
+                ({Object.values(feedback).filter((v) => v).length}/
                 {Object.values(feedback).length} correct)
               </p>
 
@@ -354,21 +370,23 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                     .map((option) => (
                       <div
                         key={option.dropdown_index}
-                        className="bg-white border border-yellow-300 rounded p-3"
+                        className="bg-white dark:bg-gray-800 border border-yellow-300 dark:border-yellow-800 rounded-xl p-4 shadow-sm"
                       >
-                        <div className="flex items-start gap-2">
-                          <XCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
+                        <div className="flex items-start gap-3">
+                          <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                           <div className="text-sm">
-                            <div className="font-medium text-gray-900">
+                            <div className="font-bold text-gray-900 dark:text-gray-100">
                               Your answer:{" "}
-                              <span className="text-red-700">
-                                {selections[option.dropdown_index]}
+                              <span className="text-red-700 dark:text-red-400">
+                                {selections[option.dropdown_index] || "(empty)"}
                               </span>
                             </div>
                             {showCorrectAnswer && (
-                              <div className="text-gray-700 mt-1">
-                                Correct answer:{" "}
-                                <span className="text-green-700 font-medium">
+                              <div className="text-gray-700 dark:text-gray-300 mt-1 flex items-center gap-2">
+                                <span className="font-bold">
+                                  Correct answer:
+                                </span>
+                                <span className="text-green-700 dark:text-green-400 font-bold bg-green-50 dark:bg-green-900/40 px-2 py-0.5 rounded">
                                   {option.options[0]}
                                 </span>
                               </div>
@@ -394,11 +412,12 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Correct Answer Display (Review Mode) */}
       {showCorrectAnswer && !submitted && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-lg mb-3 text-blue-900">
-            Correct Answer
+        <div className="bg-blue-50 dark:bg-blue-900/10 border-2 border-blue-200 dark:border-blue-800 rounded-3xl p-8 shadow-sm animate-fadeIn">
+          <h3 className="font-bold text-xl mb-4 text-blue-900 dark:text-blue-300 flex items-center gap-2">
+            <CheckCircle className="w-6 h-6" />
+            Correct Sequence
           </h3>
-          <div className="text-gray-700 leading-relaxed">
+          <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-lg">
             {segments.map((segment, index) => {
               if (segment.type === "text") {
                 return (
@@ -418,12 +437,21 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                 );
 
                 if (dropdownOption) {
+                  const correctSelections =
+                    (question.correct_answer as any)?.selections || [];
+                  const correctSel = correctSelections.find(
+                    (s: any) => s.dropdown_index === segment.dropdownIndex,
+                  );
+                  const correctAnswer = correctSel
+                    ? correctSel.selected_option
+                    : dropdownOption.options[0];
+
                   return (
                     <span
                       key={index}
-                      className="inline-block mx-1 px-3 py-1 bg-green-100 text-green-800 font-medium rounded border border-green-300"
+                      className="inline-block mx-2 px-4 py-1.5 bg-green-100 dark:bg-green-900/40 text-green-800 dark:text-green-300 font-bold rounded-xl border-2 border-green-200 dark:border-green-800 shadow-sm"
                     >
-                      {dropdownOption.options[0]}
+                      {correctAnswer}
                     </span>
                   );
                 }
@@ -437,11 +465,11 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Hint for empty dropdowns */}
       {!submitted && !allDropdownsFilled && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="flex items-start gap-2">
-            <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-            <p className="text-sm text-yellow-800">
-              Please fill in all dropdown selections before submitting your
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-2xl p-4">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="w-5 h-5 text-yellow-600 dark:text-yellow-400 flex-shrink-0 mt-0.5" />
+            <p className="text-sm text-yellow-800 dark:text-yellow-300 font-medium">
+              Please complete all dropdown selections before submitting your
               answer.
             </p>
           </div>

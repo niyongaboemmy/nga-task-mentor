@@ -4,6 +4,7 @@ import type {
   SingleChoiceAnswer,
   SingleChoiceData,
 } from "../../../types/quiz.types";
+import RichTextDisplay from "../../Common/RichTextDisplay";
 
 export const SingleChoiceQuestion: React.FC<QuestionComponentProps> = ({
   question,
@@ -89,21 +90,25 @@ export const SingleChoiceQuestion: React.FC<QuestionComponentProps> = ({
                   <div className="w-2.5 h-2.5 rounded-full bg-white animate-scaleIn"></div>
                 )}
               </div>
-              <span
-                className={`flex-1 text-sm sm:text-base break-words transition-colors duration-200 ${
-                  showCorrectAnswer && index === correctAnswerIndex
-                    ? "text-green-900 dark:text-green-100 font-semibold"
-                    : showCorrectAnswer && isIncorrect
-                      ? "text-red-900 dark:text-red-100 font-medium"
-                      : isSelected
-                        ? "text-blue-900 dark:text-blue-100 font-medium"
-                        : "text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                {typeof option === "object" && option !== null
-                  ? (option as any).text
-                  : option}
-              </span>
+              <div className="flex-1">
+                <RichTextDisplay
+                  content={
+                    typeof option === "object" && option !== null
+                      ? (option as any).text
+                      : option
+                  }
+                  className={`bg-transparent prose-p:my-0 ${
+                    showCorrectAnswer && index === correctAnswerIndex
+                      ? "text-green-900 dark:text-green-100 font-semibold"
+                      : showCorrectAnswer && isIncorrect
+                        ? "text-red-900 dark:text-red-100 font-medium"
+                        : isSelected
+                          ? "text-blue-900 dark:text-blue-100 font-medium"
+                          : "text-gray-700 dark:text-gray-300"
+                  }`}
+                />
+              </div>
+
               {showCorrectAnswer && index === correctAnswerIndex && (
                 <span className="ml-2 sm:ml-3 text-green-600 dark:text-green-400 text-xs sm:text-sm font-bold flex items-center gap-1 animate-slideInRight flex-shrink-0">
                   <svg

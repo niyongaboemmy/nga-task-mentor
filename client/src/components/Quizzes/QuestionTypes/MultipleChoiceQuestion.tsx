@@ -4,6 +4,7 @@ import type {
   MultipleChoiceAnswer,
   QuestionComponentProps,
 } from "../../../types/quiz.types";
+import RichTextDisplay from "../../Common/RichTextDisplay";
 
 export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
   question,
@@ -154,21 +155,25 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
                   </svg>
                 )}
               </div>
-              <span
-                className={`flex-1 text-sm sm:text-base break-words transition-colors duration-200 ${
-                  showCorrectAnswer && isCorrect
-                    ? "text-green-900 dark:text-green-100 font-semibold"
-                    : showCorrectAnswer && isIncorrectSelection
-                      ? "text-red-900 dark:text-red-100 font-medium"
-                      : isSelected
-                        ? "text-blue-900 dark:text-blue-100 font-medium"
-                        : "text-gray-700 dark:text-gray-300"
-                }`}
-              >
-                {typeof option === "object" && option !== null
-                  ? (option as any).text
-                  : option}
-              </span>
+              <div className="flex-1">
+                <RichTextDisplay
+                  content={
+                    typeof option === "object" && option !== null
+                      ? (option as any).text
+                      : option
+                  }
+                  className={`bg-transparent prose-p:my-0 ${
+                    showCorrectAnswer && isCorrect
+                      ? "text-green-900 dark:text-green-100 font-semibold"
+                      : showCorrectAnswer && isIncorrectSelection
+                        ? "text-red-900 dark:text-red-100 font-medium"
+                        : isSelected
+                          ? "text-blue-900 dark:text-blue-100 font-medium"
+                          : "text-gray-700 dark:text-gray-300"
+                  }`}
+                />
+              </div>
+
               {showCorrectAnswer && isCorrect && (
                 <span className="ml-2 sm:ml-3 text-green-600 dark:text-green-400 text-xs sm:text-sm font-bold flex items-center gap-1 animate-slideInRight flex-shrink-0">
                   <svg

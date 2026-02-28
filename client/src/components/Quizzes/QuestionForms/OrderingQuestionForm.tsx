@@ -1,5 +1,7 @@
 import React from "react";
 import type { OrderingData } from "../../../types/quiz.types";
+import { RichOptionEditor } from "./RichOptionEditor";
+import { Sigma, X, Plus } from "lucide-react";
 
 interface OrderingQuestionFormProps {
   data: OrderingData;
@@ -24,7 +26,7 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
               </span>
               <input
                 type="text"
-                value={item.text}
+                value={(item.text || "").replace(/<[^>]*>/g, "")}
                 onChange={(e) => {
                   const newItems = [...data.items];
                   newItems[index] = { ...item, text: e.target.value };
@@ -37,6 +39,16 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
                 className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-colors duration-200"
                 required
               />
+              <RichOptionEditor
+                value={item.text}
+                onChange={(val) => {
+                  const newItems = [...data.items];
+                  newItems[index] = { ...item, text: val };
+                  onChange({ ...data, items: newItems });
+                }}
+                label={`Item ${index + 1}`}
+              />
+
               <input
                 type="number"
                 value={item.order}

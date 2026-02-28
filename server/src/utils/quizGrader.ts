@@ -19,6 +19,7 @@ import {
   OrderingGradingConfig,
   FillBlankGradingConfig,
   TrueFalseGradingConfig,
+  AlgorithmicGradingConfig,
 } from "../types/grading.types";
 import { CodeExecutor, TestCase } from "./codeExecutor";
 
@@ -887,6 +888,99 @@ export class InteractiveGrader {
       feedback: `${correctSelections}/${questionData.dropdown_options.length} dropdowns correct`,
     };
   }
+
+  static async gradeAlgorithmic(
+    question: QuizQuestion,
+    answerData: AnswerDataType,
+  ): Promise<GradingResult> {
+    // Algorithmic questions use the same logic as coding questions for test case execution
+    // but the data structure and UI are slightly different.
+    return CodingGrader.gradeCoding(question, answerData);
+  }
+
+  static gradeLogicalExpression(
+    question: QuizQuestion,
+    answerData: AnswerDataType,
+  ): GradingResult {
+    let questionData = question.questionBank?.question_data as any;
+    if (typeof questionData === "string") {
+      try {
+        questionData = JSON.parse(questionData);
+      } catch (e) {
+        questionData = {};
+      }
+    }
+    const answer = answerData as any;
+
+    if (!answer || typeof answer.expression !== "string") {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "Invalid answer format - expression is required",
+      };
+    }
+
+    // Basic logic: Compare normalized expressions
+    const normalize = (expr: string) => expr.replace(/\s+/g, "").toLowerCase();
+    const isCorrect =
+      normalize(answer.expression) ===
+      normalize(questionData.correct_expression || "");
+
+    return {
+      is_correct: isCorrect,
+      points_earned: isCorrect ? parseFloat(String(question.points)) : 0,
+      feedback: isCorrect
+        ? "Expression is correct!"
+        : "Expression is incorrect",
+    };
+  }
+
+  static gradeDragDrop(
+    question: QuizQuestion,
+    answerData: AnswerDataType,
+  ): GradingResult {
+    let questionData = question.questionBank?.question_data as any;
+    if (typeof questionData === "string") {
+      try {
+        questionData = JSON.parse(questionData);
+      } catch (e) {
+        questionData = {};
+      }
+    }
+    const answer = answerData as any;
+
+    if (
+      !answer ||
+      !answer.placements ||
+      typeof answer.placements !== "object"
+    ) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "Invalid answer format - placements are required",
+      };
+    }
+
+    let correctPlacements = 0;
+    const totalZones = questionData.drop_zones.length;
+
+    questionData.drop_zones.forEach((zone: any) => {
+      const studentItemId = answer.placements[zone.id];
+      if (studentItemId && zone.correct_items.includes(studentItemId)) {
+        correctPlacements++;
+      }
+    });
+
+    const pointsEarned = Math.round(
+      (correctPlacements / totalZones) * parseFloat(String(question.points)),
+    );
+
+    return {
+      is_correct: correctPlacements === totalZones,
+      points_earned: pointsEarned,
+      feedback: `${correctPlacements}/${totalZones} items correctly placed`,
+    };
+  }
 }
 
 export class CodingGrader {
@@ -1137,6 +1231,34 @@ export class AdvancedQuizGrader {
         test_case_weights: "equal",
         runtime_penalty: 10,
         memory_penalty: 5,
+      },
+    },
+    algorithmic: {
+      type: "algorithmic",
+      config: {
+        strategy: "weighted_partial",
+        enable_partial_credit: true,
+        minimum_score_percentage: 0,
+        maximum_penalty_percentage: 100,
+        test_case_weights: "equal",
+      },
+    },
+    logical_expression: {
+      type: "logical_expression",
+      config: {
+        strategy: "all_or_nothing",
+        enable_partial_credit: false,
+        minimum_score_percentage: 0,
+        maximum_penalty_percentage: 0,
+      },
+    },
+    drag_drop: {
+      type: "drag_drop",
+      config: {
+        strategy: "partial_credit",
+        enable_partial_credit: true,
+        minimum_score_percentage: 0,
+        maximum_penalty_percentage: 0,
       },
     },
   };
@@ -1419,6 +1541,37 @@ export class AdvancedQuizGrader {
                   }),
                 ),
               }
+            : null;
+        break;
+
+      case "logical_expression":
+        normalizedData =
+          questionData && questionData.correct_expression
+            ? { expression: questionData.correct_expression }
+            : null;
+        break;
+
+      case "drag_drop":
+        normalizedData =
+          questionData && questionData.drop_zones
+            ? {
+                placements: questionData.drop_zones.reduce(
+                  (acc: any, zone: any) => {
+                    if (zone.correct_items && zone.correct_items.length > 0) {
+                      acc[zone.id] = zone.correct_items[0];
+                    }
+                    return acc;
+                  },
+                  {},
+                ),
+              }
+            : null;
+        break;
+
+      case "algorithmic":
+        normalizedData =
+          questionData && questionData.expected_code
+            ? { solution: questionData.expected_code }
             : null;
         break;
 
@@ -1902,6 +2055,81 @@ export class AdvancedQuizGrader {
       },
     };
   }
+
+  private static async gradeAlgorithmic(
+    question: QuizQuestion,
+    answerData: AnswerDataType,
+    config: BaseGradingConfig,
+    maxPoints: number,
+  ): Promise<AdvancedGradingResult> {
+    const basicResult = await InteractiveGrader.gradeAlgorithmic(
+      question,
+      answerData,
+    );
+    let pointsEarned = basicResult.points_earned;
+    const minPoints = (config.minimum_score_percentage / 100) * maxPoints;
+    pointsEarned = Math.max(pointsEarned, minPoints);
+
+    return {
+      is_correct: basicResult.is_correct,
+      points_earned: Math.min(pointsEarned, maxPoints),
+      max_points: maxPoints,
+      percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
+      feedback: basicResult.feedback || "Graded",
+      detailed_feedback: {
+        strategy_used: config.strategy,
+      },
+    };
+  }
+
+  private static gradeLogicalExpression(
+    question: QuizQuestion,
+    answerData: AnswerDataType,
+    config: BaseGradingConfig,
+    maxPoints: number,
+  ): AdvancedGradingResult {
+    const basicResult = InteractiveGrader.gradeLogicalExpression(
+      question,
+      answerData,
+    );
+    let pointsEarned = basicResult.points_earned;
+    const minPoints = (config.minimum_score_percentage / 100) * maxPoints;
+    pointsEarned = Math.max(pointsEarned, minPoints);
+
+    return {
+      is_correct: basicResult.is_correct,
+      points_earned: Math.min(pointsEarned, maxPoints),
+      max_points: maxPoints,
+      percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
+      feedback: basicResult.feedback || "Graded",
+      detailed_feedback: {
+        strategy_used: config.strategy,
+      },
+    };
+  }
+
+  private static gradeDragDrop(
+    question: QuizQuestion,
+    answerData: AnswerDataType,
+    config: BaseGradingConfig,
+    maxPoints: number,
+  ): AdvancedGradingResult {
+    const basicResult = InteractiveGrader.gradeDragDrop(question, answerData);
+    let pointsEarned = basicResult.points_earned;
+    const minPoints = (config.minimum_score_percentage / 100) * maxPoints;
+    pointsEarned = Math.max(pointsEarned, minPoints);
+
+    return {
+      is_correct: basicResult.is_correct,
+      points_earned: Math.min(pointsEarned, maxPoints),
+      max_points: maxPoints,
+      percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
+      feedback: basicResult.feedback || "Graded",
+      detailed_feedback: {
+        strategy_used: config.strategy,
+      },
+    };
+  }
 }
 
 export class QuizGrader {
@@ -1967,6 +2195,15 @@ export class QuizGrader {
         // Coding Questions
         case "coding":
           return await CodingGrader.gradeCoding(question, answerData);
+
+        case "algorithmic":
+          return await InteractiveGrader.gradeAlgorithmic(question, answerData);
+
+        case "logical_expression":
+          return InteractiveGrader.gradeLogicalExpression(question, answerData);
+
+        case "drag_drop":
+          return InteractiveGrader.gradeDragDrop(question, answerData);
 
         default:
           // For question types that require manual grading

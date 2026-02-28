@@ -1,5 +1,7 @@
 import React from "react";
 import type { MultipleChoiceData } from "../../../types/quiz.types";
+import { RichOptionEditor } from "./RichOptionEditor";
+import { Sigma, X, Plus } from "lucide-react";
 
 interface MultipleChoiceQuestionFormProps {
   data: MultipleChoiceData;
@@ -28,7 +30,7 @@ export const MultipleChoiceQuestionForm: React.FC<
                     newIndices = [...currentIndices, index];
                   } else {
                     newIndices = currentIndices.filter(
-                      (i: number) => i !== index
+                      (i: number) => i !== index,
                     );
                   }
                   onChange({
@@ -36,11 +38,11 @@ export const MultipleChoiceQuestionForm: React.FC<
                     correct_option_indices: newIndices,
                   });
                 }}
-                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
+                className="w-5 h-5 text-blue-600 bg-gray-100 border-gray-300 rounded-lg focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
               />
               <input
                 type="text"
-                value={option}
+                value={(option || "").replace(/<[^>]*>/g, "")}
                 onChange={(e) => {
                   const newOptions = [...data.options];
                   newOptions[index] = e.target.value;
@@ -52,8 +54,42 @@ export const MultipleChoiceQuestionForm: React.FC<
                 placeholder={`Option ${index + 1}`}
                 className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
               />
+
+              <RichOptionEditor
+                value={option}
+                onChange={(val) => {
+                  const newOptions = [...data.options];
+                  newOptions[index] = val;
+                  onChange({ ...data, options: newOptions });
+                }}
+                label={`Option ${index + 1}`}
+              />
+
+              {data.options.length > 2 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const newOptions = data.options.filter(
+                      (_, i) => i !== index,
+                    );
+                    const newIndices = (data.correct_option_indices || [])
+                      .filter((idx) => idx !== index)
+                      .map((idx) => (idx > index ? idx - 1 : idx));
+
+                    onChange({
+                      ...data,
+                      options: newOptions,
+                      correct_option_indices: newIndices,
+                    });
+                  }}
+                  className="w-10 h-10 shrink-0 rounded-2xl bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 flex items-center justify-center transition-all duration-200"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
           ))}
+
           <button
             type="button"
             onClick={() => {

@@ -3,9 +3,19 @@ import type {
   QuestionComponentProps,
   DragDropData,
   DragDropAnswer,
-  AnswerDataType
+  AnswerDataType,
 } from "../../../types/quiz.types";
-import { GripVertical, CheckCircle, XCircle, RotateCcw } from "lucide-react";
+import {
+  GripVertical,
+  CheckCircle,
+  XCircle,
+  RotateCcw,
+  MousePointer2,
+  Box,
+  X,
+  AlertCircle,
+} from "lucide-react";
+import RichTextDisplay from "../../Common/RichTextDisplay";
 
 // Extended answer type for component state management
 interface DragDropAnswerWithState extends DragDropAnswer {
@@ -25,13 +35,20 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
 
   const [availableItems, setAvailableItems] = useState(
     dragDropData.draggable_items.filter(
-      item => !Object.values((answer as DragDropAnswer)?.placements || {}).includes(item.id)
-    )
+      (item) =>
+        !Object.values((answer as DragDropAnswer)?.placements || {}).includes(
+          item.id,
+        ),
+    ),
   );
   const [placements, setPlacements] = useState<Record<string, string>>(
-    (answer as DragDropAnswer)?.placements || {}
+    (answer as DragDropAnswer)?.placements || {},
   );
-  const [draggedItem, setDraggedItem] = useState<{ id: string; text: string; value: string } | null>(null);
+  const [draggedItem, setDraggedItem] = useState<{
+    id: string;
+    text: string;
+    value: string;
+  } | null>(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [isCorrect, setIsCorrect] = useState(false);
 
@@ -43,7 +60,9 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
         // Update available items based on current placements
         const placedItemIds = Object.values(dragDropAnswer.placements);
         setAvailableItems(
-          dragDropData.draggable_items.filter(item => !placedItemIds.includes(item.id))
+          dragDropData.draggable_items.filter(
+            (item) => !placedItemIds.includes(item.id),
+          ),
         );
         setShowFeedback(dragDropAnswer.showFeedback || false);
         setIsCorrect(dragDropAnswer.isCorrect || false);
@@ -57,7 +76,11 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
     }
   }, [answer, dragDropData.draggable_items]);
 
-  const handleDragStart = (item: { id: string; text: string; value: string }) => {
+  const handleDragStart = (item: {
+    id: string;
+    text: string;
+    value: string;
+  }) => {
     if (disabled || showFeedback) return;
     setDraggedItem(item);
   };
@@ -72,7 +95,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
     const newPlacements = { ...placements };
 
     // Remove from previous zone if exists
-    Object.keys(newPlacements).forEach(zoneId => {
+    Object.keys(newPlacements).forEach((zoneId) => {
       if (newPlacements[zoneId] === draggedItem.id) {
         delete newPlacements[zoneId];
       }
@@ -86,7 +109,9 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
     // Update available items
     const placedItemIds = Object.values(newPlacements);
     setAvailableItems(
-      dragDropData.draggable_items.filter(item => !placedItemIds.includes(item.id))
+      dragDropData.draggable_items.filter(
+        (item) => !placedItemIds.includes(item.id),
+      ),
     );
 
     setDraggedItem(null);
@@ -152,7 +177,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
   const getItemInZone = (zoneId: string) => {
     const itemId = placements[zoneId];
     if (!itemId) return null;
-    return dragDropData.draggable_items.find(item => item.id === itemId);
+    return dragDropData.draggable_items.find((item) => item.id === itemId);
   };
 
   const DraggableItem = ({
@@ -167,16 +192,16 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
     <div
       draggable={!disabled && !showFeedback}
       onDragStart={() => handleDragStart(item)}
-      className={`flex items-center gap-2 p-3 bg-white border-2 rounded-lg cursor-move transition-all ${
+      className={`flex items-center gap-2 p-3 bg-white dark:bg-gray-800 border-2 rounded-lg cursor-move transition-all ${
         disabled || showFeedback
-          ? "cursor-not-allowed opacity-75"
-          : "hover:shadow-md hover:border-blue-400"
+          ? "cursor-not-allowed opacity-60"
+          : "hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500"
       } ${
         showStatus
           ? isCorrectItem
-            ? "border-green-400 bg-green-50"
-            : "border-red-400 bg-red-50"
-          : "border-gray-300"
+            ? "border-green-400 bg-green-50 dark:bg-green-900/20"
+            : "border-red-400 bg-red-50 dark:bg-red-900/20"
+          : "border-gray-300 dark:border-gray-700"
       }`}
     >
       <GripVertical className="w-4 h-4 text-gray-400 flex-shrink-0" />
@@ -195,36 +220,62 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Problem Statement */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <h3 className="font-semibold text-lg mb-2">Question</h3>
-        <div className="text-gray-700 whitespace-pre-wrap">
+      {/* Question Prompt */}
+      <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
+        <h3 className="font-bold text-xl mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <CheckCircle className="w-6 h-6 text-blue-500 fill-blue-500/10" />
+          Interactive Mapping
+        </h3>
+        <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-lg mb-6">
           <RichTextDisplay content={question.question_text || ""} />
+        </div>
+        <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl flex items-center gap-4">
+          <div className="p-3 bg-blue-100 dark:bg-blue-900/40 rounded-xl text-blue-600 dark:text-blue-400">
+            <MousePointer2 className="w-5 h-5" />
+          </div>
+          <div>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-blue-600/60 dark:text-blue-400/60">
+              Instructions
+            </p>
+            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Drag items from the repository to their correct anchors on the
+              schematic.
+            </p>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Available Items */}
-        <div>
-          <div className="bg-white border-2 border-gray-300 rounded-lg p-4 min-h-[200px]">
-            <h3 className="font-semibold text-sm mb-3 text-gray-700">
-              Available Items ({availableItems.length})
+        <div className="bg-gray-50/50 dark:bg-gray-800/20 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+              <Box className="w-4 h-4 text-orange-500" />
+              Item Repository
             </h3>
-            <div
-              className="space-y-2"
-              onDragOver={handleDragOver}
-              onDrop={() => handleDrop("available")}
-            >
-              {availableItems.length === 0 ? (
-                <div className="text-center py-8 text-gray-400 text-sm">
-                  All items placed
-                </div>
-              ) : (
-                availableItems.map((item) => (
-                  <DraggableItem key={item.id} item={item} />
-                ))
-              )}
-            </div>
+            <span className="text-[10px] font-bold text-gray-400 uppercase">
+              {availableItems.length} Items Available
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-4">
+            {availableItems.map((item) => (
+              <div
+                key={item.id}
+                draggable={!disabled}
+                onDragStart={() => handleDragStart(item)}
+                className={`px-6 py-3 bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 rounded-2xl shadow-sm text-gray-800 dark:text-gray-100 font-bold cursor-grab active:cursor-grabbing hover:border-orange-200 dark:hover:border-orange-900/40 hover:shadow-lg transition-all flex items-center gap-3 group ${
+                  disabled ? "opacity-50 cursor-not-allowed" : ""
+                }`}
+              >
+                <div className="w-2 h-2 rounded-full bg-orange-400 group-hover:scale-125 transition-transform" />
+                {item.text}
+              </div>
+            ))}
+            {availableItems.length === 0 && (
+              <div className="w-full py-8 text-center text-gray-400 dark:text-gray-600 text-sm italic bg-white/50 dark:bg-black/20 rounded-2xl border-2 border-dashed border-gray-100 dark:border-gray-800">
+                All items have been deployed.
+              </div>
+            )}
           </div>
         </div>
 
@@ -233,24 +284,27 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
           {dragDropData.drop_zones.map((zone) => {
             const zoneStatus = getZoneStatus(zone.id);
             const itemInZone = getItemInZone(zone.id);
+            const isPlaced = !!itemInZone;
 
             return (
               <div
                 key={zone.id}
-                className={`border-2 rounded-lg p-4 min-h-[120px] transition-colors relative ${
-                  showFeedback
-                    ? zoneStatus
-                      ? "border-green-400 bg-green-50"
-                      : "border-red-400 bg-red-50"
-                    : "border-gray-300 bg-white"
-                }`}
                 onDragOver={handleDragOver}
                 onDrop={() => handleDrop(zone.id)}
+                className={`p-4 rounded-xl border-2 border-dashed transition-all ${
+                  isPlaced
+                    ? "border-solid border-blue-400 bg-blue-50 dark:bg-blue-900/10"
+                    : "border-gray-300 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 hover:border-blue-300 dark:hover:border-blue-700"
+                } ${
+                  showFeedback
+                    ? zoneStatus
+                      ? "border-green-400 bg-green-50 dark:bg-green-900/20"
+                      : "border-red-400 bg-red-50 dark:bg-red-900/20"
+                    : ""
+                }`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="font-semibold text-sm text-gray-700">
-                    {zone.label || zone.id}
-                  </h3>
+                <div className="flex items-center justify-between mb-3 text-sm font-bold text-gray-600 dark:text-gray-400">
+                  <span>{zone.label}</span>
                   {showFeedback && (
                     <>
                       {zoneStatus ? (
@@ -357,7 +411,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
                 <div className="flex flex-wrap gap-2">
                   {zone.correct_items.map((itemId) => {
                     const item = dragDropData.draggable_items.find(
-                      (i) => i.id === itemId
+                      (i) => i.id === itemId,
                     );
                     return (
                       <span

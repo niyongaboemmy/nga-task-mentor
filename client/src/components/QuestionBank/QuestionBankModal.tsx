@@ -526,20 +526,16 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
               {/* Explanation */}
               <div>
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
-                  <MessageSquare className="w-3.5 h-3.5" /> Explanation
-                  (Displayed after student completes attempt)
-                </label>
-                <textarea
+                <RichEditor
+                  label="Explanation (Displayed after student completes attempt)"
                   value={formData.explanation || ""}
-                  onChange={(e) =>
+                  onChange={(value: string) =>
                     setFormData((prev) => ({
                       ...prev,
-                      explanation: e.target.value,
+                      explanation: value,
                     }))
                   }
                   placeholder="Provide an explanation for the correct answer..."
-                  className="w-full min-h-[100px] px-4 py-3 rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
                 />
               </div>
 

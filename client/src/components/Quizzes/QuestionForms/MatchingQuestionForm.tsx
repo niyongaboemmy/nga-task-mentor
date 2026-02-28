@@ -1,5 +1,7 @@
 import React from "react";
 import type { MatchingData } from "../../../types/quiz.types";
+import { RichOptionEditor } from "./RichOptionEditor";
+import { Sigma, X, Plus } from "lucide-react";
 
 interface MatchingQuestionFormProps {
   data: MatchingData;
@@ -25,7 +27,7 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
               </span>
               <input
                 type="text"
-                value={item.text}
+                value={item.text.replace(/<[^>]*>/g, "")}
                 onChange={(e) => {
                   const newLeftItems = [...data.left_items];
                   newLeftItems[index] = { ...item, text: e.target.value };
@@ -38,15 +40,25 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                 className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
                 required
               />
+              <RichOptionEditor
+                value={item.text}
+                onChange={(val) => {
+                  const newLeftItems = [...data.left_items];
+                  newLeftItems[index] = { ...item, text: val };
+                  onChange({ ...data, left_items: newLeftItems });
+                }}
+                label={`Term ${index + 1}`}
+              />
+
               {data.left_items.length > 2 && (
                 <button
                   type="button"
                   onClick={() => {
                     const newLeftItems = data.left_items.filter(
-                      (_, i) => i !== index
+                      (_, i) => i !== index,
                     );
                     const newRightItems = data.right_items.filter(
-                      (_, i) => i !== index
+                      (_, i) => i !== index,
                     );
                     const newCorrectMatches = {
                       ...data.correct_matches,
@@ -109,7 +121,7 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
               </span>
               <input
                 type="text"
-                value={item.text}
+                value={item.text.replace(/<[^>]*>/g, "")}
                 onChange={(e) => {
                   const newRightItems = [...data.right_items];
                   newRightItems[index] = {
@@ -125,15 +137,25 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                 className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 transition-colors duration-200"
                 required
               />
+              <RichOptionEditor
+                value={item.text}
+                onChange={(val) => {
+                  const newRightItems = [...data.right_items];
+                  newRightItems[index] = { ...item, text: val };
+                  onChange({ ...data, right_items: newRightItems });
+                }}
+                label={`Definition ${String.fromCharCode(65 + index)}`}
+              />
+
               {data.right_items.length > 2 && (
                 <button
                   type="button"
                   onClick={() => {
                     const newLeftItems = data.left_items.filter(
-                      (_, i) => i !== index
+                      (_, i) => i !== index,
                     );
                     const newRightItems = data.right_items.filter(
-                      (_, i) => i !== index
+                      (_, i) => i !== index,
                     );
                     const newCorrectMatches = {
                       ...data.correct_matches,
@@ -202,9 +224,11 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                 <span className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-bold">
                   {leftIndex + 1}
                 </span>
-                <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white">
-                  {leftItem.text || `Term ${leftIndex + 1}`}
+                <span className="flex-1 text-sm font-medium text-gray-900 dark:text-white truncate">
+                  {(leftItem.text || "").replace(/<[^>]*>/g, "") ||
+                    `Term ${leftIndex + 1}`}
                 </span>
+
                 <span className="text-gray-400 dark:text-gray-500">→</span>
                 <select
                   value={data.correct_matches[leftItem.id] || ""}
@@ -228,7 +252,7 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                   {data.right_items.map((rightItem, rightIndex) => (
                     <option key={rightItem.id} value={rightItem.id}>
                       {String.fromCharCode(65 + rightIndex)} -{" "}
-                      {rightItem.text ||
+                      {(rightItem.text || "").replace(/<[^>]*>/g, "") ||
                         `Definition ${String.fromCharCode(65 + rightIndex)}`}
                     </option>
                   ))}

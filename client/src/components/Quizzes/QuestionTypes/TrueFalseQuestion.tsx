@@ -4,6 +4,7 @@ import type {
   TrueFalseAnswer,
   QuestionComponentProps,
 } from "../../../types/quiz.types";
+import RichTextDisplay from "../../Common/RichTextDisplay";
 
 export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
   question,
@@ -17,7 +18,7 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
   const currentAnswer = answer as TrueFalseAnswer | undefined;
 
   const [selectedAnswer, setSelectedAnswer] = useState<boolean | null>(
-    currentAnswer?.selected_answer ?? null
+    currentAnswer?.selected_answer ?? null,
   );
 
   useEffect(() => {
@@ -46,8 +47,8 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
             selectedAnswer === true
               ? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 shadow-lg ring-2 ring-green-200 dark:ring-green-800"
               : showCorrectAnswer && correctAnswer === true
-              ? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 shadow-md"
-              : "border-gray-300 dark:border-gray-600 hover:border-green-300 dark:hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 hover:shadow-md"
+                ? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 shadow-md"
+                : "border-gray-300 dark:border-gray-600 hover:border-green-300 dark:hover:border-green-500 hover:bg-green-50 dark:hover:bg-green-900/20 hover:shadow-md"
           } ${
             disabled ? "cursor-not-allowed opacity-75 hover:scale-100" : ""
           } animate-fadeIn`}
@@ -80,8 +81,8 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
                 showCorrectAnswer && correctAnswer === true
                   ? "text-green-900 dark:text-green-100"
                   : selectedAnswer === true
-                  ? "text-green-900 dark:text-green-100"
-                  : "text-gray-700 dark:text-gray-300"
+                    ? "text-green-900 dark:text-green-100"
+                    : "text-gray-700 dark:text-gray-300"
               }`}
             >
               True
@@ -100,8 +101,8 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
             selectedAnswer === false
               ? "border-red-500 bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900 dark:to-pink-900 shadow-lg ring-2 ring-red-200 dark:ring-red-800"
               : showCorrectAnswer && correctAnswer === false
-              ? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 shadow-md"
-              : "border-gray-300 dark:border-gray-600 hover:border-red-300 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:shadow-md"
+                ? "border-green-500 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-900 dark:to-emerald-900 shadow-md"
+                : "border-gray-300 dark:border-gray-600 hover:border-red-300 dark:hover:border-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 hover:shadow-md"
           } ${
             disabled ? "cursor-not-allowed opacity-75 hover:scale-100" : ""
           } animate-fadeIn`}
@@ -114,8 +115,8 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
                 selectedAnswer === false
                   ? "border-red-600 bg-red-600 scale-110 shadow-lg"
                   : showCorrectAnswer && correctAnswer === false
-                  ? "border-green-600 bg-green-600"
-                  : "border-gray-400 dark:border-gray-500 hover:border-red-500"
+                    ? "border-green-600 bg-green-600"
+                    : "border-gray-400 dark:border-gray-500 hover:border-red-500"
               }`}
             >
               {selectedAnswer === false && !showCorrectAnswer && (
@@ -150,8 +151,8 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
                 showCorrectAnswer && correctAnswer === false
                   ? "text-green-900 dark:text-green-100"
                   : selectedAnswer === false
-                  ? "text-red-900 dark:text-red-100"
-                  : "text-gray-700 dark:text-gray-300"
+                    ? "text-red-900 dark:text-red-100"
+                    : "text-gray-700 dark:text-gray-300"
               }`}
             >
               False

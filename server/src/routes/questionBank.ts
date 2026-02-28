@@ -5,15 +5,38 @@ import {
   createCourseQuestion,
   updateCourseQuestion,
   deleteCourseQuestion,
+  downloadDocxTemplate,
+  parseDocxQuestions,
+  bulkCreateCourseQuestions,
 } from "../controllers/questionBank.controller";
+
 import { protect, authorize } from "../middleware/auth";
 
-const router = Router({ mergeParams: true }); // mergeParams lets us access :courseId from parent
+import multer from "multer";
+
+const router = Router({ mergeParams: true });
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.use(protect);
 
-// GET    /api/courses/:courseId/question-bank
-// POST   /api/courses/:courseId/question-bank
+// Template download
+router.get("/template", authorize("instructor", "admin"), downloadDocxTemplate);
+
+// Docx upload and parse
+router.post(
+  "/upload",
+  authorize("instructor", "admin"),
+  upload.single("file"),
+  parseDocxQuestions,
+);
+
+// Bulk create
+router.post(
+  "/bulk",
+  authorize("instructor", "admin"),
+  bulkCreateCourseQuestions,
+);
+
 router
   .route("/")
   .get(authorize("instructor", "admin"), getCourseQuestions)

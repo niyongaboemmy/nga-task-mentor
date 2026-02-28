@@ -66,7 +66,12 @@ const RichTextDisplay: React.FC<RichTextDisplayProps> = ({
     return null;
   }
 
-  return <EditorContent editor={editor} />;
+  return (
+    <EditorContent
+      editor={editor}
+      className={className.includes("inline") ? "inline" : ""}
+    />
+  );
 };
 
 export default RichTextDisplay;

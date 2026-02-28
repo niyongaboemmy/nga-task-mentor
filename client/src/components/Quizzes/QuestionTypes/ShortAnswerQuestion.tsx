@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from "react";
-import {
-  CheckCircle,
-  AlertCircle,
-  RefreshCw,
-} from "lucide-react";
+import { CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
 import type {
   QuestionComponentProps,
   ShortAnswerData,
-  ShortAnswerAnswer
+  ShortAnswerAnswer,
 } from "../../../types/quiz.types";
+import RichTextDisplay from "../../Common/RichTextDisplay";
 
 export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
   question,
@@ -18,7 +15,8 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
   showCorrectAnswer = false,
   timeRemaining: _, // Timer functionality for future implementation
 }) => {
-  const shortAnswerData: ShortAnswerData = question.question_data as ShortAnswerData;
+  const shortAnswerData: ShortAnswerData =
+    question.question_data as ShortAnswerData;
 
   const [text, setText] = useState((answer as ShortAnswerAnswer)?.answer || "");
   const [wordCount, setWordCount] = useState(0);
@@ -42,7 +40,10 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
   const handleTextChange = (value: string) => {
     if (disabled) return;
 
-    if (shortAnswerData.max_length && value.length > shortAnswerData.max_length) {
+    if (
+      shortAnswerData.max_length &&
+      value.length > shortAnswerData.max_length
+    ) {
       return;
     }
 
@@ -60,24 +61,17 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
     onAnswerChange({ answer: "" } as ShortAnswerAnswer);
   };
 
-  const canSubmit =
-    text.trim().length > 0;
+  const canSubmit = text.trim().length > 0;
 
   return (
     <div className="space-y-6">
-      {/* Question Text */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <h3 className="font-semibold text-lg mb-2">Short Answer Question</h3>
-        <p className="text-gray-700 mb-3">
-          <RichTextDisplay content={question.question_text || ""} />
-        </p>
-      </div>
-
       {/* Text Input Area */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-          <span className="text-sm font-medium text-gray-700">Your Answer</span>
-          <div className="flex items-center gap-4 text-xs text-gray-500">
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg overflow-hidden transition-all duration-200">
+        <div className="bg-gray-50 dark:bg-gray-800/50 px-4 py-2 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Your Answer
+          </span>
+          <div className="flex items-center gap-4 text-xs text-gray-500 dark:text-gray-400">
             <span>{wordCount} words</span>
             <span>
               {charCount}
@@ -93,7 +87,7 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
           onChange={(e) => handleTextChange(e.target.value)}
           placeholder="Type your answer here..."
           disabled={disabled}
-          className="w-full p-4 bg-white border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+          className="w-full p-4 bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 border-0 focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none disabled:bg-gray-50 dark:disabled:bg-gray-800/50 disabled:cursor-not-allowed transition-colors"
           style={{ minHeight: "200px" }}
         />
 
@@ -104,7 +98,8 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
             <div className="px-4 py-2 bg-red-50 border-t border-red-200">
               <p className="text-xs text-red-800 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" />
-                Answer is too long. Maximum {shortAnswerData.max_length} characters allowed.
+                Answer is too long. Maximum {shortAnswerData.max_length}{" "}
+                characters allowed.
               </p>
             </div>
           )}
@@ -115,7 +110,7 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
         <button
           onClick={handleSubmit}
           disabled={disabled || !canSubmit}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+          className="flex items-center gap-2 px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium"
         >
           <CheckCircle className="w-4 h-4" />
           Submit Answer
@@ -125,7 +120,7 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
           <button
             onClick={handleReset}
             disabled={disabled}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-6 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded-2xl hover:bg-gray-700 dark:hover:bg-gray-600 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm font-medium"
           >
             <RefreshCw className="w-4 h-4" />
             Clear
@@ -134,34 +129,38 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
       </div>
 
       {/* Keywords */}
-      {shortAnswerData.keywords &&
-        shortAnswerData.keywords.length > 0 && (
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <h3 className="font-semibold text-sm mb-2 text-blue-900">
-              Key Concepts to Include:
-            </h3>
-            <div className="flex flex-wrap gap-2">
-              {shortAnswerData.keywords.map((keyword: string, idx: number) => (
-                <span
-                  key={idx}
-                  className="px-3 py-1 bg-white border border-blue-300 text-blue-800 rounded text-sm"
-                >
-                  {keyword}
-                </span>
-              ))}
-            </div>
+      {shortAnswerData.keywords && shortAnswerData.keywords.length > 0 && (
+        <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-2xl p-6 shadow-sm">
+          <h3 className="font-bold text-sm mb-4 text-blue-900 dark:text-blue-300 uppercase tracking-widest flex items-center gap-2">
+            <CheckCircle className="w-4 h-4" />
+            Key Concepts to Include
+          </h3>
+          <div className="flex flex-wrap gap-2">
+            {shortAnswerData.keywords.map((keyword: string, idx: number) => (
+              <span
+                key={idx}
+                className="px-4 py-2 bg-white dark:bg-gray-800 border-2 border-blue-100 dark:border-blue-900/50 text-blue-800 dark:text-blue-200 rounded-xl text-sm font-bold shadow-sm hover:scale-105 transition-transform"
+              >
+                {keyword}
+              </span>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
       {/* Sample Answer */}
       {showCorrectAnswer && shortAnswerData.sample_answer && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-lg mb-2 text-blue-900">
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/10 dark:to-indigo-900/10 border-2 border-blue-200 dark:border-blue-800 rounded-2xl p-6 shadow-sm animate-slideInUp">
+          <h3 className="font-bold text-lg mb-4 text-blue-900 dark:text-blue-100 flex items-center gap-2">
+            <CheckCircle className="w-5 h-5" />
             Sample Answer
           </h3>
-          <p className="text-sm text-blue-800 whitespace-pre-wrap">
-            {shortAnswerData.sample_answer}
-          </p>
+          <div className="bg-white/80 dark:bg-gray-800/80 rounded-xl p-4 border border-blue-200 dark:border-blue-700 shadow-inner">
+            <RichTextDisplay
+              content={shortAnswerData.sample_answer}
+              className="text-sm sm:text-base text-gray-800 dark:text-gray-200 bg-transparent prose-p:my-1"
+            />
+          </div>
         </div>
       )}
     </div>

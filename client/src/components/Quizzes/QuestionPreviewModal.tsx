@@ -10,6 +10,7 @@ import {
   Eye,
 } from "lucide-react";
 import { CodePreviewModal } from "./CodePreviewModal";
+import RichTextDisplay from "../Common/RichTextDisplay";
 
 interface QuestionPreviewModalProps {
   isOpen: boolean;
@@ -82,8 +83,8 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
       onClose={onClose}
       title="Question Preview"
       subtitle="This is exactly how students will see this question"
-      size="xl"
-      className="max-w-4xl w-full"
+      size="full"
+      className="w-full h-full"
     >
       <div className="space-y-3">
         {/* Preview Controls */}
@@ -284,7 +285,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                 Explanation
               </div>
               <div className="text-sm text-gray-900 dark:text-gray-100">
-                {question.explanation}
+                <RichTextDisplay content={question.explanation} />
               </div>
             </div>
           )}

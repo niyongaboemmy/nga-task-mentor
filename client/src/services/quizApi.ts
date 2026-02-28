@@ -413,6 +413,48 @@ export class QuestionBankApiService {
     });
     return response.data;
   }
+
+  /** Get Docx Template */
+  static async downloadDocxTemplate(courseId: number): Promise<Blob> {
+    const response = await axios.get(
+      `/courses/${courseId}/question-bank/template`,
+      {
+        responseType: "blob",
+      },
+    );
+    return response.data;
+  }
+
+  /** Upload and parse Docx */
+  static async parseDocxQuestions(
+    courseId: number,
+    file: File,
+  ): Promise<{ success: boolean; data: any[] }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await axios.post(
+      `/courses/${courseId}/question-bank/upload`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      },
+    );
+    return response.data;
+  }
+
+  /** Bulk create questions */
+  static async bulkCreateCourseQuestions(
+    courseId: number,
+    questions: any[],
+  ): Promise<{ success: boolean; data: any[] }> {
+    const response = await axios.post(
+      `/courses/${courseId}/question-bank/bulk`,
+      {
+        questions,
+      },
+    );
+    return response.data;
+  }
 }
 
 // Error handling utility

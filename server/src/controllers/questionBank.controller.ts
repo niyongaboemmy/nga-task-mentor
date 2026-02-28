@@ -5,6 +5,8 @@ import { Op } from "sequelize";
 import BloomsTaxonomyLevel from "../models/BloomsTaxonomyLevel.model";
 import { QuestionValidator } from "../utils/questionValidation";
 import { QuestionType } from "../types/quiz.types";
+import { WordParserService } from "../services/WordParserService";
+import { WordTemplateService } from "../services/WordTemplateService";
 
 // @desc    Get all questions in a course's question bank
 // @route   GET /api/courses/:courseId/question-bank
@@ -382,6 +384,136 @@ export const deleteCourseQuestion = async (req: Request, res: Response) => {
   } catch (error) {
     await transaction.rollback();
     console.error("Delete course question error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Download Word Docx Template
+// @route   GET /api/courses/:courseId/question-bank/template
+// @access  Private (instructor, admin)
+export const downloadDocxTemplate = async (req: Request, res: Response) => {
+  try {
+    const buffer = await WordTemplateService.generateTemplate();
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=question_bank_template.docx",
+    );
+    res.send(buffer);
+  } catch (error) {
+    console.error("Download template error:", error);
+    res
+      .status(500)
+      .json({ success: false, message: "Error generating template" });
+  }
+};
+
+// @desc    Parse uploaded Word Docx
+// @route   POST /api/courses/:courseId/question-bank/upload
+// @access  Private (instructor, admin)
+export const parseDocxQuestions = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
+    }
+    const questions = await WordParserService.parseDocx(req.file.buffer);
+    res.status(200).json({ success: true, data: questions });
+  } catch (error) {
+    console.error("Parse docx error:", error);
+    res.status(500).json({ success: false, message: "Error parsing docx" });
+  }
+};
+
+// @desc    Bulk create questions in the bank
+// @route   POST /api/courses/:courseId/question-bank/bulk
+// @access  Private (instructor, admin)
+export const bulkCreateCourseQuestions = async (
+  req: Request,
+  res: Response,
+) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { courseId } = req.params;
+    const { questions } = req.body;
+
+    if (!Array.isArray(questions) || questions.length === 0) {
+      await transaction.rollback();
+      return res
+        .status(400)
+        .json({ success: false, message: "No questions provided" });
+    }
+
+    const createdQuestions = [];
+
+    for (const q of questions) {
+      // Validate Blooms Taxonomy Level if name is provided
+      let bloomsLevelId = q.blooms_taxonomy_level_id || null;
+      if (!bloomsLevelId && q.blooms_level_name) {
+        const level = await BloomsTaxonomyLevel.findOne({
+          where: { name: { [Op.like]: q.blooms_level_name } },
+          transaction,
+        });
+        if (level) {
+          bloomsLevelId = level.id;
+        }
+      }
+
+      // Sanitize tags
+      const sanitizedTags = Array.isArray(q.tags)
+        ? q.tags.map((t: string) => t.toLowerCase().trim())
+        : q.tags;
+
+      // Validate question data
+      const validation = QuestionValidator.validateQuestionData(
+        q.question_type as QuestionType,
+        q.question_data,
+      );
+
+      if (!validation.isValid) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Invalid data for question: "${q.question_text.substring(0, 50)}..."`,
+          errors: validation.errors,
+          warnings: validation.warnings,
+        });
+      }
+
+      const question = await QuestionBank.create(
+        {
+          course_id: parseInt(courseId),
+          question_type: q.question_type,
+          question_text: q.question_text,
+          question_data: q.question_data,
+          correct_answer: q.correct_answer ?? null,
+          explanation: q.explanation ?? null,
+          attachments: q.attachments ?? null,
+          created_by: req.user.id,
+          blooms_taxonomy_level_id: bloomsLevelId,
+          tags: sanitizedTags ?? null,
+          difficulty_level: q.difficulty_level ?? "MEDIUM",
+        },
+        { transaction },
+      );
+
+      createdQuestions.push(question);
+    }
+
+    await transaction.commit();
+
+    res.status(201).json({
+      success: true,
+      count: createdQuestions.length,
+      data: createdQuestions,
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Bulk create questions error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

@@ -107,9 +107,10 @@ export const BaseQuestion: React.FC<BaseQuestionProps> = ({
               Explanation
             </span>
           </div>
-          <p className="text-green-800 dark:text-green-200 text-sm sm:text-base leading-relaxed ml-8">
-            {explanation}
-          </p>
+          <RichTextDisplay
+            content={explanation}
+            className="text-green-800 dark:text-green-200 text-sm sm:text-base leading-relaxed ml-8 bg-transparent prose-p:my-1"
+          />
         </div>
       )}
     </div>

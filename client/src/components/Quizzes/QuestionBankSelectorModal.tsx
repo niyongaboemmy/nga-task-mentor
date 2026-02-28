@@ -25,7 +25,9 @@ import {
   AlertCircle,
   ShieldCheck,
 } from "lucide-react";
+import RichTextDisplay from "../Common/RichTextDisplay";
 import { QuestionBankApiService } from "../../services/quizApi";
+
 import QuestionBankModal from "../QuestionBank/QuestionBankModal";
 import type {
   QuestionBankEntry,

@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from "react";
+import { Edit3 } from "lucide-react";
 import type {
   FillBlankData,
   FillBlankAnswer,
   QuestionComponentProps,
 } from "../../../types/quiz.types";
+import RichTextDisplay from "../../Common/RichTextDisplay";
+import InlineRichTextModal from "../../Common/InlineRichTextModal";
 
 export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
   question,
@@ -17,11 +20,16 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
   const currentAnswer = answer as FillBlankAnswer | undefined;
 
   const [blankAnswers, setBlankAnswers] = useState<Record<number, string>>(
-    currentAnswer?.answers?.reduce((acc, blank) => {
-      acc[blank.blank_index] = blank.answer;
-      return acc;
-    }, {} as Record<number, string>) ?? {}
+    currentAnswer?.answers?.reduce(
+      (acc, blank) => {
+        acc[blank.blank_index] = blank.answer;
+        return acc;
+      },
+      {} as Record<number, string>,
+    ) ?? {},
   );
+
+  const [activeModalBlank, setActiveModalBlank] = useState<number | null>(null);
 
   useEffect(() => {
     if (currentAnswer?.answers) {
@@ -59,51 +67,95 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
       );
     }
 
-    const parts = questionData.text_with_blanks.split(/(\{\{blank\}\})/);
+    // Standardize placeholders to a unique separator
+    const standardizedText = questionData.text_with_blanks.replace(
+      /\[blank\]/g,
+      "{{blank}}",
+    );
+
+    const parts = standardizedText.split(/(\{\{blank\}\})/);
     let blankIndex = 0;
 
     return parts.map((part, index) => {
       if (part === "{{blank}}") {
         const currentBlankIndex = blankIndex++;
         const blankData = questionData.acceptable_answers?.find(
-          (b) => b.blank_index === currentBlankIndex
+          (b) => b.blank_index === currentBlankIndex,
         );
         const currentAnswer = blankAnswers[currentBlankIndex] || "";
         const isCorrect =
           showCorrectAnswer &&
           blankData?.answers.some(
-            (ans) => ans.toLowerCase() === currentAnswer.toLowerCase()
+            (ans) => ans.toLowerCase() === currentAnswer.toLowerCase(),
           );
 
+        // Determine if the answer contains HTML tags indicating rich text
+        const isRichText = /<[a-z][\s\S]*>/i.test(currentAnswer);
+
         return (
-          <input
+          <span
             key={index}
-            type="text"
-            value={currentAnswer}
-            onChange={(e) =>
-              handleBlankChange(currentBlankIndex, e.target.value)
-            }
-            disabled={disabled}
-            placeholder={`Blank ${currentBlankIndex + 1}`}
-            className={`inline-block mx-1 px-3 py-1 border-2 rounded focus:outline-none focus:ring-2 transition-all duration-200 min-w-[120px] ${
+            className={`inline-flex items-center gap-1 mx-1 border-b-2 transition-all duration-200 min-w-[80px] group ${
               disabled
-                ? "bg-gray-100 border-gray-200 cursor-not-allowed"
+                ? "border-gray-300 text-gray-400 cursor-not-allowed"
                 : showCorrectAnswer
-                ? isCorrect
-                  ? "border-green-500 bg-green-50 focus:border-green-500 focus:ring-green-200"
-                  : "border-red-500 bg-red-50 focus:border-red-500 focus:ring-red-200"
-                : currentAnswer
-                ? "border-blue-500 bg-blue-50 focus:border-blue-500 focus:ring-blue-200"
-                : "border-gray-300 focus:border-blue-500 focus:ring-blue-200"
+                  ? isCorrect
+                    ? "border-green-500 text-green-700 bg-green-50/50"
+                    : "border-red-500 text-red-700 bg-red-50/50"
+                  : currentAnswer
+                    ? "border-blue-500 text-blue-700 dark:text-blue-400"
+                    : "border-gray-400 text-gray-800 dark:text-gray-200"
             }`}
-          />
+          >
+            {isRichText ? (
+              <div
+                className="px-2 py-0.5 min-w-[60px] cursor-pointer"
+                onClick={() =>
+                  !disabled && setActiveModalBlank(currentBlankIndex)
+                }
+              >
+                <RichTextDisplay
+                  content={currentAnswer}
+                  className="prose-p:my-0 !text-inherit"
+                />
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={currentAnswer}
+                onChange={(e) =>
+                  handleBlankChange(currentBlankIndex, e.target.value)
+                }
+                onBlur={(e) => {
+                  handleBlankChange(currentBlankIndex, e.target.value);
+                }}
+                disabled={disabled}
+                placeholder={`...`}
+                className="px-2 py-0.5 bg-transparent focus:outline-none focus:bg-blue-50/30 text-center w-full min-w-[60px] text-inherit font-inherit"
+                style={{ width: `${Math.max(3, currentAnswer.length) + 1}ch` }}
+              />
+            )}
+
+            {!disabled && (
+              <button
+                type="button"
+                onClick={() => setActiveModalBlank(currentBlankIndex)}
+                className="opacity-0 group-hover:opacity-100 p-1 text-gray-400 hover:text-blue-600 transition-all rounded hover:bg-auto shrink-0 focus:opacity-100"
+                title="Open Rich Editor (for formulas & special formatting)"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </span>
         );
       }
 
       return (
-        <span key={index} className="text-gray-700">
-          {part}
-        </span>
+        <RichTextDisplay
+          key={index}
+          content={part}
+          className="!inline text-gray-900 dark:text-gray-100 bg-transparent [&_p]:!inline [&_p]:!m-0 [&_div]:!inline"
+        />
       );
     });
   };
@@ -111,14 +163,14 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
   // Check if all required blanks are filled
   const allBlanksFilled =
     questionData.acceptable_answers?.every(
-      (blank) => blankAnswers[blank.blank_index]?.trim() !== ""
+      (blank) => blankAnswers[blank.blank_index]?.trim() !== "",
     ) ?? false;
 
   return (
     <div className="space-y-4">
       <div className="max-w-4xl mx-auto">
         {/* Question text with blanks */}
-        <div className="text-lg leading-relaxed p-6 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl mb-4">
+        <div className="text-lg leading-loose py-6 font-serif">
           {renderTextWithBlanks()}
         </div>
 
@@ -126,14 +178,14 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
         <div className="flex items-center justify-center mb-4">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Blanks completed:{" "}
-            {Object.values(blankAnswers).filter((a) => a.trim() !== "").length}{" "}
+            {Object.values(blankAnswers).filter((a) => a?.trim() !== "").length}{" "}
             / {questionData.acceptable_answers?.length || 0}
           </div>
         </div>
 
         {/* Case sensitivity info */}
         {questionData.acceptable_answers?.some(
-          (blank) => blank.case_sensitive
+          (blank) => blank.case_sensitive,
         ) && (
           <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-700 rounded-2xl">
             <div className="text-sm text-blue-800 dark:text-blue-200 text-center">
@@ -190,21 +242,21 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
               </div>
             </div>
           )}
-
-        {/* Show explanation if available */}
-        {showCorrectAnswer && question.explanation && (
-          <div className="mt-4 p-4 bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400 dark:border-green-600 rounded-r-2xl">
-            <div className="flex items-center justify-center mb-2">
-              <span className="text-green-800 dark:text-green-200 font-medium">
-                Explanation:
-              </span>
-            </div>
-            <p className="text-green-700 dark:text-green-300 text-center">
-              {question.explanation}
-            </p>
-          </div>
-        )}
       </div>
+
+      <InlineRichTextModal
+        isOpen={activeModalBlank !== null}
+        onClose={() => setActiveModalBlank(null)}
+        initialContent={
+          activeModalBlank !== null ? blankAnswers[activeModalBlank] || "" : ""
+        }
+        onSave={(content) => {
+          if (activeModalBlank !== null) {
+            handleBlankChange(activeModalBlank, content);
+          }
+        }}
+        title={`Edit Blank ${activeModalBlank !== null ? activeModalBlank + 1 : ""}`}
+      />
     </div>
   );
 };

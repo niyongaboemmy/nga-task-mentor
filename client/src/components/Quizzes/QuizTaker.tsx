@@ -20,6 +20,7 @@ import {
   Minimize,
   Monitor,
 } from "lucide-react";
+import RichTextDisplay from "../Common/RichTextDisplay";
 
 interface QuizTakerProps {
   quiz?: Quiz;
@@ -50,7 +51,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
   const [flaggedQuestions, setFlaggedQuestions] = useState<Set<number>>(
-    new Set()
+    new Set(),
   );
   const [showQuestionNavigation, setShowQuestionNavigation] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(true);
@@ -68,7 +69,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
       try {
         const result = await dispatch(
-          fetchQuizAttemptStatus(submissionId)
+          fetchQuizAttemptStatus(submissionId),
         ).unwrap();
         setCurrentSubmission(result);
         setQuiz(result.quiz);
@@ -250,12 +251,12 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
         ([questionId, answerData]) => ({
           question_id: parseInt(questionId),
           answer_data: answerData,
-        })
+        }),
       );
 
       await QuizApiService.submitAllAnswers(
         currentSubmission.submission_id,
-        answersToSubmit
+        answersToSubmit,
       );
 
       // Mark quiz as submitted
@@ -338,7 +339,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
           <button
             onClick={() =>
               navigate(
-                quiz?.course_id ? `/courses/${quiz.course_id}` : "/dashboard"
+                quiz?.course_id ? `/courses/${quiz.course_id}` : "/dashboard",
               )
             }
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -360,7 +361,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
           <button
             onClick={() =>
               navigate(
-                quiz?.course_id ? `/courses/${quiz.course_id}` : "/dashboard"
+                quiz?.course_id ? `/courses/${quiz.course_id}` : "/dashboard",
               )
             }
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
@@ -426,7 +427,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                 <div className="hidden sm:flex items-center gap-2">
                   <CountdownTimer
                     deadline={new Date(
-                      Date.now() + (timeRemaining || 0) * 1000
+                      Date.now() + (timeRemaining || 0) * 1000,
                     ).toISOString()}
                     className="text-sm"
                     showLabel={false}
@@ -456,7 +457,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
             <div className="sm:hidden mt-3 flex items-center justify-center">
               <CountdownTimer
                 deadline={new Date(
-                  Date.now() + (timeRemaining || 0) * 1000
+                  Date.now() + (timeRemaining || 0) * 1000,
                 ).toISOString()}
                 className="text-base font-medium"
                 showLabel={false}
@@ -540,12 +541,12 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                       index === currentQuestionIndex
                         ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200"
                         : status === "submitted"
-                        ? "border-purple-500 bg-purple-50 text-purple-700 hover:bg-purple-100"
-                        : status === "answered"
-                        ? "border-green-500 bg-green-50 text-green-700 opacity-60 cursor-not-allowed"
-                        : status === "flagged"
-                        ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100"
-                        : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
+                          ? "border-purple-500 bg-purple-50 text-purple-700 hover:bg-purple-100"
+                          : status === "answered"
+                            ? "border-green-500 bg-green-50 text-green-700 opacity-60 cursor-not-allowed"
+                            : status === "flagged"
+                              ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100"
+                              : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
                     }`}
                   >
                     {index + 1}
@@ -613,7 +614,9 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                     </h3>
                     <div className="prose prose-sm max-w-none">
                       <div className="text-gray-800 leading-relaxed">
-                        <RichTextDisplay content={currentQuestion.question_text || ""} />
+                        <RichTextDisplay
+                          content={currentQuestion.question_text || ""}
+                        />
                       </div>
                       {/* Display question image if available */}
                       {currentQuestion.question_data &&
@@ -694,7 +697,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                                     Expected: {testCase.expected_output}
                                   </div>
                                 </div>
-                              )
+                              ),
                             )}
                           </div>
                         </div>

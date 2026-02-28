@@ -5,7 +5,8 @@ import type {
   LogicalExpressionAnswer,
   AnswerDataType,
 } from "../../../types/quiz.types";
-import { Check, X, Plus, Trash2, AlertCircle } from "lucide-react";
+import { Check, X, Plus, Trash2, AlertCircle, Brain, Tag } from "lucide-react";
+import RichTextDisplay from "../../Common/RichTextDisplay";
 
 // Extended answer type for component state management
 interface LogicalExpressionAnswerWithState extends LogicalExpressionAnswer {
@@ -42,7 +43,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
 
   // Helper function to convert variables to internal Variable format
   const mapToVariables = (
-    variables: Array<{ name: string; value: boolean }> | undefined
+    variables: Array<{ name: string; value: boolean }> | undefined,
   ): Variable[] => {
     return variables
       ? variables.map((v) => ({
@@ -63,18 +64,18 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
     mapToVariables(
       answer
         ? (answer as LogicalExpressionAnswerWithState)?.variables
-        : undefined
-    )
+        : undefined,
+    ),
   );
 
   const [expressionNodes, setExpressionNodes] = useState<ExpressionNode[]>(
-    (answer as LogicalExpressionAnswerWithState)?.expressionNodes || []
+    (answer as LogicalExpressionAnswerWithState)?.expressionNodes || [],
   );
   const [result, setResult] = useState<boolean | null>(
-    (answer as LogicalExpressionAnswerWithState)?.result || null
+    (answer as LogicalExpressionAnswerWithState)?.result || null,
   );
   const [error, setError] = useState<string>(
-    (answer as LogicalExpressionAnswerWithState)?.error || ""
+    (answer as LogicalExpressionAnswerWithState)?.error || "",
   );
 
   useEffect(() => {
@@ -119,7 +120,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
 
   const evaluateExpression = (
     nodes: ExpressionNode[],
-    vars: Variable[]
+    vars: Variable[],
   ): boolean | null => {
     if (nodes.length === 0) return null;
 
@@ -190,7 +191,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
 
   const addToExpression = (
     type: "variable" | "operator" | "not",
-    value: string
+    value: string,
   ) => {
     if (disabled) return;
 
@@ -216,7 +217,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
   const toggleVariable = (name: string) => {
     if (disabled) return;
     setVariables(
-      variables.map((v) => (v.name === name ? { ...v, value: !v.value } : v))
+      variables.map((v) => (v.name === name ? { ...v, value: !v.value } : v)),
     );
   };
 
@@ -246,252 +247,283 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
 
   return (
     <div className="space-y-6">
-      {/* Question Text */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <h3 className="font-semibold text-lg mb-2">
-          Logical Expression Question
+      {/* Problem Statement */}
+      <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
+        <h3 className="font-bold text-xl mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <Brain className="w-6 h-6 text-purple-500 fill-purple-500/10" />
+          Logical Goal
         </h3>
-        <p className="text-gray-700 mb-3"><RichTextDisplay content={question.question_text || ""} /></p>
-        <div className="text-sm text-gray-600">
-          <strong>Expression Format:</strong> {logicalData.expression_format}
+        <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-lg mb-6">
+          <RichTextDisplay content={question.question_text || ""} />
+        </div>
+        <div className="p-4 bg-gray-50/50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-800 rounded-2xl flex items-center gap-3">
+          <div className="p-2 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
+            <Tag className="w-4 h-4 text-blue-500" />
+          </div>
+          <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
+            Expression Format:{" "}
+            <span className="font-mono text-blue-600 dark:text-blue-400">
+              {logicalData.expression_format}
+            </span>
+          </span>
         </div>
       </div>
 
-      {/* Variables Section */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-900">Variables</h3>
-          <button
-            onClick={addVariable}
-            disabled={disabled || variables.length >= 10}
-            className="flex items-center gap-1 px-3 py-1 text-sm bg-blue-500 text-white rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Plus size={14} />
-            Add
-          </button>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Variable Editor */}
+        <div className="bg-gray-50/50 dark:bg-gray-800/20 border-2 border-gray-100 dark:border-gray-800 p-8 rounded-3xl shadow-sm">
+          <div className="flex items-center justify-between mb-8">
+            <h3 className="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+              <Plus className="w-4 h-4 text-blue-500" />
+              Environment
+            </h3>
+            {!disabled && variables.length < 10 && (
+              <button
+                onClick={addVariable}
+                className="p-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 shadow-md shadow-blue-500/20 transition-all active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            {variables.map((variable) => (
+              <div
+                key={variable.name}
+                className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between group h-16 ${
+                  variable.value
+                    ? "border-green-400 bg-white dark:bg-gray-800 text-green-700 dark:text-green-300 shadow-md shadow-green-500/10"
+                    : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:border-blue-200 dark:hover:border-blue-900/40 shadow-sm"
+                }`}
+                onClick={() => toggleVariable(variable.name)}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center font-mono font-black text-sm border-2 ${
+                      variable.value
+                        ? "bg-green-100 dark:bg-green-900/40 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
+                        : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-400"
+                    }`}
+                  >
+                    {variable.name}
+                  </div>
+                  <span className="text-[10px] uppercase font-bold tracking-tighter">
+                    {variable.value ? "True" : "False"}
+                  </span>
+                </div>
+                {!disabled && variables.length > 1 && (
+                  <Trash2
+                    className="w-4 h-4 text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-all"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      removeVariable(variable.name);
+                    }}
+                  />
+                )}
+              </div>
+            ))}
+          </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {variables.map((variable) => (
-            <div
-              key={variable.name}
-              className="flex items-center gap-2 bg-gray-50 rounded-lg p-2 border border-gray-200"
-            >
+        {/* Expression Builder */}
+        <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm h-full flex flex-col">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+              <Brain className="w-4 h-4 text-purple-500" />
+              Expression Workbench
+            </h3>
+            {expressionNodes.length > 0 && !disabled && (
               <button
-                onClick={() => toggleVariable(variable.name)}
-                disabled={disabled}
-                className={`px-4 py-2 rounded font-mono font-bold transition-colors ${
-                  variable.value
-                    ? "bg-green-500 text-white"
-                    : "bg-red-500 text-white"
-                } disabled:opacity-50`}
+                onClick={clearExpression}
+                className="text-[10px] font-bold text-red-500 hover:text-red-600 uppercase tracking-widest"
               >
-                {variable.name}: {variable.value ? "T" : "F"}
+                Clear
               </button>
-              <div
-                className="text-xs text-gray-600 max-w-[100px] truncate"
-                title={variable.description}
-              >
-                {variable.description}
-              </div>
-              {variables.length > 1 && (
-                <button
-                  onClick={() => removeVariable(variable.name)}
-                  disabled={disabled}
-                  className="p-1 text-red-500 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                >
-                  <Trash2 size={16} />
-                </button>
+            )}
+          </div>
+
+          <div className="bg-gray-50 dark:bg-black/20 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl p-6 min-h-[120px] mb-8 relative flex-1">
+            <div className="flex flex-wrap gap-2">
+              {expressionNodes.length === 0 ? (
+                <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-600 text-sm italic">
+                  Construct your logical expression here...
+                </div>
+              ) : (
+                expressionNodes.map((node) => (
+                  <div
+                    key={node.id}
+                    className={`group flex items-center gap-2 px-3 py-2 rounded-xl border-2 shadow-sm transition-all hover:scale-105 ${
+                      node.type === "variable"
+                        ? "bg-blue-50 dark:bg-blue-900/30 border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300"
+                        : node.type === "operator"
+                          ? "bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-800 text-purple-700 dark:text-purple-300"
+                          : "bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300"
+                    }`}
+                  >
+                    <span className="font-mono text-xs font-black uppercase">
+                      {node.value}
+                    </span>
+                    {!disabled && (
+                      <X
+                        className="w-3.5 h-3.5 text-gray-400 hover:text-red-500 cursor-pointer transition-colors"
+                        onClick={() => removeFromExpression(node.id)}
+                      />
+                    )}
+                  </div>
+                ))
               )}
             </div>
-          ))}
-        </div>
-      </div>
+          </div>
 
-      {/* Expression Builder */}
-      <div className="bg-white rounded-lg border border-gray-200 p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-900">Build Expression</h3>
-          <button
-            onClick={clearExpression}
-            disabled={disabled || expressionNodes.length === 0}
-            className="px-3 py-1 text-sm text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Clear
-          </button>
-        </div>
-
-        {/* Current Expression Display */}
-        <div className="mb-4 min-h-[60px] bg-gray-50 rounded-lg border-2 border-dashed border-gray-300 p-3 flex flex-wrap items-center gap-2">
-          {expressionNodes.length === 0 ? (
-            <span className="text-gray-400 italic">
-              Click buttons below to build your expression...
-            </span>
-          ) : (
-            expressionNodes.map((node) => (
-              <div
-                key={node.id}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded font-mono font-semibold ${
-                  node.type === "variable"
-                    ? "bg-blue-100 text-blue-800 border border-blue-300"
-                    : node.type === "operator"
-                    ? "bg-purple-100 text-purple-800 border border-purple-300"
-                    : "bg-orange-100 text-orange-800 border border-orange-300"
-                }`}
-              >
-                {node.value}
-                <button
-                  onClick={() => removeFromExpression(node.id)}
-                  disabled={disabled}
-                  className="ml-1 hover:bg-white hover:bg-opacity-50 rounded p-0.5 transition-colors"
-                >
-                  <X size={14} />
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-
-        {/* Expression Builder Controls */}
-        <div className="space-y-3">
-          <div>
-            <div className="text-sm font-medium text-gray-700 mb-2">
-              Variables:
-            </div>
+          {/* Controls */}
+          <div className="space-y-6">
             <div className="flex flex-wrap gap-2">
               {variables.map((variable) => (
                 <button
                   key={variable.name}
                   onClick={() => addToExpression("variable", variable.name)}
                   disabled={disabled}
-                  className="px-4 py-2 bg-blue-500 text-white rounded font-mono font-bold hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-xl shadow-md shadow-blue-500/20 font-mono font-black text-sm hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {variable.name}
                 </button>
               ))}
-            </div>
-          </div>
-
-          <div>
-            <div className="text-sm font-medium text-gray-700 mb-2">
-              Operators:
-            </div>
-            <div className="flex flex-wrap gap-2">
+              <div className="w-px h-10 bg-gray-100 dark:bg-gray-800 mx-2" />
+              <button
+                onClick={() => addToExpression("not", "NOT")}
+                disabled={disabled}
+                className="px-5 py-2.5 bg-orange-500 text-white rounded-xl shadow-md shadow-orange-500/20 font-mono font-black text-sm hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50"
+              >
+                NOT
+              </button>
               <button
                 onClick={() => addToExpression("operator", "AND")}
                 disabled={disabled}
-                className="px-4 py-2 bg-purple-500 text-white rounded font-mono font-bold hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-500/20 font-mono font-black text-sm hover:bg-purple-700 transition-all active:scale-95 disabled:opacity-50"
               >
                 AND
               </button>
               <button
                 onClick={() => addToExpression("operator", "OR")}
                 disabled={disabled}
-                className="px-4 py-2 bg-purple-500 text-white rounded font-mono font-bold hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-500/20 font-mono font-black text-sm hover:bg-purple-700 transition-all active:scale-95 disabled:opacity-50"
               >
                 OR
               </button>
               <button
                 onClick={() => addToExpression("operator", "XOR")}
                 disabled={disabled}
-                className="px-4 py-2 bg-purple-500 text-white rounded font-mono font-bold hover:bg-purple-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-500/20 font-mono font-black text-sm hover:bg-purple-700 transition-all active:scale-95 disabled:opacity-50"
               >
                 XOR
-              </button>
-              <button
-                onClick={() => addToExpression("not", "NOT")}
-                disabled={disabled}
-                className="px-4 py-2 bg-orange-500 text-white rounded font-mono font-bold hover:bg-orange-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                NOT
               </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Error Display */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-700 text-sm">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4" />
-            {error}
-          </div>
-        </div>
-      )}
-
       {/* Result Display */}
-      {result !== null && !error && (
-        <div
-          className={`rounded-lg p-4 border-2 ${
-            result ? "bg-green-50 border-green-300" : "bg-red-50 border-red-300"
-          }`}
-        >
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-sm font-medium text-gray-700 mb-1">
-                Expression Result:
-              </div>
-              <div
-                className={`text-2xl font-bold font-mono ${
-                  result ? "text-green-700" : "text-red-700"
-                }`}
-              >
-                {result ? "TRUE" : "FALSE"}
-              </div>
-            </div>
-            {showCorrectAnswer && logicalData.correct_expression && (
-              <div className="flex items-center gap-2">
-                {isCorrect ? (
-                  <div className="flex items-center gap-2 text-green-600">
-                    <Check className="w-6 h-6" />
-                    <span className="font-semibold">Correct!</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2 text-red-600">
-                    <X className="w-6 h-6" />
-                    <span className="font-semibold">
-                      Expected: {logicalData.correct_expression}
-                    </span>
-                  </div>
-                )}
-              </div>
-            )}
+      <div
+        className={`p-8 rounded-3xl border-2 shadow-sm transition-all duration-500 ${
+          error
+            ? "border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-900/30"
+            : result === null
+              ? "border-gray-100 bg-gray-50/50 dark:bg-gray-800/20 dark:border-gray-800"
+              : result
+                ? "border-green-200 bg-green-50/50 dark:bg-green-900/10 dark:border-green-900/30"
+                : "border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-900/30"
+        }`}
+      >
+        <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-gray-500 dark:text-gray-400">
+              Real-time Evaluation
+            </span>
+            <h4 className="font-bold text-gray-700 dark:text-gray-300">
+              Operational Logic
+            </h4>
           </div>
+          {error ? (
+            <div className="flex items-center gap-2 px-4 py-2 bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 rounded-xl font-bold text-sm">
+              <AlertCircle className="w-4 h-4" /> Error: {error}
+            </div>
+          ) : result !== null ? (
+            <div
+              className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-lg transition-all shadow-md ${
+                result
+                  ? "bg-green-500 text-white shadow-green-500/20"
+                  : "bg-red-500 text-white shadow-red-500/20"
+              }`}
+            >
+              {result ? "TRUE" : "FALSE"}
+            </div>
+          ) : (
+            <span className="text-sm text-gray-400 font-medium italic">
+              Awaiting Expression...
+            </span>
+          )}
         </div>
-      )}
+      </div>
 
       {/* Truth Table */}
       {logicalData.truth_table && logicalData.truth_table.length > 0 && (
-        <div className="bg-white border border-gray-200 rounded-lg p-4">
-          <h3 className="font-semibold text-lg mb-3">Truth Table</h3>
-          <div className="overflow-x-auto">
+        <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm overflow-hidden">
+          <h3 className="font-bold text-xl mb-6 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <Tag className="w-6 h-6 text-blue-500 fill-blue-500/10" />
+            Logic Truth Table
+          </h3>
+          <div className="overflow-x-auto rounded-2xl border border-gray-100 dark:border-gray-800">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200">
+                <tr className="bg-gray-50 dark:bg-gray-800/50 border-b-2 border-gray-100 dark:border-gray-800">
                   {variables.map((variable) => (
                     <th
                       key={variable.name}
-                      className="text-left p-2 font-medium text-gray-700"
+                      className="px-6 py-4 font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest text-[10px] border-r border-gray-100 dark:border-gray-800"
                     >
                       {variable.name}
                     </th>
                   ))}
-                  <th className="text-left p-2 font-medium text-gray-700">
-                    Result
+                  <th className="px-6 py-4 font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest text-[10px]">
+                    Output
                   </th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {logicalData.truth_table.map((row, idx) => (
-                  <tr key={idx} className="border-b border-gray-100">
+                  <tr
+                    key={idx}
+                    className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
+                  >
                     {variables.map((variable) => (
-                      <td key={variable.name} className="p-2 font-mono">
-                        {String(row.inputs[variable.name] || false)}
+                      <td
+                        key={variable.name}
+                        className="px-6 py-4 font-mono text-center font-bold text-gray-700 dark:text-gray-300 border-r border-gray-50 dark:border-gray-800"
+                      >
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] ${
+                            row.inputs[variable.name]
+                              ? "bg-green-100 dark:bg-green-900/30 text-green-700"
+                              : "bg-red-100 dark:bg-red-900/30 text-red-700"
+                          }`}
+                        >
+                          {String(
+                            row.inputs[variable.name] ?? "-",
+                          ).toUpperCase()}
+                        </span>
                       </td>
                     ))}
-                    <td className="p-2 font-mono font-bold text-blue-600">
-                      {String(row.output)}
+                    <td className="px-6 py-4 font-mono text-center font-black text-blue-600 dark:text-blue-400">
+                      <span
+                        className={`px-3 py-1 rounded-lg text-xs ${
+                          row.output
+                            ? "bg-blue-100 dark:bg-blue-900/40"
+                            : "bg-gray-100 dark:bg-gray-800"
+                        }`}
+                      >
+                        {String(row.output).toUpperCase()}
+                      </span>
                     </td>
                   </tr>
                 ))}
@@ -503,12 +535,13 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Correct Answer Display */}
       {showCorrectAnswer && logicalData.correct_expression && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-lg mb-3 text-blue-900">
-            Correct Expression
+        <div className="bg-blue-50/50 dark:bg-blue-900/10 border-2 border-blue-200 dark:border-blue-800 rounded-3xl p-8 shadow-sm animate-fadeIn">
+          <h3 className="font-bold text-xl mb-4 text-blue-900 dark:text-blue-300 flex items-center gap-2">
+            <Check className="w-6 h-6" />
+            Validated Logical String
           </h3>
-          <div className="bg-white rounded p-3 border border-blue-200">
-            <code className="text-sm font-mono text-blue-800">
+          <div className="bg-white dark:bg-gray-900/50 rounded-2xl p-6 border-2 border-blue-100 dark:border-blue-800 shadow-inner">
+            <code className="text-lg font-mono text-blue-800 dark:text-blue-200 font-black">
               {logicalData.correct_expression}
             </code>
           </div>
