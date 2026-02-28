@@ -16,34 +16,6 @@ import {
 import { getMisToken, getCurrentTermId } from "../utils/misUtils";
 
 // Deep equality comparison for objects
-const deepEqual = (a: any, b: any): boolean => {
-  if (a === b) return true;
-
-  if (a == null || b == null) return a === b;
-
-  if (Array.isArray(a) && Array.isArray(b)) {
-    if (a.length !== b.length) return false;
-    for (let i = 0; i < a.length; i++) {
-      if (!deepEqual(a[i], b[i])) return false;
-    }
-    return true;
-  }
-
-  if (typeof a === "object" && typeof b === "object") {
-    const keysA = Object.keys(a);
-    const keysB = Object.keys(b);
-
-    if (keysA.length !== keysB.length) return false;
-
-    for (const key of keysA) {
-      if (!keysB.includes(key)) return false;
-      if (!deepEqual(a[key], b[key])) return false;
-    }
-    return true;
-  }
-
-  return false;
-};
 
 // @desc    Get all quizzes for a course (or all quizzes if no course specified)
 // @route   GET /api/courses/:courseId/quizzes
@@ -1016,85 +988,21 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         isCorrect = false; // Will be determined by manual grading
         pointsEarned = 0; // Will be set by instructor
       } else {
-        // Compare normalized answers directly for accurate grading
-        const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
-          answer.answer,
-          question.questionBank?.question_type,
-        );
-        const normalizedCorrectAnswer =
-          AdvancedQuizGrader.normalizeCorrectAnswer(question);
-
-        if (normalizedSubmittedAnswer.data && normalizedCorrectAnswer.data) {
-          // For exact match questions, compare normalized answers
-          if (
-            [
-              "single_choice",
-              "true_false",
-              "numerical",
-              "short_answer",
-              "fill_blank",
-              "matching",
-              "ordering",
-              "dropdown",
-            ].includes(question.questionBank?.question_type)
-          ) {
-            // Parse JSON if stored as strings and compare objects
-            let submitted = normalizedSubmittedAnswer.data;
-            let correct = normalizedCorrectAnswer.data;
-
-            if (typeof submitted === "string") {
-              try {
-                submitted = JSON.parse(submitted);
-              } catch (e) {
-                submitted = {};
-              }
-            }
-            if (typeof correct === "string") {
-              try {
-                correct = JSON.parse(correct);
-              } catch (e) {
-                correct = {};
-              }
-            }
-
-            // Deep equality comparison
-            isCorrect = deepEqual(submitted, correct);
-            pointsEarned = isCorrect ? parseFloat(String(question.points)) : 0;
-          }
-          // For multiple_choice and coding, use advanced grading
-          else if (question.questionBank?.question_type === "multiple_choice") {
-            try {
-              const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
-                question,
-                answer.answer,
-              );
-              isCorrect = gradingResult.is_correct;
-              pointsEarned = gradingResult.points_earned;
-            } catch (error) {
-              console.error(
-                `Error grading multiple choice question ${question.id}:`,
-                error,
-              );
-              isCorrect = false;
-              pointsEarned = 0;
-            }
-          } else if (question.questionBank?.question_type === "coding") {
-            try {
-              const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
-                question,
-                answer.answer,
-              );
-              isCorrect = gradingResult.is_correct;
-              pointsEarned = gradingResult.points_earned;
-            } catch (error) {
-              console.error(
-                `Error grading coding question ${question.id}:`,
-                error,
-              );
-              isCorrect = false;
-              pointsEarned = 0;
-            }
-          }
+        // Use advanced grading for all question types for consistency and to trigger AI grading
+        try {
+          const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
+            question,
+            answer.answer,
+          );
+          isCorrect = gradingResult.is_correct;
+          pointsEarned = gradingResult.points_earned;
+        } catch (error) {
+          console.error(
+            `Error grading question ${question.id} of type ${question.questionBank?.question_type}:`,
+            error,
+          );
+          isCorrect = false;
+          pointsEarned = 0;
         }
       }
 
