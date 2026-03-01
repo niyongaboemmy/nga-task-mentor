@@ -70,14 +70,14 @@ const QuizTakingPage: React.FC = () => {
   const [quizStartTime, setQuizStartTime] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCurrentSaved, setIsCurrentSaved] = useState(true);
-  const REQUIRED_MANUAL_SAVE_TYPES = [
-    "coding",
-    "algorithmic",
-    "logical_expression",
-    "fill_blank",
-    "dropdown",
-    "drag_drop",
-    "ordering",
+  const REQUIRED_MANUAL_SAVE_TYPES: string[] = [
+    // "coding",
+    // "algorithmic",
+    // "logical_expression",
+    // "fill_blank",
+    // "dropdown",
+    // "drag_drop",
+    // "ordering",
   ];
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
