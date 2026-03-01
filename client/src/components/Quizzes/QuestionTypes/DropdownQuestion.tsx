@@ -5,7 +5,13 @@ import type {
   DropdownAnswer,
   AnswerDataType,
 } from "../../../types/quiz.types";
-import { ChevronDown, CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import {
+  ChevronDown,
+  CheckCircle,
+  XCircle,
+  AlertCircle,
+  RotateCcw,
+} from "lucide-react";
 
 // Extended answer type for component state management
 interface DropdownAnswerWithState extends DropdownAnswer {
@@ -92,8 +98,24 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
 
   const segments = createSegments();
 
+  // Helper to safely parse answer data
+  const parseAnswerData = (ans: any): DropdownAnswer | null => {
+    if (!ans) return null;
+    if (typeof ans === "string") {
+      try {
+        return JSON.parse(ans) as DropdownAnswer;
+      } catch (e) {
+        console.error("Failed to parse dropdown answer:", e);
+        return null;
+      }
+    }
+    return ans as DropdownAnswer;
+  };
+
+  const initialAnswer = parseAnswerData(answer);
+
   const [selections, setSelections] = useState<Record<number, string>>(
-    (answer as DropdownAnswer)?.selections?.reduce(
+    initialAnswer?.selections?.reduce(
       (acc, sel) => {
         acc[sel.dropdown_index] = sel.selected_option;
         return acc;
@@ -104,20 +126,19 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
   const [submitted, setSubmitted] = useState(false);
   const [feedback, setFeedback] = useState<Record<number, boolean>>({});
   const [score, setScore] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    if (answer) {
-      const dropdownAnswer = answer as DropdownAnswerWithState;
-      if (dropdownAnswer?.selections) {
-        const newSelections: Record<number, string> = {};
-        dropdownAnswer.selections.forEach((sel) => {
-          newSelections[sel.dropdown_index] = sel.selected_option;
-        });
-        setSelections(newSelections);
-        setSubmitted(dropdownAnswer.submitted || false);
-        setFeedback(dropdownAnswer.feedback || {});
-        setScore(dropdownAnswer.score || 0);
-      }
+    const dropdownAnswer = parseAnswerData(answer) as DropdownAnswerWithState;
+    if (dropdownAnswer?.selections) {
+      const newSelections: Record<number, string> = {};
+      dropdownAnswer.selections.forEach((sel) => {
+        newSelections[sel.dropdown_index] = sel.selected_option;
+      });
+      setSelections(newSelections);
+      setSubmitted(dropdownAnswer.submitted || false);
+      setFeedback(dropdownAnswer.feedback || {});
+      setScore(dropdownAnswer.score || 0);
     }
   }, [answer]);
 
@@ -137,53 +158,23 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
     }
   };
 
-  const validateAnswer = () => {
+  const handleSaveAnswer = async () => {
     if (!dropdownData?.dropdown_options) return;
+    setIsSaving(true);
+    try {
+      const dropdownAnswer: DropdownAnswerWithState = {
+        selections: Object.entries(selections).map(([index, option]) => ({
+          dropdown_index: parseInt(index),
+          selected_option: option,
+        })),
+        submitted: true,
+      };
 
-    const newFeedback: Record<number, boolean> = {};
-    let correctCount = 0;
-    let totalCount = 0;
-
-    // Get correct answers from the question object or fall back to the first option
-    const correctSelections =
-      (question.correct_answer as any)?.selections || [];
-
-    dropdownData.dropdown_options.forEach((dropdownOption) => {
-      totalCount++;
-      const userAnswer = selections[dropdownOption.dropdown_index];
-
-      // Try to find the correct answer for this dropdown in the selections array
-      const correctSel = correctSelections.find(
-        (s: any) => s.dropdown_index === dropdownOption.dropdown_index,
-      );
-
-      const correctAnswer = correctSel
-        ? correctSel.selected_option
-        : dropdownOption.options[0];
-
-      const isCorrect = userAnswer === correctAnswer;
-      newFeedback[dropdownOption.dropdown_index] = isCorrect;
-      if (isCorrect) correctCount++;
-    });
-
-    const calculatedScore =
-      totalCount > 0 ? (correctCount / totalCount) * 100 : 0;
-
-    setFeedback(newFeedback);
-    setSubmitted(true);
-    setScore(calculatedScore);
-
-    const dropdownAnswer: DropdownAnswerWithState = {
-      selections: Object.entries(selections).map(([index, option]) => ({
-        dropdown_index: parseInt(index),
-        selected_option: option,
-      })),
-      feedback: newFeedback,
-      score: calculatedScore,
-      submitted: true,
-    };
-
-    onAnswerChange(dropdownAnswer as AnswerDataType);
+      setSubmitted(true);
+      await onAnswerChange(dropdownAnswer as AnswerDataType, true);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const resetAnswer = () => {
@@ -259,9 +250,9 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                           ? "cursor-not-allowed bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
                           : "cursor-pointer bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-500"
                       } ${
-                        status === true
+                        status === true && showCorrectAnswer
                           ? "border-green-400 bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-300"
-                          : status === false
+                          : status === false && showCorrectAnswer
                             ? "border-red-400 bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-300"
                             : selectedValue
                               ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-300"
@@ -288,10 +279,10 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                     </select>
 
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
-                      {status === true && (
+                      {status === true && showCorrectAnswer && (
                         <CheckCircle className="w-4 h-4 text-green-600 dark:text-green-400" />
                       )}
-                      {status === false && (
+                      {status === false && showCorrectAnswer && (
                         <XCircle className="w-4 h-4 text-red-600 dark:text-red-400" />
                       )}
                       {!submitted && (
@@ -312,12 +303,21 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
       {!submitted && (
         <div className="flex gap-3">
           <button
-            onClick={validateAnswer}
-            disabled={disabled || !allDropdownsFilled}
+            onClick={handleSaveAnswer}
+            disabled={disabled || isSaving || !allDropdownsFilled}
             className="flex items-center gap-2 px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium"
           >
-            <CheckCircle className="w-4 h-4" />
-            Submit Answer
+            {isSaving ? (
+              <>
+                <RotateCcw className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                Save Answer
+              </>
+            )}
           </button>
 
           <button
@@ -352,16 +352,22 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
             )}
             <div className="flex-1">
               <h3 className="font-bold text-xl mb-1 text-gray-900 dark:text-gray-100">
-                {allCorrect ? "Perfect Score!" : "Review Your Answer"}
+                {showCorrectAnswer
+                  ? allCorrect
+                    ? "Perfect Score!"
+                    : "Review Your Answer"
+                  : "Answer Saved"}
               </h3>
-              <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
-                Score:{" "}
-                <span className="font-bold text-blue-600 dark:text-blue-400">
-                  {score.toFixed(0)}%
-                </span>{" "}
-                ({Object.values(feedback).filter((v) => v).length}/
-                {Object.values(feedback).length} correct)
-              </p>
+              {showCorrectAnswer && (
+                <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                  Score:{" "}
+                  <span className="font-bold text-blue-600 dark:text-blue-400">
+                    {score.toFixed(0)}%
+                  </span>{" "}
+                  ({Object.values(feedback).filter((v) => v).length}/
+                  {Object.values(feedback).length} correct)
+                </p>
+              )}
 
               {!allCorrect && dropdownData?.dropdown_options && (
                 <div className="mt-3 space-y-2">
@@ -397,14 +403,6 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                     ))}
                 </div>
               )}
-
-              <button
-                onClick={resetAnswer}
-                disabled={disabled}
-                className="mt-3 text-sm text-blue-600 hover:text-blue-700 font-medium"
-              >
-                Try Again
-              </button>
             </div>
           </div>
         </div>

@@ -320,7 +320,7 @@ export const MatchingQuestion: React.FC<QuestionComponentProps> = ({
             <Link2 className="w-5 h-5" />
             Correct Matches
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-1 gap-3">
             {leftItems.map((leftItem) => {
               const rightItem = rightItems.find(
                 (r) => r.id === matchingData.correct_matches[leftItem.id],

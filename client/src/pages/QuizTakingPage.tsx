@@ -17,6 +17,7 @@ import {
   Check,
 } from "lucide-react";
 import QuestionTimer from "../components/ui/QuestionTimer";
+import { toast } from "react-toastify";
 import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
 import { ProctoringSetup } from "../components/Proctoring";
 import ProctoringMonitorComponent from "../components/Proctoring/ProctoringMonitorComponent";
@@ -68,6 +69,16 @@ const QuizTakingPage: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [quizStartTime, setQuizStartTime] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isCurrentSaved, setIsCurrentSaved] = useState(true);
+  const REQUIRED_MANUAL_SAVE_TYPES = [
+    "coding",
+    "algorithmic",
+    "logical_expression",
+    "fill_blank",
+    "dropdown",
+    "drag_drop",
+    "ordering",
+  ];
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
   const [currentInstructionStep, setCurrentInstructionStep] = useState(0);
@@ -113,6 +124,12 @@ const QuizTakingPage: React.FC = () => {
   const [lockedQuestionIndices, setLockedQuestionIndices] = useState<
     Set<number>
   >(new Set());
+
+  // Latest answers ref to avoid stale state in callbacks
+  const latestAnswersRef = React.useRef<Answer[]>(answers);
+  useEffect(() => {
+    latestAnswersRef.current = answers;
+  }, [answers]);
 
   // Audio confirmation state
   const [audioConfirmationRequest, setAudioConfirmationRequest] = useState<{
@@ -510,6 +527,10 @@ const QuizTakingPage: React.FC = () => {
 
         // Resume from existing submission
         if (submission.answers && submission.answers.length > 0) {
+          const answeredQuestionIds = new Set(
+            submission.answers.map((a: any) => a.question_id),
+          );
+
           setAnswers(
             submission.answers.map((answer: any) => ({
               question_id: answer.question_id,
@@ -517,6 +538,33 @@ const QuizTakingPage: React.FC = () => {
               time_taken: answer.time_taken || 0,
             })),
           );
+
+          // Identify locked indices (already submitted)
+          const locked = new Set<number>();
+          let firstUnsubmittedIndex = -1;
+
+          quizQuestions.forEach((q, idx) => {
+            if (answeredQuestionIds.has(q.id)) {
+              locked.add(idx);
+            } else if (firstUnsubmittedIndex === -1) {
+              firstUnsubmittedIndex = idx;
+            }
+          });
+
+          if (locked.size > 0) {
+            setLockedQuestionIndices(locked);
+            // Save locked indices to localStorage for persistence
+            const lockedIndicesKey = `quiz_${id}_locked_indices`;
+            localStorage.setItem(
+              lockedIndicesKey,
+              JSON.stringify(Array.from(locked)),
+            );
+          }
+
+          // Start at first unsubmitted question if found
+          if (firstUnsubmittedIndex !== -1) {
+            setCurrentQuestionIndex(firstUnsubmittedIndex);
+          }
         }
 
         // Calculate remaining time
@@ -1214,6 +1262,27 @@ const QuizTakingPage: React.FC = () => {
   //   });
   // };
 
+  // Track save status when question changes
+  useEffect(() => {
+    if (currentQuestion) {
+      const qType = (
+        currentQuestion.question_type ||
+        currentQuestion.questionBank?.question_type ||
+        ""
+      ).toLowerCase();
+      const isManualRepo = REQUIRED_MANUAL_SAVE_TYPES.includes(qType);
+
+      if (isManualRepo) {
+        const hasAnswer = answers.some(
+          (a) => a.question_id === currentQuestion.id,
+        );
+        setIsCurrentSaved(hasAnswer);
+      } else {
+        setIsCurrentSaved(true);
+      }
+    }
+  }, [currentQuestionIndex, quizQuestions, answers]);
+
   const updateAnswer = useCallback(
     async (
       questionId: number,
@@ -1246,22 +1315,79 @@ const QuizTakingPage: React.FC = () => {
         return updated;
       });
 
-      // Find if this is a coding question
+      // Find if this is a coding or interactive question that should skip auto-save
       const question = quizQuestions.find((q) => q.id === questionId);
-      const isCoding = question?.questionBank?.question_type === "coding";
+      const qType =
+        question?.question_type || question?.questionBank?.question_type;
+      const normalizedQType = (qType || "").toLowerCase();
+      const isInteractive = [
+        "coding",
+        "logical_expression",
+        "algorithmic",
+        "drag_drop",
+        "ordering",
+        "matching",
+        "dropdown",
+        "numerical",
+        "fill_blank",
+        "short_answer",
+      ].includes(normalizedQType);
 
       // Save answer to database
-      // For coding questions, we only save to server if forceSave is true (e.g. navigation or manual button)
-      // For other questions, we keep auto-saving as it's less frequent
-      if (existingSubmission && (!isCoding || forceSave)) {
+      // For coding/algorithmic we only save to server if forceSave is true (e.g. navigation or manual button)
+      // For other questions (mcq, dropdown, numeric, etc.), we keep auto-saving as it's cleaner
+      const skipAutoSave = REQUIRED_MANUAL_SAVE_TYPES.includes(normalizedQType);
+
+      if (skipAutoSave && !forceSave) {
+        setIsCurrentSaved(false);
+      }
+
+      if (existingSubmission && (!skipAutoSave || forceSave)) {
         try {
+          if (forceSave) setIsSubmitting(true);
           await QuizApiService.submitQuestionAnswer(
             existingSubmission.id,
             questionId,
             answer,
           );
+          if (forceSave) {
+            setIsCurrentSaved(true);
+
+            // Lock this question index since it's manually saved (submitted)
+            const currentIdx = quizQuestions.findIndex(
+              (q) => q.id === questionId,
+            );
+            if (currentIdx !== -1) {
+              setLockedQuestionIndices((prev) => {
+                const next = new Set(prev);
+                next.add(currentIdx);
+
+                // Also save to localStorage for persistence
+                const lockedIndicesKey = `quiz_${id}_locked_indices`;
+                localStorage.setItem(
+                  lockedIndicesKey,
+                  JSON.stringify(Array.from(next)),
+                );
+
+                return next;
+              });
+            }
+
+            toast.success("Answer saved!", {
+              position: "bottom-right",
+              autoClose: 1500,
+              hideProgressBar: true,
+              closeOnClick: true,
+              pauseOnHover: false,
+              draggable: false,
+              theme: "colored",
+            });
+          }
         } catch (error: any) {
+          if (forceSave) toast.error("Failed to save answer.");
           // console.error("Error saving answer to database:", error);
+        } finally {
+          if (forceSave) setIsSubmitting(false);
         }
       }
     },
@@ -1329,6 +1455,7 @@ const QuizTakingPage: React.FC = () => {
           max_score: submissionResult.max_score,
           percentage: submissionResult.percentage,
           passed: submissionResult.passed,
+          grade: submissionResult.grade,
           quiz_title: quiz.title,
         });
         setShowGradeSummary(true);
@@ -1632,25 +1759,33 @@ const QuizTakingPage: React.FC = () => {
   const submitCurrentAnswer = useCallback(async () => {
     if (!currentQuestion) return;
 
-    const currentAnswer = answers.find(
+    const currentAnswer = latestAnswersRef.current.find(
       (a) => a.question_id === currentQuestion.id,
     )?.answer;
 
-    if (currentAnswer) {
+    if (currentAnswer !== undefined && currentAnswer !== null) {
       await updateAnswer(currentQuestion.id, currentAnswer, true); // forceSave = true
     }
-  }, [currentQuestion, answers, updateAnswer]);
+  }, [currentQuestion, updateAnswer]);
 
   const handleNext = useCallback(async () => {
-    await submitCurrentAnswer();
-    // Lock current index if configured to not return
-    setLockedQuestionIndices((prev) => {
-      const next = new Set(prev).add(currentQuestionIndex);
-      const lockedIndicesKey = `quiz_${id}_locked_indices`;
-      localStorage.setItem(lockedIndicesKey, JSON.stringify(Array.from(next)));
-      return next;
-    });
-    setCurrentQuestionIndex((prev) => Math.min(totalQuestions - 1, prev + 1));
+    setIsSubmitting(true);
+    try {
+      await submitCurrentAnswer();
+      // Lock current index if configured to not return
+      setLockedQuestionIndices((prev) => {
+        const next = new Set(prev).add(currentQuestionIndex);
+        const lockedIndicesKey = `quiz_${id}_locked_indices`;
+        localStorage.setItem(
+          lockedIndicesKey,
+          JSON.stringify(Array.from(next)),
+        );
+        return next;
+      });
+      setCurrentQuestionIndex((prev) => Math.min(totalQuestions - 1, prev + 1));
+    } finally {
+      setIsSubmitting(false);
+    }
   }, [
     submitCurrentAnswer,
     currentQuestionIndex,
@@ -2608,6 +2743,7 @@ const QuizTakingPage: React.FC = () => {
                   renderQuestion(currentQuestion, {
                     submissionId: existingSubmission?.id,
                     isFullscreen: isCodingFullscreen,
+                    disabled: lockedQuestionIndices.has(currentQuestionIndex),
                   })}
               </div>
             </div>
@@ -2626,6 +2762,7 @@ const QuizTakingPage: React.FC = () => {
               disabled={
                 currentQuestionIndex === 0 ||
                 contentDisabled ||
+                !isCurrentSaved ||
                 lockedQuestionIndices.has(currentQuestionIndex - 1)
               }
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
@@ -2644,7 +2781,9 @@ const QuizTakingPage: React.FC = () => {
                     key={index}
                     onClick={() => setCurrentQuestionIndex(index)}
                     disabled={
-                      contentDisabled || lockedQuestionIndices.has(index)
+                      contentDisabled ||
+                      !isCurrentSaved ||
+                      lockedQuestionIndices.has(index)
                     }
                     title={
                       lockedQuestionIndices.has(index)
@@ -2676,15 +2815,36 @@ const QuizTakingPage: React.FC = () => {
               })}
             </div>
 
+            {!isCurrentSaved && (
+              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 animate-pulse">
+                <AlertCircle className="h-4 w-4" />
+                <span className="text-sm font-bold">
+                  Please save your answer before proceeding.
+                </span>
+              </div>
+            )}
+
             <button
               onClick={handleNext}
               disabled={
-                currentQuestionIndex === totalQuestions - 1 || contentDisabled
+                currentQuestionIndex === totalQuestions - 1 ||
+                contentDisabled ||
+                !isCurrentSaved ||
+                isSubmitting
               }
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Next
-              <ArrowRight className="h-4 w-4 ml-2 inline" />
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin inline" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Next
+                  <ArrowRight className="h-4 w-4 ml-2 inline" />
+                </>
+              )}
             </button>
           </div>
         </div>
@@ -2806,12 +2966,9 @@ const QuizTakingPage: React.FC = () => {
           <div className="bg-white dark:bg-gray-900 rounded-[2rem] max-w-lg w-full p-8 text-center shadow-2xl border border-white/20 dark:border-gray-800 relative overflow-hidden">
             {/* Background effects */}
             <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 dark:bg-blue-500/20 rounded-full blur-3xl"></div>
-            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 dark:bg-purple-500/20 rounded-full blur-3xl"></div>
+            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/10 dark:bg-blue-500/20 rounded-full blur-3xl"></div>
 
             <div className="relative z-10 mb-8">
-              <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/30 animate-in zoom-in duration-500 delay-100">
-                <span className="text-4xl">🎉</span>
-              </div>
               <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200">
                 Quiz Submitted!
               </h2>
@@ -2840,11 +2997,11 @@ const QuizTakingPage: React.FC = () => {
                           gradeSummary.percentage >= 90
                             ? "text-emerald-500"
                             : gradeSummary.percentage >= 80
-                              ? "text-blue-500"
+                              ? "text-indigo-500"
                               : gradeSummary.percentage >= 70
                                 ? "text-yellow-500"
-                                : gradeSummary.percentage >= 60
-                                  ? "text-orange-500"
+                                : gradeSummary.percentage >= 50
+                                  ? "text-blue-500"
                                   : "text-red-500"
                         }`}
                         strokeWidth="12"
@@ -2875,23 +3032,24 @@ const QuizTakingPage: React.FC = () => {
                           gradeSummary.percentage >= 90
                             ? "text-emerald-600 dark:text-emerald-400"
                             : gradeSummary.percentage >= 80
-                              ? "text-blue-600 dark:text-blue-400"
+                              ? "text-indigo-600 dark:text-indigo-400"
                               : gradeSummary.percentage >= 70
                                 ? "text-yellow-600 dark:text-yellow-400"
                                 : gradeSummary.percentage >= 60
-                                  ? "text-orange-600 dark:text-orange-400"
+                                  ? "text-blue-600 dark:text-blue-400"
                                   : "text-red-600 dark:text-red-400"
                         }
                       >
-                        {gradeSummary.percentage >= 90
-                          ? "A"
-                          : gradeSummary.percentage >= 80
-                            ? "B"
-                            : gradeSummary.percentage >= 70
-                              ? "C"
-                              : gradeSummary.percentage >= 60
-                                ? "D"
-                                : "F"}
+                        {gradeSummary.grade ||
+                          (parseFloat(gradeSummary.percentage) >= 90
+                            ? "A"
+                            : parseFloat(gradeSummary.percentage) >= 80
+                              ? "B"
+                              : parseFloat(gradeSummary.percentage) >= 70
+                                ? "C"
+                                : parseFloat(gradeSummary.percentage) >= 60
+                                  ? "D"
+                                  : "F")}
                       </span>
                     </div>
 
@@ -2915,7 +3073,7 @@ const QuizTakingPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-500">
                 <div className="bg-white dark:bg-gray-800/80 rounded-2xl p-5 border border-gray-100 dark:border-gray-700/50 shadow-sm">
-                  <div className="text-3xl font-black text-indigo-600 dark:text-indigo-400 mb-1">
+                  <div className="text-3xl font-black text-blue-600 dark:text-blue-400 mb-1">
                     {gradeSummary.final_score}
                   </div>
                   <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
@@ -2935,13 +3093,13 @@ const QuizTakingPage: React.FC = () => {
 
             <div className="text-center animate-in fade-in duration-500 delay-700 relative z-10">
               <div className="flex items-center justify-center gap-3 mb-3">
-                <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
                 <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
                   Redirecting to detailed results...
                 </p>
               </div>
               <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-1.5 rounded-full w-full animate-[shrink_1.5s_ease-in-out_forwards] origin-left"></div>
+                <div className="bg-gradient-to-r from-blue-500 to-blue-500 h-1.5 rounded-full w-full animate-[shrink_1.5s_ease-in-out_forwards] origin-left"></div>
               </div>
             </div>
           </div>

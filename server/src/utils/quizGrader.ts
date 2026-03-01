@@ -26,6 +26,54 @@ import { Judge0Service } from "../services/Judge0Service";
 import { aiService } from "../services/ai/aiService";
 
 // Category-based grading functions
+/**
+ * Utility to strip HTML tags and LaTeX artifacts from strings for cleaner comparison
+ */
+const stripHtml = (html: any): string => {
+  if (html === null || html === undefined) return "";
+  if (typeof html !== "string") return String(html);
+
+  // 1. Strip HTML tags
+  let text = html.replace(/<[^>]*>?/gm, "");
+
+  // 2. Replace common HTML entities BEFORE stripping LaTeX
+  text = text
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'");
+
+  // 3. Strip LaTeX delimiters and common formatting commands while preserving content
+  // Remove delimiters: \( \), \[ \], $ $
+  text = text.replace(/\\\(|\\\)|\\\[|\\\]|\$/g, "");
+
+  // Remove LaTeX commands but try to keep text inside common text wrappers
+  text = text.replace(
+    /\\(text|mathrm|mathbf|mathsf|mathtt|mathit|textbf|textit|texttt|textrm)\{([^}]*)\}/g,
+    "$2",
+  );
+
+  // Remove other common LaTeX commands and mathematical artifacts
+  // We remove the commands but keep the structure if possible.
+  // For things like \frac{a}{b}, we keep a and b.
+  text = text.replace(/\\(frac|tfrac|dfrac)\{([^}]*)\}\{([^}]*)\}/g, "$2 $3");
+  text = text.replace(/\\(sqrt|overline|underline)\{([^}]*)\}/g, "$2");
+
+  // Remove stylistic/layout commands
+  text = text.replace(
+    /\\(displaystyle|bold|color|underset|overset|left|right|big|Big|cell|row|column|hline|vline|\[|\]|tiny|small|large|Large|huge|Huge|\\|&)/g,
+    "",
+  );
+
+  // 4. Normalize whitespace: replace newlines, carriage returns, tabs and multiple spaces
+  return text
+    .replace(/[\r\n\t]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+};
+
 export class ChoiceQuestionGrader {
   static gradeSingleChoice(
     question: QuizQuestion,
@@ -300,19 +348,29 @@ export class ChoiceQuestionGrader {
     }
 
     // Validate correct answer format
-    if (
-      !correctAnswerData ||
-      typeof correctAnswerData !== "object" ||
-      typeof correctAnswerData.selected_answer !== "boolean"
-    ) {
+    if (!correctAnswerData || typeof correctAnswerData !== "object") {
       return {
         is_correct: false,
         points_earned: 0,
-        feedback: "Question has no valid correct answer",
+        feedback: "Question has no valid correct answer data",
       };
     }
 
-    const correctAnswer = correctAnswerData.selected_answer;
+    const rawCorrect = correctAnswerData.selected_answer;
+    let correctAnswer: boolean;
+
+    if (typeof rawCorrect === "boolean") {
+      correctAnswer = rawCorrect;
+    } else if (typeof rawCorrect === "string") {
+      correctAnswer = rawCorrect.toLowerCase() === "true";
+    } else {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "Invalid correct answer format - must be boolean or string",
+      };
+    }
+
     const isCorrect = answerBool === correctAnswer;
 
     console.log(`[Basic Grader] True/False Match:`, {
@@ -383,34 +441,22 @@ export class TextInputGrader {
 
     // Convert string to number if needed
     let studentAnswer: number;
+    const cleanStudentText = stripHtml(answer.answer);
+
     if (typeof answer.answer === "string") {
-      studentAnswer = parseFloat(answer.answer);
+      studentAnswer = parseFloat(cleanStudentText);
+
+      // Second pass parsing: if parseFloat fails, strip ALL non-numeric chars except . and -
       if (isNaN(studentAnswer)) {
-        // If it's a string that can't be parsed directly, maybe it has units or a different format.
-        // Let's try AI for numerical evaluation if the API key is present.
-        try {
-          const correctVal =
-            typeof questionData.correct_answer === "string"
-              ? parseFloat(questionData.correct_answer)
-              : Number(questionData.correct_answer);
+        const numericOnly = cleanStudentText.replace(/[^0-9.-]/g, "");
+        studentAnswer = parseFloat(numericOnly);
+      }
 
-          const aiResult = await aiService.gradeNumerical(
-            question.questionBank?.question_text || "",
-            answer.answer,
-            isNaN(correctVal) ? 0 : correctVal,
-            questionData.tolerance || 0,
-            parseFloat(String(question.points || 0)),
-            questionData.units,
-          );
-          return aiResult;
-        } catch (error) {
-          console.error("AI numerical grading fallback error:", error);
-        }
-
+      if (isNaN(studentAnswer)) {
         return {
           is_correct: false,
           points_earned: 0,
-          feedback: "Numerical question: Invalid number format",
+          feedback: `Numerical question: Could not parse "${cleanStudentText}" as a number`,
         };
       }
     } else {
@@ -419,12 +465,38 @@ export class TextInputGrader {
 
     // Validate question configuration
     let correctValue: number;
-    const rawCorrect = questionData.correct_answer;
+    // Check both questionBank.correct_answer and question_data.correct_answer
+    // Use explicit undefined/null checks to handle 0
+    const rawCorrect =
+      question.questionBank?.correct_answer !== undefined &&
+      question.questionBank?.correct_answer !== null
+        ? question.questionBank.correct_answer
+        : questionData.correct_answer;
 
     if (typeof rawCorrect === "number") {
       correctValue = rawCorrect;
-    } else if (typeof rawCorrect === "string") {
-      correctValue = parseFloat(rawCorrect);
+    } else if (rawCorrect !== undefined && rawCorrect !== null) {
+      // Handle string or object formatted correct answer
+      let strCorrect = "";
+      if (typeof rawCorrect === "object") {
+        const val =
+          (rawCorrect as any).answer !== undefined &&
+          (rawCorrect as any).answer !== null
+            ? (rawCorrect as any).answer
+            : (rawCorrect as any).value;
+        strCorrect = String(val !== undefined && val !== null ? val : "");
+      } else {
+        strCorrect = String(rawCorrect);
+      }
+
+      const cleanCorrectText = stripHtml(strCorrect);
+      correctValue = parseFloat(cleanCorrectText);
+
+      // Second pass for correct answer too
+      if (isNaN(correctValue)) {
+        const numericOnly = cleanCorrectText.replace(/[^0-9.-]/g, "");
+        correctValue = parseFloat(numericOnly);
+      }
     } else {
       return {
         is_correct: false,
@@ -590,14 +662,20 @@ export class TextInputGrader {
         const isCorrect = blank.answers.some((acceptableAnswer: string) => {
           if (typeof acceptableAnswer !== "string") return false;
 
-          if (blank.case_sensitive) {
-            return studentAnswer.answer === acceptableAnswer;
-          } else {
-            return (
-              studentAnswer.answer.toLowerCase() ===
-              acceptableAnswer.toLowerCase()
-            );
-          }
+          const sAns = stripHtml(String(studentAnswer.answer));
+          const aAns = stripHtml(String(acceptableAnswer));
+          const match = blank.case_sensitive
+            ? sAns === aAns
+            : sAns.toLowerCase() === aAns.toLowerCase();
+
+          console.log(`[Grader] FillBlank Match [${index}]:`, {
+            student: sAns,
+            acceptable: aAns,
+            caseSensitive: !!blank.case_sensitive,
+            match,
+          });
+
+          return match;
         });
 
         if (isCorrect) {
@@ -867,17 +945,35 @@ export class InteractiveGrader {
 
     // Create a mapping of item ID to correct order
     const correctOrderMap: Record<string, number> = {};
-    questionData.items.forEach((item: any) => {
-      correctOrderMap[item.id] = item.order;
-    });
+    if (Array.isArray(questionData.items)) {
+      questionData.items.forEach((item: any) => {
+        // Normalize ID to string and store order
+        correctOrderMap[String(item.id)] = item.order;
+      });
+    }
+
+    console.log(`[Grader] Ordering Map:`, correctOrderMap);
 
     let correctPositions = 0;
-    const totalItems = questionData.items.length;
+    const totalItems = Array.isArray(questionData.items)
+      ? questionData.items.length
+      : 0;
 
     // Check if each item is in the correct position
-    answer.ordered_item_ids.forEach((itemId: string, index: number) => {
-      // Comparison: item.order (expected 1-indexed) vs index + 1
-      if (String(correctOrderMap[itemId]) === String(index + 1)) {
+    answer.ordered_item_ids.forEach((itemId: any, index: number) => {
+      const studentItemId = String(itemId);
+      const expectedOrder = correctOrderMap[studentItemId];
+      // Comparison: expectedOrder (1-indexed) vs index + 1
+      const isCorrectPos = String(expectedOrder) === String(index + 1);
+
+      console.log(`[Grader] Ordering Check [${index}]:`, {
+        itemId: studentItemId,
+        expectedOrder,
+        studentPos: index + 1,
+        isCorrectPos,
+      });
+
+      if (isCorrectPos) {
         correctPositions++;
       }
     });
@@ -905,7 +1001,6 @@ export class InteractiveGrader {
     answerData: AnswerDataType,
   ): GradingResult {
     let questionData = question.questionBank?.question_data as any;
-    // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
       try {
         questionData = JSON.parse(questionData);
@@ -916,7 +1011,7 @@ export class InteractiveGrader {
     const correctAnswer = question.questionBank?.correct_answer as any;
     const answer = answerData as any;
 
-    if (!Array.isArray(answer.selections)) {
+    if (!answer || !Array.isArray(answer.selections)) {
       return {
         is_correct: false,
         points_earned: 0,
@@ -925,53 +1020,96 @@ export class InteractiveGrader {
     }
 
     let correctSelections = 0;
+    const dropdownOptions = questionData.dropdown_options || [];
 
-    questionData.dropdown_options.forEach((dropdown: any, index: number) => {
+    dropdownOptions.forEach((dropdown: any, index: number) => {
       const studentSelection = answer.selections.find(
         (s: any) => s.dropdown_index === index,
       );
-      if (studentSelection) {
-        // Check against correct answers - prioritize correct_answer column
-        let correctOption = "";
 
-        // Check correct_answer column first (array of objects format)
-        if (correctAnswer && Array.isArray(correctAnswer)) {
-          const correctItem = correctAnswer.find(
+      if (studentSelection) {
+        let correctOption: string | null = null;
+
+        // 1. Try to get correct answer from the dedicated column (parsed if JSON string)
+        let parsedCorrectAnswer = correctAnswer;
+        if (typeof correctAnswer === "string") {
+          try {
+            parsedCorrectAnswer = JSON.parse(correctAnswer);
+          } catch (e) {}
+        }
+
+        if (parsedCorrectAnswer) {
+          const selectionsList = Array.isArray(parsedCorrectAnswer)
+            ? parsedCorrectAnswer
+            : parsedCorrectAnswer.selections || [];
+
+          const correctItem = selectionsList.find(
             (item: any) => item.dropdown_index === index,
           );
-          if (correctItem && correctItem.selected_option) {
+          if (
+            correctItem &&
+            correctItem.selected_option !== undefined &&
+            correctItem.selected_option !== null
+          ) {
             correctOption = String(correctItem.selected_option);
           }
         }
-        // Fallback to question_data.correct_selections
-        else if (
-          questionData.correct_selections &&
-          Array.isArray(questionData.correct_selections) &&
-          questionData.correct_selections[index]
-        ) {
-          correctOption = String(questionData.correct_selections[index]);
+
+        // 2. Fallback to questionData (primary source in many cases)
+        if (correctOption === null) {
+          if (
+            questionData.correct_selections &&
+            Array.isArray(questionData.correct_selections) &&
+            questionData.correct_selections[index] !== undefined
+          ) {
+            correctOption = String(questionData.correct_selections[index]);
+          } else if (
+            questionData.acceptable_answers &&
+            Array.isArray(questionData.acceptable_answers) &&
+            questionData.acceptable_answers[index]
+          ) {
+            const acc = questionData.acceptable_answers[index];
+            correctOption = String(
+              Array.isArray(acc.answers) ? acc.answers[0] : acc.answer || acc,
+            );
+          } else if (dropdown.correct_answer !== undefined) {
+            correctOption = String(dropdown.correct_answer);
+          }
         }
 
-        const isCorrect =
-          correctOption &&
-          String(correctOption).toLowerCase() ===
-            String(studentSelection.selected_option).toLowerCase();
+        if (correctOption !== null) {
+          const studentVal = stripHtml(
+            String(studentSelection.selected_option || ""),
+          ).toLowerCase();
+          const correctVal = stripHtml(correctOption).toLowerCase();
+          const isMatch = studentVal === correctVal;
 
-        if (isCorrect) {
-          correctSelections++;
+          console.log(`[Grader] Dropdown Match [${index}]:`, {
+            student: studentVal,
+            correct: correctVal,
+            isMatch,
+          });
+
+          if (isMatch) {
+            correctSelections++;
+          }
         }
       }
     });
 
-    const pointsEarned = Math.round(
-      (correctSelections / questionData.dropdown_options.length) *
-        parseFloat(String(question.points || 0)),
-    );
+    const totalDropdowns = dropdownOptions.length;
+    const pointsEarned =
+      totalDropdowns > 0
+        ? Math.round(
+            (correctSelections / totalDropdowns) *
+              parseFloat(String(question.points || 0)),
+          )
+        : 0;
 
     return {
-      is_correct: correctSelections === questionData.dropdown_options.length,
+      is_correct: totalDropdowns > 0 && correctSelections === totalDropdowns,
       points_earned: pointsEarned,
-      feedback: `${correctSelections}/${questionData.dropdown_options.length} dropdowns correct`,
+      feedback: `${correctSelections}/${totalDropdowns} dropdowns correct`,
     };
   }
 
@@ -1520,7 +1658,8 @@ export class AdvancedQuizGrader {
           if (typeof val === "boolean") {
             correctBool = val;
           } else if (typeof val === "string") {
-            correctBool = val.toLowerCase() === "true";
+            const lowVal = val.toLowerCase().trim();
+            correctBool = lowVal === "true";
           } else if (typeof val === "number") {
             correctBool = val === 1;
           }
@@ -1541,7 +1680,8 @@ export class AdvancedQuizGrader {
             if (typeof val === "boolean") {
               correctBool = val;
             } else if (typeof val === "string") {
-              correctBool = val.toLowerCase() === "true";
+              const lowVal = val.toLowerCase().trim();
+              correctBool = lowVal === "true";
             } else if (typeof val === "number") {
               correctBool = val === 1;
             }

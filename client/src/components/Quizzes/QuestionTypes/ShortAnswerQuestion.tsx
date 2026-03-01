@@ -21,6 +21,7 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
   const [text, setText] = useState((answer as ShortAnswerAnswer)?.answer || "");
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (answer) {
@@ -51,9 +52,14 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
     onAnswerChange({ answer: value } as ShortAnswerAnswer);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!text.trim() || disabled) return;
-    onAnswerChange({ answer: text } as ShortAnswerAnswer);
+    setIsSaving(true);
+    try {
+      await onAnswerChange({ answer: text } as ShortAnswerAnswer, true);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleReset = () => {
@@ -109,11 +115,20 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
       <div className="flex gap-3">
         <button
           onClick={handleSubmit}
-          disabled={disabled || !canSubmit}
+          disabled={disabled || isSaving || !canSubmit}
           className="flex items-center gap-2 px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium"
         >
-          <CheckCircle className="w-4 h-4" />
-          Submit Answer
+          {isSaving ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <CheckCircle className="w-4 h-4" />
+              Save Answer
+            </>
+          )}
         </button>
 
         {text.length > 0 && (

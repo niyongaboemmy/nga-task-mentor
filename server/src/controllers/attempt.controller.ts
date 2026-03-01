@@ -875,7 +875,7 @@ export const getStudentQuizHistory = async (req: Request, res: Response) => {
         grade: getGradeFromPercentage(submission.percentage),
         status: submission.status,
         submitted_at: submission.completed_at,
-        time_taken: submission.time_taken,
+        time_taken: (submission.time_taken || 0) * 1000,
         question_count: submission.quiz?.questions?.length || 0,
         difficulty: null, // Not available in current model
         tags: null, // Not available in current model
@@ -893,7 +893,7 @@ function getGradeFromPercentage(percentage: number): string {
   if (percentage >= 90) return "A";
   if (percentage >= 80) return "B";
   if (percentage >= 70) return "C";
-  if (percentage >= 60) return "D";
+  if (percentage >= 50) return "D";
   return "F";
 }
 

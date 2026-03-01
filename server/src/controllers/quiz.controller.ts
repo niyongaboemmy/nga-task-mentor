@@ -772,11 +772,22 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
 };
 
 // Helper function to calculate grade from percentage
-const getGradeFromScore = (percentage: number): string => {
-  if (percentage >= 90) return "A";
-  if (percentage >= 80) return "B";
-  if (percentage >= 70) return "C";
-  if (percentage >= 60) return "D";
+const getGradeFromScore = (
+  percentage: number,
+  passingScore: number = 60,
+): string => {
+  const p = parseFloat(percentage as any);
+  const ps = parseFloat(passingScore as any);
+
+  if (p >= 90) return "A";
+  if (p >= 80) return "B";
+  if (p >= 70) return "C";
+  if (p >= 50) return "D";
+
+  // If the student has reached the passing score but percentage is low (e.g. passing score set to 40),
+  // they should not get an "F".
+  if (p >= ps) return "D";
+
   return "F";
 };
 
@@ -1116,7 +1127,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         : 0;
     const finalGrade =
       enableAutoGrading && !requireManualGrading
-        ? getGradeFromScore(finalPercentage)
+        ? getGradeFromScore(finalPercentage, quiz.passing_score || 60)
         : "N/A";
 
     // Update submission with final scores
@@ -1125,6 +1136,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         total_score: calculatedTotalScore,
         max_score: calculatedMaxScore,
         percentage: finalPercentage,
+        time_taken: time_taken || 0,
         status: "completed",
         completed_at: new Date(),
         grade_status: requireManualGrading ? "pending" : "auto_graded",
@@ -1142,11 +1154,13 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       success: true,
       data: {
         submission_id: submission.id,
-        total_score: calculatedTotalScore,
+        final_score: calculatedTotalScore,
         max_score: calculatedMaxScore,
         percentage: finalPercentage,
         grade: finalGrade,
-        passed: finalPercentage >= (quiz.passing_score || 60),
+        passed:
+          parseFloat(finalPercentage as any) >=
+          parseFloat((quiz.passing_score || 60) as any),
         answers: results,
       },
     });
@@ -1206,7 +1220,7 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
           include: [
             {
               model: QuizQuestion,
-              as: "question",
+              as: "attemptQuestion",
               attributes: ["id", "points"],
               include: [
                 {
@@ -1297,6 +1311,7 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
         results_available: true,
         results,
         submitted_at: submission.completed_at,
+        time_taken: (submission.time_taken || 0) * 1000,
         feedback: submission.feedback,
         grading_settings: {
           enable_automatic_grading: enableAutoGrading,

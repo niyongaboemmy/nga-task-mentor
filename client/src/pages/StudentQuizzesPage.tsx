@@ -226,11 +226,11 @@ const StudentQuizzesPage: React.FC = () => {
       case "A":
         return "text-emerald-600 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-900/30";
       case "B":
-        return "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30";
+        return "text-indigo-600 dark:text-indigo-400 bg-indigo-100 dark:bg-indigo-900/30 text-xs";
       case "C":
         return "text-yellow-600 dark:text-yellow-400 bg-yellow-100 dark:bg-yellow-900/30";
       case "D":
-        return "text-orange-600 dark:text-orange-400 bg-orange-100 dark:bg-orange-900/30";
+        return "text-blue-600 dark:text-blue-400 bg-blue-100 dark:bg-blue-900/30";
       case "F":
         return "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30";
       default:
@@ -238,11 +238,13 @@ const StudentQuizzesPage: React.FC = () => {
     }
   };
 
-  const getScoreColor = (percentage: number) => {
-    if (percentage >= 90) return "text-emerald-600 dark:text-emerald-400";
-    if (percentage >= 80) return "text-green-600 dark:text-green-400";
-    if (percentage >= 70) return "text-yellow-600 dark:text-yellow-400";
-    if (percentage >= 60) return "text-orange-600 dark:text-orange-400";
+  const getScoreColor = (percentage: string | number) => {
+    const num = Number(percentage);
+    if (num >= 90) return "text-emerald-600 dark:text-emerald-400";
+    if (num >= 80) return "text-indigo-600 dark:text-indigo-400";
+    if (num >= 70) return "text-yellow-600 dark:text-yellow-400";
+    if (num >= 60) return "text-blue-600 dark:text-blue-400";
+    if (num >= 50) return "text-blue-600 dark:text-blue-400";
     return "text-red-600 dark:text-red-400";
   };
 
@@ -264,12 +266,12 @@ const StudentQuizzesPage: React.FC = () => {
 
   const QuizResultItem: React.FC<{ result: QuizResult }> = ({ result }) => {
     return (
-      <div className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 hover:-translate-y-0.5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/60 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 hover:-translate-y-0.5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           {/* Left side - Quiz info */}
           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
             <div className="flex-shrink-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl flex items-center justify-center">
+              <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-xl flex items-center justify-center">
                 <BookOpen className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600 dark:text-blue-400" />
               </div>
             </div>
@@ -319,7 +321,7 @@ const StudentQuizzesPage: React.FC = () => {
             <div className="text-left sm:text-right">
               <div
                 className={`text-lg font-bold mb-0.5 ${getScoreColor(
-                  result.percentage,
+                  result.percentage.toString(),
                 )}`}
               >
                 {Math.round(result.percentage)}%
@@ -481,7 +483,7 @@ const StudentQuizzesPage: React.FC = () => {
                 </p>
                 <p
                   className={`text-xl font-bold ${getScoreColor(
-                    stats.averageScore,
+                    stats.averageScore.toString(),
                   )}`}
                 >
                   {Math.round(stats.averageScore)}%
@@ -499,7 +501,7 @@ const StudentQuizzesPage: React.FC = () => {
                 </p>
                 <p
                   className={`text-xl font-bold ${getScoreColor(
-                    stats.highestScore,
+                    stats.highestScore.toString(),
                   )}`}
                 >
                   {Math.round(stats.highestScore)}%

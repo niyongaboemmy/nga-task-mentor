@@ -5,7 +5,17 @@ import type {
   LogicalExpressionAnswer,
   AnswerDataType,
 } from "../../../types/quiz.types";
-import { Check, X, Plus, Trash2, AlertCircle, Brain, Tag } from "lucide-react";
+import {
+  Check,
+  X,
+  Plus,
+  Trash2,
+  AlertCircle,
+  Brain,
+  Tag,
+  RefreshCw,
+  CheckCircle,
+} from "lucide-react";
 import RichTextDisplay from "../../Common/RichTextDisplay";
 
 // Extended answer type for component state management
@@ -77,6 +87,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
   const [error, setError] = useState<string>(
     (answer as LogicalExpressionAnswerWithState)?.error || "",
   );
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (answer) {
@@ -90,7 +101,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
     }
   }, [answer, logicalData.variables]);
 
-  // Evaluate the expression
+  // Evaluate the expression when nodes or variables change locally
   useEffect(() => {
     if (expressionNodes.length === 0) {
       setResult(null);
@@ -102,21 +113,23 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
       const evaluated = evaluateExpression(expressionNodes, variables);
       setResult(evaluated);
       setError("");
-
-      const logicalAnswer: LogicalExpressionAnswerWithState = {
-        expression: expressionNodes.map((node) => node.value).join(" "),
-        variables: variables.map((v) => ({ name: v.name, value: v.value })), // Transform to match LogicalExpressionAnswer format
-        expressionNodes,
-        result: evaluated || undefined,
-        error: "",
-      };
-
-      onAnswerChange(logicalAnswer as AnswerDataType);
     } catch (err) {
       setResult(null);
       setError(err instanceof Error ? err.message : "Invalid expression");
     }
   }, [expressionNodes, variables]);
+
+  const updateParentAnswer = (nodes: ExpressionNode[], vars: Variable[]) => {
+    const evaluated = evaluateExpression(nodes, vars);
+    const logicalAnswer: LogicalExpressionAnswerWithState = {
+      expression: nodes.map((node) => node.value).join(" "),
+      variables: vars.map((v) => ({ name: v.name, value: v.value })),
+      expressionNodes: nodes,
+      result: evaluated || undefined,
+      error: "",
+    };
+    onAnswerChange(logicalAnswer as AnswerDataType);
+  };
 
   const evaluateExpression = (
     nodes: ExpressionNode[],
@@ -201,24 +214,31 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
       id: `${type}-${Date.now()}-${Math.random()}`,
     };
 
-    setExpressionNodes([...expressionNodes, newNode]);
+    const newNodes = [...expressionNodes, newNode];
+    setExpressionNodes(newNodes);
+    updateParentAnswer(newNodes, variables);
   };
 
   const removeFromExpression = (id: string) => {
     if (disabled) return;
-    setExpressionNodes(expressionNodes.filter((node) => node.id !== id));
+    const newNodes = expressionNodes.filter((node) => node.id !== id);
+    setExpressionNodes(newNodes);
+    updateParentAnswer(newNodes, variables);
   };
 
   const clearExpression = () => {
     if (disabled) return;
     setExpressionNodes([]);
+    updateParentAnswer([], variables);
   };
 
   const toggleVariable = (name: string) => {
     if (disabled) return;
-    setVariables(
-      variables.map((v) => (v.name === name ? { ...v, value: !v.value } : v)),
+    const newVars = variables.map((v) =>
+      v.name === name ? { ...v, value: !v.value } : v,
     );
+    setVariables(newVars);
+    updateParentAnswer(expressionNodes, newVars);
   };
 
   const addVariable = () => {
@@ -230,13 +250,18 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
       type: "boolean",
       value: false,
     };
-    setVariables([...variables, newVariable]);
+    const newVars = [...variables, newVariable];
+    setVariables(newVars);
+    updateParentAnswer(expressionNodes, newVars);
   };
 
   const removeVariable = (name: string) => {
     if (disabled || variables.length <= 1) return;
-    setVariables(variables.filter((v) => v.name !== name));
-    setExpressionNodes(expressionNodes.filter((node) => node.value !== name));
+    const newVars = variables.filter((v) => v.name !== name);
+    const newNodes = expressionNodes.filter((node) => node.value !== name);
+    setVariables(newVars);
+    setExpressionNodes(newNodes);
+    updateParentAnswer(newNodes, newVars);
   };
 
   const isCorrect =
@@ -464,6 +489,47 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
             </span>
           )}
         </div>
+      </div>
+
+      {/* Action Buttons */}
+      <div className="flex gap-3">
+        <button
+          onClick={async () => {
+            if (!expressionNodes.length || disabled) return;
+            setIsSaving(true);
+            try {
+              const evaluated = evaluateExpression(expressionNodes, variables);
+              const logicalAnswer: LogicalExpressionAnswerWithState = {
+                expression: expressionNodes.map((node) => node.value).join(" "),
+                variables: variables.map((v) => ({
+                  name: v.name,
+                  value: v.value,
+                })),
+                expressionNodes,
+                result: evaluated || undefined,
+                error: "",
+                submitted: true,
+              };
+              await onAnswerChange(logicalAnswer as AnswerDataType, true);
+            } finally {
+              setIsSaving(false);
+            }
+          }}
+          disabled={disabled || isSaving || expressionNodes.length === 0}
+          className="flex items-center gap-2 px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium"
+        >
+          {isSaving ? (
+            <>
+              <RefreshCw className="w-4 h-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              <CheckCircle className="w-4 h-4" />
+              Save Answer
+            </>
+          )}
+        </button>
       </div>
 
       {/* Truth Table */}

@@ -106,6 +106,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
   const [mode, setMode] = useState<"trace" | "predict">(
     (answer as AlgorithmicAnswerWithState)?.mode || "trace",
   );
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (answer) {
@@ -130,15 +131,11 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
         const newUserSteps = [...userSteps, algorithmSteps[newStep]];
         setUserSteps(newUserSteps);
 
-        const algorithmicAnswer: AlgorithmicAnswerWithState = {
+        updateParentAnswer({
           solution: "Algorithm trace completed",
-          language: "algorithm",
           currentStep: newStep,
           userSteps: newUserSteps,
-          mode,
-        };
-
-        onAnswerChange(algorithmicAnswer as AnswerDataType);
+        });
       }
     }
   };
@@ -159,16 +156,29 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
       const newUserSteps = [...userSteps, algorithmSteps[step]];
       setUserSteps(newUserSteps);
 
-      const algorithmicAnswer: AlgorithmicAnswerWithState = {
+      updateParentAnswer({
         solution: "Algorithm trace completed",
-        language: "algorithm",
         currentStep: step,
         userSteps: newUserSteps,
-        mode,
-      };
-
-      onAnswerChange(algorithmicAnswer as AnswerDataType);
+      });
     }, 1500);
+  };
+
+  const updateParentAnswer = (
+    overrides: Partial<AlgorithmicAnswerWithState>,
+  ) => {
+    const algorithmicAnswer: AlgorithmicAnswerWithState = {
+      solution: overrides.solution || "Algorithm progress",
+      language: "algorithm",
+      currentStep: overrides.currentStep ?? currentStep,
+      userSteps: overrides.userSteps ?? userSteps,
+      predictions: overrides.predictions ?? predictions,
+      submitted: overrides.submitted ?? submitted,
+      score: overrides.score ?? score,
+      mode: overrides.mode ?? mode,
+      ...overrides,
+    };
+    onAnswerChange(algorithmicAnswer as AnswerDataType, overrides.submitted);
   };
 
   const handleReset = () => {
@@ -179,18 +189,15 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
     setSubmitted(false);
     setScore(0);
 
-    const algorithmicAnswer: AlgorithmicAnswerWithState = {
+    updateParentAnswer({
       solution: "",
-      language: "algorithm",
       currentStep: 0,
       userSteps: [],
       predictions: {},
       submitted: false,
       score: 0,
       mode,
-    };
-
-    onAnswerChange(algorithmicAnswer as AnswerDataType);
+    });
   };
 
   const handlePredictionChange = (
@@ -204,50 +211,47 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
     };
     setPredictions(newPredictions);
 
-    const algorithmicAnswer: AlgorithmicAnswerWithState = {
+    updateParentAnswer({
       solution: "Algorithm predictions",
-      language: "algorithm",
       predictions: newPredictions,
       mode: "predict",
-    };
-
-    onAnswerChange(algorithmicAnswer as AnswerDataType);
+    });
   };
 
-  const validatePredictions = () => {
-    let correctCount = 0;
-    let totalCount = 0;
+  const handleSaveAnswer = async () => {
+    setIsSaving(true);
+    try {
+      let correctCount = 0;
+      let totalCount = 0;
 
-    algorithmSteps.forEach((step, stepIndex) => {
-      Object.keys(step.state).forEach((key) => {
-        const predictionKey = `${stepIndex}-${key}`;
-        if (predictions[predictionKey] !== undefined) {
-          totalCount++;
-          const predicted = predictions[predictionKey];
-          const actual = step.state[key];
+      algorithmSteps.forEach((step, stepIndex) => {
+        Object.keys(step.state).forEach((key) => {
+          const predictionKey = `${stepIndex}-${key}`;
+          if (predictions[predictionKey] !== undefined) {
+            totalCount++;
+            const predicted = predictions[predictionKey];
+            const actual = step.state[key];
 
-          if (String(predicted).trim() === String(actual).trim()) {
-            correctCount++;
+            if (String(predicted).trim() === String(actual).trim()) {
+              correctCount++;
+            }
           }
-        }
+        });
       });
-    });
 
-    const calculatedScore =
-      totalCount > 0 ? (correctCount / totalCount) * 100 : 0;
-    setScore(calculatedScore);
-    setSubmitted(true);
+      const calculatedScore =
+        totalCount > 0 ? (correctCount / totalCount) * 100 : 0;
 
-    const algorithmicAnswer: AlgorithmicAnswerWithState = {
-      solution: "Algorithm predictions completed",
-      language: "algorithm",
-      predictions,
-      submitted: true,
-      score: calculatedScore,
-      mode: "predict",
-    };
-
-    onAnswerChange(algorithmicAnswer as AnswerDataType);
+      updateParentAnswer({
+        solution: "Algorithm predictions completed",
+        predictions,
+        submitted: true,
+        score: calculatedScore,
+        mode: "predict",
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const renderStateValue = (value: string | number | boolean): string => {
@@ -459,8 +463,8 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
 
             <button
               onClick={handleReset}
-              disabled={disabled || isPlaying}
-              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-2 border-gray-200 dark:border-gray-700 rounded-2xl font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all active:scale-95"
+              disabled={disabled || isPlaying || submitted}
+              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-2 border-gray-200 dark:border-gray-700 rounded-2xl font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all active:scale-95 disabled:opacity-50"
             >
               <RotateCcw className="w-5 h-5" />
               Reset Trace
@@ -517,16 +521,18 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
                           disabled={disabled || submitted}
                           placeholder="Enter value"
                           className={`w-full px-3 py-2 border rounded text-sm font-mono ${
-                            submitted
+                            submitted && showCorrectAnswer
                               ? String(
                                   predictions[`${stepIndex}-${key}`] || "",
                                 ).trim() === String(step.state[key]).trim()
                                 ? "border-green-400 bg-green-50 dark:bg-green-950 dark:border-green-700 text-green-900 dark:text-green-100"
                                 : "border-red-400 bg-red-50 dark:bg-red-950 dark:border-red-700 text-red-900 dark:text-red-100"
-                              : "border-gray-300 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+                              : submitted
+                                ? "border-blue-300 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-800 dark:text-gray-100"
+                                : "border-gray-300 bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
                           } focus:ring-2 focus:ring-blue-500 focus:outline-none`}
                         />
-                        {submitted && (
+                        {submitted && showCorrectAnswer && (
                           <div className="flex items-center gap-1 text-xs">
                             {String(
                               predictions[`${stepIndex}-${key}`] || "",
@@ -553,12 +559,23 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
           {/* Submit Predictions */}
           {!submitted ? (
             <button
-              onClick={validatePredictions}
-              disabled={disabled || Object.keys(predictions).length === 0}
+              onClick={handleSaveAnswer}
+              disabled={
+                disabled || isSaving || Object.keys(predictions).length === 0
+              }
               className="flex items-center gap-2 px-8 py-3 bg-purple-600 text-white rounded-2xl font-bold hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-500/30 disabled:bg-purple-300 dark:disabled:bg-purple-900/40 disabled:cursor-not-allowed transition-all"
             >
-              <CheckCircle className="w-5 h-5" />
-              Finalize Simulation
+              {isSaving ? (
+                <>
+                  <RotateCcw className="w-5 h-5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-5 h-5" />
+                  Save Answer
+                </>
+              )}
             </button>
           ) : (
             <div
@@ -584,12 +601,15 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
                 </div>
                 <div>
                   <h3 className="font-bold text-2xl mb-1 text-gray-900 dark:text-gray-100">
-                    Simulation Accuracy: {score.toFixed(0)}%
+                    Simulation {showCorrectAnswer ? "Accuracy" : "Completed"}:{" "}
+                    {showCorrectAnswer ? `${score.toFixed(0)}%` : "Steps Saved"}
                   </h3>
                   <p className="text-gray-700 dark:text-gray-400 leading-relaxed text-lg">
-                    {score >= 70
-                      ? "Exceptional accuracy. You have a deep understanding of this algorithm's logic."
-                      : "The trace results show some discrepancies in variable prediction. Review the simulation values above."}
+                    {showCorrectAnswer
+                      ? score >= 70
+                        ? "Exceptional accuracy. You have a deep understanding of this algorithm's logic."
+                        : "The trace results show some discrepancies in variable prediction. Review the simulation values above."
+                      : "Your variable predictions have been saved. You can continue to the next question."}
                   </p>
                 </div>
               </div>

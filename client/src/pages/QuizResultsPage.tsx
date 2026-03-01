@@ -17,6 +17,7 @@ interface Quiz {
   description: string;
   time_limit: number;
   total_points: number;
+  passing_score?: number;
   questions: QuizQuestion[];
 }
 
@@ -62,6 +63,7 @@ interface QuizResult {
     show_grades: boolean;
     show_correct_answers?: boolean;
   };
+  time_taken?: number;
   answers: Array<{
     question_id: number;
     question_text?: string;
@@ -123,6 +125,7 @@ const QuizResultsPage: React.FC = () => {
             : "N/A",
           passed: gradingSettings.show_grades ? completedResults.passed : null,
           grading_settings: gradingSettings,
+          time_taken: completedResults.time_taken || 0,
           answers: Array.isArray(completedResults.results)
             ? completedResults.results.map((result: any) => ({
                 question_id: result.question_id,
@@ -176,6 +179,7 @@ const QuizResultsPage: React.FC = () => {
         grade: gradingSettings.show_grades ? apiData.grade || "N/A" : "N/A",
         passed: gradingSettings.show_grades ? apiData.passed : null,
         grading_settings: gradingSettings,
+        time_taken: apiData.time_taken || 0,
         answers:
           apiData.results?.map((result: any) => ({
             question_id: result.question_id,
@@ -304,10 +308,19 @@ const QuizResultsPage: React.FC = () => {
   };
 
   const getGradeFromPercentage = (percentage: number): string => {
-    if (percentage >= 90) return "A";
-    if (percentage >= 80) return "B";
-    if (percentage >= 70) return "C";
-    if (percentage >= 60) return "D";
+    const p = parseFloat(percentage as any);
+    const ps = parseFloat((quiz?.passing_score || 60) as any);
+
+    if (p >= 90) return "A";
+    if (p >= 80) return "B";
+    if (p >= 70) return "C";
+    if (p >= 60) return "D";
+
+    // Check if the student passed despite a low percentage (e.g. low passing score)
+    if (quiz && p >= ps) {
+      return "D";
+    }
+
     return "F";
   };
 
@@ -336,18 +349,18 @@ const QuizResultsPage: React.FC = () => {
         };
       case "B":
         return {
-          primary: "from-emerald-400 to-green-500",
-          secondary: "from-emerald-50 to-green-50",
-          accent: "emerald-600",
-          text: "emerald-800",
-          bg: "emerald-100",
-          border: "emerald-200",
-          darkPrimary: "from-emerald-500 to-green-600",
-          darkSecondary: "from-emerald-900/20 to-green-900/20",
-          darkAccent: "emerald-400",
-          darkText: "emerald-200",
-          darkBg: "emerald-900/30",
-          darkBorder: "emerald-700/50",
+          primary: "from-indigo-400 to-indigo-500",
+          secondary: "from-indigo-50 to-indigo-50",
+          accent: "indigo-600",
+          text: "indigo-800",
+          bg: "indigo-100",
+          border: "indigo-200",
+          darkPrimary: "from-indigo-500 to-indigo-600",
+          darkSecondary: "from-indigo-900/20 to-indigo-900/20",
+          darkAccent: "indigo-400",
+          darkText: "indigo-200",
+          darkBg: "indigo-900/30",
+          darkBorder: "indigo-700/50",
         };
       case "C":
         return {
@@ -366,18 +379,18 @@ const QuizResultsPage: React.FC = () => {
         };
       case "D":
         return {
-          primary: "from-orange-400 to-red-500",
-          secondary: "from-orange-50 to-red-50",
-          accent: "orange-600",
-          text: "orange-800",
-          bg: "orange-100",
-          border: "orange-200",
-          darkPrimary: "from-orange-500 to-red-600",
-          darkSecondary: "from-orange-900/20 to-red-900/20",
-          darkAccent: "orange-400",
-          darkText: "orange-200",
-          darkBg: "orange-900/30",
-          darkBorder: "orange-700/50",
+          primary: "from-blue-400 to-blue-500",
+          secondary: "from-blue-50 to-blue-50",
+          accent: "blue-600",
+          text: "blue-800",
+          bg: "blue-100",
+          border: "blue-200",
+          darkPrimary: "from-blue-500 to-blue-600",
+          darkSecondary: "from-blue-900/20 to-blue-900/20",
+          darkAccent: "blue-400",
+          darkText: "blue-200",
+          darkBg: "blue-900/30",
+          darkBorder: "blue-700/50",
         };
       case "F":
       default:
@@ -513,97 +526,122 @@ const QuizResultsPage: React.FC = () => {
             </Link>
           </div>
 
-          <div className="relative bg-white dark:bg-gray-900/50 rounded-3xl p-8 animate-in slide-in-from-bottom duration-500 delay-100 border border-purple-200 dark:border-purple-800/30">
-            <div className="text-center relative z-10">
-              {/* Main Score Display */}
-              <div className="text-center mb-8 animate-in zoom-in duration-700 delay-600">
-                {result.grading_settings?.show_grades ? (
-                  <div className="relative">
-                    {/* Large Score Circle */}
+          <div className="relative overflow-hidden bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-12 animate-in slide-in-from-bottom-8 duration-700 delay-100 border-4 shadow-sm border-white/20 dark:border-gray-800/50">
+            {/* Background Decorative Blobs */}
+            <div
+              className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${getGradeTheme(result.grade).primary} opacity-10 blur-3xl -mr-32 -mt-32`}
+            ></div>
+            <div
+              className={`absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr ${getGradeTheme(result.grade).primary} opacity-10 blur-3xl -ml-32 -mb-32`}
+            ></div>
+
+            <div className="relative z-10 flex flex-col md:flex-row items-center gap-12 lg:gap-20">
+              {/* Left Column: Grade Circle */}
+              <div className="shrink-0 animate-in zoom-in duration-1000 delay-300">
+                <div className="relative group">
+                  {/* Outer Glow */}
+                  <div
+                    className={`absolute inset-0 bg-gradient-to-br ${getGradeTheme(result.grade).primary} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity duration-500`}
+                  ></div>
+
+                  {/* Gauge/Progress Ring (Simplified) */}
+                  <div
+                    className={`relative w-56 h-56 rounded-full flex items-center justify-center border-[12px] border-white/10 dark:border-gray-800/50 p-2 shadow-inner`}
+                  >
                     <div
-                      className={`mx-auto w-48 h-48 rounded-full flex items-center justify-center border-8 animate-in pulse duration-1000 delay-800 ${
-                        result.grading_settings?.show_grades
-                          ? `bg-gradient-to-br ${
-                              getGradeTheme(result.grade).primary
-                            } border-${getGradeTheme(
-                              result.grade,
-                            ).accent.replace("600", "400")}`
-                          : "bg-gray-500 border-gray-400"
+                      className={`w-full h-full rounded-full bg-gradient-to-br ${getGradeTheme(result.grade).primary} flex flex-col items-center justify-center text-white shadow-xl`}
+                    >
+                      <span className="text-8xl font-black tracking-tighter animate-in slide-in-from-bottom-4 duration-500 delay-500">
+                        {result.grading_settings?.show_grades
+                          ? result.grade
+                          : "⏳"}
+                      </span>
+                      {result.grading_settings?.show_grades && (
+                        <span className="text-xl font-bold opacity-90 -mt-2">
+                          {Math.round(result.percentage)}%
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Pass/Fail Badge */}
+                  {result.passed !== null && result.passed !== undefined && (
+                    <div
+                      className={`absolute -bottom-4 left-1/2 -translate-x-1/2 px-8 py-2.5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl animate-in bounce-in duration-700 delay-1000 ${
+                        result.passed
+                          ? "bg-emerald-500 text-white shadow-emerald-500/30"
+                          : "bg-red-500 text-white shadow-red-500/30"
                       }`}
                     >
-                      <div className="text-center">
-                        <div className="text-7xl font-black text-white mb-1 animate-in scale-in duration-500 delay-1000">
-                          {result.grade && result.percentage !== undefined
-                            ? result.grade
-                            : "N/A"}
-                        </div>
-                        <div className="text-xl font-bold text-white/90">
-                          {result.percentage !== undefined
-                            ? Math.round(result.percentage)
-                            : 0}
-                          %
-                        </div>
-                      </div>
+                      {result.passed ? "Qualified" : "Unqualified"}
                     </div>
-
-                    {/* Status Badge */}
-                    {result.passed !== null && result.passed !== undefined && (
-                      <div
-                        className={`absolute -bottom-4 left-1/2 transform -translate-x-1/2 px-6 py-3 rounded-full text-lg font-bold animate-in bounce-in duration-500 delay-1200 ${
-                          result.grading_settings?.show_grades
-                            ? `bg-${
-                                getGradeTheme(result.grade).accent
-                              } text-white`
-                            : result.passed
-                              ? "bg-emerald-500 text-white"
-                              : "bg-red-500 text-white"
-                        }`}
-                      >
-                        {result.passed ? "PASSED!" : "FAILED"}
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <div className="mx-auto w-48 h-48 rounded-full bg-gray-500 border-8 border-gray-400 flex items-center justify-center animate-in pulse duration-1000 delay-800">
-                    <div className="text-center">
-                      <div className="text-6xl font-black text-white mb-2">
-                        ⏳
-                      </div>
-                      <div className="text-lg font-bold text-white/90">
-                        Pending Grade
-                      </div>
-                    </div>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
 
-              {/* Secondary Information Cards */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-3xl mx-auto">
-                <div className="bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 backdrop-blur-sm rounded-3xl p-5 animate-in slide-in-from-left duration-500 delay-1000 hover:scale-105 transition-all border border-emerald-200 dark:border-emerald-700/50">
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-emerald-700 dark:text-emerald-300 mb-2">
-                      {result.total_score || 0}
+              {/* Right Column: Detailed Stats */}
+              <div className="flex-1 space-y-8 w-full">
+                <div className="text-center md:text-left">
+                  <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
+                    Performance Analysis
+                  </h1>
+                  <p className="text-gray-500 dark:text-gray-400 font-medium">
+                    Detailed breakdown of your objective assessment results
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Score Card */}
+                  <div className="bg-white/50 dark:bg-gray-800/30 border border-white/20 dark:border-gray-700/50 rounded-3xl p-6 flex items-center gap-5 hover:bg-white/80 dark:hover:bg-gray-800/50 transition-all duration-300 group">
+                    <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
+                      <Target className="w-7 h-7" />
                     </div>
-                    <div className="text-sm text-emerald-800 dark:text-emerald-200 font-medium">
-                      Points Earned
+                    <div>
+                      <div className="text-2xl font-black text-gray-900 dark:text-white">
+                        {result.total_score}{" "}
+                        <span className="text-sm font-bold text-gray-400">
+                          / {result.max_score}
+                        </span>
+                      </div>
+                      <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                        Total Points
+                      </div>
                     </div>
-                    <div className="text-xs text-emerald-700 dark:text-emerald-300 mt-2 bg-emerald-100 dark:bg-emerald-800/30 rounded-full px-3 py-1 inline-block">
-                      out of {result.max_score || 0}
+                  </div>
+
+                  {/* Time Card */}
+                  <div className="bg-white/50 dark:bg-gray-800/30 border border-white/20 dark:border-gray-700/50 rounded-3xl p-6 flex items-center gap-5 hover:bg-white/80 dark:hover:bg-gray-800/50 transition-all duration-300 group">
+                    <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
+                      <Loader2 className="w-7 h-7" />
+                    </div>
+                    <div>
+                      <div className="text-2xl font-black text-gray-900 dark:text-white">
+                        {formatTime(
+                          result.time_taken || submissionData?.time_taken || 0,
+                        )}
+                      </div>
+                      <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                        Time Invested
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 backdrop-blur-sm rounded-3xl p-5 animate-in slide-in-from-right duration-500 delay-1100 hover:scale-105 transition-all border border-blue-200 dark:border-blue-700/50">
-                  <div className="text-center">
-                    <div className="text-3xl font-bold text-blue-700 dark:text-blue-300 mb-2">
-                      {formatTime(submissionData?.time_taken || 0)}
-                    </div>
-                    <div className="text-sm text-blue-800 dark:text-blue-200 font-medium">
-                      Time Taken
-                    </div>
-                    <div className="text-xs text-blue-700 dark:text-blue-300 mt-2 bg-blue-100 dark:bg-blue-800/30 rounded-full px-3 py-1 inline-block">
-                      Quiz duration
-                    </div>
+                {/* Motivational Message or Progress Bar (Simulated) */}
+                <div className="pt-2">
+                  <div className="w-full h-3 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden p-0.5 border border-gray-200 dark:border-gray-700">
+                    <div
+                      className={`h-full bg-gradient-to-r ${getGradeTheme(result.grade).primary} rounded-full transition-all duration-1000 ease-out`}
+                      style={{ width: `${result.percentage}%` }}
+                    ></div>
+                  </div>
+                  <div className="flex justify-between mt-2 px-1">
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      Efficiency Threshold
+                    </span>
+                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                      {Math.round(result.percentage)}% Mastery
+                    </span>
                   </div>
                 </div>
               </div>
@@ -612,9 +650,9 @@ const QuizResultsPage: React.FC = () => {
         </div>
 
         {/* Question Review Section */}
-        <div className="bg-white dark:bg-gray-900/50 rounded-3xl p-8 mt-8 border border-purple-200 dark:border-purple-800/30 animate-in slide-in-from-bottom duration-500 delay-1200">
+        <div className="bg-white dark:bg-gray-900/50 rounded-3xl p-8 mt-8 animate-in slide-in-from-bottom duration-500 delay-1200">
           <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-500 rounded-full flex items-center justify-center">
               <span className="text-white text-lg">📝</span>
             </div>
             <div>

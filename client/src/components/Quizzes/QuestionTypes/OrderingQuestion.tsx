@@ -12,6 +12,7 @@ import type {
   OrderingData,
   OrderingAnswer,
 } from "../../../types/quiz.types";
+import { Info, AlertCircle } from "lucide-react";
 import RichTextDisplay from "../../Common/RichTextDisplay";
 
 export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
@@ -23,6 +24,21 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
   timeRemaining: _, // Timer functionality for future implementation
 }) => {
   const orderingData: OrderingData = question.question_data as OrderingData;
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleManualSave = async () => {
+    setIsSaving(true);
+    try {
+      if (onAnswerChange) {
+        await onAnswerChange(
+          { ordered_item_ids: items.map((i) => i.id) },
+          true,
+        );
+      }
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Convert OrderingData items to internal format with content field
   const [items, setItems] = useState(() => {
@@ -272,8 +288,26 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
       {!showCorrectAnswer && (
         <div className="flex gap-3">
           <button
+            onClick={handleManualSave}
+            disabled={disabled || isSaving}
+            className="flex items-center gap-2 px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium"
+          >
+            {isSaving ? (
+              <>
+                <RotateCcw className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <CheckCircle className="w-4 h-4" />
+                Save Answer
+              </>
+            )}
+          </button>
+
+          <button
             onClick={resetOrder}
-            disabled={disabled}
+            disabled={disabled || isSaving}
             className="flex items-center gap-2 px-6 py-2 bg-gray-600 dark:bg-gray-700 text-white rounded-2xl hover:bg-gray-700 dark:hover:bg-gray-600 disabled:bg-gray-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md"
           >
             <RotateCcw className="w-4 h-4" />
@@ -310,15 +344,6 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
                   ? "All items are in the correct sequence! Excellent work."
                   : "Review the items marked with ✗ to see where they should go."}
               </p>
-              {!isCorrectOrder() && (
-                <button
-                  onClick={resetOrder}
-                  disabled={disabled}
-                  className="text-sm text-blue-600 hover:text-blue-700 font-medium"
-                >
-                  Try Again
-                </button>
-              )}
             </div>
           </div>
         </div>

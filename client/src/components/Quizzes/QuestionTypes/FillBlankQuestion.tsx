@@ -17,11 +17,26 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
   timeRemaining,
 }) => {
   const questionData = question.question_data as FillBlankData;
-  const currentAnswer = answer as FillBlankAnswer | undefined;
+
+  // Helper to safely parse answer data
+  const parseAnswerData = (ans: any): FillBlankAnswer | null => {
+    if (!ans) return null;
+    if (typeof ans === "string") {
+      try {
+        return JSON.parse(ans) as FillBlankAnswer;
+      } catch (e) {
+        console.error("Failed to parse fill-blank answer:", e);
+        return null;
+      }
+    }
+    return ans as FillBlankAnswer;
+  };
+
+  const initialAnswer = parseAnswerData(answer);
 
   const [blankAnswers, setBlankAnswers] = useState<Record<number, string>>(
-    currentAnswer?.answers?.reduce(
-      (acc, blank) => {
+    initialAnswer?.answers?.reduce(
+      (acc, blank: any) => {
         acc[blank.blank_index] = blank.answer;
         return acc;
       },
@@ -32,14 +47,15 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
   const [activeModalBlank, setActiveModalBlank] = useState<number | null>(null);
 
   useEffect(() => {
-    if (currentAnswer?.answers) {
+    const fillBlankAnswer = parseAnswerData(answer);
+    if (fillBlankAnswer?.answers) {
       const newAnswers: Record<number, string> = {};
-      currentAnswer.answers.forEach((blank) => {
+      fillBlankAnswer.answers.forEach((blank) => {
         newAnswers[blank.blank_index] = blank.answer;
       });
       setBlankAnswers(newAnswers);
     }
-  }, [currentAnswer]);
+  }, [answer]);
 
   const handleBlankChange = (blankIndex: number, value: string) => {
     if (disabled) return;
@@ -48,10 +64,12 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
     setBlankAnswers(newAnswers);
 
     // Convert to answer format
-    const answers = Object.entries(newAnswers).map(([index, answer]) => ({
-      blank_index: parseInt(index),
-      answer,
-    }));
+    const answers = Object.entries(newAnswers).map(
+      ([index, ans]: [string, string]) => ({
+        blank_index: parseInt(index),
+        answer: ans,
+      }),
+    );
 
     onAnswerChange({ answers });
   };
@@ -76,21 +94,22 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
     const parts = standardizedText.split(/(\{\{blank\}\})/);
     let blankIndex = 0;
 
-    return parts.map((part, index) => {
+    return parts.map((part: string, index: number) => {
       if (part === "{{blank}}") {
         const currentBlankIndex = blankIndex++;
         const blankData = questionData.acceptable_answers?.find(
-          (b) => b.blank_index === currentBlankIndex,
+          (b: any) => b.blank_index === currentBlankIndex,
         );
-        const currentAnswer = blankAnswers[currentBlankIndex] || "";
+        const currentAnswerState = blankAnswers[currentBlankIndex] || "";
         const isCorrect =
           showCorrectAnswer &&
           blankData?.answers.some(
-            (ans) => ans.toLowerCase() === currentAnswer.toLowerCase(),
+            (ans: string) =>
+              ans.toLowerCase() === currentAnswerState.toLowerCase(),
           );
 
         // Determine if the answer contains HTML tags indicating rich text
-        const isRichText = /<[a-z][\s\S]*>/i.test(currentAnswer);
+        const isRichText = /<[a-z][\s\S]*>/i.test(currentAnswerState);
 
         return (
           <span
@@ -102,7 +121,7 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
                   ? isCorrect
                     ? "border-green-500 text-green-700 bg-green-50/50"
                     : "border-red-500 text-red-700 bg-red-50/50"
-                  : currentAnswer
+                  : currentAnswerState
                     ? "border-blue-500 text-blue-700 dark:text-blue-400"
                     : "border-gray-400 text-gray-800 dark:text-gray-200"
             }`}
@@ -115,14 +134,14 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
                 }
               >
                 <RichTextDisplay
-                  content={currentAnswer}
+                  content={currentAnswerState}
                   className="prose-p:my-0 !text-inherit"
                 />
               </div>
             ) : (
               <input
                 type="text"
-                value={currentAnswer}
+                value={currentAnswerState}
                 onChange={(e) =>
                   handleBlankChange(currentBlankIndex, e.target.value)
                 }
@@ -132,7 +151,9 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
                 disabled={disabled}
                 placeholder={`...`}
                 className="px-2 py-0.5 bg-transparent focus:outline-none focus:bg-blue-50/30 text-center w-full min-w-[60px] text-inherit font-inherit"
-                style={{ width: `${Math.max(3, currentAnswer.length) + 1}ch` }}
+                style={{
+                  width: `${Math.max(3, currentAnswerState.length) + 1}ch`,
+                }}
               />
             )}
 
@@ -178,7 +199,11 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
         <div className="flex items-center justify-center mb-4">
           <div className="text-sm text-gray-600 dark:text-gray-400">
             Blanks completed:{" "}
-            {Object.values(blankAnswers).filter((a) => a?.trim() !== "").length}{" "}
+            {
+              Object.values(blankAnswers).filter(
+                (a: string) => a?.trim() !== "",
+              ).length
+            }{" "}
             / {questionData.acceptable_answers?.length || 0}
           </div>
         </div>
@@ -200,20 +225,22 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
             <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Acceptable answers:
             </div>
-            {questionData.acceptable_answers.map((blank, index) => (
-              <div
-                key={index}
-                className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded-2xl"
-              >
-                <span className="font-medium">Blank {index + 1}:</span>{" "}
-                {blank.answers.join(", ")}
-                {blank.case_sensitive && (
-                  <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">
-                    (case-sensitive)
-                  </span>
-                )}
-              </div>
-            ))}
+            {questionData.acceptable_answers.map(
+              (blank: any, index: number) => (
+                <div
+                  key={index}
+                  className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded-2xl"
+                >
+                  <span className="font-medium">Blank {index + 1}:</span>{" "}
+                  {blank.answers.join(", ")}
+                  {blank.case_sensitive && (
+                    <span className="ml-2 text-xs text-blue-600 dark:text-blue-400">
+                      (case-sensitive)
+                    </span>
+                  )}
+                </div>
+              ),
+            )}
           </div>
         )}
 

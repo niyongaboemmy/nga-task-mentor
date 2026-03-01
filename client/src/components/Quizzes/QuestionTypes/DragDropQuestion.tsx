@@ -248,9 +248,11 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Available Items */}
         <div className="bg-gray-50/50 dark:bg-gray-800/20 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
-          <div className="flex items-center justify-between mb-6">
+          <div className="mb-4">
             <h3 className="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
-              <Box className="w-4 h-4 text-orange-500" />
+              <div>
+                <Box className="w-4 h-4 text-orange-500" />
+              </div>
               Item Repository
             </h3>
             <span className="text-[10px] font-bold text-gray-400 uppercase">
@@ -336,25 +338,15 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Action Buttons */}
       <div className="flex gap-3">
-        {!showFeedback ? (
-          <>
-            <button
-              onClick={checkAnswer}
-              disabled={disabled || Object.keys(placements).length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors dark:bg-blue-600 dark:hover:bg-blue-700 dark:disabled:bg-blue-300 dark:disabled:cursor-not-allowed"
-            >
-              <CheckCircle className="w-4 h-4" />
-              Check Answer
-            </button>
-            <button
-              onClick={resetAnswer}
-              disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-600 dark:hover:bg-gray-700 dark:disabled:bg-gray-300 dark:disabled:cursor-not-allowed"
-            >
-              <RotateCcw className="w-4 h-4" />
-              Reset
-            </button>
-          </>
+        {showCorrectAnswer ? (
+          <button
+            onClick={resetAnswer}
+            disabled={disabled}
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-600 dark:hover:bg-gray-700 dark:disabled:bg-gray-300 dark:disabled:cursor-not-allowed"
+          >
+            <RotateCcw className="w-4 h-4" />
+            Reset
+          </button>
         ) : (
           <button
             onClick={resetAnswer}
@@ -362,7 +354,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
             className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-600 dark:hover:bg-gray-700 dark:disabled:bg-gray-300 dark:disabled:cursor-not-allowed"
           >
             <RotateCcw className="w-4 h-4" />
-            Try Again
+            Reset Answer
           </button>
         )}
       </div>
@@ -389,7 +381,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
               <p className="text-sm text-gray-700 dark:text-gray-300">
                 {isCorrect
                   ? "All items are placed correctly."
-                  : "Some items are in the wrong zones. Review the highlighted areas and try again."}
+                  : "Some items are in the wrong zones. Review the highlighted areas."}
               </p>
             </div>
           </div>
