@@ -137,20 +137,22 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
   ): boolean | null => {
     if (nodes.length === 0) return null;
 
+    // Create a deep copy to avoid mutating the original
+    const nodesCopy = nodes.map((node) => ({ ...node }));
     const varMap = new Map(vars.map((v) => [v.name, v.value]));
 
     // Handle NOT operators first
     let i = 0;
-    while (i < nodes.length) {
-      if (nodes[i].type === "not") {
-        if (i + 1 >= nodes.length)
+    while (i < nodesCopy.length) {
+      if (nodesCopy[i].type === "not") {
+        if (i + 1 >= nodesCopy.length)
           throw new Error("NOT requires a following term");
-        const next = nodes[i + 1];
+        const next = nodesCopy[i + 1];
         if (next.type === "variable") {
           const value = varMap.get(next.value);
           if (value === undefined)
             throw new Error(`Unknown variable: ${next.value}`);
-          nodes.splice(i, 2, {
+          nodesCopy.splice(i, 2, {
             type: "variable",
             value: (!value).toString(),
             id: `temp-${i}`,
@@ -167,8 +169,8 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
     const values: boolean[] = [];
     const operators: string[] = [];
 
-    for (let j = 0; j < nodes.length; j++) {
-      const node = nodes[j];
+    for (let j = 0; j < nodesCopy.length; j++) {
+      const node = nodesCopy[j];
       if (node.type === "variable") {
         const value = varMap.get(node.value);
         if (value === undefined)
@@ -532,8 +534,8 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
         </button> */}
       </div>
 
-      {/* Truth Table */}
-      {logicalData.truth_table && logicalData.truth_table.length > 0 && (
+      {/* Dynamic Truth Table */}
+      {variables.length > 0 && variables.length <= 4 && (
         <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm overflow-hidden">
           <h3 className="font-bold text-xl mb-6 text-gray-900 dark:text-gray-100 flex items-center gap-2">
             <Tag className="w-6 h-6 text-blue-500 fill-blue-500/10" />
@@ -557,42 +559,76 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                {logicalData.truth_table.map((row, idx) => (
-                  <tr
-                    key={idx}
-                    className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
-                  >
-                    {variables.map((variable) => (
-                      <td
-                        key={variable.name}
-                        className="px-6 py-4 font-mono text-center font-bold text-gray-700 dark:text-gray-300 border-r border-gray-50 dark:border-gray-800"
+                {(() => {
+                  // Generate all combinations for current variables
+                  const combos = 1 << variables.length;
+                  const rows = [];
+
+                  for (let mask = 0; mask < combos; mask++) {
+                    const testVars = variables.map((v, i) => ({
+                      ...v,
+                      value: Boolean(mask & (1 << i)),
+                    }));
+
+                    let output = null;
+                    let outputError = "";
+
+                    try {
+                      output = evaluateExpression(
+                        expressionNodes.map((node) => ({ ...node })),
+                        testVars,
+                      );
+                    } catch (err) {
+                      outputError =
+                        err instanceof Error ? err.message : "Error";
+                    }
+
+                    rows.push(
+                      <tr
+                        key={mask}
+                        className="hover:bg-gray-50 dark:hover:bg-gray-800/30 transition-colors"
                       >
-                        <span
-                          className={`px-2 py-0.5 rounded text-[10px] ${
-                            row.inputs[variable.name]
-                              ? "bg-green-100 dark:bg-green-900/30 text-green-700"
-                              : "bg-red-100 dark:bg-red-900/30 text-red-700"
-                          }`}
-                        >
-                          {String(
-                            row.inputs[variable.name] ?? "-",
-                          ).toUpperCase()}
-                        </span>
-                      </td>
-                    ))}
-                    <td className="px-6 py-4 font-mono text-center font-black text-blue-600 dark:text-blue-400">
-                      <span
-                        className={`px-3 py-1 rounded-lg text-xs ${
-                          row.output
-                            ? "bg-blue-100 dark:bg-blue-900/40"
-                            : "bg-gray-100 dark:bg-gray-800"
-                        }`}
-                      >
-                        {String(row.output).toUpperCase()}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                        {testVars.map((variable) => (
+                          <td
+                            key={variable.name}
+                            className="px-6 py-4 font-mono text-center font-bold text-gray-700 dark:text-gray-300 border-r border-gray-50 dark:border-gray-800"
+                          >
+                            <span
+                              className={`px-2 py-0.5 rounded text-[10px] ${
+                                variable.value
+                                  ? "bg-green-100 dark:bg-green-900/30 text-green-700"
+                                  : "bg-red-100 dark:bg-red-900/30 text-red-700"
+                              }`}
+                            >
+                              {String(variable.value).toUpperCase()}
+                            </span>
+                          </td>
+                        ))}
+                        <td className="px-6 py-4 font-mono text-center font-black text-blue-600 dark:text-blue-400">
+                          <span
+                            className={`px-3 py-1 rounded-lg text-xs ${
+                              outputError
+                                ? "bg-red-100 dark:bg-red-900/40 text-red-700"
+                                : output === true
+                                  ? "bg-blue-100 dark:bg-blue-900/40"
+                                  : output === false
+                                    ? "bg-gray-100 dark:bg-gray-800"
+                                    : "bg-yellow-100 dark:bg-yellow-900/40 text-yellow-700"
+                            }`}
+                          >
+                            {outputError
+                              ? "ERR"
+                              : output === null
+                                ? "-"
+                                : String(output).toUpperCase()}
+                          </span>
+                        </td>
+                      </tr>,
+                    );
+                  }
+
+                  return rows;
+                })()}
               </tbody>
             </table>
           </div>

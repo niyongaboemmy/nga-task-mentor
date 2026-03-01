@@ -100,7 +100,7 @@ export const LogicalExpressionQuestionForm: React.FC<
                   type="button"
                   onClick={() => {
                     const newVariables = data.variables.filter(
-                      (_, i) => i !== index
+                      (_, i) => i !== index,
                     );
                     onChange({
                       ...data,
@@ -166,19 +166,37 @@ export const LogicalExpressionQuestionForm: React.FC<
                   type="text"
                   value={JSON.stringify(row.inputs) || ""}
                   onChange={(e) => {
+                    const value = e.target.value.trim();
+                    let inputs: Record<string, boolean> = {};
+
                     try {
-                      const inputs = JSON.parse(e.target.value);
+                      // Try JSON first
+                      inputs = JSON.parse(value);
+                    } catch {
+                      // Try comma/tab/pipe separated: A=true, B=false or A=true	B=false or A=true|B=false
+                      const parts = value
+                        .split(/[,|\t]/)
+                        .map((s) => s.trim())
+                        .filter(Boolean);
+                      parts.forEach((part) => {
+                        const [key, ...valParts] = part.split("=");
+                        const val = valParts.join("=").trim().toLowerCase();
+                        if (key.trim()) {
+                          inputs[key.trim()] = val === "true";
+                        }
+                      });
+                    }
+
+                    if (Object.keys(inputs).length > 0) {
                       const newTruthTable = [...(data.truth_table || [])];
                       newTruthTable[index] = { ...row, inputs };
                       onChange({
                         ...data,
                         truth_table: newTruthTable,
                       });
-                    } catch {
-                      // Invalid JSON, ignore
                     }
                   }}
-                  placeholder='{"P": true, "Q": false}'
+                  placeholder='{"P": true, "Q": false} or P=true, Q=false'
                   className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -203,7 +221,7 @@ export const LogicalExpressionQuestionForm: React.FC<
                   type="button"
                   onClick={() => {
                     const newTruthTable = (data.truth_table || []).filter(
-                      (_, i) => i !== index
+                      (_, i) => i !== index,
                     );
                     onChange({
                       ...data,

@@ -242,7 +242,8 @@ const QuizResultsPage: React.FC = () => {
     switch (grade) {
       case "A":
         return {
-          primary: "from-green-400 to-green-500",
+          primary:
+            "from-green-400 to-green-500 dark:from-green-600 dark:to-green-700",
           secondary: "from-green-50 to-green-50",
           accent: "green-600",
           text: "green-800",
@@ -477,7 +478,7 @@ const QuizResultsPage: React.FC = () => {
                     <div
                       className={`absolute -bottom-4 left-1/2 -translate-x-1/2 px-8 py-2.5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl animate-in bounce-in duration-700 delay-1000 ${
                         result.passed
-                          ? "bg-emerald-500 text-white shadow-emerald-500/30"
+                          ? "bg-green-600 text-white shadow-green-500/30"
                           : "bg-red-500 text-white shadow-red-500/30"
                       }`}
                     >

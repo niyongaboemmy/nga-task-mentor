@@ -40,19 +40,32 @@ export class LogicalExpressionHandler implements IQuestionHandler {
           .trim();
       } else if (lowerText.startsWith("truth table:")) {
         const content = textOnly.replace(/^truth table:\s*/i, "").trim();
-        // Syntax: A=true, B=false -> true
-        const [inputsStr, outputStr] = content.split("->").map((s) => s.trim());
-        const inputsParts = inputsStr.split(",").map((s) => s.trim());
+        // Syntax: A=true, B=false -> true OR A=true[B]B=false -> true (tab or comma)
+        const [inputsStr, outputStr] = content
+          .split(/->|\u2192/)
+          .map((s) => s.trim());
+
+        console.log("Truth table parse:", { inputsStr, outputStr });
+
+        // Support comma, tab, and pipe as separators
+        const inputsParts = inputsStr
+          .split(/[,\t|]/)
+          .map((s) => s.trim())
+          .filter(Boolean);
         const inputs: Record<string, any> = {};
 
         inputsParts.forEach((part) => {
           const [key, ...valParts] = part.split("=");
+          const trimmedKey = key.trim();
           const val = valParts.join("=").trim();
-          inputs[key.trim()] =
-            val === "true" ? true : val === "false" ? false : val;
+          if (trimmedKey) {
+            inputs[trimmedKey] =
+              val === "true" ? true : val === "false" ? false : val;
+          }
         });
 
-        const output = outputStr === "true";
+        console.log("Parsed inputs:", inputs, "outputStr:", outputStr);
+        const output = outputStr?.toLowerCase().trim() === "true";
         truth_table.push({ inputs, output });
       }
     }
