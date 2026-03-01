@@ -11,6 +11,8 @@ export interface Course {
   is_active?: boolean;
   max_students?: number;
   instructor_id?: number | null;
+  class_group_id?: number | null;
+  academic_term_id?: number | null;
   created_at?: string;
   updated_at?: string;
   instructor?: {

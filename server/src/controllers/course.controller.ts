@@ -84,6 +84,12 @@ export const getCourses = async (req: Request, res: Response) => {
         instructor_id: req.user?.role === "instructor" ? req.user.id : null,
         created_at: subject.created_at || new Date().toISOString(),
         updated_at: subject.updated_at || new Date().toISOString(),
+        class_group_id:
+          subject.class_group_id || subject.grades?.[0]?.class_group_id || null,
+        academic_term_id:
+          subject.academic_term_id ||
+          subject.grades?.[0]?.academic_term_id ||
+          null,
         instructor:
           req.user?.role === "instructor"
             ? {
@@ -104,6 +110,35 @@ export const getCourses = async (req: Request, res: Response) => {
     }
   } catch (error: any) {
     return handleMisError(error, res, "Error fetching courses");
+  }
+};
+
+// @desc    Get class groups from MIS
+// @route   GET /api/courses/class-groups
+// @access  Private
+export const getClassGroups = async (req: Request, res: Response) => {
+  try {
+    const token = getMisToken(req);
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
+    }
+
+    const response = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/class-groups`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    res.status(200).json(response.data);
+  } catch (error: any) {
+    return handleMisError(error, res, "Error fetching class groups");
   }
 };
 
@@ -166,7 +201,45 @@ export const getCourse = async (req: Request, res: Response) => {
         },
       );
       if (subjectResponse.data.success) {
-        subjectDetails = subjectResponse.data.data;
+        const sData = subjectResponse.data.data;
+        subjectDetails = Array.isArray(sData) ? sData[0] : sData || {};
+      }
+
+      // If class_group_id is still missing and user is an instructor, try my-assigned-subjects fallback
+      if (
+        !subjectDetails.class_group_id &&
+        !subjectDetails.grades?.[0]?.class_group_id &&
+        req.user?.role === "instructor"
+      ) {
+        console.log(
+          `🔍 [Course] Attempting fallback for instructor assignments for course ${courseId}...`,
+        );
+        const assignedResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (assignedResponse.data.success) {
+          const assignedSubjects = assignedResponse.data.data || [];
+          const matchedSubject = assignedSubjects.find(
+            (s: any) => (s.id || s.subject_id) === courseId,
+          );
+          if (matchedSubject && matchedSubject.grades?.[0]) {
+            subjectDetails = {
+              ...subjectDetails,
+              class_group_id: matchedSubject.grades[0].class_group_id,
+              academic_term_id: matchedSubject.grades[0].academic_term_id,
+            };
+            console.log(
+              `✅ [Course] Resolved class_group_id: ${subjectDetails.class_group_id} from assignments`,
+            );
+          }
+        }
       }
     } catch (subjectError: any) {
       console.warn(
@@ -210,6 +283,14 @@ export const getCourse = async (req: Request, res: Response) => {
         code: subjectDetails.code || subjectDetails.subject_code || "",
         description: subjectDetails.description || "",
         credits: subjectDetails.credits || 0,
+        class_group_id:
+          subjectDetails.class_group_id ||
+          subjectDetails.grades?.[0]?.class_group_id ||
+          null,
+        academic_term_id:
+          subjectDetails.academic_term_id ||
+          subjectDetails.grades?.[0]?.academic_term_id ||
+          null,
         statistics,
         enrolledStudents: mappedStudents,
       },

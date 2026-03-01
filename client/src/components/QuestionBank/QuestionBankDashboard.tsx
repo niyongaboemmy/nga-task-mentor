@@ -59,6 +59,7 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
   const typeCounts: Record<string, number> = {};
   const difficultyCounts = { EASY: 0, MEDIUM: 0, DIFFICULT: 0, UNASSIGNED: 0 };
   const bloomsCounts: Record<string, number> = {};
+  const sowCounts: Record<string, number> = {};
 
   questions.forEach((q) => {
     // Types
@@ -78,6 +79,10 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
     } else {
       bloomsCounts["Unclassified"] = (bloomsCounts["Unclassified"] || 0) + 1;
     }
+
+    // Scheme of Work
+    const s = q.scheme_of_work_entry_title || "Unassociated";
+    sowCounts[s] = (sowCounts[s] || 0) + 1;
   });
 
   // --- Chart Data ---
@@ -127,6 +132,18 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
         label: "Questions",
         data: Object.values(bloomsCounts),
         backgroundColor: "#8b5cf6",
+        borderRadius: 6,
+      },
+    ],
+  };
+
+  const sowChartData = {
+    labels: Object.keys(sowCounts),
+    datasets: [
+      {
+        label: "Questions",
+        data: Object.values(sowCounts),
+        backgroundColor: "#3b82f6",
         borderRadius: 6,
       },
     ],
@@ -231,6 +248,32 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             </h3>
             <div className="flex-1 min-h-[300px] relative">
               <Bar data={bloomsChartData} options={chartOptions as any} />
+            </div>
+          </div>
+
+          <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 p-6 flex flex-col lg:col-span-2">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+              Scheme of Work Coverage
+            </h3>
+            <div className="flex-1 min-h-[400px] relative">
+              <Bar
+                data={sowChartData}
+                options={
+                  {
+                    ...chartOptions,
+                    indexAxis: "y",
+                    scales: {
+                      ...chartOptions.scales,
+                      x: {
+                        beginAtZero: true,
+                        grid: { color: "#e2e8f0", drawBorder: false },
+                        ticks: { stepSize: 1, precision: 0 },
+                      },
+                      y: { grid: { display: false } },
+                    },
+                  } as any
+                }
+              />
             </div>
           </div>
         </div>

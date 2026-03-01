@@ -400,7 +400,7 @@ const QuizResultsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-8 border border-white/20 dark:border-gray-700/30">
             <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
@@ -451,9 +451,9 @@ const QuizResultsPage: React.FC = () => {
 
   if (!result && !loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20 flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-8 border border-white/20 dark:border-gray-700/30 max-w-md">
+          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl p-8 border border-white/20 dark:border-gray-700/20 max-w-md">
             <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
               Results Not Available

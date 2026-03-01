@@ -328,6 +328,9 @@ export interface QuestionBankEntry {
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;
   time_limit_seconds?: number | null;
+  scheme_of_work_entry_id?: number | null;
+  scheme_of_work_entry_title?: string | null;
+  class_group_id?: number | null;
   bloomsLevel?: BloomsTaxonomyLevel | null;
   created_at: string;
   updated_at: string;
@@ -484,6 +487,24 @@ export interface CreateCourseQuestionRequest {
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;
   time_limit_seconds?: number | null;
+  scheme_of_work_entry_id?: number | null;
+  scheme_of_work_entry_title?: string | null;
+}
+
+export interface SchemeOfWorkEntry {
+  entry_id: number;
+  scheme_id: number;
+  week_number?: string;
+  start_date: string;
+  end_date: string;
+  topic: string;
+  sub_topic?: string;
+  objective?: string;
+  methodology?: string;
+  resources?: string;
+  evaluation?: string;
+  is_completed?: number;
+  created_at?: string;
 }
 
 export interface StartQuizAttemptRequest {

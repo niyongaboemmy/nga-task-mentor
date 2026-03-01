@@ -20,18 +20,22 @@ import {
   FileText,
   Eye,
   Clock,
+  BookOpen,
 } from "lucide-react";
 import { QuestionBankApiService, QuizApiService } from "../../services/quizApi";
 import QuestionBankModal from "./QuestionBankModal";
 import DocxUploadModal from "./DocxUploadModal";
 import QuestionPreviewModal from "../Quizzes/QuestionPreviewModal";
 import RichTextDisplay from "../Common/RichTextDisplay";
+import { CourseApiService } from "../../services/courseApi";
+import type { Course } from "../../types/course.types";
 
 import type {
   QuestionBankEntry,
   QuestionType,
   DifficultyLevel,
   BloomsTaxonomyLevel,
+  SchemeOfWorkEntry,
 } from "../../types/quiz.types";
 import { toast } from "react-toastify";
 
@@ -136,6 +140,14 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
   const [previewQuestion, setPreviewQuestion] =
     useState<QuestionBankEntry | null>(null);
 
+  // Scheme of Work Filter State
+  const [schemeEntries, setSchemeEntries] = useState<SchemeOfWorkEntry[]>([]);
+  const [selectedSchemeEntryIds, setSelectedSchemeEntryIds] = useState<
+    number[]
+  >([]);
+  const [isLoadingScheme, setIsLoadingScheme] = useState(false);
+  const [schemeSearch, setSchemeSearch] = useState("");
+
   // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
@@ -143,12 +155,43 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Load Bloom's Taxonomy on mount
+  const [courseData, setCourseData] = useState<Course | null>(null);
+
   useEffect(() => {
     QuizApiService.getBloomsTaxonomyLevels()
       .then((res) => setBloomsLevels(res.data))
       .catch(() => {});
-  }, []);
+
+    // Fetch course details first to get required IDs
+    CourseApiService.getCourse(courseId)
+      .then((res) => {
+        if (res.success) {
+          setCourseData(res.data);
+        }
+        console.log({ courseDetails: res.data });
+      })
+      .catch((error) => {
+        console.log({ error });
+      });
+  }, [courseId]);
+
+  useEffect(() => {
+    if (courseData?.class_group_id && courseData?.academic_term_id) {
+      // Fetch scheme entries for the course
+      setIsLoadingScheme(true);
+      QuestionBankApiService.getSchemeOfWorkEntries(
+        courseId,
+        courseData.class_group_id,
+        courseData.academic_term_id,
+      )
+        .then((res) => {
+          if (res.success) {
+            setSchemeEntries(res.data);
+          }
+        })
+        .finally(() => setIsLoadingScheme(false));
+    }
+  }, [courseId, courseData]);
 
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
@@ -162,6 +205,8 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
       if (selectedBlooms.length > 0)
         filters.blooms_taxonomy_level_id = selectedBlooms.join(",");
       if (selectedTags.length > 0) filters.tags = selectedTags.join(",");
+      if (selectedSchemeEntryIds.length > 0)
+        filters.scheme_of_work_entry_id = selectedSchemeEntryIds.join(",");
 
       const response = await QuestionBankApiService.getCourseQuestions(
         courseId,
@@ -184,6 +229,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
     selectedDifficulties,
     selectedBlooms,
     selectedTags,
+    selectedSchemeEntryIds,
   ]);
 
   // Fetch when filters or page change
@@ -245,13 +291,46 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
       <div className="bg-white/90 dark:bg-gray-900/50 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/60 dark:border-gray-800/30 overflow-hidden ">
         {/* Header & Controls */}
         <div className="p-5 border-b border-gray-200/60 dark:border-gray-800 flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-              Questions List
-            </h2>
-            <p className="text-sm text-gray-400 dark:text-gray-400/60 font-light">
-              Manage all questions in the bank for this course.
-            </p>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            {courseData && (
+              <div className="flex items-center gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100/50 dark:border-blue-800/30 rounded-2xl">
+                <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                  <BookOpen className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-gray-900 dark:text-white leading-tight">
+                    {courseData.title}
+                  </h4>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-[11px] font-mono text-blue-600 dark:text-blue-400 px-1.5 py-0.5 bg-blue-100/50 dark:bg-blue-900/50 rounded-md">
+                      {courseData.code}
+                    </span>
+                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                      Group:{" "}
+                      <span className="font-semibold text-gray-700 dark:text-gray-300">
+                        {courseData.class_group_id || "N/A"}
+                      </span>
+                    </span>
+                    {courseData.academic_term_id && (
+                      <span className="text-[11px] text-gray-400">
+                        Term:{" "}
+                        <span className="font-semibold">
+                          {courseData.academic_term_id}
+                        </span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+                Questions List
+              </h2>
+              <p className="text-sm text-gray-400 dark:text-gray-400/60 font-light">
+                Manage all questions in the bank for this course.
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <button
@@ -388,6 +467,61 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Scheme of Work Filter */}
+              <div className="space-y-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <Brain className="w-3 h-3" /> Scheme of Work Topics
+                  </label>
+                  {isLoadingScheme ? (
+                    <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+                      <Loader2 className="w-3 h-3 animate-spin" /> Fetching
+                      entries...
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                        <input
+                          type="text"
+                          placeholder="Filter scheme..."
+                          value={schemeSearch}
+                          onChange={(e) => setSchemeSearch(e.target.value)}
+                          className="w-full pl-8 pr-3 py-1.5 text-[11px] rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all placeholder:text-gray-400"
+                        />
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 max-h-[110px] overflow-y-auto pr-2 scrollbar-thin">
+                        {schemeEntries
+                          .filter((se) =>
+                            se.topic
+                              .toLowerCase()
+                              .includes(schemeSearch.toLowerCase()),
+                          )
+                          .map((se) => (
+                            <PillToggle
+                              key={se.entry_id}
+                              active={selectedSchemeEntryIds.includes(
+                                se.entry_id,
+                              )}
+                              onClick={() => {
+                                setSelectedSchemeEntryIds(
+                                  toggleInArray(
+                                    selectedSchemeEntryIds,
+                                    se.entry_id,
+                                  ),
+                                );
+                                setPage(1);
+                              }}
+                            >
+                              {se.topic}
+                            </PillToggle>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
 
@@ -533,6 +667,17 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                                   +{question.tags.length - 2}
                                 </span>
                               )}
+                            </div>
+                          )}
+                          {question.scheme_of_work_entry_title && (
+                            <div className="mt-1 flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-100 dark:border-blue-800">
+                              <Brain className="w-2.5 h-2.5" />
+                              <span
+                                className="truncate max-w-[150px]"
+                                title={question.scheme_of_work_entry_title}
+                              >
+                                {question.scheme_of_work_entry_title}
+                              </span>
                             </div>
                           )}
                         </div>

@@ -7,6 +7,12 @@ import { QuestionValidator } from "../utils/questionValidation";
 import { QuestionType } from "../types/quiz.types";
 import { WordParserService } from "../services/WordParserService";
 import { WordTemplateService } from "../services/WordTemplateService";
+import axios from "axios";
+import {
+  getMisToken,
+  getCurrentTermId,
+  handleMisError,
+} from "../utils/misUtils";
 
 // @desc    Get all questions in a course's question bank
 // @route   GET /api/courses/:courseId/question-bank
@@ -22,6 +28,7 @@ export const getCourseQuestions = async (req: Request, res: Response) => {
       blooms_taxonomy_level_id,
       search,
       tags,
+      scheme_of_work_entry_id,
     } = req.query;
 
     const pageNum = parseInt(String(page), 10);
@@ -69,6 +76,21 @@ export const getCourseQuestions = async (req: Request, res: Response) => {
         { tags: { [Op.like]: `%${search}%` } },
       ];
     }
+    if (scheme_of_work_entry_id) {
+      if (
+        typeof scheme_of_work_entry_id === "string" &&
+        scheme_of_work_entry_id.includes(",")
+      ) {
+        where.scheme_of_work_entry_id = {
+          [Op.in]: scheme_of_work_entry_id.split(",").map((id) => parseInt(id)),
+        };
+      } else {
+        where.scheme_of_work_entry_id = parseInt(
+          String(scheme_of_work_entry_id),
+        );
+      }
+    }
+
     if (tags) {
       if (typeof tags === "string" && tags.includes(",")) {
         const tagList = tags.split(",");
@@ -159,6 +181,8 @@ export const createCourseQuestion = async (req: Request, res: Response) => {
       tags,
       difficulty_level,
       time_limit_seconds,
+      scheme_of_work_entry_id,
+      scheme_of_work_entry_title,
     } = req.body;
 
     // Validate question data
@@ -211,6 +235,8 @@ export const createCourseQuestion = async (req: Request, res: Response) => {
         tags: sanitizedTags ?? null,
         difficulty_level: difficulty_level ?? null,
         time_limit_seconds: time_limit_seconds ?? 60,
+        scheme_of_work_entry_id: scheme_of_work_entry_id ?? null,
+        scheme_of_work_entry_title: scheme_of_work_entry_title ?? null,
       },
       { transaction },
     );
@@ -500,6 +526,8 @@ export const bulkCreateCourseQuestions = async (
           tags: sanitizedTags ?? null,
           difficulty_level: q.difficulty_level ?? "MEDIUM",
           time_limit_seconds: q.time_limit_seconds ?? 60,
+          scheme_of_work_entry_id: q.scheme_of_work_entry_id ?? null,
+          scheme_of_work_entry_title: q.scheme_of_work_entry_title ?? null,
         },
         { transaction },
       );
@@ -518,5 +546,143 @@ export const bulkCreateCourseQuestions = async (
     await transaction.rollback();
     console.error("Bulk create questions error:", error);
     res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Get scheme of work entries from MIS
+// @route   GET /api/courses/:courseId/question-bank/scheme-of-work
+// @access  Private (instructor, admin)
+export const getSchemeOfWorkEntries = async (req: Request, res: Response) => {
+  try {
+    const { courseId } = req.params;
+    const { class_group_id, academic_term_id } = req.query;
+
+    const token = getMisToken(req);
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required (MIS)",
+      });
+    }
+
+    // fallback to current term if not provided
+    const termId = academic_term_id || (await getCurrentTermId(req));
+
+    // Resolve class_group_id if not provided
+    let resolvedClassGroupId: any = class_group_id;
+    if (
+      !resolvedClassGroupId ||
+      resolvedClassGroupId === "undefined" ||
+      resolvedClassGroupId === "null"
+    ) {
+      resolvedClassGroupId = undefined;
+    }
+
+    if (!resolvedClassGroupId) {
+      console.log(
+        `🔍 [SOW] Attempting to resolve class_group_id for course ${courseId}...`,
+      );
+      try {
+        // Try direct subject endpoint first
+        const subjectResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        if (subjectResponse.data.success) {
+          const sData = subjectResponse.data.data;
+          // Handle both object and array response
+          const subject = Array.isArray(sData) ? sData[0] : sData;
+
+          if (subject) {
+            resolvedClassGroupId =
+              subject.class_group_id || subject.grades?.[0]?.class_group_id;
+            if (resolvedClassGroupId) {
+              console.log(
+                `✅ [SOW] Resolved class_group_id: ${resolvedClassGroupId} from direct endpoint`,
+              );
+            }
+          }
+        }
+      } catch (error: any) {
+        console.warn(
+          `⚠️ [SOW] Direct subject fetch failed for course ${courseId} (Role: ${req.user?.role}):`,
+          error.response?.data?.message || error.message,
+        );
+
+        // Fallback for instructors if direct fetch is forbidden/fails
+        if (req.user?.role === "instructor") {
+          console.log(`🔄 [SOW] Trying fallback for instructor...`);
+          try {
+            const termIdForFallback = await getCurrentTermId(req);
+            const fallbackResponse = await axios.get(
+              `${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
+              {
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                  "Content-Type": "application/json",
+                },
+                params: { termId: termIdForFallback || 4 },
+              },
+            );
+
+            if (fallbackResponse.data.success) {
+              const subjects = fallbackResponse.data.data || [];
+              const subject = subjects.find(
+                (s: any) => (s.id || s.subject_id) === parseInt(courseId),
+              );
+              if (subject) {
+                resolvedClassGroupId =
+                  subject.class_group_id || subject.grades?.[0]?.class_group_id;
+                if (resolvedClassGroupId) {
+                  console.log(
+                    `✅ [SOW] Resolved class_group_id: ${resolvedClassGroupId} from assigned subjects fallback`,
+                  );
+                }
+              }
+            }
+          } catch (fError: any) {
+            console.error(
+              `❌ [SOW] Instructor fallback also failed:`,
+              fError.message,
+            );
+          }
+        }
+      }
+    }
+
+    if (!resolvedClassGroupId) {
+      console.error(
+        `❌ [SOW] Resolution failed for course ${courseId}. No class_group_id found.`,
+      );
+      return res.status(400).json({
+        success: false,
+        message: "class_group_id is required and could not be resolved",
+      });
+    }
+
+    const response = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/scheme-of-work/entries`,
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        params: {
+          subject_id: courseId,
+          class_group_id: resolvedClassGroupId,
+          academic_term_id: termId,
+        },
+      },
+    );
+
+    res.status(200).json(response.data);
+  } catch (error: any) {
+    return handleMisError(error, res, "Error fetching scheme of work entries");
   }
 };

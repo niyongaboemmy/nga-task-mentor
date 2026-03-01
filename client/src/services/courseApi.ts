@@ -66,6 +66,12 @@ export class CourseApiService {
     const response = await axios.get(`/courses/${courseId}/quizzes`);
     return response.data;
   }
+
+  // Get all class groups
+  static async getClassGroups(): Promise<{ success: boolean; data: any[] }> {
+    const response = await axios.get("/courses/class-groups");
+    return response.data;
+  }
 }
 
 // Error handling utility

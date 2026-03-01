@@ -45,6 +45,8 @@ export interface IQuestionBankAttributes {
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;
   time_limit_seconds?: number | null;
+  scheme_of_work_entry_id?: number | null;
+  scheme_of_work_entry_title?: string | null;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -231,6 +233,22 @@ export class QuestionBank extends Model<
     },
   })
   time_limit_seconds?: number | null;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    defaultValue: null,
+    field: "scheme_of_work_entry_id",
+  })
+  scheme_of_work_entry_id?: number | null;
+
+  @Column({
+    type: DataType.STRING,
+    allowNull: true,
+    defaultValue: null,
+    field: "scheme_of_work_entry_title",
+  })
+  scheme_of_work_entry_title?: string | null;
 
   // Associations
   @BelongsTo(() => BloomsTaxonomyLevel, "blooms_taxonomy_level_id")

@@ -1338,7 +1338,7 @@ const QuizTakingPage: React.FC = () => {
           navigate(`/quizzes/${quiz.id}/results`, {
             state: { quiz, answers, submissionData },
           });
-        }, 1500);
+        }, 15000);
       } else {
         // Navigate directly to results page
         navigate(`/quizzes/${quiz.id}/results`, {

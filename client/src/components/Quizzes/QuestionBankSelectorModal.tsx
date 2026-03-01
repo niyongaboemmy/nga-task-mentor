@@ -34,8 +34,11 @@ import type {
   QuestionType,
   DifficultyLevel,
   BloomsTaxonomyLevel,
+  SchemeOfWorkEntry,
 } from "../../types/quiz.types";
 import { QuizApiService } from "../../services/quizApi";
+import { CourseApiService } from "../../services/courseApi";
+import type { Course } from "../../types/course.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -46,6 +49,7 @@ interface AlgorithmConfig {
   difficulty_levels: DifficultyLevel[];
   blooms_taxonomy_level_ids: number[];
   tags: string[];
+  scheme_of_work_entry_ids: number[];
   count: number; // how many questions to pull
   points_per_question: number;
   is_required: boolean;
@@ -110,6 +114,7 @@ const DEFAULT_CONFIG: AlgorithmConfig = {
   difficulty_levels: [],
   blooms_taxonomy_level_ids: [],
   tags: [],
+  scheme_of_work_entry_ids: [],
   count: 10,
   points_per_question: 1,
   is_required: true,
@@ -132,10 +137,10 @@ const PillToggle: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 ${
+    className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all duration-200 ${
       active
         ? activeClass
-        : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700"
+        : "bg-white dark:bg-gray-800/50 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-800 hover:border-gray-300 dark:hover:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 text-left"
     }`}
   >
     {children}
@@ -208,6 +213,17 @@ const QuestionResultCard: React.FC<{
               L{question.bloomsLevel.level_order} · {question.bloomsLevel.name}
             </span>
           )}
+          {question.scheme_of_work_entry_title && (
+            <span className="text-xs px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400 border border-blue-100 dark:border-blue-800 flex items-center gap-1">
+              <Brain className="w-3 h-3" />
+              <span
+                className="truncate max-w-[120px]"
+                title={question.scheme_of_work_entry_title}
+              >
+                {question.scheme_of_work_entry_title}
+              </span>
+            </span>
+          )}
         </div>
 
         <p className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2 leading-relaxed">
@@ -257,6 +273,12 @@ export const QuestionBankSelectorModal: React.FC<
   const [searchText, setSearchText] = useState("");
   const [createModalOpen, setCreateModalOpen] = useState(false);
 
+  // Scheme of Work Filter State
+  const [schemeEntries, setSchemeEntries] = useState<SchemeOfWorkEntry[]>([]);
+  const [isLoadingScheme, setIsLoadingScheme] = useState(false);
+  const [schemeSearch, setSchemeSearch] = useState("");
+  const [courseData, setCourseData] = useState<Course | null>(null);
+
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -267,6 +289,34 @@ export const QuestionBankSelectorModal: React.FC<
       .then((res) => setBloomsLevels(res.data))
       .catch(() => {});
   }, [isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      // Fetch course details first
+      CourseApiService.getCourse(courseId)
+        .then((res) => {
+          if (res.success) setCourseData(res.data);
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, courseId]);
+
+  useEffect(() => {
+    if (isOpen && courseData?.class_group_id && courseData?.academic_term_id) {
+      setIsLoadingScheme(true);
+      QuestionBankApiService.getSchemeOfWorkEntries(
+        courseId,
+        courseData.class_group_id,
+        courseData.academic_term_id,
+      )
+        .then((res) => {
+          if (res.success) setSchemeEntries(res.data);
+        })
+        .finally(() => setIsLoadingScheme(false));
+    } else if (!isOpen) {
+      setSchemeEntries([]);
+    }
+  }, [isOpen, courseId, courseData]);
 
   // Reset when modal closes
   useEffect(() => {
@@ -313,6 +363,9 @@ export const QuestionBankSelectorModal: React.FC<
           config.blooms_taxonomy_level_ids.join(",");
       if (searchText.trim()) filters.search = searchText.trim();
       if (config.tags.length > 0) filters.tags = config.tags.join(",");
+      if (config.scheme_of_work_entry_ids.length > 0)
+        filters.scheme_of_work_entry_id =
+          config.scheme_of_work_entry_ids.join(",");
 
       const res = await QuestionBankApiService.getCourseQuestions(
         courseId,
@@ -640,6 +693,62 @@ export const QuestionBankSelectorModal: React.FC<
                         ))}
                       </div>
                     )}
+                  </div>
+
+                  {/* ── Scheme of Work ─────────────────────────────────── */}
+                  <div className="space-y-4 pt-1">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2">
+                        <CheckSquare className="inline w-3 h-3 mr-1" />
+                        Scheme Entries
+                      </label>
+                      {isLoadingScheme ? (
+                        <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
+                          <Loader2 className="w-3 h-3 animate-spin" />{" "}
+                          Fetching...
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5">
+                          <div className="relative">
+                            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                            <input
+                              type="text"
+                              placeholder="Filter scheme..."
+                              value={schemeSearch}
+                              onChange={(e) => setSchemeSearch(e.target.value)}
+                              className="w-full pl-8 pr-3 py-1.5 text-[11px] rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all placeholder:text-gray-400"
+                            />
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 max-h-[520px] overflow-y-auto pr-2 scrollbar-thin">
+                            {schemeEntries
+                              .filter((se) =>
+                                se.topic
+                                  .toLowerCase()
+                                  .includes(schemeSearch.toLowerCase()),
+                              )
+                              .map((se) => (
+                                <PillToggle
+                                  key={se.entry_id}
+                                  active={config.scheme_of_work_entry_ids.includes(
+                                    se.entry_id,
+                                  )}
+                                  onClick={() =>
+                                    updateConfig(
+                                      "scheme_of_work_entry_ids",
+                                      toggleInArray(
+                                        config.scheme_of_work_entry_ids,
+                                        se.entry_id,
+                                      ),
+                                    )
+                                  }
+                                >
+                                  {se.topic}
+                                </PillToggle>
+                              ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </>
               )}

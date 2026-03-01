@@ -9,6 +9,7 @@ import type {
   CreateCourseQuestionRequest,
   QuizAnalytics,
   AnswerDataType,
+  SchemeOfWorkEntry,
 } from "../types/quiz.types";
 
 // Quiz API Service
@@ -378,6 +379,7 @@ export class QuestionBankApiService {
       difficulty_level?: string;
       blooms_taxonomy_level_id?: number;
       search?: string;
+      scheme_of_work_entry_id?: string;
       page?: number;
       limit?: number;
     },
@@ -502,6 +504,24 @@ export class QuestionBankApiService {
       `/courses/${courseId}/question-bank/bulk`,
       {
         questions,
+      },
+    );
+    return response.data;
+  }
+
+  /** Get scheme of work entries for a course/subject */
+  static async getSchemeOfWorkEntries(
+    courseId: number,
+    classGroupId: number,
+    academicTermId: number,
+  ): Promise<{ success: boolean; data: SchemeOfWorkEntry[] }> {
+    const response = await axios.get(
+      `/courses/${courseId}/question-bank/scheme-of-work`,
+      {
+        params: {
+          class_group_id: classGroupId,
+          academic_term_id: academicTermId,
+        },
       },
     );
     return response.data;

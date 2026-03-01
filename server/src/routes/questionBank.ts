@@ -8,6 +8,7 @@ import {
   downloadDocxTemplate,
   parseDocxQuestions,
   bulkCreateCourseQuestions,
+  getSchemeOfWorkEntries,
 } from "../controllers/questionBank.controller";
 
 import { protect, authorize } from "../middleware/auth";
@@ -35,6 +36,13 @@ router.post(
   "/bulk",
   authorize("instructor", "admin"),
   bulkCreateCourseQuestions,
+);
+
+// Scheme of work entries
+router.get(
+  "/scheme-of-work",
+  authorize("instructor", "admin"),
+  getSchemeOfWorkEntries,
 );
 
 router

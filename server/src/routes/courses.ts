@@ -8,6 +8,7 @@ import {
   createCourse,
   updateCourse,
   deleteCourse,
+  getClassGroups,
 } from "../controllers/course.controller";
 import {
   getCourseAssignments,
@@ -27,6 +28,8 @@ router.use(protect);
 router.use(requireMisToken);
 
 router.route("/").get(getCourses).post(createCourse);
+
+router.route("/class-groups").get(getClassGroups);
 
 router.route("/my-grades").get(authorize("student"), getStudentOverallGrades);
 
