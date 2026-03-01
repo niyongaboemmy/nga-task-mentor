@@ -32,8 +32,6 @@ import {
   startQuizAttempt,
   submitQuestionAnswer,
   getQuizAttemptStatus,
-  submitQuiz,
-  getQuizResults,
   getStudentQuizHistory,
   submitAllAnswers,
 } from "../controllers/attempt.controller";
@@ -142,12 +140,6 @@ router.get(
   "/attempts/:submissionId",
   authorize("student"),
   getQuizAttemptStatus,
-);
-router.post("/attempts/:submissionId/submit", authorize("student"), submitQuiz);
-router.get(
-  "/attempts/:submissionId/results",
-  authorize("student"),
-  getQuizResults,
 );
 
 // Question answering routes

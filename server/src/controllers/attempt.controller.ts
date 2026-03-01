@@ -520,7 +520,6 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Get quiz attempt status
 // @route   GET /api/attempts/:submissionId
 // @access  Private/Student
 export const getQuizAttemptStatus = async (req: Request, res: Response) => {
@@ -591,6 +590,11 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
     }
 
     const quiz = submission.quiz;
+
+    const enableAutoGrading = quiz?.enable_automatic_grading !== false;
+    const requireManualGrading = quiz?.require_manual_grading === true;
+    const showGrades = enableAutoGrading && !requireManualGrading;
+    const showCorrectAnswers = quiz?.show_correct_answers === true;
     const questions = quiz?.questions || [];
 
     // Calculate progress
@@ -630,6 +634,25 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
       isTimeExpired = timeRemaining <= 0;
     }
 
+    // Format the results
+    const results = submission.attempts.map((attempt) => ({
+      question_id: attempt.question_id,
+      question_text: attempt.attemptQuestion?.questionBank?.question_text,
+      question_type: attempt.attemptQuestion?.questionBank?.question_type,
+      question_data: showCorrectAnswers
+        ? attempt.attemptQuestion?.questionBank?.question_data
+        : null,
+      is_correct: showCorrectAnswers ? attempt.is_correct : null,
+      points_earned: showGrades ? attempt.points_earned : null,
+      max_points: attempt.attemptQuestion?.points,
+      time_taken: attempt.time_taken,
+      correct_answer: showCorrectAnswers ? attempt.correct_answer : null,
+      explanation: showCorrectAnswers
+        ? attempt.attemptQuestion?.questionBank?.explanation
+        : null,
+      attemptQuestion: attempt.attemptQuestion,
+    }));
+
     res.status(200).json({
       success: true,
       data: {
@@ -639,13 +662,7 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
         progress,
         current_score: totalEarned,
         max_score: maxPossible,
-        attempts: submission.attempts?.map((attempt: any) => ({
-          question_id: attempt.question_id,
-          question_text: attempt.attemptQuestion?.questionBank?.question_text,
-          is_correct: attempt.is_correct,
-          points_earned: attempt.points_earned,
-          time_taken: attempt.time_taken,
-        })),
+        attempts: results,
         time_elapsed: timeElapsed,
         time_remaining: timeRemaining,
         time_limit: quiz?.time_limit,
@@ -654,245 +671,6 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Get quiz attempt status error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// @desc    Submit complete quiz
-// @route   POST /api/attempts/:submissionId/submit
-// @access  Private/Student
-export const submitQuiz = async (req: Request, res: Response) => {
-  const transaction = await sequelize.transaction();
-  try {
-    const { submissionId } = req.params;
-
-    if (req.user.role !== "student") {
-      await transaction.rollback();
-      return res.status(403).json({
-        success: false,
-        message: "Only students can submit quizzes",
-      });
-    }
-
-    // Find the submission
-    const submission = await QuizSubmission.findByPk(submissionId, {
-      include: [
-        {
-          model: Quiz,
-          as: "submissionQuiz",
-        },
-        {
-          model: QuizAttempt,
-          as: "attempts",
-        },
-      ],
-      transaction,
-    });
-
-    if (!submission) {
-      await transaction.rollback();
-      return res
-        .status(404)
-        .json({ success: false, message: "Quiz submission not found" });
-    }
-
-    // Verify ownership
-    if (submission.student_id !== req.user.id) {
-      await transaction.rollback();
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to submit this quiz",
-      });
-    }
-
-    // Check if submission is still in progress
-    if (submission.status !== "in_progress") {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Quiz submission is no longer in progress",
-      });
-    }
-
-    const quiz = submission.quiz;
-    const attempts = submission.attempts || [];
-
-    // Calculate final scores
-    const totalEarned = attempts.reduce(
-      (sum, attempt) => sum + (parseFloat(String(attempt.points_earned)) || 0),
-      0,
-    );
-    const maxPossible =
-      quiz?.questions?.reduce((sum, q) => sum + q.points, 0) || 0;
-    const percentage = maxPossible > 0 ? (totalEarned / maxPossible) * 100 : 0;
-
-    // Check if quiz is passed
-    const passed = quiz?.passing_score
-      ? percentage >= quiz.passing_score
-      : true;
-
-    // Calculate duration in seconds
-    const timeTaken = Math.floor(
-      (new Date().getTime() - submission.started_at.getTime()) / 1000,
-    );
-
-    // Update submission
-    await submission.update(
-      {
-        total_score: totalEarned,
-        max_score: maxPossible,
-        percentage,
-        status: "completed",
-        completed_at: new Date(),
-        time_taken: timeTaken,
-        passed,
-        grade_status: quiz?.type === "graded" ? "pending" : "auto_graded",
-      },
-      { transaction },
-    );
-
-    await transaction.commit();
-
-    res.status(200).json({
-      success: true,
-      data: {
-        submission_id: submission.id,
-        final_score: totalEarned,
-        max_score: maxPossible,
-        percentage,
-        passed,
-        show_results_immediately: quiz?.show_results_immediately,
-        show_correct_answers: quiz?.show_correct_answers,
-        message: "Quiz submitted successfully",
-      },
-    });
-  } catch (error) {
-    await transaction.rollback();
-    console.error("Submit quiz error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
-  }
-};
-
-// @desc    Get quiz results
-// @route   GET /api/attempts/:submissionId/results
-// @access  Private/Student
-export const getQuizResults = async (req: Request, res: Response) => {
-  try {
-    const { submissionId } = req.params;
-
-    if (req.user.role !== "student") {
-      return res.status(403).json({
-        success: false,
-        message: "Only students can view quiz results",
-      });
-    }
-
-    // Find the submission
-    const submission = await QuizSubmission.findByPk(submissionId, {
-      include: [
-        {
-          model: Quiz,
-          as: "submissionQuiz",
-        },
-        {
-          model: QuizAttempt,
-          as: "attempts",
-          include: [
-            {
-              model: QuizQuestion,
-              as: "attemptQuestion",
-              attributes: ["id", "points", "order"],
-              include: [
-                {
-                  model: QuestionBank,
-                  as: "questionBank",
-                  attributes: [
-                    "question_text",
-                    "question_type",
-                    "explanation",
-                    "correct_answer",
-                  ],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-    });
-
-    if (!submission) {
-      return res
-        .status(404)
-        .json({ success: false, message: "Quiz submission not found" });
-    }
-
-    // Verify ownership
-    if (submission.student_id !== req.user.id) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to view this submission",
-      });
-    }
-
-    // Check if submission is completed
-    if (submission.status !== "completed") {
-      return res.status(400).json({
-        success: false,
-        message: "Quiz is not yet completed",
-      });
-    }
-
-    const quiz = submission.quiz;
-
-    // Check if results should be shown immediately
-    if (!quiz?.show_results_immediately && !quiz?.show_correct_answers) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          submission_id: submission.id,
-          final_score: submission.total_score,
-          max_score: submission.max_score,
-          percentage: submission.percentage,
-          passed: submission.passed,
-          results_available: false,
-          message: "Results will be available after grading",
-        },
-      });
-    }
-
-    const attempts = submission.attempts || [];
-
-    res.status(200).json({
-      success: true,
-      data: {
-        submission_id: submission.id,
-        quiz_title: quiz?.title,
-        final_score: submission.total_score,
-        max_score: submission.max_score,
-        percentage: submission.percentage,
-        passed: submission.passed,
-        grade_status: submission.grade_status,
-        time_taken: submission.time_taken,
-        started_at: submission.started_at,
-        completed_at: submission.completed_at,
-        attempts: attempts.map((attempt: any) => ({
-          question_id: attempt.question_id,
-          question_text: attempt.attemptQuestion?.questionBank?.question_text,
-          question_type: attempt.attemptQuestion?.questionBank?.question_type,
-          question_data: attempt.attemptQuestion?.questionBank?.question_data,
-          is_correct: attempt.is_correct,
-          points_earned: attempt.points_earned,
-          max_points: attempt.attemptQuestion?.points,
-          time_taken: attempt.time_taken,
-          correct_answer: attempt.correct_answer,
-          explanation: attempt.attemptQuestion?.questionBank?.explanation,
-          attemptQuestion: attempt.attemptQuestion,
-        })),
-        submitted_at: submission.completed_at,
-      },
-    });
-  } catch (error) {
-    console.error("Get quiz results error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

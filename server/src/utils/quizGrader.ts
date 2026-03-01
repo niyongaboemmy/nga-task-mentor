@@ -1129,34 +1129,37 @@ export class InteractiveGrader {
       };
     }
 
-    // Create a mapping of normalized item ID (with stripHtml) to correct order
-    // Also create a mapping by stripped text content for fallback matching
-    const correctOrderMap: Record<string, number> = {};
-    const textToOrderMap: Record<string, number> = {};
+    // Build the canonical correct order list. We prefer using each item's `order`
+    // field when present, but we treat it as relative ordering only (0-based or
+    // 1-based doesn't matter) by sorting and comparing IDs by position.
+    const itemsWithOrder = questionData.items
+      .map((item: any) => {
+        const orderRaw =
+          typeof item.order === "number"
+            ? item.order
+            : parseInt(String(item.order), 10);
+        return {
+          item,
+          order: Number.isFinite(orderRaw) ? orderRaw : null,
+          idStr: String(item.id),
+          textKey: stripHtml(item.text || item.content || "").toLowerCase(),
+        };
+      })
+      .filter((x: any) => x.idStr);
 
-    questionData.items.forEach((item: any) => {
-      // Normalize ID to string - handle both string and number IDs
-      const itemIdStr = String(item.id);
-      const order =
-        typeof item.order === "number"
-          ? item.order
-          : parseInt(String(item.order), 10);
+    const canSortByOrder = itemsWithOrder.every((x: any) => x.order !== null);
 
-      if (!isNaN(order)) {
-        correctOrderMap[itemIdStr] = order;
+    const sorted = canSortByOrder
+      ? [...itemsWithOrder].sort(
+          (a: any, b: any) => (a.order as number) - (b.order as number),
+        )
+      : [...itemsWithOrder];
 
-        // Also map by stripped text content for cases where IDs don't match
-        if (item.text || item.content) {
-          const strippedText = stripHtml(
-            item.text || item.content,
-          ).toLowerCase();
-          textToOrderMap[strippedText] = order;
-        }
-      }
+    const correctOrderedIds = sorted.map((x: any) => x.idStr);
+    const correctTextToIndex: Record<string, number> = {};
+    sorted.forEach((x: any, idx: number) => {
+      if (x.textKey) correctTextToIndex[x.textKey] = idx;
     });
-
-    console.log(`[Grader] Ordering Map:`, correctOrderMap);
-    console.log(`[Grader] Text-to-Order Map:`, textToOrderMap);
 
     let correctPositions = 0;
     const totalItems = questionData.items.length;
@@ -1170,53 +1173,23 @@ export class InteractiveGrader {
       };
     }
 
-    // Check if each item is in the correct position
+    // Check each item position by comparing against the canonical ordered list.
+    // If the student's array contains text instead of IDs, fall back to text matching.
     answer.ordered_item_ids.forEach((itemId: any, index: number) => {
-      const studentItemId = String(itemId);
-      const studentPosition = index + 1; // 1-indexed position
+      const studentToken = String(itemId);
 
-      // Try to find the expected order for this item
-      let expectedOrder = correctOrderMap[studentItemId];
+      const expectedIdAtIndex = correctOrderedIds[index];
+      const isByIdCorrect =
+        expectedIdAtIndex !== undefined && studentToken === expectedIdAtIndex;
 
-      // If not found by ID, try to match by stripped text (for items with HTML/LaTeX)
-      if (expectedOrder === undefined) {
-        // Check if itemId itself is text content with HTML/LaTeX
-        const strippedItemId = stripHtml(studentItemId).toLowerCase();
-        expectedOrder = textToOrderMap[strippedItemId];
-
-        // Also try matching against all item texts
-        if (expectedOrder === undefined) {
-          for (const item of questionData.items) {
-            const itemText = stripHtml(
-              item.text || item.content || String(item.id),
-            ).toLowerCase();
-            if (
-              itemText === strippedItemId ||
-              stripHtml(String(item.id)).toLowerCase() === strippedItemId
-            ) {
-              expectedOrder =
-                typeof item.order === "number"
-                  ? item.order
-                  : parseInt(String(item.order), 10);
-              break;
-            }
-          }
-        }
+      let isByTextCorrect = false;
+      if (!isByIdCorrect) {
+        const stripped = stripHtml(studentToken).toLowerCase();
+        const expectedIndex = correctTextToIndex[stripped];
+        isByTextCorrect = expectedIndex === index;
       }
 
-      const isCorrectPos =
-        expectedOrder !== undefined &&
-        !isNaN(expectedOrder) &&
-        String(expectedOrder) === String(studentPosition);
-
-      console.log(`[Grader] Ordering Check [${index}]:`, {
-        itemId: studentItemId,
-        expectedOrder,
-        studentPos: studentPosition,
-        isCorrectPos,
-      });
-
-      if (isCorrectPos) {
+      if (isByIdCorrect || isByTextCorrect) {
         correctPositions++;
       }
     });
@@ -1502,6 +1475,65 @@ export class InteractiveGrader {
     }
     const answer = answerData as any;
 
+    const normalize = (expr: string) =>
+      expr
+        .replace(/\s+/g, "")
+        .toLowerCase()
+        .replace(/\u00ac/g, "!") // ¬
+        .replace(/\u2227/g, "&&") // ∧
+        .replace(/\u2228/g, "||") // ∨
+        .replace(/\u2192/g, "->") // →
+        .replace(/\u2194/g, "<->"); // ↔
+
+    const extractVariables = (expr: string): string[] => {
+      const vars = new Set<string>();
+      const normalized = expr.replace(/\s+/g, "");
+      const matches = normalized.match(/[a-zA-Z][a-zA-Z0-9_]*/g) || [];
+      for (const m of matches) {
+        const t = m.toLowerCase();
+        if (
+          t === "and" ||
+          t === "or" ||
+          t === "not" ||
+          t === "true" ||
+          t === "false"
+        ) {
+          continue;
+        }
+        vars.add(m);
+      }
+      return Array.from(vars);
+    };
+
+    const toJsBooleanExpr = (expr: string): string => {
+      let e = normalize(expr);
+      // Word operators
+      e = e.replace(/\band\b/g, "&&");
+      e = e.replace(/\bor\b/g, "||");
+      e = e.replace(/\bnot\b/g, "!");
+      // Common single-char operators
+      e = e.replace(/\*/g, "&&");
+      e = e.replace(/\+/g, "||");
+      // Implication / equivalence
+      // a -> b === (!a || b)
+      e = e.replace(/([a-zA-Z0-9_\)]+)->([a-zA-Z0-9_\(]+)/g, "(!$1||$2)");
+      // a <-> b === (a===b)
+      e = e.replace(/([a-zA-Z0-9_\)]+)<->([a-zA-Z0-9_\(]+)/g, "($1===$2)");
+      return e;
+    };
+
+    const safeEvalBoolean = (
+      expr: string,
+      env: Record<string, boolean>,
+    ): boolean => {
+      const js = toJsBooleanExpr(expr);
+      const fn = new Function(
+        ...Object.keys(env),
+        `"use strict"; return Boolean(${js});`,
+      ) as (...args: boolean[]) => boolean;
+      return fn(...Object.keys(env).map((k) => env[k]));
+    };
+
     if (!answer || typeof answer.expression !== "string") {
       return {
         is_correct: false,
@@ -1510,11 +1542,43 @@ export class InteractiveGrader {
       };
     }
 
-    // Basic logic: Compare normalized expressions
-    const normalize = (expr: string) => expr.replace(/\s+/g, "").toLowerCase();
-    const isCorrect =
-      normalize(answer.expression) ===
-      normalize(questionData.correct_expression || "");
+    const correctExpression =
+      (typeof questionData?.correct_expression === "string"
+        ? questionData.correct_expression
+        : undefined) ||
+      (typeof question.questionBank?.correct_answer === "string"
+        ? question.questionBank?.correct_answer
+        : "");
+
+    // Prefer semantic equivalence when variables exist; otherwise fall back to normalized string compare
+    let isCorrect = false;
+    try {
+      const vars = extractVariables(
+        `${answer.expression} ${correctExpression}`,
+      );
+      if (vars.length === 0) {
+        isCorrect =
+          normalize(answer.expression) === normalize(correctExpression);
+      } else {
+        const limitedVars = vars.slice(0, 6); // cap to avoid exponential blowup
+        const combos = 1 << limitedVars.length;
+        isCorrect = true;
+        for (let mask = 0; mask < combos; mask++) {
+          const env: Record<string, boolean> = {};
+          for (let i = 0; i < limitedVars.length; i++) {
+            env[limitedVars[i]] = Boolean(mask & (1 << i));
+          }
+          const aVal = safeEvalBoolean(answer.expression, env);
+          const cVal = safeEvalBoolean(correctExpression, env);
+          if (aVal !== cVal) {
+            isCorrect = false;
+            break;
+          }
+        }
+      }
+    } catch (e) {
+      isCorrect = normalize(answer.expression) === normalize(correctExpression);
+    }
 
     return {
       is_correct: isCorrect,
@@ -1632,9 +1696,22 @@ export class CodingGrader {
     }
 
     const testResults: any[] = [];
-    const languageId = Judge0Service.getLanguageId(
-      questionData.language || "javascript",
-    );
+    const language = questionData.language || "javascript";
+    let languageId: number | null = null;
+    try {
+      languageId = Judge0Service.getLanguageId(language);
+    } catch (e) {
+      languageId = null;
+    }
+
+    if (!languageId) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback:
+          "Coding auto-grading is not available (unsupported language configuration).",
+      };
+    }
 
     try {
       // Execute each test case via Judge0
@@ -1665,28 +1742,64 @@ export class CodingGrader {
         });
       }
 
+      const passedTests = testResults.filter((r) => r.passed).length;
+      const totalTests = testResults.length;
+      const allPassed = totalTests > 0 && passedTests === totalTests;
+
       // Perform AI Analysis for Code Quality and Efficiency (40% of score)
       // Uses provider chain: Gemini → OpenAI → Mock
-      const aiResult = await aiService.gradeCoding(
-        question.questionBank?.question_text || "",
-        finalCode,
-        questionData.language || "javascript",
-        testResults,
-        parseFloat(String(question.points || 0)),
-        questionData.constraints,
-      );
+      // Ensure correctness is deterministic: only fully correct if all tests pass.
+      // AI can help with partial credit/feedback but should not override correctness.
+      let aiResult:
+        | {
+            is_correct: boolean;
+            points_earned: number;
+            feedback: string;
+            quality_score?: number;
+            efficiency_score?: number;
+            correctness_score?: number;
+          }
+        | undefined;
+      try {
+        aiResult = await aiService.gradeCoding(
+          question.questionBank?.question_text || "",
+          finalCode,
+          language,
+          testResults,
+          parseFloat(String(question.points || 0)),
+          questionData.constraints,
+        );
+      } catch (e) {
+        aiResult = undefined;
+      }
+
+      const maxPoints = parseFloat(String(question.points || 0));
+      const testPoints =
+        totalTests > 0 ? (passedTests / totalTests) * maxPoints : 0;
+
+      const aiPoints =
+        typeof aiResult?.points_earned === "number"
+          ? aiResult.points_earned
+          : 0;
+
+      const combinedPoints = Math.max(testPoints, aiPoints);
+      const pointsEarned = Math.max(0, Math.min(combinedPoints, maxPoints));
 
       return {
-        is_correct: aiResult.is_correct,
-        points_earned: aiResult.points_earned,
-        feedback: aiResult.feedback,
+        is_correct: allPassed,
+        points_earned: pointsEarned,
+        feedback:
+          aiResult?.feedback ||
+          (allPassed
+            ? "All test cases passed."
+            : `${passedTests}/${totalTests} test cases passed.`),
         detailed_feedback: {
           testResults,
-          quality_score: aiResult.quality_score,
-          efficiency_score: aiResult.efficiency_score,
-          correctness_score: aiResult.correctness_score,
-          passedTests: testResults.filter((r) => r.passed).length,
-          totalTests: testResults.length,
+          quality_score: aiResult?.quality_score,
+          efficiency_score: aiResult?.efficiency_score,
+          correctness_score: aiResult?.correctness_score,
+          passedTests,
+          totalTests,
         },
       };
     } catch (error: any) {
@@ -1694,7 +1807,8 @@ export class CodingGrader {
       return {
         is_correct: false,
         points_earned: 0,
-        feedback: `Grading failed: ${error.message}`,
+        feedback:
+          "Coding auto-grading failed. Please try again later or contact your instructor.",
       };
     }
   }
