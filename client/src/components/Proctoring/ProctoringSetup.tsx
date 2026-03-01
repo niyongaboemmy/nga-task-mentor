@@ -49,10 +49,10 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
   });
 
   const [environmentCheck, setEnvironmentCheck] = useState({
-    singlePerson: false,
-    noUnauthorizedMaterials: false,
-    properLighting: false,
-    quietEnvironment: false,
+    singlePerson: true,
+    noUnauthorizedMaterials: true,
+    properLighting: true,
+    quietEnvironment: true,
   });
 
   const [identityVerified, setIdentityVerified] = useState(false);
@@ -119,7 +119,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
     {
       id: "face-verification",
       title: "Face Verification",
-      description: "Verify your face is clearly visible using AI detection",
+      description: "",
       component: (
         <FaceVerificationStep
           onFaceVerified={() => setFaceVerified(true)}
@@ -1168,75 +1168,71 @@ const EnvironmentCheckStep: React.FC<{
 
   return (
     <div className="space-y-4">
-      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-xl p-4">
-        <h4 className="font-medium text-blue-900 dark:text-blue-100 mb-2">
+      <div className="bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-700 rounded-2xl p-4 lg:p-6">
+        <h4 className="font-medium text-blue-900 dark:text-blue-500 mb-2">
           Environment Requirements:
         </h4>
-        <ul className="text-sm text-blue-800 dark:text-blue-200 space-y-1">
-          <li>• You must be alone in the room</li>
-          <li>• No unauthorized materials, notes, or devices visible</li>
-          <li>• Adequate lighting so your face is clearly visible</li>
-          <li>• Quiet environment with no background noise</li>
-        </ul>
-      </div>
+        <div className="space-y-3">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={environmentCheck.singlePerson}
+              onChange={(e) =>
+                handleCheckboxChange("singlePerson", e.target.checked)
+              }
+              className="mr-3"
+            />
+            <span className="dark:text-gray-300">
+              I confirm I am alone in the room with no other people present
+            </span>
+          </label>
 
-      <div className="space-y-3">
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={environmentCheck.singlePerson}
-            onChange={(e) =>
-              handleCheckboxChange("singlePerson", e.target.checked)
-            }
-            className="mr-3"
-          />
-          <span className="dark:text-gray-300">
-            I confirm I am alone in the room with no other people present
-          </span>
-        </label>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={environmentCheck.noUnauthorizedMaterials}
+              onChange={(e) =>
+                handleCheckboxChange(
+                  "noUnauthorizedMaterials",
+                  e.target.checked,
+                )
+              }
+              className="mr-3"
+            />
+            <span className="dark:text-gray-300">
+              I confirm there are no unauthorized materials, notes, or devices
+              visible
+            </span>
+          </label>
 
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={environmentCheck.noUnauthorizedMaterials}
-            onChange={(e) =>
-              handleCheckboxChange("noUnauthorizedMaterials", e.target.checked)
-            }
-            className="mr-3"
-          />
-          <span className="dark:text-gray-300">
-            I confirm there are no unauthorized materials, notes, or devices
-            visible
-          </span>
-        </label>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={environmentCheck.properLighting}
+              onChange={(e) =>
+                handleCheckboxChange("properLighting", e.target.checked)
+              }
+              className="mr-3"
+            />
+            <span className="dark:text-gray-300">
+              I confirm the lighting is adequate and my face is clearly visible
+            </span>
+          </label>
 
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={environmentCheck.properLighting}
-            onChange={(e) =>
-              handleCheckboxChange("properLighting", e.target.checked)
-            }
-            className="mr-3"
-          />
-          <span className="dark:text-gray-300">
-            I confirm the lighting is adequate and my face is clearly visible
-          </span>
-        </label>
-
-        <label className="flex items-center">
-          <input
-            type="checkbox"
-            checked={environmentCheck.quietEnvironment}
-            onChange={(e) =>
-              handleCheckboxChange("quietEnvironment", e.target.checked)
-            }
-            className="mr-3"
-          />
-          <span>
-            I confirm the environment is quiet with no background noise
-          </span>
-        </label>
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={environmentCheck.quietEnvironment}
+              onChange={(e) =>
+                handleCheckboxChange("quietEnvironment", e.target.checked)
+              }
+              className="mr-3"
+            />
+            <span>
+              I confirm the environment is quiet with no background noise
+            </span>
+          </label>
+        </div>
       </div>
     </div>
   );
@@ -1490,13 +1486,6 @@ const IdentityVerificationStep: React.FC<{
 
   return (
     <div className="text-center">
-      <div className="mb-4">
-        <p className="text-gray-600 dark:text-gray-400 mb-4">
-          Please position yourself in front of the camera so your face is
-          clearly visible for identity verification.
-        </p>
-      </div>
-
       {!photoCaptured ? (
         <div className="mb-4">
           {/* Video with Canvas Overlay */}
@@ -1976,13 +1965,6 @@ const FaceVerificationStep: React.FC<{
 
   return (
     <div className="text-center">
-      <div className="mb-4">
-        <p className="text-gray-600 dark:text-gray-400 mb-4">
-          We need to verify that your face is clearly visible using AI face
-          detection before you can begin the proctored quiz.
-        </p>
-      </div>
-
       {error && (
         <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
           <p className="text-red-800">{error}</p>
@@ -2008,7 +1990,7 @@ const FaceVerificationStep: React.FC<{
           </div>
 
           {/* Detection Status Display */}
-          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg border dark:border-gray-800">
+          <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border dark:border-gray-800">
             <h4 className="font-medium text-gray-900 dark:text-white mb-3">
               Face Detection Status
             </h4>
@@ -2049,8 +2031,8 @@ const FaceVerificationStep: React.FC<{
 
             {/* Detection Rules */}
             <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
-              <p className="font-medium mb-1">Detection Rules:</p>
-              <ul className="space-y-1 text-left">
+              {/* <p className="font-medium mb-1">Detection Rules:</p> */}
+              <ul className="space-y-1 text-left grid grid-cols-3 gap-2">
                 <li
                   className={
                     detectionStatus.faceCount === 1
@@ -2189,7 +2171,7 @@ const ConfirmationStep: React.FC<{
 }> = ({ browserInfo, environmentCheck, identityVerified, faceVerified }) => {
   return (
     <div className="space-y-4">
-      <div className="bg-green-50 border border-green-200 dark:border-green-800 dark:bg-green-900/30 rounded-2xl p-4">
+      {/* <div className="bg-green-50 border border-green-200 dark:border-green-800 dark:bg-green-900/30 rounded-2xl p-4">
         <h4 className="font-medium text-green-900 dark:text-green-300 mb-2">
           Setup Complete!
         </h4>
@@ -2197,7 +2179,7 @@ const ConfirmationStep: React.FC<{
           All requirements have been met. You are ready to begin your proctored
           quiz.
         </p>
-      </div>
+      </div> */}
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">

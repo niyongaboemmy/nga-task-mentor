@@ -14,6 +14,7 @@ import {
   Timer,
   Target,
   Zap,
+  Check,
 } from "lucide-react";
 import QuestionTimer from "../components/ui/QuestionTimer";
 import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
@@ -23,7 +24,13 @@ import FloatingCameraComponent from "../components/Proctoring/FloatingCameraComp
 import WarningNotification from "../components/Proctoring/WarningNotification";
 import NoteNotification from "../components/Proctoring/NoteNotification";
 import PauseOverlay from "../components/Proctoring/PauseOverlay";
-import type { Quiz, QuizQuestion, AnswerDataType } from "../types/quiz.types";
+import type {
+  Quiz,
+  QuizQuestion,
+  AnswerDataType,
+  QuestionComponentProps,
+} from "../types/quiz.types";
+import RichTextDisplay from "../components/Common/RichTextDisplay";
 
 interface QuizTakingQuiz extends Quiz {
   quiz_completed?: boolean;
@@ -52,6 +59,12 @@ const QuizTakingPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
+  const quizQuestions = quiz?.questions || [];
+  const currentQuestion = quizQuestions[currentQuestionIndex] || null;
+  const totalQuestions = quizQuestions.length;
+  const answeredQuestions = answers.length;
+  const progress =
+    totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
   const [timeLeft, setTimeLeft] = useState<number>(0);
   const [quizStartTime, setQuizStartTime] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -93,6 +106,13 @@ const QuizTakingPage: React.FC = () => {
   const [contentDisabled, setContentDisabled] = useState(false);
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
+  const [isCodingFullscreen, setIsCodingFullscreen] = useState(false);
+  const [perQuestionTimeLeft, setPerQuestionTimeLeft] = useState<number | null>(
+    null,
+  );
+  const [lockedQuestionIndices, setLockedQuestionIndices] = useState<
+    Set<number>
+  >(new Set());
 
   // Audio confirmation state
   const [audioConfirmationRequest, setAudioConfirmationRequest] = useState<{
@@ -185,8 +205,19 @@ const QuizTakingPage: React.FC = () => {
             setQuizStartTime(new Date(savedStartTime));
           }
         } catch (error) {
-          // console.error("Error parsing saved timer state:", error);
           localStorage.removeItem(timerSessionKey);
+        }
+      }
+
+      // Load saved locked indices
+      const lockedIndicesKey = `quiz_${id}_locked_indices`;
+      const savedLockedIndices = localStorage.getItem(lockedIndicesKey);
+      if (savedLockedIndices) {
+        try {
+          const parsedLocked = JSON.parse(savedLockedIndices);
+          setLockedQuestionIndices(new Set(parsedLocked));
+        } catch (error) {
+          localStorage.removeItem(lockedIndicesKey);
         }
       }
     }
@@ -1184,7 +1215,11 @@ const QuizTakingPage: React.FC = () => {
   // };
 
   const updateAnswer = useCallback(
-    async (questionId: number, answer: AnswerDataType) => {
+    async (
+      questionId: number,
+      answer: AnswerDataType,
+      forceSave: boolean = false,
+    ) => {
       const newAnswer: Answer = {
         question_id: questionId,
         answer,
@@ -1195,23 +1230,30 @@ const QuizTakingPage: React.FC = () => {
 
       setAnswers((prev) => {
         const existing = prev.find((a) => a.question_id === questionId);
+        let updated: Answer[];
         if (existing) {
-          return prev.map((a) =>
+          updated = prev.map((a) =>
             a.question_id === questionId ? newAnswer : a,
           );
+        } else {
+          updated = [...prev, newAnswer];
         }
-        return [...prev, newAnswer];
+
+        // Save answer to localStorage for persistence across reloads
+        const quizSessionKey = `quiz_${id}_answers`;
+        localStorage.setItem(quizSessionKey, JSON.stringify(updated));
+
+        return updated;
       });
 
-      // Save answer to localStorage for persistence across reloads
-      const quizSessionKey = `quiz_${id}_answers`;
-      const updatedAnswers = answers
-        .filter((a) => a.question_id !== questionId)
-        .concat(newAnswer);
-      localStorage.setItem(quizSessionKey, JSON.stringify(updatedAnswers));
+      // Find if this is a coding question
+      const question = quizQuestions.find((q) => q.id === questionId);
+      const isCoding = question?.questionBank?.question_type === "coding";
 
-      // Save answer to database with grading
-      if (existingSubmission) {
+      // Save answer to database
+      // For coding questions, we only save to server if forceSave is true (e.g. navigation or manual button)
+      // For other questions, we keep auto-saving as it's less frequent
+      if (existingSubmission && (!isCoding || forceSave)) {
         try {
           await QuizApiService.submitQuestionAnswer(
             existingSubmission.id,
@@ -1220,11 +1262,10 @@ const QuizTakingPage: React.FC = () => {
           );
         } catch (error: any) {
           // console.error("Error saving answer to database:", error);
-          // Don't show error for answer saving failures, just log them
         }
       }
     },
-    [answers, quizStartTime, existingSubmission, id],
+    [quizQuestions, quizStartTime, existingSubmission, id],
   );
 
   const handleAutoSubmit = async () => {
@@ -1274,8 +1315,10 @@ const QuizTakingPage: React.FC = () => {
       if (id) {
         const quizSessionKey = `quiz_${id}_answers`;
         const timerSessionKey = `quiz_${id}_timer`;
+        const lockedIndicesKey = `quiz_${id}_locked_indices`;
         localStorage.removeItem(quizSessionKey);
         localStorage.removeItem(timerSessionKey);
+        localStorage.removeItem(lockedIndicesKey);
       }
 
       // Check if quiz settings allow immediate results display
@@ -1290,7 +1333,12 @@ const QuizTakingPage: React.FC = () => {
         });
         setShowGradeSummary(true);
 
-        // Auto-navigate to full results after 3 seconds
+        // Auto-navigate to full results after 1.5 seconds
+        setTimeout(() => {
+          navigate(`/quizzes/${quiz.id}/results`, {
+            state: { quiz, answers, submissionData },
+          });
+        }, 1500);
       } else {
         // Navigate directly to results page
         navigate(`/quizzes/${quiz.id}/results`, {
@@ -1427,6 +1475,10 @@ const QuizTakingPage: React.FC = () => {
       );
 
       setIsFullscreenMode(isCurrentlyFullscreen);
+      if (!isCurrentlyFullscreen) {
+        setIsCodingFullscreen(false);
+        setColumnSizes({ left: 50, right: 50 });
+      }
 
       // Auto-start quiz when fullscreen is entered and required
       if (
@@ -1478,30 +1530,104 @@ const QuizTakingPage: React.FC = () => {
     quizStartTime,
   ]);
 
-  const renderQuestion = (question: QuizQuestion) => {
-    const currentAnswer = answers.find(
-      (a) => a.question_id === question.id,
-    )?.answer;
-
+  const renderQuestion = (
+    question: QuizQuestion,
+    extraProps: Partial<QuestionComponentProps> = {},
+  ) => {
     return (
       <QuestionRenderer
-        key={question.id} // Add key to force re-render when question changes
+        key={question.id}
         question={question}
-        answer={currentAnswer}
-        onAnswerChange={(answer: AnswerDataType) =>
-          updateAnswer(question.id, answer)
+        answer={answers.find((a) => a.question_id === question.id)?.answer}
+        onAnswerChange={(answer, forceSave) =>
+          updateAnswer(question.id, answer, forceSave)
         }
         disabled={contentDisabled}
+        timeRemaining={perQuestionTimeLeft || undefined}
+        onStart={() => setIsCodingFullscreen(true)}
+        onNext={handleNext}
+        onToggleFullscreen={(isFullscreen) => {
+          setIsCodingFullscreen(isFullscreen);
+          if (isFullscreen) {
+            setColumnSizes({ left: 0, right: 100 });
+            requestFullscreen();
+          } else {
+            setColumnSizes({ left: 50, right: 50 });
+            if (document.fullscreenElement) {
+              document.exitFullscreen().catch((err) => console.log(err));
+            }
+          }
+        }}
+        {...extraProps}
       />
     );
   };
 
-  const currentQuestion = quiz?.questions?.[currentQuestionIndex] || null;
-  const answeredQuestions = answers.length;
-  const totalQuestions = quiz?.questions?.length || 0;
-  const progress =
-    totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
-  const quizQuestions = quiz?.questions || [];
+  const handlePerQuestionTimeout = useCallback(() => {
+    if (!currentQuestion) return;
+
+    const currentAnswer = answers.find(
+      (a) => a.question_id === currentQuestion.id,
+    )?.answer;
+
+    if (currentAnswer) {
+      updateAnswer(currentQuestion.id, currentAnswer);
+    }
+
+    // Lock current index on timeout
+    setLockedQuestionIndices((prev) => {
+      const next = new Set(prev).add(currentQuestionIndex);
+      const lockedIndicesKey = `quiz_${id}_locked_indices`;
+      localStorage.setItem(lockedIndicesKey, JSON.stringify(Array.from(next)));
+      return next;
+    });
+
+    if (currentQuestionIndex < totalQuestions - 1) {
+      setCurrentQuestionIndex((prev) => prev + 1);
+    } else {
+      submitQuiz();
+    }
+  }, [
+    currentQuestion,
+    currentQuestionIndex,
+    totalQuestions,
+    answers,
+    submitQuiz,
+    updateAnswer,
+  ]);
+
+  useEffect(() => {
+    const qLimit = currentQuestion?.questionBank?.time_limit_seconds;
+    if (qLimit) {
+      setPerQuestionTimeLeft(qLimit);
+    } else {
+      setPerQuestionTimeLeft(null);
+    }
+  }, [currentQuestionIndex, currentQuestion?.id]);
+
+  useEffect(() => {
+    if (
+      perQuestionTimeLeft !== null &&
+      perQuestionTimeLeft > 0 &&
+      !showInstructions &&
+      !isExamPaused &&
+      !contentDisabled
+    ) {
+      const timer = setTimeout(() => {
+        setPerQuestionTimeLeft((prev) => (prev !== null ? prev - 1 : null));
+      }, 1000);
+      return () => clearTimeout(timer);
+    } else if (perQuestionTimeLeft === 0) {
+      handlePerQuestionTimeout();
+    }
+  }, [
+    perQuestionTimeLeft,
+    showInstructions,
+    isExamPaused,
+    contentDisabled,
+    currentQuestionIndex,
+    handlePerQuestionTimeout,
+  ]);
 
   const submitCurrentAnswer = useCallback(async () => {
     if (!currentQuestion) return;
@@ -1511,9 +1637,27 @@ const QuizTakingPage: React.FC = () => {
     )?.answer;
 
     if (currentAnswer) {
-      await updateAnswer(currentQuestion.id, currentAnswer);
+      await updateAnswer(currentQuestion.id, currentAnswer, true); // forceSave = true
     }
   }, [currentQuestion, answers, updateAnswer]);
+
+  const handleNext = useCallback(async () => {
+    await submitCurrentAnswer();
+    // Lock current index if configured to not return
+    setLockedQuestionIndices((prev) => {
+      const next = new Set(prev).add(currentQuestionIndex);
+      const lockedIndicesKey = `quiz_${id}_locked_indices`;
+      localStorage.setItem(lockedIndicesKey, JSON.stringify(Array.from(next)));
+      return next;
+    });
+    setCurrentQuestionIndex((prev) => Math.min(totalQuestions - 1, prev + 1));
+  }, [
+    submitCurrentAnswer,
+    currentQuestionIndex,
+    totalQuestions,
+    id,
+    setLockedQuestionIndices,
+  ]);
 
   if (loading) {
     return (
@@ -1838,7 +1982,7 @@ const QuizTakingPage: React.FC = () => {
     const currentInstruction = instructions[currentInstructionStep];
 
     return (
-      <div className="max-h-[70vh] flex items-center justify-center p-4">
+      <div className="flex items-center justify-center p-4 mt-12 h-max">
         <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 max-w-4xl w-full p-8 transform transition-all duration-300">
           {/* Error Display */}
           {error && (
@@ -1894,12 +2038,15 @@ const QuizTakingPage: React.FC = () => {
 
           <div className="flex items-center justify-between">
             <button
-              onClick={prevInstruction}
-              disabled={currentInstructionStep === 0}
+              onClick={
+                currentInstructionStep === 0
+                  ? () => history.back()
+                  : prevInstruction
+              }
               className="inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-105"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
-              Previous
+              {currentInstructionStep === 0 ? "Back" : "Previous"}
             </button>
 
             <div className="flex space-x-2">
@@ -1943,7 +2090,9 @@ const QuizTakingPage: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 bg-white dark:bg-gray-900 overflow-auto">
+    <div
+      className={`fixed inset-0 bg-white dark:bg-gray-900 flex flex-col ${isCodingFullscreen ? "overflow-hidden" : "overflow-auto"}`}
+    >
       {/* Warning Notification - Orange popup at top of browser */}
       <WarningNotification
         message={warningMessage}
@@ -2258,99 +2407,79 @@ const QuizTakingPage: React.FC = () => {
       )}
 
       {/* Header */}
-      <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="w-full flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-3">
-              <div>
-                <BookOpen className="h-6 w-6 text-blue-600" />
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900 dark:text-white">
-                  {quiz.title}
-                </h1>
-                <p className="text-sm text-gray-600 dark:text-gray-200">
-                  Question {currentQuestionIndex + 1} of {totalQuestions}
-                </p>
+      {!isCodingFullscreen && (
+        <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+          <div className="w-full flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div>
+                  <BookOpen className="h-6 w-6 text-blue-600" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {quiz.title}
+                  </h1>
+                  <p className="text-sm text-gray-600 dark:text-gray-200">
+                    Question {currentQuestionIndex + 1} of {totalQuestions}
+                  </p>
+                </div>
               </div>
             </div>
-          </div>
 
-          <div className="flex items-center gap-4">
-            {/* Progress Indicator */}
-            <div className="hidden sm:flex items-center gap-3">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                Progress
-              </span>
-              <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-blue-500 rounded-full transition-all duration-500"
-                  style={{ width: `${progress}%` }}
+            <div className="flex items-center gap-4">
+              {/* Progress Indicator */}
+              <div className="hidden sm:flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                  Progress
+                </span>
+                <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 min-w-[3rem]">
+                  {answeredQuestions}/{totalQuestions}
+                </span>
+              </div>
+
+              {/* Question Timer */}
+              {currentQuestion?.questionBank?.time_limit_seconds && (
+                <QuestionTimer
+                  key={`question-timer-${currentQuestionIndex}`} // Force re-mount on question change
+                  timeLeft={currentQuestion.questionBank.time_limit_seconds}
+                  currentTime={perQuestionTimeLeft || undefined}
+                  onTimeout={handlePerQuestionTimeout}
                 />
-              </div>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-200 min-w-[3rem]">
-                {answeredQuestions}/{totalQuestions}
-              </span>
-            </div>
-
-            {/* Question Timer */}
-            {currentQuestion?.time_limit_seconds && (
-              <QuestionTimer
-                key={`question-timer-${currentQuestionIndex}`} // Force re-mount on question change
-                timeLeft={currentQuestion.time_limit_seconds}
-                onTimeout={() => {
-                  // Auto-submit current question and move to next
-                  const currentAnswer = answers.find(
-                    (a) => a.question_id === currentQuestion.id,
-                  )?.answer;
-
-                  if (currentAnswer) {
-                    // Submit the question automatically
-                    updateAnswer(currentQuestion.id, currentAnswer);
-                    // Mark as submitted and move to next
-                    if (currentQuestionIndex < totalQuestions - 1) {
-                      setCurrentQuestionIndex((prev) => prev + 1);
-                    } else {
-                      submitQuiz();
-                    }
-                  } else {
-                    // If no answer, just move to next question
-                    if (currentQuestionIndex < totalQuestions - 1) {
-                      setCurrentQuestionIndex((prev) => prev + 1);
-                    } else {
-                      submitQuiz();
-                    }
-                  }
-                }}
-              />
-            )}
-
-            {/* Submit Button */}
-            <button
-              onClick={async () => {
-                await submitCurrentAnswer();
-                setShowConfirmSubmit(true);
-              }}
-              disabled={
-                isSubmitting || answeredQuestions === 0 || contentDisabled
-              }
-              className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin inline" />
-                  Submitting...
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="h-4 w-4 mr-2 inline" />
-                  Submit Quiz
-                </>
               )}
-            </button>
+
+              {/* Submit Button */}
+              <button
+                onClick={async () => {
+                  await submitCurrentAnswer();
+                  setShowConfirmSubmit(true);
+                }}
+                disabled={
+                  isSubmitting || answeredQuestions === 0 || contentDisabled
+                }
+                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin inline" />
+                    Submitting...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="h-4 w-4 mr-2 inline" />
+                    Submit Quiz
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden" data-resizable-container>
@@ -2361,10 +2490,10 @@ const QuizTakingPage: React.FC = () => {
             contentDisabled
               ? "blur-sm pointer-events-none select-none"
               : ""
-          }`}
+          } ${isCodingFullscreen ? "hidden" : ""}`}
           style={{
-            width: `${columnSizes.left}%`,
-            height: "calc(100vh - 160px)",
+            width: isCodingFullscreen ? "0%" : `${columnSizes.left}%`,
+            height: isCodingFullscreen ? "100vh" : "calc(100vh - 160px)",
           }}
         >
           <div className="space-y-6">
@@ -2397,64 +2526,61 @@ const QuizTakingPage: React.FC = () => {
                 Problem Statement
               </h3>
               <div className="text-gray-700 dark:text-gray-200 leading-relaxed">
-                {(() => {
-                  try {
-                    // Handle case where question_text might be stored as JSON
-                    const text =
-                      currentQuestion?.question_text ||
-                      currentQuestion?.questionBank?.question_text;
-                    if (typeof text === "string") {
-                      // Try to parse as JSON first, fallback to string
-                      try {
-                        const parsed = JSON.parse(text);
-                        return typeof parsed === "string" ? parsed : text;
-                      } catch {
-                        return text;
+                <RichTextDisplay
+                  content={(() => {
+                    try {
+                      // Handle case where question_text might be stored as JSON
+                      const text =
+                        currentQuestion?.question_text ||
+                        currentQuestion?.questionBank?.question_text;
+                      if (typeof text === "string") {
+                        // Try to parse as JSON first, fallback to string
+                        try {
+                          const parsed = JSON.parse(text);
+                          return typeof parsed === "string" ? parsed : text;
+                        } catch {
+                          return text;
+                        }
                       }
+                      return text || "Question text not available";
+                    } catch (error) {
+                      // console.error("Error parsing question text:", error);
+                      return "Question text not available";
                     }
-                    return text || "Question text not available";
-                  } catch (error) {
-                    // console.error("Error parsing question text:", error);
-                    return "Question text not available";
-                  }
-                })()}
+                  })()}
+                />
               </div>
             </div>
 
             {/* Constraints */}
-            {(() => {
-              const qData =
-                currentQuestion?.question_data ||
-                currentQuestion?.questionBank?.question_data;
-              if (
-                qData &&
-                typeof qData === "object" &&
-                "constraints" in qData &&
-                (qData as any).constraints
-              ) {
-                return (
-                  <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 border border-gray-200 dark:border-gray-600">
-                    <h4 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-                      Constraints
-                    </h4>
-                    <p className="text-gray-700 dark:text-gray-200 leading-relaxed">
-                      {(qData as any).constraints}
-                    </p>
-                  </div>
-                );
-              }
-              return null;
-            })()}
+            <RichTextDisplay
+              content={(() => {
+                const qData =
+                  currentQuestion?.question_data ||
+                  currentQuestion?.questionBank?.question_data;
+                if (
+                  qData &&
+                  typeof qData === "object" &&
+                  "constraints" in qData &&
+                  (qData as any).constraints
+                ) {
+                  return (qData as any).constraints;
+                }
+                return "No constraints available";
+              })()}
+            />
           </div>
         </div>
 
         {/* Resizer */}
-        <div
-          className="w-1 bg-gray-300 dark:bg-gray-600 cursor-col-resize hover:bg-blue-400 dark:hover:bg-blue-500 transition-colors relative"
-          onMouseDown={handleMouseDown}
-        >
-          <div className="absolute inset-y-0 left-1/2 transform -translate-x-1/2 w-0.5 bg-gray-400 dark:bg-gray-500"></div>
-        </div>
+        {!isCodingFullscreen && (
+          <div
+            className="w-1 bg-gray-300 dark:bg-gray-600 cursor-col-resize hover:bg-blue-400 dark:hover:bg-blue-500 transition-colors relative"
+            onMouseDown={handleMouseDown}
+          >
+            <div className="absolute inset-y-0 left-1/2 transform -translate-x-1/2 w-0.5 bg-gray-400 dark:bg-gray-500"></div>
+          </div>
+        )}
 
         {/* Column 2: Answering and Testing */}
         <div
@@ -2465,18 +2591,24 @@ const QuizTakingPage: React.FC = () => {
               : ""
           }`}
           style={{
-            width: `${columnSizes.right}%`,
-            height: "calc(100vh - 160px)",
+            width: isCodingFullscreen ? "100%" : `${columnSizes.right}%`,
+            height: isCodingFullscreen ? "100vh" : "calc(100vh - 160px)",
           }}
         >
           <div className="space-y-6">
             {/* Answer Input */}
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
-                Your Answer
-              </h3>
+              {!isCodingFullscreen && (
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+                  Your Answer
+                </h3>
+              )}
               <div className="space-y-4">
-                {currentQuestion && renderQuestion(currentQuestion)}
+                {currentQuestion &&
+                  renderQuestion(currentQuestion, {
+                    submissionId: existingSubmission?.id,
+                    isFullscreen: isCodingFullscreen,
+                  })}
               </div>
             </div>
           </div>
@@ -2484,60 +2616,79 @@ const QuizTakingPage: React.FC = () => {
       </div>
 
       {/* Navigation Footer */}
-      <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
-        <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <button
-            onClick={() =>
-              setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))
-            }
-            disabled={currentQuestionIndex === 0 || contentDisabled}
-            className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <ArrowLeft className="h-4 w-4 mr-2 inline" />
-            Previous
-          </button>
+      {!isCodingFullscreen && (
+        <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
+            <button
+              onClick={() =>
+                setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))
+              }
+              disabled={
+                currentQuestionIndex === 0 ||
+                contentDisabled ||
+                lockedQuestionIndices.has(currentQuestionIndex - 1)
+              }
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2 inline" />
+              Previous
+            </button>
 
-          <div className="flex items-center gap-2">
-            {quizQuestions.map((question, index) => {
-              const isAnswered = answers.find(
-                (a) => a.question_id === question.id,
-              );
-              return (
-                <button
-                  key={index}
-                  onClick={() => setCurrentQuestionIndex(index)}
-                  disabled={contentDisabled}
-                  className={`w-8 h-8 rounded-xl text-sm font-medium transition-colors ${
-                    index === currentQuestionIndex
-                      ? "bg-blue-500 text-white"
-                      : isAnswered
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-200 text-gray-600 hover:bg-gray-300 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600"
-                  } ${contentDisabled ? "opacity-50 cursor-not-allowed" : ""}`}
-                >
-                  {index + 1}
-                </button>
-              );
-            })}
+            <div className="flex items-center gap-2">
+              {quizQuestions.map((question, index) => {
+                const isAnswered = answers.find(
+                  (a) => a.question_id === question.id,
+                );
+                return (
+                  <button
+                    key={index}
+                    onClick={() => setCurrentQuestionIndex(index)}
+                    disabled={
+                      contentDisabled || lockedQuestionIndices.has(index)
+                    }
+                    title={
+                      lockedQuestionIndices.has(index)
+                        ? "Question submitted or timed out"
+                        : isAnswered
+                          ? "Question answered"
+                          : "Question not answered"
+                    }
+                    className={`relative w-10 h-10 rounded-xl text-sm font-bold flex items-center justify-center transition-all ${
+                      index === currentQuestionIndex
+                        ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110 z-10"
+                        : lockedQuestionIndices.has(index)
+                          ? "bg-gray-400 text-white cursor-not-allowed opacity-60"
+                          : isAnswered
+                            ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
+                            : "bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
+                    } ${
+                      contentDisabled ? "opacity-50 cursor-not-allowed" : ""
+                    }`}
+                  >
+                    {isAnswered && (
+                      <div className="absolute -top-1.5 -right-1.5 bg-white dark:bg-gray-900 rounded-full p-0.5 border-2 border-emerald-500 shadow-sm">
+                        <Check className="h-2.5 w-2.5 text-emerald-500 stroke-[4px]" />
+                      </div>
+                    )}
+                    {index + 1}
+                  </button>
+                );
+              })}
+            </div>
+
+            <button
+              onClick={handleNext}
+              disabled={
+                currentQuestionIndex === totalQuestions - 1 || contentDisabled
+              }
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Next
+              <ArrowRight className="h-4 w-4 ml-2 inline" />
+            </button>
           </div>
-
-          <button
-            onClick={async () => {
-              await submitCurrentAnswer();
-              setCurrentQuestionIndex((prev) =>
-                Math.min(totalQuestions - 1, prev + 1),
-              );
-            }}
-            disabled={
-              currentQuestionIndex === totalQuestions - 1 || contentDisabled
-            }
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Next
-            <ArrowRight className="h-4 w-4 ml-2 inline" />
-          </button>
         </div>
-      </div>
+      )}
 
       {/* Submit Confirmation Modal */}
       {showConfirmSubmit && (
@@ -2651,88 +2802,146 @@ const QuizTakingPage: React.FC = () => {
 
       {/* Grade Summary Modal */}
       {showGradeSummary && gradeSummary && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-lg w-full p-8 text-center shadow-2xl border border-gray-200 dark:border-gray-800">
-            <div className="mb-6">
-              <div className="w-20 h-20 bg-gradient-to-r from-blue-500 to-blue-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">🎉</span>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
+          <div className="bg-white dark:bg-gray-900 rounded-[2rem] max-w-lg w-full p-8 text-center shadow-2xl border border-white/20 dark:border-gray-800 relative overflow-hidden">
+            {/* Background effects */}
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 dark:bg-blue-500/20 rounded-full blur-3xl"></div>
+            <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 dark:bg-purple-500/20 rounded-full blur-3xl"></div>
+
+            <div className="relative z-10 mb-8">
+              <div className="w-24 h-24 bg-gradient-to-tr from-blue-500 to-indigo-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-lg shadow-blue-500/30 animate-in zoom-in duration-500 delay-100">
+                <span className="text-4xl">🎉</span>
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                Quiz Submitted Successfully!
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200">
+                Quiz Submitted!
               </h2>
-              <p className="text-gray-600 dark:text-gray-200">
+              <p className="text-gray-600 dark:text-gray-400 text-lg font-medium animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300">
                 {gradeSummary.quiz_title}
               </p>
             </div>
 
-            <div className="space-y-4 mb-8">
-              <div className="bg-gradient-to-r from-blue-50 to-blue-50 dark:from-blue-900/30 dark:to-blue-900/30 rounded-2xl p-6">
-                <div className="text-center">
-                  <div
-                    className={`text-5xl font-bold mb-2 ${
-                      gradeSummary.percentage >= 90
-                        ? "text-green-600 dark:text-green-400"
-                        : gradeSummary.percentage >= 80
-                          ? "text-blue-600 dark:text-blue-400"
-                          : gradeSummary.percentage >= 70
-                            ? "text-yellow-600 dark:text-yellow-400"
-                            : gradeSummary.percentage >= 60
-                              ? "text-orange-600 dark:text-orange-400"
-                              : "text-red-600 dark:text-red-400"
-                    }`}
-                  >
-                    {Math.round(gradeSummary.percentage)}%
+            <div className="space-y-6 mb-8 relative z-10">
+              <div className="bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-800/80 dark:to-blue-900/20 rounded-3xl p-8 border border-blue-100 dark:border-blue-800/50 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500 delay-400">
+                <div className="text-center relative">
+                  {/* Circular Progress Design */}
+                  <div className="relative inline-flex items-center justify-center mb-6">
+                    <svg className="w-40 h-40 transform -rotate-90">
+                      <circle
+                        className="text-gray-200 dark:text-gray-700"
+                        strokeWidth="12"
+                        stroke="currentColor"
+                        fill="transparent"
+                        r="70"
+                        cx="80"
+                        cy="80"
+                      />
+                      <circle
+                        className={`transition-all duration-1000 ease-out ${
+                          gradeSummary.percentage >= 90
+                            ? "text-emerald-500"
+                            : gradeSummary.percentage >= 80
+                              ? "text-blue-500"
+                              : gradeSummary.percentage >= 70
+                                ? "text-yellow-500"
+                                : gradeSummary.percentage >= 60
+                                  ? "text-orange-500"
+                                  : "text-red-500"
+                        }`}
+                        strokeWidth="12"
+                        strokeDasharray={440}
+                        strokeDashoffset={
+                          440 - (440 * gradeSummary.percentage) / 100
+                        }
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="transparent"
+                        r="70"
+                        cx="80"
+                        cy="80"
+                      />
+                    </svg>
+                    <div className="absolute flex flex-col items-center justify-center">
+                      <span className="text-4xl font-black text-gray-900 dark:text-white">
+                        {Math.round(gradeSummary.percentage)}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="text-lg font-semibold text-gray-700 dark:text-gray-200 mb-1">
-                    Grade:{" "}
-                    {gradeSummary.percentage >= 90
-                      ? "A"
-                      : gradeSummary.percentage >= 80
-                        ? "B"
-                        : gradeSummary.percentage >= 70
-                          ? "C"
-                          : gradeSummary.percentage >= 60
-                            ? "D"
-                            : "F"}
-                  </div>
-                  <div
-                    className={`inline-flex items-center px-4 py-2 rounded-full text-sm font-medium ${
-                      gradeSummary.passed
-                        ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300"
-                        : "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300"
-                    }`}
-                  >
-                    {gradeSummary.passed && gradeSummary.percentage >= 50
-                      ? "✓ Passed"
-                      : "✗ Failed"}
+
+                  <div className="flex flex-col gap-3 items-center justify-center">
+                    <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                      Grade:{" "}
+                      <span
+                        className={
+                          gradeSummary.percentage >= 90
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : gradeSummary.percentage >= 80
+                              ? "text-blue-600 dark:text-blue-400"
+                              : gradeSummary.percentage >= 70
+                                ? "text-yellow-600 dark:text-yellow-400"
+                                : gradeSummary.percentage >= 60
+                                  ? "text-orange-600 dark:text-orange-400"
+                                  : "text-red-600 dark:text-red-400"
+                        }
+                      >
+                        {gradeSummary.percentage >= 90
+                          ? "A"
+                          : gradeSummary.percentage >= 80
+                            ? "B"
+                            : gradeSummary.percentage >= 70
+                              ? "C"
+                              : gradeSummary.percentage >= 60
+                                ? "D"
+                                : "F"}
+                      </span>
+                    </div>
+
+                    {gradeSummary.passed !== undefined &&
+                      gradeSummary.passed !== null && (
+                        <div
+                          className={`inline-flex items-center px-6 py-2 rounded-full text-base font-bold shadow-sm ${
+                            gradeSummary.passed
+                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
+                              : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800"
+                          }`}
+                        >
+                          {gradeSummary.passed
+                            ? "🏆 Passed"
+                            : "💪 Needs Review"}
+                        </div>
+                      )}
                   </div>
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+              <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-500">
+                <div className="bg-white dark:bg-gray-800/80 rounded-2xl p-5 border border-gray-100 dark:border-gray-700/50 shadow-sm">
+                  <div className="text-3xl font-black text-indigo-600 dark:text-indigo-400 mb-1">
                     {gradeSummary.final_score}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-200">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Points Earned
                   </div>
                 </div>
-                <div className="bg-gray-50 dark:bg-gray-700 rounded-xl p-4">
-                  <div className="text-2xl font-bold text-gray-900 dark:text-white">
+                <div className="bg-white dark:bg-gray-800/80 rounded-2xl p-5 border border-gray-100 dark:border-gray-700/50 shadow-sm">
+                  <div className="text-3xl font-black text-gray-800 dark:text-gray-200 mb-1">
                     {gradeSummary.max_score}
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-200">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
                     Total Points
                   </div>
                 </div>
               </div>
             </div>
 
-            <div className="text-center text-sm text-gray-500 dark:text-gray-200">
-              <p>Redirecting to detailed results in a few seconds...</p>
-              <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-1">
-                <div className="bg-blue-500 h-1 rounded-full animate-pulse"></div>
+            <div className="text-center animate-in fade-in duration-500 delay-700 relative z-10">
+              <div className="flex items-center justify-center gap-3 mb-3">
+                <div className="w-5 h-5 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                  Redirecting to detailed results...
+                </p>
+              </div>
+              <div className="w-full bg-gray-100 dark:bg-gray-800 rounded-full h-1.5 overflow-hidden">
+                <div className="bg-gradient-to-r from-blue-500 to-indigo-500 h-1.5 rounded-full w-full animate-[shrink_1.5s_ease-in-out_forwards] origin-left"></div>
               </div>
             </div>
           </div>

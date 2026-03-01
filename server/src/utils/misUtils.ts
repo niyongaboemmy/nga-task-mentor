@@ -1,6 +1,51 @@
-import { Request } from "express";
+import { Request, Response } from "express";
 import axios from "axios";
 import jwt from "jsonwebtoken";
+
+/**
+ * Handle MIS API errors, including 401 Unauthorized by logging out the user
+ * @param error The error object from axios
+ * @param res Express response object
+ * @param defaultMessage Optional default message for the error
+ */
+export const handleMisError = (
+  error: any,
+  res: Response,
+  defaultMessage: string = "Error communicating with MIS API",
+) => {
+  if (error.response && error.response.status === 401) {
+    console.error("🔒 MIS Token Invalid or Expired. Triggering logout.");
+
+    // Clear the TaskMentor auth cookie
+    res.cookie("nga_auth_token", "none", {
+      expires: new Date(Date.now() + 10 * 1000),
+      httpOnly: true,
+    });
+
+    // Clear the MIS token cookie
+    res.cookie("misToken", "none", {
+      expires: new Date(Date.now() + 10 * 1000),
+      httpOnly: true,
+    });
+
+    return res.status(401).json({
+      success: false,
+      message: "Your MIS session has expired. Please login again.",
+      logout: true,
+    });
+  }
+
+  console.error(`${defaultMessage}:`, error.message);
+  if (error.response) {
+    console.error("MIS API error response:", error.response.data);
+  }
+
+  return res.status(error.response?.status || 500).json({
+    success: false,
+    message: error.response?.data?.message || defaultMessage,
+    error: error.message,
+  });
+};
 
 /**
  * Extract MIS token from request headers
@@ -10,14 +55,30 @@ import jwt from "jsonwebtoken";
 export const getMisToken = (req: Request): string => {
   // First check cookie (secure HttpOnly)
   if (req.cookies && req.cookies.misToken) {
-    return req.cookies.misToken;
+    console.log("🍪 Found MIS token in cookie");
+    return req.cookies.misToken.replace(/^Bearer /i, "");
   }
 
-  // Fallback to header
-  const misTokenHeader = req.headers["x-mis-token"];
-  return typeof misTokenHeader === "string"
-    ? misTokenHeader.replace("Bearer ", "")
-    : "";
+  // Then check x-mis-token header
+  let token = req.headers["x-mis-token"];
+  if (token) {
+    console.log("Header Found MIS token in x-mis-token header");
+  }
+
+  // Fallback to Authorization header if it looks like an MIS token
+  if (!token && req.headers.authorization && req.headers["x-use-mis-auth"]) {
+    console.log(
+      "🛂 Using Authorization header as MIS token (x-use-mis-auth is set)",
+    );
+    token = req.headers.authorization;
+  }
+
+  if (typeof token === "string") {
+    return token.replace(/^Bearer /i, "");
+  }
+
+  console.log("❓ No MIS token found in request");
+  return "";
 };
 
 /**

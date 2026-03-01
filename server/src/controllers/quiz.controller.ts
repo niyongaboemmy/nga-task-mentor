@@ -6,14 +6,21 @@ import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
 import { QuizGrader, AdvancedQuizGrader } from "../utils/quizGrader";
+import { QuestionAiGrader } from "../utils/openAi";
+import { Judge0Service } from "../services/Judge0Service";
 import { getQuestionBankInclude } from "../utils/quizUtils";
+
 import {
   QuestionType,
   CreateQuizRequest,
   UpdateQuizRequest,
   GradingResult,
 } from "../types/quiz.types";
-import { getMisToken, getCurrentTermId } from "../utils/misUtils";
+import {
+  getMisToken,
+  getCurrentTermId,
+  handleMisError,
+} from "../utils/misUtils";
 
 // Deep equality comparison for objects
 
@@ -149,7 +156,7 @@ export const getQuiz = async (req: Request, res: Response) => {
             include: [
               {
                 model: QuizQuestion,
-                as: "question",
+                as: "attemptQuestion",
                 attributes: ["id", "points"],
                 include: [
                   {
@@ -158,6 +165,7 @@ export const getQuiz = async (req: Request, res: Response) => {
                     attributes: [
                       "question_text",
                       "question_type",
+                      "question_data",
                       "explanation",
                       "correct_answer",
                     ],
@@ -199,14 +207,15 @@ export const getQuiz = async (req: Request, res: Response) => {
         // Build results array
         const results = attempts.map((attempt) => ({
           question_id: attempt.question_id,
-          question_text: attempt.question?.questionBank?.question_text,
-          question_type: attempt.question?.questionBank?.question_type,
+          question_text: attempt.attemptQuestion?.questionBank?.question_text,
+          question_type: attempt.attemptQuestion?.questionBank?.question_type,
+          question_data: attempt.attemptQuestion?.questionBank?.question_data,
           user_answer: attempt.submitted_answer,
           correct_answer: attempt.correct_answer,
           is_correct: attempt.is_correct,
           points_earned: attempt.points_earned,
-          max_points: attempt.question?.points,
-          explanation: attempt.question?.questionBank?.explanation,
+          max_points: attempt.attemptQuestion?.points,
+          explanation: attempt.attemptQuestion?.questionBank?.explanation,
           time_taken: attempt.time_taken,
         }));
 
@@ -226,6 +235,17 @@ export const getQuiz = async (req: Request, res: Response) => {
             results,
             submitted_at: completedSubmission.completed_at,
             feedback: completedSubmission.feedback,
+            grading_settings: {
+              enable_automatic_grading:
+                completedSubmission.quiz?.enable_automatic_grading !== false,
+              require_manual_grading:
+                completedSubmission.quiz?.require_manual_grading === true,
+              show_grades:
+                completedSubmission.quiz?.enable_automatic_grading !== false &&
+                completedSubmission.quiz?.require_manual_grading !== true,
+              show_correct_answers:
+                completedSubmission.quiz?.show_correct_answers === true,
+            },
           },
         });
       }
@@ -286,9 +306,12 @@ export const createQuiz = async (req: Request, res: Response) => {
             "Only instructors and admins can create quizzes for this course",
         });
       }
-    } catch (courseError) {
-      console.error("Error validating course:", courseError);
+    } catch (courseError: any) {
       await transaction.rollback();
+      if (courseError.response?.status === 401) {
+        return handleMisError(courseError, res, "MIS session expired");
+      }
+      console.error("Error validating course:", courseError);
       return res
         .status(404)
         .json({ success: false, message: "Course not found" });
@@ -610,7 +633,10 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
             (subject: any) => subject.id,
           );
         }
-      } catch (error) {
+      } catch (error: any) {
+        if (error.response?.status === 401) {
+          return handleMisError(error, res, "MIS session expired");
+        }
         console.error("Failed to fetch enrolled courses from NGA MIS:", error);
       }
     }
@@ -1230,15 +1256,18 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
     // Build results array - filter out correct answers if not allowed
     const results = attempts.map((attempt) => ({
       question_id: attempt.question_id,
-      question_text: attempt.question?.questionBank?.question_text,
-      question_type: attempt.question?.questionBank?.question_type,
+      question_text: attempt.attemptQuestion?.questionBank?.question_text,
+      question_type: attempt.attemptQuestion?.questionBank?.question_type,
+      question_data: showCorrectAnswers
+        ? attempt.attemptQuestion?.questionBank?.question_data
+        : null,
       user_answer: attempt.submitted_answer,
       correct_answer: showCorrectAnswers ? attempt.correct_answer : null,
       is_correct: showCorrectAnswers ? attempt.is_correct : null,
       points_earned: showGrades ? attempt.points_earned : null,
-      max_points: attempt.question?.points,
+      max_points: attempt.attemptQuestion?.points,
       explanation: showCorrectAnswers
-        ? attempt.question?.questionBank?.explanation
+        ? attempt.attemptQuestion?.questionBank?.explanation
         : null,
       time_taken: attempt.time_taken,
     }));
@@ -1546,5 +1575,99 @@ export const resetQuizSubmission = async (req: Request, res: Response) => {
     await transaction.rollback();
     console.error("Reset quiz submission error:", error);
     res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Get AI-driven socratic hint for coding questions
+// @route   POST /api/quizzes/questions/:questionId/ai-hint
+// @access  Private
+export const getAIHint = async (req: Request, res: Response) => {
+  try {
+    const { questionId } = req.params;
+    const { code, language, chatHistory, lastError } = req.body;
+
+    const question = await QuizQuestion.findByPk(questionId, {
+      include: getQuestionBankInclude(),
+    });
+
+    if (!question) {
+      return res.status(404).json({
+        success: false,
+        message: "Question not found",
+      });
+    }
+
+    const questionText = question.questionBank?.question_text || "";
+    const hint = await QuestionAiGrader.getSocraticHint(
+      questionText,
+      code,
+      language || "javascript",
+      chatHistory || [],
+      lastError,
+    );
+
+    res.status(200).json({
+      success: true,
+      data: { hint },
+    });
+  } catch (error: any) {
+    console.error("AI hint error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to generate AI hint",
+    });
+  }
+};
+
+// @desc    Run code snippet instantly (no grading, just execution)
+// @route   POST /api/quizzes/questions/:questionId/run-code
+// @access  Private
+export const runCode = async (req: Request, res: Response) => {
+  try {
+    const { code, language, stdin } = req.body;
+
+    if (!code || !language) {
+      return res.status(400).json({
+        success: false,
+        message: "code and language are required",
+      });
+    }
+
+    // For web languages (html/css/react/vue), skip Judge0 and return the code directly
+    // The frontend renders it in an iframe
+    const webLanguages = ["html", "css", "react", "vue", "angular", "nextjs"];
+    if (webLanguages.includes(language.toLowerCase())) {
+      return res.json({
+        success: true,
+        data: {
+          stdout: null,
+          stderr: null,
+          web_preview: true,
+          language,
+          execution_time: 0,
+        },
+      });
+    }
+
+    const result = await Judge0Service.runSingle(code, language, stdin);
+
+    return res.json({
+      success: true,
+      data: {
+        stdout: result.stdout,
+        stderr: result.stderr || result.compile_output,
+        exit_code: result.status.id,
+        status: result.status.description,
+        execution_time: parseFloat(result.time || "0") * 1000, // ms
+        memory_used: result.memory,
+        web_preview: false,
+      },
+    });
+  } catch (error: any) {
+    console.error("Run code error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to execute code",
+    });
   }
 };

@@ -13,6 +13,7 @@ import {
   MessageSquare,
   Paperclip,
   CheckCircle2,
+  Clock,
 } from "lucide-react";
 import { QuestionBankApiService, QuizApiService } from "../../services/quizApi";
 import type {
@@ -71,6 +72,7 @@ const INITIAL_FORM_STATE: CreateCourseQuestionRequest = {
   tags: [],
   explanation: "",
   attachments: null,
+  time_limit_seconds: 60,
 };
 
 const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
@@ -108,6 +110,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
           tags: question.tags || [],
           explanation: question.explanation || "",
           attachments: question.attachments || null,
+          time_limit_seconds: question.time_limit_seconds || 60,
         });
       } else {
         setFormData(INITIAL_FORM_STATE);
@@ -191,7 +194,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
         if (quizId) {
           await QuestionBankApiService.addQuestionToQuiz(quizId, res.data.id, {
             points: 1,
-            time_limit_seconds: 60,
+            time_limit_seconds: formData.time_limit_seconds || 60,
             is_required: true,
           });
           toast.success("Question created and added to quiz");
@@ -349,7 +352,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 placeholder="Enter the main question text here..."
               />
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Type Selection */}
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
@@ -398,6 +401,28 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                       </button>
                     ))}
                   </div>
+                </div>
+
+                {/* Time Limit */}
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <Clock className="w-3.5 h-3.5 inline mr-1" /> Time Limit
+                    (secs)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.time_limit_seconds || 60}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        time_limit_seconds: parseInt(e.target.value) || 60,
+                      }))
+                    }
+                    min="10"
+                    max="3600"
+                    required
+                    className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                  />
                 </div>
               </div>
             </div>

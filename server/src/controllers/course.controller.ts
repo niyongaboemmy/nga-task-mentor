@@ -1,6 +1,11 @@
 import { Request, Response } from "express";
 import axios from "axios";
-import { getMisToken, hasMisToken, getCurrentTermId } from "../utils/misUtils";
+import {
+  getMisToken,
+  hasMisToken,
+  getCurrentTermId,
+  handleMisError,
+} from "../utils/misUtils";
 import {
   Assignment,
   Submission,
@@ -42,6 +47,13 @@ export const getCourses = async (req: Request, res: Response) => {
     }
 
     // Call NGA MIS API
+    console.log(
+      `📡 Course API: Fetching from ${process.env.NGA_MIS_BASE_URL}${endpoint}`,
+    );
+    console.log(
+      `🔑 Course API Token (first 20): ${token?.substring(0, 20)}...`,
+    );
+
     const response = await axios.get(
       `${process.env.NGA_MIS_BASE_URL}${endpoint}`,
       {
@@ -52,6 +64,9 @@ export const getCourses = async (req: Request, res: Response) => {
         params,
       },
     );
+
+    console.log(`✅ Course API Response Status: ${response.status}`);
+    console.log(`📦 Course API Success Field: ${response.data?.success}`);
 
     if (response.data.success) {
       // Map subjects to courses format
@@ -88,8 +103,7 @@ export const getCourses = async (req: Request, res: Response) => {
       });
     }
   } catch (error: any) {
-    console.error("Get courses error:", error.response?.data || error.message);
-    res.status(500).json({ success: false, message: "Server error" });
+    return handleMisError(error, res, "Error fetching courses");
   }
 };
 
@@ -107,6 +121,13 @@ export const getCourse = async (req: Request, res: Response) => {
     }
 
     const courseId = parseInt(req.params.id);
+
+    if (isNaN(courseId)) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid course ID. Please provide a numeric ID.",
+      });
+    }
 
     // Get enrolled students for this subject and term (dynamic) from MIS
     let enrolledStudents = [];
@@ -194,18 +215,23 @@ export const getCourse = async (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error("Get course error:", error.response?.data || error.message);
     if (error.response?.status === 404) {
-      res.status(404).json({ success: false, message: "Course not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
     } else if (error.response?.status === 403) {
       // For 403 errors, still return course data but with local statistics
       console.warn(
         `MIS API returned 403 for course ${req.params.id}, returning local course data and statistics`,
       );
 
-      const statistics = await getCourseLocalStatistics(
-        parseInt(req.params.id),
-      );
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res
+          .status(400)
+          .json({ success: false, message: "Invalid course ID" });
+      }
+      const statistics = await getCourseLocalStatistics(id);
 
       // Return course data with local statistics since MIS access failed
       const course = {
@@ -226,10 +252,9 @@ export const getCourse = async (req: Request, res: Response) => {
         statistics,
       };
 
-      res.status(200).json({ success: true, data: course });
-    } else {
-      res.status(500).json({ success: false, message: "Server error" });
+      return res.status(200).json({ success: true, data: course });
     }
+    return handleMisError(error, res, "Error fetching course");
   }
 };
 
@@ -416,11 +441,7 @@ export const createCourse = async (req: Request, res: Response) => {
       });
     }
   } catch (error: any) {
-    console.error(
-      "Create course error:",
-      error.response?.data || error.message,
-    );
-    res.status(500).json({ success: false, message: "Server error" });
+    return handleMisError(error, res, "Error creating course");
   }
 };
 
@@ -480,15 +501,12 @@ export const updateCourse = async (req: Request, res: Response) => {
       res.status(404).json({ success: false, message: "Course not found" });
     }
   } catch (error: any) {
-    console.error(
-      "Update course error:",
-      error.response?.data || error.message,
-    );
     if (error.response?.status === 404) {
-      res.status(404).json({ success: false, message: "Course not found" });
-    } else {
-      res.status(500).json({ success: false, message: "Server error" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
     }
+    return handleMisError(error, res, "Error updating course");
   }
 };
 
@@ -551,11 +569,7 @@ export const getCourseStudents = async (req: Request, res: Response) => {
 
     res.status(200).json({ success: true, data: mappedStudents });
   } catch (error: any) {
-    console.error(
-      "Get course students error:",
-      error.response?.data || error.message,
-    );
-    res.status(500).json({ success: false, message: "Server error" });
+    return handleMisError(error, res, "Error fetching course students");
   }
 };
 
@@ -1139,17 +1153,6 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
       data: reportCards,
     });
   } catch (error: any) {
-    console.error(
-      "Get student overall grades error:",
-      error.response?.data || error.message,
-    );
-
-    if (error.response?.status === 401) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Unauthorized - Invalid MIS Token" });
-    }
-
-    res.status(500).json({ success: false, message: "Server error" });
+    return handleMisError(error, res, "Get student overall grades error");
   }
 };

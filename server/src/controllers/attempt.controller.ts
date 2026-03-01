@@ -197,7 +197,10 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     }
 
     // Find the question
-    const question = await QuizQuestion.findByPk(questionId, { transaction });
+    const question = await QuizQuestion.findByPk(questionId, {
+      include: [{ model: QuestionBank, as: "questionBank" }],
+      transaction,
+    });
     if (!question) {
       await transaction.rollback();
       return res
@@ -215,21 +218,13 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     }
 
     // Check if student already answered this question in this submission
-    const existingAttempt = await QuizAttempt.findOne({
+    let attempt = await QuizAttempt.findOne({
       where: {
         submission_id: submissionId,
         question_id: questionId,
       },
       transaction,
     });
-
-    if (existingAttempt) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Question already answered in this submission",
-      });
-    }
 
     // Normalize answers for consistent grading
     const normalizedSubmittedAnswer = AdvancedQuizGrader.normalizeAnswer(
@@ -259,24 +254,38 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     const isCorrect = gradingResult.is_correct;
     const pointsEarned = gradingResult.points_earned;
 
-    // Create attempt record
-    const attempt = await QuizAttempt.create(
-      {
-        quiz_id: submission.quiz_id,
-        question_id: parseInt(questionId),
-        student_id: req.user.id,
-        submission_id: parseInt(submissionId),
-        submitted_answer: normalizedSubmittedAnswer.data,
-        correct_answer: normalizedCorrectAnswer.data,
-        is_correct: isCorrect,
-        points_earned: pointsEarned,
-        time_taken: 0, // TODO: Implement time tracking
-        status: "completed",
-        started_at: new Date(),
-        completed_at: new Date(),
-      },
-      { transaction },
-    );
+    if (attempt) {
+      // Update existing attempt record
+      await attempt.update(
+        {
+          submitted_answer: normalizedSubmittedAnswer.data,
+          correct_answer: normalizedCorrectAnswer.data,
+          is_correct: isCorrect,
+          points_earned: pointsEarned,
+          completed_at: new Date(),
+        },
+        { transaction },
+      );
+    } else {
+      // Create new attempt record
+      attempt = await QuizAttempt.create(
+        {
+          quiz_id: submission.quiz_id,
+          question_id: parseInt(questionId),
+          student_id: req.user.id,
+          submission_id: parseInt(submissionId),
+          submitted_answer: normalizedSubmittedAnswer.data,
+          correct_answer: normalizedCorrectAnswer.data,
+          is_correct: isCorrect,
+          points_earned: pointsEarned,
+          time_taken: 0, // TODO: Implement time tracking
+          status: "completed",
+          started_at: new Date(),
+          completed_at: new Date(),
+        },
+        { transaction },
+      );
+    }
 
     await transaction.commit();
 
@@ -352,6 +361,7 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
 
       // Find the question
       const question = await QuizQuestion.findByPk(question_id, {
+        include: [{ model: QuestionBank, as: "questionBank" }],
         transaction,
       });
       if (!question) {

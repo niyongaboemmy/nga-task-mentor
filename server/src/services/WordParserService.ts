@@ -11,6 +11,7 @@ interface ParsedQuestion {
   difficulty_level?: DifficultyLevel;
   tags?: string[];
   blooms_level_name?: string;
+  time_limit_seconds?: number;
 }
 
 export class WordParserService {
@@ -79,6 +80,7 @@ export class WordParserService {
     let explanation = "";
     let tags: string[] = [];
     let bloomsLevelName = "";
+    let timeLimitSeconds = 60;
     let dataParagraphs: string[] = [];
     let isParsingData = false;
 
@@ -112,6 +114,12 @@ export class WordParserService {
           .replace(/^(<[^>]*>)?blooms:/i, "")
           .replace(/<[^>]*>?/gm, "")
           .trim();
+      } else if (
+        textOnly.startsWith("duration:") ||
+        textOnly.startsWith("time limit:")
+      ) {
+        const val = textOnly.replace(/^(duration|time limit):/i, "").trim();
+        timeLimitSeconds = parseInt(val) || 60;
       } else if (textOnly.startsWith("data:")) {
         isParsingData = true;
       } else if (isParsingData) {
@@ -158,6 +166,7 @@ export class WordParserService {
       explanation,
       tags,
       blooms_level_name: bloomsLevelName,
+      time_limit_seconds: timeLimitSeconds,
       question_data: parsedData.question_data,
       correct_answer: parsedData.correct_answer,
     };

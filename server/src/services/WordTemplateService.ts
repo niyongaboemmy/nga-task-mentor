@@ -47,6 +47,7 @@ export class WordTemplateService {
               type: "single_choice",
               difficulty: "EASY",
               blooms: "Remembering",
+              duration: 30,
               tags: ["geography", "europe", "capitals"],
               data: [
                 "A) London",
@@ -68,6 +69,7 @@ export class WordTemplateService {
               type: "multiple_choice",
               difficulty: "MEDIUM",
               blooms: "Understanding",
+              duration: 60,
               tags: ["programming", "basics"],
               data: [
                 "A) Python",
@@ -89,6 +91,7 @@ export class WordTemplateService {
               type: "true_false",
               difficulty: "EASY",
               blooms: "Remembering",
+              duration: 30,
               tags: ["science", "astronomy"],
               data: ["Correct: False"],
               explanation: "The Earth is an oblate spheroid.",
@@ -103,6 +106,7 @@ export class WordTemplateService {
               type: "short_answer",
               difficulty: "DIFFICULT",
               blooms: "Analyzing",
+              duration: 120,
               tags: ["javascript", "programming", "advanced"],
               data: ["Keywords: variable, declaration, top, scope"],
               explanation:
@@ -118,6 +122,7 @@ export class WordTemplateService {
               type: "matching",
               difficulty: "MEDIUM",
               blooms: "Applying",
+              duration: 90,
               tags: ["geography", "capitals"],
               data: [
                 "Paris <-> France",
@@ -138,6 +143,7 @@ export class WordTemplateService {
               type: "ordering",
               difficulty: "MEDIUM",
               blooms: "Analyzing",
+              duration: 90,
               tags: ["space", "astronomy", "planets"],
               data: ["1. Mercury", "2. Venus", "3. Earth", "4. Mars"],
               explanation: "The inner four terrestrial planets in order.",
@@ -153,6 +159,7 @@ export class WordTemplateService {
               type: "fill_blank",
               difficulty: "EASY",
               blooms: "Remembering",
+              duration: 45,
               tags: ["stronomy", "planets"],
               data: ["Correct: Jupiter"],
               explanation: "Jupiter is a gas giant and the largest planet.",
@@ -167,6 +174,7 @@ export class WordTemplateService {
               type: "numerical",
               difficulty: "EASY",
               blooms: "Applying",
+              duration: 45,
               tags: ["math", "arithmetic", "roots"],
               data: ["Correct: 8", "Tolerance: 0"],
               explanation: "8 * 8 = 64.",
@@ -182,6 +190,7 @@ export class WordTemplateService {
               type: "dropdown",
               difficulty: "MEDIUM",
               blooms: "Understanding",
+              duration: 90,
               tags: ["science", "biology"],
               data: [
                 "0: Photosynthesis, Respiration | Photosynthesis",
@@ -201,6 +210,7 @@ export class WordTemplateService {
               type: "algorithmic",
               difficulty: "MEDIUM",
               blooms: "Applying",
+              duration: 300,
               tags: ["algorithms", "math", "recursion"],
               data: [
                 "Code: function factorial(n) { return n <= 1 ? 1 : n * factorial(n-1); }",
@@ -224,6 +234,7 @@ export class WordTemplateService {
               type: "logical_expression",
               difficulty: "EASY",
               blooms: "Applying",
+              duration: 120,
               tags: ["logic", "gates", "boolean"],
               data: [
                 "Variable: name=A, description=Input A, type=boolean",
@@ -244,6 +255,7 @@ export class WordTemplateService {
               type: "drag_drop",
               difficulty: "EASY",
               blooms: "Remembering",
+              duration: 120,
               tags: ["biology", "botany"],
               data: [
                 "Background: https://example.com/tree-diagram.png",
@@ -268,6 +280,7 @@ export class WordTemplateService {
     type: string;
     difficulty: string;
     blooms: string;
+    duration: number;
     tags: string[];
     data: string[];
     explanation: string;
@@ -298,6 +311,12 @@ export class WordTemplateService {
         children: [
           new TextRun({ text: "Blooms: ", bold: true }),
           new TextRun(opts.blooms),
+        ],
+      }),
+      new Paragraph({
+        children: [
+          new TextRun({ text: "Duration: ", bold: true }),
+          new TextRun(opts.duration.toString()),
         ],
       }),
       new Paragraph({

@@ -8,6 +8,8 @@ import {
   BookOpen,
   Loader2,
 } from "lucide-react";
+import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
+import RichTextDisplay from "../components/Common/RichTextDisplay";
 
 interface Quiz {
   id: number;
@@ -32,6 +34,7 @@ interface QuizQuestion {
   coding_data?: any;
   ordering_data?: any;
   matching_data?: any;
+  question_data?: any;
 }
 
 interface Answer {
@@ -61,6 +64,9 @@ interface QuizResult {
   };
   answers: Array<{
     question_id: number;
+    question_text?: string;
+    question_type?: string;
+    question_data?: any;
     user_answer: any;
     correct_answer: any;
     is_correct: boolean | null;
@@ -101,14 +107,28 @@ const QuizResultsPage: React.FC = () => {
         });
 
         // Transform completed results data to match QuizResult interface
+        const gradingSettings = completedResults.grading_settings || {
+          enable_automatic_grading: true,
+          require_manual_grading: false,
+          show_grades: true,
+          show_correct_answers: false,
+        };
+
         const transformedResult: QuizResult = {
           total_score: completedResults.final_score || 0,
           max_score: completedResults.max_score || 0,
           percentage: completedResults.percentage || 0,
-          grade: completedResults.grade || "N/A",
+          grade: gradingSettings.show_grades
+            ? completedResults.grade || "N/A"
+            : "N/A",
+          passed: gradingSettings.show_grades ? completedResults.passed : null,
+          grading_settings: gradingSettings,
           answers: Array.isArray(completedResults.results)
             ? completedResults.results.map((result: any) => ({
                 question_id: result.question_id,
+                question_text: result.question_text,
+                question_type: result.question_type,
+                question_data: result.question_data,
                 user_answer: result.user_answer,
                 correct_answer: result.correct_answer,
                 is_correct: result.is_correct,
@@ -159,11 +179,15 @@ const QuizResultsPage: React.FC = () => {
         answers:
           apiData.results?.map((result: any) => ({
             question_id: result.question_id,
+            question_text: result.question_text,
+            question_type: result.question_type,
+            question_data: result.question_data,
             user_answer: result.user_answer,
             correct_answer: result.correct_answer,
             is_correct: result.is_correct,
             points_earned: parseFloat(result.points_earned) || 0,
-            max_points: result.question_type === "coding" ? 5 : 1, // Assuming coding questions are worth 5 points
+            max_points:
+              result.max_points || (result.question_type === "coding" ? 5 : 1),
             explanation: result.explanation || "No explanation provided.",
           })) || [],
       };
@@ -584,6 +608,150 @@ const QuizResultsPage: React.FC = () => {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Question Review Section */}
+        <div className="bg-white dark:bg-gray-900/50 rounded-3xl p-8 mt-8 border border-purple-200 dark:border-purple-800/30 animate-in slide-in-from-bottom duration-500 delay-1200">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+              <span className="text-white text-lg">📝</span>
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                Question Review
+              </h2>
+              <p className="text-gray-600 dark:text-gray-400">
+                Review your answers and learn from the experience
+              </p>
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {result.answers.map((attempt: any, index: number) => {
+              // Reconstruct a question object that QuestionRenderer can understand
+              const questionObj = {
+                id: attempt.question_id,
+                question_text: attempt.question_text,
+                question_type: attempt.question_type,
+                question_data: attempt.question_data,
+                explanation: attempt.explanation,
+                correct_answer: attempt.correct_answer,
+              };
+
+              return (
+                <div
+                  key={attempt.question_id}
+                  className={`border-2 rounded-3xl p-8 transition-all duration-300 hover:shadow-xl ${
+                    attempt.is_correct
+                      ? "border-emerald-200 dark:border-emerald-800/50 bg-gradient-to-br from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/5 dark:to-teal-900/5"
+                      : "border-red-200 dark:border-red-800/50 bg-gradient-to-br from-red-50/50 to-pink-50/50 dark:from-red-900/5 dark:to-pink-900/5"
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-6">
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-3 mb-4">
+                        <div
+                          className={`w-10 h-10 rounded-2xl flex items-center justify-center text-lg font-black shadow-sm ${
+                            attempt.is_correct
+                              ? "bg-emerald-500 text-white"
+                              : "bg-red-500 text-white"
+                          }`}
+                        >
+                          {index + 1}
+                        </div>
+                        <span
+                          className={`px-4 py-1.5 text-sm font-bold rounded-full shadow-sm border ${
+                            attempt.is_correct
+                              ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700"
+                              : "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-700"
+                          }`}
+                        >
+                          {attempt.is_correct ? "✅ Correct" : "❌ Incorrect"}
+                        </span>
+                        <div className="px-4 py-1.5 bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm rounded-full border border-gray-200 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+                          <Target className="w-4 h-4 text-blue-500" />
+                          <span>
+                            {attempt.points_earned || 0} /{" "}
+                            {attempt.max_points || 0} Points
+                          </span>
+                        </div>
+                      </div>
+                      <div className="text-xl font-bold text-gray-900 dark:text-white leading-relaxed">
+                        <RichTextDisplay
+                          content={attempt.question_text || ""}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8">
+                    {/* User's Answer */}
+                    <div className="flex flex-col h-full">
+                      <div className="flex items-center gap-2 mb-3 px-1">
+                        <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
+                          <span className="text-xs">📝</span>
+                        </div>
+                        <span className="text-gray-800 dark:text-gray-200 font-bold uppercase tracking-wider text-xs">
+                          Your Answer
+                        </span>
+                      </div>
+                      <div className="flex-1 p-5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
+                        <QuestionRenderer
+                          question={questionObj as any}
+                          answer={attempt.user_answer}
+                          onAnswerChange={() => {}}
+                          disabled={true}
+                          showCorrectAnswer={false}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Correct Answer */}
+                    {result.grading_settings?.show_correct_answers &&
+                      attempt.correct_answer !== undefined && (
+                        <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-500">
+                          <div className="flex items-center gap-2 mb-3 px-1">
+                            <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
+                              <span className="text-xs">🎯</span>
+                            </div>
+                            <span className="text-emerald-800 dark:text-emerald-300 font-bold uppercase tracking-wider text-xs">
+                              Correct Solution
+                            </span>
+                          </div>
+                          <div className="flex-1 p-5 bg-emerald-50/30 dark:bg-emerald-900/10 backdrop-blur-sm border border-emerald-200 dark:border-emerald-800/50 rounded-2xl shadow-sm">
+                            <QuestionRenderer
+                              question={questionObj as any}
+                              answer={attempt.correct_answer}
+                              onAnswerChange={() => {}}
+                              disabled={true}
+                              showCorrectAnswer={true}
+                            />
+                          </div>
+                        </div>
+                      )}
+                  </div>
+
+                  {/* Explanation */}
+                  {attempt.explanation &&
+                    attempt.explanation !== "No explanation provided." && (
+                      <div className="mt-6 p-6 bg-gradient-to-r from-blue-50/50 to-indigo-50/50 dark:from-blue-900/10 dark:to-indigo-900/10 backdrop-blur-sm border border-blue-100 dark:border-blue-800/30 rounded-2xl animate-in fade-in slide-in-from-bottom-2 duration-500">
+                        <div className="flex items-center gap-2 mb-3">
+                          <div className="w-8 h-8 bg-blue-500 text-white rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
+                            <AlertCircle className="w-5 h-5" />
+                          </div>
+                          <span className="text-blue-900 dark:text-blue-300 font-bold">
+                            Expert Explanation
+                          </span>
+                        </div>
+                        <div className="text-blue-800 dark:text-blue-400 leading-relaxed text-sm md:text-base">
+                          <RichTextDisplay content={attempt.explanation} />
+                        </div>
+                      </div>
+                    )}
+                </div>
+              );
+            })}
           </div>
         </div>
 

@@ -12,6 +12,7 @@ import { DropdownHandler } from "./DropdownHandler";
 import { AlgorithmicHandler } from "./AlgorithmicHandler";
 import { LogicalExpressionHandler } from "./LogicalExpressionHandler";
 import { DragDropHandler } from "./DragDropHandler";
+import { CodingHandler } from "./CodingHandler";
 
 export class HandlerFactory {
   private static handlers: IQuestionHandler[] = [
@@ -27,6 +28,7 @@ export class HandlerFactory {
     new AlgorithmicHandler(),
     new LogicalExpressionHandler(),
     new DragDropHandler(),
+    new CodingHandler(),
   ];
 
   static getHandler(type: QuestionType): IQuestionHandler | undefined {

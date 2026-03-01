@@ -103,6 +103,36 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
     initializeQuiz();
   }, [submissionId, dispatch]);
 
+  const handleSubmitQuiz = useCallback(async () => {
+    if (!currentSubmission?.submission_id) return;
+
+    try {
+      setLoading(true);
+      // Submit all answers at once
+      const answersToSubmit = Object.entries(answers).map(
+        ([questionId, answerData]) => ({
+          question_id: parseInt(questionId),
+          answer_data: answerData,
+        }),
+      );
+
+      await QuizApiService.submitAllAnswers(
+        currentSubmission.submission_id,
+        answersToSubmit,
+      );
+
+      // Mark quiz as submitted
+      setQuizSubmitted(true);
+
+      // Navigate to results
+      navigate(`/quiz/${currentSubmission.submission_id}/results`);
+    } catch (error: any) {
+      setError(error.message || "Failed to submit quiz");
+    } finally {
+      setLoading(false);
+    }
+  }, [currentSubmission?.submission_id, answers, navigate]);
+
   // Enhanced Timer effect with auto-submission
   useEffect(() => {
     if (quiz?.time_limit && timeRemaining !== null && timeRemaining > 0) {
@@ -127,12 +157,15 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
   // Question-specific timer effect
   useEffect(() => {
     const currentQuestion = quiz?.questions?.[currentQuestionIndex];
-    if (currentQuestion?.time_limit_seconds && !quizSubmitted) {
-      // Convert seconds to number if it's a string
+    if (currentQuestion && !quizSubmitted) {
+      // Resolve time limit: Assignment level → Bank level → Default (60s)
+      // Resolve time limit: Priority is Bank Level (if user set it) → Assignment level → Default (60s)
+      const rawTimeLimit =
+        currentQuestion.questionBank?.time_limit_seconds || 60;
       const timeLimit =
-        typeof currentQuestion.time_limit_seconds === "string"
-          ? parseInt(currentQuestion.time_limit_seconds)
-          : currentQuestion.time_limit_seconds;
+        typeof rawTimeLimit === "string"
+          ? parseInt(rawTimeLimit)
+          : Number(rawTimeLimit);
 
       setQuestionTimeRemaining(timeLimit);
 
@@ -155,7 +188,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
     } else {
       setQuestionTimeRemaining(null);
     }
-  }, [currentQuestionIndex, quiz?.questions, quizSubmitted]);
+  }, [currentQuestionIndex, quiz?.questions, quizSubmitted, handleSubmitQuiz]);
 
   // Set initial time limit (only for new submissions, not reloads)
   useEffect(() => {
@@ -238,38 +271,6 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
       }
     }
   };
-
-  // Removed individual question submission - now only submit entire quiz
-
-  const handleSubmitQuiz = useCallback(async () => {
-    if (!currentSubmission?.submission_id) return;
-
-    try {
-      setLoading(true);
-      // Submit all answers at once
-      const answersToSubmit = Object.entries(answers).map(
-        ([questionId, answerData]) => ({
-          question_id: parseInt(questionId),
-          answer_data: answerData,
-        }),
-      );
-
-      await QuizApiService.submitAllAnswers(
-        currentSubmission.submission_id,
-        answersToSubmit,
-      );
-
-      // Mark quiz as submitted
-      setQuizSubmitted(true);
-
-      // Navigate to results
-      navigate(`/quiz/${currentSubmission.submission_id}/results`);
-    } catch (error: any) {
-      setError(error.message || "Failed to submit quiz");
-    } finally {
-      setLoading(false);
-    }
-  }, [currentSubmission?.submission_id, answers, navigate]);
 
   const handleConfirmSubmit = () => {
     setShowSubmitConfirm(true);
@@ -391,9 +392,12 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
               <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
                 {quiz.title}
               </h1>
-              <p className="text-gray-600 text-sm truncate">
-                {quiz.description}
-              </p>
+              <div className="text-gray-600 text-sm truncate">
+                <RichTextDisplay
+                  content={quiz.description || ""}
+                  className="inline prose-p:my-0"
+                />
+              </div>
             </div>
             <div className="flex items-center gap-4 ml-4">
               {/* Proctoring Monitor Button */}
@@ -615,7 +619,11 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                     <div className="prose prose-sm max-w-none">
                       <div className="text-gray-800 leading-relaxed">
                         <RichTextDisplay
-                          content={currentQuestion.question_text || ""}
+                          content={
+                            currentQuestion.question_text ||
+                            currentQuestion.questionBank?.question_text ||
+                            ""
+                          }
                         />
                       </div>
                       {/* Display question image if available */}
@@ -823,9 +831,9 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                 <h3 className="font-medium text-blue-900 mb-2">
                   Quiz Instructions
                 </h3>
-                <p className="text-blue-800 text-sm leading-relaxed">
-                  {quiz.instructions}
-                </p>
+                <div className="text-blue-800 text-sm leading-relaxed">
+                  <RichTextDisplay content={quiz.instructions || ""} />
+                </div>
               </div>
             </div>
           </div>

@@ -179,6 +179,48 @@ export class QuizApiService {
     return response.data;
   }
 
+  static async getAIHint(
+    questionId: number,
+    data: {
+      code: string;
+      language: string;
+      chatHistory: any[];
+      lastError?: string;
+    },
+  ): Promise<{ success: boolean; data: { hint: string } }> {
+    const response = await axios.post(
+      `/quizzes/questions/${questionId}/ai-hint`,
+      data,
+    );
+    return response.data;
+  }
+
+  static async runCode(
+    questionId: number,
+    data: {
+      code: string;
+      language: string;
+      stdin?: string;
+    },
+  ): Promise<{
+    success: boolean;
+    data: {
+      stdout: string | null;
+      stderr: string | null;
+      status: string;
+      exit_code: number;
+      execution_time: number;
+      memory_used: number | null;
+      web_preview: boolean;
+    };
+  }> {
+    const response = await axios.post(
+      `/quizzes/questions/${questionId}/run-code`,
+      data,
+    );
+    return response.data;
+  }
+
   static async submitQuiz(
     submissionId: number,
   ): Promise<{ success: boolean; data: any }> {

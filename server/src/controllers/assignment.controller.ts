@@ -9,7 +9,11 @@ import {
   isPastDate,
 } from "../utils/dateUtils";
 import axios from "axios";
-import { getMisToken, getCurrentTermId } from "../utils/misUtils";
+import {
+  getMisToken,
+  getCurrentTermId,
+  handleMisError,
+} from "../utils/misUtils";
 
 // @desc    Get assignments for a specific course
 // @route   GET /api/courses/:courseId/assignments
@@ -600,7 +604,13 @@ export const publishAssignment = async (req: Request, res: Response) => {
 // @access  Private - Students (own submission only), Instructors/Admins (all submissions)
 export const getAssignmentSubmissions = async (req: Request, res: Response) => {
   try {
-    const assignment = await Assignment.findByPk(req.params.id);
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Invalid assignment ID" });
+    }
+    const assignment = await Assignment.findByPk(id);
 
     if (!assignment) {
       return res
@@ -662,7 +672,7 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
         `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${assignment.course_id}/terms/${termId}/students`,
         {
           headers: {
-            Authorization: token,
+            Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
         },
@@ -672,6 +682,9 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
         enrolledStudents = studentsResponse.data.data || [];
       }
     } catch (enrollmentError: any) {
+      if (enrollmentError.response?.status === 401) {
+        return handleMisError(enrollmentError, res, "MIS session expired");
+      }
       console.warn(
         "Could not fetch enrolled students from NGA MIS:",
         enrollmentError.message,

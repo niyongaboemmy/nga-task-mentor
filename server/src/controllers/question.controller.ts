@@ -5,7 +5,11 @@ import { Transaction, Op } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
 import { QuestionType, CreateQuestionRequest } from "../types/quiz.types";
-import { getMisToken, getCurrentTermId } from "../utils/misUtils";
+import {
+  getMisToken,
+  getCurrentTermId,
+  handleMisError,
+} from "../utils/misUtils";
 import BloomsTaxonomyLevel from "../models/BloomsTaxonomyLevel.model";
 import { getQuestionBankInclude } from "../utils/quizUtils";
 
@@ -46,7 +50,10 @@ export const getQuizQuestions = async (req: Request, res: Response) => {
             message: "Not authorized to access this quiz",
           });
         }
-      } catch (enrollmentError) {
+      } catch (enrollmentError: any) {
+        if (enrollmentError.response?.status === 401) {
+          return handleMisError(enrollmentError, res, "MIS session expired");
+        }
         console.error("Error checking enrollment:", enrollmentError);
         return res.status(403).json({
           success: false,
@@ -170,6 +177,7 @@ export const createQuestion = async (req: Request, res: Response) => {
     }
 
     let bankQuestionId: number;
+    let bankDuration: number = 60;
 
     if (body.question_id) {
       // Referencing an existing bank question
@@ -188,6 +196,7 @@ export const createQuestion = async (req: Request, res: Response) => {
         });
       }
       bankQuestionId = existing.id!;
+      bankDuration = existing.time_limit_seconds ?? 60;
     } else {
       // Creating a new question in the bank as part of adding to quiz
       const {
@@ -248,11 +257,13 @@ export const createQuestion = async (req: Request, res: Response) => {
           blooms_taxonomy_level_id: blooms_taxonomy_level_id ?? null,
           tags: tags ?? null,
           difficulty_level: difficulty_level ?? null,
+          time_limit_seconds: body.time_limit_seconds ?? 60,
         },
         { transaction },
       );
 
       bankQuestionId = bankQuestion.id!;
+      bankDuration = bankQuestion.time_limit_seconds ?? 60;
     }
 
     // Get the next order number
@@ -268,7 +279,7 @@ export const createQuestion = async (req: Request, res: Response) => {
         question_id: bankQuestionId,
         order: body.order ?? nextOrder,
         points: body.points ?? 1,
-        time_limit_seconds: body.time_limit_seconds ?? 60,
+        time_limit_seconds: bankDuration,
         is_required: body.is_required ?? true,
       },
       { transaction },
@@ -375,6 +386,10 @@ export const updateQuestion = async (req: Request, res: Response) => {
     }
 
     // Update question content in the bank
+    if (time_limit_seconds !== undefined) {
+      bankUpdates.time_limit_seconds = time_limit_seconds;
+    }
+
     if (Object.keys(bankUpdates).length > 0 && bankQuestion) {
       if (bankUpdates.question_type || bankUpdates.question_data) {
         const questionType =
@@ -685,10 +700,15 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
     for (let i = 0; i < questions.length; i++) {
       const qData = questions[i];
       let bankQuestionId: number;
+      let bankDuration: number = 60;
 
       if (qData.question_id) {
         // Existing bank question
         bankQuestionId = qData.question_id;
+        const existing = await QuestionBank.findByPk(bankQuestionId, {
+          transaction,
+        });
+        if (existing) bankDuration = existing.time_limit_seconds ?? 60;
       } else {
         // Create new bank question
         const bankQuestion = await QuestionBank.create(
@@ -704,10 +724,12 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
             blooms_taxonomy_level_id: qData.blooms_taxonomy_level_id ?? null,
             tags: qData.tags ?? null,
             difficulty_level: qData.difficulty_level ?? null,
+            time_limit_seconds: qData.time_limit_seconds ?? 60,
           },
           { transaction },
         );
         bankQuestionId = bankQuestion.id!;
+        bankDuration = bankQuestion.time_limit_seconds ?? 60;
       }
 
       const quizQuestion = await QuizQuestion.create(
@@ -716,7 +738,7 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
           question_id: bankQuestionId,
           order: (maxOrder || 0) + i + 1,
           points: qData.points ?? 1,
-          time_limit_seconds: qData.time_limit_seconds ?? 60,
+          time_limit_seconds: bankDuration,
           is_required: qData.is_required ?? true,
         },
         { transaction },

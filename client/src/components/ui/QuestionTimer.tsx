@@ -3,26 +3,34 @@ import { Clock } from "lucide-react";
 
 interface QuestionTimerProps {
   timeLeft: number;
+  currentTime?: number;
   onTimeout?: () => void;
   className?: string;
 }
 
 export const QuestionTimer: React.FC<QuestionTimerProps> = ({
   timeLeft: initialTimeLeft,
+  currentTime,
   onTimeout,
   className = "",
 }) => {
-  const [timeLeft, setTimeLeft] = useState(
-    Math.max(0, Math.floor(initialTimeLeft))
+  const [internalTimeLeft, setInternalTimeLeft] = useState(
+    Math.max(0, Math.floor(initialTimeLeft)),
   );
 
+  const timeLeft = currentTime !== undefined ? currentTime : internalTimeLeft;
+
   useEffect(() => {
-    setTimeLeft(Math.max(0, Math.floor(initialTimeLeft)));
-  }, [initialTimeLeft]);
+    if (currentTime === undefined) {
+      setInternalTimeLeft(Math.max(0, Math.floor(initialTimeLeft)));
+    }
+  }, [initialTimeLeft, currentTime]);
 
   // Handle countdown and timeout
   useEffect(() => {
-    if (timeLeft <= 0) {
+    if (currentTime !== undefined) return;
+
+    if (internalTimeLeft <= 0) {
       if (onTimeout) {
         onTimeout();
       }
@@ -30,7 +38,7 @@ export const QuestionTimer: React.FC<QuestionTimerProps> = ({
     }
 
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
+      setInternalTimeLeft((prev) => {
         if (prev <= 1) {
           if (onTimeout) {
             onTimeout();
@@ -42,7 +50,7 @@ export const QuestionTimer: React.FC<QuestionTimerProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [timeLeft, onTimeout]);
+  }, [internalTimeLeft, onTimeout, currentTime]);
 
   const formatTime = (seconds: number): string => {
     const hours = Math.floor(seconds / 3600);
@@ -63,8 +71,8 @@ export const QuestionTimer: React.FC<QuestionTimerProps> = ({
         timeLeft < 30
           ? "bg-red-50 border-red-200 text-red-700 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"
           : timeLeft < 60
-          ? "bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-300"
-          : "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300"
+            ? "bg-orange-50 border-orange-200 text-orange-700 dark:bg-orange-900/20 dark:border-orange-800 dark:text-orange-300"
+            : "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-300"
       } ${className}`}
     >
       <Clock className={`h-4 w-4 ${timeLeft < 60 ? "animate-spin" : ""}`} />

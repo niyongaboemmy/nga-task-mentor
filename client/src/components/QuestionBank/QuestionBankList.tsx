@@ -19,6 +19,7 @@ import {
   Loader2,
   FileText,
   Eye,
+  Clock,
 } from "lucide-react";
 import { QuestionBankApiService, QuizApiService } from "../../services/quizApi";
 import QuestionBankModal from "./QuestionBankModal";
@@ -471,6 +472,9 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                     Question Text
                   </th>
                   <th className="px-6 py-4 whitespace-nowrap">Type / Tags</th>
+                  <th className="px-6 py-4 whitespace-nowrap text-center">
+                    Duration
+                  </th>
                   <th className="px-6 py-4 whitespace-nowrap">Taxonomy</th>
                   <th className="px-6 py-4 whitespace-nowrap text-right">
                     Actions
@@ -510,13 +514,13 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1.5">
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-300">
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-300 truncate">
                             {typeIcon}{" "}
                             {question.question_type.replace(/_/g, " ")}
                           </span>
                           {question.tags && question.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1">
-                              {question.tags.slice(0, 2).map((tag) => (
+                              {question.tags.slice(0, 1).map((tag) => (
                                 <span
                                   key={tag}
                                   className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full"
@@ -532,6 +536,18 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                             </div>
                           )}
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-center">
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-gray-100 dark:bg-gray-800/60 text-gray-600 dark:text-gray-400 text-xs font-medium border border-gray-200 dark:border-gray-700/40">
+                          <div>
+                            <Clock className="w-3 h-3" />
+                          </div>
+                          <span className="truncate">
+                            {(question.time_limit_seconds ?? 60) >= 60
+                              ? `${Math.floor((question.time_limit_seconds ?? 60) / 60)}m ${(question.time_limit_seconds ?? 60) % 60}s`
+                              : `${question.time_limit_seconds ?? 60}s`}
+                          </span>
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1.5">

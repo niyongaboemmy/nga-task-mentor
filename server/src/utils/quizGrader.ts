@@ -22,6 +22,7 @@ import {
   AlgorithmicGradingConfig,
 } from "../types/grading.types";
 import { CodeExecutor, TestCase } from "./codeExecutor";
+import { Judge0Service } from "../services/Judge0Service";
 import { QuestionAiGrader } from "./openAi";
 
 // Category-based grading functions
@@ -104,7 +105,13 @@ export class ChoiceQuestionGrader {
     }
 
     const correctAnswer = correctAnswerData.selected_option_index;
-    const isCorrect = answerIndex === correctAnswer;
+    const isCorrect = String(answerIndex) === String(correctAnswer);
+
+    console.log(`[Basic Grader] Single Choice Match:`, {
+      student: answerIndex,
+      correct: correctAnswer,
+      isCorrect,
+    });
 
     return {
       is_correct: isCorrect,
@@ -306,8 +313,13 @@ export class ChoiceQuestionGrader {
     }
 
     const correctAnswer = correctAnswerData.selected_answer;
-
     const isCorrect = answerBool === correctAnswer;
+
+    console.log(`[Basic Grader] True/False Match:`, {
+      student: answerBool,
+      correct: correctAnswer,
+      isCorrect,
+    });
 
     return {
       is_correct: isCorrect,
@@ -378,10 +390,15 @@ export class TextInputGrader {
         // Let's try AI for numerical evaluation if the API key is present.
         if (process.env.OPENAI_API_KEY) {
           try {
+            const correctVal =
+              typeof questionData.correct_answer === "string"
+                ? parseFloat(questionData.correct_answer)
+                : Number(questionData.correct_answer);
+
             const aiResult = await QuestionAiGrader.gradeNumerical(
               question.questionBank?.question_text || "",
               answer.answer,
-              questionData.correct_answer,
+              isNaN(correctVal) ? 0 : correctVal,
               questionData.tolerance || 0,
               parseFloat(String(question.points || 0)),
               questionData.units,
@@ -403,7 +420,14 @@ export class TextInputGrader {
     }
 
     // Validate question configuration
-    if (typeof questionData.correct_answer !== "number") {
+    let correctValue: number;
+    const rawCorrect = questionData.correct_answer;
+
+    if (typeof rawCorrect === "number") {
+      correctValue = rawCorrect;
+    } else if (typeof rawCorrect === "string") {
+      correctValue = parseFloat(rawCorrect);
+    } else {
       return {
         is_correct: false,
         points_earned: 0,
@@ -411,7 +435,13 @@ export class TextInputGrader {
       };
     }
 
-    const correctValue = questionData.correct_answer;
+    if (isNaN(correctValue)) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "Numerical question: Correct answer is not a valid number",
+      };
+    }
     const tolerance =
       typeof questionData.tolerance === "number" ? questionData.tolerance : 0;
 
@@ -435,6 +465,14 @@ export class TextInputGrader {
     }
 
     const finalIsCorrect = isCorrect && rangeCheck;
+
+    console.log(`[Basic Grader] Numerical Match:`, {
+      student: studentAnswer,
+      correct: correctValue,
+      tolerance,
+      rangeCheck,
+      finalIsCorrect,
+    });
 
     // If units are required, we might want to use AI to verify them if simple checks aren't enough
     // But for now, we'll return the base result.
@@ -783,10 +821,17 @@ export class InteractiveGrader {
 
     // Validate each mapping
     Object.entries(correctMappings).forEach(([leftId, rightId]) => {
-      const studentRightId = answer.matches[leftId];
-      if (studentRightId === rightId) {
+      const studentRightId = String(answer.matches[leftId]);
+      const targetRightId = String(rightId);
+      if (studentRightId === targetRightId) {
         correctMatches++;
       }
+    });
+
+    console.log(`[Basic Grader] Matching Match:`, {
+      totalMatches,
+      correctMatches,
+      isCorrect: correctMatches === totalMatches,
     });
 
     const pointsEarned = Math.round(
@@ -835,9 +880,16 @@ export class InteractiveGrader {
 
     // Check if each item is in the correct position
     answer.ordered_item_ids.forEach((itemId: string, index: number) => {
-      if (correctOrderMap[itemId] === index + 1) {
+      // Comparison: item.order (expected 1-indexed) vs index + 1
+      if (String(correctOrderMap[itemId]) === String(index + 1)) {
         correctPositions++;
       }
+    });
+
+    console.log(`[Basic Grader] Ordering Match:`, {
+      totalItems,
+      correctPositions,
+      isCorrect: correctPositions === totalItems,
     });
 
     const pointsEarned = Math.round(
@@ -1026,7 +1078,14 @@ export class CodingGrader {
     answerData: AnswerDataType,
   ): Promise<GradingResult> {
     let questionData = question.questionBank?.question_data as any;
-    // If question_data is stored as a string, parse it
+    if (!questionData) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "Question metadata (question_data) is missing.",
+      };
+    }
+
     if (typeof questionData === "string") {
       try {
         questionData = JSON.parse(questionData);
@@ -1036,7 +1095,6 @@ export class CodingGrader {
     }
     const answer = answerData as any;
 
-    // Validate answer format
     if (!answer || typeof answer.code !== "string") {
       return {
         is_correct: false,
@@ -1045,111 +1103,98 @@ export class CodingGrader {
       };
     }
 
-    // Basic validation - check if code is not empty
-    if (answer.code.trim().length === 0) {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback: "No code submitted",
-      };
-    }
-
-    // Use the CodeExecutor for proper test execution
-    let passedTests = 0;
-    let totalTests = 0;
-    const testResults: any[] = [];
-
-    if (questionData.test_cases && Array.isArray(questionData.test_cases)) {
-      totalTests = questionData.test_cases.length;
-
+    // Detect if this is a "project mode" answer (JSON string of files)
+    let finalCode = answer.code;
+    if (finalCode.trim().startsWith("[") && finalCode.trim().endsWith("]")) {
       try {
-        const executionResults = await CodeExecutor.executeTests({
-          language: questionData.language || "javascript",
-          code: answer.code,
-          testCases: questionData.test_cases.map((tc: any, index: number) => ({
-            id: tc.id || `test_${index}`,
-            input: tc.input,
-            expected_output: tc.expected_output,
-            is_hidden: tc.is_hidden || false,
-            points: tc.points || 1,
-            time_limit: tc.time_limit || questionData.time_limit || 5,
-            memory_limit: tc.memory_limit || questionData.memory_limit || 256,
-          })),
-          timeLimit: questionData.time_limit || 5,
-          memoryLimit: questionData.memory_limit || 256,
-        });
-
-        for (const result of executionResults) {
-          testResults.push({
-            testCase: result.testCaseId,
-            passed: result.passed,
-            input: questionData.test_cases.find(
-              (tc: any) => tc.id === result.testCaseId,
-            )?.input,
-            expected: questionData.test_cases.find(
-              (tc: any) => tc.id === result.testCaseId,
-            )?.expected_output,
-            actual: result.output,
-            error: result.error,
-            executionTime: result.executionTime,
-            memoryUsed: result.memoryUsed,
-          });
-
-          if (result.passed) {
-            passedTests++;
+        const files = JSON.parse(finalCode);
+        if (Array.isArray(files)) {
+          // Find entry point or just pick the first file for grading
+          const entryFile =
+            files.find((f: any) => f.is_entry_point) || files[0];
+          if (entryFile) {
+            finalCode = entryFile.content || "";
           }
         }
-      } catch (error) {
-        return {
-          is_correct: false,
-          points_earned: 0,
-          feedback: `Code execution failed: ${
-            error instanceof Error ? error.message : String(error)
-          }`,
-        };
+      } catch (e) {
+        // Not actually a JSON array, keep as is
       }
     }
 
-    // Calculate score based on passed tests
-    let scorePercentage = 0;
-    let pointsEarned = 0;
-
-    if (totalTests > 0) {
-      scorePercentage = (passedTests / totalTests) * 100;
-      pointsEarned = Math.round(
-        (passedTests / totalTests) * parseFloat(String(question.points)),
-      );
-    } else {
-      // No test cases defined - cannot auto-grade
+    const testCases = questionData.test_cases || [];
+    if (!Array.isArray(testCases) || testCases.length === 0) {
       return {
         is_correct: false,
         points_earned: 0,
-        feedback:
-          "No test cases defined for this coding question. Manual grading required.",
+        feedback: "No test cases defined for this coding question.",
       };
     }
 
-    // Generate feedback
-    let feedback = `Passed ${passedTests}/${totalTests} test cases`;
-    if (passedTests === totalTests && totalTests > 0) {
-      feedback += " - Excellent work!";
-    } else if (passedTests > 0) {
-      feedback += " - Good progress, review failed test cases";
-    } else {
-      feedback += " - All tests failed, check your implementation";
-    }
+    const testResults: any[] = [];
+    const languageId = Judge0Service.getLanguageId(
+      questionData.language || "javascript",
+    );
 
-    return {
-      is_correct: passedTests === totalTests && totalTests > 0,
-      points_earned: pointsEarned,
-      feedback,
-      detailed_feedback: {
+    try {
+      // Execute each test case via Judge0
+      for (const tc of testCases) {
+        const submission = {
+          source_code: finalCode,
+          language_id: languageId,
+          stdin: tc.input,
+          expected_output: tc.expected_output,
+          cpu_limit: tc.time_limit || questionData.time_limit || 5,
+          memory_limit:
+            (tc.memory_limit || questionData.memory_limit || 256) * 1024,
+        };
+
+        const token = await Judge0Service.submit(submission);
+        const result = await Judge0Service.waitAndGetResult(token);
+
+        testResults.push({
+          testCaseId: tc.id,
+          passed: result.status.id === 3, // 3 is "Accepted"
+          input: tc.input,
+          expected: tc.expected_output,
+          actual: result.stdout,
+          error: result.stderr || result.compile_output || result.message,
+          executionTime: result.time,
+          memoryUsed: result.memory,
+          status: result.status.description,
+        });
+      }
+
+      // Perform AI Analysis for Quality and Efficiency (40% of the total score)
+      const aiResult = await QuestionAiGrader.gradeCoding(
+        question.questionBank?.question_text || "",
+        finalCode,
+        questionData.language || "javascript",
         testResults,
-        passedTests,
-        totalTests,
-        scorePercentage,
-      },
-    };
+        parseFloat(String(question.points)),
+        questionData.constraints,
+      );
+
+      return {
+        is_correct: aiResult.is_correct,
+        points_earned: aiResult.points_earned,
+        feedback: aiResult.feedback,
+        detailed_feedback: {
+          testResults,
+          quality_score: aiResult.quality_score,
+          efficiency_score: aiResult.efficiency_score,
+          correctness_score: aiResult.correctness_score,
+          passedTests: testResults.filter((r) => r.passed).length,
+          totalTests: testResults.length,
+        },
+      };
+    } catch (error: any) {
+      console.error("Coding grading failed:", error);
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: `Grading failed: ${error.message}`,
+      };
+    }
   }
 }
 
@@ -1434,27 +1479,35 @@ export class AdvancedQuizGrader {
           questionData &&
           Array.isArray(questionData.correct_option_indices)
         ) {
-          correctOptionIndices = questionData.correct_option_indices.map(
-            (idx: any) => (typeof idx === "string" ? parseInt(idx, 10) : idx),
-          );
+          correctOptionIndices = questionData.correct_option_indices
+            .map((idx: any) =>
+              typeof idx === "string" ? parseInt(idx, 10) : idx,
+            )
+            .filter((idx: any) => !isNaN(idx));
         } else if (questionData && Array.isArray(questionData.correct_answer)) {
-          correctOptionIndices = questionData.correct_answer.map((idx: any) =>
-            typeof idx === "string" ? parseInt(idx, 10) : idx,
-          );
+          correctOptionIndices = questionData.correct_answer
+            .map((idx: any) =>
+              typeof idx === "string" ? parseInt(idx, 10) : idx,
+            )
+            .filter((idx: any) => !isNaN(idx));
         } else if (correctAnswer !== undefined && correctAnswer !== null) {
           // Handle different formats of correct_answer
           if (Array.isArray(correctAnswer)) {
-            correctOptionIndices = correctAnswer.map((idx: any) =>
-              typeof idx === "string" ? parseInt(idx, 10) : idx,
-            );
+            correctOptionIndices = correctAnswer
+              .map((idx: any) =>
+                typeof idx === "string" ? parseInt(idx, 10) : idx,
+              )
+              .filter((idx: any) => !isNaN(idx));
           } else if (
             correctAnswer &&
             typeof correctAnswer === "object" &&
             Array.isArray(correctAnswer.correct_option_indices)
           ) {
-            correctOptionIndices = correctAnswer.correct_option_indices.map(
-              (idx: any) => (typeof idx === "string" ? parseInt(idx, 10) : idx),
-            );
+            correctOptionIndices = correctAnswer.correct_option_indices
+              .map((idx: any) =>
+                typeof idx === "string" ? parseInt(idx, 10) : idx,
+              )
+              .filter((idx: any) => !isNaN(idx));
           }
         }
         normalizedData = correctOptionIndices
@@ -1729,9 +1782,21 @@ export class AdvancedQuizGrader {
     config: TrueFalseGradingConfig,
     maxPoints: number,
   ): AdvancedGradingResult {
-    const basicResult = ChoiceQuestionGrader.gradeSingleChoice(
-      question,
-      answerData,
+    const isTrueFalse = question.questionBank?.question_type === "true_false";
+
+    // Correctly route to the right basic grader
+    const basicResult = isTrueFalse
+      ? ChoiceQuestionGrader.gradeTrueFalse(question, answerData)
+      : ChoiceQuestionGrader.gradeSingleChoice(question, answerData);
+
+    console.log(
+      `[Grading] ${isTrueFalse ? "True/False" : "Single Choice"} Result:`,
+      {
+        question_id: question.id,
+        is_correct: basicResult.is_correct,
+        points_earned: basicResult.points_earned,
+        feedback: basicResult.feedback,
+      },
     );
 
     let pointsEarned = basicResult.points_earned;
@@ -1880,7 +1945,6 @@ export class AdvancedQuizGrader {
     // Apply units penalty if configured
     if (config.units_required && config.units_penalty > 0) {
       // For now, assume units are checked in basic grading
-      // In a real implementation, you'd check units separately
     }
 
     // Apply minimum score
@@ -2318,11 +2382,11 @@ export class QuizGrader {
     }> = [];
 
     for (const attempt of submission) {
-      if (!attempt.question) continue;
+      if (!attempt.attemptQuestion) continue;
 
       // Use advanced grading for all question types for consistency and to trigger AI grading
       const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
-        attempt.question,
+        attempt.attemptQuestion,
         attempt.submitted_answer as AnswerDataType,
       );
 
@@ -2332,7 +2396,7 @@ export class QuizGrader {
         gradingResult.feedback || (isCorrect ? "Correct!" : "Incorrect");
 
       totalEarned += pointsEarned;
-      maxPossible += parseFloat(String(attempt.question.points)) || 0;
+      maxPossible += parseFloat(String(attempt.attemptQuestion.points)) || 0;
 
       details.push({
         question_id: attempt.question_id,
@@ -2344,9 +2408,8 @@ export class QuizGrader {
       // Update the attempt with grading results and normalized answers if needed
       // (AdvancedQuizGrader handles normalization internally during grading)
       const normalizedAnswers = AdvancedQuizGrader.normalizeCorrectAnswer(
-        attempt.question,
+        attempt.attemptQuestion,
       );
-
       await attempt.update({
         is_correct: isCorrect,
         points_earned: pointsEarned,

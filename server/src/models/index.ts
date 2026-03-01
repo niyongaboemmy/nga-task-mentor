@@ -138,11 +138,6 @@ const setupAssociations = () => {
     as: "questionAttempts",
   });
 
-  QuizAttempt.belongsTo(QuizQuestion, {
-    foreignKey: "question_id",
-    as: "attemptQuestion",
-  });
-
   Quiz.hasMany(QuizAttempt, {
     foreignKey: "quiz_id",
     as: "quizAttempts",

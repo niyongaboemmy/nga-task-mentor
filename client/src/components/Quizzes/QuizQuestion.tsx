@@ -35,7 +35,7 @@ export const QuizQuestion: React.FC<QuizQuestionProps> = ({
           question.question_text || question.questionBank?.question_text || ""
         }
         points={question.points}
-        timeLimit={question.time_limit_seconds}
+        timeLimit={question.questionBank?.time_limit_seconds || 60}
         isRequired={question.is_required}
         explanation={
           question.explanation ||

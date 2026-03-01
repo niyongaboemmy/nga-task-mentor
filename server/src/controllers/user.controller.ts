@@ -3,7 +3,7 @@ import { Op } from "sequelize";
 import axios from "axios";
 import path from "path";
 import fs from "fs";
-import { getMisToken } from "../utils/misUtils";
+import { getMisToken, handleMisError } from "../utils/misUtils";
 import { Submission, Assignment, QuizSubmission, Quiz } from "../models";
 
 // @desc    Get all users
@@ -117,8 +117,7 @@ export const getUsers = async (req: Request, res: Response) => {
       });
     }
   } catch (error: any) {
-    console.error("Get users error:", error.response?.data || error.message);
-    res.status(500).json({ success: false, message: "Server error" });
+    return handleMisError(error, res, "Error fetching users");
   }
 };
 
@@ -168,12 +167,12 @@ export const getUser = async (req: Request, res: Response) => {
       res.status(404).json({ success: false, message: "User not found" });
     }
   } catch (error: any) {
-    console.error("Get user error:", error.response?.data || error.message);
     if (error.response?.status === 404) {
-      res.status(404).json({ success: false, message: "User not found" });
-    } else {
-      res.status(500).json({ success: false, message: "Server error" });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
+    return handleMisError(error, res, "Error fetching user profile");
   }
 };
 
@@ -230,11 +229,7 @@ export const getUserCourses = async (req: Request, res: Response) => {
       });
     }
   } catch (error: any) {
-    console.error(
-      "Get user courses error:",
-      error.response?.data || error.message,
-    );
-    res.status(500).json({ success: false, message: "Server error" });
+    return handleMisError(error, res, "Error fetching user courses");
   }
 };
 
@@ -289,20 +284,13 @@ export const createUser = async (req: Request, res: Response) => {
       });
     }
   } catch (error: any) {
-    console.error("Create user error:", error.response?.data || error.message);
     if (error.response?.status === 400) {
-      res.status(400).json({
+      return res.status(400).json({
         success: false,
         message: error.response.data.message || "User already exists",
       });
-    } else {
-      // Sanitize error in production
-      const message =
-        process.env.NODE_ENV === "production"
-          ? "Failed to create user"
-          : error.response?.data?.message || "Server error";
-      res.status(500).json({ success: false, message });
     }
+    return handleMisError(error, res, "Error creating user");
   }
 };
 
@@ -350,17 +338,12 @@ export const updateUser = async (req: Request, res: Response) => {
       res.status(404).json({ success: false, message: "User not found" });
     }
   } catch (error: any) {
-    console.error("Update user error:", error.response?.data || error.message);
     if (error.response?.status === 404) {
-      res.status(404).json({ success: false, message: "User not found" });
-    } else {
-      // Sanitize error in production
-      const message =
-        process.env.NODE_ENV === "production"
-          ? "Failed to update user"
-          : error.response?.data?.message || "Server error";
-      res.status(500).json({ success: false, message });
+      return res
+        .status(404)
+        .json({ success: false, message: "User not found" });
     }
+    return handleMisError(error, res, "Error updating user");
   }
 };
 

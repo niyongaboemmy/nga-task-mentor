@@ -48,7 +48,6 @@ interface AlgorithmConfig {
   tags: string[];
   count: number; // how many questions to pull
   points_per_question: number;
-  time_limit_seconds: number;
   is_required: boolean;
 }
 
@@ -113,7 +112,6 @@ const DEFAULT_CONFIG: AlgorithmConfig = {
   tags: [],
   count: 10,
   points_per_question: 1,
-  time_limit_seconds: 60,
   is_required: true,
 };
 
@@ -386,7 +384,6 @@ export const QuestionBankSelectorModal: React.FC<
       try {
         await QuestionBankApiService.addQuestionToQuiz(quizId, q.id, {
           points: config.points_per_question,
-          time_limit_seconds: config.time_limit_seconds,
           is_required: config.is_required,
         });
       } catch (err: any) {
@@ -714,26 +711,6 @@ export const QuestionBankSelectorModal: React.FC<
                   />
                 </div>
 
-                {/* Time limit */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1.5">
-                    Time limit per question (seconds)
-                  </label>
-                  <input
-                    type="number"
-                    min={10}
-                    max={3600}
-                    value={config.time_limit_seconds}
-                    onChange={(e) =>
-                      updateConfig(
-                        "time_limit_seconds",
-                        parseInt(e.target.value) || 60,
-                      )
-                    }
-                    className="w-28 px-3 py-1.5 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                </div>
-
                 {/* Required */}
                 <div className="flex items-center gap-2.5">
                   <button
@@ -943,11 +920,20 @@ export const QuestionBankSelectorModal: React.FC<
                   {selectedIds.size}
                 </span>{" "}
                 question{selectedIds.size === 1 ? "" : "s"} ·{" "}
-                {(selectedIds.size * config.points_per_question).toFixed(1)} pts
-                total ·{" "}
-                {Math.round(
-                  (selectedIds.size * config.time_limit_seconds) / 60,
-                )}{" "}
+                <span className="font-semibold">
+                  {(selectedIds.size * config.points_per_question).toFixed(1)}
+                </span>{" "}
+                pts total ·{" "}
+                <span className="font-semibold">
+                  {Math.ceil(
+                    results
+                      .filter((q) => selectedIds.has(q.id))
+                      .reduce(
+                        (sum, q) => sum + (q.time_limit_seconds || 60),
+                        0,
+                      ) / 60,
+                  )}
+                </span>{" "}
                 min est.
               </span>
             )}

@@ -163,7 +163,7 @@ export class QuizAttempt extends Model<
   quiz!: Quiz;
 
   @BelongsTo(() => QuizQuestion, "question_id")
-  question!: QuizQuestion;
+  attemptQuestion!: QuizQuestion;
 
   @BelongsTo(() => User, "student_id")
   student!: User;

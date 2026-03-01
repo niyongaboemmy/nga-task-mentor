@@ -44,6 +44,7 @@ export interface IQuestionBankAttributes {
   blooms_taxonomy_level_id?: number | null;
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;
+  time_limit_seconds?: number | null;
   created_at?: Date;
   updated_at?: Date;
 }
@@ -212,6 +213,24 @@ export class QuestionBank extends Model<
     field: "difficulty_level",
   })
   difficulty_level?: DifficultyLevel | null;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    defaultValue: 60,
+    field: "time_limit_seconds",
+    validate: {
+      min: {
+        args: [10],
+        msg: "Question time limit must be at least 10 seconds",
+      },
+      max: {
+        args: [3600],
+        msg: "Question time limit cannot exceed 1 hour",
+      },
+    },
+  })
+  time_limit_seconds?: number | null;
 
   // Associations
   @BelongsTo(() => BloomsTaxonomyLevel, "blooms_taxonomy_level_id")

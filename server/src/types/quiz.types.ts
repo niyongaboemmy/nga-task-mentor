@@ -320,6 +320,7 @@ export interface QuestionBankEntry {
   blooms_taxonomy_level_id?: number | null;
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;
+  time_limit_seconds?: number | null;
   bloomsLevel?: { id: number; name: string; level_order: number } | null;
   created_at?: string;
   updated_at?: string;

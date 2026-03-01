@@ -158,6 +158,7 @@ export const createCourseQuestion = async (req: Request, res: Response) => {
       blooms_taxonomy_level_id,
       tags,
       difficulty_level,
+      time_limit_seconds,
     } = req.body;
 
     // Validate question data
@@ -209,6 +210,7 @@ export const createCourseQuestion = async (req: Request, res: Response) => {
         blooms_taxonomy_level_id: blooms_taxonomy_level_id ?? null,
         tags: sanitizedTags ?? null,
         difficulty_level: difficulty_level ?? null,
+        time_limit_seconds: time_limit_seconds ?? 60,
       },
       { transaction },
     );
@@ -497,6 +499,7 @@ export const bulkCreateCourseQuestions = async (
           blooms_taxonomy_level_id: bloomsLevelId,
           tags: sanitizedTags ?? null,
           difficulty_level: q.difficulty_level ?? "MEDIUM",
+          time_limit_seconds: q.time_limit_seconds ?? 60,
         },
         { transaction },
       );

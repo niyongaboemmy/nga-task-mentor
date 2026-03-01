@@ -6,7 +6,7 @@ import { Submission } from "../models/Submission.model";
 import { Quiz } from "../models/Quiz.model";
 import { QuizSubmission } from "../models/QuizSubmission.model";
 import axios from "axios";
-import { getMisToken } from "../utils/misUtils";
+import { getMisToken, handleMisError } from "../utils/misUtils";
 
 // Interface for dashboard statistics
 interface DashboardStats {
@@ -40,7 +40,7 @@ export const getStudentStats = async (req: Request, res: Response) => {
           `${process.env.NGA_MIS_BASE_URL}/academics/students/${req.user.mis_user_id}/enrolled-subjects`,
           {
             headers: {
-              Authorization: token,
+              Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
           },
@@ -186,21 +186,37 @@ export const getInstructorStats = async (req: Request, res: Response) => {
     try {
       const token = getMisToken(req);
       if (token) {
+        console.log(
+          `🔗 Requesting MIS subjects from: ${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
+        );
+        console.log(
+          `🔑 Using token (first 20 chars): ${token.substring(0, 20)}...`,
+        );
+
         const coursesResponse = await axios.get(
           `${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
           {
             headers: {
-              Authorization: token,
+              Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
           },
         );
+        console.log(
+          "✅ Courses response received:",
+          coursesResponse.data.success ? "Success" : "Failure",
+        );
         if (coursesResponse.data.success) {
           totalCourses = coursesResponse.data.data?.length || 0;
         }
+      } else {
+        console.log("⚠️ No MIS token available in getInstructorStats");
       }
-    } catch (courseError) {
-      console.warn("Could not fetch courses count:", courseError);
+    } catch (courseError: any) {
+      console.warn("Could not fetch courses count:", courseError.message);
+      if (courseError.response) {
+        console.warn("MIS API error response:", courseError.response.data);
+      }
       // Continue with 0 courses
     }
 
@@ -355,12 +371,12 @@ export const getInstructorPendingGrading = async (
       success: true,
       data: formattedAssignments,
     });
-  } catch (error) {
-    console.error("Error fetching pending grading:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching pending grading assignments",
-    });
+  } catch (error: any) {
+    return handleMisError(
+      error,
+      res,
+      "Error fetching pending grading assignments",
+    );
   }
 };
 
@@ -376,7 +392,7 @@ export const getAdminStats = async (req: Request, res: Response) => {
           `${process.env.NGA_MIS_BASE_URL}/academics/subjects`,
           {
             headers: {
-              Authorization: token,
+              Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
           },
@@ -418,12 +434,8 @@ export const getAdminStats = async (req: Request, res: Response) => {
       success: true,
       data: stats,
     });
-  } catch (error) {
-    console.error("Error fetching admin stats:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching dashboard statistics",
-    });
+  } catch (error: any) {
+    return handleMisError(error, res, "Error fetching dashboard statistics");
   }
 };
 
@@ -443,7 +455,7 @@ export const getAdminGradingSummary = async (req: Request, res: Response) => {
           `${process.env.NGA_MIS_BASE_URL}/academics/subjects`,
           {
             headers: {
-              Authorization: token,
+              Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
             params: { limit: 100 }, // Try to get a good chunk

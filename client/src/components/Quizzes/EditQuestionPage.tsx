@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Check, ChevronRight, ChevronLeft, X } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import { toast } from "react-toastify";
 import type { RootState, AppDispatch } from "../../store";
@@ -37,6 +38,7 @@ import type {
   DragDropData,
   BloomsTaxonomyLevel,
 } from "../../types/quiz.types";
+import RichEditor from "../ui/RichEditor";
 
 interface EditQuestionPageProps {
   quizId: number;
@@ -56,6 +58,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
   const [formData, setFormData] = useState<Partial<QuizQuestion>>({});
   const [bloomsLevels, setBloomsLevels] = useState<BloomsTaxonomyLevel[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [currentStep, setCurrentStep] = useState(1);
 
   // Helper functions for type-safe data access
   const handleQuestionDataChange = (data: typeof formData.question_data) => {
@@ -202,6 +205,38 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
     }
   };
 
+  const isStep1Valid = () => {
+    if (!formData.question_text?.trim()) return false;
+    if (!formData.time_limit_seconds || formData.time_limit_seconds < 10)
+      return false;
+    if (!formData.points || formData.points < 1) return false;
+    return true;
+  };
+
+  const isStep2Valid = () => {
+    if (formData.question_type === "coding") {
+      const codingData = getCodingData();
+      const hasInvalidTestCases =
+        codingData?.test_cases?.some(
+          (testCase: any) =>
+            !testCase.input.trim() || !testCase.expected_output.trim(),
+        ) ?? false;
+      if (hasInvalidTestCases) return false;
+    }
+    return true;
+  };
+
+  const isFormValid = () => isStep1Valid() && isStep2Valid();
+
+  const handleNextStep = () => {
+    if (currentStep === 1 && isStep1Valid()) setCurrentStep(2);
+    else if (currentStep === 2 && isStep2Valid()) setCurrentStep(3);
+  };
+
+  const handlePrevStep = () => {
+    if (currentStep > 1) setCurrentStep(currentStep - 1);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.question_text?.trim()) return;
@@ -288,247 +323,369 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
   }
 
   return (
-    <div className="pb-8">
-      <div className="">
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-lg p-6 md:p-8">
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-3">
+    <div className="pb-8 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
+      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 md:p-10">
+        <div className="mb-8 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
               Edit Question
             </h1>
-            <button
-              onClick={() => navigate(`/quizzes/${quizId}`)}
-              className="text-blue-600 hover:text-blue-800 dark:text-blue-400 dark:hover:text-blue-300 transition-colors duration-200"
-            >
-              ← Back to Quiz
-            </button>
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Modify your quiz question step-by-step.
+            </p>
           </div>
+          <button
+            onClick={() => navigate(`/quizzes/${quizId}`)}
+            className="text-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+          >
+            Cancel & Return
+          </button>
+        </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8">
-            {/* Question Type (read-only display) */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Question Type
-              </label>
-              <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 font-medium">
-                {formData.question_type?.replace("_", " ").toUpperCase() ||
-                  "Unknown"}
-              </div>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
-                Question type cannot be changed after creation
-              </p>
-            </div>
+        {/* Stepper */}
+        <div className="mb-10">
+          <div className="flex items-center justify-between relative">
+            <div className="absolute left-0 top-1/2 transform -translate-y-1/2 w-full h-1 bg-gray-100 dark:bg-gray-800 rounded-full" />
+            <div
+              className="absolute left-0 top-1/2 transform -translate-y-1/2 h-1 bg-blue-600 rounded-full transition-all duration-300"
+              style={{ width: `${((currentStep - 1) / 2) * 100}%` }}
+            />
 
-            {/* Question Text */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Question Text *
-              </label>
-              <textarea
-                value={formData.question_text || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    question_text: e.target.value,
-                  }))
-                }
-                placeholder="Enter your question..."
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
-                required
-              />
-            </div>
-
-            {/* Question-specific fields */}
-            <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6">
-              {renderQuestionTypeFields()}
-            </div>
-
-            {/* Points */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Points
-              </label>
-              <input
-                type="number"
-                value={formData.points || 1}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    points: parseInt(e.target.value),
-                  }))
-                }
-                min="1"
-                max="100"
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
-                required
-              />
-            </div>
-
-            {/* Explanation */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
-                Explanation (optional)
-              </label>
-              <textarea
-                value={formData.explanation || ""}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    explanation: e.target.value,
-                  }))
-                }
-                placeholder="Explain the correct answer..."
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
-              />
-            </div>
-
-            {/* ── Metadata Section ───────────────────────────── */}
-            <div className="pt-4 border-t border-gray-200 dark:border-gray-700">
-              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-4">
-                Question Metadata
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {/* Bloom's Taxonomy Level */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Bloom's Taxonomy Level
-                  </label>
-                  <select
-                    value={formData.blooms_taxonomy_level_id ?? ""}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        blooms_taxonomy_level_id: e.target.value
-                          ? parseInt(e.target.value)
-                          : null,
-                      }))
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  >
-                    <option value="">— None —</option>
-                    {bloomsLevels.map((level) => (
-                      <option key={level.id} value={level.id}>
-                        {level.level_order}. {level.name}
-                      </option>
-                    ))}
-                  </select>
+            {[
+              { num: 1, label: "Basic Details" },
+              { num: 2, label: "Configuration" },
+              { num: 3, label: "Metadata" },
+            ].map((step) => (
+              <div
+                key={step.num}
+                className="relative z-10 flex flex-col items-center gap-2"
+              >
+                <div
+                  className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors border-2 ${
+                    currentStep > step.num
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : currentStep === step.num
+                        ? "bg-white dark:bg-gray-900 border-blue-600 text-blue-600 dark:text-blue-400"
+                        : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-400"
+                  }`}
+                >
+                  {currentStep > step.num ? <Check size={18} /> : step.num}
                 </div>
-
-                {/* Difficulty Level */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                    Difficulty Level
-                  </label>
-                  <select
-                    value={formData.difficulty_level ?? ""}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        difficulty_level: (e.target.value as any) || null,
-                      }))
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400"
-                  >
-                    <option value="">— None —</option>
-                    <option value="EASY">🟢 Easy</option>
-                    <option value="MEDIUM">🟡 Medium</option>
-                    <option value="DIFFICULT">🔴 Difficult</option>
-                  </select>
-                </div>
+                <span
+                  className={`text-xs font-semibold ${
+                    currentStep >= step.num
+                      ? "text-gray-900 dark:text-white"
+                      : "text-gray-400"
+                  }`}
+                >
+                  {step.label}
+                </span>
               </div>
+            ))}
+          </div>
+        </div>
 
-              {/* Tags */}
-              <div className="mt-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Tags
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* STEP 1: Basics */}
+          {currentStep === 1 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              {/* Question Type (Read-only) */}
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                  Question Type
                 </label>
-                <div className="flex gap-2">
+                <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 font-medium">
+                  {formData.question_type?.replace("_", " ").toUpperCase() ||
+                    "Unknown"}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  Question type cannot be changed after creation.
+                </p>
+              </div>
+
+              {/* Question Text */}
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  Question Prompt *
+                </label>
+                <p className="text-xs text-gray-500 mb-4">
+                  Edit the main text or instructions for the student.
+                </p>
+                <RichEditor
+                  label=""
+                  value={formData.question_text || ""}
+                  onChange={(value: string) =>
+                    setFormData((prev) => ({ ...prev, question_text: value }))
+                  }
+                  placeholder="Type your question here..."
+                />
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Points */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Points Awarded
+                  </label>
                   <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (
-                        (e.key === "Enter" || e.key === ",") &&
-                        tagInput.trim()
-                      ) {
-                        e.preventDefault();
+                    type="number"
+                    value={formData.points || 1}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        points: parseInt(e.target.value),
+                      }))
+                    }
+                    min="1"
+                    max="100"
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+
+                {/* Time Limit */}
+                <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Time Limit (seconds) *
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.time_limit_seconds || 60}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        time_limit_seconds: parseInt(e.target.value),
+                      }))
+                    }
+                    min="10"
+                    max="3600"
+                    required
+                    className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-2">
+                    Between 10s and 3600s (1hr)
+                  </p>
+                </div>
+              </div>
+
+              {/* Explanation */}
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  Post-Answer Explanation (optional)
+                </label>
+                <textarea
+                  value={formData.explanation || ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      explanation: e.target.value,
+                    }))
+                  }
+                  placeholder="Explain why the answer is correct..."
+                  rows={3}
+                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* STEP 2: Configuration */}
+          {currentStep === 2 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                  Configure specific details
+                </h3>
+                <p className="text-sm text-gray-500 mb-6">
+                  Set up the correct answers, choices, or workspace editors for
+                  your {(formData.question_type || "").replace("_", " ")}{" "}
+                  question.
+                </p>
+
+                {renderQuestionTypeFields()}
+
+                {formData.question_type === "coding" && !isStep2Valid() && (
+                  <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <span className="text-red-600 dark:text-red-400">⚠️</span>
+                      <div className="text-sm text-red-800 dark:text-red-200">
+                        <p className="font-medium">
+                          Complete Test Cases Required
+                        </p>
+                        <p>
+                          Please provide input and expected output for all test
+                          cases.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* STEP 3: Metadata */}
+          {currentStep === 3 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">
+                  Categorization & Metadata
+                </h3>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Bloom's Taxonomy Level
+                    </label>
+                    <select
+                      value={formData.blooms_taxonomy_level_id ?? ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          blooms_taxonomy_level_id: e.target.value
+                            ? parseInt(e.target.value)
+                            : null,
+                        }))
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">— Uncategorized —</option>
+                      {bloomsLevels.map((level) => (
+                        <option key={level.id} value={level.id}>
+                          {level.level_order}. {level.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                      Difficulty Level
+                    </label>
+                    <select
+                      value={formData.difficulty_level ?? ""}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          difficulty_level: (e.target.value as any) || null,
+                        }))
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">— Uncategorized —</option>
+                      <option value="EASY">🟢 Easy</option>
+                      <option value="MEDIUM">🟡 Medium</option>
+                      <option value="DIFFICULT">🔴 Difficult</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    Tags
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={tagInput}
+                      onChange={(e) => setTagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (
+                          (e.key === "Enter" || e.key === ",") &&
+                          tagInput.trim()
+                        ) {
+                          e.preventDefault();
+                          const newTag = tagInput.trim().toLowerCase();
+                          if (!formData.tags?.includes(newTag)) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              tags: [...(prev.tags ?? []), newTag],
+                            }));
+                          }
+                          setTagInput("");
+                        }
+                      }}
+                      placeholder="Type a tag and press Enter"
+                      className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
                         const newTag = tagInput.trim().toLowerCase();
-                        if (!formData.tags?.includes(newTag)) {
+                        if (newTag && !formData.tags?.includes(newTag)) {
                           setFormData((prev) => ({
                             ...prev,
                             tags: [...(prev.tags ?? []), newTag],
                           }));
                         }
                         setTagInput("");
-                      }
-                    }}
-                    placeholder="Type a tag and press Enter or comma"
-                    className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const newTag = tagInput.trim().toLowerCase();
-                      if (newTag && !formData.tags?.includes(newTag)) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          tags: [...(prev.tags ?? []), newTag],
-                        }));
-                      }
-                      setTagInput("");
-                    }}
-                    className="px-4 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-2xl hover:bg-gray-200 dark:hover:bg-gray-600 text-sm"
-                  >
-                    Add
-                  </button>
-                </div>
-                {(formData.tags ?? []).length > 0 && (
-                  <div className="flex flex-wrap gap-2 mt-3">
-                    {(formData.tags ?? []).map((tag) => (
-                      <span
-                        key={tag}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300 rounded-full text-sm"
-                      >
-                        #{tag}
-                        <button
-                          type="button"
-                          onClick={() =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              tags: prev.tags?.filter((t) => t !== tag),
-                            }))
-                          }
-                          className="ml-1 hover:text-blue-900 dark:hover:text-blue-100 font-bold"
-                        >
-                          ×
-                        </button>
-                      </span>
-                    ))}
+                      }}
+                      className="px-6 py-3 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium rounded-xl hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                    >
+                      Add
+                    </button>
                   </div>
-                )}
+                  {(formData.tags ?? []).length > 0 && (
+                    <div className="flex flex-wrap gap-2 mt-4">
+                      {(formData.tags ?? []).map((tag) => (
+                        <span
+                          key={tag}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-100 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 rounded-lg text-sm font-medium"
+                        >
+                          #{tag}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                tags: prev.tags?.filter((t) => t !== tag),
+                              }))
+                            }
+                            className="ml-1 opacity-60 hover:opacity-100"
+                          >
+                            <X size={14} />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
+          )}
 
-            {/* Action Buttons */}
-            <div className="flex justify-end gap-4 pt-8 border-t border-gray-200 dark:border-gray-700">
+          {/* Action Footer Navigation */}
+          <div className="flex justify-between items-center pt-6 border-t border-gray-200 dark:border-gray-800 mt-8">
+            <button
+              type="button"
+              onClick={handlePrevStep}
+              disabled={currentStep === 1}
+              className="flex items-center gap-2 px-6 py-3 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors disabled:opacity-0 disabled:pointer-events-none"
+            >
+              <ChevronLeft size={18} /> Back
+            </button>
+
+            {currentStep < 3 ? (
               <button
                 type="button"
-                onClick={() => navigate(`/quizzes/${quizId}`)}
-                className="px-8 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors duration-200"
+                onClick={handleNextStep}
+                disabled={currentStep === 1 ? !isStep1Valid() : !isStep2Valid()}
+                className="flex items-center gap-2 px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Cancel
+                Next Step <ChevronRight size={18} />
               </button>
+            ) : (
               <button
                 type="submit"
-                className="px-8 py-3 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-full transition-colors duration-200 font-medium"
+                disabled={loading.quiz || !isFormValid()}
+                className="flex items-center gap-2 px-8 py-3 bg-green-600 hover:bg-green-700 text-white font-semibold rounded-xl transition-all shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Save Changes
+                {loading.quiz ? "Saving..." : "Save Changes"}
+                {!loading.quiz && <Check size={18} />}
               </button>
-            </div>
-          </form>
-        </div>
+            )}
+          </div>
+        </form>
       </div>
     </div>
   );

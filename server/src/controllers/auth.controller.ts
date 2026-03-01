@@ -3,7 +3,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import axios from "axios";
-import { getMisToken } from "../utils/misUtils";
+import { getMisToken, handleMisError } from "../utils/misUtils";
 import { Sequelize, Op } from "sequelize";
 import { User } from "../models/User.model";
 import fs from "fs";
@@ -745,28 +745,11 @@ export const getMe = async (req: Request, res: Response) => {
         },
       });
     } catch (misError) {
-      console.error("MIS API error:", misError);
-      // Fallback to local data if MIS call fails
-      res.status(200).json({
-        success: true,
-        data: {
-          user: {
-            id: user.id,
-            first_name: user.first_name,
-            last_name: user.last_name,
-            email: user.email,
-            role: user.role,
-            mis_user_id: user.mis_user_id,
-            profile_image: user.profile_image,
-          },
-          profile: null,
-          roles: [],
-          permissions: [],
-          assignedPrograms: [],
-          assignedGrades: [],
-          forcePasswordChange: false,
-        },
-      });
+      return handleMisError(
+        misError,
+        res,
+        "MIS API error during profile fetch",
+      );
     }
   } catch (error) {
     console.error("Get me error:", error);

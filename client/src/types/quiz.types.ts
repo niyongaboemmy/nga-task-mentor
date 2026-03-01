@@ -127,7 +127,16 @@ export interface CodingData {
     memory_limit?: number;
   }>;
   constraints?: string;
+  time_limit?: number;
+  memory_limit?: number;
   allowed_languages?: string[];
+  project_mode?: boolean;
+  project_files?: Array<{
+    name: string;
+    content: string;
+    language: string;
+    is_entry_point?: boolean;
+  }>;
 }
 
 export interface LogicalExpressionData {
@@ -317,6 +326,7 @@ export interface QuestionBankEntry {
   blooms_taxonomy_level_id?: number | null;
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;
+  time_limit_seconds?: number | null;
   bloomsLevel?: BloomsTaxonomyLevel | null;
   created_at: string;
   updated_at: string;
@@ -328,7 +338,6 @@ export interface QuizQuestion {
   question_id: number; // FK → question_bank
   order: number;
   points: number;
-  time_limit_seconds: number;
   is_required: boolean;
   created_at: string;
   updated_at: string;
@@ -472,6 +481,7 @@ export interface CreateCourseQuestionRequest {
   blooms_taxonomy_level_id?: number | null;
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;
+  time_limit_seconds?: number | null;
 }
 
 export interface StartQuizAttemptRequest {
@@ -522,10 +532,16 @@ export interface StudentPerformance {
 export interface QuestionComponentProps {
   question: QuizQuestion;
   answer?: AnswerDataType;
-  onAnswerChange: (answer: AnswerDataType) => void;
+  onAnswerChange: (answer: AnswerDataType, forceSave?: boolean) => void;
   disabled?: boolean;
   showCorrectAnswer?: boolean;
   timeRemaining?: number;
+  onStart?: () => void;
+  onToggleFullscreen?: (isFullscreen: boolean) => void;
+  submissionId?: number;
+  isFullscreen?: boolean;
+  isStarted?: boolean;
+  onNext?: () => void;
 }
 
 export interface QuizAttemptProps {

@@ -14,7 +14,10 @@ import {
   getQuizSubmissions,
   updateQuizSubmission,
   resetQuizSubmission,
+  getAIHint,
+  runCode,
 } from "../controllers/quiz.controller";
+
 import {
   getQuizQuestions,
   getQuestion,
@@ -91,6 +94,9 @@ router
 // Question routes
 router.get("/:quizId/questions", getQuizQuestions);
 router.get("/questions/:id", getQuestion);
+router.post("/questions/:questionId/ai-hint", getAIHint);
+router.post("/questions/:questionId/run-code", runCode);
+
 router.post(
   "/:quizId/questions",
   authorize("instructor", "admin"),
