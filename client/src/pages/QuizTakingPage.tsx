@@ -127,6 +127,12 @@ const QuizTakingPage: React.FC = () => {
   const [perQuestionTimeLeft, setPerQuestionTimeLeft] = useState<number | null>(
     null,
   );
+  const questionStartTimeRef = React.useRef<number>(Date.now());
+
+  const getQuestionStartKey = useCallback(
+    (questionId: number) => `quiz_${id}_question_${questionId}_started_at`,
+    [id],
+  );
   const [lockedQuestionIndices, setLockedQuestionIndices] = useState<
     Set<number>
   >(new Set());
@@ -204,6 +210,25 @@ const QuizTakingPage: React.FC = () => {
       checkExistingSubmission();
     }
   }, [quiz, quizStartTime]);
+
+  useEffect(() => {
+    if (!currentQuestion || !id) {
+      questionStartTimeRef.current = Date.now();
+      return;
+    }
+
+    const key = getQuestionStartKey(currentQuestion.id);
+    const existing = localStorage.getItem(key);
+    const parsed = existing ? Number(existing) : NaN;
+
+    if (existing && Number.isFinite(parsed) && parsed > 0) {
+      questionStartTimeRef.current = parsed;
+    } else {
+      const now = Date.now();
+      questionStartTimeRef.current = now;
+      localStorage.setItem(key, String(now));
+    }
+  }, [currentQuestionIndex, currentQuestion?.id, id, getQuestionStartKey]);
 
   // Load saved answers and timer state from localStorage on component mount
   useEffect(() => {
@@ -413,8 +438,16 @@ const QuizTakingPage: React.FC = () => {
               if (id) {
                 const quizSessionKey = `quiz_${id}_answers`;
                 const timerSessionKey = `quiz_${id}_timer`;
+                const questionStartPrefix = `quiz_${id}_question_`;
                 localStorage.removeItem(quizSessionKey);
                 localStorage.removeItem(timerSessionKey);
+
+                for (let i = localStorage.length - 1; i >= 0; i--) {
+                  const key = localStorage.key(i);
+                  if (key && key.startsWith(questionStartPrefix)) {
+                    localStorage.removeItem(key);
+                  }
+                }
               }
               // Reset quiz state
               setAnswers([]);
@@ -1326,12 +1359,15 @@ const QuizTakingPage: React.FC = () => {
         justSavedQuestionRef.current = String(questionId);
       }
 
+      const timeTakenSeconds = Math.max(
+        0,
+        Math.floor((Date.now() - questionStartTimeRef.current) / 1000),
+      );
+
       const newAnswer: Answer = {
         question_id: questionId,
         answer,
-        time_taken: Math.floor(
-          (Date.now() - (quizStartTime?.getTime() || 0)) / 1000,
-        ), // Convert to seconds
+        time_taken: timeTakenSeconds,
       };
 
       setAnswers((prev) => {
@@ -1363,6 +1399,7 @@ const QuizTakingPage: React.FC = () => {
             existingSubmission.id,
             questionId,
             answer,
+            timeTakenSeconds,
           );
           if (forceSave) {
             setIsCurrentSaved(true);
@@ -1465,36 +1502,27 @@ const QuizTakingPage: React.FC = () => {
         const quizSessionKey = `quiz_${id}_answers`;
         const timerSessionKey = `quiz_${id}_timer`;
         const lockedIndicesKey = `quiz_${id}_locked_indices`;
+        const questionStartPrefix = `quiz_${id}_question_`;
+
         localStorage.removeItem(quizSessionKey);
         localStorage.removeItem(timerSessionKey);
         localStorage.removeItem(lockedIndicesKey);
+
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const key = localStorage.key(i);
+          if (key && key.startsWith(questionStartPrefix)) {
+            localStorage.removeItem(key);
+          }
+        }
       }
 
-      // Check if quiz settings allow immediate results display
-      if ((quiz as any).show_results_immediately) {
-        // Show grade summary modal first
-        setGradeSummary({
-          final_score: submissionResult.final_score,
-          max_score: submissionResult.max_score,
-          percentage: submissionResult.percentage,
-          passed: submissionResult.passed,
-          grade: submissionResult.grade,
-          quiz_title: quiz.title,
-        });
-        setShowGradeSummary(true);
-
-        // Auto-navigate to full results after 1.5 seconds
-        setTimeout(() => {
-          navigate(`/quizzes/${quiz.id}/results`, {
-            state: { quiz, answers, submissionData },
-          });
-        }, 1500);
-      } else {
-        // Navigate directly to results page
-        navigate(`/quizzes/${quiz.id}/results`, {
-          state: { quiz, answers, submissionData },
-        });
-      }
+      // Navigate to results page; backend is the source of truth for scores/grades.
+      navigate(`/quizzes/${quiz.id}/results`, {
+        state: {
+          submissionId:
+            submissionResult.submission_id ?? existingSubmission?.id,
+        },
+      });
     } catch (error: any) {
       // console.error("Error submitting quiz:", error);
 
@@ -1504,7 +1532,6 @@ const QuizTakingPage: React.FC = () => {
       if (error.response?.data?.message) {
         const serverMessage = error.response.data.message;
 
-        // Provide more helpful messages for specific errors
         if (serverMessage.includes("Quiz is not currently available")) {
           errorMessage =
             "This quiz is no longer available for submission. It may have expired or been completed.";
@@ -1522,6 +1549,7 @@ const QuizTakingPage: React.FC = () => {
       }
 
       setError(errorMessage);
+    } finally {
       setIsSubmitting(false);
     }
   }, [quiz, answers, quizStartTime, existingSubmission, id, navigate]);
@@ -1721,7 +1749,7 @@ const QuizTakingPage: React.FC = () => {
     )?.answer;
 
     if (currentAnswer) {
-      updateAnswer(currentQuestion.id, currentAnswer);
+      updateAnswer(currentQuestion.id, currentAnswer, true);
     }
 
     // Lock current index on timeout

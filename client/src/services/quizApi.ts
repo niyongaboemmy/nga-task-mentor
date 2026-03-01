@@ -161,10 +161,16 @@ export class QuizApiService {
     submissionId: number,
     questionId: number,
     answerData: AnswerDataType,
+    timeTakenSeconds?: number,
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.post(
       `/quizzes/attempts/${submissionId}/questions/${questionId}/answer`,
-      { answer_data: answerData },
+      {
+        answer_data: answerData,
+        ...(typeof timeTakenSeconds === "number"
+          ? { time_taken: timeTakenSeconds }
+          : {}),
+      },
     );
     return response.data;
   }

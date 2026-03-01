@@ -10,14 +10,57 @@ import {
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { AnswerDataType, GradingResult } from "../types/quiz.types";
-import {
-  QuizGrader,
-  AdvancedQuizGrader,
-  ChoiceQuestionGrader,
-  TextInputGrader,
-  InteractiveGrader,
-  CodingGrader,
-} from "../utils/quizGrader";
+import { AdvancedQuizGrader } from "../utils/quizGrader";
+
+const computeAttemptGrading = async (params: {
+  submission: any;
+  quiz: any;
+  question: any;
+  answerData: any;
+  timeTakenSeconds?: number;
+}): Promise<{
+  gradingResult: GradingResult;
+  status: "completed" | "timed_out";
+}> => {
+  const { quiz, question, answerData, timeTakenSeconds } = params;
+
+  const enableAutoGrading = quiz?.enable_automatic_grading !== false;
+  const requireManualGrading = quiz?.require_manual_grading === true;
+
+  const questionTimedOut =
+    !!question?.time_limit_seconds &&
+    typeof timeTakenSeconds === "number" &&
+    timeTakenSeconds > Number(question.time_limit_seconds);
+
+  if (questionTimedOut) {
+    return {
+      gradingResult: {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "Question timed out",
+      },
+      status: "timed_out",
+    };
+  }
+
+  if (!enableAutoGrading || requireManualGrading) {
+    return {
+      gradingResult: {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "Pending manual grading",
+      },
+      status: "completed",
+    };
+  }
+
+  const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
+    question,
+    answerData,
+  );
+
+  return { gradingResult, status: "completed" };
+};
 
 // @desc    Start a quiz attempt
 // @route   POST /api/quizzes/:quizId/start
@@ -157,7 +200,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
   try {
     const { submissionId, questionId } = req.params;
-    const { answer_data } = req.body;
+    const { answer_data, time_taken } = req.body;
 
     if (req.user.role !== "student") {
       await transaction.rollback();
@@ -217,6 +260,14 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
       });
     }
 
+    const quiz = await Quiz.findByPk(submission.quiz_id, { transaction });
+    if (!quiz) {
+      await transaction.rollback();
+      return res
+        .status(404)
+        .json({ success: false, message: "Quiz not found" });
+    }
+
     // Check if student already answered this question in this submission
     let attempt = await QuizAttempt.findOne({
       where: {
@@ -234,14 +285,19 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     const normalizedCorrectAnswer =
       AdvancedQuizGrader.normalizeCorrectAnswer(question);
 
-    // Grade the answer using proper grading functions
     let gradingResult: GradingResult;
-
+    let attemptStatus: "completed" | "timed_out" = "completed";
     try {
-      gradingResult = await QuizGrader.gradeQuestion(
+      const computed = await computeAttemptGrading({
+        submission,
+        quiz,
         question,
-        normalizedSubmittedAnswer.data,
-      );
+        answerData: normalizedSubmittedAnswer.data,
+        timeTakenSeconds:
+          typeof time_taken === "number" ? time_taken : undefined,
+      });
+      gradingResult = computed.gradingResult;
+      attemptStatus = computed.status;
     } catch (error) {
       console.error("Grading error:", error);
       gradingResult = {
@@ -254,32 +310,23 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     const isCorrect = gradingResult.is_correct;
     const pointsEarned = gradingResult.points_earned;
 
-    console.log("[DEBUG] About to save to database:", {
-      isCorrect,
-      pointsEarned,
-      attemptExists: !!attempt,
-    });
-
     if (attempt) {
       // Update existing attempt record
-      console.log("[DEBUG] Updating existing attempt:", attempt.id);
       await attempt.update(
         {
           submitted_answer: normalizedSubmittedAnswer.data,
           correct_answer: normalizedCorrectAnswer.data,
           is_correct: isCorrect,
           points_earned: pointsEarned,
+          time_taken:
+            typeof time_taken === "number" ? time_taken : attempt.time_taken,
           completed_at: new Date(),
+          status: attemptStatus,
         },
         { transaction },
       );
-      console.log(
-        "[DEBUG] After update, attempt.points_earned:",
-        attempt.points_earned,
-      );
     } else {
       // Create new attempt record
-      console.log("[DEBUG] Creating new attempt");
       attempt = await QuizAttempt.create(
         {
           quiz_id: submission.quiz_id,
@@ -290,16 +337,12 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
           correct_answer: normalizedCorrectAnswer.data,
           is_correct: isCorrect,
           points_earned: pointsEarned,
-          time_taken: 0, // TODO: Implement time tracking
-          status: "completed",
+          time_taken: typeof time_taken === "number" ? time_taken : 0,
+          status: attemptStatus,
           started_at: new Date(),
           completed_at: new Date(),
         },
         { transaction },
-      );
-      console.log(
-        "[DEBUG] After create, attempt.points_earned:",
-        attempt.points_earned,
       );
     }
 
@@ -371,9 +414,17 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
       });
     }
 
-    // Process each answer
-    const attemptPromises = answers.map(async (answer: any) => {
-      const { question_id, answer_data } = answer;
+    const quiz = await Quiz.findByPk(submission.quiz_id, { transaction });
+    if (!quiz) {
+      await transaction.rollback();
+      return res
+        .status(404)
+        .json({ success: false, message: "Quiz not found" });
+    }
+
+    // Process each answer sequentially within the transaction
+    for (const answer of answers) {
+      const { question_id, answer_data, time_taken } = answer;
 
       // Find the question
       const question = await QuizQuestion.findByPk(question_id, {
@@ -400,7 +451,7 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
 
       if (existingAttempt) {
         // Skip if already answered
-        return existingAttempt;
+        continue;
       }
 
       // Normalize answers for consistent grading
@@ -411,14 +462,19 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
       const normalizedCorrectAnswer =
         AdvancedQuizGrader.normalizeCorrectAnswer(question);
 
-      // Grade the answer using proper grading functions
       let gradingResult: GradingResult;
-
+      let attemptStatus: "completed" | "timed_out" = "completed";
       try {
-        gradingResult = await QuizGrader.gradeQuestion(
+        const computed = await computeAttemptGrading({
+          submission,
+          quiz,
           question,
-          normalizedSubmittedAnswer.data,
-        );
+          answerData: normalizedSubmittedAnswer.data,
+          timeTakenSeconds:
+            typeof time_taken === "number" ? time_taken : undefined,
+        });
+        gradingResult = computed.gradingResult;
+        attemptStatus = computed.status;
       } catch (error) {
         console.error("Grading error:", error);
         gradingResult = {
@@ -442,19 +498,14 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
           correct_answer: normalizedCorrectAnswer.data,
           is_correct: isCorrect,
           points_earned: pointsEarned,
-          time_taken: 0, // TODO: Implement time tracking
-          status: "completed",
+          time_taken: typeof time_taken === "number" ? time_taken : 0,
+          status: attemptStatus,
           started_at: new Date(),
           completed_at: new Date(),
         },
         { transaction },
       );
-
-      return attempt;
-    });
-
-    // Wait for all attempts to be created
-    await Promise.all(attemptPromises);
+    }
 
     await transaction.commit();
 
@@ -911,167 +962,4 @@ function getGradeFromPercentage(percentage: number): string {
   if (percentage >= 70) return "C";
   if (percentage >= 50) return "D";
   return "F";
-}
-
-// Helper function to grade answers based on question type
-async function gradeAnswer(
-  question: QuizQuestion,
-  answerData: AnswerDataType,
-): Promise<GradingResult> {
-  let isCorrect = false;
-  let pointsEarned = 0;
-  let feedback = "";
-
-  try {
-    switch (question.questionBank?.question_type) {
-      case "single_choice":
-      case "multiple_choice":
-      case "true_false":
-        // For choice-based questions, compare with correct answer
-        const correctAnswer = question.questionBank?.correct_answer;
-        isCorrect = answerData === correctAnswer;
-        pointsEarned = isCorrect ? question.points : 0;
-        break;
-
-      case "numerical":
-        // For numerical questions, check within tolerance
-        const numData = question.questionBank?.question_data as any;
-        const tolerance = numData?.tolerance || 0;
-        const userAnswerStr = String(answerData || "").trim();
-        const correctAnswerStr = String(
-          question.questionBank?.correct_answer || "",
-        ).trim();
-        const userAnswer = parseFloat(userAnswerStr);
-        const correctNum = parseFloat(correctAnswerStr);
-
-        if (!isNaN(userAnswer) && !isNaN(correctNum)) {
-          isCorrect = Math.abs(userAnswer - correctNum) <= tolerance;
-          pointsEarned = isCorrect ? question.points : 0;
-        }
-        break;
-
-      case "fill_blank":
-        // For fill-in-the-blank, check against acceptable answers
-        const fillData = question.questionBank?.question_data as any;
-        const acceptableAnswers = fillData?.acceptable_answers || [];
-        const userAnswerStr2 = String(answerData || "")
-          .toLowerCase()
-          .trim();
-
-        isCorrect = acceptableAnswers.some((acceptable: any) =>
-          acceptable.answers.some(
-            (ans: string) => ans.toLowerCase().trim() === userAnswerStr2,
-          ),
-        );
-        pointsEarned = isCorrect ? question.points : 0;
-        break;
-
-      case "short_answer":
-        // For short answer, basic length check (would need more sophisticated grading)
-        const shortData = question.questionBank?.question_data as any;
-        const minLength = shortData?.min_length || 10;
-        const userAnswerLen = String(answerData || "").trim().length;
-
-        isCorrect = userAnswerLen >= minLength;
-        pointsEarned = isCorrect ? question.points : 0;
-        feedback = isCorrect
-          ? ""
-          : `Answer too short (minimum ${minLength} characters)`;
-        break;
-
-      case "matching":
-        // For matching questions, check if all pairs match
-        const matchingData = question.questionBank?.question_data as any;
-        const correctMatches = matchingData?.correct_matches || {};
-        const userMatches = answerData as any;
-
-        if (userMatches && typeof userMatches === "object") {
-          const totalPairs = Object.keys(correctMatches).length;
-          let correctPairs = 0;
-
-          for (const [left, right] of Object.entries(correctMatches)) {
-            if (userMatches[left] === right) {
-              correctPairs++;
-            }
-          }
-
-          isCorrect = correctPairs === totalPairs;
-          pointsEarned = isCorrect
-            ? question.points
-            : (question.points * correctPairs) / totalPairs;
-        }
-        break;
-
-      case "ordering":
-        // For ordering questions, check if order matches
-        const orderingData = question.questionBank?.question_data as any;
-        const correctOrder = orderingData?.correct_order || [];
-        const userOrder = answerData as any;
-
-        if (Array.isArray(userOrder)) {
-          isCorrect =
-            JSON.stringify(userOrder) === JSON.stringify(correctOrder);
-          pointsEarned = isCorrect ? question.points : 0;
-        }
-        break;
-
-      case "dropdown":
-        // For dropdown questions, check each dropdown
-        const dropdownData = question.questionBank?.question_data as any;
-        const correctAnswers = question.questionBank?.correct_answer as any;
-        const userAnswers = answerData as any;
-
-        if (correctAnswers && userAnswers && typeof userAnswers === "object") {
-          const totalDropdowns = Object.keys(correctAnswers).length;
-          let correctDropdowns = 0;
-
-          for (const [dropdownId, correctValue] of Object.entries(
-            correctAnswers,
-          )) {
-            if (userAnswers[dropdownId] === correctValue) {
-              correctDropdowns++;
-            }
-          }
-
-          isCorrect = correctDropdowns === totalDropdowns;
-          pointsEarned = isCorrect
-            ? question.points
-            : (question.points * correctDropdowns) / totalDropdowns;
-        }
-        break;
-
-      case "coding":
-        // For coding questions, basic validation (would need code execution)
-        const codingData = question.questionBank?.question_data as any;
-        const userCode = String(answerData || "").trim();
-
-        // Basic checks: non-empty, contains expected keywords
-        isCorrect = userCode.length > 0;
-        if (
-          codingData?.required_keywords &&
-          Array.isArray(codingData.required_keywords)
-        ) {
-          const hasKeywords = codingData.required_keywords.every(
-            (keyword: string) => userCode.includes(keyword),
-          );
-          isCorrect = isCorrect && hasKeywords;
-        }
-        pointsEarned = isCorrect ? question.points : 0;
-        break;
-
-      default:
-        // For question types that don't have automatic grading
-        pointsEarned = 0;
-        feedback = "Manual grading required";
-    }
-  } catch (error) {
-    console.error("Grading error:", error);
-    feedback = "Error occurred during grading";
-  }
-
-  return {
-    is_correct: isCorrect,
-    points_earned: pointsEarned,
-    feedback,
-  };
 }

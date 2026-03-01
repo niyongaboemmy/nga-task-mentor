@@ -16,6 +16,7 @@ import CodingQuestion from "./QuestionTypes/CodingQuestion";
 import LogicalExpressionQuestion from "./QuestionTypes/LogicalExpressionQuestion";
 import DragDropQuestion from "./QuestionTypes/DragDropQuestion";
 import OrderingQuestion from "./QuestionTypes/OrderingQuestion";
+import type { ProjectFile } from "./QuestionTypes/FileExplorer";
 
 interface QuestionRendererProps extends QuestionComponentProps {
   question: QuizQuestionType;
@@ -92,7 +93,29 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = (props) => {
       return <ShortAnswerQuestion {...restProps} question={question} />;
 
     case "coding":
-      return <CodingQuestion {...restProps} question={question} />;
+      return (
+        <CodingQuestion
+          {...(restProps as any)}
+          question={question}
+          isProjectMode={
+            Boolean((question as any)?.question_data?.project_mode) ||
+            Boolean(
+              (question as any)?.questionBank?.question_data?.project_mode,
+            )
+          }
+          files={[] as ProjectFile[]}
+          language={
+            (question as any)?.question_data?.language ||
+            (question as any)?.questionBank?.question_data?.language ||
+            "javascript"
+          }
+          isRunning={false}
+          isTesting={false}
+          isWebLang={false}
+          isStarted={false}
+          onSetIsStarted={() => {}}
+        />
+      );
 
     case "logical_expression":
       return <LogicalExpressionQuestion {...restProps} question={question} />;

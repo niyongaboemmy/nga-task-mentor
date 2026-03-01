@@ -245,7 +245,13 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
       await dispatch(
         updateQuestion({
           questionId: questionId,
-          questionData: formData,
+          questionData: {
+            ...formData,
+            time_limit_seconds:
+              formData.time_limit_seconds === null
+                ? undefined
+                : formData.time_limit_seconds,
+          },
         }),
       ).unwrap();
 
