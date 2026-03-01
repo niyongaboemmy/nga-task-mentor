@@ -664,6 +664,11 @@ export const submitQuiz = async (req: Request, res: Response) => {
       ? percentage >= quiz.passing_score
       : true;
 
+    // Calculate duration in seconds
+    const timeTaken = Math.floor(
+      (new Date().getTime() - submission.started_at.getTime()) / 1000,
+    );
+
     // Update submission
     await submission.update(
       {
@@ -672,9 +677,7 @@ export const submitQuiz = async (req: Request, res: Response) => {
         percentage,
         status: "completed",
         completed_at: new Date(),
-        time_taken: Math.floor(
-          (Date.now() - submission.started_at.getTime()) / 1000,
-        ),
+        time_taken: timeTaken,
         passed,
         grade_status: quiz?.type === "graded" ? "pending" : "auto_graded",
       },
@@ -802,15 +805,21 @@ export const getQuizResults = async (req: Request, res: Response) => {
         percentage: submission.percentage,
         passed: submission.passed,
         grade_status: submission.grade_status,
+        time_taken: submission.time_taken,
+        started_at: submission.started_at,
+        completed_at: submission.completed_at,
         attempts: attempts.map((attempt: any) => ({
           question_id: attempt.question_id,
           question_text: attempt.attemptQuestion?.questionBank?.question_text,
           question_type: attempt.attemptQuestion?.questionBank?.question_type,
+          question_data: attempt.attemptQuestion?.questionBank?.question_data,
           is_correct: attempt.is_correct,
           points_earned: attempt.points_earned,
+          max_points: attempt.attemptQuestion?.points,
           time_taken: attempt.time_taken,
           correct_answer: attempt.correct_answer,
           explanation: attempt.attemptQuestion?.questionBank?.explanation,
+          attemptQuestion: attempt.attemptQuestion,
         })),
         submitted_at: submission.completed_at,
       },

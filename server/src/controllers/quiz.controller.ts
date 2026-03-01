@@ -970,10 +970,20 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
     const enableAutoGrading = quiz.enable_automatic_grading !== false; // Default to true
     const requireManualGrading = quiz.require_manual_grading === true;
 
+    // Get all questions for this quiz to calculate total max score and for grading
+    const allQuizQuestions = await QuizQuestion.findAll({
+      where: { quiz_id: id },
+      include: getQuestionBankInclude(),
+      transaction,
+    });
+
+    const calculatedMaxScore = allQuizQuestions.reduce(
+      (sum, q) => sum + Number(q.points),
+      0,
+    );
+
     // Now calculate scores and create/update attempts
     let calculatedTotalScore = 0;
-    let calculatedMaxScore = 0;
-
     const results = [];
 
     // Get all attempts for this submission to calculate scores
@@ -983,16 +993,14 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
     });
 
     for (const answer of answers) {
-      const question = await QuizQuestion.findByPk(answer.question_id, {
-        include: getQuestionBankInclude(),
-        transaction,
-      });
+      const question = allQuizQuestions.find(
+        (q) => q.id === Number(answer.question_id),
+      );
 
-      if (!question || question.quiz_id !== parseInt(id)) {
-        continue; // Skip invalid questions
+      if (!question) {
+        continue; // Skip invalid questions or questions not in this quiz
       }
 
-      calculatedMaxScore += Number(question.points);
       const questionData = question.questionBank?.question_data as any;
 
       // Check if question has individual time limit and if it was exceeded
