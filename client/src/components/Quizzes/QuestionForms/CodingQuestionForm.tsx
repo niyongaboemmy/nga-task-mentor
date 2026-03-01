@@ -217,7 +217,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
 
             {/* Modal Body */}
             <div className="flex-1 overflow-hidden p-6 bg-gray-50/50 dark:bg-gray-900/50">
-              <div className="max-w-4xl mx-auto h-full">{formContent}</div>
+              <div className="container mx-auto h-full">{formContent}</div>
             </div>
 
             {/* Modal Footer / Navigation */}

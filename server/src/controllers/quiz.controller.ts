@@ -1671,3 +1671,36 @@ export const runCode = async (req: Request, res: Response) => {
     });
   }
 };
+
+// @desc    Generate AI test cases for coding questions
+// @route   POST /api/quizzes/generate-test-cases
+// @access  Private/Instructor/Admin
+export const generateTestCases = async (req: Request, res: Response) => {
+  try {
+    const { problemDescription, language, starterCode } = req.body;
+
+    if (!problemDescription || !language) {
+      return res.status(400).json({
+        success: false,
+        message: "problemDescription and language are required",
+      });
+    }
+
+    const testCases = await QuestionAiGrader.generateCodingTestCases(
+      problemDescription,
+      language,
+      starterCode,
+    );
+
+    res.status(200).json({
+      success: true,
+      data: testCases,
+    });
+  } catch (error: any) {
+    console.error("Generate test cases error:", error);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to generate test cases",
+    });
+  }
+};

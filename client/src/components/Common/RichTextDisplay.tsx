@@ -1,11 +1,9 @@
 import React from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
-import { Underline } from "@tiptap/extension-underline";
 import { Subscript } from "@tiptap/extension-subscript";
 import { Superscript } from "@tiptap/extension-superscript";
 import { TextAlign } from "@tiptap/extension-text-align";
-import { Link } from "@tiptap/extension-link";
 import { Table } from "@tiptap/extension-table";
 import { TableRow } from "@tiptap/extension-table-row";
 import { TableCell } from "@tiptap/extension-table-cell";
@@ -29,14 +27,12 @@ const RichTextDisplay: React.FC<RichTextDisplayProps> = ({
   content,
   className = "",
 }) => {
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Underline,
+  const extensions = React.useMemo(
+    () => [
+      StarterKit.configure({}),
       Subscript,
       Superscript,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Link.configure({ openOnClick: true }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
@@ -46,6 +42,11 @@ const RichTextDisplay: React.FC<RichTextDisplayProps> = ({
       TextStyle,
       FontSize,
     ],
+    [],
+  );
+
+  const editor = useEditor({
+    extensions,
     content: content,
     editable: false,
     editorProps: {

@@ -137,6 +137,7 @@ export interface CodingData {
     language: string;
     is_entry_point?: boolean;
   }>;
+  template_id?: string;
 }
 
 export interface LogicalExpressionData {

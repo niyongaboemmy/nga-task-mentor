@@ -81,14 +81,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     setIsAuthInitializing(true);
 
     try {
-      console.log(
-        "🔄 AuthContext: Making auth check request to local /auth/me",
-      );
-
       // Cookies are automatically sent withCredentials: true
       const response = await apiAxios.get("/auth/me");
-
-      console.log("✅ AuthContext: Auth check successful:", response.data);
 
       const responseData: UserFullData = response.data.data;
       const userData: User = {

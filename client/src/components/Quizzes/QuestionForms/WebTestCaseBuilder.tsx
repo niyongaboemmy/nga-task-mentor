@@ -611,7 +611,111 @@ export const WebTestCaseBuilder: React.FC<WebTestCaseBuilderProps> = ({
   onTestCasesChange,
   initialTestCases: _initial,
 }) => {
-  const [rules, setRules] = useState<ValidationRule[]>([]);
+  const [rules, setRules] = useState<ValidationRule[]>(() => {
+    if (!_initial || _initial.length === 0) return [];
+
+    // Try to deserialize existing test cases into rules
+    const deserialized: ValidationRule[] = [];
+
+    _initial.forEach((tc) => {
+      // 1. Try to find a matching rule type by prefixing
+      for (const rt of RULE_TYPES) {
+        // Special case for return-value (complex split)
+        if (rt.id === "return-value" && tc.input.includes("|||")) {
+          // This doesn't actually happen in current serialize since it joins with |||
+          // but return-value serialize is `${v.input}|||${v.expected}`
+          // and WebTestCaseBuilder map takes parts[0] as input.
+          // Wait, serialize for return-value is `${v.input}|||${v.expected}`
+          // map: input = parts[0], expected = parts[1]
+          // So if we see tc.input and tc.expected_output, we can reconstruct
+        }
+
+        // Generic prefix match
+        const prefix = rt.serialize({}).split(":")[0] + ":";
+        if (prefix !== ":" && tc.input.startsWith(prefix)) {
+          // Found potential match. Now extract fields.
+          const values: Record<string, string> = {};
+          const content = tc.input.slice(prefix.length);
+
+          if (rt.id === "contains-tag") values.tag = content;
+          else if (rt.id === "has-class") values.className = content;
+          else if (rt.id === "text-content" || rt.id === "component-text")
+            values.text = content;
+          else if (rt.id === "has-attribute") {
+            const p = content.split(":");
+            values.tag = p[0];
+            values.attr = p[1];
+          } else if (rt.id === "attribute-value") {
+            const p = content.split(":");
+            values.tag = p[0];
+            values.attr = p[1];
+            values.value =
+              tc.expected_output === "validation passed"
+                ? p[2]
+                : tc.expected_output;
+          } else if (rt.id === "css-property") {
+            // selector:${v.selector};property:${v.property};value:${v.value}
+            const p = tc.input.split(";");
+            values.selector = p[0].replace("selector:", "");
+            values.property = p[1].replace("property:", "");
+            values.value = p[2].replace("value:", "");
+          } else if (rt.id === "component-renders") values.element = content;
+          else if (rt.id === "state-change") {
+            // click:${v.trigger};expect:${v.expect}
+            const p = tc.input.split(";");
+            values.trigger = p[0].replace("click:", "");
+            values.expect = p[1].replace("expect:", "");
+          }
+
+          deserialized.push({
+            id: tc.id,
+            typeId: rt.id,
+            values,
+            points: tc.points,
+            isHidden: tc.is_hidden,
+          });
+          return;
+        }
+      }
+
+      // Check structural presets (exact matches)
+      const structural = RULE_TYPES.find((r) => r.id === "structural-preset");
+      const option = structural?.fields[0].options?.find(
+        (o) => o.value === tc.input,
+      );
+      if (option) {
+        deserialized.push({
+          id: tc.id,
+          typeId: "structural-preset",
+          values: { rule: tc.input },
+          points: tc.points,
+          isHidden: tc.is_hidden,
+        });
+        return;
+      }
+
+      // Check return-value or console-output (no prefix)
+      if (tc.input.includes("(") && tc.input.includes(")")) {
+        deserialized.push({
+          id: tc.id,
+          typeId: "return-value",
+          values: { input: tc.input, expected: tc.expected_output },
+          points: tc.points,
+          isHidden: tc.is_hidden,
+        });
+      } else if (language !== "html" && language !== "css") {
+        deserialized.push({
+          id: tc.id,
+          typeId: "console-output",
+          values: { expected: tc.input },
+          points: tc.points,
+          isHidden: tc.is_hidden,
+        });
+      }
+    });
+
+    return deserialized;
+  });
   const [showSelector, setShowSelector] = useState(false);
 
   const updateRules = (next: ValidationRule[]) => {

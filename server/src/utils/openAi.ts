@@ -279,4 +279,165 @@ export class QuestionAiGrader {
       return "I'm having trouble connecting to my brain right now. Try reviewing the problem constraints!";
     }
   }
+
+  /**
+   * Generates intelligent test cases for a coding problem.
+   */
+  static async generateCodingTestCases(
+    problemDescription: string,
+    language: string,
+    starterCode?: string,
+  ): Promise<any[]> {
+    if (!process.env.OPENAI_API_KEY) {
+      throw new Error("OPENAI_API_KEY is missing.");
+    }
+
+    try {
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are an expert programming challenge creator. 
+            Generate 3-5 high-quality test cases for the given problem description and language.
+            Include:
+            1. Basic functional test
+            2. Edge case (e.g., empty input, large numbers, special characters, null/undefined)
+            3. Hidden test for complexity or performance (e.g., large data set, O(n) requirement)
+
+            Return ONLY a JSON array of test case objects. DO NOT include any markdown formatting or introductory text.
+            Each test case object MUST have:
+            - id: unique string
+            - input: string (the EXACT input to be passed to the program, formatted correctly for the language)
+            - expected_output: string (the EXACT expected stdout or return value)
+            - is_hidden: boolean (true for edge cases and complex tests)
+            - points: number (out of 100 total, divide appropriately between cases)
+            - explanation: brief description of what is being tested`,
+          },
+          {
+            role: "user",
+            content: `Problem Description: ${problemDescription}
+            Language: ${language}
+            ${starterCode ? `Starter Code:\n\`\`\`${language}\n${starterCode}\n\`\`\`` : ""}`,
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const content =
+        response.choices[0].message.content || '{"testcases": []}';
+      const parsed = JSON.parse(content);
+
+      // Extract the array, handling both direct array and { "testcases": [...] } formats
+      const testCases = Array.isArray(parsed)
+        ? parsed
+        : parsed.testcases || parsed.test_cases || [];
+
+      return testCases;
+    } catch (error: any) {
+      console.error("AI Test Case Generation error:", error);
+
+      // Check if it's a quota or rate limit error
+      const isQuotaError =
+        error.status === 429 ||
+        error.code === "insufficient_quota" ||
+        error.message?.includes("quota");
+
+      if (isQuotaError) {
+        console.warn("OpenAI quota exceeded. Falling back to mock generator.");
+        return this.generateMockTestCases(problemDescription, language);
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Fallback mock generator when AI is unavailable.
+   */
+  private static generateMockTestCases(
+    description: string,
+    lang: string,
+  ): any[] {
+    const cases: any[] = [];
+    const descLower = description.toLowerCase();
+
+    if (descLower.includes("fibonacci") || descLower.includes("sequence")) {
+      cases.push(
+        {
+          id: "m1",
+          input: "5",
+          expected_output: "5",
+          is_hidden: false,
+          points: 20,
+          explanation: "Basic Fibonacci check",
+        },
+        {
+          id: "m2",
+          input: "10",
+          expected_output: "55",
+          is_hidden: false,
+          points: 30,
+          explanation: "Larger Fibonacci number",
+        },
+        {
+          id: "m3",
+          input: "0",
+          expected_output: "0",
+          is_hidden: true,
+          points: 50,
+          explanation: "Edge case: zero input",
+        },
+      );
+    } else if (descLower.includes("palindrome")) {
+      cases.push(
+        {
+          id: "m1",
+          input: '"racecar"',
+          expected_output: "true",
+          is_hidden: false,
+          points: 30,
+          explanation: "Basic palindrome",
+        },
+        {
+          id: "m2",
+          input: '"hello"',
+          expected_output: "false",
+          is_hidden: false,
+          points: 30,
+          explanation: "Non-palindrome check",
+        },
+        {
+          id: "m3",
+          input: '"A man a plan a canal Panama"',
+          expected_output: "true",
+          is_hidden: true,
+          points: 40,
+          explanation: "Palindrome with spaces and mixed case",
+        },
+      );
+    } else {
+      // Default fallback
+      cases.push(
+        {
+          id: "d1",
+          input: "Default Input 1",
+          expected_output: "Expected Output 1",
+          is_hidden: false,
+          points: 50,
+          explanation: "Generic functional test",
+        },
+        {
+          id: "d2",
+          input: "Default Input 2",
+          expected_output: "Expected Output 2",
+          is_hidden: true,
+          points: 50,
+          explanation: "Generic edge case test",
+        },
+      );
+    }
+
+    return cases;
+  }
 }

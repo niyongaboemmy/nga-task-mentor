@@ -1,8 +1,9 @@
 import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
-import * as tf from "@tensorflow/tfjs";
+import * as tf from "@tensorflow/tfjs-core";
+import "@tensorflow/tfjs-backend-webgl";
+import "@tensorflow/tfjs-backend-cpu";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
-// Fallback import for face-api.js
-import * as faceapi from "face-api.js";
+import type * as faceapiType from "face-api.js";
 
 export interface FaceDetectionResult {
   hasFace: boolean;
@@ -28,6 +29,40 @@ export interface ProctoringDetectionResult {
   attentionScore: number; // 0-100, higher is better attention
 }
 
+// Singleton promise to ensure TensorFlow is only initialized once
+let tfInitializationPromise: Promise<void> | null = null;
+
+async function initializeTensorFlow(): Promise<void> {
+  if (tfInitializationPromise) return tfInitializationPromise;
+
+  tfInitializationPromise = (async () => {
+    try {
+      // Suppress internal TensorFlow warnings
+      tf.env().set("DEBUG", false);
+
+      // Check if backend is already set
+      const currentBackend = tf.getBackend();
+      if (currentBackend !== "webgl") {
+        // With granular imports, we should be safe to set it
+        // but we'll still be defensive
+        try {
+          await tf.setBackend("webgl");
+        } catch (e) {
+          if (currentBackend !== "cpu") {
+            await tf.setBackend("cpu");
+          }
+        }
+      }
+      await tf.ready();
+    } catch (error) {
+      tfInitializationPromise = null;
+      throw error;
+    }
+  })();
+
+  return tfInitializationPromise;
+}
+
 class FaceDetectionService {
   private faceDetector: FaceDetector | null = null;
   private objectDetector: cocoSsd.ObjectDetection | null = null;
@@ -35,6 +70,7 @@ class FaceDetectionService {
   private modelLoadingPromise: Promise<void> | null = null;
   private audioContext: AudioContext | null = null;
   private useMediaPipe = true; // Try MediaPipe first, fallback to face-api.js
+  private faceApiInstance: any = null;
   private faceApiModelsLoaded = false;
   private lookingAwayStartTime: number | null = null;
   private attentionHistory: number[] = [];
@@ -58,9 +94,8 @@ class FaceDetectionService {
 
   private async loadModelsInternal(): Promise<void> {
     try {
-      // Set TensorFlow.js backend
-      await tf.setBackend("webgl");
-      await tf.ready();
+      // Initialize TensorFlow using the singleton function
+      await initializeTensorFlow();
 
       // Load COCO-SSD model for object detection
       this.objectDetector = await cocoSsd.load();
@@ -88,12 +123,16 @@ class FaceDetectionService {
         this.useMediaPipe = false;
       }
 
-      // Load face-api.js models (either as primary or fallback)
+      // Load face-api.js models (only as fallback)
       if (!mediaPipeLoaded) {
-        const MODEL_URL =
-          "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/";
-
         try {
+          // Dynamic import to avoid warnings during initial load
+          const faceapi = await import("face-api.js");
+          this.faceApiInstance = faceapi;
+
+          const MODEL_URL =
+            "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/";
+
           await Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
@@ -103,14 +142,12 @@ class FaceDetectionService {
 
           this.faceApiModelsLoaded = true;
         } catch (faceApiError) {
-          // console.error("Failed to load face-api.js models:", faceApiError);
           throw new Error("Both MediaPipe and face-api.js failed to load");
         }
       }
 
       this.modelsLoaded = true;
     } catch (error) {
-      // console.error("Error loading detection models:", error);
       this.modelsLoaded = false;
       throw error;
     }
@@ -178,8 +215,9 @@ class FaceDetectionService {
     }
 
     // Try face-api.js as fallback or primary method
-    if (this.faceApiModelsLoaded) {
+    if (this.faceApiModelsLoaded && this.faceApiInstance) {
       try {
+        const faceapi = this.faceApiInstance;
         const detections = await faceapi
           .detectAllFaces(
             videoElement,
@@ -192,7 +230,7 @@ class FaceDetectionService {
 
         // Filter detections by confidence
         const validDetections = detections.filter(
-          (detection) => detection.detection.score >= minConfidence,
+          (detection: any) => detection.detection.score >= minConfidence,
         );
 
         return {
@@ -219,7 +257,7 @@ class FaceDetectionService {
    * Analyze gaze direction based on eye landmarks
    */
   private analyzeGazeDirection(
-    landmarks: faceapi.FaceLandmarks68,
+    landmarks: faceapiType.FaceLandmarks68,
   ): "center" | "left" | "right" | "up" | "down" | "away" {
     try {
       const leftEye = landmarks.getLeftEye();
@@ -300,7 +338,7 @@ class FaceDetectionService {
   /**
    * Analyze head pose using facial landmarks
    */
-  private analyzeHeadPose(landmarks: faceapi.FaceLandmarks68): {
+  private analyzeHeadPose(landmarks: faceapiType.FaceLandmarks68): {
     yaw: number;
     pitch: number;
     roll: number;

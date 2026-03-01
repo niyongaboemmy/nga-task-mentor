@@ -16,6 +16,7 @@ import {
   resetQuizSubmission,
   getAIHint,
   runCode,
+  generateTestCases,
 } from "../controllers/quiz.controller";
 
 import {
@@ -117,6 +118,11 @@ router.post(
   "/:quizId/questions/bulk",
   authorize("instructor", "admin"),
   bulkImportQuestions,
+);
+router.post(
+  "/generate-test-cases",
+  authorize("instructor", "admin"),
+  generateTestCases,
 );
 
 // Quiz submission routes

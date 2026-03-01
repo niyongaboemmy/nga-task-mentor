@@ -255,6 +255,15 @@ export class QuizApiService {
     return response.data;
   }
 
+  static async generateTestCases(data: {
+    problemDescription: string;
+    language: string;
+    starterCode?: string;
+  }): Promise<{ success: boolean; data: any[] }> {
+    const response = await axios.post("/quizzes/generate-test-cases", data);
+    return response.data;
+  }
+
   // Grading and Analytics
   static async getPendingSubmissions(
     courseId?: number,

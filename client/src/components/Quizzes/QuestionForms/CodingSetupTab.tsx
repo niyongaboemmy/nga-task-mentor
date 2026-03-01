@@ -394,7 +394,9 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
   onLanguageChange,
 }) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
+  const [activeTemplate, setActiveTemplate] = useState<string | null>(
+    codingData.template_id ?? null,
+  );
   const [expandedFile, setExpandedFile] = useState<string | null>(
     codingData.project_files?.[0]?.name ?? null,
   );
@@ -423,6 +425,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
         project_mode: true,
         project_files: template.projectFiles as any, // eslint-disable-line @typescript-eslint/no-explicit-any
         starter_code: undefined,
+        template_id: template.id,
       });
     } else {
       const starter = (template.starter as Record<string, string>)[lang] ?? "";
@@ -433,6 +436,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
         project_mode: false,
         project_files: [],
         starter_code: starter,
+        template_id: template.id,
       });
     }
   };
@@ -461,6 +465,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
       project_mode: true,
       project_files: files,
       starter_code: undefined,
+      template_id: "custom",
     });
     setActiveTemplate("custom");
     setExpandedFile(files[0]?.name ?? null);
@@ -653,32 +658,32 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
                 key={file.name}
                 className="border border-gray-200 dark:border-gray-700 rounded-xl overflow-hidden"
               >
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExpandedFile(
-                      expandedFile === file.name ? null : file.name,
-                    )
-                  }
-                  className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors"
-                >
-                  <ChevronRight
-                    size={14}
-                    className={`text-gray-400 transition-transform ${expandedFile === file.name ? "rotate-90" : ""}`}
-                  />
-                  <span className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300">
-                    {file.name}
-                  </span>
-                  {file.is_entry_point && (
-                    <span className="text-[9px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-bold">
-                      ENTRY
-                    </span>
-                  )}
-                  <div className="flex-1" />
+                <div className="w-full flex items-center gap-3 px-4 py-2.5 bg-gray-50 dark:bg-gray-900/50 hover:bg-gray-100 dark:hover:bg-gray-800/50 transition-colors">
                   <button
                     type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
+                    onClick={() =>
+                      setExpandedFile(
+                        expandedFile === file.name ? null : file.name,
+                      )
+                    }
+                    className="flex-1 flex items-center gap-3 text-left"
+                  >
+                    <ChevronRight
+                      size={14}
+                      className={`text-gray-400 transition-transform ${expandedFile === file.name ? "rotate-90" : ""}`}
+                    />
+                    <span className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300">
+                      {file.name}
+                    </span>
+                    {file.is_entry_point && (
+                      <span className="text-[9px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded font-bold">
+                        ENTRY
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
                       onChange({
                         ...codingData,
                         project_files: (codingData.project_files ?? []).filter(
@@ -692,7 +697,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
                   >
                     <Trash2 size={13} />
                   </button>
-                </button>
+                </div>
                 {expandedFile === file.name && (
                   <textarea
                     value={file.content}

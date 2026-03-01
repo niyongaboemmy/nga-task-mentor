@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Sparkles, Loader2, CheckCircle, XCircle } from "lucide-react";
+import { QuizApiService } from "../../services/quizApi";
 
 interface TestCase {
   id: string;
@@ -38,240 +39,27 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
     setError("");
 
     try {
-      // Simulate AI generation with intelligent test case creation
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      const testCases = generateIntelligentTestCases(
-        language,
+      const response = await QuizApiService.generateTestCases({
         problemDescription,
-        starterCode
-      );
+        language,
+        starterCode,
+      });
 
-      setGeneratedCases(testCases);
-      setShowPreview(true);
-    } catch (err) {
-      setError("Failed to generate test cases. Please try again.");
+      if (response.success) {
+        setGeneratedCases(response.data);
+        setShowPreview(true);
+      } else {
+        throw new Error("Failed to generate test cases");
+      }
+    } catch (err: any) {
+      console.error("AI Generation Error:", err);
+      setError(
+        err.response?.data?.message ||
+          "Failed to generate test cases. Please try again.",
+      );
     } finally {
       setIsGenerating(false);
     }
-  };
-
-  const generateIntelligentTestCases = (
-    lang: string,
-    description: string,
-    code?: string
-  ): TestCase[] => {
-    const cases: TestCase[] = [];
-    const descLower = (description + " " + (code || "")).toLowerCase();
-
-    // Analyze starter code for function names and patterns
-    const hasFunctionName = code?.match(
-      /function\s+(\w+)|def\s+(\w+)|public\s+\w+\s+(\w+)/
-    );
-
-    // Detect problem type and generate appropriate test cases
-    if (
-      descLower.includes("fibonacci") ||
-      descLower.includes("fib") ||
-      descLower.includes("sequence")
-    ) {
-      cases.push(
-        {
-          id: "1",
-          input: lang === "python" ? "5" : "5",
-          expected_output: "5",
-          is_hidden: false,
-          points: 10,
-          time_limit: 5000,
-        },
-        {
-          id: "2",
-          input: lang === "python" ? "10" : "10",
-          expected_output: "55",
-          is_hidden: false,
-          points: 15,
-          time_limit: 5000,
-        },
-        {
-          id: "3",
-          input: lang === "python" ? "0" : "0",
-          expected_output: "0",
-          is_hidden: true,
-          points: 10,
-          time_limit: 5000,
-        },
-        {
-          id: "4",
-          input: lang === "python" ? "20" : "20",
-          expected_output: "6765",
-          is_hidden: true,
-          points: 15,
-          time_limit: 5000,
-        }
-      );
-    } else if (descLower.includes("palindrome")) {
-      cases.push(
-        {
-          id: "1",
-          input: lang === "python" ? '"racecar"' : '"racecar"',
-          expected_output: "true",
-          is_hidden: false,
-          points: 10,
-          time_limit: 5000,
-        },
-        {
-          id: "2",
-          input: lang === "python" ? '"hello"' : '"hello"',
-          expected_output: "false",
-          is_hidden: false,
-          points: 10,
-          time_limit: 5000,
-        },
-        {
-          id: "3",
-          input:
-            lang === "python"
-              ? '"A man a plan a canal Panama"'
-              : '"A man a plan a canal Panama"',
-          expected_output: "true",
-          is_hidden: true,
-          points: 15,
-          time_limit: 5000,
-        }
-      );
-    } else if (descLower.includes("sum") || descLower.includes("array")) {
-      cases.push(
-        {
-          id: "1",
-          input: lang === "python" ? "[2, 7, 11, 15], 9" : "[2, 7, 11, 15], 9",
-          expected_output: "[0, 1]",
-          is_hidden: false,
-          points: 15,
-          time_limit: 5000,
-        },
-        {
-          id: "2",
-          input: lang === "python" ? "[3, 2, 4], 6" : "[3, 2, 4], 6",
-          expected_output: "[1, 2]",
-          is_hidden: false,
-          points: 15,
-          time_limit: 5000,
-        },
-        {
-          id: "3",
-          input: lang === "python" ? "[3, 3], 6" : "[3, 3], 6",
-          expected_output: "[0, 1]",
-          is_hidden: true,
-          points: 20,
-          time_limit: 5000,
-        }
-      );
-    } else if (lang === "html" || lang === "css") {
-      cases.push(
-        {
-          id: "1",
-          input: "<!-- Basic structure test -->",
-          expected_output: "Valid HTML5 structure with proper DOCTYPE",
-          is_hidden: false,
-          points: 20,
-          time_limit: 5000,
-        },
-        {
-          id: "2",
-          input: "<!-- Semantic elements test -->",
-          expected_output:
-            "Uses semantic HTML elements (header, nav, main, footer)",
-          is_hidden: false,
-          points: 20,
-          time_limit: 5000,
-        },
-        {
-          id: "3",
-          input: "<!-- Accessibility test -->",
-          expected_output: "Includes proper ARIA labels and alt attributes",
-          is_hidden: true,
-          points: 10,
-          time_limit: 5000,
-        }
-      );
-    } else if (lang === "react" || lang === "vue" || lang === "angular") {
-      cases.push(
-        {
-          id: "1",
-          input: '{ "props": { "items": [1, 2, 3] } }',
-          expected_output: "Component renders with 3 items",
-          is_hidden: false,
-          points: 15,
-          time_limit: 5000,
-        },
-        {
-          id: "2",
-          input: '{ "props": { "items": [] } }',
-          expected_output: "Component handles empty array gracefully",
-          is_hidden: false,
-          points: 15,
-          time_limit: 5000,
-        },
-        {
-          id: "3",
-          input: '{ "props": { "items": null } }',
-          expected_output: "Component handles null props without crashing",
-          is_hidden: true,
-          points: 20,
-          time_limit: 5000,
-        }
-      );
-    } else if (lang === "sql") {
-      cases.push(
-        {
-          id: "1",
-          input: "SELECT * FROM users WHERE id = 1;",
-          expected_output:
-            '{ "id": 1, "name": "John Doe", "email": "john@example.com" }',
-          is_hidden: false,
-          points: 15,
-          time_limit: 5000,
-        },
-        {
-          id: "2",
-          input: "SELECT COUNT(*) FROM users;",
-          expected_output: "10",
-          is_hidden: false,
-          points: 15,
-          time_limit: 5000,
-        }
-      );
-    } else {
-      // Generic test cases
-      cases.push(
-        {
-          id: "1",
-          input: "Basic input test",
-          expected_output: "Expected output for basic case",
-          is_hidden: false,
-          points: 20,
-          time_limit: 5000,
-        },
-        {
-          id: "2",
-          input: "Edge case test",
-          expected_output: "Expected output for edge case",
-          is_hidden: false,
-          points: 20,
-          time_limit: 5000,
-        },
-        {
-          id: "3",
-          input: "Complex scenario test",
-          expected_output: "Expected output for complex case",
-          is_hidden: true,
-          points: 10,
-          time_limit: 5000,
-        }
-      );
-    }
-
-    return cases;
   };
 
   const applyTestCases = () => {

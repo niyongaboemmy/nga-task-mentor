@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { useSelector, useDispatch } from "react-redux";
+import { useSelector, useDispatch, shallowEqual } from "react-redux";
 import { motion } from "framer-motion";
 import { BookOpen } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -39,11 +39,14 @@ const Courses: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Get courses from Redux store with defensive checks
-  const { courses, loading, error } = useSelector((state: RootState) => ({
-    courses: state.course?.courses || [],
-    loading: !!state.course?.loading?.courses,
-    error: state.course?.error?.courses || null,
-  }));
+  const { courses, loading, error } = useSelector(
+    (state: RootState) => ({
+      courses: state.course?.courses || [],
+      loading: !!state.course?.loading?.courses,
+      error: state.course?.error?.courses || null,
+    }),
+    shallowEqual,
+  );
 
   useEffect(() => {
     // Prevent infinite retry loop when the initial fetch fails:
