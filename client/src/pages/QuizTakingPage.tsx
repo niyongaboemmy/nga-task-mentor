@@ -70,14 +70,20 @@ const QuizTakingPage: React.FC = () => {
   const [quizStartTime, setQuizStartTime] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCurrentSaved, setIsCurrentSaved] = useState(true);
-  const REQUIRED_MANUAL_SAVE_TYPES: string[] = [
-    // "coding",
-    // "algorithmic",
-    // "logical_expression",
-    // "fill_blank",
-    // "dropdown",
-    // "drag_drop",
-    // "ordering",
+  const AUTO_SAVE_TYPES: string[] = [
+    "single_choice",
+    "multiple_choice",
+    "true_false",
+    "matching",
+    "fill_blank",
+    "dropdown",
+    "numerical",
+    "algorithmic",
+    "short_answer",
+    "coding",
+    "logical_expression",
+    "drag_drop",
+    "ordering",
   ];
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
   const [showInstructions, setShowInstructions] = useState(true);
@@ -124,6 +130,12 @@ const QuizTakingPage: React.FC = () => {
   const [lockedQuestionIndices, setLockedQuestionIndices] = useState<
     Set<number>
   >(new Set());
+  const [explicitlySavedQuestions, setExplicitlySavedQuestions] = useState<
+    Set<string>
+  >(new Set());
+
+  // Track which question was just saved via forceSave to prevent useEffect from overriding
+  const justSavedQuestionRef = React.useRef<string | null>(null);
 
   // Latest answers ref to avoid stale state in callbacks
   const latestAnswersRef = React.useRef<Answer[]>(answers);
@@ -1270,18 +1282,28 @@ const QuizTakingPage: React.FC = () => {
         currentQuestion.questionBank?.question_type ||
         ""
       ).toLowerCase();
-      const isManualRepo = REQUIRED_MANUAL_SAVE_TYPES.includes(qType);
+      const autoSaveEnabled = AUTO_SAVE_TYPES.includes(qType);
 
-      if (isManualRepo) {
+      // Skip if we just saved this question (to avoid overriding the saved state)
+      if (justSavedQuestionRef.current === String(currentQuestion.id)) {
+        justSavedQuestionRef.current = null; // Clear after reading
+        return;
+      }
+
+      if (autoSaveEnabled) {
+        // These types in AUTO_SAVE_TYPES can auto-save - check if answer exists
         const hasAnswer = answers.some(
-          (a) => a.question_id === currentQuestion.id,
+          (a) => String(a.question_id) === String(currentQuestion.id),
         );
         setIsCurrentSaved(hasAnswer);
       } else {
-        setIsCurrentSaved(true);
+        // All other types require explicit save before continuing
+        setIsCurrentSaved(
+          explicitlySavedQuestions.has(String(currentQuestion.id)),
+        );
       }
     }
-  }, [currentQuestionIndex, quizQuestions, answers]);
+  }, [currentQuestionIndex, quizQuestions, explicitlySavedQuestions, answers]);
 
   const updateAnswer = useCallback(
     async (
@@ -1289,6 +1311,21 @@ const QuizTakingPage: React.FC = () => {
       answer: AnswerDataType,
       forceSave: boolean = false,
     ) => {
+      // Determine question type FIRST (before any state updates that trigger useEffect)
+      const question = quizQuestions.find(
+        (q) => String(q.id) === String(questionId),
+      );
+      const qType =
+        question?.question_type || question?.questionBank?.question_type;
+      const normalizedQType = (qType || "").toLowerCase();
+      const autoSaveEnabled = AUTO_SAVE_TYPES.includes(normalizedQType);
+
+      // If this is a manual save for a non-auto-save type, set the ref BEFORE setAnswers
+      // so the useEffect knows to skip overriding isCurrentSaved
+      if (!autoSaveEnabled && forceSave) {
+        justSavedQuestionRef.current = String(questionId);
+      }
+
       const newAnswer: Answer = {
         question_id: questionId,
         answer,
@@ -1315,34 +1352,11 @@ const QuizTakingPage: React.FC = () => {
         return updated;
       });
 
-      // Find if this is a coding or interactive question that should skip auto-save
-      const question = quizQuestions.find((q) => q.id === questionId);
-      const qType =
-        question?.question_type || question?.questionBank?.question_type;
-      const normalizedQType = (qType || "").toLowerCase();
-      const isInteractive = [
-        "coding",
-        "logical_expression",
-        "algorithmic",
-        "drag_drop",
-        "ordering",
-        "matching",
-        "dropdown",
-        "numerical",
-        "fill_blank",
-        "short_answer",
-      ].includes(normalizedQType);
-
-      // Save answer to database
-      // For coding/algorithmic we only save to server if forceSave is true (e.g. navigation or manual button)
-      // For other questions (mcq, dropdown, numeric, etc.), we keep auto-saving as it's cleaner
-      const skipAutoSave = REQUIRED_MANUAL_SAVE_TYPES.includes(normalizedQType);
-
-      if (skipAutoSave && !forceSave) {
+      if (!autoSaveEnabled && !forceSave) {
         setIsCurrentSaved(false);
       }
 
-      if (existingSubmission && (!skipAutoSave || forceSave)) {
+      if (existingSubmission && (!autoSaveEnabled || forceSave)) {
         try {
           if (forceSave) setIsSubmitting(true);
           await QuizApiService.submitQuestionAnswer(
@@ -1352,10 +1366,16 @@ const QuizTakingPage: React.FC = () => {
           );
           if (forceSave) {
             setIsCurrentSaved(true);
+            // Mark this question as explicitly saved
+            setExplicitlySavedQuestions((prev) => {
+              const next = new Set(prev);
+              next.add(String(questionId));
+              return next;
+            });
 
             // Lock this question index since it's manually saved (submitted)
             const currentIdx = quizQuestions.findIndex(
-              (q) => q.id === questionId,
+              (q) => String(q.id) === String(questionId),
             );
             if (currentIdx !== -1) {
               setLockedQuestionIndices((prev) => {
@@ -1382,6 +1402,9 @@ const QuizTakingPage: React.FC = () => {
               draggable: false,
               theme: "colored",
             });
+          } else if (autoSaveEnabled) {
+            // For auto-save types, also enable Next button after API success
+            setIsCurrentSaved(true);
           }
         } catch (error: any) {
           if (forceSave) toast.error("Failed to save answer.");
@@ -1465,7 +1488,7 @@ const QuizTakingPage: React.FC = () => {
           navigate(`/quizzes/${quiz.id}/results`, {
             state: { quiz, answers, submissionData },
           });
-        }, 15000);
+        }, 1500);
       } else {
         // Navigate directly to results page
         navigate(`/quizzes/${quiz.id}/results`, {

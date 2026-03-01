@@ -493,7 +493,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Action Buttons */}
       <div className="flex gap-3">
-        <button
+        {/* <button
           onClick={async () => {
             if (!expressionNodes.length || disabled) return;
             setIsSaving(true);
@@ -529,7 +529,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
               Save Answer
             </>
           )}
-        </button>
+        </button> */}
       </div>
 
       {/* Truth Table */}

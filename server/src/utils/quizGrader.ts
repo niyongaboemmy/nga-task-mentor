@@ -738,7 +738,6 @@ export class TextInputGrader {
       };
     }
 
-    // Try AI grading (uses Gemini/OpenAI/Mock fallback chain)
     try {
       const aiResult = await aiService.gradeShortAnswer(
         question.questionBank?.question_text || "",
@@ -749,7 +748,6 @@ export class TextInputGrader {
       );
       return aiResult;
     } catch (error) {
-      console.error("AI grading error:", error);
       // Fallback to keyword-based grading if AI completely fails
     }
 
@@ -770,7 +768,6 @@ export class TextInputGrader {
       };
     }
 
-    // Default: require manual grading
     return {
       is_correct: false,
       points_earned: 0,
@@ -1693,16 +1690,43 @@ export class AdvancedQuizGrader {
         break;
 
       case "numerical":
-        normalizedData =
-          questionData && questionData.correct_answer !== undefined
-            ? { answer: questionData.correct_answer }
-            : null;
-        break;
+        let numCorrectAnswer: number | null = null;
+        let numTolerance: number = 0;
+        let numUnits: string = "";
 
-      case "short_answer":
+        // Check correct_answer column first
+        if (correctAnswer !== undefined && correctAnswer !== null) {
+          if (typeof correctAnswer === "number") {
+            numCorrectAnswer = correctAnswer;
+          } else if (typeof correctAnswer === "object") {
+            numCorrectAnswer =
+              correctAnswer.answer !== undefined ? correctAnswer.answer : null;
+            numTolerance = correctAnswer.tolerance || 0;
+            numUnits = correctAnswer.units || "";
+          }
+        }
+
+        // Fallback to question_data
+        if (numCorrectAnswer === null && questionData) {
+          if (typeof questionData.correct_answer === "number") {
+            numCorrectAnswer = questionData.correct_answer;
+          } else if (typeof questionData.correct_answer === "string") {
+            const parsed = parseFloat(questionData.correct_answer);
+            if (!isNaN(parsed)) {
+              numCorrectAnswer = parsed;
+            }
+          }
+          numTolerance = questionData.tolerance || numTolerance;
+          numUnits = questionData.units || numUnits;
+        }
+
         normalizedData =
-          questionData && questionData.correct_answer !== undefined
-            ? { answer: questionData.correct_answer }
+          numCorrectAnswer !== null
+            ? {
+                answer: numCorrectAnswer,
+                tolerance: numTolerance,
+                units: numUnits,
+              }
             : null;
         break;
 

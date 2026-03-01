@@ -19,8 +19,22 @@ import {
   Maximize,
   Minimize,
   Monitor,
+  AlertTriangle,
 } from "lucide-react";
 import RichTextDisplay from "../Common/RichTextDisplay";
+
+// Question types that require explicit save before navigation
+const QUESTION_TYPES_REQUIRING_SAVE = [
+  "short_answer",
+  "coding",
+  "fill_blank",
+  "numerical",
+];
+
+// Helper to check if a question type requires explicit save
+const requiresExplicitSave = (questionType: string): boolean => {
+  return QUESTION_TYPES_REQUIRING_SAVE.includes(questionType);
+};
 
 interface QuizTakerProps {
   quiz?: Quiz;
@@ -56,6 +70,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
   const [showQuestionNavigation, setShowQuestionNavigation] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(true);
   const [showProctoringMonitor, setShowProctoringMonitor] = useState(false);
+  const [showSaveWarning, setShowSaveWarning] = useState(false);
   // Removed navigation confirmation modal state - no longer needed
 
   // Initialize quiz
@@ -238,6 +253,18 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
   // Navigation confirmation is no longer needed since we prevent navigation to answered questions
 
   const handleNext = () => {
+    // Check if current question requires explicit save and hasn't been saved
+    const currentQuestion = quiz?.questions?.[currentQuestionIndex];
+    if (
+      currentQuestion?.question_type &&
+      requiresExplicitSave(currentQuestion.question_type)
+    ) {
+      if (!locallyAnsweredQuestions.has(currentQuestion.id)) {
+        setShowSaveWarning(true);
+        return;
+      }
+    }
+
     if (quiz?.questions && currentQuestionIndex < quiz.questions.length - 1) {
       const nextIndex = currentQuestionIndex + 1;
       const nextQuestion = quiz.questions[nextIndex];
@@ -809,9 +836,21 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                   currentQuestionIndex === quiz.questions.length - 1 ||
                   loading
                 }
-                className="flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-lg hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 shadow-lg hover:shadow-xl font-medium w-full sm:w-auto"
+                className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r text-white rounded-lg hover:shadow-xl font-medium w-full sm:w-auto transition-all duration-200 shadow-lg ${
+                  currentQuestion?.question_type &&
+                  requiresExplicitSave(currentQuestion.question_type) &&
+                  !locallyAnsweredQuestions.has(currentQuestion.id)
+                    ? "from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
+                    : "from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                }`}
               >
-                <span className="hidden sm:inline">Next</span>
+                <span className="hidden sm:inline">
+                  {currentQuestion?.question_type &&
+                  requiresExplicitSave(currentQuestion.question_type) &&
+                  !locallyAnsweredQuestions.has(currentQuestion.id)
+                    ? "Save Required"
+                    : "Next"}
+                </span>
                 <ChevronRight className="w-4 h-4" />
               </button>
             )}
@@ -874,6 +913,36 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   {loading ? "Submitting..." : "Submit Quiz"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Save Warning Modal */}
+      {showSaveWarning && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+            <div className="text-center">
+              <div className="mx-auto h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
+                <AlertTriangle className="h-6 w-6 text-orange-600" />
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Save Required
+              </h3>
+              <p className="text-gray-600 mb-6 text-sm">
+                This question requires you to save your answer before
+                proceeding.
+                <br />
+                Please click the "Save Answer" button to continue.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={() => setShowSaveWarning(false)}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all duration-200"
+                >
+                  Got it
                 </button>
               </div>
             </div>

@@ -302,7 +302,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
       {/* Action Buttons */}
       {!submitted && (
         <div className="flex gap-3">
-          <button
+          {/* <button
             onClick={handleSaveAnswer}
             disabled={disabled || isSaving || !allDropdownsFilled}
             className="flex items-center gap-2 px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium"
@@ -327,7 +327,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
           >
             <XCircle className="w-4 h-4" />
             Clear
-          </button>
+          </button> */}
         </div>
       )}
 

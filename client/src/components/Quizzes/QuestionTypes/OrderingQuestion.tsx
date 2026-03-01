@@ -83,8 +83,12 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
           setItems(orderedItems);
         }
       }
+    } else {
+      // If no answer exists, save the default order
+      const defaultOrderedIds = items.map((item) => item.id);
+      onAnswerChange({ ordered_item_ids: defaultOrderedIds } as OrderingAnswer);
     }
-  }, [answer, orderingData.items]);
+  }, [answer, orderingData.items, onAnswerChange]);
 
   const handleDragStart = (index: number) => {
     if (disabled) return;
@@ -287,7 +291,7 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
       {/* Action Buttons */}
       {!showCorrectAnswer && (
         <div className="flex gap-3">
-          <button
+          {/* <button
             onClick={handleManualSave}
             disabled={disabled || isSaving}
             className="flex items-center gap-2 px-6 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-2xl hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-blue-300 dark:disabled:bg-gray-800 disabled:cursor-not-allowed transition-all shadow-sm hover:shadow-md font-medium"
@@ -312,7 +316,7 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
           >
             <RotateCcw className="w-4 h-4" />
             Reset Order
-          </button>
+          </button> */}
         </div>
       )}
 

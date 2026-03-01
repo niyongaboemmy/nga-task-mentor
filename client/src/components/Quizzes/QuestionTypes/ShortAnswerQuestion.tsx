@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { CheckCircle, AlertCircle, RefreshCw } from "lucide-react";
+import { CheckCircle, AlertCircle, RefreshCw, Save } from "lucide-react";
 import type {
   QuestionComponentProps,
   ShortAnswerData,
@@ -22,10 +22,12 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
 
   useEffect(() => {
     if (answer) {
       setText((answer as ShortAnswerAnswer).answer || "");
+      setIsSaved(true); // Mark as saved if we have an existing answer
     }
   }, [answer]);
 
@@ -49,14 +51,19 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
     }
 
     setText(value);
-    onAnswerChange({ answer: value } as ShortAnswerAnswer);
+    setIsSaved(false); // Reset saved state when text changes
   };
 
   const handleSubmit = async () => {
-    if (!text.trim() || disabled) return;
+    if (!text.trim() || disabled || isSaving) return;
     setIsSaving(true);
     try {
-      await onAnswerChange({ answer: text } as ShortAnswerAnswer, true);
+      // Call onAnswerChange to save the answer to parent component state
+      await onAnswerChange({ answer: text } as ShortAnswerAnswer);
+      setIsSaved(true); // Mark as saved successfully
+    } catch (error) {
+      console.error("Failed to save answer:", error);
+      setIsSaved(false);
     } finally {
       setIsSaving(false);
     }
@@ -64,6 +71,7 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
 
   const handleReset = () => {
     setText("");
+    setIsSaved(false);
     onAnswerChange({ answer: "" } as ShortAnswerAnswer);
   };
 
@@ -112,7 +120,7 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3">
+      <div className="flex gap-3 items-center">
         <button
           onClick={handleSubmit}
           disabled={disabled || isSaving || !canSubmit}
@@ -123,6 +131,11 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
               <RefreshCw className="w-4 h-4 animate-spin" />
               Saving...
             </>
+          ) : isSaved ? (
+            <>
+              <Save className="w-4 h-4" />
+              Saved
+            </>
           ) : (
             <>
               <CheckCircle className="w-4 h-4" />
@@ -130,6 +143,13 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
             </>
           )}
         </button>
+
+        {isSaved && !isSaving && (
+          <span className="text-sm text-green-600 flex items-center gap-1">
+            <CheckCircle className="w-4 h-4" />
+            Answer recorded (will be graded on submission)
+          </span>
+        )}
 
         {text.length > 0 && (
           <button
