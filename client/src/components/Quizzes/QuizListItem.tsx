@@ -1,5 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface Quiz {
   id: number;
@@ -31,6 +32,9 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
   publicLoading,
   showActions = true,
 }) => {
+  const { user } = useAuth();
+  const isStudent = user?.role === "student";
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case "published":
@@ -87,7 +91,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
               </h4>
               <span
                 className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                  quiz.status
+                  quiz.status,
                 )}`}
               >
                 {quiz.status.charAt(0).toUpperCase() + quiz.status.slice(1)}
@@ -150,44 +154,78 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
         </div>
 
         {/* Right side - Actions */}
-        {showActions && (
-          <div className="flex items-center gap-2">
-            <Link
-              to={`/quizzes/${quiz.id}`}
-              className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105 hover:shadow-md shadow-lg"
-            >
-              View
-            </Link>
-
-            {onDelete && (
-              <button
-                onClick={() => onDelete(quiz.id)}
-                disabled={deleteLoading === quiz.id.toString()}
-                className="inline-flex items-center px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 shadow-lg"
+        <div className="flex items-center gap-2">
+          {isStudent ? (
+            quiz.status === "published" ? (
+              <Link
+                to={`/quizzes/${quiz.id}/take`}
+                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl text-xs font-bold transition-all duration-200 hover:scale-105 hover:shadow-lg shadow-green-500/20"
               >
-                {deleteLoading === quiz.id.toString() ? "..." : "Delete"}
-              </button>
-            )}
+                <svg
+                  className="w-4 h-4 mr-1.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
+                  />
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                Start Quiz
+              </Link>
+            ) : null
+          ) : (
+            showActions && (
+              <>
+                <Link
+                  to={`/quizzes/${quiz.id}`}
+                  className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105 hover:shadow-md shadow-lg"
+                >
+                  View
+                </Link>
 
-            {onTogglePublic && (
-              <button
-                onClick={() => onTogglePublic(quiz.id, quiz.is_public || false)}
-                disabled={publicLoading === quiz.id.toString()}
-                className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors shadow-lg ${
-                  quiz.is_public
-                    ? "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
-                    : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
-                } disabled:opacity-50`}
-              >
-                {publicLoading === quiz.id.toString()
-                  ? "..."
-                  : quiz.is_public
-                  ? "Private"
-                  : "Public"}
-              </button>
-            )}
-          </div>
-        )}
+                {onDelete && (
+                  <button
+                    onClick={() => onDelete(quiz.id)}
+                    disabled={deleteLoading === quiz.id.toString()}
+                    className="inline-flex items-center px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50 shadow-lg"
+                  >
+                    {deleteLoading === quiz.id.toString() ? "..." : "Delete"}
+                  </button>
+                )}
+
+                {onTogglePublic && (
+                  <button
+                    onClick={() =>
+                      onTogglePublic(quiz.id, quiz.is_public || false)
+                    }
+                    disabled={publicLoading === quiz.id.toString()}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors shadow-lg ${
+                      quiz.is_public
+                        ? "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
+                        : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
+                    } disabled:opacity-50`}
+                  >
+                    {publicLoading === quiz.id.toString()
+                      ? "..."
+                      : quiz.is_public
+                        ? "Private"
+                        : "Public"}
+                  </button>
+                )}
+              </>
+            )
+          )}
+        </div>
       </div>
     </div>
   );

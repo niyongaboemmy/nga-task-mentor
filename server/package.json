@@ -13,6 +13,7 @@
     "migrate:reset": "sequelize-cli db:migrate:undo:all && npm run migrate"
   },
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "axios": "^1.13.1",
     "bcryptjs": "^2.4.3",
     "cookie-parser": "^1.4.7",

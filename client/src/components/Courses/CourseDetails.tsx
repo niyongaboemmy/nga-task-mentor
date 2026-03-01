@@ -454,7 +454,9 @@ const CourseDetails: React.FC = () => {
           {activeTab === "quizzes" && (
             <QuizList
               courseId={parseInt(courseId!)}
-              showCreateButton={true}
+              showCreateButton={["instructor", "admin"].includes(
+                authUser?.role || "",
+              )}
               limit={10}
               showViewAllButton={true}
             />

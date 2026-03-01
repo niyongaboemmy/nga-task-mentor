@@ -352,6 +352,7 @@ export interface QuizQuestion {
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;
   blooms_taxonomy_level_id?: number | null;
+  time_limit_seconds?: number | null;
   bloomsLevel?: BloomsTaxonomyLevel | null;
   // Joined question content from question_bank
   questionBank?: QuestionBankEntry;

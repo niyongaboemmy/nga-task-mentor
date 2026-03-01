@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { CodePreviewModal } from "./CodePreviewModal";
 import RichTextDisplay from "../Common/RichTextDisplay";
+import { useAuth } from "../../contexts/AuthContext";
 
 interface QuestionPreviewModalProps {
   isOpen: boolean;
@@ -29,11 +30,14 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
   allQuestions = [],
   onNavigate,
 }) => {
+  const { user } = useAuth();
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
     "desktop",
   );
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [showCodePreview, setShowCodePreview] = useState(false);
+
+  const isInstructor = user?.role === "instructor" || user?.role === "admin";
 
   const currentIndex = allQuestions.findIndex((q) => q.id === question.id);
   const hasNavigation = allQuestions.length > 1 && onNavigate;
@@ -76,13 +80,19 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
     question.difficulty_level || question.questionBank?.difficulty_level;
   const currentBlooms =
     question.bloomsLevel || question.questionBank?.bloomsLevel;
+  const currentTimeLimit =
+    question.time_limit_seconds || question.questionBank?.time_limit_seconds;
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
       title="Question Preview"
-      subtitle="This is exactly how students will see this question"
+      subtitle={
+        isInstructor
+          ? "Instructor View: Correct answers and metadata are visible"
+          : "This is exactly how students will see this question"
+      }
       size="full"
       className="w-full h-full"
     >
@@ -205,7 +215,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
               answer={undefined}
               onAnswerChange={() => {}}
               disabled={false}
-              showCorrectAnswer={false}
+              showCorrectAnswer={isInstructor}
               showQuestionNumber={previewMode === "desktop"}
               questionNumber={questionNumber}
             />
@@ -271,9 +281,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                 Time Limit
               </div>
               <div className="font-medium text-gray-900 dark:text-gray-100 mt-1">
-                {question.time_limit_seconds
-                  ? `${question.time_limit_seconds}s`
-                  : "None"}
+                {currentTimeLimit ? `${currentTimeLimit}s` : "None"}
               </div>
             </div>
           </div>

@@ -23,7 +23,7 @@ import {
 } from "../types/grading.types";
 import { CodeExecutor, TestCase } from "./codeExecutor";
 import { Judge0Service } from "../services/Judge0Service";
-import { QuestionAiGrader } from "./openAi";
+import { aiService } from "../services/ai/aiService";
 
 // Category-based grading functions
 export class ChoiceQuestionGrader {
@@ -388,25 +388,23 @@ export class TextInputGrader {
       if (isNaN(studentAnswer)) {
         // If it's a string that can't be parsed directly, maybe it has units or a different format.
         // Let's try AI for numerical evaluation if the API key is present.
-        if (process.env.OPENAI_API_KEY) {
-          try {
-            const correctVal =
-              typeof questionData.correct_answer === "string"
-                ? parseFloat(questionData.correct_answer)
-                : Number(questionData.correct_answer);
+        try {
+          const correctVal =
+            typeof questionData.correct_answer === "string"
+              ? parseFloat(questionData.correct_answer)
+              : Number(questionData.correct_answer);
 
-            const aiResult = await QuestionAiGrader.gradeNumerical(
-              question.questionBank?.question_text || "",
-              answer.answer,
-              isNaN(correctVal) ? 0 : correctVal,
-              questionData.tolerance || 0,
-              parseFloat(String(question.points || 0)),
-              questionData.units,
-            );
-            return aiResult;
-          } catch (error) {
-            console.error("AI numerical grading fallback error:", error);
-          }
+          const aiResult = await aiService.gradeNumerical(
+            question.questionBank?.question_text || "",
+            answer.answer,
+            isNaN(correctVal) ? 0 : correctVal,
+            questionData.tolerance || 0,
+            parseFloat(String(question.points || 0)),
+            questionData.units,
+          );
+          return aiResult;
+        } catch (error) {
+          console.error("AI numerical grading fallback error:", error);
         }
 
         return {
@@ -662,21 +660,19 @@ export class TextInputGrader {
       };
     }
 
-    // Try AI grading if available
-    if (process.env.OPENAI_API_KEY) {
-      try {
-        const aiResult = await QuestionAiGrader.gradeShortAnswer(
-          question.questionBank?.question_text || "",
-          answer.answer,
-          questionData.correct_answer || "",
-          parseFloat(String(question.points || 0)),
-          questionData.rubric,
-        );
-        return aiResult;
-      } catch (error) {
-        console.error("AI grading error:", error);
-        // Fallback to keyword-based grading if AI fails
-      }
+    // Try AI grading (uses Gemini/OpenAI/Mock fallback chain)
+    try {
+      const aiResult = await aiService.gradeShortAnswer(
+        question.questionBank?.question_text || "",
+        answer.answer,
+        questionData.correct_answer || "",
+        parseFloat(String(question.points || 0)),
+        questionData.rubric,
+      );
+      return aiResult;
+    } catch (error) {
+      console.error("AI grading error:", error);
+      // Fallback to keyword-based grading if AI completely fails
     }
 
     // Fallback: keyword-based grading
@@ -893,7 +889,8 @@ export class InteractiveGrader {
     });
 
     const pointsEarned = Math.round(
-      (correctPositions / totalItems) * parseFloat(String(question.points)),
+      (correctPositions / totalItems) *
+        parseFloat(String(question.points || 0)),
     );
 
     return {
@@ -968,7 +965,7 @@ export class InteractiveGrader {
 
     const pointsEarned = Math.round(
       (correctSelections / questionData.dropdown_options.length) *
-        parseFloat(String(question.points)),
+        parseFloat(String(question.points || 0)),
     );
 
     return {
@@ -1164,13 +1161,14 @@ export class CodingGrader {
         });
       }
 
-      // Perform AI Analysis for Quality and Efficiency (40% of the total score)
-      const aiResult = await QuestionAiGrader.gradeCoding(
+      // Perform AI Analysis for Code Quality and Efficiency (40% of score)
+      // Uses provider chain: Gemini → OpenAI → Mock
+      const aiResult = await aiService.gradeCoding(
         question.questionBank?.question_text || "",
         finalCode,
         questionData.language || "javascript",
         testResults,
-        parseFloat(String(question.points)),
+        parseFloat(String(question.points || 0)),
         questionData.constraints,
       );
 
@@ -1683,7 +1681,15 @@ export class AdvancedQuizGrader {
   ): Promise<AdvancedGradingResult> {
     const gradingConfig =
       config || this.getDefaultConfig(question.questionBank?.question_type);
-    const maxPoints = parseFloat(String(question.points));
+    const maxPoints = parseFloat(String(question.points || 0));
+
+    // ─── AI Usage Policy ────────────────────────────────────────────────────
+    // AI grading (via aiService) is ONLY used for open-ended question types
+    // where semantic understanding is required. All deterministic types
+    // (choice, matching, ordering, drag_drop, dropdown, logical_expression,
+    // fill_blank) are graded algorithmically WITHOUT consuming AI tokens.
+    // AI types: short_answer, numerical (for non-numeric answers), coding, algorithmic
+    // ────────────────────────────────────────────────────────────────────────
 
     switch (gradingConfig.type) {
       case "single_choice":
@@ -1859,8 +1865,13 @@ export class AdvancedQuizGrader {
       }
 
       const answer = answerData as any;
-      const correctIndices = questionData.correct_option_indices || [];
-      const studentIndices = answer.selected_option_indices || [];
+      // Normalize both arrays to numbers to prevent string/number type mismatch
+      const correctIndices: number[] = (
+        questionData.correct_option_indices || []
+      ).map(Number);
+      const studentIndices: number[] = (
+        answer.selected_option_indices || []
+      ).map(Number);
 
       const wrongSelections = studentIndices.filter(
         (idx: number) => !correctIndices.includes(idx),

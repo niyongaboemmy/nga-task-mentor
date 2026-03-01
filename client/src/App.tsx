@@ -295,7 +295,7 @@ function AppContent() {
             <Route
               path="/quizzes/:quizId"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute roles={["instructor", "admin"]}>
                   <Layout>
                     <QuizViewWrapper />
                   </Layout>

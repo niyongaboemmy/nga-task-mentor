@@ -6,7 +6,7 @@ import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
 import { QuizGrader, AdvancedQuizGrader } from "../utils/quizGrader";
-import { QuestionAiGrader } from "../utils/openAi";
+import { aiService } from "../services/ai/aiService";
 import { Judge0Service } from "../services/Judge0Service";
 import { getQuestionBankInclude } from "../utils/quizUtils";
 
@@ -62,10 +62,11 @@ export const getQuizzes = async (req: Request, res: Response) => {
     // Add computed fields
     const quizzesWithStats = quizzes.map((quiz) => ({
       ...quiz.toJSON(),
-      totalQuestions: quiz.questions?.length || 0,
-      totalPoints: quiz.questions?.reduce((sum, q) => sum + q.points, 0) || 0,
-      isAvailable: quiz.is_available,
-      isPublic: quiz.is_public,
+      total_questions: quiz.questions?.length || 0,
+      total_points:
+        quiz.questions?.reduce((sum, q) => sum + Number(q.points), 0) || 0,
+      is_available: quiz.is_available,
+      is_public: quiz.is_public,
     }));
 
     res.status(200).json({
@@ -744,10 +745,11 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
 
       return {
         ...quiz.toJSON(),
-        totalQuestions: quiz.questions?.length || 0,
-        totalPoints: quiz.questions?.reduce((sum, q) => sum + q.points, 0) || 0,
-        isAvailable: quiz.is_available,
-        isPublic: quiz.is_public,
+        total_questions: quiz.questions?.length || 0,
+        total_points:
+          quiz.questions?.reduce((sum, q) => sum + Number(q.points), 0) || 0,
+        is_available: quiz.is_available,
+        is_public: quiz.is_public,
         studentStatus: inProgressQuizIds.includes(quiz.id)
           ? "in_progress"
           : "not_started",
@@ -856,10 +858,11 @@ export const getPublicQuizzes = async (req: Request, res: Response) => {
 
       return {
         ...quiz.toJSON(),
-        totalQuestions: quiz.questions?.length || 0,
-        totalPoints: quiz.questions?.reduce((sum, q) => sum + q.points, 0) || 0,
-        isAvailable: quiz.is_available,
-        isPublic: quiz.is_public,
+        total_questions: quiz.questions?.length || 0,
+        total_points:
+          quiz.questions?.reduce((sum, q) => sum + Number(q.points), 0) || 0,
+        is_available: quiz.is_available,
+        is_public: quiz.is_public,
         studentStatus: inProgressQuizIds.includes(quiz.id)
           ? "in_progress"
           : "not_started",
@@ -1598,7 +1601,7 @@ export const getAIHint = async (req: Request, res: Response) => {
     }
 
     const questionText = question.questionBank?.question_text || "";
-    const hint = await QuestionAiGrader.getSocraticHint(
+    const hint = await aiService.getSocraticHint(
       questionText,
       code,
       language || "javascript",
@@ -1686,7 +1689,7 @@ export const generateTestCases = async (req: Request, res: Response) => {
       });
     }
 
-    const testCases = await QuestionAiGrader.generateCodingTestCases(
+    const testCases = await aiService.generateCodingTestCases(
       problemDescription,
       language,
       starterCode,

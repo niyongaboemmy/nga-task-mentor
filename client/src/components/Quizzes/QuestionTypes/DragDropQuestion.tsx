@@ -341,7 +341,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
             <button
               onClick={checkAnswer}
               disabled={disabled || Object.keys(placements).length === 0}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-300 disabled:cursor-not-allowed transition-colors dark:bg-blue-600 dark:hover:bg-blue-700 dark:disabled:bg-blue-300 dark:disabled:cursor-not-allowed"
             >
               <CheckCircle className="w-4 h-4" />
               Check Answer
@@ -349,7 +349,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
             <button
               onClick={resetAnswer}
               disabled={disabled}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-600 dark:hover:bg-gray-700 dark:disabled:bg-gray-300 dark:disabled:cursor-not-allowed"
             >
               <RotateCcw className="w-4 h-4" />
               Reset
@@ -359,7 +359,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
           <button
             onClick={resetAnswer}
             disabled={disabled}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-600 dark:hover:bg-gray-700 dark:disabled:bg-gray-300 dark:disabled:cursor-not-allowed"
           >
             <RotateCcw className="w-4 h-4" />
             Try Again
@@ -372,8 +372,8 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
         <div
           className={`border rounded-lg p-4 ${
             isCorrect
-              ? "border-green-200 bg-green-50"
-              : "border-red-200 bg-red-50"
+              ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20"
+              : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"
           }`}
         >
           <div className="flex items-start gap-3">
@@ -386,7 +386,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
               <h3 className="font-semibold text-lg mb-1">
                 {isCorrect ? "Correct!" : "Not Quite Right"}
               </h3>
-              <p className="text-sm text-gray-700">
+              <p className="text-sm text-gray-700 dark:text-gray-300">
                 {isCorrect
                   ? "All items are placed correctly."
                   : "Some items are in the wrong zones. Review the highlighted areas and try again."}
@@ -398,13 +398,16 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Correct Answer Display */}
       {showCorrectAnswer && (
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="font-semibold text-lg mb-3 text-blue-900">
+        <div className="bg-blue-50 border border-blue-200 rounded-2xl p-4 dark:bg-gray-900 dark:border-gray-700">
+          <h3 className="font-semibold text-lg mb-3 text-blue-900 dark:text-blue-400">
             Correct Answer
           </h3>
           <div className="space-y-3">
             {dragDropData.drop_zones.map((zone) => (
-              <div key={zone.id} className="bg-white rounded p-3">
+              <div
+                key={zone.id}
+                className="bg-white rounded-2xl p-3 dark:bg-gray-800 dark:border-gray-700"
+              >
                 <div className="font-medium text-sm mb-2">
                   {zone.label || zone.id}
                 </div>
@@ -416,7 +419,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
                     return (
                       <span
                         key={itemId}
-                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded text-sm"
+                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm dark:bg-blue-900 dark:text-blue-400"
                       >
                         {item?.text}
                       </span>

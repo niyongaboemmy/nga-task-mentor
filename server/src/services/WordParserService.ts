@@ -91,8 +91,10 @@ export class WordParserService {
         .trim()
         .toLowerCase();
 
-      if (/^(q|question)\s*\d*:/i.test(textOnly)) {
-        questionHtml = p.replace(/^(<[^>]*>)?(q|question)\s*\d*:/i, "").trim();
+      if (/^(?:<[^>]*>)*(?:q|question)\s*\d*:/i.test(textOnly)) {
+        questionHtml = p
+          .replace(/^(?:<[^>]*>)*(?:q|question)\s*\d*:\s*(?:<[^>]*>)*/i, "")
+          .trim();
       } else if (textOnly.startsWith("type:")) {
         const typeStr = textOnly.replace(/^type:/i, "").trim();
         type = this.mapType(typeStr);
