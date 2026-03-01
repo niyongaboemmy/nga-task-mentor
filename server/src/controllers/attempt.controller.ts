@@ -254,8 +254,15 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     const isCorrect = gradingResult.is_correct;
     const pointsEarned = gradingResult.points_earned;
 
+    console.log("[DEBUG] About to save to database:", {
+      isCorrect,
+      pointsEarned,
+      attemptExists: !!attempt,
+    });
+
     if (attempt) {
       // Update existing attempt record
+      console.log("[DEBUG] Updating existing attempt:", attempt.id);
       await attempt.update(
         {
           submitted_answer: normalizedSubmittedAnswer.data,
@@ -266,8 +273,13 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
         },
         { transaction },
       );
+      console.log(
+        "[DEBUG] After update, attempt.points_earned:",
+        attempt.points_earned,
+      );
     } else {
       // Create new attempt record
+      console.log("[DEBUG] Creating new attempt");
       attempt = await QuizAttempt.create(
         {
           quiz_id: submission.quiz_id,
@@ -284,6 +296,10 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
           completed_at: new Date(),
         },
         { transaction },
+      );
+      console.log(
+        "[DEBUG] After create, attempt.points_earned:",
+        attempt.points_earned,
       );
     }
 

@@ -181,19 +181,29 @@ const QuizResultsPage: React.FC = () => {
         grading_settings: gradingSettings,
         time_taken: apiData.time_taken || 0,
         answers:
-          apiData.results?.map((result: any) => ({
-            question_id: result.question_id,
-            question_text: result.question_text,
-            question_type: result.question_type,
-            question_data: result.question_data,
-            user_answer: result.user_answer,
-            correct_answer: result.correct_answer,
-            is_correct: result.is_correct,
-            points_earned: parseFloat(result.points_earned) || 0,
-            max_points:
-              result.max_points || (result.question_type === "coding" ? 5 : 1),
-            explanation: result.explanation || "No explanation provided.",
-          })) || [],
+          apiData.results?.map((result: any) => {
+            console.log("[DEBUG Frontend] Processing result:", {
+              question_id: result.question_id,
+              points_earned_raw: result.points_earned,
+              points_earned_type: typeof result.points_earned,
+              parsed_value: parseFloat(result.points_earned),
+              final_value: parseFloat(result.points_earned) || 0,
+            });
+            return {
+              question_id: result.question_id,
+              question_text: result.question_text,
+              question_type: result.question_type,
+              question_data: result.question_data,
+              user_answer: result.user_answer,
+              correct_answer: result.correct_answer,
+              is_correct: result.is_correct,
+              points_earned: parseFloat(result.points_earned) || 0,
+              max_points:
+                result.max_points ||
+                (result.question_type === "coding" ? 5 : 1),
+              explanation: result.explanation || "No explanation provided.",
+            };
+          }) || [],
       };
 
       setResult(transformedResult);

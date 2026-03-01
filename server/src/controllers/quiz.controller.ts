@@ -1012,6 +1012,11 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         continue; // Skip invalid questions or questions not in this quiz
       }
 
+      const questionType = question.questionBank?.question_type;
+      console.log(
+        `[DEBUG] Final submission - question ${question.id} type: ${questionType}`,
+      );
+
       const questionData = question.questionBank?.question_data as any;
 
       // Check if question has individual time limit and if it was exceeded
@@ -1038,12 +1043,21 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       } else {
         // Use advanced grading for all question types for consistency and to trigger AI grading
         try {
+          console.log(
+            `[DEBUG] Grading question ${question.id} with answer:`,
+            JSON.stringify(answer.answer),
+          );
           const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
             question,
             answer.answer,
           );
           isCorrect = gradingResult.is_correct;
           pointsEarned = gradingResult.points_earned;
+          console.log(`[DEBUG] Grading result for question ${question.id}:`, {
+            isCorrect,
+            pointsEarned,
+            gradingResultPoints: gradingResult.points_earned,
+          });
         } catch (error) {
           console.error(
             `Error grading question ${question.id} of type ${question.questionBank?.question_type}:`,
@@ -1278,24 +1292,39 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
     const showGrades = enableAutoGrading && !requireManualGrading;
     const showCorrectAnswers = submission.quiz?.show_correct_answers === true;
 
+    console.log("[DEBUG] getQuizResultsById - quiz settings:", {
+      enableAutoGrading,
+      requireManualGrading,
+      showGrades,
+      showCorrectAnswers,
+    });
+
     // Build results array - filter out correct answers if not allowed
-    const results = attempts.map((attempt) => ({
-      question_id: attempt.question_id,
-      question_text: attempt.attemptQuestion?.questionBank?.question_text,
-      question_type: attempt.attemptQuestion?.questionBank?.question_type,
-      question_data: showCorrectAnswers
-        ? attempt.attemptQuestion?.questionBank?.question_data
-        : null,
-      user_answer: attempt.submitted_answer,
-      correct_answer: showCorrectAnswers ? attempt.correct_answer : null,
-      is_correct: showCorrectAnswers ? attempt.is_correct : null,
-      points_earned: showGrades ? attempt.points_earned : null,
-      max_points: attempt.attemptQuestion?.points,
-      explanation: showCorrectAnswers
-        ? attempt.attemptQuestion?.questionBank?.explanation
-        : null,
-      time_taken: attempt.time_taken,
-    }));
+    const results = attempts.map((attempt) => {
+      const result = {
+        question_id: attempt.question_id,
+        question_text: attempt.attemptQuestion?.questionBank?.question_text,
+        question_type: attempt.attemptQuestion?.questionBank?.question_type,
+        question_data: showCorrectAnswers
+          ? attempt.attemptQuestion?.questionBank?.question_data
+          : null,
+        user_answer: attempt.submitted_answer,
+        correct_answer: showCorrectAnswers ? attempt.correct_answer : null,
+        is_correct: showCorrectAnswers ? attempt.is_correct : null,
+        points_earned: showGrades ? attempt.points_earned : null,
+        max_points: attempt.attemptQuestion?.points,
+        explanation: showCorrectAnswers
+          ? attempt.attemptQuestion?.questionBank?.explanation
+          : null,
+        time_taken: attempt.time_taken,
+      };
+      console.log(`[DEBUG] Result for question ${attempt.question_id}:`, {
+        attempt_points_earned: attempt.points_earned,
+        returned_points_earned: result.points_earned,
+        showGrades,
+      });
+      return result;
+    });
 
     res.status(200).json({
       success: true,

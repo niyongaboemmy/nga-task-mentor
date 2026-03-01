@@ -16,9 +16,17 @@ export class MockProvider implements AiProvider {
     maxPoints: number,
   ): Promise<AIGradingResult> {
     console.log("[AI] MockProvider: gradeShortAnswer");
+    const isCorrect = studentAnswer.length > 5;
+    // If correct, award at least half the points or 1 point minimum
+    const pointsEarned = isCorrect
+      ? Math.max(
+          1,
+          Math.floor(maxPoints * 0.5 + Math.random() * (maxPoints * 0.5)),
+        )
+      : Math.floor(Math.random() * Math.floor(maxPoints * 0.3)); // Partial credit for effort
     return {
-      is_correct: studentAnswer.length > 5,
-      points_earned: Math.floor(Math.random() * maxPoints),
+      is_correct: isCorrect,
+      points_earned: Math.min(pointsEarned, maxPoints),
       feedback:
         "Mock feedback: The answer seems reasonable but could be more detailed.",
     };

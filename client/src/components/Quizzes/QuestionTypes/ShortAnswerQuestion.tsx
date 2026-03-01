@@ -58,8 +58,8 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
     if (!text.trim() || disabled || isSaving) return;
     setIsSaving(true);
     try {
-      // Call onAnswerChange to save the answer to parent component state
-      await onAnswerChange({ answer: text } as ShortAnswerAnswer);
+      // Call onAnswerChange with forceSave=true to save the answer to server for grading
+      await onAnswerChange({ answer: text } as ShortAnswerAnswer, true);
       setIsSaved(true); // Mark as saved successfully
     } catch (error) {
       console.error("Failed to save answer:", error);

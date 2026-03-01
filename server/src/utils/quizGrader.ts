@@ -392,8 +392,25 @@ export class TextInputGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): Promise<GradingResult> {
+    console.log("\n[DEBUG] ========== NUMERICAL GRADING START ==========");
+    console.log("[DEBUG] Raw answerData:", JSON.stringify(answerData, null, 2));
+    console.log("[DEBUG] answerData type:", typeof answerData);
+    console.log(
+      "[DEBUG] question.questionBank:",
+      question.questionBank ? "exists" : "missing",
+    );
+    console.log(
+      "[DEBUG] question.questionBank.correct_answer:",
+      question.questionBank?.correct_answer,
+    );
+    console.log(
+      "[DEBUG] question.questionBank.question_data:",
+      JSON.stringify(question.questionBank?.question_data, null, 2),
+    );
+
     // Validate question data structure
     if (!question || !question.questionBank?.question_data) {
+      console.log("[DEBUG] FAIL: Invalid question data structure");
       return {
         is_correct: false,
         points_earned: 0,
@@ -404,9 +421,15 @@ export class TextInputGrader {
     let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
+      console.log("[DEBUG] questionData is string, parsing...");
       try {
         questionData = JSON.parse(questionData);
+        console.log(
+          "[DEBUG] Parsed questionData:",
+          JSON.stringify(questionData, null, 2),
+        );
       } catch (e) {
+        console.log("[DEBUG] FAIL: Could not parse questionData");
         return {
           is_correct: false,
           points_earned: 0,
@@ -417,6 +440,7 @@ export class TextInputGrader {
 
     // Validate answer data
     if (!answerData) {
+      console.log("[DEBUG] FAIL: No answerData provided");
       return {
         is_correct: false,
         points_earned: 0,
@@ -425,12 +449,16 @@ export class TextInputGrader {
     }
 
     const answer = answerData as any;
+    console.log("[DEBUG] answer object:", JSON.stringify(answer, null, 2));
+    console.log("[DEBUG] answer.answer type:", typeof answer.answer);
+    console.log("[DEBUG] answer.answer value:", answer.answer);
 
     // Validate answer structure
     if (
       typeof answer.answer !== "number" &&
       typeof answer.answer !== "string"
     ) {
+      console.log("[DEBUG] FAIL: answer.answer is neither number nor string");
       return {
         is_correct: false,
         points_earned: 0,
@@ -439,25 +467,78 @@ export class TextInputGrader {
       };
     }
 
+    // Helper function to parse LaTeX fractions and convert to numeric value
+    const parseLatexNumber = (text: string): number | null => {
+      const trimmed = text.trim();
+
+      // Handle LaTeX fractions: \frac{a}{b} -> a/b
+      const fracMatch = trimmed.match(/\\frac\{([^}]*)\}\{([^}]*)\}/);
+      if (fracMatch) {
+        const numerator = parseFloat(fracMatch[1]);
+        const denominator = parseFloat(fracMatch[2]);
+        if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+          return numerator / denominator;
+        }
+      }
+
+      // Handle inline fractions: a/b or a÷b
+      const inlineFracMatch = trimmed.match(/([\d.]+)\s*[\/÷]\s*([\d.]+)/);
+      if (inlineFracMatch) {
+        const numerator = parseFloat(inlineFracMatch[1]);
+        const denominator = parseFloat(inlineFracMatch[2]);
+        if (!isNaN(numerator) && !isNaN(denominator) && denominator !== 0) {
+          return numerator / denominator;
+        }
+      }
+
+      // Handle percentages: 50% -> 0.5
+      const percentMatch = trimmed.match(/([\d.]+)\s*%/);
+      if (percentMatch) {
+        const value = parseFloat(percentMatch[1]);
+        if (!isNaN(value)) {
+          return value / 100;
+        }
+      }
+
+      // Handle scientific notation: 1e5, 1E5, 1×10^5
+      const sciMatch = trimmed.match(/([\d.]+)\s*[×x]\s*10\^?([\d-]+)/i);
+      if (sciMatch) {
+        const base = parseFloat(sciMatch[1]);
+        const exp = parseInt(sciMatch[2], 10);
+        if (!isNaN(base) && !isNaN(exp)) {
+          return base * Math.pow(10, exp);
+        }
+      }
+
+      return null;
+    };
+
     // Convert string to number if needed
     let studentAnswer: number;
     const cleanStudentText = stripHtml(answer.answer);
 
     if (typeof answer.answer === "string") {
-      studentAnswer = parseFloat(cleanStudentText);
+      // First try to parse LaTeX expressions
+      const latexResult = parseLatexNumber(cleanStudentText);
+      if (latexResult !== null) {
+        studentAnswer = latexResult;
+      } else {
+        // Standard parsing
+        studentAnswer = parseFloat(cleanStudentText);
 
-      // Second pass parsing: if parseFloat fails, strip ALL non-numeric chars except . and -
-      if (isNaN(studentAnswer)) {
-        const numericOnly = cleanStudentText.replace(/[^0-9.-]/g, "");
-        studentAnswer = parseFloat(numericOnly);
-      }
+        // Second pass parsing: if parseFloat fails, strip ALL non-numeric chars except . and -
+        if (isNaN(studentAnswer)) {
+          const numericOnly = cleanStudentText.replace(/[^0-9.-]/g, "");
+          studentAnswer = parseFloat(numericOnly);
+        }
 
-      if (isNaN(studentAnswer)) {
-        return {
-          is_correct: false,
-          points_earned: 0,
-          feedback: `Numerical question: Could not parse "${cleanStudentText}" as a number`,
-        };
+        if (isNaN(studentAnswer)) {
+          return {
+            is_correct: false,
+            points_earned: 0,
+            feedback: `Numerical question: Could not parse "${cleanStudentText}" as a number`,
+          };
+        }
       }
     } else {
       studentAnswer = answer.answer;
@@ -490,12 +571,19 @@ export class TextInputGrader {
       }
 
       const cleanCorrectText = stripHtml(strCorrect);
-      correctValue = parseFloat(cleanCorrectText);
 
-      // Second pass for correct answer too
-      if (isNaN(correctValue)) {
-        const numericOnly = cleanCorrectText.replace(/[^0-9.-]/g, "");
-        correctValue = parseFloat(numericOnly);
+      // Try LaTeX parsing first for correct answer
+      const latexResult = parseLatexNumber(cleanCorrectText);
+      if (latexResult !== null) {
+        correctValue = latexResult;
+      } else {
+        correctValue = parseFloat(cleanCorrectText);
+
+        // Second pass for correct answer too
+        if (isNaN(correctValue)) {
+          const numericOnly = cleanCorrectText.replace(/[^0-9.-]/g, "");
+          correctValue = parseFloat(numericOnly);
+        }
       }
     } else {
       return {
@@ -563,8 +651,21 @@ export class TextInputGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): GradingResult {
+    console.log("\n[DEBUG] ========== FILL_BLANK GRADING START ==========");
+    console.log("[DEBUG] Raw answerData:", JSON.stringify(answerData, null, 2));
+    console.log("[DEBUG] answerData type:", typeof answerData);
+    console.log(
+      "[DEBUG] question.questionBank:",
+      question.questionBank ? "exists" : "missing",
+    );
+    console.log(
+      "[DEBUG] question.questionBank.question_data:",
+      JSON.stringify(question.questionBank?.question_data, null, 2),
+    );
+
     // Validate question data structure
     if (!question || !question.questionBank?.question_data) {
+      console.log("[DEBUG] FAIL: Invalid question data structure");
       return {
         is_correct: false,
         points_earned: 0,
@@ -575,9 +676,15 @@ export class TextInputGrader {
     let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
+      console.log("[DEBUG] questionData is string, parsing...");
       try {
         questionData = JSON.parse(questionData);
+        console.log(
+          "[DEBUG] Parsed questionData:",
+          JSON.stringify(questionData, null, 2),
+        );
       } catch (e) {
+        console.log("[DEBUG] FAIL: Could not parse questionData");
         return {
           is_correct: false,
           points_earned: 0,
@@ -588,6 +695,7 @@ export class TextInputGrader {
 
     // Validate answer data
     if (!answerData) {
+      console.log("[DEBUG] FAIL: No answerData provided");
       return {
         is_correct: false,
         points_earned: 0,
@@ -596,9 +704,34 @@ export class TextInputGrader {
     }
 
     const answer = answerData as any;
+    console.log("[DEBUG] answer object:", JSON.stringify(answer, null, 2));
+    console.log("[DEBUG] answer.answers:", answer.answers);
+    console.log("[DEBUG] answer.answer:", answer.answer);
 
-    // Validate answer structure
-    if (!Array.isArray(answer.answers)) {
+    // Validate answer structure - handle both 'answers' array and single answer object
+    let answerArray: any[] = [];
+    if (Array.isArray(answer.answers)) {
+      console.log("[DEBUG] Found answer.answers array");
+      answerArray = answer.answers;
+    } else if (typeof answer.answer === "string") {
+      console.log(
+        "[DEBUG] Found single answer.answer string, wrapping in array",
+      );
+      // Single blank case - wrap in array format
+      answerArray = [{ blank_index: 0, answer: answer.answer }];
+    } else if (typeof answer === "string") {
+      console.log("[DEBUG] Found direct string answer, wrapping in array");
+      // Direct string answer for single blank
+      answerArray = [{ blank_index: 0, answer: answer }];
+    }
+
+    console.log(
+      "[DEBUG] Final answerArray:",
+      JSON.stringify(answerArray, null, 2),
+    );
+
+    if (answerArray.length === 0) {
+      console.log("[DEBUG] FAIL: answerArray is empty");
       return {
         is_correct: false,
         points_earned: 0,
@@ -612,6 +745,11 @@ export class TextInputGrader {
       !questionData.acceptable_answers ||
       !Array.isArray(questionData.acceptable_answers)
     ) {
+      console.log("[DEBUG] FAIL: No acceptable_answers in questionData");
+      console.log(
+        "[DEBUG] questionData.acceptable_answers:",
+        questionData.acceptable_answers,
+      );
       return {
         is_correct: false,
         points_earned: 0,
@@ -619,6 +757,11 @@ export class TextInputGrader {
           "Fill blank question: No acceptable answers defined in question configuration",
       };
     }
+
+    console.log(
+      "[DEBUG] acceptable_answers:",
+      JSON.stringify(questionData.acceptable_answers, null, 2),
+    );
 
     // Validate text_with_blanks exists
     if (
@@ -654,23 +797,46 @@ export class TextInputGrader {
         };
       }
 
-      const studentAnswer = answer.answers.find(
+      const studentAnswer = answerArray.find(
         (a: any) => a && typeof a === "object" && a.blank_index === index,
       );
 
-      if (studentAnswer && typeof studentAnswer.answer === "string") {
-        const isCorrect = blank.answers.some((acceptableAnswer: string) => {
-          if (typeof acceptableAnswer !== "string") return false;
+      if (
+        studentAnswer &&
+        (typeof studentAnswer.answer === "string" ||
+          typeof studentAnswer.answer === "number")
+      ) {
+        // Strip HTML/LaTeX from student answer and convert to string
+        const studentAnsStr = stripHtml(String(studentAnswer.answer));
 
-          const sAns = stripHtml(String(studentAnswer.answer));
-          const aAns = stripHtml(String(acceptableAnswer));
+        const isCorrect = blank.answers.some((acceptableAnswer: any) => {
+          // Handle both string and object acceptable answers
+          let acceptableStr: string;
+          if (
+            typeof acceptableAnswer === "object" &&
+            acceptableAnswer !== null
+          ) {
+            acceptableStr = String(
+              acceptableAnswer.text ||
+                acceptableAnswer.value ||
+                acceptableAnswer.answer ||
+                "",
+            );
+          } else {
+            acceptableStr = String(acceptableAnswer);
+          }
+
+          // Strip HTML/LaTeX from acceptable answer
+          const acceptableAnsClean = stripHtml(acceptableStr);
+
+          // Case-insensitive comparison by default, unless case_sensitive is explicitly true
           const match = blank.case_sensitive
-            ? sAns === aAns
-            : sAns.toLowerCase() === aAns.toLowerCase();
+            ? studentAnsStr === acceptableAnsClean
+            : studentAnsStr.toLowerCase() === acceptableAnsClean.toLowerCase();
 
           console.log(`[Grader] FillBlank Match [${index}]:`, {
-            student: sAns,
-            acceptable: aAns,
+            student: studentAnsStr,
+            acceptable: acceptableAnsClean,
             caseSensitive: !!blank.case_sensitive,
             match,
           });
@@ -699,6 +865,13 @@ export class TextInputGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): Promise<GradingResult> {
+    console.log("\n[DEBUG] ========== SHORT_ANSWER GRADING START ==========");
+    console.log("[DEBUG] question.points:", question.points);
+    console.log(
+      "[DEBUG] question.questionBank:",
+      question.questionBank ? "exists" : "missing",
+    );
+
     let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
@@ -717,6 +890,8 @@ export class TextInputGrader {
         answer = {};
       }
     }
+
+    console.log("[DEBUG] answer.answer:", answer.answer);
 
     if (typeof answer.answer !== "string") {
       return {
@@ -738,16 +913,21 @@ export class TextInputGrader {
       };
     }
 
+    const maxPoints = parseFloat(String(question.points || 0));
+    console.log("[DEBUG] maxPoints being passed to AI:", maxPoints);
+
     try {
       const aiResult = await aiService.gradeShortAnswer(
         question.questionBank?.question_text || "",
         answer.answer,
         questionData.correct_answer || "",
-        parseFloat(String(question.points || 0)),
+        maxPoints,
         questionData.rubric,
       );
+      console.log("[DEBUG] AI result:", JSON.stringify(aiResult, null, 2));
       return aiResult;
     } catch (error) {
+      console.log("[DEBUG] AI grading failed, falling back to keyword-based");
       // Fallback to keyword-based grading if AI completely fails
     }
 
@@ -940,33 +1120,99 @@ export class InteractiveGrader {
       };
     }
 
-    // Create a mapping of item ID to correct order
-    const correctOrderMap: Record<string, number> = {};
-    if (Array.isArray(questionData.items)) {
-      questionData.items.forEach((item: any) => {
-        // Normalize ID to string and store order
-        correctOrderMap[String(item.id)] = item.order;
-      });
+    // Validate question has items
+    if (!Array.isArray(questionData.items) || questionData.items.length === 0) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "Ordering question: No items defined",
+      };
     }
 
+    // Create a mapping of normalized item ID (with stripHtml) to correct order
+    // Also create a mapping by stripped text content for fallback matching
+    const correctOrderMap: Record<string, number> = {};
+    const textToOrderMap: Record<string, number> = {};
+
+    questionData.items.forEach((item: any) => {
+      // Normalize ID to string - handle both string and number IDs
+      const itemIdStr = String(item.id);
+      const order =
+        typeof item.order === "number"
+          ? item.order
+          : parseInt(String(item.order), 10);
+
+      if (!isNaN(order)) {
+        correctOrderMap[itemIdStr] = order;
+
+        // Also map by stripped text content for cases where IDs don't match
+        if (item.text || item.content) {
+          const strippedText = stripHtml(
+            item.text || item.content,
+          ).toLowerCase();
+          textToOrderMap[strippedText] = order;
+        }
+      }
+    });
+
     console.log(`[Grader] Ordering Map:`, correctOrderMap);
+    console.log(`[Grader] Text-to-Order Map:`, textToOrderMap);
 
     let correctPositions = 0;
-    const totalItems = Array.isArray(questionData.items)
-      ? questionData.items.length
-      : 0;
+    const totalItems = questionData.items.length;
+
+    // Check if answer has the right number of items
+    if (answer.ordered_item_ids.length !== totalItems) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: `Invalid answer: expected ${totalItems} items, got ${answer.ordered_item_ids.length}`,
+      };
+    }
 
     // Check if each item is in the correct position
     answer.ordered_item_ids.forEach((itemId: any, index: number) => {
       const studentItemId = String(itemId);
-      const expectedOrder = correctOrderMap[studentItemId];
-      // Comparison: expectedOrder (1-indexed) vs index + 1
-      const isCorrectPos = String(expectedOrder) === String(index + 1);
+      const studentPosition = index + 1; // 1-indexed position
+
+      // Try to find the expected order for this item
+      let expectedOrder = correctOrderMap[studentItemId];
+
+      // If not found by ID, try to match by stripped text (for items with HTML/LaTeX)
+      if (expectedOrder === undefined) {
+        // Check if itemId itself is text content with HTML/LaTeX
+        const strippedItemId = stripHtml(studentItemId).toLowerCase();
+        expectedOrder = textToOrderMap[strippedItemId];
+
+        // Also try matching against all item texts
+        if (expectedOrder === undefined) {
+          for (const item of questionData.items) {
+            const itemText = stripHtml(
+              item.text || item.content || String(item.id),
+            ).toLowerCase();
+            if (
+              itemText === strippedItemId ||
+              stripHtml(String(item.id)).toLowerCase() === strippedItemId
+            ) {
+              expectedOrder =
+                typeof item.order === "number"
+                  ? item.order
+                  : parseInt(String(item.order), 10);
+              break;
+            }
+          }
+        }
+      }
+
+      const isCorrectPos =
+        expectedOrder !== undefined &&
+        !isNaN(expectedOrder) &&
+        String(expectedOrder) === String(studentPosition);
 
       console.log(`[Grader] Ordering Check [${index}]:`, {
         itemId: studentItemId,
         expectedOrder,
-        studentPos: index + 1,
+        studentPos: studentPosition,
         isCorrectPos,
       });
 
@@ -1008,89 +1254,212 @@ export class InteractiveGrader {
     const correctAnswer = question.questionBank?.correct_answer as any;
     const answer = answerData as any;
 
-    if (!answer || !Array.isArray(answer.selections)) {
+    // Validate answer structure - handle multiple formats
+    let selectionsArray: any[] = [];
+    if (answer) {
+      if (Array.isArray(answer.selections)) {
+        selectionsArray = answer.selections;
+      } else if (Array.isArray(answer)) {
+        // Direct array format: ["option1", "option2"]
+        selectionsArray = answer.map((opt: any, idx: number) => ({
+          dropdown_index: idx,
+          selected_option: typeof opt === "object" ? opt.selected_option : opt,
+        }));
+      } else if (typeof answer === "object") {
+        // Object with numeric keys: { "0": "option1", "1": "option2" }
+        selectionsArray = Object.entries(answer)
+          .filter(([key]) => !isNaN(parseInt(key)))
+          .map(([key, val]) => ({
+            dropdown_index: parseInt(key),
+            selected_option: val,
+          }));
+      }
+    }
+
+    if (selectionsArray.length === 0) {
       return {
         is_correct: false,
         points_earned: 0,
-        feedback: "Invalid answer format",
+        feedback: "Invalid answer format - no selections provided",
+      };
+    }
+
+    const dropdownOptions = questionData.dropdown_options || [];
+
+    if (dropdownOptions.length === 0) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "No dropdown options defined in question",
       };
     }
 
     let correctSelections = 0;
-    const dropdownOptions = questionData.dropdown_options || [];
 
-    dropdownOptions.forEach((dropdown: any, index: number) => {
-      const studentSelection = answer.selections.find(
-        (s: any) => s.dropdown_index === index,
-      );
+    // Build a map of correct answers for each dropdown
+    const correctAnswersMap: Record<number, string> = {};
 
-      if (studentSelection) {
-        let correctOption: string | null = null;
+    // 1. Parse correct_answer column (multiple formats)
+    let parsedCorrectAnswer = correctAnswer;
+    if (typeof correctAnswer === "string") {
+      try {
+        parsedCorrectAnswer = JSON.parse(correctAnswer);
+      } catch (e) {
+        // Keep as string if not JSON
+      }
+    }
 
-        // 1. Try to get correct answer from the dedicated column (parsed if JSON string)
-        let parsedCorrectAnswer = correctAnswer;
-        if (typeof correctAnswer === "string") {
-          try {
-            parsedCorrectAnswer = JSON.parse(correctAnswer);
-          } catch (e) {}
-        }
-
-        if (parsedCorrectAnswer) {
-          const selectionsList = Array.isArray(parsedCorrectAnswer)
-            ? parsedCorrectAnswer
-            : parsedCorrectAnswer.selections || [];
-
-          const correctItem = selectionsList.find(
-            (item: any) => item.dropdown_index === index,
+    // Handle array format: ["answer1", "answer2"]
+    if (Array.isArray(parsedCorrectAnswer)) {
+      parsedCorrectAnswer.forEach((item: any, idx: number) => {
+        if (typeof item === "object" && item.selected_option !== undefined) {
+          correctAnswersMap[item.dropdown_index ?? idx] = String(
+            item.selected_option,
           );
-          if (
-            correctItem &&
-            correctItem.selected_option !== undefined &&
-            correctItem.selected_option !== null
-          ) {
-            correctOption = String(correctItem.selected_option);
+        } else {
+          correctAnswersMap[idx] = String(item);
+        }
+      });
+    }
+    // Handle object with selections array
+    else if (
+      parsedCorrectAnswer &&
+      Array.isArray(parsedCorrectAnswer.selections)
+    ) {
+      parsedCorrectAnswer.selections.forEach((item: any) => {
+        if (
+          item.dropdown_index !== undefined &&
+          item.selected_option !== undefined
+        ) {
+          correctAnswersMap[item.dropdown_index] = String(item.selected_option);
+        }
+      });
+    }
+    // Handle object with numeric keys
+    else if (parsedCorrectAnswer && typeof parsedCorrectAnswer === "object") {
+      Object.entries(parsedCorrectAnswer)
+        .filter(([key]) => !isNaN(parseInt(key)))
+        .forEach(([key, val]) => {
+          correctAnswersMap[parseInt(key)] = String(val);
+        });
+    }
+
+    // 2. Fallback to questionData.correct_selections
+    if (
+      Object.keys(correctAnswersMap).length === 0 &&
+      questionData.correct_selections &&
+      Array.isArray(questionData.correct_selections)
+    ) {
+      questionData.correct_selections.forEach((val: any, idx: number) => {
+        correctAnswersMap[idx] = String(val);
+      });
+    }
+
+    // 3. Fallback to questionData.acceptable_answers
+    if (
+      Object.keys(correctAnswersMap).length === 0 &&
+      questionData.acceptable_answers &&
+      Array.isArray(questionData.acceptable_answers)
+    ) {
+      questionData.acceptable_answers.forEach((acc: any, idx: number) => {
+        if (Array.isArray(acc.answers)) {
+          correctAnswersMap[idx] = String(acc.answers[0]);
+        } else if (acc.answer) {
+          correctAnswersMap[idx] = String(acc.answer);
+        }
+      });
+    }
+
+    // 4. Fallback to individual dropdown.correct_answer
+    if (Object.keys(correctAnswersMap).length === 0) {
+      dropdownOptions.forEach((dropdown: any, idx: number) => {
+        if (dropdown.correct_answer !== undefined) {
+          correctAnswersMap[idx] = String(dropdown.correct_answer);
+        } else if (dropdown.correct_option_index !== undefined) {
+          // Handle index-based correct answer
+          const optIdx = dropdown.correct_option_index;
+          if (dropdown.options && dropdown.options[optIdx] !== undefined) {
+            const opt = dropdown.options[optIdx];
+            correctAnswersMap[idx] =
+              typeof opt === "object"
+                ? String(opt.text || opt.value)
+                : String(opt);
           }
         }
+      });
+    }
 
-        // 2. Fallback to questionData (primary source in many cases)
-        if (correctOption === null) {
-          if (
-            questionData.correct_selections &&
-            Array.isArray(questionData.correct_selections) &&
-            questionData.correct_selections[index] !== undefined
-          ) {
-            correctOption = String(questionData.correct_selections[index]);
-          } else if (
-            questionData.acceptable_answers &&
-            Array.isArray(questionData.acceptable_answers) &&
-            questionData.acceptable_answers[index]
-          ) {
-            const acc = questionData.acceptable_answers[index];
-            correctOption = String(
-              Array.isArray(acc.answers) ? acc.answers[0] : acc.answer || acc,
-            );
-          } else if (dropdown.correct_answer !== undefined) {
-            correctOption = String(dropdown.correct_answer);
-          }
+    // 5. Last resort: use first option of each dropdown as correct (for backwards compatibility)
+    if (Object.keys(correctAnswersMap).length === 0) {
+      console.warn(
+        "[Grader] Dropdown: No correct answers found, using first option as fallback",
+      );
+      dropdownOptions.forEach((dropdown: any, idx: number) => {
+        if (dropdown.options && dropdown.options.length > 0) {
+          const opt = dropdown.options[0];
+          correctAnswersMap[idx] =
+            typeof opt === "object"
+              ? String(opt.text || opt.value)
+              : String(opt);
+        }
+      });
+    }
+
+    // Now compare student selections with correct answers
+    dropdownOptions.forEach((dropdown: any, index: number) => {
+      // Find student selection for this dropdown
+      const studentSelection = selectionsArray.find((s: any) => {
+        const selIdx = s.dropdown_index;
+        // Match by dropdown_index or by array position
+        return (
+          selIdx === index ||
+          selIdx === dropdown.dropdown_index ||
+          (selIdx === undefined && selectionsArray.indexOf(s) === index)
+        );
+      });
+
+      const correctOption =
+        correctAnswersMap[index] || correctAnswersMap[dropdown.dropdown_index];
+
+      if (studentSelection && correctOption !== undefined) {
+        // Get student value - handle both string and object formats
+        let studentVal: string;
+        if (
+          typeof studentSelection.selected_option === "object" &&
+          studentSelection.selected_option !== null
+        ) {
+          studentVal = String(
+            studentSelection.selected_option.text ||
+              studentSelection.selected_option.value ||
+              studentSelection.selected_option,
+          );
+        } else {
+          studentVal = String(studentSelection.selected_option || "");
         }
 
-        if (correctOption !== null) {
-          const studentVal = stripHtml(
-            String(studentSelection.selected_option || ""),
-          ).toLowerCase();
-          const correctVal = stripHtml(correctOption).toLowerCase();
-          const isMatch = studentVal === correctVal;
+        // Strip HTML/LaTeX and normalize for comparison
+        const studentValClean = stripHtml(studentVal).toLowerCase();
+        const correctValClean = stripHtml(correctOption).toLowerCase();
 
-          console.log(`[Grader] Dropdown Match [${index}]:`, {
-            student: studentVal,
-            correct: correctVal,
-            isMatch,
-          });
+        const isMatch = studentValClean === correctValClean;
 
-          if (isMatch) {
-            correctSelections++;
-          }
+        console.log(`[Grader] Dropdown Match [${index}]:`, {
+          student: studentValClean,
+          correct: correctValClean,
+          isMatch,
+        });
+
+        if (isMatch) {
+          correctSelections++;
         }
+      } else {
+        console.log(
+          `[Grader] Dropdown [${index}]: No student selection or correct option found`,
+          {
+            hasStudentSelection: !!studentSelection,
+            correctOption,
+          },
+        );
       }
     });
 
