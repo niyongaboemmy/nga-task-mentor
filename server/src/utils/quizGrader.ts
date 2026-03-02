@@ -1501,17 +1501,22 @@ export class InteractiveGrader {
         .replace(/&amp;&amp;/g, " ")
         .replace(/&amp;\|\|/g, " ")
         .replace(/&amp;/g, " ");
-      // Now normalize spaces and extract variables
-      normalized = normalized.replace(/\s+/g, "");
-      // Replace logical operators with spaces before extracting variables
+
+      // Replace word operators with spaces BEFORE normalizing whitespace
       normalized = normalized
+        .replace(/\b(and|or|not|xor|true|false)\b/gi, " ")
         .replace(/&&/g, " ")
         .replace(/\|\|/g, " ")
         .replace(/!==/g, " ")
         .replace(/===/g, " ")
         .replace(/!/g, " ")
         .replace(/\(/g, " ")
-        .replace(/\)/g, " ");
+        .replace(/\)/g, " ")
+        .replace(/->/g, " ")
+        .replace(/<->/g, " ");
+
+      // Normalize spaces
+      normalized = normalized.replace(/\s+/g, " ").trim();
 
       const matches = normalized.match(/[a-zA-Z][a-zA-Z0-9_]*/g) || [];
       for (const m of matches) {
@@ -1526,7 +1531,7 @@ export class InteractiveGrader {
         ) {
           continue;
         }
-        vars.add(m);
+        vars.add(t); // Convert all variables to lowercase for consistency
       }
       return Array.from(vars);
     };
@@ -1537,13 +1542,16 @@ export class InteractiveGrader {
       e = e.replace(/&amp;&amp;/g, " && ");
       e = e.replace(/&amp;\|\|/g, " || ");
       e = e.replace(/&amp;/g, " & ");
-      // Now normalize
-      e = e.replace(/\s+/g, "").toLowerCase();
-      // Word operators - handle both uppercase and lowercase
+
+      // Handle word operators BEFORE removing whitespace
       e = e.replace(/\b(and|AND)\b/g, "&&");
       e = e.replace(/\b(or|OR)\b/g, "||");
       e = e.replace(/\b(not|NOT)\b/g, "!");
       e = e.replace(/\b(xor|XOR)\b/g, "!=="); // XOR as inequality
+
+      // Now normalize
+      e = e.replace(/\s+/g, "").toLowerCase();
+
       // Common single-char operators
       e = e.replace(/\*/g, "&&");
       e = e.replace(/\+/g, "||");
