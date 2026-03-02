@@ -262,26 +262,35 @@ export class ChoiceQuestionGrader {
       correctAnswers.length === studentAnswers.length &&
       correctAnswers.every((val, index) => val === studentAnswers[index]);
 
-    // For partial credit, calculate based on correct selections
+    // For partial credit, calculate based on correct selections minus wrong selections
     let pointsEarned = 0;
     const questionPoints = parseFloat(String(question.points || 0));
     if (isCorrect) {
       pointsEarned = questionPoints;
     } else {
-      // Give partial credit for correct selections (if any)
       const correctSelections = studentAnswers.filter((index) =>
         correctAnswers.includes(index),
       ).length;
+      const wrongSelections = studentAnswers.filter(
+        (index) => !correctAnswers.includes(index),
+      ).length;
 
-      if (correctSelections > 0) {
-        pointsEarned = Math.round(
-          (correctSelections / correctAnswers.length) * questionPoints,
+      const netCorrect = correctSelections - wrongSelections;
+
+      if (netCorrect > 0) {
+        pointsEarned = parseFloat(
+          ((netCorrect / correctAnswers.length) * questionPoints).toFixed(2),
         );
+      } else {
+        pointsEarned = 0;
       }
     }
 
+    // If any points are earned, mark as correct
+    const finalIsCorrect = pointsEarned > 0;
+
     return {
-      is_correct: isCorrect,
+      is_correct: finalIsCorrect,
       points_earned: pointsEarned,
       feedback: isCorrect
         ? "All selections correct!"
@@ -1200,10 +1209,10 @@ export class InteractiveGrader {
       isCorrect: correctPositions === totalItems,
     });
 
-    const pointsEarned = Math.round(
-      (correctPositions / totalItems) *
-        parseFloat(String(question.points || 0)),
-    );
+    const isCorrect = correctPositions === totalItems;
+    const pointsEarned = isCorrect
+      ? parseFloat(String(question.points || 0))
+      : 0;
 
     return {
       is_correct: correctPositions === totalItems,
