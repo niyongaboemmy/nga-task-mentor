@@ -859,12 +859,17 @@ export class TextInputGrader {
       }
     }
 
-    const pointsEarned = Math.round(
-      (correctBlanks / totalBlanks) * parseFloat(String(question.points || 0)),
+    const pointsEarned = parseFloat(
+      (
+        (correctBlanks / totalBlanks) *
+        parseFloat(String(question.points || 0))
+      ).toFixed(2),
     );
 
+    const finalIsCorrect = pointsEarned > 0;
+
     return {
-      is_correct: correctBlanks === totalBlanks,
+      is_correct: finalIsCorrect,
       points_earned: pointsEarned,
       feedback: `${correctBlanks}/${totalBlanks} blanks correct`,
     };
@@ -1448,14 +1453,18 @@ export class InteractiveGrader {
     const totalDropdowns = dropdownOptions.length;
     const pointsEarned =
       totalDropdowns > 0
-        ? Math.round(
-            (correctSelections / totalDropdowns) *
-              parseFloat(String(question.points || 0)),
+        ? parseFloat(
+            (
+              (correctSelections / totalDropdowns) *
+              parseFloat(String(question.points || 0))
+            ).toFixed(2),
           )
         : 0;
 
+    const finalIsCorrect = pointsEarned > 0;
+
     return {
-      is_correct: totalDropdowns > 0 && correctSelections === totalDropdowns,
+      is_correct: finalIsCorrect,
       points_earned: pointsEarned,
       feedback: `${correctSelections}/${totalDropdowns} dropdowns correct`,
     };
