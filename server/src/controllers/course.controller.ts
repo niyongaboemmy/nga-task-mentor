@@ -733,8 +733,6 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         "Could not fetch enrolled students:",
         enrollmentError.message,
       );
-      // We might still want to proceed if we have local submissions,
-      // but typically we need the student list to show who hasn't submitted.
     }
 
     // 2. Get all Assignments
@@ -813,11 +811,13 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       order: [["total_score", "DESC"]],
     });
 
-    // 6. Enrich Student List with Local Submitters
+    // 6. Enrich Student List with Local Submitters and Remove Duplicates
     // Extract unique local student IDs from submissions
     const localStudentIds = new Set<number>();
     assignmentSubmissions.forEach((s) => localStudentIds.add(s.student_id));
     quizSubmissions.forEach((s) => localStudentIds.add(s.student_id));
+
+    let finalStudents: any[] = [];
 
     if (localStudentIds.size > 0) {
       // Fetch user details for these students
@@ -835,44 +835,44 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         ],
       });
 
-      // Merge into enrolledStudents if not already present
-      // We match primarily on MIS ID, or fallback to Local ID if MIS info is missing
-      const misIdSet = new Set(enrolledStudents.map((s) => String(s.id)));
-
-      localStudents.forEach((localUser) => {
-        // Check if this user is already in the list via MIS ID
-        const misId = localUser.mis_user_id
-          ? String(localUser.mis_user_id)
-          : null;
-        const isMisMatch = misId && misIdSet.has(misId);
-
-        if (!isMisMatch) {
-          // Check if we accidentally have them by local ID structure (unlikely but possible if mock data)
-          // Just add them as a "Local Student" object structure matching the MIS one
-          enrolledStudents.push({
-            id: localUser.mis_user_id || `local_${localUser.id}`, // Use MIS ID if available, else prefix local
-            user_id: localUser.id, // Keep local reference
-            first_name: localUser.first_name,
-            last_name: localUser.last_name,
-            email: localUser.email,
-            profile_image: localUser.profile_image,
-            is_local_only: true, // Flag for debugging
-          });
-        }
-      });
+      // Convert local students to match the structure of MIS students
+      finalStudents = localStudents.map((localUser) => ({
+        id: localUser.mis_user_id || `local_${localUser.id}`, // Use MIS id if available, else local id with prefix
+        user_id: localUser.id, // Keep local reference
+        first_name: localUser.first_name,
+        last_name: localUser.last_name,
+        email: localUser.email,
+        profile_image: localUser.profile_image,
+        is_local_only: !localUser.mis_user_id, // Flag for debugging
+      }));
+    } else {
+      // If no local submissions, use MIS students
+      finalStudents = enrolledStudents;
     }
 
+    // Remove any duplicates from final list
+    const studentMap = new Map();
+    finalStudents.forEach((student) => {
+      const key = student.mis_user_id || student.id || student.email;
+      if (!studentMap.has(key)) {
+        studentMap.set(key, student);
+      }
+    });
+    finalStudents = Array.from(studentMap.values());
+
     // 7. Aggregate Data
-    const studentsWithGrades = enrolledStudents.map((student) => {
+    const studentsWithGrades = finalStudents.map((student) => {
       const studentId = student.id;
 
       // Assignments Map
       const studentAssignments = assignments.map((assignment) => {
         const sub = assignmentSubmissions.find(
           (s: any) =>
-            (String(s.student?.mis_user_id) === String(studentId) ||
-              String(s.student_id) === String(studentId)) &&
-            s.assignment_id === assignment.id,
+            (s.student?.mis_user_id &&
+              String(s.student.mis_user_id) === String(studentId)) ||
+            (s.student_id &&
+              String(s.student_id) === String(studentId) &&
+              s.assignment_id === assignment.id),
         );
         return {
           assignment_id: assignment.id,
@@ -890,9 +890,11 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         // Since we fetched all, we filter by student and quiz
         const subs = quizSubmissions.filter(
           (s: any) =>
-            (String(s.student?.mis_user_id) === String(studentId) ||
-              String(s.student_id) === String(studentId)) &&
-            s.quiz_id === quiz.id,
+            (s.student?.mis_user_id &&
+              String(s.student.mis_user_id) === String(studentId)) ||
+            (s.student_id &&
+              String(s.student_id) === String(studentId) &&
+              s.quiz_id === quiz.id),
         );
         // Take best score
         const bestSub =

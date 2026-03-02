@@ -159,7 +159,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
             quiz.status === "published" ? (
               <Link
                 to={`/quizzes/${quiz.id}/take`}
-                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl text-xs font-bold transition-all duration-200 hover:scale-105 hover:shadow-lg shadow-green-500/20"
+                className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl text-sm font-normal transition-all duration-200 hover:scale-105 hover:shadow-lg shadow-green-500/20"
               >
                 <svg
                   className="w-4 h-4 mr-1.5"
@@ -180,7 +180,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
                     d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
-                Start Quiz
+                Open Quiz Now
               </Link>
             ) : null
           ) : (
@@ -188,7 +188,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
               <>
                 <Link
                   to={`/quizzes/${quiz.id}`}
-                  className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105 hover:shadow-md shadow-lg"
+                  className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-sm font-normal transition-all duration-200 hover:scale-105 hover:shadow-md shadow-lg"
                 >
                   View
                 </Link>
