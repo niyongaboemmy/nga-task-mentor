@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
-import { CourseApiService } from "../services/courseApi";
+import { useCourseCache } from "../contexts/CourseCacheContext";
 import type { Course } from "../types/course.types";
 import {
   ArrowLeft,
@@ -17,6 +17,9 @@ const QuestionBankPage: React.FC = () => {
   const navigate = useNavigate();
   const courseIdNum = parseInt(courseId!);
 
+  // Use context for caching
+  const { getCourse } = useCourseCache();
+
   // Get course from store if available
   const storeCourse = useSelector(
     (state: RootState) =>
@@ -28,11 +31,13 @@ const QuestionBankPage: React.FC = () => {
 
   useEffect(() => {
     if (!course) {
-      CourseApiService.getCourse(courseIdNum)
-        .then((res) => setCourse(res.data))
+      getCourse(courseIdNum)
+        .then((data) => {
+          if (data) setCourse(data);
+        })
         .catch((err) => console.error("Failed to fetch course:", err));
     }
-  }, [courseIdNum, course]);
+  }, [courseIdNum, course, getCourse]);
 
   return (
     <div className="min-h-screen">

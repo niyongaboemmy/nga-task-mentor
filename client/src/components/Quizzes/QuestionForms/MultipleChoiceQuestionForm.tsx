@@ -1,7 +1,7 @@
 import React from "react";
 import type { MultipleChoiceData } from "../../../types/quiz.types";
 import { RichOptionEditor } from "./RichOptionEditor";
-import { Sigma, X, Plus } from "lucide-react";
+import { X } from "lucide-react";
 
 interface MultipleChoiceQuestionFormProps {
   data: MultipleChoiceData;
@@ -11,6 +11,10 @@ interface MultipleChoiceQuestionFormProps {
 export const MultipleChoiceQuestionForm: React.FC<
   MultipleChoiceQuestionFormProps
 > = ({ data, onChange }) => {
+  // Ensure options is always an array to prevent undefined errors
+  const options = data?.options || [];
+  const correctOptionIndices = data?.correct_option_indices || [];
+
   return (
     <div className="space-y-6">
       <div>
@@ -18,13 +22,13 @@ export const MultipleChoiceQuestionForm: React.FC<
           Options
         </label>
         <div className="space-y-3">
-          {data.options.map((option: string, index: number) => (
+          {options.map((option: string, index: number) => (
             <div key={index} className="flex items-center gap-3">
               <input
                 type="checkbox"
-                checked={data.correct_option_indices?.includes(index) || false}
+                checked={correctOptionIndices.includes(index) || false}
                 onChange={(e) => {
-                  const currentIndices = data.correct_option_indices || [];
+                  const currentIndices = correctOptionIndices;
                   let newIndices;
                   if (e.target.checked) {
                     newIndices = [...currentIndices, index];
@@ -44,7 +48,7 @@ export const MultipleChoiceQuestionForm: React.FC<
                 type="text"
                 value={(option || "").replace(/<[^>]*>/g, "")}
                 onChange={(e) => {
-                  const newOptions = [...data.options];
+                  const newOptions = [...options];
                   newOptions[index] = e.target.value;
                   onChange({
                     ...data,
@@ -58,21 +62,19 @@ export const MultipleChoiceQuestionForm: React.FC<
               <RichOptionEditor
                 value={option}
                 onChange={(val) => {
-                  const newOptions = [...data.options];
+                  const newOptions = [...options];
                   newOptions[index] = val;
                   onChange({ ...data, options: newOptions });
                 }}
                 label={`Option ${index + 1}`}
               />
 
-              {data.options.length > 2 && (
+              {options.length > 2 && (
                 <button
                   type="button"
                   onClick={() => {
-                    const newOptions = data.options.filter(
-                      (_, i) => i !== index,
-                    );
-                    const newIndices = (data.correct_option_indices || [])
+                    const newOptions = options.filter((_, i) => i !== index);
+                    const newIndices = correctOptionIndices
                       .filter((idx) => idx !== index)
                       .map((idx) => (idx > index ? idx - 1 : idx));
 
@@ -93,7 +95,7 @@ export const MultipleChoiceQuestionForm: React.FC<
           <button
             type="button"
             onClick={() => {
-              const newOptions = [...data.options, ""];
+              const newOptions = [...options, ""];
               onChange({
                 ...data,
                 options: newOptions,

@@ -82,7 +82,7 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
           value={data?.text_with_blanks || ""}
           onChange={(e) => handleTextChange(e.target.value)}
           placeholder="Enter text with [blank] or {{blank}} for blanks"
-          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] resize-y"
+          className="w-full px-3 py-2 border border-gray-300 dark:border-gray-800 dark:bg-gray-800/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 min-h-[100px] resize-y"
           rows={4}
         />
         {blankCount > 0 && (
@@ -101,7 +101,7 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
           {(data?.acceptable_answers || []).map((blank, index) => (
             <div
               key={blank.blank_index}
-              className="border border-gray-200 dark:border-gray-600 rounded-lg p-4 bg-gray-50 dark:bg-gray-800/50"
+              className="border border-gray-200 dark:border-gray-800 rounded-2xl p-4 bg-gray-50 dark:bg-gray-800/50"
             >
               <div className="flex items-center justify-between mb-3">
                 <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -117,7 +117,7 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
                         e.target.checked,
                       )
                     }
-                    className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                    className="mr-2 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-2xl"
                   />
                   Case sensitive
                 </label>
@@ -136,7 +136,7 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
                     handleAnswerChange(blank.blank_index, answers);
                   }}
                   placeholder="Enter acceptable answers, one per line"
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-sm min-h-[80px] resize-y"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-800 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800/50 text-sm min-h-[80px] resize-y"
                   rows={3}
                 />
                 {(blank.answers || []).length === 0 && (

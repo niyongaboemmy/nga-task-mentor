@@ -14,8 +14,10 @@ export const SingleChoiceQuestion: React.FC<QuestionComponentProps> = ({
   showCorrectAnswer = false,
   timeRemaining,
 }) => {
-  const questionData = question.question_data as SingleChoiceData;
+  const questionData = (question.question_data as SingleChoiceData) || {};
   const currentAnswer = answer as SingleChoiceAnswer | undefined;
+  // Ensure options is always an array to prevent undefined errors
+  const options = questionData.options || [];
 
   const [selectedOption, setSelectedOption] = useState<number | null>(
     currentAnswer?.selected_option_index ?? null,
@@ -40,7 +42,7 @@ export const SingleChoiceQuestion: React.FC<QuestionComponentProps> = ({
 
   return (
     <div className="space-y-3">
-      {questionData.options.map((option, index) => {
+      {options.map((option, index) => {
         const isSelected = selectedOption === index;
         const isCorrect = showCorrectAnswer && index === correctAnswerIndex;
         const isIncorrect =

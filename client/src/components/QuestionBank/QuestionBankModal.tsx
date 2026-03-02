@@ -28,6 +28,8 @@ import type {
   SchemeOfWorkEntry,
 } from "../../types/quiz.types";
 import { CourseApiService } from "../../services/courseApi";
+import { useSchemeOfWork } from "../../contexts/SchemeOfWorkContext";
+import { useCourseCache } from "../../contexts/CourseCacheContext";
 import type { Course } from "../../types/course.types";
 import { toast } from "react-toastify";
 import * as QuestionForms from "../Quizzes/QuestionForms";
@@ -92,6 +94,10 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 }) => {
   const [formData, setFormData] =
     useState<CreateCourseQuestionRequest>(INITIAL_FORM_STATE);
+
+  // Use the scheme of work context for caching
+  const { getEntries } = useSchemeOfWork();
+  const { getCourse } = useCourseCache();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bloomsLevels, setBloomsLevels] = useState<BloomsTaxonomyLevel[]>([]);
   const [activeTab, setActiveTab] = useState<
@@ -112,10 +118,23 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
         .catch(() => {});
 
       if (question) {
+        // Parse question_data if it comes as a string from the backend
+        let parsedQuestionData = question.question_data;
+        if (
+          typeof question.question_data === "string" &&
+          question.question_data
+        ) {
+          try {
+            parsedQuestionData = JSON.parse(question.question_data);
+          } catch (e) {
+            console.error("Failed to parse question_data:", e);
+          }
+        }
+
         setFormData({
           question_type: question.question_type,
           question_text: question.question_text,
-          question_data: question.question_data,
+          question_data: parsedQuestionData,
           difficulty_level: question.difficulty_level || "MEDIUM",
           blooms_taxonomy_level_id: question.blooms_taxonomy_level_id || null,
           tags: question.tags || [],
@@ -131,34 +150,32 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
       }
       setActiveTab("general");
 
-      // Fetch course details
-      CourseApiService.getCourse(courseId)
-        .then((res) => {
-          if (res.success) {
-            setCourseData(res.data);
+      // Fetch course details using cache
+      getCourse(courseId)
+        .then((data) => {
+          if (data) {
+            setCourseData(data);
           }
-          console.log({ courseDetails: res.data });
         })
         .catch(() => {});
     }
-  }, [isOpen, question, courseId]);
+  }, [isOpen, question, courseId, getCourse]);
 
   useEffect(() => {
     if (isOpen && courseData?.class_group_id && courseData?.academic_term_id) {
+      // Use context to get cached scheme entries
       setIsLoadingScheme(true);
-      QuestionBankApiService.getSchemeOfWorkEntries(
+      getEntries(
         courseId,
         courseData.class_group_id,
         courseData.academic_term_id,
       )
-        .then((res) => {
-          if (res.success) {
-            setSchemeEntries(res.data);
-          }
+        .then((entries) => {
+          setSchemeEntries(entries);
         })
         .finally(() => setIsLoadingScheme(false));
     }
-  }, [isOpen, courseId, courseData]);
+  }, [isOpen, courseId, courseData, getEntries]);
 
   const handleTypeChange = (type: QuestionType) => {
     let defaultData: any = {};
@@ -661,18 +678,25 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                                   </button>
                                 ))}
 
-                              {schemeEntries.filter((se) =>
-                                se.topic
-                                  .toLowerCase()
-                                  .includes(schemeSearch.toLowerCase()),
-                              ).length === 0 && (
+                              {isLoadingScheme ? (
+                                <div className="py-8 text-center bg-gray-50/50 dark:bg-gray-900/30 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
+                                  <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-2 animate-spin" />
+                                  <p className="text-sm text-gray-400">
+                                    Loading topics...
+                                  </p>
+                                </div>
+                              ) : schemeEntries.filter((se) =>
+                                  se.topic
+                                    .toLowerCase()
+                                    .includes(schemeSearch.toLowerCase()),
+                                ).length === 0 ? (
                                 <div className="py-8 text-center bg-gray-50/50 dark:bg-gray-900/30 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
                                   <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                                   <p className="text-sm text-gray-400">
                                     No matching topics found
                                   </p>
                                 </div>
-                              )}
+                              ) : null}
                             </div>
 
                             {formData.scheme_of_work_entry_id && (

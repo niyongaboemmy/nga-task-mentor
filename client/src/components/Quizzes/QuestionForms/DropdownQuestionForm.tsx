@@ -10,6 +10,10 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
   data,
   onChange,
 }) => {
+  // Ensure dropdown_options is always an array to prevent undefined errors
+  const dropdownOptions = data?.dropdown_options || [];
+  const textWithDropdowns = data?.text_with_dropdowns || "";
+
   return (
     <div className="space-y-6">
       <div>
@@ -18,7 +22,7 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
         </label>
         <input
           type="text"
-          value={data.text_with_dropdowns}
+          value={textWithDropdowns}
           onChange={(e) =>
             onChange({
               ...data,
@@ -34,7 +38,7 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
           Dropdown Options
         </label>
         <div className="space-y-4">
-          {data.dropdown_options.map((dropdown, index) => (
+          {dropdownOptions.map((dropdown, index) => (
             <div
               key={dropdown.dropdown_index}
               className="p-4 border border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-800/50"
@@ -43,12 +47,12 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   Dropdown {index + 1}
                 </span>
-                {data.dropdown_options.length > 1 && (
+                {dropdownOptions.length > 1 && (
                   <button
                     type="button"
                     onClick={() => {
-                      const newOptions = data.dropdown_options.filter(
-                        (_, i) => i !== index
+                      const newOptions = dropdownOptions.filter(
+                        (_, i) => i !== index,
                       );
                       onChange({
                         ...data,
@@ -70,7 +74,7 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
                       onChange={(e) => {
                         const newOptions = [...dropdown.options];
                         newOptions[optionIndex] = e.target.value;
-                        const newDropdowns = [...data.dropdown_options];
+                        const newDropdowns = [...dropdownOptions];
                         newDropdowns[index] = {
                           ...dropdown,
                           options: newOptions,
@@ -88,7 +92,7 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
                         type="button"
                         onClick={() => {
                           const newOptions = dropdown.options.filter(
-                            (_, i) => i !== optionIndex
+                            (_, i) => i !== optionIndex,
                           );
                           const newDropdowns = [...data.dropdown_options];
                           newDropdowns[index] = {

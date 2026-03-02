@@ -14,8 +14,10 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
   showCorrectAnswer = false,
   timeRemaining,
 }) => {
-  const questionData = question.question_data as MultipleChoiceData;
+  const questionData = (question.question_data as MultipleChoiceData) || {};
   const currentAnswer = answer as MultipleChoiceAnswer | undefined;
+  // Ensure options is always an array to prevent undefined errors
+  const options = questionData.options || [];
 
   const [selectedOptions, setSelectedOptions] = useState<number[]>(
     currentAnswer?.selected_option_indices ?? [],
@@ -92,7 +94,7 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
         </div>
       </div>
 
-      {questionData.options.map((option, index) => {
+      {options.map((option, index) => {
         const isSelected = selectedOptions.includes(index);
         const isCorrect =
           showCorrectAnswer && correctAnswerIndices.includes(index);

@@ -37,7 +37,8 @@ import type {
   SchemeOfWorkEntry,
 } from "../../types/quiz.types";
 import { QuizApiService } from "../../services/quizApi";
-import { CourseApiService } from "../../services/courseApi";
+import { useCourseCache } from "../../contexts/CourseCacheContext";
+import { useSchemeOfWork } from "../../contexts/SchemeOfWorkContext";
 import type { Course } from "../../types/course.types";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -282,6 +283,10 @@ export const QuestionBankSelectorModal: React.FC<
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
+  // Use context for caching
+  const { getCourse } = useCourseCache();
+  const { getEntries } = useSchemeOfWork();
+
   // Load Bloom's taxonomy levels once
   useEffect(() => {
     if (!isOpen) return;
@@ -292,31 +297,32 @@ export const QuestionBankSelectorModal: React.FC<
 
   useEffect(() => {
     if (isOpen) {
-      // Fetch course details first
-      CourseApiService.getCourse(courseId)
-        .then((res) => {
-          if (res.success) setCourseData(res.data);
+      // Fetch course details using cache
+      getCourse(courseId)
+        .then((data) => {
+          if (data) setCourseData(data);
         })
         .catch(() => {});
     }
-  }, [isOpen, courseId]);
+  }, [isOpen, courseId, getCourse]);
 
   useEffect(() => {
     if (isOpen && courseData?.class_group_id && courseData?.academic_term_id) {
+      // Use context to get cached scheme entries
       setIsLoadingScheme(true);
-      QuestionBankApiService.getSchemeOfWorkEntries(
+      getEntries(
         courseId,
         courseData.class_group_id,
         courseData.academic_term_id,
       )
-        .then((res) => {
-          if (res.success) setSchemeEntries(res.data);
+        .then((entries) => {
+          setSchemeEntries(entries);
         })
         .finally(() => setIsLoadingScheme(false));
     } else if (!isOpen) {
       setSchemeEntries([]);
     }
-  }, [isOpen, courseId, courseData]);
+  }, [isOpen, courseId, courseData, getEntries]);
 
   // Reset when modal closes
   useEffect(() => {

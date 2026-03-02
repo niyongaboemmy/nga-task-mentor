@@ -87,9 +87,29 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
     }
   }, [questionId, dispatch]);
 
+  // Helper to parse question_data if it comes as a string from the backend
+  const parseQuestionData = (data: any) => {
+    if (typeof data === "string" && data) {
+      try {
+        return JSON.parse(data);
+      } catch (e) {
+        console.error("Failed to parse question_data:", e);
+        return null;
+      }
+    }
+    return data;
+  };
+
   useEffect(() => {
     if (currentQuestion) {
-      setFormData(currentQuestion);
+      // Parse question_data if it's a string from the backend
+      const parsedQuestionData = parseQuestionData(
+        currentQuestion.question_data,
+      );
+      setFormData({
+        ...currentQuestion,
+        question_data: parsedQuestionData,
+      });
     }
   }, [currentQuestion]);
 

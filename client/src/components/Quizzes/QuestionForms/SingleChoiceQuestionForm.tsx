@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React from "react";
 import type { SingleChoiceData } from "../../../types/quiz.types";
-import { Sigma, X, Plus, Save } from "lucide-react";
+import { X } from "lucide-react";
 import { RichOptionEditor } from "./RichOptionEditor";
 
 interface SingleChoiceQuestionFormProps {
@@ -11,6 +11,10 @@ interface SingleChoiceQuestionFormProps {
 export const SingleChoiceQuestionForm: React.FC<
   SingleChoiceQuestionFormProps
 > = ({ data, onChange }) => {
+  // Ensure options is always an array to prevent undefined errors
+  const options = data?.options || [];
+  const correctOptionIndex = data?.correct_option_index ?? 0;
+
   return (
     <div className="space-y-6">
       <div>
@@ -18,14 +22,14 @@ export const SingleChoiceQuestionForm: React.FC<
           Options
         </label>
         <div className="space-y-3">
-          {data.options.map((option: string, index: number) => (
+          {options.map((option: string, index: number) => (
             <div key={index} className="space-y-2">
               <div className="flex items-center gap-3">
                 <input
                   type="text"
                   value={(option || "").replace(/<[^>]*>/g, "")}
                   onChange={(e) => {
-                    const newOptions = [...data.options];
+                    const newOptions = [...options];
                     // If it was already HTML, maybe we should be careful.
                     // But for simple text input, we just update it.
                     newOptions[index] = e.target.value;
@@ -41,21 +45,19 @@ export const SingleChoiceQuestionForm: React.FC<
                 <RichOptionEditor
                   value={option}
                   onChange={(val) => {
-                    const newOptions = [...data.options];
+                    const newOptions = [...options];
                     newOptions[index] = val;
                     onChange({ ...data, options: newOptions });
                   }}
                   label={`Option ${index + 1}`}
                 />
 
-                {data.options.length > 2 && (
+                {options.length > 2 && (
                   <button
                     type="button"
                     onClick={() => {
-                      const newOptions = data.options.filter(
-                        (_, i) => i !== index,
-                      );
-                      let newCorrectIndex = data.correct_option_index;
+                      const newOptions = options.filter((_, i) => i !== index);
+                      let newCorrectIndex = correctOptionIndex;
                       if (newCorrectIndex >= index && newCorrectIndex > 0) {
                         newCorrectIndex--;
                       } else if (newCorrectIndex === index) {
@@ -79,7 +81,7 @@ export const SingleChoiceQuestionForm: React.FC<
           <button
             type="button"
             onClick={() => {
-              const newOptions = [...data.options, ""];
+              const newOptions = [...options, ""];
               onChange({
                 ...data,
                 options: newOptions,
@@ -96,7 +98,7 @@ export const SingleChoiceQuestionForm: React.FC<
           Correct Answer
         </label>
         <select
-          value={data.correct_option_index || 0}
+          value={correctOptionIndex}
           onChange={(e) =>
             onChange({
               ...data,
@@ -105,7 +107,7 @@ export const SingleChoiceQuestionForm: React.FC<
           }
           className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
         >
-          {data.options.map((_: string, index: number) => (
+          {options.map((_: string, index: number) => (
             <option key={index} value={index}>
               Option {index + 1}
             </option>

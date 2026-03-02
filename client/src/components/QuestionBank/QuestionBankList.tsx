@@ -29,6 +29,8 @@ import QuestionPreviewModal from "../Quizzes/QuestionPreviewModal";
 import RichTextDisplay from "../Common/RichTextDisplay";
 import { CourseApiService } from "../../services/courseApi";
 import type { Course } from "../../types/course.types";
+import { useSchemeOfWork } from "../../contexts/SchemeOfWorkContext";
+import { useCourseCache } from "../../contexts/CourseCacheContext";
 
 import type {
   QuestionBankEntry,
@@ -121,6 +123,10 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
   const [bloomsLevels, setBloomsLevels] = useState<BloomsTaxonomyLevel[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
+  // Use the scheme of work context for caching
+  const { getEntries } = useSchemeOfWork();
+  const { getCourse } = useCourseCache();
+
   // Filters State
   const [search, setSearch] = useState("");
   const [selectedTypes, setSelectedTypes] = useState<QuestionType[]>([]);
@@ -162,36 +168,33 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
       .then((res) => setBloomsLevels(res.data))
       .catch(() => {});
 
-    // Fetch course details first to get required IDs
-    CourseApiService.getCourse(courseId)
-      .then((res) => {
-        if (res.success) {
-          setCourseData(res.data);
+    // Fetch course details using cache
+    getCourse(courseId)
+      .then((data) => {
+        if (data) {
+          setCourseData(data);
         }
-        console.log({ courseDetails: res.data });
       })
       .catch((error) => {
         console.log({ error });
       });
-  }, [courseId]);
+  }, [courseId, getCourse]);
 
   useEffect(() => {
     if (courseData?.class_group_id && courseData?.academic_term_id) {
-      // Fetch scheme entries for the course
+      // Use context to get cached scheme entries
       setIsLoadingScheme(true);
-      QuestionBankApiService.getSchemeOfWorkEntries(
+      getEntries(
         courseId,
         courseData.class_group_id,
         courseData.academic_term_id,
       )
-        .then((res) => {
-          if (res.success) {
-            setSchemeEntries(res.data);
-          }
+        .then((entries) => {
+          setSchemeEntries(entries);
         })
         .finally(() => setIsLoadingScheme(false));
     }
-  }, [courseId, courseData]);
+  }, [courseId, courseData, getEntries]);
 
   const fetchQuestions = useCallback(async () => {
     setLoading(true);
@@ -657,7 +660,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                               {question.tags.slice(0, 1).map((tag) => (
                                 <span
                                   key={tag}
-                                  className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-full"
+                                  className="text-[10px] px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-xl truncate"
                                 >
                                   #{tag}
                                 </span>
