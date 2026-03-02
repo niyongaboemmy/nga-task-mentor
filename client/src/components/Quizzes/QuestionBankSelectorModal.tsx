@@ -1038,7 +1038,7 @@ export const QuestionBankSelectorModal: React.FC<
                     results
                       .filter((q) => selectedIds.has(q.id))
                       .reduce(
-                        (sum, q) => sum + (q.time_limit_seconds || 60),
+                        (sum, q) => sum + Number(q.time_limit_seconds || 60),
                         0,
                       ) / 60,
                   )}

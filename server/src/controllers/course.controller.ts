@@ -766,7 +766,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
     // Calculate max score for each quiz
     const quizzesWithMaxScore = quizzes.map((quiz) => {
       const maxScore =
-        quiz.questions?.reduce((sum, q) => sum + (q.points || 0), 0) || 0;
+        quiz.questions?.reduce((sum, q) => sum + Number(q.points || 0), 0) || 0;
       return {
         id: quiz.id,
         title: quiz.title,

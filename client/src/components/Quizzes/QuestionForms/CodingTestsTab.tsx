@@ -53,7 +53,10 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
   onChange,
 }) => {
   const testCases = codingData.test_cases ?? [];
-  const totalWeight = testCases.reduce((sum, tc) => sum + (tc.points || 0), 0);
+  const totalWeight = testCases.reduce(
+    (sum, tc) => sum + Number(tc.points || 0),
+    0,
+  );
   const hiddenCount = testCases.filter((tc) => tc.is_hidden).length;
   const visibleCount = testCases.length - hiddenCount;
 
