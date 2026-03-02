@@ -192,7 +192,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
     <div
       draggable={!disabled && !showFeedback}
       onDragStart={() => handleDragStart(item)}
-      className={`flex items-center gap-2 p-3 bg-white dark:bg-gray-800 border-2 rounded-lg cursor-move transition-all ${
+      className={`flex items-center gap-2 p-3 bg-white dark:bg-gray-800 border-2 rounded-xl cursor-move transition-all ${
         disabled || showFeedback
           ? "cursor-not-allowed opacity-60"
           : "hover:shadow-md hover:border-blue-400 dark:hover:border-blue-500"
@@ -342,7 +342,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
           <button
             onClick={resetAnswer}
             disabled={disabled}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-600 dark:hover:bg-gray-700 dark:disabled:bg-gray-300 dark:disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-xl hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-600 dark:hover:bg-gray-700 dark:disabled:bg-gray-800 dark:disabled:cursor-not-allowed"
           >
             <RotateCcw className="w-4 h-4" />
             Reset
@@ -351,7 +351,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
           <button
             onClick={resetAnswer}
             disabled={disabled}
-            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-600 dark:hover:bg-gray-700 dark:disabled:bg-gray-300 dark:disabled:cursor-not-allowed"
+            className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-xl hover:bg-gray-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors dark:bg-gray-600 dark:hover:bg-gray-700 dark:disabled:bg-gray-800 dark:disabled:cursor-not-allowed"
           >
             <RotateCcw className="w-4 h-4" />
             Reset Answer
@@ -362,7 +362,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
       {/* Feedback */}
       {showFeedback && (
         <div
-          className={`border rounded-lg p-4 ${
+          className={`border rounded-xl p-4 ${
             isCorrect
               ? "border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20"
               : "border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-900/20"

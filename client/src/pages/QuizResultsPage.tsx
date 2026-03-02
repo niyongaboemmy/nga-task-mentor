@@ -476,10 +476,10 @@ const QuizResultsPage: React.FC = () => {
                   {/* Pass/Fail Badge */}
                   {result.passed !== null && result.passed !== undefined && (
                     <div
-                      className={`absolute -bottom-4 left-1/2 -translate-x-1/2 px-8 py-2.5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl animate-in bounce-in duration-700 delay-1000 ${
+                      className={`absolute -bottom-4 left-1/2 -translate-x-1/2 px-8 py-2.5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg animate-in bounce-in duration-700 delay-1000 ${
                         result.passed
-                          ? "bg-green-600 text-white shadow-green-500/30"
-                          : "bg-red-500 text-white shadow-red-500/30"
+                          ? "bg-green-500 dark:bg-green-600 text-white shadow-green-500/30"
+                          : "bg-red-500 dark:bg-red-600 text-white shadow-red-500/30"
                       }`}
                     >
                       {result.passed ? "Qualified" : "Unqualified"}
@@ -559,7 +559,7 @@ const QuizResultsPage: React.FC = () => {
         </div>
 
         {/* Question Review Section */}
-        <div className="bg-white dark:bg-gray-900/50 rounded-3xl p-8 mt-8 animate-in slide-in-from-bottom duration-500 delay-1200">
+        <div className="bg-white/50 dark:bg-gray-900/50 rounded-[2rem] p-8 mt-8 animate-in slide-in-from-bottom duration-500 delay-1200 border-4 border-white dark:border-gray-800/30">
           <div className="flex items-center gap-3 mb-8">
             <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-500 rounded-full flex items-center justify-center">
               <span className="text-white text-lg">📝</span>
@@ -643,7 +643,7 @@ const QuizResultsPage: React.FC = () => {
                           Your Answer
                         </span>
                       </div>
-                      <div className="flex-1 p-5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
+                      <div className="flex-1 p-5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-3xl shadow-sm">
                         <QuestionRenderer
                           question={questionObj as any}
                           answer={attempt.user_answer}
@@ -666,7 +666,7 @@ const QuizResultsPage: React.FC = () => {
                               Correct Solution
                             </span>
                           </div>
-                          <div className="flex-1 p-5 bg-emerald-50/30 dark:bg-emerald-900/10 backdrop-blur-sm border border-emerald-200 dark:border-emerald-800/50 rounded-2xl shadow-sm">
+                          <div className="flex-1 p-5 bg-emerald-50/30 dark:bg-emerald-900/10 backdrop-blur-sm border border-emerald-200 dark:border-emerald-800/50 rounded-3xl shadow-sm">
                             <QuestionRenderer
                               question={questionObj as any}
                               answer={attempt.correct_answer}
