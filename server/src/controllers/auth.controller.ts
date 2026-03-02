@@ -295,6 +295,88 @@ export const verifyOtp = async (req: Request, res: Response) => {
 // SSO Callback - Exchanges authorization code for MIS token and establishes local session
 // Follows OAuth2-style Authorization Code Flow as per SSO_CLIENT_INTEGRATION.md
 export const ssoCallback = async (req: Request, res: Response) => {
+  const maxRetries = 2;
+
+  const exchangeTokenWithRetry = async (
+    code: string,
+    attempt: number = 1,
+  ): Promise<any> => {
+    try {
+      console.log(
+        `🔐 SSO Callback: Exchanging authorization code for token... (Attempt ${attempt})`,
+      );
+
+      // Debug: Verify credentials are loaded
+      console.log("🔍 SSO Config Check:");
+      console.log("  - MIS Base URL:", process.env.NGA_MIS_BASE_URL);
+      console.log("  - Client ID:", process.env.SSO_CLIENT_ID);
+      console.log(
+        "  - Client Secret:",
+        process.env.SSO_CLIENT_SECRET
+          ? `${process.env.SSO_CLIENT_SECRET.substring(0, 10)}...`
+          : "NOT SET",
+      );
+      console.log(
+        "  - Code received:",
+        code ? `${code.substring(0, 10)}...` : "NOT SET",
+      );
+
+      // Exchange authorization code for MIS token
+      // Endpoint: POST /sso/token as per SSO_CLIENT_INTEGRATION.md
+      const misResponse = await axios.post<{
+        success: boolean;
+        data?: {
+          token: string;
+          user: {
+            user_id: number;
+            username: string;
+            email: string;
+          };
+          permissions: string[];
+          systems?: any[];
+        };
+        message?: string;
+      }>(
+        `${process.env.NGA_MIS_BASE_URL}/sso/token`,
+        {
+          code,
+          client_id: process.env.SSO_CLIENT_ID,
+          client_secret: process.env.SSO_CLIENT_SECRET,
+        },
+        {
+          timeout: 60000, // Increased to 60 seconds for MIS API calls
+          httpsAgent:
+            process.env.NODE_ENV === "production"
+              ? new (require("https").Agent)({ rejectUnauthorized: true })
+              : undefined,
+        },
+      );
+
+      return misResponse;
+    } catch (error: any) {
+      console.error(
+        `❌ SSO Token exchange failed (Attempt ${attempt}):`,
+        error.response?.data || error.message,
+      );
+
+      // Retry on timeout or network errors
+      if (
+        (error.code === "ECONNABORTED" ||
+          error.code === "ENOTFOUND" ||
+          error.code === "ECONNREFUSED" ||
+          error.message?.includes("timeout")) &&
+        attempt < maxRetries
+      ) {
+        const delay = Math.pow(2, attempt) * 1000; // 2s, 4s exponential backoff
+        console.log(`🔄 Retrying token exchange in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+        return exchangeTokenWithRetry(code, attempt + 1);
+      }
+
+      throw error;
+    }
+  };
+
   try {
     const { code } = req.body;
 
@@ -304,51 +386,20 @@ export const ssoCallback = async (req: Request, res: Response) => {
         .json({ success: false, message: "Authorization code is required" });
     }
 
-    console.log("🔐 SSO Callback: Exchanging authorization code for token...");
+    // Use retry logic for token exchange
+    const misResponse = await exchangeTokenWithRetry(code);
 
-    // Debug: Verify credentials are loaded
-    console.log("🔍 SSO Config Check:");
-    console.log("  - MIS Base URL:", process.env.NGA_MIS_BASE_URL);
-    console.log("  - Client ID:", process.env.SSO_CLIENT_ID);
-    console.log(
-      "  - Client Secret:",
-      process.env.SSO_CLIENT_SECRET
-        ? `${process.env.SSO_CLIENT_SECRET.substring(0, 10)}...`
-        : "NOT SET",
-    );
-    console.log(
-      "  - Code received:",
-      code ? `${code.substring(0, 10)}...` : "NOT SET",
-    );
-
-    // Exchange authorization code for MIS token
-    // Endpoint: POST /sso/token as per SSO_CLIENT_INTEGRATION.md
-    const misResponse = await axios.post<{
-      success: boolean;
-      data: {
-        token: string;
-        user: {
-          user_id: number;
-          username: string;
-          email: string;
-        };
-        permissions: string[];
-        systems?: any[];
-      };
-    }>(
-      `${process.env.NGA_MIS_BASE_URL}/sso/token`,
-      {
-        code,
-        client_id: process.env.SSO_CLIENT_ID,
-        client_secret: process.env.SSO_CLIENT_SECRET,
-      },
-      {
-        httpsAgent:
-          process.env.NODE_ENV === "production"
-            ? new (require("https").Agent)({ rejectUnauthorized: true })
-            : undefined,
-      },
-    );
+    // Check if MIS returned an error
+    if (!misResponse.data.success || !misResponse.data.data) {
+      console.error(
+        "❌ MIS SSO token exchange failed:",
+        misResponse.data.message || "Unknown error - no data returned",
+      );
+      return res.status(400).json({
+        success: false,
+        message: misResponse.data.message || "Failed to authenticate with MIS",
+      });
+    }
 
     let {
       token: misToken,
@@ -356,7 +407,10 @@ export const ssoCallback = async (req: Request, res: Response) => {
       permissions,
       systems,
     } = misResponse.data.data;
+
     console.log("✅ SSO Token exchange successful for user:", misUser.username);
+    console.log("📝 MIS User data:", JSON.stringify(misUser));
+    console.log("📝 MIS User ID:", misUser.user_id);
 
     // Fetch full user profile from MIS to get roles and profile data
     let misProfile: any = null;
@@ -372,6 +426,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
         `${process.env.NGA_MIS_BASE_URL}/users/me`,
         {
           headers: { Authorization: `Bearer ${misToken}` },
+          timeout: 60000, // Increased to 60 seconds for MIS API calls
         },
       );
       const profileData = profileResponse.data.data;
@@ -426,9 +481,38 @@ export const ssoCallback = async (req: Request, res: Response) => {
     const mappedRole = mapMisRoleToLocal(roles);
 
     // Sync user with local database
+    console.log("🔍 Looking up user by MIS user_id:", misUser.user_id);
     let localUser = await User.findOne({
       where: { mis_user_id: misUser.user_id },
     });
+
+    // If not found by mis_user_id, try finding by email as fallback
+    if (!localUser) {
+      console.log(
+        "🔍 User not found by mis_user_id, trying email:",
+        misUser.email,
+      );
+      localUser = await User.findOne({
+        where: { email: misUser.email },
+      });
+
+      if (localUser) {
+        console.log(
+          "🔍 Found user by email, updating mis_user_id:",
+          localUser.id,
+        );
+        // Update the mis_user_id for future lookups
+        localUser.mis_user_id = misUser.user_id;
+        await localUser.save();
+      }
+    }
+
+    console.log(
+      "🔍 Database lookup result:",
+      localUser
+        ? `Found user ID: ${localUser.id}`
+        : "User not found in database - will create new user",
+    );
 
     if (!localUser) {
       // Create local account if it doesn't exist
@@ -441,16 +525,24 @@ export const ssoCallback = async (req: Request, res: Response) => {
       );
       console.log("  - Role:", mappedRole);
 
-      localUser = await User.create({
-        first_name: misProfile?.first_name || misUser.username,
-        last_name: misProfile?.last_name || "",
-        email: misUser.email,
-        password: "SSO_USER_" + crypto.randomBytes(8).toString("hex"),
-        role: mappedRole,
-        mis_user_id: misUser.user_id,
-      });
+      try {
+        localUser = await User.create({
+          first_name: misProfile?.first_name || misUser.username,
+          last_name: misProfile?.last_name || "",
+          email: misUser.email,
+          password: "SSO_USER_" + crypto.randomBytes(8).toString("hex"),
+          role: mappedRole,
+          mis_user_id: misUser.user_id,
+        });
 
-      console.log("✅ New user created successfully with ID:", localUser.id);
+        console.log("✅ New user created successfully with ID:", localUser.id);
+      } catch (createError: any) {
+        console.error("❌ Error creating user:", createError);
+        return res.status(500).json({
+          success: false,
+          message: "Failed to create user account: " + createError.message,
+        });
+      }
     } else {
       // Update existing user info
       console.log("🔄 Updating existing local user:", localUser.id);
@@ -531,6 +623,29 @@ export const ssoCallback = async (req: Request, res: Response) => {
       "❌ SSO Callback error:",
       error.response?.data || error.message,
     );
+
+    // Check for timeout errors
+    if (error.code === "ECONNABORTED" || error.message?.includes("timeout")) {
+      console.error(
+        "⏱️ MIS API timeout - the MIS server is taking too long to respond",
+      );
+      return res.status(504).json({
+        success: false,
+        message:
+          "Unable to connect to the authentication server. Please try again later.",
+      });
+    }
+
+    // Check for network errors
+    if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
+      console.error("🌐 MIS API network error - cannot reach the server");
+      return res.status(503).json({
+        success: false,
+        message:
+          "Authentication service is temporarily unavailable. Please try again later.",
+      });
+    }
+
     const status = error.response?.status || 500;
     const message =
       error.response?.data?.message || "Failed to exchange SSO code for token";

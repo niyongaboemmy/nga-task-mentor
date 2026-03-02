@@ -71,18 +71,47 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const { setTheme } = useTheme();
 
   // Move initializeAuth to be accessible by other methods
-  const initializeAuth = async () => {
+  const initializeAuth = async (options?: { manual?: boolean }) => {
     // ... logic remains same ...
     // Prevent multiple simultaneous auth checks
     if (isAuthInitializing) {
       return;
     }
 
+    // Skip auth check if we're on the SSO callback page
+    // The callback page will handle authentication itself
+    const currentPath = window.location.pathname;
+    const callbackPath = "/sso/callback";
+    const baseUrl = import.meta.env.BASE_URL || "";
+    const fullCallbackPath = baseUrl + callbackPath;
+
+    // Only skip automatic auth check on mount, but allow manual checkAuth() calls
+    const isAutomaticCheck = !options?.manual;
+
+    if (
+      isAutomaticCheck &&
+      (currentPath.includes("callback") ||
+        currentPath === callbackPath ||
+        currentPath === fullCallbackPath)
+    ) {
+      console.log(
+        "ℹ️ AuthContext: Skipping automatic auth check on SSO callback page",
+      );
+      setIsAuthInitializing(false);
+      setLoading(false);
+      return;
+    }
     setIsAuthInitializing(true);
+
+    // Small delay to ensure cookies are properly set after SSO callback
+    await new Promise((resolve) => setTimeout(resolve, 100));
 
     try {
       // Cookies are automatically sent withCredentials: true
+      console.log("🔍 Checking authentication status...");
       const response = await apiAxios.get("/auth/me");
+
+      console.log("✅ Auth check successful, user data received");
 
       const responseData: UserFullData = response.data.data;
       const userData: User = {
@@ -127,6 +156,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
       setUser(userData);
       dispatch(loginSuccess(userData));
+      console.log("🎉 User authenticated successfully:", userData.email);
 
       // Sync theme if provided
       if (userData.preferred_theme) {
@@ -147,12 +177,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         /\/+/g,
         "/",
       );
-      if (currentPath === loginPath || currentPath === "/login") {
+
+      // Redirect to dashboard if user is authenticated but on login or callback pages
+      if (
+        currentPath === loginPath ||
+        currentPath === "/login" ||
+        currentPath.includes("callback") ||
+        currentPath.includes("sso")
+      ) {
+        console.log(
+          "🔄 AuthContext: Redirecting authenticated user to dashboard",
+        );
         window.location.href = dashboardPath;
       }
     } catch (error: any) {
       if (error.response?.status === 401) {
         console.log("ℹ️ AuthContext: User not authenticated (guest)");
+
+        // Don't redirect to login if we're on SSO-related pages
+        const currentPath = window.location.pathname;
+        const isSsoRelated =
+          currentPath.includes("callback") ||
+          currentPath.includes("sso") ||
+          currentPath === "/login";
+
+        if (!isSsoRelated) {
+          console.log(
+            "🔄 AuthContext: Redirecting unauthenticated user to login",
+          );
+          // Clear any stale tokens
+          localStorage.removeItem("nga_auth_token");
+          localStorage.removeItem("misToken");
+        }
       } else {
         console.error("❌ AuthContext: Auth check failed", error);
       }
@@ -168,8 +224,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
 
   const checkAuth = async () => {
+    console.log("🔄 Manually checking authentication status...");
     setIsAuthInitializing(false); // Reset to ensure it runs
-    await initializeAuth();
+    await initializeAuth({ manual: true });
+    console.log("✅ Authentication check completed");
   };
 
   // Login is now handled via SSO redirect in Login.tsx and Callback.tsx

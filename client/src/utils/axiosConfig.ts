@@ -39,7 +39,7 @@ const cleanupPendingRequests = (): void => {
 const api = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true,
-  timeout: 10000,
+  timeout: 30000, // Increased to 30 seconds
 });
 
 // Request interceptor
@@ -115,18 +115,29 @@ api.interceptors.response.use(
         return Promise.reject(error);
       }
 
-      console.warn("Session expired or unauthorized. Redirecting to login.");
-      // Clear tokens to prevent redirect loops if the login page checks for existing items
-      localStorage.removeItem("nga_auth_token");
-      localStorage.removeItem("misToken");
+      // Don't redirect during SSO flow
+      const currentPath = window.location.pathname;
+      const isSsoFlow =
+        currentPath.includes("callback") ||
+        currentPath.includes("sso") ||
+        currentPath === "/login";
 
-      // Cookies will be cleared by server or expire. Relogin needed.
-      const loginPath = (import.meta.env.BASE_URL + "/login").replace(
-        /\/+/g,
-        "/",
-      );
-      if (!window.location.pathname.includes(loginPath)) {
-        window.location.href = loginPath;
+      if (!isSsoFlow) {
+        console.warn("Session expired or unauthorized. Redirecting to login.");
+        // Clear tokens to prevent redirect loops if the login page checks for existing items
+        localStorage.removeItem("nga_auth_token");
+        localStorage.removeItem("misToken");
+
+        // Cookies will be cleared by server or expire. Relogin needed.
+        const loginPath = (import.meta.env.BASE_URL + "/login").replace(
+          /\/+/g,
+          "/",
+        );
+        if (!window.location.pathname.includes(loginPath)) {
+          window.location.href = loginPath;
+        }
+      } else {
+        console.log("ℹ️ 401 error during SSO flow - not redirecting");
       }
     }
 

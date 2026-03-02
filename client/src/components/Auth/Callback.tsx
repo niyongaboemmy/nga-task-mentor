@@ -7,10 +7,13 @@ import api from "../../utils/axiosConfig";
 const Callback: React.FC = () => {
   const [searchParams] = useSearchParams();
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
   const navigate = useNavigate();
   const { checkAuth } = useAuth(); // Assuming there's a way to refresh auth state
 
   const callbackCalled = React.useRef(false);
+  const maxRetries = 2;
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -49,9 +52,20 @@ const Callback: React.FC = () => {
             localStorage.setItem("misToken", response.data.misToken);
           }
 
-          // Re-validate auth state to update Context
-          await checkAuth();
-          navigate("/dashboard", { replace: true });
+          console.log("🔄 Tokens stored, updating auth state...");
+
+          // Update auth state - AuthContext will handle the redirect automatically
+          try {
+            await checkAuth();
+            console.log(
+              "✅ Auth state updated successfully - AuthContext will handle redirect",
+            );
+          } catch (authError) {
+            console.error("❌ Failed to update auth state:", authError);
+            setError(
+              "Failed to establish authentication session. Please try again.",
+            );
+          }
         } else {
           console.error("❌ SSO authentication failed:", response.data.message);
           setError(response.data.message || "SSO authentication failed");
@@ -62,11 +76,38 @@ const Callback: React.FC = () => {
           "❌ SSO Callback error:",
           err.response?.data || err.message,
         );
-        setError(
-          err.response?.data?.message ||
-            "Failed to complete SSO authentication",
-        );
-        // Don't reset callbackCalled to prevent retry with same (now invalid) code
+
+        let errorMessage = "Failed to complete SSO authentication";
+        let shouldRetry = false;
+
+        if (err.code === "ECONNABORTED" || err.message?.includes("timeout")) {
+          errorMessage = "Authentication server is taking too long to respond.";
+          shouldRetry = retryCount < maxRetries;
+        } else if (err.code === "ENOTFOUND" || err.code === "ECONNREFUSED") {
+          errorMessage = "Authentication service is temporarily unavailable.";
+          shouldRetry = retryCount < maxRetries;
+        } else if (err.response?.data?.message) {
+          errorMessage = err.response.data.message;
+        }
+
+        if (shouldRetry) {
+          console.log(
+            `🔄 Retrying SSO callback... Attempt ${retryCount + 1}/${maxRetries}`,
+          );
+          setRetryCount((prev) => prev + 1);
+          setIsRetrying(true);
+
+          // Wait before retrying (exponential backoff)
+          const delay = Math.pow(2, retryCount) * 1000; // 2s, 4s
+          setTimeout(() => {
+            setIsRetrying(false);
+            callbackCalled.current = false; // Allow retry
+            handleCallback();
+          }, delay);
+        } else {
+          setError(errorMessage);
+          // Don't reset callbackCalled to prevent retry with same (now invalid) code
+        }
       }
     };
 
@@ -91,11 +132,21 @@ const Callback: React.FC = () => {
             <>
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
               <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                Completing your sign-in...
+                {isRetrying
+                  ? `Retrying authentication... (${retryCount}/${maxRetries})`
+                  : "Completing your sign-in..."}
               </h2>
               <p className="text-gray-500 dark:text-gray-400">
-                Please wait while we establish your secure session.
+                {isRetrying
+                  ? `Please wait while we retry the connection...`
+                  : "Please wait while we establish your secure session."}
               </p>
+              {retryCount > 0 && (
+                <p className="text-sm text-yellow-600 dark:text-yellow-400 mt-2">
+                  Authentication is taking longer than expected. This can happen
+                  during peak times.
+                </p>
+              )}
             </>
           ) : (
             <div className="bg-red-50 dark:bg-red-900/20 p-6 rounded-2xl border border-red-100 dark:border-red-800">
