@@ -36,7 +36,9 @@ export class Judge0Service {
       "Content-Type": "application/json",
     };
     if (this.API_KEY) {
-      headers["X-Auth-Token"] = this.API_KEY;
+      headers["x-rapidapi-key"] = this.API_KEY;
+      headers["x-rapidapi-host"] =
+        process.env.JUDGE0_RAPIDAPI_HOST || "judge0-ce.p.rapidapi.com";
     }
     return headers;
   }
