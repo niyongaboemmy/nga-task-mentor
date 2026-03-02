@@ -5,6 +5,8 @@ import { Assignment } from "../models/Assignment.model";
 import { Submission } from "../models/Submission.model";
 import { Quiz } from "../models/Quiz.model";
 import { QuizSubmission } from "../models/QuizSubmission.model";
+import { ProctoringSession } from "../models/ProctoringSession.model";
+import { ProctoringSettings } from "../models/ProctoringSettings.model";
 import axios from "axios";
 import { getMisToken, handleMisError } from "../utils/misUtils";
 
@@ -180,11 +182,11 @@ export const getStudentPendingAssignments = async (
 export const getInstructorStats = async (req: Request, res: Response) => {
   try {
     const userId = req.user.id;
+    const token = getMisToken(req);
 
     // Get total courses from MIS API
     let totalCourses = 0;
     try {
-      const token = getMisToken(req);
       if (token) {
         console.log(
           `🔗 Requesting MIS subjects from: ${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
@@ -255,11 +257,38 @@ export const getInstructorStats = async (req: Request, res: Response) => {
       },
     });
 
+    // Calculate total enrolled students from all courses
+    let totalEnrolledStudents = 0;
+    if (token) {
+      try {
+        const coursesResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        if (coursesResponse.data.success && coursesResponse.data.data) {
+          totalEnrolledStudents = coursesResponse.data.data.reduce(
+            (sum: number, course: any) => {
+              return sum + (course.enrolled_students || 0);
+            },
+            0,
+          );
+        }
+      } catch (error) {
+        console.warn("Could not fetch enrolled students count:", error);
+      }
+    }
+
     const stats: DashboardStats = {
       totalCourses,
       totalAssignments,
       pendingSubmissions: totalPendingSubmissions,
       completedAssignments,
+      totalEnrolledStudents,
     };
 
     res.status(200).json({
@@ -278,10 +307,65 @@ export const getInstructorStats = async (req: Request, res: Response) => {
 // Instructor Courses Overview
 export const getInstructorCourses = async (req: Request, res: Response) => {
   try {
-    // No courses, return empty array
+    const token = getMisToken(req);
+    const userId = req.user.id;
+    let courses = [];
+
+    if (token) {
+      try {
+        const coursesResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+        if (coursesResponse.data.success) {
+          // Get actual assignments and quizzes count for each course from the database
+          const allAssignments = await Assignment.findAll({
+            where: { created_by: userId },
+          });
+
+          const allQuizzes = await Quiz.findAll({
+            where: { created_by: userId },
+          });
+
+          courses =
+            coursesResponse.data.data?.map((subject: any) => {
+              const courseId = subject.id || subject.subject_id;
+
+              // Count assignments and quizzes for this course
+              const courseAssignments = allAssignments.filter(
+                (assign) => assign.course_id === courseId,
+              );
+
+              const courseQuizzes = allQuizzes.filter(
+                (quiz) => quiz.course_id === courseId,
+              );
+
+              return {
+                id: subject.id || subject.subject_id,
+                title: subject.name || subject.subject_name || subject.title,
+                code: subject.code || subject.subject_code,
+                description: subject.description,
+                assignmentCount: courseAssignments.length,
+                quizCount: courseQuizzes.length,
+              };
+            }) || [];
+        }
+      } catch (courseError: any) {
+        console.warn("Could not fetch courses from MIS:", courseError.message);
+        if (courseError.response) {
+          console.warn("MIS API error response:", courseError.response.data);
+        }
+      }
+    }
+
     res.status(200).json({
       success: true,
-      data: [],
+      data: courses,
     });
   } catch (error) {
     console.error("Error fetching instructor courses:", error);
@@ -626,6 +710,56 @@ export const getAdminGradingSummary = async (req: Request, res: Response) => {
     res.status(500).json({
       success: false,
       message: "Error fetching grading summary",
+    });
+  }
+};
+
+// Get active proctoring sessions count for instructor dashboard
+export const getActiveProctoringCount = async (req: Request, res: Response) => {
+  try {
+    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message:
+          "Only instructors and admins can view active proctoring sessions",
+      });
+    }
+
+    // Get active proctoring sessions from the database
+    const activeSessions = await ProctoringSession.count({
+      where: {
+        status: "active",
+        // Only show sessions for quizzes created by this instructor (or all for admin)
+        ...(req.user.role !== "admin" && {
+          "$quiz.created_by$": req.user.id,
+        }),
+      },
+      include: [
+        {
+          model: Quiz,
+          as: "quiz",
+          required: true, // INNER JOIN to ensure quiz exists
+          include: [
+            {
+              model: ProctoringSettings,
+              as: "proctoringSettings",
+              where: { enabled: true },
+              required: true, // INNER JOIN to ensure proctoring is enabled
+            },
+          ],
+        },
+      ],
+    });
+
+    res.status(200).json({
+      success: true,
+      data: activeSessions,
+    });
+  } catch (error) {
+    console.error("Error fetching active proctoring count:", error);
+    res.status(500).json({
+      success: false,
+      message: "Error fetching active proctoring count",
     });
   }
 };

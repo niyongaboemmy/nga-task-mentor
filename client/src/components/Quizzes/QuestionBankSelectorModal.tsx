@@ -476,8 +476,8 @@ export const QuestionBankSelectorModal: React.FC<
         {/* ── Header ────────────────────────────────────────────────── */}
         <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center">
-              <RefreshCw className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/40 rounded-xl flex items-center justify-center">
+              <RefreshCw className="w-5 h-5 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
@@ -847,7 +847,7 @@ export const QuestionBankSelectorModal: React.FC<
               <button
                 onClick={runSearch}
                 disabled={isSearching}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-blue-600 to-blue-600 hover:from-blue-700 hover:to-blue-700 text-white rounded-2xl font-semibold text-sm transition-all duration-200 shadow-sm hover:shadow-md disabled:opacity-60 disabled:cursor-not-allowed"
               >
                 {isSearching ? (
                   <>
@@ -966,7 +966,7 @@ export const QuestionBankSelectorModal: React.FC<
             <div className="flex-1 overflow-y-auto">
               {!hasSearched && !isSearching && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-8">
-                  <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center mb-5 shadow-inner">
+                  <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-100 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/30 flex items-center justify-center mb-5 shadow-inner">
                     <FlaskConical className="w-10 h-10 text-blue-500 dark:text-blue-400" />
                   </div>
                   <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
@@ -1064,7 +1064,7 @@ export const QuestionBankSelectorModal: React.FC<
             <button
               onClick={handleAssign}
               disabled={selectedIds.size === 0 || isAssigning}
-              className="flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-full shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2 text-sm font-semibold bg-gradient-to-r from-blue-600 to-blue-600 hover:from-blue-700 hover:to-blue-700 text-white rounded-full shadow-sm hover:shadow-md transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isAssigning ? (
                 <>

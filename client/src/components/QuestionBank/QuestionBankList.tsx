@@ -99,7 +99,7 @@ const PillToggle: React.FC<{
   <button
     type="button"
     onClick={onClick}
-    className={`inline-flex items-center gap-1.5 px-3 py-1.5 h-max rounded-full text-xs font-medium border transition-all duration-200 ${
+    className={`inline-flex items-center gap-1.5 px-3 py-1.5 h-max rounded-2xl text-xs font-medium border transition-all duration-200 ${
       active
         ? activeClass
         : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300"
@@ -489,10 +489,10 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                           placeholder="Filter scheme..."
                           value={schemeSearch}
                           onChange={(e) => setSchemeSearch(e.target.value)}
-                          className="w-full pl-8 pr-3 py-1.5 text-[11px] rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all placeholder:text-gray-400"
+                          className="w-full pl-8 pr-3 py-1.5 text-xs rounded-lg border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all placeholder:text-gray-400"
                         />
                       </div>
-                      <div className="flex flex-wrap gap-1.5 max-h-[110px] overflow-y-auto pr-2 scrollbar-thin">
+                      <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-2 scrollbar-thin">
                         {schemeEntries
                           .filter((se) =>
                             se.topic

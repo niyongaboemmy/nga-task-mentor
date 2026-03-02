@@ -58,18 +58,8 @@ interface InstructorCourse {
   code: string;
   title: string;
   description: string;
-  credits: number;
-  is_active: boolean;
-  max_students: number;
-  start_date: string;
-  end_date: string;
   assignmentCount: number;
-  enrolledCount: number;
-  progress: {
-    enrolled: number;
-    capacity: number;
-    assignments: number;
-  };
+  quizCount: number;
 }
 
 interface PendingGradingAssignment {
@@ -108,6 +98,7 @@ interface InstructorDashboardData {
     first_name: string;
     last_name: string;
   };
+  activeProctoring?: number;
 }
 
 const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
@@ -268,30 +259,19 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
             badge={data.stats.pendingSubmissions > 0 ? "Urgent" : "Clear"}
           />
 
-          {data.stats.totalEnrolledStudents !== undefined ? (
-            <StatCard
-              icon={<Users className="w-6 h-6" />}
-              value={data.stats.totalEnrolledStudents}
-              label="Enrolled Students"
-              color="text-purple-600"
-              trend="+12 this semester"
-              badge="Growing"
-            />
-          ) : (
-            <StatCard
-              icon={<CheckCircle className="w-6 h-6" />}
-              value={data.stats.completedAssignments}
-              label="Completed"
-              color="text-violet-600"
-              trend="+15 this semester"
-              badge="Hot"
-            />
-          )}
+          <StatCard
+            icon={<CheckCircle className="w-6 h-6" />}
+            value={data.stats.completedAssignments}
+            label="Completed"
+            color="text-violet-600"
+            trend="+15 this semester"
+            badge="Hot"
+          />
 
           {/* Live Proctoring Card */}
           <StatCard
             icon={<Eye className="w-6 h-6" />}
-            value={0} // This would be dynamic based on active sessions
+            value={data.activeProctoring || 0}
             label="Active Proctoring"
             color="text-red-600"
             trend="Live monitoring"
@@ -330,11 +310,6 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
 
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {data.courses.slice(0, 6).map((course) => {
-              const enrollmentRate =
-                course.max_students > 0
-                  ? (course.enrolledCount / course.max_students) * 100
-                  : 0;
-
               return (
                 <motion.div
                   key={course.id}
@@ -345,7 +320,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                     <div className="flex-1 min-w-0 pr-4">
                       <div className="flex items-center gap-2 mb-1">
                         <span
-                          className={`w-2 h-2 rounded-full ${course.is_active ? "bg-green-500" : "bg-gray-400"}`}
+                          className={`w-2 h-2 rounded-full bg-green-500`}
                         ></span>
                         <h4 className="font-bold text-gray-900 dark:text-white text-lg truncate">
                           {course.code}
@@ -355,37 +330,26 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                         {course.title}
                       </p>
                     </div>
-                    {course.is_active ? (
-                      <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                        Active
-                      </span>
-                    ) : (
-                      <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                        Inactive
-                      </span>
-                    )}
+                    <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                      Active
+                    </span>
                   </div>
 
                   <div className="space-y-4">
-                    <div>
-                      <div className="flex items-center justify-between text-xs font-bold text-gray-500 dark:text-gray-400 mb-2 uppercase tracking-wide">
-                        <span>Enrollment</span>
-                        <span>
-                          {course.enrolledCount}/{course.max_students}
-                        </span>
-                      </div>
-                      <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2.5 overflow-hidden">
-                        <div
-                          className="bg-blue-600 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${Math.min(enrollmentRate, 100)}%` }}
-                        ></div>
-                      </div>
-                    </div>
-
                     <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
-                        <ListTodo className="w-4 h-4" />
-                        <span>{course.assignmentCount} Assignments</span>
+                      <div className="flex flex-col gap-1">
+                        {course.assignmentCount > 0 && (
+                          <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                            <ListTodo className="w-4 h-4" />
+                            <span>{course.assignmentCount} Assignments</span>
+                          </div>
+                        )}
+                        {course.quizCount > 0 && (
+                          <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                            <CheckCircle className="w-4 h-4" />
+                            <span>{course.quizCount} Quizzes</span>
+                          </div>
+                        )}
                       </div>
                       <Link
                         to={`/courses/${course.id}`}

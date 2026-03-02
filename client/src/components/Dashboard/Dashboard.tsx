@@ -47,6 +47,7 @@ interface InstructorDashboardData {
   courses?: any[];
   pendingGrading?: any[];
   recentActivity: RecentActivity[];
+  activeProctoring?: number;
 }
 
 interface AdminDashboardData {
@@ -84,7 +85,7 @@ const Dashboard: React.FC = () => {
           "/dashboard/student/pending-assignments",
           "/dashboard/activity",
           "/quizzes/public",
-          "/courses/enrolled", // Add enrolled courses with deadlines
+          "/courses", // Add enrolled courses with deadlines
           "/quizzes/available", // Add available quizzes from enrolled courses
         ],
         instructor: [
@@ -92,6 +93,7 @@ const Dashboard: React.FC = () => {
           "/dashboard/instructor/courses",
           "/dashboard/instructor/pending-grading",
           "/dashboard/activity",
+          "/dashboard/instructor/active-proctoring",
         ],
         admin: [
           "/dashboard/admin/stats",
@@ -182,6 +184,7 @@ const Dashboard: React.FC = () => {
           courses: (validResponses[1] as any)?.data?.data || [],
           pendingGrading: (validResponses[2] as any)?.data?.data || [],
           recentActivity: (validResponses[3] as any)?.data?.data || [],
+          activeProctoring: (validResponses[4] as any)?.data?.data || 0,
         } as InstructorDashboardData);
       } else {
         // This block is for admin

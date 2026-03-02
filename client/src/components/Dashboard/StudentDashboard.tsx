@@ -94,7 +94,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
     trend,
   }: {
     icon: React.ReactNode;
-    value: number;
+    value: number | string;
     label: string;
     color: string;
     badge?: string;
@@ -211,8 +211,8 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
           <Link to="/reports" className="block h-full">
             <StatCard
               icon={<Award className="w-6 h-6" />}
-              value={data.stats.totalCourses}
-              label="Global GPA"
+              value="GPA"
+              label="Global Report"
               color="text-purple-600"
               trend="View Reports"
               badge="View"

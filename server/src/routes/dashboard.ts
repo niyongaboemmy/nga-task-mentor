@@ -8,6 +8,7 @@ import {
   getInstructorCourses,
   getInstructorPendingGrading,
   getAdminGradingSummary,
+  getActiveProctoringCount,
 } from "../controllers/dashboardController";
 import { protect, authorize } from "../middleware/auth";
 
@@ -39,6 +40,11 @@ router.get(
   "/instructor/pending-grading",
   authorize("instructor", "admin"),
   getInstructorPendingGrading,
+);
+router.get(
+  "/instructor/active-proctoring",
+  authorize("instructor", "admin"),
+  getActiveProctoringCount,
 );
 
 // Admin dashboard endpoints
