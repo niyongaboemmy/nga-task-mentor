@@ -517,7 +517,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                             {course.description}
                           </p>
                         </div>
-                        <div className="flex-shrink-0 ml-3">
+                        {/* <div className="flex-shrink-0 ml-3">
                           <div className="text-right">
                             <div className="text-xs text-gray-500 dark:text-gray-400 mb-1">
                               {course.progress || 0}% Complete
@@ -526,19 +526,19 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                               {course.assignments_count || 0} assignments
                             </div>
                           </div>
-                        </div>
+                        </div> */}
                       </div>
 
                       {/* Course stats and countdown */}
                       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                         <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
-                          <div className="flex items-center gap-1">
+                          {/* <div className="flex items-center gap-1">
                             <Users className="h-3 w-3" />
                             <span>
                               {course.enrolled_students || course.students || 0}{" "}
                               students
                             </span>
-                          </div>
+                          </div> */}
                           {course.next_item_type && (
                             <>
                               <span>•</span>
