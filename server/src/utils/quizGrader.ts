@@ -1555,11 +1555,22 @@ export class InteractiveGrader {
       // Common single-char operators
       e = e.replace(/\*/g, "&&");
       e = e.replace(/\+/g, "||");
+      // IMPORTANT: Fix single & being treated as AND - only replace &&
+      // We need to make sure single & is not interpreted as a logical operator
+
       // Implication / equivalence
       // a -> b === (!a || b)
       e = e.replace(/([a-zA-Z0-9_\)]+)->([a-zA-Z0-9_\(]+)/g, "(!$1||$2)");
       // a <-> b === (a===b)
       e = e.replace(/([a-zA-Z0-9_\)]+)<->([a-zA-Z0-9_\(]+)/g, "($1===$2)");
+
+      // Validate that we don't have single & operators which are ambiguous
+      if (e.includes("&") && !e.includes("&&")) {
+        throw new Error(
+          "Single & is not a valid logical operator. Use && instead.",
+        );
+      }
+
       return e;
     };
 
