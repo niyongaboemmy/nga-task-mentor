@@ -673,7 +673,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                             </div>
                           )}
                           {question.scheme_of_work_entry_title && (
-                            <div className="mt-1 flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-md border border-blue-100 dark:border-blue-800">
+                            <div className="mt-1 flex items-center gap-1 text-[10px] font-medium text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-xl border border-blue-100 dark:border-blue-800">
                               <Brain className="w-2.5 h-2.5" />
                               <span
                                 className="truncate max-w-[150px]"

@@ -71,11 +71,11 @@ const Students: React.FC = () => {
           data: UserSearchInterface[];
         }>("/users", { params });
         setStudents(response.data.data);
+        setLoading(false);
       } catch (error) {
+        setLoading(false);
         console.error("Error fetching students:", error);
         // Don't alert here to avoid spamming 403s before course selection
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -163,7 +163,7 @@ const Students: React.FC = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-3">
+    <div className="space-y-3">
       {/* Header */}
       <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/20 dark:border-gray-900/50 p-4 px-5">
         <div className="flex justify-between items-center">
