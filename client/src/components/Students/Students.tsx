@@ -30,6 +30,7 @@ const Students: React.FC = () => {
 
   const [students, setStudents] = useState<UserSearchInterface[]>([]);
   const [loading, setLoading] = useState(true);
+  const [coursesLoading, setCoursesLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortField, setSortField] = useState<SortField>("last_name");
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
@@ -38,12 +39,13 @@ const Students: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
-  // Fetch courses for instructors on mount
+  // Fetch courses for instructors on mount (only if not already loaded)
   useEffect(() => {
     if (user?.role === "instructor" && courses.length === 0) {
-      dispatch(fetchCourses());
+      setCoursesLoading(true);
+      dispatch(fetchCourses()).finally(() => setCoursesLoading(false));
     }
-  }, [user, courses.length, dispatch]);
+  }, [user?.role, courses.length, dispatch]);
 
   // Select first course by default when courses are loaded
   useEffect(() => {
@@ -52,7 +54,13 @@ const Students: React.FC = () => {
     }
   }, [courses, selectedCourse]);
 
+  // Fetch students when selectedCourse or searchTerm changes
   useEffect(() => {
+    // Don't fetch if no course selected (except for non-instructors)
+    if (user?.role === "instructor" && !selectedCourse) {
+      return;
+    }
+
     const fetchStudents = async () => {
       setLoading(true);
       try {
@@ -71,16 +79,16 @@ const Students: React.FC = () => {
           data: UserSearchInterface[];
         }>("/users", { params });
         setStudents(response.data.data);
-        setLoading(false);
       } catch (error) {
-        setLoading(false);
         console.error("Error fetching students:", error);
-        // Don't alert here to avoid spamming 403s before course selection
+        setStudents([]);
+      } finally {
+        setLoading(false);
       }
     };
 
     fetchStudents();
-  }, [searchTerm, selectedCourse]);
+  }, [searchTerm, selectedCourse, user]);
 
   // Filter and sort students
   const filteredAndSortedStudents = useMemo(() => {
@@ -154,7 +162,8 @@ const Students: React.FC = () => {
     setCurrentPage(1);
   };
 
-  if (loading) {
+  // Show loading indicator while fetching courses or students
+  if (loading || coursesLoading) {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -168,9 +177,9 @@ const Students: React.FC = () => {
       <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/20 dark:border-gray-900/50 p-4 px-5">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Students</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Manage and view all students in the system (
+            <h1 className="text-3xl font-bold">Students Enrolled</h1>
+            <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm">
+              Manage and view all students enrolled in the system (
               {filteredAndSortedStudents.length} total)
             </p>
           </div>
@@ -253,7 +262,11 @@ const Students: React.FC = () => {
 
       {/* Students Table/List */}
       <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow border border-white/20 dark:border-gray-900/50 overflow-hidden">
-        {paginatedStudents.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center h-64">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+          </div>
+        ) : paginatedStudents.length === 0 ? (
           <div className="text-center py-12">
             <svg
               className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600"
