@@ -214,12 +214,17 @@ const LiveProctoringDashboard: React.FC = () => {
   }, [activeStreams]);
 
   const initializeSocket = () => {
-    socketRef.current = io(
-      import.meta.env.VITE_SOCKET_URL || "http://localhost:5003",
-      {
-        transports: ["websocket", "polling"],
-      },
-    );
+    const socketUrl =
+      import.meta.env.VITE_SOCKET_URL || "http://localhost:5003";
+
+    socketRef.current = io(socketUrl, {
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 5,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 10000,
+    });
 
     // Global socket listener for debugging
     // socketRef.current.onAny((eventName, ...args) => {
@@ -258,7 +263,32 @@ const LiveProctoringDashboard: React.FC = () => {
     });
 
     socketRef.current.on("connect_error", (error) => {
-      console.error("Dashboard Socket.IO connection error:", error);
+      console.error("Dashboard Socket.IO connection error:", error.message);
+      // Provide more specific error messages
+      if (error.message === "x4t") {
+        addStatusMessage(
+          "Unable to connect to socket server. The server may be unavailable.",
+          "error",
+        );
+      } else if (error.message.includes("websocket")) {
+        addStatusMessage(
+          "WebSocket connection failed. Falling back to polling mode...",
+          "warning",
+        );
+      } else {
+        addStatusMessage(`Socket connection error: ${error.message}`, "error");
+      }
+    });
+
+    socketRef.current.on("reconnect_attempt", (attemptNumber) => {
+      addStatusMessage(`Reconnecting... (attempt ${attemptNumber})`, "warning");
+    });
+
+    socketRef.current.on("reconnect_failed", () => {
+      addStatusMessage(
+        "Failed to reconnect to socket server. Please refresh the page.",
+        "error",
+      );
     });
 
     socketRef.current.on("disconnect", (reason) => {

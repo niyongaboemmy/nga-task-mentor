@@ -303,7 +303,7 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
       )}
 
       {/* First submission CTA for students */}
-      {canSubmit && submissions.length === 1 && (
+      {canSubmit && submissions.length === 0 && (
         <div className="bg-blue-50 dark:bg-blue-900/20 rounded-3xl p-8 border border-blue-200 dark:border-blue-700">
           <div className="flex flex-col items-center gap-6 text-center">
             <div className="w-20 h-20 bg-blue-100 dark:bg-blue-800 rounded-2xl flex items-center justify-center">
