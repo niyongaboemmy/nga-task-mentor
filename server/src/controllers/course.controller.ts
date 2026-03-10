@@ -819,8 +819,24 @@ export const getCourseGrades = async (req: Request, res: Response) => {
 
     let finalStudents: any[] = [];
 
+    // Always start with MIS enrolled students as the base
+    if (enrolledStudents.length > 0) {
+      finalStudents = enrolledStudents.map((student: any) => ({
+        id: student.id || student.user_id,
+        first_name: student.first_name || student.name?.split(" ")[0] || "",
+        last_name:
+          student.last_name ||
+          student.name?.split(" ").slice(1).join(" ") ||
+          "",
+        email: student.email || "",
+        profile_image: student.profile_image || null,
+        mis_user_id: student.id || student.user_id,
+      }));
+    }
+
+    // If there are local students who submitted but are NOT in the MIS enrolled list, add them
     if (localStudentIds.size > 0) {
-      // Fetch user details for these students
+      // Fetch user details for these local students
       const localStudents = await User.findAll({
         where: {
           id: { [Op.in]: Array.from(localStudentIds) },
@@ -835,19 +851,51 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         ],
       });
 
-      // Convert local students to match the structure of MIS students
+      // Add local students who are not already in the final list
+      const existingIds = new Set(
+        finalStudents.map((s) => s.mis_user_id || s.id),
+      );
+      localStudents.forEach((localUser) => {
+        const localId = localUser.mis_user_id || `local_${localUser.id}`;
+        if (!existingIds.has(localId) && !existingIds.has(localUser.id)) {
+          finalStudents.push({
+            id: localUser.mis_user_id || `local_${localUser.id}`,
+            user_id: localUser.id,
+            first_name: localUser.first_name,
+            last_name: localUser.last_name,
+            email: localUser.email,
+            profile_image: localUser.profile_image,
+            is_local_only: !localUser.mis_user_id,
+            mis_user_id: localUser.mis_user_id,
+          });
+        }
+      });
+    }
+
+    // If still no students (no MIS enrollment and no local submissions), try to get all local users
+    if (finalStudents.length === 0 && localStudentIds.size > 0) {
+      const localStudents = await User.findAll({
+        where: {
+          id: { [Op.in]: Array.from(localStudentIds) },
+        },
+        attributes: [
+          "id",
+          "first_name",
+          "last_name",
+          "email",
+          "profile_image",
+          "mis_user_id",
+        ],
+      });
       finalStudents = localStudents.map((localUser) => ({
-        id: localUser.mis_user_id || `local_${localUser.id}`, // Use MIS id if available, else local id with prefix
-        user_id: localUser.id, // Keep local reference
+        id: localUser.mis_user_id || `local_${localUser.id}`,
+        user_id: localUser.id,
         first_name: localUser.first_name,
         last_name: localUser.last_name,
         email: localUser.email,
         profile_image: localUser.profile_image,
-        is_local_only: !localUser.mis_user_id, // Flag for debugging
+        is_local_only: !localUser.mis_user_id,
       }));
-    } else {
-      // If no local submissions, use MIS students
-      finalStudents = enrolledStudents;
     }
 
     // Remove any duplicates from final list
