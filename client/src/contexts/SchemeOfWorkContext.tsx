@@ -88,9 +88,14 @@ export const SchemeOfWorkProvider: React.FC<{ children: ReactNode }> = ({
         );
 
         if (response.success) {
-          const entries = response.data;
+          const raw = response.data;
+          // API returns { scheme: {...}, entries: [...] }
+          const entries: SchemeOfWorkEntry[] = Array.isArray(raw)
+            ? raw
+            : Array.isArray(raw?.entries)
+              ? raw.entries
+              : [];
 
-          // Update cache using ref
           cacheRef.current[courseId] = {
             entries,
             timestamp: Date.now(),

@@ -555,7 +555,7 @@ export class QuestionBankApiService {
     courseId: number,
     classGroupId: number,
     academicTermId: number,
-  ): Promise<{ success: boolean; data: SchemeOfWorkEntry[] }> {
+  ): Promise<{ success: boolean; data: { scheme: Record<string, unknown>; entries: SchemeOfWorkEntry[] } | SchemeOfWorkEntry[] }> {
     const response = await axios.get(
       `/courses/${courseId}/question-bank/scheme-of-work`,
       {
