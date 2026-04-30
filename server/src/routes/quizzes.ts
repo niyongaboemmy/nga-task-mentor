@@ -122,6 +122,8 @@ router.post(
   authorize("instructor", "admin"),
   generateTestCases,
 );
+// Instructor-only: run code against test cases during question preparation (no submission needed)
+router.post("/preview-run", authorize("instructor", "admin"), runCode);
 
 // Quiz submission routes
 router.post("/submissions", authorize("student"), createQuizSubmission);

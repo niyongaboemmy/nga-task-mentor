@@ -283,26 +283,34 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                   <div className="flex items-center gap-2">
                     <span
                       className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-                        attempt.is_correct
+                        attempt.is_correct === true
                           ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                          : "bg-rose-100 text-rose-700 border border-rose-200"
+                          : attempt.is_correct === false
+                          ? "bg-rose-100 text-rose-700 border border-rose-200"
+                          : "bg-amber-100 text-amber-700 border border-amber-200"
                       }`}
                     >
-                      {attempt.is_correct ? (
+                      {attempt.is_correct === true ? (
                         <>
                           <CheckCircle className="w-3 h-3" />
                           Correct
                         </>
-                      ) : (
+                      ) : attempt.is_correct === false ? (
                         <>
                           <XCircle className="w-3 h-3" />
                           Incorrect
                         </>
+                      ) : (
+                        <>
+                          <AlertCircle className="w-3 h-3" />
+                          Pending
+                        </>
                       )}
                     </span>
                     <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-md">
-                      {attempt.points_earned || 0} / {attempt.max_points || 0}{" "}
-                      pts
+                      {attempt.points_earned != null
+                        ? `${attempt.points_earned} / ${attempt.max_points || 0} pts`
+                        : `— / ${attempt.max_points || 0} pts`}
                     </span>
                   </div>
                 </div>
@@ -355,39 +363,42 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                         </div>
                       </div>
 
-                      {/* Correct Answer */}
-                      <div className="space-y-2">
-                        <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                          Correct Answer
-                        </h4>
-                        <div className="p-4 rounded-xl bg-emerald-50/50 border-2 border-emerald-100/50 border-dashed min-h-[100px] flex items-center justify-center text-center">
-                          {attempt.question_type ? (
-                            <QuizQuestion
-                              question={
-                                {
-                                  ...attempt.attemptQuestion,
-                                  questionBank: {
-                                    ...attempt.attemptQuestion?.questionBank,
-                                    question_text: attempt.question_text,
-                                    question_type: attempt.question_type,
-                                    question_data: attempt.question_data,
-                                  },
-                                } as any
-                              }
-                              answer={attempt.correct_answer}
-                              onAnswerChange={() => {}}
-                              disabled={true}
-                              showQuestionNumber={false}
-                              showCorrectAnswer={true}
-                            />
-                          ) : (
-                            <span className="italic text-emerald-700/60 font-medium">
-                              Not available
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                      {/* Correct Answer — only when quiz settings allow it */}
+                      {quizResults.grading_settings?.show_correct_answers &&
+                        attempt.correct_answer != null && (
+                          <div className="space-y-2">
+                            <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              Correct Answer
+                            </h4>
+                            <div className="p-4 rounded-xl bg-emerald-50/50 border-2 border-emerald-100/50 border-dashed min-h-[100px] flex items-center justify-center text-center">
+                              {attempt.question_type ? (
+                                <QuizQuestion
+                                  question={
+                                    {
+                                      ...attempt.attemptQuestion,
+                                      questionBank: {
+                                        ...attempt.attemptQuestion?.questionBank,
+                                        question_text: attempt.question_text,
+                                        question_type: attempt.question_type,
+                                        question_data: attempt.question_data,
+                                      },
+                                    } as any
+                                  }
+                                  answer={attempt.correct_answer}
+                                  onAnswerChange={() => {}}
+                                  disabled={true}
+                                  showQuestionNumber={false}
+                                  showCorrectAnswer={true}
+                                />
+                              ) : (
+                                <span className="italic text-emerald-700/60 font-medium">
+                                  Not available
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )}
                     </div>
 
                     {/* Explanation */}

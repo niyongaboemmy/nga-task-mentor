@@ -77,6 +77,8 @@ const AssignmentDetails = () => {
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [submissions, setSubmissions] = useState<SubmissionItemInterface[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmissionsLoading, setIsSubmissionsLoading] = useState(true);
+  const lastFetchedId = React.useRef<string | null>(null);
   const [activeTab, setActiveTab] = useState<"details" | "submissions">(
     "submissions",
   );
@@ -264,6 +266,7 @@ const AssignmentDetails = () => {
   }, [assignmentId]);
 
   const fetchSubmissions = useCallback(async () => {
+    setIsSubmissionsLoading(true);
     try {
       const response = await api.get(
         `/assignments/${assignmentId}/submissions`,
@@ -276,6 +279,8 @@ const AssignmentDetails = () => {
       } else {
         setSubmissions([]);
       }
+    } finally {
+      setIsSubmissionsLoading(false);
     }
   }, [assignmentId]);
 
@@ -355,8 +360,15 @@ const AssignmentDetails = () => {
   );
 
   useEffect(() => {
-    fetchAssignment();
-    fetchSubmissions();
+    if (lastFetchedId.current === assignmentId) return;
+    
+    const loadData = async () => {
+      await Promise.all([fetchAssignment(), fetchSubmissions()]);
+      lastFetchedId.current = assignmentId || null;
+    };
+
+    loadData();
+
     if (courses.length === 0) {
       dispatch(fetchCourses());
     }
@@ -582,29 +594,41 @@ const AssignmentDetails = () => {
                   exit={{ opacity: 0, y: -10 }}
                   transition={{ duration: 0.2 }}
                 >
-                  <SubmissionList
-                    submissions={submissions}
-                    assignment={{
-                      id: assignment.id,
-                      title: assignment.title,
-                      due_date: assignment.due_date,
-                      max_score: assignment.max_score,
-                      submission_type: assignment.submission_type,
-                      status: assignment.status,
-                    }}
-                    canSubmit={canSubmit}
-                    canManageAssignment={canManageAssignment}
-                    isOverdue={isOverdue}
-                    isStudent={isStudent}
-                    userSubmission={userSubmission}
-                    formatDate={formatDate}
-                    getSubmissionStatusColor={getSubmissionStatusColor}
-                    onViewDetails={(submission) => {
-                      setSelectedSubmission(submission);
-                      setIsDetailsModalOpen(true);
-                    }}
-                    onOpenSubmissionModal={() => setIsModalOpen(true)}
-                  />
+                  {isSubmissionsLoading ? (
+                    <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                      <div className="relative">
+                        <div className="w-12 h-12 border-4 border-blue-600/20 rounded-full" />
+                        <div className="absolute inset-0 w-12 h-12 border-4 border-transparent border-t-blue-600 rounded-full animate-spin" />
+                      </div>
+                      <p className="text-sm font-bold text-gray-500 uppercase tracking-widest animate-pulse">
+                        Retrieving Submissions...
+                      </p>
+                    </div>
+                  ) : (
+                    <SubmissionList
+                      submissions={submissions}
+                      assignment={{
+                        id: assignment.id,
+                        title: assignment.title,
+                        due_date: assignment.due_date,
+                        max_score: assignment.max_score,
+                        submission_type: assignment.submission_type,
+                        status: assignment.status,
+                      }}
+                      canSubmit={canSubmit}
+                      canManageAssignment={canManageAssignment}
+                      isOverdue={isOverdue}
+                      isStudent={isStudent}
+                      userSubmission={userSubmission}
+                      formatDate={formatDate}
+                      getSubmissionStatusColor={getSubmissionStatusColor}
+                      onViewDetails={(submission) => {
+                        setSelectedSubmission(submission);
+                        setIsDetailsModalOpen(true);
+                      }}
+                      onOpenSubmissionModal={() => setIsModalOpen(true)}
+                    />
+                  )}
                 </motion.div>
               ) : (
                 <motion.div

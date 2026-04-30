@@ -1648,11 +1648,13 @@ export const getAIHint = async (req: Request, res: Response) => {
 };
 
 // @desc    Run code snippet instantly (no grading, just execution)
+//          When `test_cases` array is provided, runs code against each case and returns pass/fail.
 // @route   POST /api/quizzes/questions/:questionId/run-code
+//          POST /api/quizzes/preview-run  (instructor prep, no questionId required)
 // @access  Private
 export const runCode = async (req: Request, res: Response) => {
   try {
-    const { code, language, stdin } = req.body;
+    const { code, language, stdin, test_cases } = req.body;
 
     if (!code || !language) {
       return res.status(400).json({
@@ -1661,19 +1663,88 @@ export const runCode = async (req: Request, res: Response) => {
       });
     }
 
-    // For web languages (html/css/react/vue), skip Judge0 and return the code directly
-    // The frontend renders it in an iframe
     const webLanguages = ["html", "css", "react", "vue", "angular", "nextjs"];
-    if (webLanguages.includes(language.toLowerCase())) {
+    const isWeb = webLanguages.includes(language.toLowerCase());
+
+    // ── Batch mode: run code against multiple test cases ──────────────────────
+    if (Array.isArray(test_cases) && test_cases.length > 0) {
+      if (isWeb) {
+        // Web languages can't be auto-tested via Judge0 — return preview flag
+        const results = test_cases.map((tc: any) => ({
+          testCaseId: tc.id,
+          passed: null, // visual only
+          input: tc.input,
+          expected: tc.expected_output,
+          actual: null,
+          error: null,
+          executionTime: 0,
+          memoryUsed: null,
+          status: "Web Preview",
+          is_hidden: tc.is_hidden,
+        }));
+        return res.json({ success: true, data: { results, web_preview: true, passed: 0, total: test_cases.length } });
+      }
+
+      const normalizeOutput = (s: string | null | undefined) =>
+        (s ?? "").replace(/\r\n/g, "\n").trimEnd();
+
+      const results: any[] = [];
+      for (const tc of test_cases) {
+        try {
+          const result = await Judge0Service.runSingle(code, language, tc.input ?? "");
+          const actual = normalizeOutput(result.stdout);
+          const expected = normalizeOutput(tc.expected_output);
+          const compileError = result.compile_output || result.message;
+          const runtimeError = result.stderr;
+          const statusId = result.status?.id;
+          // Judge0 status 3 = Accepted; also do our own string compare
+          const passed = statusId === 3 || actual === expected;
+          results.push({
+            testCaseId: tc.id,
+            passed,
+            input: tc.is_hidden ? null : (tc.input ?? ""),
+            expected: tc.is_hidden ? null : tc.expected_output,
+            actual: result.stdout ?? null,
+            error: !passed
+              ? (compileError || runtimeError || result.status?.description || "Wrong Answer")
+              : null,
+            executionTime: parseFloat(result.time || "0") * 1000,
+            memoryUsed: result.memory ?? null,
+            status: result.status?.description ?? "Unknown",
+            is_hidden: tc.is_hidden ?? false,
+          });
+        } catch (tcErr: any) {
+          results.push({
+            testCaseId: tc.id,
+            passed: false,
+            input: tc.is_hidden ? null : (tc.input ?? ""),
+            expected: tc.is_hidden ? null : tc.expected_output,
+            actual: null,
+            error: tcErr.message || "Execution failed",
+            executionTime: 0,
+            memoryUsed: null,
+            status: "Error",
+            is_hidden: tc.is_hidden ?? false,
+          });
+        }
+      }
+
       return res.json({
         success: true,
         data: {
-          stdout: null,
-          stderr: null,
-          web_preview: true,
-          language,
-          execution_time: 0,
+          results,
+          passed: results.filter((r) => r.passed).length,
+          total: results.length,
+          web_preview: false,
         },
+      });
+    }
+
+    // ── Single-run mode ───────────────────────────────────────────────────────
+    if (isWeb) {
+      return res.json({
+        success: true,
+        data: { stdout: null, stderr: null, web_preview: true, language, execution_time: 0 },
       });
     }
 
@@ -1684,9 +1755,9 @@ export const runCode = async (req: Request, res: Response) => {
       data: {
         stdout: result.stdout,
         stderr: result.stderr || result.compile_output,
-        exit_code: result.status.id,
-        status: result.status.description,
-        execution_time: parseFloat(result.time || "0") * 1000, // ms
+        exit_code: result.status?.id,
+        status: result.status?.description,
+        execution_time: parseFloat(result.time || "0") * 1000,
         memory_used: result.memory,
         web_preview: false,
       },

@@ -401,9 +401,9 @@ export class TextInputGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): Promise<GradingResult> {
-    console.log("\n[DEBUG] ========== NUMERICAL GRADING START ==========");
-    console.log("[DEBUG] Raw answerData:", JSON.stringify(answerData, null, 2));
-    console.log("[DEBUG] answerData type:", typeof answerData);
+    console.debug("\n[DEBUG] ========== NUMERICAL GRADING START ==========");
+    console.debug("[DEBUG] Raw answerData:", JSON.stringify(answerData, null, 2));
+    console.debug("[DEBUG] answerData type:", typeof answerData);
     console.log(
       "[DEBUG] question.questionBank:",
       question.questionBank ? "exists" : "missing",
@@ -419,7 +419,7 @@ export class TextInputGrader {
 
     // Validate question data structure
     if (!question || !question.questionBank?.question_data) {
-      console.log("[DEBUG] FAIL: Invalid question data structure");
+      console.debug("[DEBUG] FAIL: Invalid question data structure");
       return {
         is_correct: false,
         points_earned: 0,
@@ -430,7 +430,7 @@ export class TextInputGrader {
     let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
-      console.log("[DEBUG] questionData is string, parsing...");
+      console.debug("[DEBUG] questionData is string, parsing...");
       try {
         questionData = JSON.parse(questionData);
         console.log(
@@ -438,7 +438,7 @@ export class TextInputGrader {
           JSON.stringify(questionData, null, 2),
         );
       } catch (e) {
-        console.log("[DEBUG] FAIL: Could not parse questionData");
+        console.debug("[DEBUG] FAIL: Could not parse questionData");
         return {
           is_correct: false,
           points_earned: 0,
@@ -449,7 +449,7 @@ export class TextInputGrader {
 
     // Validate answer data
     if (!answerData) {
-      console.log("[DEBUG] FAIL: No answerData provided");
+      console.debug("[DEBUG] FAIL: No answerData provided");
       return {
         is_correct: false,
         points_earned: 0,
@@ -458,16 +458,16 @@ export class TextInputGrader {
     }
 
     const answer = answerData as any;
-    console.log("[DEBUG] answer object:", JSON.stringify(answer, null, 2));
-    console.log("[DEBUG] answer.answer type:", typeof answer.answer);
-    console.log("[DEBUG] answer.answer value:", answer.answer);
+    console.debug("[DEBUG] answer object:", JSON.stringify(answer, null, 2));
+    console.debug("[DEBUG] answer.answer type:", typeof answer.answer);
+    console.debug("[DEBUG] answer.answer value:", answer.answer);
 
     // Validate answer structure
     if (
       typeof answer.answer !== "number" &&
       typeof answer.answer !== "string"
     ) {
-      console.log("[DEBUG] FAIL: answer.answer is neither number nor string");
+      console.debug("[DEBUG] FAIL: answer.answer is neither number nor string");
       return {
         is_correct: false,
         points_earned: 0,
@@ -660,9 +660,9 @@ export class TextInputGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): GradingResult {
-    console.log("\n[DEBUG] ========== FILL_BLANK GRADING START ==========");
-    console.log("[DEBUG] Raw answerData:", JSON.stringify(answerData, null, 2));
-    console.log("[DEBUG] answerData type:", typeof answerData);
+    console.debug("\n[DEBUG] ========== FILL_BLANK GRADING START ==========");
+    console.debug("[DEBUG] Raw answerData:", JSON.stringify(answerData, null, 2));
+    console.debug("[DEBUG] answerData type:", typeof answerData);
     console.log(
       "[DEBUG] question.questionBank:",
       question.questionBank ? "exists" : "missing",
@@ -674,7 +674,7 @@ export class TextInputGrader {
 
     // Validate question data structure
     if (!question || !question.questionBank?.question_data) {
-      console.log("[DEBUG] FAIL: Invalid question data structure");
+      console.debug("[DEBUG] FAIL: Invalid question data structure");
       return {
         is_correct: false,
         points_earned: 0,
@@ -685,7 +685,7 @@ export class TextInputGrader {
     let questionData = question.questionBank?.question_data as any;
     // If question_data is stored as a string, parse it
     if (typeof questionData === "string") {
-      console.log("[DEBUG] questionData is string, parsing...");
+      console.debug("[DEBUG] questionData is string, parsing...");
       try {
         questionData = JSON.parse(questionData);
         console.log(
@@ -693,7 +693,7 @@ export class TextInputGrader {
           JSON.stringify(questionData, null, 2),
         );
       } catch (e) {
-        console.log("[DEBUG] FAIL: Could not parse questionData");
+        console.debug("[DEBUG] FAIL: Could not parse questionData");
         return {
           is_correct: false,
           points_earned: 0,
@@ -704,7 +704,7 @@ export class TextInputGrader {
 
     // Validate answer data
     if (!answerData) {
-      console.log("[DEBUG] FAIL: No answerData provided");
+      console.debug("[DEBUG] FAIL: No answerData provided");
       return {
         is_correct: false,
         points_earned: 0,
@@ -713,14 +713,14 @@ export class TextInputGrader {
     }
 
     const answer = answerData as any;
-    console.log("[DEBUG] answer object:", JSON.stringify(answer, null, 2));
-    console.log("[DEBUG] answer.answers:", answer.answers);
-    console.log("[DEBUG] answer.answer:", answer.answer);
+    console.debug("[DEBUG] answer object:", JSON.stringify(answer, null, 2));
+    console.debug("[DEBUG] answer.answers:", answer.answers);
+    console.debug("[DEBUG] answer.answer:", answer.answer);
 
     // Validate answer structure - handle both 'answers' array and single answer object
     let answerArray: any[] = [];
     if (Array.isArray(answer.answers)) {
-      console.log("[DEBUG] Found answer.answers array");
+      console.debug("[DEBUG] Found answer.answers array");
       answerArray = answer.answers;
     } else if (typeof answer.answer === "string") {
       console.log(
@@ -729,7 +729,7 @@ export class TextInputGrader {
       // Single blank case - wrap in array format
       answerArray = [{ blank_index: 0, answer: answer.answer }];
     } else if (typeof answer === "string") {
-      console.log("[DEBUG] Found direct string answer, wrapping in array");
+      console.debug("[DEBUG] Found direct string answer, wrapping in array");
       // Direct string answer for single blank
       answerArray = [{ blank_index: 0, answer: answer }];
     }
@@ -740,7 +740,7 @@ export class TextInputGrader {
     );
 
     if (answerArray.length === 0) {
-      console.log("[DEBUG] FAIL: answerArray is empty");
+      console.debug("[DEBUG] FAIL: answerArray is empty");
       return {
         is_correct: false,
         points_earned: 0,
@@ -754,7 +754,7 @@ export class TextInputGrader {
       !questionData.acceptable_answers ||
       !Array.isArray(questionData.acceptable_answers)
     ) {
-      console.log("[DEBUG] FAIL: No acceptable_answers in questionData");
+      console.debug("[DEBUG] FAIL: No acceptable_answers in questionData");
       console.log(
         "[DEBUG] questionData.acceptable_answers:",
         questionData.acceptable_answers,
@@ -879,8 +879,8 @@ export class TextInputGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): Promise<GradingResult> {
-    console.log("\n[DEBUG] ========== SHORT_ANSWER GRADING START ==========");
-    console.log("[DEBUG] question.points:", question.points);
+    console.debug("\n[DEBUG] ========== SHORT_ANSWER GRADING START ==========");
+    console.debug("[DEBUG] question.points:", question.points);
     console.log(
       "[DEBUG] question.questionBank:",
       question.questionBank ? "exists" : "missing",
@@ -905,7 +905,7 @@ export class TextInputGrader {
       }
     }
 
-    console.log("[DEBUG] answer.answer:", answer.answer);
+    console.debug("[DEBUG] answer.answer:", answer.answer);
 
     if (typeof answer.answer !== "string") {
       return {
@@ -928,7 +928,7 @@ export class TextInputGrader {
     }
 
     const maxPoints = parseFloat(String(question.points || 0));
-    console.log("[DEBUG] maxPoints being passed to AI:", maxPoints);
+    console.debug("[DEBUG] maxPoints being passed to AI:", maxPoints);
 
     try {
       const aiResult = await aiService.gradeShortAnswer(
@@ -938,11 +938,10 @@ export class TextInputGrader {
         maxPoints,
         questionData.rubric,
       );
-      console.log("[DEBUG] AI result:", JSON.stringify(aiResult, null, 2));
+      console.debug("[DEBUG] AI result:", JSON.stringify(aiResult, null, 2));
       return aiResult;
     } catch (error) {
-      console.log("[DEBUG] AI grading failed, falling back to keyword-based");
-      // Fallback to keyword-based grading if AI completely fails
+      console.error("[Grader] short_answer: AI grading failed, falling back to keyword-based:", error instanceof Error ? error.message : error);
     }
 
     // Fallback: keyword-based grading
@@ -1086,7 +1085,9 @@ export class InteractiveGrader {
 
     // Validate each mapping
     Object.entries(correctMappings).forEach(([leftId, rightId]) => {
-      const studentRightId = String(answer.matches[leftId]);
+      const studentValue = answer.matches[leftId];
+      if (studentValue == null) return;
+      const studentRightId = String(studentValue);
       const targetRightId = String(rightId);
       if (studentRightId === targetRightId) {
         correctMatches++;
@@ -1376,20 +1377,16 @@ export class InteractiveGrader {
       });
     }
 
-    // 5. Last resort: use first option of each dropdown as correct (for backwards compatibility)
+    // 5. No correct answers configured — cannot grade
     if (Object.keys(correctAnswersMap).length === 0) {
-      console.warn(
-        "[Grader] Dropdown: No correct answers found, using first option as fallback",
+      console.error(
+        "[Grader] Dropdown: No correct answers configured for this question",
       );
-      dropdownOptions.forEach((dropdown: any, idx: number) => {
-        if (dropdown.options && dropdown.options.length > 0) {
-          const opt = dropdown.options[0];
-          correctAnswersMap[idx] =
-            typeof opt === "object"
-              ? String(opt.text || opt.value)
-              : String(opt);
-        }
-      });
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "Dropdown question has no configured correct answers — contact your instructor.",
+      };
     }
 
     // Now compare student selections with correct answers
@@ -1628,13 +1625,13 @@ export class InteractiveGrader {
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'");
 
-    console.log("[DEBUG] Logical Expression Grading:");
-    console.log("[DEBUG] answerData:", JSON.stringify(answerData, null, 2));
-    console.log("[DEBUG] parsed answer:", JSON.stringify(answer, null, 2));
-    console.log("[DEBUG] answer.expression:", answer.expression);
-    console.log("[DEBUG] answer.variables:", answer.variables);
-    console.log("[DEBUG] original correctExpression:", correctExpression);
-    console.log("[DEBUG] decodedCorrectExpression:", decodedCorrectExpression);
+    console.debug("[DEBUG] Logical Expression Grading:");
+    console.debug("[DEBUG] answerData:", JSON.stringify(answerData, null, 2));
+    console.debug("[DEBUG] parsed answer:", JSON.stringify(answer, null, 2));
+    console.debug("[DEBUG] answer.expression:", answer.expression);
+    console.debug("[DEBUG] answer.variables:", answer.variables);
+    console.debug("[DEBUG] original correctExpression:", correctExpression);
+    console.debug("[DEBUG] decodedCorrectExpression:", decodedCorrectExpression);
 
     // Use truth table validation - test student expression against all possible combinations
     let isCorrect = false;
@@ -1658,7 +1655,7 @@ export class InteractiveGrader {
           limitedVars.length,
           "variables",
         );
-        console.log("[DEBUG] Total combinations to test:", combos);
+        console.debug("[DEBUG] Total combinations to test:", combos);
 
         for (let mask = 0; mask < combos; mask++) {
           const env: Record<string, boolean> = {};
@@ -1690,13 +1687,13 @@ export class InteractiveGrader {
         }
 
         if (isCorrect) {
-          console.log("[DEBUG] All combinations matched - answer is CORRECT");
+          console.debug("[DEBUG] All combinations matched - answer is CORRECT");
         }
       }
     } catch (e) {
-      console.log(
-        "[DEBUG] Error during evaluation, falling back to string comparison:",
-        e,
+      console.warn(
+        "[Grader] logical_expression: truth-table evaluation failed, using string comparison:",
+        e instanceof Error ? e.message : e,
       );
       isCorrect =
         normalize(answer.expression) === normalize(decodedCorrectExpression);
@@ -1851,16 +1848,22 @@ export class CodingGrader {
         const token = await Judge0Service.submit(submission);
         const result = await Judge0Service.waitAndGetResult(token);
 
+        const statusId = result.status?.id;
+        const statusDesc = result.status?.description || "Unknown";
+        const passed = statusId === 3; // 3 is "Accepted" in Judge0
         testResults.push({
           testCaseId: tc.id,
-          passed: result.status.id === 3, // 3 is "Accepted"
+          passed,
           input: tc.input,
           expected: tc.expected_output,
           actual: result.stdout,
-          error: result.stderr || result.compile_output || result.message,
+          error: !passed
+            ? (result.stderr || result.compile_output || result.message || statusDesc)
+            : null,
           executionTime: result.time,
           memoryUsed: result.memory,
-          status: result.status.description,
+          status: statusDesc,
+          statusId,
         });
       }
 
@@ -1868,10 +1871,20 @@ export class CodingGrader {
       const totalTests = testResults.length;
       const allPassed = totalTests > 0 && passedTests === totalTests;
 
-      // Perform AI Analysis for Code Quality and Efficiency (40% of score)
-      // Uses provider chain: Gemini → OpenAI → Mock
-      // Ensure correctness is deterministic: only fully correct if all tests pass.
-      // AI can help with partial credit/feedback but should not override correctness.
+      const maxPoints = parseFloat(String(question.points || 0));
+
+      // Weighted score: use per-test-case points if defined, else flat ratio
+      const totalWeight = testCases.reduce(
+        (sum: number, tc: any) => sum + (Number(tc.points) || 1),
+        0,
+      );
+      const earnedWeight = testResults.reduce((sum: number, r: any, i: number) =>
+        r.passed ? sum + (Number(testCases[i]?.points) || 1) : sum, 0,
+      );
+      const testPoints =
+        totalWeight > 0 ? (earnedWeight / totalWeight) * maxPoints : 0;
+
+      // AI Analysis for Code Quality (optional, never overrides test correctness downward)
       let aiResult:
         | {
             is_correct: boolean;
@@ -1888,22 +1901,19 @@ export class CodingGrader {
           finalCode,
           language,
           testResults,
-          parseFloat(String(question.points || 0)),
+          maxPoints,
           questionData.constraints,
         );
       } catch (e) {
         aiResult = undefined;
       }
 
-      const maxPoints = parseFloat(String(question.points || 0));
-      const testPoints =
-        totalTests > 0 ? (passedTests / totalTests) * maxPoints : 0;
-
       const aiPoints =
         typeof aiResult?.points_earned === "number"
           ? aiResult.points_earned
           : 0;
 
+      // AI can only boost, never reduce test-based score
       const combinedPoints = Math.max(testPoints, aiPoints);
       const pointsEarned = Math.max(0, Math.min(combinedPoints, maxPoints));
 

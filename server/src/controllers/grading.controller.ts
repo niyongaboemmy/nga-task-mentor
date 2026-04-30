@@ -10,6 +10,7 @@ import {
 import { getQuestionBankInclude } from "../utils/quizUtils";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
+import { AdvancedQuizGrader } from "../utils/quizGrader";
 
 // @desc    Get pending submissions for grading
 // @route   GET /api/quiz-submissions/pending
@@ -138,6 +139,7 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
                   attributes: [
                     "question_text",
                     "question_type",
+                    "question_data",
                     "correct_answer",
                     "explanation",
                   ],
@@ -196,19 +198,25 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
         max_score: submission.max_score,
         percentage: submission.percentage,
         passed: submission.passed,
-        questions: questions.map((question) => ({
-          question_id: question.id,
-          question_text: question.questionBank?.question_text,
-          question_type: question.questionBank?.question_type,
-          points: question.points,
-          order: question.order,
-          explanation: question.questionBank?.explanation,
-          correct_answer: question.questionBank?.correct_answer,
-          student_answer: attemptsByQuestion[question.id]?.submitted_answer,
-          is_correct: attemptsByQuestion[question.id]?.is_correct,
-          points_earned: attemptsByQuestion[question.id]?.points_earned,
-          time_taken: attemptsByQuestion[question.id]?.time_taken,
-        })),
+        questions: questions.map((question) => {
+          // Use the grader's normalizeCorrectAnswer so the frontend always
+          // receives a consistent format regardless of how the question was saved.
+          const normalized = AdvancedQuizGrader.normalizeCorrectAnswer(question);
+          return {
+            question_id: question.id,
+            question_text: question.questionBank?.question_text,
+            question_type: question.questionBank?.question_type,
+            question_data: question.questionBank?.question_data,
+            points: question.points,
+            order: question.order,
+            explanation: question.questionBank?.explanation,
+            correct_answer: normalized.data,
+            student_answer: attemptsByQuestion[question.id]?.submitted_answer,
+            is_correct: attemptsByQuestion[question.id]?.is_correct,
+            points_earned: attemptsByQuestion[question.id]?.points_earned,
+            time_taken: attemptsByQuestion[question.id]?.time_taken,
+          };
+        }),
       },
     });
   } catch (error) {

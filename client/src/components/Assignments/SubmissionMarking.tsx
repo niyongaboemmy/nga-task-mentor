@@ -47,6 +47,19 @@ interface SubmissionMarkingProps {
   onSuccess?: () => void;
 }
 
+const safeParse = (data: any, fallback: any = []) => {
+  if (!data) return fallback;
+  if (typeof data === "string") {
+    try {
+      return JSON.parse(data);
+    } catch (e) {
+      console.error("Error parsing JSON data:", e);
+      return fallback;
+    }
+  }
+  return data;
+};
+
 const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
   submission,
   assignment,
@@ -55,7 +68,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
 }) => {
   const [rubricScores, setRubricScores] = React.useState<
     Record<number, number>
-  >(submission.rubric_scores || {});
+  >(() => safeParse(submission.rubric_scores, {}));
   const [feedback, setFeedback] = React.useState<string>(
     submission.feedback || "",
   );

@@ -74,6 +74,19 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
     name: string;
   } | null>(null);
 
+  const fileSubmissions = React.useMemo(() => {
+    if (!submission.file_submissions) return [];
+    if (typeof submission.file_submissions === "string") {
+      try {
+        return JSON.parse(submission.file_submissions);
+      } catch (e) {
+        console.error("Error parsing file_submissions:", e);
+        return [];
+      }
+    }
+    return submission.file_submissions;
+  }, [submission.file_submissions]);
+
   const handleDeleteSubmission = async () => {
     if (!submission) return;
 
@@ -251,7 +264,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
           </div>
         )}
 
-        {submission.file_submissions.length > 0 && (
+        {fileSubmissions && fileSubmissions.length > 0 && (
           <div className="mb-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
@@ -269,7 +282,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
                   />
                 </svg>
                 <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Files ({submission.file_submissions.length})
+                  Files ({fileSubmissions.length})
                 </span>
               </div>
               <button
@@ -299,7 +312,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
               </button>
             </div>
             <div className="space-y-2">
-              {submission.file_submissions.map((file, index) => (
+              {fileSubmissions.map((file: any, index: number) => (
                 <div
                   key={index}
                   className="flex items-center justify-between bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-3 border border-gray-200 dark:border-gray-700"

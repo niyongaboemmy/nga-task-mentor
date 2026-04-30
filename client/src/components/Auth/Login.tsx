@@ -1,16 +1,18 @@
 import React from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import HomeNavbar from "../HomeNavbar";
+import { useAuth } from "../../contexts/AuthContext";
 
 const Login: React.FC = () => {
-  // SSO Configuration
-  // SSO Configuration
   const SSO_CLIENT_ID = import.meta.env.VITE_SSO_CLIENT_ID || "taskmentor_app";
   const MIS_LOGIN_URL =
     import.meta.env.VITE_MIS_LOGIN_URL || "https://nga.ac.rw/mis/login";
 
+  const { sessionExpired } = useAuth();
+
   const handleSSOLogin = () => {
-    const redirectUri = window.location.origin + "/taskmentor/sso/callback";
+    const base = (import.meta.env.BASE_URL || "/taskmentor").replace(/\/$/, "");
+    const redirectUri = window.location.origin + base + "/sso/callback";
     window.location.href = `${MIS_LOGIN_URL}?client_id=${SSO_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}`;
   };
 
@@ -23,8 +25,37 @@ const Login: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
-          className="w-full max-w-md"
+          className="w-full max-w-md space-y-3"
         >
+          {/* Session-expired banner */}
+          <AnimatePresence>
+            {sessionExpired && (
+              <motion.div
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                className="flex items-start gap-3 bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 rounded-2xl px-4 py-3 text-sm text-amber-800 dark:text-amber-300"
+              >
+                <svg
+                  className="h-4 w-4 mt-0.5 shrink-0"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  strokeWidth={2}
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                <span>
+                  Your session has expired. Please sign in again to continue.
+                </span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-800 overflow-hidden">
             <div className="p-6 sm:p-8">
               {/* Header */}
@@ -37,59 +68,58 @@ const Login: React.FC = () => {
                   alt="NGA Logo"
                   className="h-24 mx-auto mb-4 object-contain drop-shadow-md"
                 />
-                <h2 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-600 dark:from-blue-400 dark:to-blue-400">
+                <h2 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-400">
                   Welcome to TaskMentor
                 </h2>
-                <p className="mt-3 text-gray-600 dark:text-gray-400">
+                <p className="mt-2 text-gray-600 dark:text-gray-400 text-sm">
                   Student Practical Work Management System
                 </p>
               </div>
 
-              {/* SSO Login Button */}
-              <div className="space-y-6">
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-800">
-                  <div className="flex items-start space-x-3">
-                    <svg
-                      className="h-5 w-5 text-blue-600 dark:text-blue-400 mt-0.5 shrink-0"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
-                      Sign in with your <strong>NGA Central MIS</strong> account
-                      to access TaskMentor.
-                    </p>
-                  </div>
+              {/* SSO info + button */}
+              <div className="space-y-4">
+                <div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-3 rounded-2xl border border-blue-100 dark:border-blue-800 flex items-start gap-3">
+                  <svg
+                    className="h-4 w-4 text-blue-500 dark:text-blue-400 mt-0.5 shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <p className="text-sm text-blue-700 dark:text-blue-300">
+                    Sign in with your{" "}
+                    <strong>NGA Central MIS</strong> account to access
+                    TaskMentor.
+                  </p>
                 </div>
 
                 <button
                   type="button"
                   onClick={handleSSOLogin}
-                  className="w-full flex items-center justify-center space-x-3 py-4 px-6 border border-transparent text-base font-semibold rounded-full text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-500/30 shadow-lg shadow-blue-500/30 transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
+                  className="w-full flex items-center justify-center gap-3 py-4 px-6 text-base font-semibold rounded-full text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-500/30 shadow-lg shadow-blue-500/25 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <img
                     src="/taskmentor/nga-logo.png"
                     alt="NGA"
-                    className="h-6 w-6 object-contain"
+                    className="h-5 w-5 object-contain"
                   />
                   <span>Sign in with NGA MIS</span>
                   <svg
-                    className="h-5 w-5 ml-2"
+                    className="h-4 w-4"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
+                    strokeWidth={2.5}
                   >
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
-                      strokeWidth={2}
                       d="M14 5l7 7m0 0l-7 7m7-7H3"
                     />
                   </svg>
@@ -97,18 +127,17 @@ const Login: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-gray-50/80 dark:bg-gray-800/50 p-4 md:p-6 text-center border-t border-gray-100 dark:border-gray-800">
+            <div className="bg-gray-50/80 dark:bg-gray-800/50 px-6 py-4 text-center border-t border-gray-100 dark:border-gray-800">
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Don't have an account or need password help? Visit{" "}
+                No account or need password help?{" "}
                 <a
                   href="https://nga-central-mis.vercel.app"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+                  className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
                 >
-                  NGA Central MIS
+                  Visit NGA Central MIS
                 </a>
-                .
               </p>
             </div>
           </div>

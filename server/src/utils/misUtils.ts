@@ -17,7 +17,7 @@ export const handleMisError = (
     console.error("🔒 MIS Token Invalid or Expired. Triggering logout.");
 
     // Clear the TaskMentor auth cookie
-    res.cookie("nga_auth_token", "none", {
+    res.cookie("tm_auth_token", "none", {
       expires: new Date(Date.now() + 10 * 1000),
       httpOnly: true,
     });

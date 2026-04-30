@@ -38,6 +38,19 @@ interface SubmissionDetailsModalProps {
   assignment: AssignmentInterface;
 }
 
+const safeParse = (data: any, fallback: any = []) => {
+  if (!data) return fallback;
+  if (typeof data === "string") {
+    try {
+      return JSON.parse(data);
+    } catch (e) {
+      console.error("Error parsing JSON data:", e);
+      return fallback;
+    }
+  }
+  return data;
+};
+
 const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
   isOpen,
   onClose,
@@ -54,8 +67,8 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
   } | null>(null);
   const [newComment, setNewComment] = React.useState("");
   const [isSubmittingComment, setIsSubmittingComment] = React.useState(false);
-  const [localComments, setLocalComments] = React.useState<any[]>(
-    submission.comments || [],
+  const [localComments, setLocalComments] = React.useState<any[]>(() =>
+    safeParse(submission.comments, []),
   );
   const [showBreakdown, setShowBreakdown] = React.useState(true);
 
@@ -72,7 +85,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
       );
 
       if (response.data.success) {
-        setLocalComments(response.data.data.comments);
+        setLocalComments(safeParse(response.data.data.comments || response.data.data, []));
         setNewComment("");
         toast.success("Comment added successfully");
       }
@@ -121,6 +134,19 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
     }
     return assignment.rubric;
   }, [assignment.rubric]);
+
+  const fileSubmissions = React.useMemo(() => {
+    if (!submission.file_submissions) return [];
+    if (typeof submission.file_submissions === "string") {
+      try {
+        return JSON.parse(submission.file_submissions);
+      } catch (e) {
+        console.error("Error parsing file_submissions:", e);
+        return [];
+      }
+    }
+    return submission.file_submissions;
+  }, [submission.file_submissions]);
 
   if (!isOpen) return null;
 
@@ -264,8 +290,8 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                     >
                       <div className="p-8 space-y-6">
                         {rubric.map((criterion: any, index: number) => {
-                          const scoreValue =
-                            submission.rubric_scores?.[index] || 0;
+                          const parsedRubricScores = safeParse(submission.rubric_scores, {});
+                          const scoreValue = parsedRubricScores?.[index] || 0;
                           const ratio = scoreValue / criterion.max_score;
 
                           return (
@@ -321,7 +347,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
 
               <div className="grid grid-cols-1 md:grid-cols-1 gap-0">
                 {/* File List */}
-                {submission.file_submissions && (
+                {fileSubmissions && fileSubmissions.length > 0 && (
                   <div
                     className={`bg-white dark:bg-gray-900/50 ${submission.text_submission ? "rounded-t-3xl" : "rounded-3xl"} border border-gray-100 dark:border-gray-900 p-6 space-y-4`}
                   >
@@ -329,7 +355,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                       <Download className="w-3 h-3" /> Sent Files
                     </h4>
                     <div className="space-y-3">
-                      {submission.file_submissions.map(
+                      {fileSubmissions.map(
                         (file: any, idx: number) => (
                           <div
                             key={idx}
@@ -394,9 +420,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   <div
                     className={
                       `bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-900 p-5 space-y-4` +
-                      (submission.file_submissions
-                        ? " rounded-b-3xl"
-                        : " rounded-3xl")
+                      (fileSubmissions.length > 0 ? " rounded-b-3xl" : " rounded-3xl")
                     }
                   >
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400">

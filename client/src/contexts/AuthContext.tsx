@@ -1,4 +1,11 @@
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from "react";
 import api from "../utils/axiosConfig";
 import { useDispatch } from "react-redux";
 import { useTheme } from "./ThemeContext";
@@ -9,7 +16,6 @@ import type {
   UserResponse,
 } from "../types/user.types";
 
-// Use the pre-configured api instance
 const apiAxios = api;
 
 export type UserProfileData = UserFullData;
@@ -27,7 +33,6 @@ interface User {
   department?: string;
   user_type?: string;
   mis_user_id?: number;
-  // New fields
   gender?: string;
   date_of_birth?: string | null;
   address?: string | null;
@@ -44,11 +49,13 @@ interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
   loading: boolean;
+  sessionExpired: boolean;
   logoutUser: () => void;
   updateProfile: (userData: Partial<User>) => Promise<void>;
   updateProfileImage: (imageUrl: string) => Promise<void>;
   removeProfileImage: () => Promise<void>;
   checkAuth: () => Promise<void>;
+  loginWithSSOData: (callbackResponse: any) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -66,189 +73,245 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 }) => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isAuthInitializing, setIsAuthInitializing] = useState(false);
+  const [sessionExpired, setSessionExpired] = useState(false);
+  // useRef instead of useState so reads are always synchronous (no stale closure race)
+  const isAuthInitializing = useRef(false);
   const dispatch = useDispatch();
   const { setTheme } = useTheme();
 
-  // Move initializeAuth to be accessible by other methods
-  const initializeAuth = async (options?: { manual?: boolean }) => {
-    // ... logic remains same ...
-    // Prevent multiple simultaneous auth checks
-    if (isAuthInitializing) {
-      return;
-    }
+  const initializeAuth = useCallback(
+    async (options?: { manual?: boolean }) => {
+      if (isAuthInitializing.current) {
+        return;
+      }
 
-    // Skip auth check if we're on the SSO callback page
-    // The callback page will handle authentication itself
-    const currentPath = window.location.pathname;
-    const callbackPath = "/sso/callback";
-    const baseUrl = import.meta.env.BASE_URL || "";
-    const fullCallbackPath = baseUrl + callbackPath;
+      const currentPath = window.location.pathname;
+      const baseUrl = import.meta.env.BASE_URL || "";
+      const fullCallbackPath = (baseUrl + "/sso/callback").replace(/\/+/g, "/");
+      const isAutomaticCheck = !options?.manual;
 
-    // Only skip automatic auth check on mount, but allow manual checkAuth() calls
-    const isAutomaticCheck = !options?.manual;
+      // Skip automatic auth check on SSO callback page — Callback.tsx manages its own state
+      if (
+        isAutomaticCheck &&
+        (currentPath.includes("callback") ||
+          currentPath === fullCallbackPath)
+      ) {
+        console.log(
+          "ℹ️ AuthContext: Skipping automatic auth check on SSO callback page",
+        );
+        setLoading(false);
+        return;
+      }
 
-    if (
-      isAutomaticCheck &&
-      (currentPath.includes("callback") ||
-        currentPath === callbackPath ||
-        currentPath === fullCallbackPath)
-    ) {
-      console.log(
-        "ℹ️ AuthContext: Skipping automatic auth check on SSO callback page",
-      );
-      setIsAuthInitializing(false);
-      setLoading(false);
-      return;
-    }
-    setIsAuthInitializing(true);
+      isAuthInitializing.current = true;
 
-    // Small delay to ensure cookies are properly set after SSO callback
-    await new Promise((resolve) => setTimeout(resolve, 100));
+      // Small delay to ensure cookies are properly committed after SSO callback
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-    try {
-      // Cookies are automatically sent withCredentials: true
-      console.log("🔍 Checking authentication status...");
-      const response = await apiAxios.get("/auth/me");
+      try {
+        console.log("🔍 Checking authentication status...");
+        const response = await apiAxios.get("/auth/me");
+        console.log("✅ Auth check successful, user data received");
 
-      console.log("✅ Auth check successful, user data received");
+        const responseData: UserFullData = response.data.data;
+        const userData: User = {
+          id: (
+            responseData.user?.id ||
+            responseData.user?.user_id ||
+            ""
+          ).toString(),
+          first_name:
+            responseData.user?.first_name ||
+            responseData.profile?.first_name ||
+            "",
+          last_name:
+            responseData.user?.last_name ||
+            responseData.profile?.last_name ||
+            "",
+          email: responseData.user?.email || "",
+          role: responseData.user?.role || "student",
+          roles: (responseData.roles || []).map((r: CentralRole) => ({
+            id: r.role_id,
+            name: r.name,
+          })),
+          permissions: responseData.permissions || [],
+          profile_image: responseData.user?.profile_image,
+          department: undefined,
+          user_type:
+            responseData.profile?.user_type || responseData.user?.role,
+          mis_user_id:
+            responseData.user?.mis_user_id || responseData.user?.user_id,
+          preferred_theme: responseData.user?.preferred_theme,
+          systems: responseData.systems,
+          gender: responseData.profile?.gender,
+          date_of_birth: responseData.profile?.date_of_birth,
+          address: responseData.profile?.address,
+          external_id: responseData.profile?.external_id,
+          assigned_programs: responseData.assignedPrograms,
+          assigned_grades: responseData.assignedGrades,
+          currentAcademicYear: (responseData as any).currentAcademicYear,
+          currentAcademicTerm:
+            (responseData as any).currentAcademicTerms?.find(
+              (t: any) => t.is_current === 1,
+            ) || (responseData as any).currentAcademicTerms?.[0],
+        };
 
-      const responseData: UserFullData = response.data.data;
+        setUser(userData);
+        dispatch(loginSuccess(userData));
+        console.log("🎉 User authenticated successfully:", userData.email);
+
+        if (userData.preferred_theme) {
+          setTheme(userData.preferred_theme);
+        }
+
+        if ((responseData as any).misToken) {
+          localStorage.setItem("misToken", (responseData as any).misToken);
+        }
+
+        const loginPath = (import.meta.env.BASE_URL + "/login").replace(
+          /\/+/g,
+          "/",
+        );
+        const dashboardPath = (
+          import.meta.env.BASE_URL + "/dashboard"
+        ).replace(/\/+/g, "/");
+
+        if (
+          currentPath === loginPath ||
+          currentPath === "/login" ||
+          currentPath.includes("callback") ||
+          currentPath.includes("sso")
+        ) {
+          console.log(
+            "🔄 AuthContext: Redirecting authenticated user to dashboard",
+          );
+          window.location.href = dashboardPath;
+        }
+      } catch (error: any) {
+        if (error.response?.status === 401) {
+          console.log("ℹ️ AuthContext: User not authenticated (guest)");
+
+          const isSsoRelated =
+            currentPath.includes("callback") ||
+            currentPath.includes("sso") ||
+            currentPath === "/login";
+
+          if (!isSsoRelated) {
+            // Had a token but it's no longer valid — session expired
+            if (localStorage.getItem("tm_auth_token")) {
+              setSessionExpired(true);
+            }
+            localStorage.removeItem("tm_auth_token");
+            localStorage.removeItem("misToken");
+          }
+        } else {
+          console.error("❌ AuthContext: Auth check failed", error);
+        }
+      } finally {
+        isAuthInitializing.current = false;
+        setLoading(false);
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
+
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
+  // Stable reference — safe to put in useEffect dependency arrays
+  const checkAuth = useCallback(async () => {
+    console.log("🔄 Manually checking authentication status...");
+    isAuthInitializing.current = false; // reset so initializeAuth proceeds
+    await initializeAuth({ manual: true });
+    console.log("✅ Authentication check completed");
+  }, [initializeAuth]);
+
+  /**
+   * Set auth state directly from SSO callback response data.
+   * Avoids an extra /auth/me → MIS /users/me round-trip after SSO.
+   */
+  const loginWithSSOData = useCallback(
+    (callbackResponse: any) => {
+      const {
+        user: localUser,
+        profile: misProfile,
+        roles,
+        permissions,
+        assignedPrograms,
+        assignedGrades,
+        currentAcademicYear,
+        currentAcademicTerms,
+        systems,
+        misToken,
+      } = callbackResponse;
+
+      const preferred_theme =
+        localUser?.preferred_theme ||
+        callbackResponse.preferred_theme ||
+        null;
+
       const userData: User = {
-        id: (
-          responseData.user?.id ||
-          responseData.user?.user_id ||
-          ""
-        ).toString(),
+        id: (localUser?.id || "").toString(),
         first_name:
-          responseData.user?.first_name ||
-          responseData.profile?.first_name ||
-          "",
+          localUser?.first_name || misProfile?.first_name || "",
         last_name:
-          responseData.user?.last_name || responseData.profile?.last_name || "",
-        email: responseData.user?.email || "",
-        role: responseData.user?.role || "student",
-        roles: (responseData.roles || []).map((r: CentralRole) => ({
-          id: r.role_id,
+          localUser?.last_name || misProfile?.last_name || "",
+        email: localUser?.email || "",
+        role: localUser?.role || "student",
+        roles: (roles || []).map((r: any) => ({
+          id: r.role_id ?? r.id,
           name: r.name,
         })),
-        permissions: responseData.permissions || [],
-        profile_image: responseData.user?.profile_image,
-        department: undefined,
-        user_type: responseData.profile?.user_type || responseData.user?.role,
-        mis_user_id:
-          responseData.user?.mis_user_id || responseData.user?.user_id,
-        preferred_theme: responseData.user?.preferred_theme,
-        systems: responseData.systems,
-        // Map new fields
-        gender: responseData.profile?.gender,
-        date_of_birth: responseData.profile?.date_of_birth,
-        address: responseData.profile?.address,
-        external_id: responseData.profile?.external_id,
-        assigned_programs: responseData.assignedPrograms,
-        assigned_grades: responseData.assignedGrades,
-        currentAcademicYear: (responseData as any).currentAcademicYear,
+        permissions: permissions || [],
+        profile_image: localUser?.profile_image,
+        user_type: misProfile?.user_type || localUser?.role,
+        mis_user_id: localUser?.mis_user_id,
+        preferred_theme: preferred_theme,
+        systems: systems || [],
+        gender: misProfile?.gender,
+        date_of_birth: misProfile?.date_of_birth,
+        address: misProfile?.address,
+        external_id: misProfile?.external_id,
+        assigned_programs: assignedPrograms || [],
+        assigned_grades: assignedGrades || [],
+        currentAcademicYear: currentAcademicYear || null,
         currentAcademicTerm:
-          (responseData as any).currentAcademicTerms?.find(
+          (currentAcademicTerms || []).find(
             (t: any) => t.is_current === 1,
-          ) || (responseData as any).currentAcademicTerms?.[0],
+          ) || (currentAcademicTerms || [])[0] || null,
       };
 
       setUser(userData);
       dispatch(loginSuccess(userData));
-      console.log("🎉 User authenticated successfully:", userData.email);
-
-      // Sync theme if provided
-      if (userData.preferred_theme) {
-        setTheme(userData.preferred_theme);
-      }
-
-      // Persist misToken if returned
-      if ((responseData as any).misToken) {
-        localStorage.setItem("misToken", (responseData as any).misToken);
-      }
-
-      const currentPath = window.location.pathname;
-      const loginPath = (import.meta.env.BASE_URL + "/login").replace(
-        /\/+/g,
-        "/",
-      );
-      const dashboardPath = (import.meta.env.BASE_URL + "/dashboard").replace(
-        /\/+/g,
-        "/",
-      );
-
-      // Redirect to dashboard if user is authenticated but on login or callback pages
-      if (
-        currentPath === loginPath ||
-        currentPath === "/login" ||
-        currentPath.includes("callback") ||
-        currentPath.includes("sso")
-      ) {
-        console.log(
-          "🔄 AuthContext: Redirecting authenticated user to dashboard",
-        );
-        window.location.href = dashboardPath;
-      }
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        console.log("ℹ️ AuthContext: User not authenticated (guest)");
-
-        // Don't redirect to login if we're on SSO-related pages
-        const currentPath = window.location.pathname;
-        const isSsoRelated =
-          currentPath.includes("callback") ||
-          currentPath.includes("sso") ||
-          currentPath === "/login";
-
-        if (!isSsoRelated) {
-          console.log(
-            "🔄 AuthContext: Redirecting unauthenticated user to login",
-          );
-          // Clear any stale tokens
-          localStorage.removeItem("nga_auth_token");
-          localStorage.removeItem("misToken");
-        }
-      } else {
-        console.error("❌ AuthContext: Auth check failed", error);
-      }
-    } finally {
-      setIsAuthInitializing(false);
+      setSessionExpired(false);
       setLoading(false);
-    }
-  };
 
-  // Check auth on mount
-  useEffect(() => {
-    initializeAuth();
-  }, []);
+      if (preferred_theme) {
+        setTheme(preferred_theme as "light" | "dark");
+      }
 
-  const checkAuth = async () => {
-    console.log("🔄 Manually checking authentication status...");
-    setIsAuthInitializing(false); // Reset to ensure it runs
-    await initializeAuth({ manual: true });
-    console.log("✅ Authentication check completed");
-  };
+      if (misToken) {
+        localStorage.setItem("misToken", misToken);
+      }
 
-  // Login is now handled via SSO redirect in Login.tsx and Callback.tsx
+      console.log("🎉 SSO user state set directly:", userData.email);
+    },
+    [dispatch, setTheme],
+  );
 
   const updateProfile = async (userData: Partial<User>) => {
     try {
-      console.log("Updating profile for user:", userData);
-      // Use local proxy instead of direct MIS call
       const response = await apiAxios.put("/auth/updatedetails", userData);
       const responseData = response.data.data;
-
-      // Update local state with returned data
       const updatedUser = {
-        ...user!, // preserve existing fields
+        ...user!,
         id: responseData.id.toString(),
         first_name: responseData.first_name,
         last_name: responseData.last_name,
         email: responseData.email,
-        // Update other fields as returned by profile update response
       };
-
       setUser(updatedUser);
       dispatch(loginSuccess(updatedUser));
     } catch (error) {
@@ -262,7 +325,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser((prevUser) =>
         prevUser ? { ...prevUser, profile_image: imageUrl } : null,
       );
-      // Also update in Redux store
       if (user) {
         dispatch(loginSuccess({ ...user, profile_image: imageUrl }));
       }
@@ -277,7 +339,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       setUser((prevUser) =>
         prevUser ? { ...prevUser, profile_image: undefined } : null,
       );
-      // Also update in Redux store
       if (user) {
         dispatch(loginSuccess({ ...user, profile_image: undefined }));
       }
@@ -294,9 +355,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (err) {
       console.error("Logout failed", err);
     }
-    localStorage.removeItem("nga_auth_token");
+    localStorage.removeItem("tm_auth_token");
     localStorage.removeItem("misToken");
+    // Clear any lingering SSO session keys so a fresh login always works
+    for (const key of Object.keys(sessionStorage)) {
+      if (key.startsWith("sso_code_processed_")) sessionStorage.removeItem(key);
+    }
     setUser(null);
+    setSessionExpired(false);
     dispatch(logout());
     window.location.href = (import.meta.env.BASE_URL + "/login").replace(
       /\/+/g,
@@ -308,12 +374,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     user,
     isAuthenticated: !!user,
     loading,
+    sessionExpired,
     logoutUser,
     updateProfile,
     updateProfileImage,
     removeProfileImage,
     checkAuth,
+    loginWithSSOData,
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+  );
 };

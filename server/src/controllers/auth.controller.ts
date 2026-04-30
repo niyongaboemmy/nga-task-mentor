@@ -254,14 +254,13 @@ export const verifyOtp = async (req: Request, res: Response) => {
       sameSite: "lax" as const,
     };
 
-    res.cookie("nga_auth_token", localToken, cookieOptions);
+    res.cookie("tm_auth_token", localToken, cookieOptions);
     res.cookie("misToken", token, cookieOptions);
 
-    // Return user data (no tokens in body needed really, but keeping for compatibility if needed)
     res.status(200).json({
       success: true,
-      token: localToken, // Optional: remove if full cookie auth
-      misToken: token, // Optional: remove if full cookie auth
+      token: localToken,
+      misToken: token,
       user: {
         id: localUser.id,
         first_name: localUser.first_name,
@@ -590,7 +589,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
       sameSite: "lax" as const,
     };
 
-    res.cookie("nga_auth_token", token, cookieOptions);
+    res.cookie("tm_auth_token", token, cookieOptions);
     res.cookie("misToken", misToken, cookieOptions);
 
     console.log("✅ SSO Login successful for:", localUser.email);
@@ -663,7 +662,7 @@ export const refreshToken = async (req: Request, res: Response) => {
   // Implementation of actual refresh token with rotation is complex.
   // For now, we can just validate the existing token and issue a new one if valid.
   try {
-    const token = req.cookies.nga_auth_token;
+    const token = req.cookies.tm_auth_token;
     if (!token) return res.status(401).json({ message: "No token provided" });
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
@@ -683,7 +682,7 @@ export const refreshToken = async (req: Request, res: Response) => {
       secure: process.env.NODE_ENV === "production",
     };
 
-    res.cookie("nga_auth_token", newToken, cookieOptions);
+    res.cookie("tm_auth_token", newToken, cookieOptions);
 
     res.status(200).json({ success: true, token: newToken });
   } catch (error) {
@@ -693,7 +692,7 @@ export const refreshToken = async (req: Request, res: Response) => {
 
 // Logout
 export const logout = async (req: Request, res: Response) => {
-  res.cookie("nga_auth_token", "none", {
+  res.cookie("tm_auth_token", "none", {
     expires: new Date(Date.now() + 10 * 1000),
     httpOnly: true,
   });
@@ -823,7 +822,7 @@ export const getMe = async (req: Request, res: Response) => {
           headers: {
             Authorization: `Bearer ${misToken}`,
           },
-          // Enforce HTTPS in production
+          timeout: 10000, // 10-second hard cap — don't hold up the session check
           httpsAgent:
             process.env.NODE_ENV === "production"
               ? new (require("https").Agent)({ rejectUnauthorized: true })
@@ -833,8 +832,7 @@ export const getMe = async (req: Request, res: Response) => {
 
       const misData = misResponse.data.data;
 
-      // Return combined local and MIS data
-      res.status(200).json({
+      return res.status(200).json({
         success: true,
         data: {
           user: {
@@ -856,15 +854,38 @@ export const getMe = async (req: Request, res: Response) => {
           currentAcademicYear: misData.currentAcademicYear,
           currentAcademicTerms: misData.currentAcademicTerms,
           systems: misData.systems,
-          misToken: misToken, // Include misToken for frontend persistence safely
+          misToken: misToken,
         },
       });
-    } catch (misError) {
-      return handleMisError(
-        misError,
-        res,
-        "MIS API error during profile fetch",
+    } catch (misError: any) {
+      // MIS is slow or down — return local data so the session stays alive.
+      // The frontend can still function with partial data.
+      console.warn(
+        "⚠️ MIS /users/me unavailable, falling back to local user data:",
+        misError.message,
       );
+      return res.status(200).json({
+        success: true,
+        data: {
+          user: {
+            id: user.id,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            role: user.role,
+            mis_user_id: user.mis_user_id,
+            profile_image: user.profile_image,
+            preferred_theme: null,
+          },
+          profile: null,
+          roles: [],
+          permissions: [],
+          assignedPrograms: [],
+          assignedGrades: [],
+          forcePasswordChange: false,
+          misDataUnavailable: true,
+        },
+      });
     }
   } catch (error) {
     console.error("Get me error:", error);
@@ -1113,7 +1134,7 @@ export const updatePassword = async (req: Request, res: Response) => {
       secure: process.env.NODE_ENV === "production",
       sameSite: "lax" as const,
     };
-    res.cookie("nga_auth_token", token, cookieOptions);
+    res.cookie("tm_auth_token", token, cookieOptions);
     if (newMisToken !== misToken) {
       res.cookie("misToken", newMisToken, cookieOptions);
     }

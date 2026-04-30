@@ -271,7 +271,7 @@ const QuizSubmissionsPage: React.FC = () => {
             </button>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-xl animate-in slide-in-from-bottom duration-500">
+          <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-in slide-in-from-bottom duration-500">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
@@ -297,7 +297,7 @@ const QuizSubmissionsPage: React.FC = () => {
 
               {/* Mini Stats */}
               <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-3 border border-blue-200/50 dark:border-blue-800/50 hover:shadow-lg transition-all duration-200 hover:scale-105">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-3 border border-blue-200/50 dark:border-blue-800/50 transition-all duration-200 hover:scale-105">
                   <div className="flex items-center gap-2">
                     <Users className="w-4 h-4 text-blue-600" />
                     <div>
@@ -311,7 +311,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-3 border border-green-200/50 dark:border-green-800/50 hover:shadow-lg transition-all duration-200 hover:scale-105">
+                <div className="bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 rounded-xl p-3 border border-green-200/50 dark:border-green-800/50 transition-all duration-200 hover:scale-105">
                   <div className="flex items-center gap-2">
                     <CheckCircle className="w-4 h-4 text-green-600" />
                     <div>
@@ -325,7 +325,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-3 border border-blue-200/50 dark:border-blue-800/50 hover:shadow-lg transition-all duration-200 hover:scale-105">
+                <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 rounded-xl p-3 border border-blue-200/50 dark:border-blue-800/50 transition-all duration-200 hover:scale-105">
                   <div className="flex items-center gap-2">
                     <TrendingUp className="w-4 h-4 text-blue-600" />
                     <div>
@@ -339,7 +339,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   </div>
                 </div>
 
-                <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-xl p-3 border border-amber-200/50 dark:border-amber-800/50 hover:shadow-lg transition-all duration-200 hover:scale-105">
+                <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-900/20 dark:to-amber-800/20 rounded-xl p-3 border border-amber-200/50 dark:border-amber-800/50 transition-all duration-200 hover:scale-105">
                   <div className="flex items-center gap-2">
                     <Award className="w-4 h-4 text-amber-600" />
                     <div>
@@ -358,7 +358,7 @@ const QuizSubmissionsPage: React.FC = () => {
         </div>
 
         {/* Controls */}
-        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl p-4 mb-4 sm:mb-6 shadow-lg">
+        <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl p-4 mb-4 sm:mb-6">
           <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
             <div className="flex-1">
               <div className="relative">
@@ -529,7 +529,7 @@ const QuizSubmissionsPage: React.FC = () => {
                     <button
                       onClick={() =>
                         navigate(
-                          `/quizzes/${quizId}/results/${submission.submission_id}`,
+                          `/quizzes/${quizId}/submissions/${submission.submission_id}`,
                         )
                       }
                       className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-500 text-white text-xs font-medium rounded-xl hover:from-blue-600 hover:to-blue-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
@@ -626,7 +626,7 @@ const QuizSubmissionsPage: React.FC = () => {
                           <button
                             onClick={() =>
                               navigate(
-                                `/quizzes/${quizId}/results/${submission.submission_id}`,
+                                `/quizzes/${quizId}/submissions/${submission.submission_id}`,
                               )
                             }
                             className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-500 text-white text-xs font-medium rounded-lg hover:from-blue-600 hover:to-blue-600 transition-all duration-200 hover:scale-105"

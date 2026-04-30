@@ -6,8 +6,9 @@ export default defineConfig({
   plugins: [react()],
   base: "/taskmentor",
   server: {
-    port: 5173,
+    port: 5174,
     host: true,
+    strictPort: true, // fail fast if port is taken, don't silently increment
   },
   optimizeDeps: {
     include: ["sanitize-html", "jquery"],
@@ -19,6 +20,6 @@ export default defineConfig({
   },
   build: {
     outDir: "dist",
-    sourcemap: true,
+    sourcemap: false,
   },
 });

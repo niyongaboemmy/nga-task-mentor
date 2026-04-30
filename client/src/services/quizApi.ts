@@ -271,6 +271,41 @@ export class QuizApiService {
     return response.data;
   }
 
+  /** Instructor prep: run starter code against test cases without creating a submission */
+  static async previewRunTests(data: {
+    code: string;
+    language: string;
+    test_cases: Array<{
+      id: string;
+      input: string;
+      expected_output: string;
+      is_hidden?: boolean;
+      points?: number;
+    }>;
+  }): Promise<{
+    success: boolean;
+    data: {
+      results: Array<{
+        testCaseId: string;
+        passed: boolean | null;
+        input: string | null;
+        expected: string | null;
+        actual: string | null;
+        error: string | null;
+        executionTime: number;
+        memoryUsed: number | null;
+        status: string;
+        is_hidden: boolean;
+      }>;
+      passed: number;
+      total: number;
+      web_preview?: boolean;
+    };
+  }> {
+    const response = await axios.post("/quizzes/preview-run", data);
+    return response.data;
+  }
+
   // Grading and Analytics
   static async getPendingSubmissions(
     courseId?: number,

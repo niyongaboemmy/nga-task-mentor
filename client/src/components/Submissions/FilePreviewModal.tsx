@@ -64,7 +64,7 @@ const FilePreviewModal: React.FC<FilePreviewModalProps> = ({
       size="xxl"
       className="!max-w-6xl"
     >
-      <div className="h-[75vh] flex flex-col -m-4 overflow-hidden rounded-b-2xl">
+      <div className="h-[75vh] flex flex-col -m-4 overflow-hidden overflow-y-auto rounded-b-2xl">
         {extension === "pdf" ? (
           <iframe
             src={fileUrl}

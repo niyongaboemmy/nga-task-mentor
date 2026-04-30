@@ -20,14 +20,13 @@ import { uploadSubmission } from "../middleware/submissionUpload";
 
 const router = Router();
 
-// Public routes
-router.get("/", getAssignments);
-// Get enrolled assignments for students
-router.get("/enrolled", protect, authorize("student"), getEnrolledAssignments);
-router.get("/:id", getAssignment);
-
-// Protected routes
+// All routes require authentication
 router.use(protect);
+
+// Get enrolled assignments for students
+router.get("/enrolled", authorize("student"), getEnrolledAssignments);
+router.get("/", getAssignments);
+router.get("/:id", getAssignment);
 
 // Instructor and admin routes - these should be for general assignment operations
 // Instructor and admin routes - these should be for general assignment operations
@@ -71,11 +70,9 @@ router.patch(
   updateAssignmentStatus,
 );
 
-// Submit assignment (for students) - temporarily remove auth for testing
 router.post(
   "/:id/submit",
-  uploadSubmission.single("file_submission"), // Apply shared multer middleware
-  protect,
+  uploadSubmission.single("file_submission"),
   authorize("student"),
   submitAssignment,
 );
