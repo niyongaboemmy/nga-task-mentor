@@ -17,13 +17,21 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
   const questionData = question.question_data as TrueFalseData;
   const currentAnswer = answer as TrueFalseAnswer | undefined;
 
-  const [selectedAnswer, setSelectedAnswer] = useState<boolean | null>(
-    currentAnswer?.selected_answer ?? null,
-  );
+  const [selectedAnswer, setSelectedAnswer] = useState<boolean | null>(() => {
+    if (currentAnswer === null || currentAnswer === undefined) return null;
+    if (typeof (currentAnswer as any) === "boolean") return currentAnswer as any;
+    return (currentAnswer as any).selected_answer ?? null;
+  });
 
   useEffect(() => {
-    if (currentAnswer?.selected_answer !== undefined) {
-      setSelectedAnswer(currentAnswer.selected_answer);
+    if (currentAnswer !== undefined && currentAnswer !== null) {
+      if (typeof (currentAnswer as any) === "boolean") {
+        setSelectedAnswer(currentAnswer as any);
+      } else if ((currentAnswer as any).selected_answer !== undefined) {
+        setSelectedAnswer((currentAnswer as any).selected_answer);
+      }
+    } else {
+      setSelectedAnswer(null);
     }
   }, [currentAnswer]);
 

@@ -18,7 +18,11 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
   const shortAnswerData: ShortAnswerData =
     question.question_data as ShortAnswerData;
 
-  const [text, setText] = useState((answer as ShortAnswerAnswer)?.answer || "");
+  const [text, setText] = useState<string>(() => {
+    if (!answer) return "";
+    if (typeof answer === "string") return answer;
+    return (answer as any).answer || "";
+  });
   const [wordCount, setWordCount] = useState(0);
   const [charCount, setCharCount] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
@@ -26,8 +30,15 @@ export const ShortAnswerQuestion: React.FC<QuestionComponentProps> = ({
 
   useEffect(() => {
     if (answer) {
-      setText((answer as ShortAnswerAnswer).answer || "");
-      setIsSaved(true); // Mark as saved if we have an existing answer
+      if (typeof answer === "string") {
+        setText(answer);
+      } else {
+        setText((answer as any).answer || "");
+      }
+      setIsSaved(true);
+    } else {
+      setText("");
+      setIsSaved(false);
     }
   }, [answer]);
 

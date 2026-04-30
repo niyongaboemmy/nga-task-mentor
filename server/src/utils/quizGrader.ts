@@ -77,94 +77,76 @@ const stripHtml = (html: any): string => {
 export class ChoiceQuestionGrader {
   static gradeSingleChoice(
     question: QuizQuestion,
-    answerData: AnswerDataType,
+    answerData: any,
   ): GradingResult {
     // Validate inputs
-    if (!question || !answerData) {
+    if (!question || answerData === undefined || answerData === null) {
       return {
         is_correct: false,
         points_earned: 0,
         feedback: "Invalid question or answer data",
       };
     }
-
-    // Parse answerData if it's a JSON string from database
-    let parsedAnswerData = answerData;
-    if (typeof answerData === "string") {
-      try {
-        parsedAnswerData = JSON.parse(answerData);
-      } catch (e) {
-        return {
-          is_correct: false,
-          points_earned: 0,
-          feedback: "Invalid answer format",
-        };
-      }
-    }
-
-    const answer = parsedAnswerData as {
-      selected_option_index: number | string;
-    };
-
-    // Normalize correct answer from question
+    // 1. Normalize correct answer from question
     const normalizedCorrect =
       AdvancedQuizGrader.normalizeCorrectAnswer(question);
     const correctAnswerData = normalizedCorrect.data;
 
-    // Validate answer format and convert to number if needed
-    let answerIndex: number;
-    if (typeof answer.selected_option_index === "string") {
-      answerIndex = parseInt(answer.selected_option_index, 10);
-      if (isNaN(answerIndex)) {
-        return {
-          is_correct: false,
-          points_earned: 0,
-          feedback:
-            "Invalid answer format - selected_option_index must be a number",
-        };
+    // 2. Extract indices robustly
+    const getIndex = (val: any): number | null => {
+      if (val === null || val === undefined) return null;
+      if (typeof val === "number") return val;
+      if (typeof val === "string") {
+        const parsed = parseInt(val.trim(), 10);
+        return isNaN(parsed) ? null : parsed;
       }
-    } else if (typeof answer.selected_option_index === "number") {
-      answerIndex = answer.selected_option_index;
-    } else {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback: `Invalid answer format - selected_option_index must be a number. Received: ${JSON.stringify(
-          answer.selected_option_index,
-        )} of type ${typeof answer.selected_option_index}`,
-      };
-    }
+      if (Array.isArray(val)) return val.length > 0 ? getIndex(val[0]) : null;
+      if (typeof val === "object") {
+        return getIndex(val.selected_option_index ?? val.correct_option_index);
+      }
+      return null;
+    };
 
-    // Validate correct answer format
-    if (
-      !correctAnswerData ||
-      typeof correctAnswerData !== "object" ||
-      typeof correctAnswerData.selected_option_index !== "number"
-    ) {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback: `Question has no valid correct answer. correctAnswerData: ${JSON.stringify(
-          correctAnswerData,
-        )}, question_data: ${JSON.stringify(
-          question.questionBank?.question_data,
-        )}, correct_answer: ${JSON.stringify(question.questionBank?.correct_answer)}`,
-      };
-    }
+    const studentIndex = getIndex(answerData);
+    const correctIndex = getIndex(correctAnswerData);
 
-    const correctAnswer = correctAnswerData.selected_option_index;
-    const isCorrect = String(answerIndex) === String(correctAnswer);
-
-    console.log(`[Basic Grader] Single Choice Match:`, {
-      student: answerIndex,
-      correct: correctAnswer,
-      isCorrect,
+    // 3. Log diagnostic info
+    console.log(`[Grading] Single Choice Diagnostic:`, {
+      question_id: question.id,
+      student_index: studentIndex,
+      student_type: typeof studentIndex,
+      correct_index: correctIndex,
+      correct_type: typeof correctIndex,
+      raw_student_data: JSON.stringify(answerData),
+      raw_correct_data: JSON.stringify(correctAnswerData),
     });
+
+    // 4. Validate presence of data
+    if (correctIndex === null) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: `Question has no valid correct answer. Raw correct data: ${JSON.stringify(
+          correctAnswerData,
+        )}`,
+      };
+    }
+
+    if (studentIndex === null) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "No answer provided or invalid answer format",
+      };
+    }
+
+    // 5. Compare
+    const isCorrect = studentIndex === correctIndex;
 
     return {
       is_correct: isCorrect,
       points_earned: isCorrect ? parseFloat(String(question.points || 0)) : 0,
-      feedback: isCorrect ? "Correct!" : "Incorrect selection",
+      feedback: isCorrect ? "Correct" : "Incorrect",
     };
   }
 
@@ -1052,13 +1034,12 @@ export class InteractiveGrader {
       typeof questionData.correct_matches === "object"
     ) {
       correctMappings = questionData.correct_matches;
-    } else if (
-      question.questionBank?.correct_answer &&
-      (question.questionBank?.correct_answer as any).mappings &&
-      typeof (question.questionBank?.correct_answer as any).mappings ===
-        "object"
-    ) {
-      correctMappings = (question.questionBank?.correct_answer as any).mappings;
+    } else if (question.questionBank?.correct_answer) {
+      const ca = question.questionBank.correct_answer as any;
+      const raw = ca.matches || ca.mappings;
+      if (raw && typeof raw === "object") {
+        correctMappings = raw;
+      }
     }
 
     if (!correctMappings || Object.keys(correctMappings).length === 0) {
@@ -2136,46 +2117,41 @@ export class AdvancedQuizGrader {
       case "single_choice":
         let correctOptionIndex: number | null = null;
 
-        // Check question_data.correct_option_index first (primary source)
-        if (
-          questionData &&
-          typeof questionData.correct_option_index === "number"
-        ) {
-          correctOptionIndex = questionData.correct_option_index;
-        }
-        // Check if question_data.correct_answer is a number
-        else if (
-          questionData &&
-          typeof questionData.correct_answer === "number"
-        ) {
-          correctOptionIndex = questionData.correct_answer;
-        }
-        // Check if question_data.correct_answer is a string that can be parsed to number
-        else if (
-          questionData &&
-          typeof questionData.correct_answer === "string"
-        ) {
-          const parsed = parseInt(questionData.correct_answer, 10);
-          if (!isNaN(parsed)) {
-            correctOptionIndex = parsed;
+        const parseIndex = (val: any): number | null => {
+          if (val === null || val === undefined) return null;
+          if (typeof val === "number") return val;
+          if (Array.isArray(val)) return val.length > 0 ? parseIndex(val[0]) : null;
+          if (typeof val === "string") {
+            const parsed = parseInt(val.trim(), 10);
+            return isNaN(parsed) ? null : parsed;
           }
+          return null;
+        };
+
+        // Check question_data.correct_option_index first (primary source)
+        if (questionData) {
+          correctOptionIndex = parseIndex(questionData.correct_option_index);
         }
+
+        // Check if question_data.correct_answer is a number or string
+        if (correctOptionIndex === null && questionData) {
+          correctOptionIndex = parseIndex(questionData.correct_answer);
+        }
+
         // Check if question_data has selected_option_index (alternative format)
-        else if (
-          questionData &&
-          typeof questionData.selected_option_index === "number"
-        ) {
-          correctOptionIndex = questionData.selected_option_index;
+        if (correctOptionIndex === null && questionData) {
+          correctOptionIndex = parseIndex(questionData.selected_option_index);
         }
-        // Check if question_data.correct_answer is an object with selected_option_index
-        else if (
+
+        // Check if question_data.correct_answer is an object
+        if (
+          correctOptionIndex === null &&
           questionData &&
           questionData.correct_answer &&
-          typeof questionData.correct_answer === "object" &&
-          typeof questionData.correct_answer.selected_option_index === "number"
+          typeof questionData.correct_answer === "object"
         ) {
-          correctOptionIndex =
-            questionData.correct_answer.selected_option_index;
+          const ca = questionData.correct_answer;
+          correctOptionIndex = parseIndex(ca.selected_option_index ?? ca.correct_option_index);
         }
 
         // Fallback to question.questionBank?.correct_answer column
@@ -2188,30 +2164,26 @@ export class AdvancedQuizGrader {
             correctOptionIndex = correctAnswer;
           } else if (typeof correctAnswer === "string") {
             // Try to parse as number first
-            const parsed = parseInt(correctAnswer, 10);
+            const parsed = parseInt(correctAnswer.trim(), 10);
             if (!isNaN(parsed)) {
               correctOptionIndex = parsed;
             } else {
-              // Try to parse as JSON object
+              // Try to parse as JSON string object
               try {
                 const parsedObj = JSON.parse(correctAnswer);
-                if (
-                  parsedObj &&
-                  typeof parsedObj === "object" &&
-                  typeof parsedObj.selected_option_index === "number"
-                ) {
-                  correctOptionIndex = parsedObj.selected_option_index;
+                if (parsedObj && typeof parsedObj === "object") {
+                  correctOptionIndex = parseIndex(
+                    parsedObj.selected_option_index ?? parsedObj.correct_option_index
+                  );
                 }
               } catch (e) {
                 // Not a valid JSON string
               }
             }
-          } else if (correctAnswer && typeof correctAnswer === "object") {
-            if (typeof correctAnswer.selected_option_index === "number") {
-              correctOptionIndex = correctAnswer.selected_option_index;
-            } else if (typeof correctAnswer.correct_option_index === "number") {
-              correctOptionIndex = correctAnswer.correct_option_index;
-            }
+          } else if (typeof correctAnswer === "object") {
+            correctOptionIndex = parseIndex(
+              correctAnswer.selected_option_index ?? correctAnswer.correct_option_index
+            );
           }
         }
 
@@ -2365,8 +2337,8 @@ export class AdvancedQuizGrader {
         let correctMappings: Record<string, string> | null = null;
         if (questionData && questionData.correct_matches) {
           correctMappings = questionData.correct_matches;
-        } else if (correctAnswer && correctAnswer.mappings) {
-          correctMappings = correctAnswer.mappings;
+        } else if (correctAnswer && (correctAnswer.matches || correctAnswer.mappings)) {
+          correctMappings = correctAnswer.matches || correctAnswer.mappings;
         }
         normalizedData = correctMappings ? { matches: correctMappings } : null;
         break;
@@ -2458,6 +2430,15 @@ export class AdvancedQuizGrader {
     answerData: AnswerDataType,
     config?: QuestionGradingConfig,
   ): Promise<AdvancedGradingResult> {
+    console.log(`[ENTRY] Grading Question ID: ${question.id}`, {
+      type: question.questionBank?.question_type,
+      received_answer: JSON.stringify(answerData),
+      question_bank_data: JSON.stringify(question.questionBank?.question_data),
+      question_bank_correct: JSON.stringify(
+        question.questionBank?.correct_answer,
+      ),
+    });
+
     const gradingConfig =
       config || this.getDefaultConfig(question.questionBank?.question_type);
     const maxPoints = parseFloat(String(question.points || 0));

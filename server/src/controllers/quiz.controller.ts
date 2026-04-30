@@ -1176,6 +1176,12 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
 // Helper function to get correct answer for a question
 const getCorrectAnswerForQuestion = (question: any): any => {
   switch (question.question_type) {
+    case "single_choice":
+      return (
+        question.question_data?.correct_option_index ??
+        question.correct_answer?.correct_option_index ??
+        question.correct_answer
+      );
     case "multiple_choice":
     case "true_false":
       return question.correct_answer;
@@ -1281,13 +1287,25 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
     const showCorrectAnswers = submission.quiz?.show_correct_answers === true;
 
     const results = attempts.map((attempt) => {
+      const rawQuestionData = attempt.attemptQuestion?.questionBank?.question_data as any;
+      // Always return question_data so the "Your Answer" panel can render options,
+      // but strip correct-answer fields when show_correct_answers is false.
+      let questionData: any = null;
+      if (rawQuestionData) {
+        if (showCorrectAnswers) {
+          questionData = rawQuestionData;
+        } else {
+          // Return a copy without fields that reveal the correct answer
+          const { correct_option_index, correct_option_indices, correct_answer: _ca, correct_matches, ...safe } = rawQuestionData;
+          questionData = safe;
+        }
+      }
+
       const result = {
         question_id: attempt.question_id,
         question_text: attempt.attemptQuestion?.questionBank?.question_text,
         question_type: attempt.attemptQuestion?.questionBank?.question_type,
-        question_data: showCorrectAnswers
-          ? attempt.attemptQuestion?.questionBank?.question_data
-          : null,
+        question_data: questionData,
         user_answer: attempt.submitted_answer,
         correct_answer: showCorrectAnswers ? attempt.correct_answer : null,
         is_correct: showCorrectAnswers ? attempt.is_correct : null,

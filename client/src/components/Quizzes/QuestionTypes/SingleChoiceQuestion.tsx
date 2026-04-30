@@ -19,13 +19,21 @@ export const SingleChoiceQuestion: React.FC<QuestionComponentProps> = ({
   // Ensure options is always an array to prevent undefined errors
   const options = questionData.options || [];
 
-  const [selectedOption, setSelectedOption] = useState<number | null>(
-    currentAnswer?.selected_option_index ?? null,
-  );
+  const [selectedOption, setSelectedOption] = useState<number | null>(() => {
+    if (currentAnswer === null || currentAnswer === undefined) return null;
+    if (typeof (currentAnswer as any) === "number") return currentAnswer as any;
+    return (currentAnswer as any).selected_option_index ?? null;
+  });
 
   useEffect(() => {
-    if (currentAnswer?.selected_option_index !== undefined) {
-      setSelectedOption(currentAnswer.selected_option_index);
+    if (currentAnswer !== undefined && currentAnswer !== null) {
+      if (typeof (currentAnswer as any) === "number") {
+        setSelectedOption(currentAnswer as any);
+      } else if ((currentAnswer as any).selected_option_index !== undefined) {
+        setSelectedOption((currentAnswer as any).selected_option_index);
+      }
+    } else {
+      setSelectedOption(null);
     }
   }, [currentAnswer]);
 
@@ -51,7 +59,7 @@ export const SingleChoiceQuestion: React.FC<QuestionComponentProps> = ({
         let optionClassName =
           "flex items-center p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] ";
 
-        if (disabled || showCorrectAnswer) {
+        if (showCorrectAnswer) {
           optionClassName += "cursor-default hover:scale-100 active:scale-100 ";
           if (isCorrect) {
             optionClassName +=
@@ -59,6 +67,15 @@ export const SingleChoiceQuestion: React.FC<QuestionComponentProps> = ({
           } else if (isIncorrect) {
             optionClassName +=
               "border-red-500 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900 dark:to-pink-900 shadow-sm";
+          } else {
+            optionClassName +=
+              "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 opacity-60";
+          }
+        } else if (disabled) {
+          optionClassName += "cursor-default hover:scale-100 active:scale-100 ";
+          if (isSelected) {
+            optionClassName +=
+              "border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 shadow-md ring-2 ring-blue-200 dark:ring-blue-800";
           } else {
             optionClassName +=
               "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 opacity-60";

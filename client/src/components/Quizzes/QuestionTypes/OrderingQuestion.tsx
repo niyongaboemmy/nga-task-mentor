@@ -49,14 +49,16 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
     }));
 
     // If we have existing answer, reorder items based on ordered_item_ids
-    if (answer && (answer as OrderingAnswer)?.ordered_item_ids) {
-      const orderedIds = (answer as OrderingAnswer).ordered_item_ids;
-      const orderedItems = orderedIds
-        .map((id) => dataItems.find((item) => item.id === id))
-        .filter((item): item is NonNullable<typeof item> => item !== undefined);
-      return orderedItems.length === dataItems.length
-        ? orderedItems
-        : dataItems;
+    if (answer) {
+      const orderedIds = (answer as any).ordered_item_ids || (Array.isArray(answer) ? answer : null);
+      if (orderedIds && Array.isArray(orderedIds)) {
+        const orderedItems = orderedIds
+          .map((id) => dataItems.find((item) => item.id === id))
+          .filter((item): item is NonNullable<typeof item> => item !== undefined);
+        return orderedItems.length === dataItems.length
+          ? orderedItems
+          : dataItems;
+      }
     }
 
     return dataItems;
@@ -67,9 +69,9 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
 
   useEffect(() => {
     if (answer) {
-      const orderingAnswer = answer as OrderingAnswer;
-      if (orderingAnswer?.ordered_item_ids) {
-        const orderedItems = orderingAnswer.ordered_item_ids
+      const orderedIds = (answer as any).ordered_item_ids || (Array.isArray(answer) ? answer : null);
+      if (orderedIds && Array.isArray(orderedIds)) {
+        const orderedItems = orderedIds
           .map((id) => orderingData.items.find((item) => item.id === id))
           .filter(
             (item): item is NonNullable<typeof item> => item !== undefined,
@@ -83,12 +85,8 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
           setItems(orderedItems);
         }
       }
-    } else {
-      // If no answer exists, save the default order
-      const defaultOrderedIds = items.map((item) => item.id);
-      onAnswerChange({ ordered_item_ids: defaultOrderedIds } as OrderingAnswer);
     }
-  }, [answer, orderingData.items, onAnswerChange]);
+  }, [answer, orderingData.items]);
 
   const handleDragStart = (index: number) => {
     if (disabled) return;
@@ -181,7 +179,7 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 transition-all duration-200">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
-            {showCorrectAnswer ? "Your Answer" : "Arrange in Order"}
+            {showCorrectAnswer ? "Correct Solution" : "Arrange in Order"}
           </h3>
         </div>
 

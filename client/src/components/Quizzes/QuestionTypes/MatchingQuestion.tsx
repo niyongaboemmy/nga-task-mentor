@@ -20,15 +20,27 @@ export const MatchingQuestion: React.FC<QuestionComponentProps> = ({
   const [leftItems] = useState(matchingData.left_items);
   const [rightItems] = useState(matchingData.right_items);
 
-  const [matches, setMatches] = useState<Record<string, string>>(
-    (answer as MatchingAnswer)?.matches || {},
-  );
+  const [matches, setMatches] = useState<Record<string, string>>(() => {
+    if (!answer) return {};
+    if ((answer as any).matches) return (answer as any).matches;
+    // Check if it's a plain object (Record<string, string>)
+    if (typeof answer === "object" && !Array.isArray(answer)) {
+      return answer as unknown as Record<string, string>;
+    }
+    return {};
+  });
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
   const [selectedRight, setSelectedRight] = useState<string | null>(null);
 
   useEffect(() => {
     if (answer) {
-      setMatches((answer as MatchingAnswer).matches || {});
+      if ((answer as any).matches) {
+        setMatches((answer as any).matches);
+      } else if (typeof answer === "object" && !Array.isArray(answer)) {
+        setMatches(answer as unknown as Record<string, string>);
+      }
+    } else {
+      setMatches({});
     }
   }, [answer]);
 

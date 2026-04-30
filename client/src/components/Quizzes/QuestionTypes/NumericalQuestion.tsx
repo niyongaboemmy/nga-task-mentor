@@ -17,17 +17,30 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
   const questionData = question.question_data as NumericalData;
   const currentAnswer = answer as NumericalAnswer | undefined;
 
-  const [numericAnswer, setNumericAnswer] = useState<string>(
-    currentAnswer?.answer?.toString() ?? "",
-  );
-  const [selectedUnit, setSelectedUnit] = useState<string>(
-    currentAnswer?.units ?? "",
-  );
+  const [numericAnswer, setNumericAnswer] = useState<string>(() => {
+    if (currentAnswer === null || currentAnswer === undefined) return "";
+    if (typeof (currentAnswer as any) === "number" || typeof (currentAnswer as any) === "string")
+      return (currentAnswer as any).toString();
+    return (currentAnswer as any).answer?.toString() ?? "";
+  });
+  const [selectedUnit, setSelectedUnit] = useState<string>(() => {
+    if (typeof (currentAnswer as any) === "object" && currentAnswer !== null) {
+      return (currentAnswer as any).units ?? "";
+    }
+    return "";
+  });
 
   useEffect(() => {
-    if (currentAnswer) {
-      setNumericAnswer(currentAnswer.answer?.toString() ?? "");
-      setSelectedUnit(currentAnswer.units ?? "");
+    if (currentAnswer !== undefined && currentAnswer !== null) {
+      if (typeof (currentAnswer as any) === "number" || typeof (currentAnswer as any) === "string") {
+        setNumericAnswer((currentAnswer as any).toString());
+      } else {
+        setNumericAnswer((currentAnswer as any).answer?.toString() ?? "");
+        setSelectedUnit((currentAnswer as any).units ?? "");
+      }
+    } else {
+      setNumericAnswer("");
+      setSelectedUnit("");
     }
   }, [currentAnswer]);
 
