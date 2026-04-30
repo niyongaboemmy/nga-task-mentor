@@ -528,8 +528,8 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
         )}
       </div>
 
-      {/* Warnings */}
-      {warnings.length > 0 && (
+      {/* Warnings hidden as per request to remove proctoring alerts from candidate view */}
+      {/* {warnings.length > 0 && (
         <div className="p-2 border-t border-gray-200 dark:border-gray-700 max-h-20 overflow-y-auto transition-all duration-300 ease-in-out">
           {warnings.map((warning, index) => (
             <div
@@ -545,7 +545,7 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
             </div>
           ))}
         </div>
-      )}
+      )} */}
 
       {/* Status Footer */}
       <div className="p-2 bg-gray-50 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 transition-all duration-300 ease-in-out">

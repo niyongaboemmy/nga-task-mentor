@@ -287,18 +287,21 @@ const QuizTakingPage: React.FC = () => {
   useEffect(() => {
     if (!quizStartTime || showInstructions) return;
 
-    // Time expired — auto-submit (call once, guard with timeLeft === 0)
+    // timeLeft === -1 means unlimited (no time limit) — never auto-submit
+    if (timeLeft === -1) return;
+
+    // Time expired — auto-submit
     if (timeLeft <= 0) {
       submitQuizRef.current();
       return;
     }
 
-    if (isExamPaused) return; // Pause the timer while exam is paused by instructor
+    if (isExamPaused) return;
 
     const timer = setTimeout(() => {
       setTimeLeft((prev) => {
+        if (prev === -1) return -1; // unlimited guard
         const newTimeLeft = Math.max(0, prev - 1);
-        // Persist timer state so it survives page refresh
         if (id) {
           try {
             localStorage.setItem(
@@ -595,14 +598,39 @@ const QuizTakingPage: React.FC = () => {
 
         // Calculate remaining time
         const startedAt = new Date(submission.started_at);
+        const hasTimeLimit = quiz?.time_limit && quiz.time_limit > 0;
+        const totalTimeInSeconds = hasTimeLimit ? (quiz!.time_limit ?? 0) * 60 : -1;
         const elapsed = Math.floor((Date.now() - startedAt.getTime()) / 1000);
-        const totalTimeInSeconds = (quiz?.time_limit || 0) * 60;
-        const remainingTime = Math.max(0, totalTimeInSeconds - elapsed);
+
+        // If time limit exists and has fully elapsed, don't restore — let it auto-submit
+        // gracefully by not setting quizStartTime with timeLeft=0 (which would fire immediately)
+        let remainingTime: number;
+        if (totalTimeInSeconds === -1) {
+          remainingTime = -1; // unlimited
+        } else {
+          remainingTime = Math.max(0, totalTimeInSeconds - elapsed);
+          // If time already expired, submit immediately but with existing answers
+          if (remainingTime === 0) {
+            setExistingSubmission(submission);
+            if (submission.answers && submission.answers.length > 0) {
+              setAnswers(
+                submission.answers.map((answer: any) => ({
+                  question_id: answer.question_id,
+                  answer: answer.answer_data || answer.user_answer,
+                  time_taken: answer.time_taken || 0,
+                })),
+              );
+            }
+            setTimeLeft(0);
+            setQuizStartTime(startedAt);
+            setShowInstructions(false);
+            return;
+          }
+        }
 
         setTimeLeft(remainingTime);
         setQuizStartTime(startedAt);
 
-        // Update timer state in localStorage if resuming
         if (id) {
           const timerSessionKey = `quiz_${id}_timer`;
           localStorage.setItem(
@@ -631,21 +659,13 @@ const QuizTakingPage: React.FC = () => {
     }
 
     try {
-      setError(null); // Clear any previous errors
-
-      // First, perform volume check
-      setShowVolumeCheck(true);
-      await startVolumeCheck();
+      setError(null);
+      await proceedWithQuizStart();
     } catch (error: any) {
-      // console.error("Error starting quiz:", error);
-
-      // Extract error message from response
       let errorMessage = "Failed to start quiz. Please try again.";
 
       if (error.response?.data?.message) {
         const serverMessage = error.response.data.message;
-
-        // Provide more helpful messages for specific errors
         if (serverMessage.includes("Quiz is not currently available")) {
           errorMessage =
             "This quiz is not currently available. It may be in draft status, completed, or outside its scheduled time period. Please contact your instructor for more information.";
@@ -698,7 +718,11 @@ const QuizTakingPage: React.FC = () => {
     const submission = response.data.data;
     setExistingSubmission(submission);
     setQuizStartTime(new Date());
-    setTimeLeft((quiz?.time_limit || 0) * 60);
+    // -1 = unlimited (no time limit); otherwise convert minutes → seconds
+    const timeLimitSecs = quiz?.time_limit && quiz.time_limit > 0
+      ? quiz.time_limit * 60
+      : -1;
+    setTimeLeft(timeLimitSecs);
 
     // Save initial timer state to localStorage
     if (id) {
@@ -706,7 +730,7 @@ const QuizTakingPage: React.FC = () => {
       localStorage.setItem(
         timerSessionKey,
         JSON.stringify({
-          timeLeft: (quiz?.time_limit || 0) * 60,
+          timeLeft: timeLimitSecs,
           quizStartTime: new Date().toISOString(),
         }),
       );
@@ -1205,20 +1229,9 @@ const QuizTakingPage: React.FC = () => {
     }
   };
 
-  const handleProctoringViolation = (violation: any) => {
-    // Events are recorded to DB via ProctoringMonitorComponent + socket pipeline.
-    // Show a small non-blocking banner for high/critical violations — student can continue.
-    if (violation.severity === "high" || violation.severity === "critical") {
-      setCurrentViolation(violation);
-      setShowViolationWarning(true);
-
-      if (violation.severity !== "critical") {
-        setTimeout(() => {
-          setShowViolationWarning(false);
-          setCurrentViolation(null);
-        }, 8000);
-      }
-    }
+  const handleProctoringViolation = (_violation: any) => {
+    // Violations are recorded silently to DB via ProctoringMonitorComponent + socket pipeline.
+    // Nothing is shown to the candidate — monitoring is invisible to them.
   };
 
   // const handleViolationResolved = () => {
@@ -2226,45 +2239,6 @@ const QuizTakingPage: React.FC = () => {
       {/* Pause Overlay - When exam is paused */}
       <PauseOverlay isVisible={isExamPaused} reason={pauseReason} />
 
-      {/* Connection Status Popup */}
-      {showConnectionPopup && proctoringSession && (
-        <div className="fixed bottom-4 right-4 z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 max-w-sm">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-3 h-3 rounded-full ${socketConnected ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`}
-            ></div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                {socketConnected
-                  ? "Connected to proctoring server"
-                  : "Connecting to proctoring server..."}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Live monitoring active
-              </p>
-            </div>
-            <button
-              onClick={() => setShowConnectionPopup(false)}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Main quiz content container */}
       <div>
         {/* Fullscreen Required Overlay */}
@@ -2316,77 +2290,6 @@ const QuizTakingPage: React.FC = () => {
           </div>
         )}
 
-        {/* Violation Warning Popup */}
-        {showViolationWarning && currentViolation && (
-          <div className="fixed top-4 left-4 z-50 max-w-md w-full mx-4">
-            <div
-              className={`bg-white dark:bg-gray-900 border rounded-lg shadow-lg p-4 ${
-                currentViolation.severity === "critical"
-                  ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                  : currentViolation.severity === "high"
-                    ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
-                    : "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
-                    currentViolation.severity === "critical"
-                      ? "bg-red-500"
-                      : currentViolation.severity === "high"
-                        ? "bg-orange-500"
-                        : "bg-yellow-500"
-                  }`}
-                >
-                  <AlertCircle className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3
-                    className={`font-semibold text-sm ${
-                      currentViolation.severity === "critical"
-                        ? "text-red-800 dark:text-red-200"
-                        : currentViolation.severity === "high"
-                          ? "text-orange-800 dark:text-orange-200"
-                          : "text-yellow-800 dark:text-yellow-200"
-                    }`}
-                  >
-                    Proctoring Alert
-                  </h3>
-                  <p
-                    className={`text-sm mt-1 ${
-                      currentViolation.severity === "critical"
-                        ? "text-red-700 dark:text-red-300"
-                        : currentViolation.severity === "high"
-                          ? "text-orange-700 dark:text-orange-300"
-                          : "text-yellow-700 dark:text-yellow-300"
-                    }`}
-                  >
-                    {currentViolation.message}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-200 mt-2">
-                    Please ensure you follow all testing guidelines to avoid
-                    violations.
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowViolationWarning(false);
-                    setCurrentViolation(null);
-                  }}
-                  className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 ${
-                    currentViolation.severity === "critical"
-                      ? "text-red-600"
-                      : currentViolation.severity === "high"
-                        ? "text-orange-600"
-                        : "text-yellow-600"
-                  }`}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Proctoring Monitor Component */}
@@ -2430,25 +2333,6 @@ const QuizTakingPage: React.FC = () => {
           />
         )}
 
-      {/* Proctoring Error Display */}
-      {proctoringError && (
-        <div className="fixed bottom-4 left-4 z-50 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 max-w-xs">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-red-700 dark:text-red-300 truncate">
-                {proctoringError}
-              </p>
-            </div>
-            <button
-              onClick={() => setProctoringError(null)}
-              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 text-xs leading-none flex-shrink-0"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
       {/* Error Display */}
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
