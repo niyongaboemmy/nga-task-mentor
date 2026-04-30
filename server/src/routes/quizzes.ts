@@ -14,6 +14,8 @@ import {
   getQuizSubmissions,
   updateQuizSubmission,
   resetQuizSubmission,
+  deleteQuizSubmission,
+  deleteAllQuizSubmissions,
   getAIHint,
   runCode,
   generateTestCases,
@@ -136,6 +138,16 @@ router.post(
   "/submissions/:id/reset",
   authorize("instructor", "admin"),
   resetQuizSubmission,
+);
+router.delete(
+  "/submissions/:submissionId/delete",
+  authorize("instructor", "admin"),
+  deleteQuizSubmission,
+);
+router.delete(
+  "/:quizId/submissions/all",
+  authorize("instructor", "admin"),
+  deleteAllQuizSubmissions,
 );
 router.post("/:quizId/start", authorize("student"), startQuizAttempt);
 router.get(

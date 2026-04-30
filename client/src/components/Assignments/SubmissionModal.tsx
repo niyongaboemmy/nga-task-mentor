@@ -21,6 +21,7 @@ interface SubmissionModalProps {
   };
   onSubmissionSuccess: () => void;
   existingSubmission?: any;
+  isOverdue?: boolean;
 }
 
 const SubmissionModal: React.FC<SubmissionModalProps> = ({
@@ -29,6 +30,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
   assignment,
   onSubmissionSuccess,
   existingSubmission,
+  isOverdue,
 }) => {
   const [submissionText, setSubmissionText] = useState(
     existingSubmission?.text_submission || "",
@@ -247,6 +249,33 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                   <span>{assignment.max_score} points</span>
                 </div>
               </div>
+
+              {/* Late submission warning */}
+              {isOverdue && !existingSubmission && (
+                <div className="mb-6 p-4 bg-orange-50 dark:bg-orange-900/20 rounded-2xl border border-orange-200 dark:border-orange-700 flex items-start gap-3">
+                  <svg
+                    className="w-5 h-5 text-orange-600 dark:text-orange-400 flex-shrink-0 mt-0.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                    />
+                  </svg>
+                  <div>
+                    <p className="text-sm font-semibold text-orange-900 dark:text-orange-100">
+                      Late Submission
+                    </p>
+                    <p className="text-sm text-orange-700 dark:text-orange-300 mt-0.5">
+                      The deadline for this assignment has passed. Your submission will be marked as <span className="font-semibold">late</span> and may affect your grade at your instructor's discretion.
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Rubric Section */}
               {parsedRubric.length > 0 && (

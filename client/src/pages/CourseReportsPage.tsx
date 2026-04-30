@@ -734,7 +734,7 @@ const CourseReportsPage: React.FC = () => {
               variants={itemVariants}
               className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
-              <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div>
+              {/* <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
               <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-blue-500" />
                 Average Grade
@@ -761,7 +761,7 @@ const CourseReportsPage: React.FC = () => {
               variants={itemVariants}
               className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
-              <div className="absolute right-0 top-0 w-32 h-32 bg-green-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div>
+              {/* <div className="absolute right-0 top-0 w-32 h-32 bg-green-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
               <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
                 Passing
@@ -779,7 +779,7 @@ const CourseReportsPage: React.FC = () => {
               variants={itemVariants}
               className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
-              <div className="absolute right-0 top-0 w-32 h-32 bg-red-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div>
+              {/* <div className="absolute right-0 top-0 w-32 h-32 bg-red-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
               <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-500" />
                 Needs Attention
@@ -796,7 +796,7 @@ const CourseReportsPage: React.FC = () => {
               variants={itemVariants}
               className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
-              <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div>
+              {/* <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
               <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Users className="w-4 h-4 text-purple-500" />
                 Total Students

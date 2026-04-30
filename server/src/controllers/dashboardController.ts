@@ -22,10 +22,11 @@ interface DashboardStats {
 // Interface for recent activity
 interface RecentActivity {
   id: string;
-  type: "assignment" | "submission" | "course";
+  type: "assignment" | "submission" | "course" | "quiz";
   title: string;
   description: string;
   timestamp: string;
+  resource_id?: string; // ID of the linked resource (assignment, course, quiz)
 }
 
 // Student Dashboard Statistics
@@ -794,6 +795,7 @@ export const getRecentActivity = async (req: Request, res: Response) => {
             timestamp: submission.createdAt
               ? submission.createdAt.toISOString()
               : new Date().toISOString(),
+            resource_id: String(assignment.id),
           });
         }
       }
@@ -828,6 +830,7 @@ export const getRecentActivity = async (req: Request, res: Response) => {
           timestamp: submission.createdAt
             ? submission.createdAt.toISOString()
             : new Date().toISOString(),
+          resource_id: String((submission as any).submissionAssignment.id),
         });
       }
 
@@ -848,6 +851,7 @@ export const getRecentActivity = async (req: Request, res: Response) => {
           timestamp: assignment.createdAt
             ? assignment.createdAt.toISOString()
             : new Date().toISOString(),
+          resource_id: String(assignment.id),
         });
       }
     }

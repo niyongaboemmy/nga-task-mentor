@@ -25,7 +25,10 @@ import {
   Filter,
   Download,
   BarChart3,
+  Trash2,
+  AlertTriangle,
 } from "lucide-react";
+import { toast } from "react-toastify";
 
 interface QuizSubmission {
   id: number;
@@ -64,6 +67,13 @@ const QuizSubmissionsPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [gradeFilter, setGradeFilter] = useState<string>("all");
   const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{
+    type: "single" | "all";
+    submissionId?: number;
+    studentName?: string;
+  } | null>(null);
+  const [resettingAll, setResettingAll] = useState(false);
 
   useEffect(() => {
     if (quizId) {
@@ -78,6 +88,35 @@ const QuizSubmissionsPage: React.FC = () => {
       setQuiz(response.data.data);
     } catch (error) {
       console.error("Error fetching quiz:", error);
+    }
+  };
+
+  const handleDeleteSubmission = async (submissionId: number) => {
+    setDeletingId(submissionId);
+    try {
+      await axios.delete(`/quizzes/submissions/${submissionId}/delete`);
+      toast.success("Submission deleted successfully");
+      setSubmissions((prev) => prev.filter((s) => s.submission_id !== submissionId));
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to delete submission");
+    } finally {
+      setDeletingId(null);
+      setConfirmDelete(null);
+    }
+  };
+
+  const handleDeleteAllSubmissions = async () => {
+    if (!quizId) return;
+    setResettingAll(true);
+    try {
+      await axios.delete(`/quizzes/${quizId}/submissions/all`);
+      toast.success("All submissions and proctoring data deleted");
+      setSubmissions([]);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to delete submissions");
+    } finally {
+      setResettingAll(false);
+      setConfirmDelete(null);
     }
   };
 
@@ -261,7 +300,7 @@ const QuizSubmissionsPage: React.FC = () => {
       <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
-          <div className="flex items-center gap-3 mb-4 sm:mb-6">
+          <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
             <button
               onClick={() => navigate(`/quizzes/${quizId}`)}
               className="inline-flex items-center gap-2 px-3 py-2 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-full shadow-sm hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white backdrop-blur-sm"
@@ -269,6 +308,16 @@ const QuizSubmissionsPage: React.FC = () => {
               <ArrowLeft className="w-3 h-3" />
               <span className="text-xs font-medium">Back</span>
             </button>
+            {submissions.length > 0 && (
+              <button
+                onClick={() => setConfirmDelete({ type: "all" })}
+                disabled={resettingAll}
+                className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800 rounded-full shadow-sm transition-all duration-200 text-red-700 dark:text-red-300 text-xs font-medium disabled:opacity-50"
+              >
+                <Trash2 className="w-3 h-3" />
+                Reset All Submissions
+              </button>
+            )}
           </div>
 
           <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-in slide-in-from-bottom duration-500">
@@ -537,6 +586,19 @@ const QuizSubmissionsPage: React.FC = () => {
                       <Eye className="w-3 h-3 mr-1" />
                       View
                     </button>
+                    <button
+                      onClick={() =>
+                        setConfirmDelete({
+                          type: "single",
+                          submissionId: submission.submission_id,
+                          studentName: submission.student_name || "this student",
+                        })
+                      }
+                      disabled={deletingId === submission.submission_id}
+                      className="inline-flex items-center px-3 py-2 bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-xs font-medium rounded-xl border border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/40 transition-all duration-200 hover:scale-105 disabled:opacity-50"
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -623,17 +685,32 @@ const QuizSubmissionsPage: React.FC = () => {
                           {formatDate(submission.submitted_at)}
                         </td>
                         <td className="px-4 py-3">
-                          <button
-                            onClick={() =>
-                              navigate(
-                                `/quizzes/${quizId}/submissions/${submission.submission_id}`,
-                              )
-                            }
-                            className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-500 text-white text-xs font-medium rounded-lg hover:from-blue-600 hover:to-blue-600 transition-all duration-200 hover:scale-105"
-                          >
-                            <Eye className="w-3 h-3 mr-1" />
-                            View
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() =>
+                                navigate(
+                                  `/quizzes/${quizId}/submissions/${submission.submission_id}`,
+                                )
+                              }
+                              className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-500 text-white text-xs font-medium rounded-lg hover:from-blue-600 hover:to-blue-600 transition-all duration-200 hover:scale-105"
+                            >
+                              <Eye className="w-3 h-3 mr-1" />
+                              View
+                            </button>
+                            <button
+                              onClick={() =>
+                                setConfirmDelete({
+                                  type: "single",
+                                  submissionId: submission.submission_id,
+                                  studentName: submission.student_name || "this student",
+                                })
+                              }
+                              disabled={deletingId === submission.submission_id}
+                              className="inline-flex items-center px-2 py-1 text-red-600 dark:text-red-400 rounded-lg border border-red-200 dark:border-red-800 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200 disabled:opacity-50"
+                            >
+                              <Trash2 className="w-3 h-3" />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
@@ -644,6 +721,55 @@ const QuizSubmissionsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                  {confirmDelete.type === "all"
+                    ? "Reset All Submissions"
+                    : "Delete Submission"}
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
+              {confirmDelete.type === "all"
+                ? `This will permanently delete all ${submissions.length} submission(s) and all proctoring data for this quiz.`
+                : `This will permanently delete ${confirmDelete.studentName}'s submission and their proctoring data.`}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="flex-1 px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (confirmDelete.type === "all") {
+                    handleDeleteAllSubmissions();
+                  } else if (confirmDelete.submissionId != null) {
+                    handleDeleteSubmission(confirmDelete.submissionId);
+                  }
+                }}
+                disabled={resettingAll || deletingId != null}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors disabled:opacity-50"
+              >
+                {resettingAll || deletingId != null ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

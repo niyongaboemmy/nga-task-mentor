@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import axios from "axios";
 import { QuizQuestion, QuizAttempt, User, Quiz, QuestionBank } from "../models";
 import QuizSubmission from "../models/QuizSubmission.model";
+import ProctoringSession from "../models/ProctoringSession.model";
+import ProctoringEvent from "../models/ProctoringEvent.model";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
@@ -1801,5 +1803,101 @@ export const generateTestCases = async (req: Request, res: Response) => {
       success: false,
       message: error.message || "Failed to generate test cases",
     });
+  }
+};
+
+// @desc    Delete a single quiz submission and its proctoring data
+// @route   DELETE /api/quizzes/submissions/:submissionId/delete
+// @access  Private (instructor, admin)
+export const deleteQuizSubmission = async (req: Request, res: Response) => {
+  const { submissionId } = req.params;
+  const transaction = await sequelize.transaction();
+
+  try {
+    const submission = await QuizSubmission.findByPk(submissionId, { transaction });
+    if (!submission) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: "Submission not found" });
+    }
+
+    const quizId = submission.quiz_id;
+    const studentId = submission.student_id;
+
+    // Delete proctoring events for this student's sessions on this quiz
+    const sessions = await ProctoringSession.findAll({
+      where: { quiz_id: quizId, student_id: studentId },
+      attributes: ["id"],
+      transaction,
+    });
+    const sessionIds = sessions.map((s: any) => s.id);
+    if (sessionIds.length > 0) {
+      await ProctoringEvent.destroy({ where: { session_id: sessionIds }, transaction });
+      await ProctoringSession.destroy({ where: { id: sessionIds }, transaction });
+    }
+
+    // Delete quiz attempts
+    await QuizAttempt.destroy({ where: { submission_id: submissionId }, transaction });
+
+    // Delete submission
+    await submission.destroy({ transaction });
+
+    await transaction.commit();
+    res.status(200).json({ success: true, message: "Submission and proctoring data deleted" });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Delete submission error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Delete ALL submissions and proctoring data for a quiz
+// @route   DELETE /api/quizzes/:quizId/submissions/all
+// @access  Private (instructor, admin)
+export const deleteAllQuizSubmissions = async (req: Request, res: Response) => {
+  const { quizId } = req.params;
+  const transaction = await sequelize.transaction();
+
+  try {
+    const quiz = await Quiz.findByPk(quizId, { transaction });
+    if (!quiz) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: "Quiz not found" });
+    }
+
+    // Delete all proctoring events for this quiz's sessions
+    const sessions = await ProctoringSession.findAll({
+      where: { quiz_id: quizId },
+      attributes: ["id"],
+      transaction,
+    });
+    const sessionIds = sessions.map((s: any) => s.id);
+    if (sessionIds.length > 0) {
+      await ProctoringEvent.destroy({ where: { session_id: sessionIds }, transaction });
+      await ProctoringSession.destroy({ where: { id: sessionIds }, transaction });
+    }
+
+    // Delete all quiz attempts belonging to this quiz's submissions
+    const submissions = await QuizSubmission.findAll({
+      where: { quiz_id: quizId },
+      attributes: ["id"],
+      transaction,
+    });
+    const submissionIds = submissions.map((s: any) => s.id);
+    if (submissionIds.length > 0) {
+      await QuizAttempt.destroy({ where: { submission_id: submissionIds }, transaction });
+    }
+
+    // Delete all submissions
+    const count = await QuizSubmission.destroy({ where: { quiz_id: quizId }, transaction });
+
+    await transaction.commit();
+    res.status(200).json({
+      success: true,
+      message: `Deleted ${count} submission(s) and all associated proctoring data`,
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Delete all quiz submissions error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

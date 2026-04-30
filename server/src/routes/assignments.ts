@@ -10,6 +10,7 @@ import {
   getAssignmentSubmissions,
   getEnrolledAssignments,
   submitAssignment,
+  gradeUnsubmittedStudent,
 } from "../controllers/assignment.controller";
 import { protect, authorize, isCourseInstructor } from "../middleware/auth";
 import { timezoneMiddleware } from "../utils/dateUtils";
@@ -83,6 +84,13 @@ router.get(
   protect,
   // authorize("instructor", "admin"), // Students can view their own submissions
   getAssignmentSubmissions,
+);
+
+// Grade a student who has not submitted (instructor/admin only)
+router.post(
+  "/:assignmentId/grade-student",
+  authorize("instructor", "admin"),
+  gradeUnsubmittedStudent,
 );
 
 // Download submissions as zip (TODO: implement)

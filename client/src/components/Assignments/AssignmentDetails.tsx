@@ -304,7 +304,12 @@ const AssignmentDetails = () => {
       })()
     : false;
 
-  const canSubmit = isStudent && !userSubmission() && !!user && !isOverdue;
+  // Only published assignments can be submitted; completed/draft are closed
+  const canSubmit =
+    isStudent &&
+    !userSubmission() &&
+    !!user &&
+    assignment?.status === "published";
   const canManageAssignment = !!(
     user?.role === "instructor" ||
     user?.role === "admin" ||
@@ -344,19 +349,31 @@ const AssignmentDetails = () => {
       rubricScores?: Record<number, number>,
     ) => {
       try {
-        await api.patch(`/submissions/${submissionId}/grade`, {
-          score,
-          maxScore: parseFloat(assignment!.max_score),
-          feedback,
-          rubricScores,
-        });
+        const isPlaceholder = !submissionId || (selectedSubmission as any)?._isPlaceholder;
+        if (isPlaceholder) {
+          // Student hasn't submitted — create a graded record directly
+          await api.post(`/assignments/${assignmentId}/grade-student`, {
+            student_mis_id: selectedSubmission?.student?.id,
+            student_email: selectedSubmission?.student?.email,
+            score,
+            feedback,
+            rubric_scores: rubricScores,
+          });
+        } else {
+          await api.patch(`/submissions/${submissionId}/grade`, {
+            score,
+            maxScore: parseFloat(assignment!.max_score),
+            feedback,
+            rubricScores,
+          });
+        }
         await fetchSubmissions();
       } catch (error) {
         console.error("Error grading submission:", error);
         throw error;
       }
     },
-    [assignment, fetchSubmissions],
+    [assignment, assignmentId, selectedSubmission, fetchSubmissions],
   );
 
   useEffect(() => {
@@ -726,6 +743,7 @@ const AssignmentDetails = () => {
             fetchSubmissions();
           }}
           existingSubmission={userSubmission()}
+          isOverdue={isOverdue}
         />
 
         <AssignmentForm

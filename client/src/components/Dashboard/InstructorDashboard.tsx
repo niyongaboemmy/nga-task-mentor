@@ -47,10 +47,11 @@ interface DashboardStats {
 
 interface RecentActivity {
   id: string;
-  type: "assignment" | "submission" | "course";
+  type: "assignment" | "submission" | "course" | "quiz";
   title: string;
   description: string;
   timestamp: string;
+  resource_id?: string;
 }
 
 interface InstructorCourse {
@@ -99,6 +100,21 @@ interface InstructorDashboardData {
     last_name: string;
   };
   activeProctoring?: number;
+}
+
+function getActivityLink(activity: RecentActivity): string {
+  const resourceId = activity.resource_id ?? activity.id.split("_").slice(1).join("_");
+  switch (activity.type) {
+    case "assignment":
+    case "submission":
+      return resourceId ? `/assignments/${resourceId}` : "/assignments";
+    case "course":
+      return resourceId ? `/courses/${resourceId}` : "/courses";
+    case "quiz":
+      return resourceId ? `/quizzes/${resourceId}` : "/assignments";
+    default:
+      return "/assignments";
+  }
 }
 
 const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
@@ -311,54 +327,50 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {data.courses.slice(0, 6).map((course) => {
               return (
-                <motion.div
-                  key={course.id}
-                  variants={itemVariants}
-                  className="group relative bg-gray-50 dark:bg-gray-800/50 rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border-2 border-transparent hover:border-blue-200 dark:hover:border-blue-900"
-                >
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1 min-w-0 pr-4">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span
-                          className={`w-2 h-2 rounded-full bg-green-500`}
-                        ></span>
-                        <h4 className="font-bold text-gray-900 dark:text-white text-lg truncate">
-                          {course.code}
-                        </h4>
+                <motion.div key={course.id} variants={itemVariants}>
+                  <Link
+                    to={`/courses/${course.id}`}
+                    className="group relative bg-gray-50 dark:bg-gray-800/50 rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg border-2 border-transparent hover:border-blue-200 dark:hover:border-blue-900 block"
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex-1 min-w-0 pr-4">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                          <h4 className="font-bold text-gray-900 dark:text-white text-lg truncate">
+                            {course.code}
+                          </h4>
+                        </div>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 line-clamp-1">
+                          {course.title}
+                        </p>
                       </div>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400 line-clamp-1">
-                        {course.title}
-                      </p>
+                      <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
+                        Active
+                      </span>
                     </div>
-                    <span className="px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-[10px] font-black uppercase tracking-wider">
-                      Active
-                    </span>
-                  </div>
 
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
-                      <div className="flex flex-col gap-1">
-                        {course.assignmentCount > 0 && (
-                          <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
-                            <ListTodo className="w-4 h-4" />
-                            <span>{course.assignmentCount} Assignments</span>
-                          </div>
-                        )}
-                        {course.quizCount > 0 && (
-                          <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
-                            <CheckCircle className="w-4 h-4" />
-                            <span>{course.quizCount} Quizzes</span>
-                          </div>
-                        )}
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between pt-4 border-t border-gray-200 dark:border-gray-700">
+                        <div className="flex flex-col gap-1">
+                          {course.assignmentCount > 0 && (
+                            <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                              <ListTodo className="w-4 h-4" />
+                              <span>{course.assignmentCount} Assignments</span>
+                            </div>
+                          )}
+                          {course.quizCount > 0 && (
+                            <div className="flex items-center gap-2 text-sm font-bold text-gray-600 dark:text-gray-300">
+                              <CheckCircle className="w-4 h-4" />
+                              <span>{course.quizCount} Quizzes</span>
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-2 bg-white dark:bg-gray-700 rounded-full shadow-sm group-hover:scale-110 transition-transform">
+                          <ArrowRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                        </div>
                       </div>
-                      <Link
-                        to={`/courses/${course.id}`}
-                        className="p-2 bg-white dark:bg-gray-700 rounded-full shadow-sm hover:scale-110 transition-transform"
-                      >
-                        <ArrowRight className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                      </Link>
                     </div>
-                  </div>
+                  </Link>
                 </motion.div>
               );
             })}
@@ -420,10 +432,10 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                     : "amber";
 
               return (
-                <motion.div
-                  key={assignment.id}
-                  variants={itemVariants}
-                  className={`group relative rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1 border-2 ${
+                <motion.div key={assignment.id} variants={itemVariants}>
+                <Link
+                  to={`/assignments/${assignment.id}`}
+                  className={`group relative rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1 border-2 block ${
                     urgency === "critical"
                       ? "bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
                       : urgency === "urgent"
@@ -515,6 +527,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
                         )}
                     </div>
                   </div>
+                </Link>
                 </motion.div>
               );
             })}
@@ -551,56 +564,49 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({
         <div className="space-y-4">
           {data?.recentActivity && data.recentActivity.length > 0 ? (
             data.recentActivity.slice(0, 4).map((activity: RecentActivity) => (
-              <motion.div
-                key={activity.id}
-                variants={itemVariants}
-                className="group relative flex items-start gap-4 p-4 rounded-3xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
-              >
-                {/* Activity icon */}
-                <div
-                  className={`relative z-10 flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 group-hover:scale-110 ${
-                    activity.type === "assignment"
-                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                      : activity.type === "submission"
-                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
-                        : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
-                  }`}
+              <motion.div key={activity.id} variants={itemVariants}>
+                <Link
+                  to={getActivityLink(activity)}
+                  className="group relative flex items-start gap-4 p-4 rounded-3xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
                 >
-                  {activity.type === "assignment" && (
-                    <ListTodo className="w-6 h-6" />
-                  )}
-                  {activity.type === "submission" && (
-                    <CheckCircle className="w-6 h-6" />
-                  )}
-                  {activity.type === "course" && (
-                    <BookOpen className="w-6 h-6" />
-                  )}
-                </div>
+                  {/* Activity icon */}
+                  <div
+                    className={`relative z-10 flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 group-hover:scale-110 ${
+                      activity.type === "assignment"
+                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                        : activity.type === "submission"
+                          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+                          : activity.type === "quiz"
+                            ? "bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400"
+                            : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
+                    }`}
+                  >
+                    {activity.type === "assignment" && <ListTodo className="w-6 h-6" />}
+                    {activity.type === "submission" && <CheckCircle className="w-6 h-6" />}
+                    {activity.type === "course" && <BookOpen className="w-6 h-6" />}
+                    {activity.type === "quiz" && <CheckCircle className="w-6 h-6" />}
+                  </div>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0 pt-1">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <p className="text-base font-bold text-gray-900 dark:text-white truncate">
-                        {activity.title}
-                      </p>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                        {activity.description}
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                        {new Date(activity.timestamp).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                          },
-                        )}
-                      </span>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <p className="text-base font-bold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                          {activity.title}
+                        </p>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                          {activity.description}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0 flex items-center gap-2">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                          {new Date(activity.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                        </span>
+                        <ArrowRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-blue-500 transition-colors" />
+                      </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               </motion.div>
             ))
           ) : (

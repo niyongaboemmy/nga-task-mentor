@@ -452,7 +452,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
             </div>
 
             {/* Grading System (For Instructor) */}
-            {canManageAssignment && submission.status !== "draft" && (
+            {canManageAssignment && submission.status !== "draft" && submission.status !== undefined && (
               <div className="relative pt-12">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center">
                   <div className="h-12 w-px bg-gradient-to-t from-gray-200 to-transparent dark:from-gray-800" />
