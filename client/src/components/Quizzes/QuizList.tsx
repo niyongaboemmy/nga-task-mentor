@@ -26,8 +26,9 @@ export const QuizList: React.FC<QuizListProps> = ({
 }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { quizzes, loading, error } = useSelector(
-    (state: RootState) => state.quiz
+    (state: RootState) => state.quiz,
   );
+  const authUser = useSelector((state: RootState) => state.auth.user);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [publicLoading, setPublicLoading] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -83,7 +84,7 @@ export const QuizList: React.FC<QuizListProps> = ({
 
   const handleTogglePublic = async (
     quizId: number,
-    currentPublicStatus: boolean
+    currentPublicStatus: boolean,
   ) => {
     setPublicLoading(quizId.toString());
     try {
@@ -91,7 +92,7 @@ export const QuizList: React.FC<QuizListProps> = ({
         updateQuiz({
           quizId,
           quizData: { is_public: !currentPublicStatus },
-        })
+        }),
       ).unwrap();
     } catch (error) {
       console.error("Failed to update quiz public status:", error);
@@ -101,16 +102,27 @@ export const QuizList: React.FC<QuizListProps> = ({
   };
 
   // Limit and pagination logic
-  const sortedQuizzes = [...quizzes].sort(
-    (a, b) =>
-      new Date(b.created_at || 0).getTime() -
-      new Date(a.created_at || 0).getTime()
-  );
+  const sortedQuizzes = [...quizzes]
+    .filter((quiz) => {
+      if (authUser?.role === "student") {
+        return (
+          quiz.status === "published" ||
+          quiz.status === "completed" ||
+          quiz.is_public
+        );
+      }
+      return true;
+    })
+    .sort(
+      (a, b) =>
+        new Date(b.created_at || 0).getTime() -
+        new Date(a.created_at || 0).getTime(),
+    );
   const limitedQuizzes = limit ? sortedQuizzes.slice(0, limit) : sortedQuizzes;
   const totalPages = Math.ceil(limitedQuizzes.length / itemsPerPage);
   const paginatedQuizzes = limitedQuizzes.slice(
     (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
+    currentPage * itemsPerPage,
   );
 
   const handlePageChange = (page: number) => {
@@ -196,7 +208,7 @@ export const QuizList: React.FC<QuizListProps> = ({
             {showViewAllButton && limit && quizzes.length > limit && (
               <Link
                 to={`/courses/${courseId}/quizzes`}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-105 hover:shadow-md"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-md"
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -255,7 +267,7 @@ export const QuizList: React.FC<QuizListProps> = ({
                     >
                       {page}
                     </button>
-                  )
+                  ),
                 )}
               </div>
 
@@ -264,7 +276,7 @@ export const QuizList: React.FC<QuizListProps> = ({
                 {Array.from({ length: Math.min(3, totalPages) }, (_, i) => {
                   const pageNum = Math.max(
                     1,
-                    Math.min(totalPages, currentPage - 1 + i)
+                    Math.min(totalPages, currentPage - 1 + i),
                   );
                   return (
                     <button
@@ -318,7 +330,7 @@ export const QuizList: React.FC<QuizListProps> = ({
             <div className="mt-6">
               <Link
                 to={`/courses/${courseId}/quizzes/create`}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
+                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 hover:shadow-xl transition-all duration-200"
               >
                 <svg
                   className="w-4 h-4 mr-2"

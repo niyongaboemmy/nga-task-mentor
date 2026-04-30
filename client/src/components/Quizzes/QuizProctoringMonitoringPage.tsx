@@ -63,7 +63,7 @@ export const QuizProctoringMonitoringPage: React.FC<
   }
 
   return (
-    <div className="min-h-screen fixed top-0 bottom-0 left-0 right-0 z-50 bg-white dark:bg-black">
+    <div className="min-h-screen fixed top-0 bottom-0 left-0 right-0 z-50 bg-white dark:bg-black overflow-y-auto">
       <div className="">
         <div className="space-y-4">
           {/* Live Monitoring Dashboard */}

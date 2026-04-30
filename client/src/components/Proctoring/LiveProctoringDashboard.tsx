@@ -11,6 +11,9 @@ import {
   RefreshCw,
   PauseCircle,
   Ban,
+  Search,
+  Filter,
+  X,
 } from "lucide-react";
 
 interface LiveStream {
@@ -60,6 +63,10 @@ const LiveProctoringDashboard: React.FC = () => {
   const [selectedStreamForModal, setSelectedStreamForModal] =
     useState<LiveStream | null>(null);
   const [events, setEvents] = useState<ProctoringEvent[]>([]);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<
+    "all" | "online" | "offline" | "flagged"
+  >("all");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [socketConnected, setSocketConnected] = useState(false);
@@ -808,10 +815,37 @@ const LiveProctoringDashboard: React.FC = () => {
   };
 
   const getFilteredStreams = () => {
-    if (selectedQuiz === null) {
-      return activeStreams;
+    let filtered = activeStreams;
+
+    // Filter by quiz
+    if (selectedQuiz !== null) {
+      filtered = filtered.filter((stream) => stream.quiz.id === selectedQuiz);
     }
-    return activeStreams.filter((stream) => stream.quiz.id === selectedQuiz);
+
+    // Filter by status
+    if (statusFilter !== "all") {
+      if (statusFilter === "online") {
+        filtered = filtered.filter((stream) => stream.isLive);
+      } else if (statusFilter === "offline") {
+        filtered = filtered.filter((stream) => !stream.isLive);
+      } else if (statusFilter === "flagged") {
+        filtered = filtered.filter((stream) => stream.flagsCount > 0);
+      }
+    }
+
+    // Filter by search query
+    if (searchQuery.trim() !== "") {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (stream) =>
+          stream.student.first_name.toLowerCase().includes(query) ||
+          stream.student.last_name.toLowerCase().includes(query) ||
+          stream.student.email.toLowerCase().includes(query) ||
+          stream.quiz.title.toLowerCase().includes(query),
+      );
+    }
+
+    return filtered;
   };
 
   // Helper function to add status messages
@@ -1637,6 +1671,78 @@ const LiveProctoringDashboard: React.FC = () => {
                 </div>
               </div>
             </div>
+            
+            {/* Search and Filters */}
+            <div className="flex flex-col md:flex-row gap-4 mt-6">
+              {/* Search Input */}
+              <div className="relative flex-1 group">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Search className="h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                </div>
+                <input
+                  type="text"
+                  placeholder="Search students, emails, or quiz titles..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="block w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:ring-blue-500/10"
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:text-red-500 transition-colors"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Status Filters */}
+              <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+                <button
+                  onClick={() => setStatusFilter("all")}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${
+                    statusFilter === "all"
+                      ? "bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-400"
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  }`}
+                >
+                  All
+                </button>
+                <button
+                  onClick={() => setStatusFilter("online")}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center gap-1.5 ${
+                    statusFilter === "online"
+                      ? "bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400"
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  }`}
+                >
+                  <div className={`w-1.5 h-1.5 rounded-full bg-green-500 ${statusFilter === "online" ? "animate-pulse" : ""}`}></div>
+                  Online
+                </button>
+                <button
+                  onClick={() => setStatusFilter("offline")}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center gap-1.5 ${
+                    statusFilter === "offline"
+                      ? "bg-white text-gray-600 shadow-sm dark:bg-gray-700 dark:text-gray-400"
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  }`}
+                >
+                  <div className="w-1.5 h-1.5 rounded-full bg-gray-400"></div>
+                  Offline
+                </button>
+                <button
+                  onClick={() => setStatusFilter("flagged")}
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center gap-1.5 ${
+                    statusFilter === "flagged"
+                      ? "bg-white text-red-600 shadow-sm dark:bg-gray-700 dark:text-red-400"
+                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
+                  }`}
+                >
+                  <Flag className="w-3 h-3" />
+                  Flagged
+                </button>
+              </div>
+            </div>
           </div>
 
           {getFilteredStreams().length === 0 ? (
@@ -1668,7 +1774,7 @@ const LiveProctoringDashboard: React.FC = () => {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
               {getFilteredStreams().map((stream, index) => (
                 <div
                   key={index + 1}

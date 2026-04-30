@@ -86,6 +86,26 @@ interface StudentDashboardData {
 const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
   data,
 }) => {
+  const enrolledCourseIds = React.useMemo(
+    () => data.enrolledCourses.map((c) => String(c.id)),
+    [data.enrolledCourses],
+  );
+
+  const filteredAssignments = React.useMemo(
+    () =>
+      data.pendingAssignments.filter((a) =>
+        enrolledCourseIds.includes(String(a.course_id)),
+      ),
+    [data.pendingAssignments, enrolledCourseIds],
+  );
+
+  const filteredQuizzes = React.useMemo(
+    () =>
+      data.availableQuizzes.filter((q) =>
+        enrolledCourseIds.includes(String(q.course_id)),
+      ),
+    [data.availableQuizzes, enrolledCourseIds],
+  );
   // Function to calculate urgency level based on due date
   const getUrgencyLevel = (dueDate: string) => {
     const now = new Date();
@@ -262,7 +282,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
       )}
 
       {/* Assignment Cards - Modern List Design */}
-      {data?.pendingAssignments && data.pendingAssignments.length > 0 && (
+      {filteredAssignments && filteredAssignments.length > 0 && (
         <motion.div
           variants={itemVariants}
           className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
@@ -290,7 +310,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
           </div>
 
           <div className="grid gap-4">
-            {data.pendingAssignments.slice(0, 3).map((assignment, index) => {
+            {filteredAssignments.slice(0, 3).map((assignment, index) => {
               const urgency = getUrgencyLevel(assignment.due_date);
 
               return (
@@ -321,7 +341,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
       )}
 
       {/* Available Copurse Quizzes Section */}
-      {data?.availableQuizzes && data.availableQuizzes.length > 0 && (
+      {filteredQuizzes && filteredQuizzes.length > 0 && (
         <motion.div
           variants={itemVariants}
           className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
@@ -337,7 +357,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                     Available Quizzes
                   </h3>
                   <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-bold uppercase tracking-wider">
-                    {data.availableQuizzes.length} Active
+                    {filteredQuizzes.length} Active
                   </span>
                 </div>
                 <p className="text-base font-medium text-gray-500 dark:text-gray-400">
@@ -354,7 +374,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {data.availableQuizzes
+            {filteredQuizzes
               .slice(0, 3)
               .map((quiz: any, index: number) => {
                 const deadline = quiz.deadline || quiz.end_date;

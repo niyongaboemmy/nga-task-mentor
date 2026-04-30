@@ -138,9 +138,11 @@ const Assignments: React.FC<AssignmentsProps> = ({
 
   const filteredAssignments = useMemo(() => {
     return assignments.filter((assignment) => {
-      // Students should never see removed assignments
-      if (user?.role === "student" && assignment.status === "removed") {
-        return false;
+      // Students should only see published, completed, or public assignments
+      if (user?.role === "student") {
+        return (
+          assignment.status === "published" || assignment.status === "completed"
+        );
       }
 
       if (filter !== "all" && assignment.status !== filter) {
