@@ -1016,18 +1016,16 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
 
       const questionData = question.questionBank?.question_data as any;
 
-      // Check if question has individual time limit and if it was exceeded
-      let questionTimedOut = false;
-      if (
-        question.time_limit_seconds &&
-        answer.time_taken > question.time_limit_seconds
-      ) {
-        questionTimedOut = true;
-      }
+      // Per-question timeout is enforced client-side via the countdown timer.
+      // time_taken from the client is not reliable for server-side enforcement
+      // (stale localStorage start times can produce wildly large values).
+      // The overall quiz end_time is the authoritative server-side time limit.
+      const questionTimedOut = false;
 
       // Scoring logic based on grading settings
       let isCorrect = false;
       let pointsEarned = 0;
+      let gradingResult: any = null;
 
       if (questionTimedOut) {
         // If question timed out, no points awarded
@@ -1040,7 +1038,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       } else {
         // Use advanced grading for all question types for consistency and to trigger AI grading
         try {
-          const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
+          gradingResult = await AdvancedQuizGrader.gradeWithConfig(
             question,
             answer.answer,
           );
@@ -1118,6 +1116,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         max_points: Number(question.points),
         explanation:
           question.questionBank?.explanation || "No explanation provided.",
+        feedback: gradingResult?.feedback || (questionTimedOut ? "Timed out" : "Pending"),
         timed_out: questionTimedOut,
         time_limit_seconds: question.time_limit_seconds,
       });

@@ -222,8 +222,13 @@ const QuizTakingPage: React.FC = () => {
     const key = getQuestionStartKey(currentQuestion.id);
     const existing = localStorage.getItem(key);
     const parsed = existing ? Number(existing) : NaN;
+    const maxStalenessMs = Math.max(
+      (currentQuestion?.questionBank?.time_limit_seconds ?? 600) * 1000 * 2,
+      10 * 60 * 1000, // 10 minutes floor
+    );
+    const isStale = !Number.isFinite(parsed) || parsed <= 0 || (Date.now() - parsed) > maxStalenessMs;
 
-    if (existing && Number.isFinite(parsed) && parsed > 0) {
+    if (!isStale) {
       questionStartTimeRef.current = parsed;
     } else {
       const now = Date.now();

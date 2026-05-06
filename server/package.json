@@ -10,7 +10,8 @@
     "seed": "ts-node scripts/seed.ts",
     "migrate": "sequelize-cli db:migrate",
     "migrate:undo": "sequelize-cli db:migrate:undo",
-    "migrate:reset": "sequelize-cli db:migrate:undo:all && npm run migrate"
+    "migrate:reset": "sequelize-cli db:migrate:undo:all && npm run migrate",
+    "test:grader": "ts-node --transpile-only --require ./test-grader-mock.cjs src/utils/quizGrader.test.ts"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

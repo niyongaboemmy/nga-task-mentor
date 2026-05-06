@@ -51,18 +51,20 @@ interface SubmissionDetail {
 }
 
 const QUESTION_TYPE_META: Record<string, { label: string; color: string }> = {
-  multiple_choice: { label: "MCQ", color: "bg-blue-100 text-blue-700" },
-  true_false: { label: "T/F", color: "bg-indigo-100 text-indigo-700" },
-  short_answer: {
-    label: "Short Answer",
-    color: "bg-purple-100 text-purple-700",
-  },
-  essay: { label: "Essay", color: "bg-pink-100 text-pink-700" },
-  fill_blank: { label: "Fill in Blank", color: "bg-amber-100 text-amber-700" },
-  matching: { label: "Matching", color: "bg-teal-100 text-teal-700" },
-  ordering: { label: "Ordering", color: "bg-cyan-100 text-cyan-700" },
-  dropdown: { label: "Dropdown", color: "bg-lime-100 text-lime-700" },
-  coding: { label: "Coding", color: "bg-slate-100 text-slate-700" },
+  multiple_choice:    { label: "MCQ",            color: "bg-blue-100 text-blue-700"       },
+  single_choice:      { label: "Single Choice",  color: "bg-blue-100 text-blue-700"       },
+  true_false:         { label: "T/F",            color: "bg-indigo-100 text-indigo-700"   },
+  short_answer:       { label: "Short Answer",   color: "bg-purple-100 text-purple-700"   },
+  essay:              { label: "Essay",          color: "bg-pink-100 text-pink-700"       },
+  fill_blank:         { label: "Fill in Blank",  color: "bg-amber-100 text-amber-700"     },
+  matching:           { label: "Matching",       color: "bg-teal-100 text-teal-700"       },
+  ordering:           { label: "Ordering",       color: "bg-cyan-100 text-cyan-700"       },
+  dropdown:           { label: "Dropdown",       color: "bg-lime-100 text-lime-700"       },
+  coding:             { label: "Coding",         color: "bg-slate-100 text-slate-700"     },
+  numerical:          { label: "Numerical",      color: "bg-orange-100 text-orange-700"   },
+  logical_expression: { label: "Logical Expr",   color: "bg-violet-100 text-violet-700"   },
+  drag_drop:          { label: "Drag & Drop",    color: "bg-sky-100 text-sky-700"         },
+  algorithmic:        { label: "Algorithmic",    color: "bg-emerald-100 text-emerald-700" },
 };
 
 function getQuestionStyle(isCorrect: boolean | null) {
@@ -491,7 +493,7 @@ function renderAnswer(
         .replace(/&quot;/g, '"')
         .replace(/&&/g, " AND ")
         .replace(/\|\|/g, " OR ")
-        .replace(/!/g, "NOT ")
+        .replace(/!(?!=)/g, "NOT ")
         .replace(/\s{2,}/g, " ")
         .trim();
       return (

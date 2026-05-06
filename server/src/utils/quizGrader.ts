@@ -79,70 +79,153 @@ export class ChoiceQuestionGrader {
     question: QuizQuestion,
     answerData: any,
   ): GradingResult {
-    // Validate inputs
-    if (!question || answerData === undefined || answerData === null) {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback: "Invalid question or answer data",
-      };
+    if (!question) {
+      return { is_correct: false, points_earned: 0, feedback: "Invalid question" };
     }
-    // 1. Normalize correct answer from question
-    const normalizedCorrect =
-      AdvancedQuizGrader.normalizeCorrectAnswer(question);
-    const correctAnswerData = normalizedCorrect.data;
 
-    // 2. Extract indices robustly
-    const getIndex = (val: any): number | null => {
+    // Extract question_data
+    let qData = question.questionBank?.question_data as any;
+    if (typeof qData === "string") {
+      try { qData = JSON.parse(qData); } catch { qData = {}; }
+    }
+
+    const toIndex = (val: any): number | null => {
       if (val === null || val === undefined) return null;
-      if (typeof val === "number") return val;
+      if (typeof val === "number" && !isNaN(val)) return val;
       if (typeof val === "string") {
-        const parsed = parseInt(val.trim(), 10);
-        return isNaN(parsed) ? null : parsed;
-      }
-      if (Array.isArray(val)) return val.length > 0 ? getIndex(val[0]) : null;
-      if (typeof val === "object") {
-        return getIndex(val.selected_option_index ?? val.correct_option_index);
+        const n = parseInt(val.trim(), 10);
+        return isNaN(n) ? null : n;
       }
       return null;
     };
 
-    const studentIndex = getIndex(answerData);
-    const correctIndex = getIndex(correctAnswerData);
+    // Build a normalized flat text list of options for text-based matching
+    const rawOptions: any[] = Array.isArray(qData?.options) ? qData.options : [];
+    const normalizedOptions: string[] = rawOptions.map((opt: any) =>
+      stripHtml(
+        typeof opt === "object" && opt !== null ? (opt.text ?? String(opt)) : String(opt ?? ""),
+      ).trim().toLowerCase(),
+    );
 
-    // 3. Log diagnostic info
-    console.log(`[Grading] Single Choice Diagnostic:`, {
-      question_id: question.id,
-      student_index: studentIndex,
-      student_type: typeof studentIndex,
-      correct_index: correctIndex,
-      correct_type: typeof correctIndex,
-      raw_student_data: JSON.stringify(answerData),
-      raw_correct_data: JSON.stringify(correctAnswerData),
-    });
+    // ── Correct-index resolution (4 levels) ──────────────────────────────────
+    let correctIndex: number | null = null;
 
-    // 4. Validate presence of data
+    // Level 1: question_data.correct_option_index (canonical location)
+    correctIndex = toIndex(qData?.correct_option_index);
+
+    // Level 2: options array item flagged with correct:true
+    if (correctIndex === null) {
+      const flaggedIdx = rawOptions.findIndex(
+        (opt: any) => typeof opt === "object" && opt !== null && opt.correct === true,
+      );
+      if (flaggedIdx !== -1) correctIndex = flaggedIdx;
+    }
+
+    // Level 3: correct_answer column — try numeric index first, then option-text match
+    if (correctIndex === null) {
+      let ca = question.questionBank?.correct_answer as any;
+      if (typeof ca === "string") { try { ca = JSON.parse(ca); } catch { /* keep as string */ } }
+      if (typeof ca === "number") {
+        correctIndex = toIndex(ca);
+      } else if (typeof ca === "string") {
+        correctIndex = toIndex(ca);
+        if (correctIndex === null && normalizedOptions.length > 0) {
+          const caText = stripHtml(ca).trim().toLowerCase();
+          const textIdx = normalizedOptions.findIndex((o) => o === caText);
+          if (textIdx !== -1) correctIndex = textIdx;
+        }
+      } else if (typeof ca === "object" && ca !== null) {
+        if (Array.isArray(ca)) {
+          // Array format [0] — treat first element as the index
+          correctIndex = toIndex(ca[0]);
+        } else {
+          // Object format — check all common index-bearing keys
+          const indexVal = ca.selected_option_index ?? ca.correct_option_index ?? ca.answer;
+          correctIndex = toIndex(indexVal);
+          // If index lookup failed, try text-based fields (option_text or answer-as-text)
+          if (correctIndex === null && normalizedOptions.length > 0) {
+            const textSrc = ca.option_text ?? (typeof ca.answer === "string" ? ca.answer : null);
+            if (textSrc != null) {
+              const caText = stripHtml(String(textSrc)).trim().toLowerCase();
+              const textIdx = normalizedOptions.findIndex((o) => o === caText);
+              if (textIdx !== -1) correctIndex = textIdx;
+            }
+          }
+        }
+      }
+    }
+
+    // Level 4: question_data.correct_answer (DOCX-imported questions sometimes store it here)
+    if (correctIndex === null && qData?.correct_answer !== undefined && qData.correct_answer !== null) {
+      const qa = qData.correct_answer;
+      if (typeof qa === "number") {
+        correctIndex = toIndex(qa);
+      } else if (typeof qa === "string") {
+        correctIndex = toIndex(qa);
+        if (correctIndex === null && normalizedOptions.length > 0) {
+          const qaText = stripHtml(qa).trim().toLowerCase();
+          const textIdx = normalizedOptions.findIndex((o) => o === qaText);
+          if (textIdx !== -1) correctIndex = textIdx;
+        }
+      } else if (typeof qa === "object" && !Array.isArray(qa)) {
+        // Object shape in question_data.correct_answer: { selected_option_index, correct_option_index, answer }
+        const indexVal = qa.selected_option_index ?? qa.correct_option_index ?? qa.answer;
+        correctIndex = toIndex(indexVal);
+        if (correctIndex === null && normalizedOptions.length > 0) {
+          const textSrc = qa.option_text ?? (typeof qa.answer === "string" ? qa.answer : null);
+          if (textSrc != null) {
+            const qaText = stripHtml(String(textSrc)).trim().toLowerCase();
+            const textIdx = normalizedOptions.findIndex((o) => o === qaText);
+            if (textIdx !== -1) correctIndex = textIdx;
+          }
+        }
+      }
+    }
+
     if (correctIndex === null) {
       return {
         is_correct: false,
         points_earned: 0,
-        feedback: `Question has no valid correct answer. Raw correct data: ${JSON.stringify(
-          correctAnswerData,
-        )}`,
+        feedback: "Correct answer not configured (no correct_option_index found in any location)",
       };
+    }
+
+    // No answer provided
+    if (answerData === null || answerData === undefined) {
+      return { is_correct: false, points_earned: 0, feedback: "No answer provided" };
+    }
+
+    // Parse JSON string answers (common from some DB drivers / older submissions)
+    let parsed = answerData;
+    if (typeof answerData === "string") {
+      try { parsed = JSON.parse(answerData); } catch { /* numeric string or text — handled below */ }
+    }
+
+    let studentIndex: number | null = null;
+    if (typeof parsed === "number") {
+      studentIndex = toIndex(parsed);
+    } else if (typeof parsed === "string") {
+      // Try numeric index first
+      studentIndex = toIndex(parsed);
+      // Fallback: match option text (handles clients that send the option text instead of index)
+      if (studentIndex === null && normalizedOptions.length > 0) {
+        const parsedText = stripHtml(parsed).trim().toLowerCase();
+        const textIdx = normalizedOptions.findIndex((o) => o === parsedText);
+        if (textIdx !== -1) studentIndex = textIdx;
+      }
+    } else if (typeof parsed === "object" && parsed !== null) {
+      studentIndex = toIndex(parsed.selected_option_index ?? parsed.correct_option_index);
     }
 
     if (studentIndex === null) {
       return {
         is_correct: false,
         points_earned: 0,
-        feedback: "No answer provided or invalid answer format",
+        feedback: `Answer did not match any known option format`,
       };
     }
 
-    // 5. Compare
     const isCorrect = studentIndex === correctIndex;
-
     return {
       is_correct: isCorrect,
       points_earned: isCorrect ? parseFloat(String(question.points || 0)) : 0,
@@ -268,8 +351,8 @@ export class ChoiceQuestionGrader {
       }
     }
 
-    // If any points are earned, mark as correct
-    const finalIsCorrect = pointsEarned > 0;
+    // is_correct only when all correct answers selected and no wrong ones
+    const finalIsCorrect = isCorrect;
 
     return {
       is_correct: finalIsCorrect,
@@ -506,15 +589,15 @@ export class TextInputGrader {
 
     // Convert string to number if needed
     let studentAnswer: number;
-    const cleanStudentText = stripHtml(answer.answer);
 
     if (typeof answer.answer === "string") {
-      // First try to parse LaTeX expressions
-      const latexResult = parseLatexNumber(cleanStudentText);
-      if (latexResult !== null) {
-        studentAnswer = latexResult;
+      // Try LaTeX on the RAW string FIRST — stripHtml strips \frac, so call it before HTML cleanup
+      const rawLatexResult = parseLatexNumber(answer.answer.trim());
+      if (rawLatexResult !== null) {
+        studentAnswer = rawLatexResult;
       } else {
-        // Standard parsing
+        const cleanStudentText = stripHtml(answer.answer);
+        // Standard parsing on cleaned text
         studentAnswer = parseFloat(cleanStudentText);
 
         // Second pass parsing: if parseFloat fails, strip ALL non-numeric chars except . and -
@@ -848,7 +931,7 @@ export class TextInputGrader {
       ).toFixed(2),
     );
 
-    const finalIsCorrect = pointsEarned > 0;
+    const finalIsCorrect = correctBlanks === totalBlanks;
 
     return {
       is_correct: finalIsCorrect,
@@ -938,7 +1021,7 @@ export class TextInputGrader {
 
       return {
         is_correct: foundKeywords.length === questionData.keywords.length,
-        points_earned: Math.round(keywordScore),
+        points_earned: parseFloat(keywordScore.toFixed(2)),
         feedback: `Found ${foundKeywords.length}/${questionData.keywords.length} key concepts`,
       };
     }
@@ -954,142 +1037,86 @@ export class TextInputGrader {
 export class InteractiveGrader {
   static gradeMatching(
     question: QuizQuestion,
-    answerData: AnswerDataType,
+    answerData: any,
   ): GradingResult {
-    // Validate question data structure
-    if (!question || !question.questionBank?.question_data) {
+    // 1. Normalize correct answer from question
+    const normalizedCorrect =
+      AdvancedQuizGrader.normalizeCorrectAnswer(question);
+    const correctMappings = normalizedCorrect.data?.matches as Record<
+      string,
+      string
+    > | null;
+
+    if (!correctMappings) {
       return {
         is_correct: false,
         points_earned: 0,
-        feedback: "Matching question: Invalid question data",
+        feedback: `Matching question: No valid correct matches defined. Raw data: ${JSON.stringify(
+          question.questionBank?.question_data,
+        )}`,
       };
     }
 
-    let questionData = question.questionBank?.question_data as any;
-    // If question_data is stored as a string, parse it
-    if (typeof questionData === "string") {
+    // 2. Extract student matches robustly
+    let studentMatches: Record<string, any> = {};
+    let parsedAnswerData = answerData;
+    
+    // Parse if string
+    if (typeof answerData === "string") {
       try {
-        questionData = JSON.parse(questionData);
-      } catch (e) {
-        return {
-          is_correct: false,
-          points_earned: 0,
-          feedback: "Matching question: Invalid question data format",
-        };
+        parsedAnswerData = JSON.parse(answerData);
+      } catch (e) {}
+    }
+
+    if (parsedAnswerData && typeof parsedAnswerData === "object") {
+      if (parsedAnswerData.matches && typeof parsedAnswerData.matches === "object") {
+        studentMatches = parsedAnswerData.matches;
+      } else if (!Array.isArray(parsedAnswerData)) {
+        // Assume the parsedAnswerData itself is the matches object
+        studentMatches = parsedAnswerData;
       }
     }
 
-    // Validate answer data
-    if (!answerData) {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback: "Matching question: No answer provided",
-      };
-    }
+    // 3. Compare matches
+    const totalPossibleMatches = Object.keys(correctMappings).length;
+    let correctMatchesCount = 0;
 
-    const answer = answerData as any;
-
-    // Validate answer structure
-    if (!answer.matches || typeof answer.matches !== "object") {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback:
-          "Matching question: Invalid answer format - expected matches object",
-      };
-    }
-
-    // Validate question configuration - check for left and right items
-    if (
-      !questionData.left_items ||
-      !Array.isArray(questionData.left_items) ||
-      questionData.left_items.length === 0
-    ) {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback: "Matching question: No left items defined",
-      };
-    }
-
-    if (
-      !questionData.right_items ||
-      !Array.isArray(questionData.right_items) ||
-      questionData.right_items.length === 0
-    ) {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback: "Matching question: No right items defined",
-      };
-    }
-
-    // Check for correct answer in question_data first, then in correct_answer
-    let correctMappings: Record<string, string> | undefined;
-
-    if (
-      questionData &&
-      questionData.correct_matches &&
-      typeof questionData.correct_matches === "object"
-    ) {
-      correctMappings = questionData.correct_matches;
-    } else if (question.questionBank?.correct_answer) {
-      const ca = question.questionBank.correct_answer as any;
-      const raw = ca.matches || ca.mappings;
-      if (raw && typeof raw === "object") {
-        correctMappings = raw;
-      }
-    }
-
-    if (!correctMappings || Object.keys(correctMappings).length === 0) {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback: "Matching question: No correct matches defined",
-      };
-    }
-
-    // Validate that all required matches are present
-    const totalMatches = Object.keys(correctMappings).length;
-    const providedMatches = Object.keys(answer.matches).length;
-
-    if (providedMatches === 0) {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback: "Matching question: No matches provided",
-      };
-    }
-
-    let correctMatches = 0;
-
-    // Validate each mapping
     Object.entries(correctMappings).forEach(([leftId, rightId]) => {
-      const studentValue = answer.matches[leftId];
-      if (studentValue == null) return;
-      const studentRightId = String(studentValue);
-      const targetRightId = String(rightId);
+      const studentValue = studentMatches[leftId];
+      if (studentValue === undefined || studentValue === null) return;
+
+      const studentRightId = String(studentValue).trim().toLowerCase();
+      const targetRightId = String(rightId).trim().toLowerCase();
+
       if (studentRightId === targetRightId) {
-        correctMatches++;
+        correctMatchesCount++;
       }
     });
 
-    console.log(`[Basic Grader] Matching Match:`, {
-      totalMatches,
-      correctMatches,
-      isCorrect: correctMatches === totalMatches,
+    // 4. Log diagnostic info
+    console.log(`[Grading] Matching Diagnostic:`, {
+      question_id: question.id,
+      total_possible: totalPossibleMatches,
+      correct_found: correctMatchesCount,
+      is_perfect: correctMatchesCount === totalPossibleMatches,
+      student_matches: JSON.stringify(studentMatches),
+      correct_mappings: JSON.stringify(correctMappings),
     });
 
-    const pointsEarned = Math.round(
-      (correctMatches / totalMatches) *
-        parseFloat(String(question.points || 0)),
-    );
+    // 5. Calculate points
+    const maxPoints = parseFloat(String(question.points || 0));
+    const pointsEarned =
+      totalPossibleMatches > 0
+        ? Math.round((correctMatchesCount / totalPossibleMatches) * maxPoints * 100) / 100
+        : 0;
+
+    const isCorrect =
+      totalPossibleMatches > 0 && correctMatchesCount === totalPossibleMatches;
 
     return {
-      is_correct: correctMatches === totalMatches,
+      is_correct: isCorrect,
       points_earned: pointsEarned,
-      feedback: `${correctMatches}/${totalMatches} matches correct`,
+      feedback: `${correctMatchesCount}/${totalPossibleMatches} matches correct. (Student: ${JSON.stringify(studentMatches)}, Correct: ${JSON.stringify(correctMappings)})`,
     };
   }
 
@@ -1106,7 +1133,13 @@ export class InteractiveGrader {
         questionData = {};
       }
     }
-    const answer = answerData as any;
+    let parsedAnswerData = answerData;
+    if (typeof answerData === "string") {
+      try {
+        parsedAnswerData = JSON.parse(answerData);
+      } catch (e) {}
+    }
+    const answer = parsedAnswerData as any;
 
     if (!Array.isArray(answer.ordered_item_ids)) {
       return {
@@ -1197,14 +1230,17 @@ export class InteractiveGrader {
     });
 
     const isCorrect = correctPositions === totalItems;
+    const maxPoints = parseFloat(String(question.points || 0));
     const pointsEarned = isCorrect
-      ? parseFloat(String(question.points || 0))
-      : 0;
+      ? maxPoints
+      : questionData.allow_partial_credit
+        ? parseFloat(((correctPositions / totalItems) * maxPoints).toFixed(2))
+        : 0;
 
     return {
-      is_correct: correctPositions === totalItems,
+      is_correct: isCorrect,
       points_earned: pointsEarned,
-      feedback: `${correctPositions}/${totalItems} items in correct order`,
+      feedback: `${correctPositions}/${totalItems} items in correct order. (Your order: ${JSON.stringify(answer.ordered_item_ids)}, Correct order: ${JSON.stringify(correctOrderedIds)})`,
     };
   }
 
@@ -1439,7 +1475,7 @@ export class InteractiveGrader {
           )
         : 0;
 
-    const finalIsCorrect = pointsEarned > 0;
+    const finalIsCorrect = correctSelections === totalDropdowns;
 
     return {
       is_correct: finalIsCorrect,
@@ -1715,6 +1751,14 @@ export class InteractiveGrader {
       };
     }
 
+    if (!questionData.drop_zones || questionData.drop_zones.length === 0) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        feedback: "Drag-drop question has no drop zones configured",
+      };
+    }
+
     let correctPlacements = 0;
     const totalZones = questionData.drop_zones.length;
 
@@ -1725,8 +1769,9 @@ export class InteractiveGrader {
       }
     });
 
-    const pointsEarned = Math.round(
-      (correctPlacements / totalZones) * parseFloat(String(question.points)),
+    const maxPoints = parseFloat(String(question.points || 0));
+    const pointsEarned = parseFloat(
+      ((correctPlacements / totalZones) * maxPoints).toFixed(2),
     );
 
     return {
@@ -2114,84 +2159,36 @@ export class AdvancedQuizGrader {
     let normalizedData: any;
 
     switch (question.questionBank?.question_type) {
-      case "single_choice":
-        let correctOptionIndex: number | null = null;
-
-        const parseIndex = (val: any): number | null => {
+      case "single_choice": {
+        const scToIndex = (val: any): number | null => {
           if (val === null || val === undefined) return null;
-          if (typeof val === "number") return val;
-          if (Array.isArray(val)) return val.length > 0 ? parseIndex(val[0]) : null;
+          if (typeof val === "number" && !isNaN(val)) return val;
           if (typeof val === "string") {
-            const parsed = parseInt(val.trim(), 10);
-            return isNaN(parsed) ? null : parsed;
+            const n = parseInt(val.trim(), 10);
+            return isNaN(n) ? null : n;
           }
           return null;
         };
 
-        // Check question_data.correct_option_index first (primary source)
-        if (questionData) {
-          correctOptionIndex = parseIndex(questionData.correct_option_index);
-        }
+        // Primary: question_data.correct_option_index
+        let scIndex = scToIndex(questionData?.correct_option_index);
 
-        // Check if question_data.correct_answer is a number or string
-        if (correctOptionIndex === null && questionData) {
-          correctOptionIndex = parseIndex(questionData.correct_answer);
-        }
-
-        // Check if question_data has selected_option_index (alternative format)
-        if (correctOptionIndex === null && questionData) {
-          correctOptionIndex = parseIndex(questionData.selected_option_index);
-        }
-
-        // Check if question_data.correct_answer is an object
-        if (
-          correctOptionIndex === null &&
-          questionData &&
-          questionData.correct_answer &&
-          typeof questionData.correct_answer === "object"
-        ) {
-          const ca = questionData.correct_answer;
-          correctOptionIndex = parseIndex(ca.selected_option_index ?? ca.correct_option_index);
-        }
-
-        // Fallback to question.questionBank?.correct_answer column
-        if (
-          correctOptionIndex === null &&
-          correctAnswer !== undefined &&
-          correctAnswer !== null
-        ) {
+        // Fallback: correct_answer column (number or numeric string or object with index)
+        if (scIndex === null && correctAnswer !== undefined && correctAnswer !== null) {
           if (typeof correctAnswer === "number") {
-            correctOptionIndex = correctAnswer;
+            scIndex = scToIndex(correctAnswer);
           } else if (typeof correctAnswer === "string") {
-            // Try to parse as number first
-            const parsed = parseInt(correctAnswer.trim(), 10);
-            if (!isNaN(parsed)) {
-              correctOptionIndex = parsed;
-            } else {
-              // Try to parse as JSON string object
-              try {
-                const parsedObj = JSON.parse(correctAnswer);
-                if (parsedObj && typeof parsedObj === "object") {
-                  correctOptionIndex = parseIndex(
-                    parsedObj.selected_option_index ?? parsedObj.correct_option_index
-                  );
-                }
-              } catch (e) {
-                // Not a valid JSON string
-              }
-            }
+            scIndex = scToIndex(correctAnswer);
           } else if (typeof correctAnswer === "object") {
-            correctOptionIndex = parseIndex(
-              correctAnswer.selected_option_index ?? correctAnswer.correct_option_index
+            scIndex = scToIndex(
+              correctAnswer.selected_option_index ?? correctAnswer.correct_option_index,
             );
           }
         }
 
-        normalizedData =
-          correctOptionIndex !== null
-            ? { selected_option_index: correctOptionIndex }
-            : null;
+        normalizedData = scIndex !== null ? { selected_option_index: scIndex } : null;
         break;
+      }
 
       case "multiple_choice":
         let correctOptionIndices: number[] | null = null;
@@ -2255,19 +2252,19 @@ export class AdvancedQuizGrader {
             correctBool = correctAnswer === 1;
           } else if (typeof correctAnswer === "string") {
             correctBool = correctAnswer.toLowerCase() === "true";
-          } else if (
-            correctAnswer &&
-            typeof correctAnswer === "object" &&
-            correctAnswer.answer !== undefined
-          ) {
-            const val = correctAnswer.answer;
-            if (typeof val === "boolean") {
-              correctBool = val;
-            } else if (typeof val === "string") {
-              const lowVal = val.toLowerCase().trim();
+          } else if (correctAnswer && typeof correctAnswer === "object") {
+            // Support both { answer: bool } and { selected_answer: bool } column formats
+            const rawVal =
+              correctAnswer.answer !== undefined
+                ? correctAnswer.answer
+                : correctAnswer.selected_answer;
+            if (typeof rawVal === "boolean") {
+              correctBool = rawVal;
+            } else if (typeof rawVal === "string") {
+              const lowVal = rawVal.toLowerCase().trim();
               correctBool = lowVal === "true";
-            } else if (typeof val === "number") {
-              correctBool = val === 1;
+            } else if (typeof rawVal === "number") {
+              correctBool = rawVal === 1;
             }
           }
         }
@@ -2333,13 +2330,55 @@ export class AdvancedQuizGrader {
             : null;
         break;
 
+      case "short_answer": {
+        const rawText =
+          (correctAnswer &&
+            (correctAnswer.answer ??
+              correctAnswer.text ??
+              (typeof correctAnswer === "string" ? correctAnswer : null))) ??
+          questionData?.correct_answer ??
+          questionData?.sample_answer ??
+          questionData?.model_answer ??
+          questionData?.expected_answer ??
+          null;
+        normalizedData = rawText !== null ? { answer: String(rawText) } : null;
+        break;
+      }
+
       case "matching":
         let correctMappings: Record<string, string> | null = null;
-        if (questionData && questionData.correct_matches) {
-          correctMappings = questionData.correct_matches;
-        } else if (correctAnswer && (correctAnswer.matches || correctAnswer.mappings)) {
-          correctMappings = correctAnswer.matches || correctAnswer.mappings;
+
+        const extractMappings = (val: any): Record<string, string> | null => {
+          if (!val || typeof val !== "object") return null;
+          const raw = val.correct_matches || val.matches || val.mappings;
+          if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+            return raw;
+          }
+          // If val itself is an object but doesn't have the keys, maybe it is the mapping object?
+          // We only assume this if it has at least one entry and doesn't look like a different structure
+          if (!raw && Object.keys(val).length > 0 && !val.left_items) {
+            return val;
+          }
+          return null;
+        };
+
+        // Try questionData first
+        if (questionData) {
+          correctMappings = extractMappings(questionData);
         }
+
+        // Try correctAnswer fallback
+        if (correctMappings === null && correctAnswer) {
+          if (typeof correctAnswer === "object") {
+            correctMappings = extractMappings(correctAnswer);
+          } else if (typeof correctAnswer === "string") {
+            try {
+              const parsed = JSON.parse(correctAnswer);
+              correctMappings = extractMappings(parsed);
+            } catch (e) {}
+          }
+        }
+
         normalizedData = correctMappings ? { matches: correctMappings } : null;
         break;
 
@@ -2369,19 +2408,65 @@ export class AdvancedQuizGrader {
             : null;
         break;
 
-      case "dropdown":
+      case "dropdown": {
+        // Mirror the multi-format parsing from gradeDropdown so the display
+        // always receives { selections: [{dropdown_index, selected_option}] }.
+        let parsedCA = correctAnswer;
+        if (typeof parsedCA === "string") {
+          try { parsedCA = JSON.parse(parsedCA); } catch { /* keep as-is */ }
+        }
+
+        const selectionsMap: Record<number, string> = {};
+
+        if (Array.isArray(parsedCA)) {
+          // Format 1 – plain string array OR object array with {dropdown_index, selected_option}
+          parsedCA.forEach((item: any, idx: number) => {
+            if (typeof item === "object" && item !== null && item.selected_option !== undefined) {
+              selectionsMap[item.dropdown_index ?? idx] = String(item.selected_option);
+            } else {
+              selectionsMap[idx] = String(item);
+            }
+          });
+        } else if (parsedCA && Array.isArray(parsedCA.selections)) {
+          // Format 3 – { selections: [{dropdown_index, selected_option}] }
+          parsedCA.selections.forEach((item: any) => {
+            if (item.dropdown_index !== undefined && item.selected_option !== undefined) {
+              selectionsMap[item.dropdown_index] = String(item.selected_option);
+            }
+          });
+        } else if (parsedCA && typeof parsedCA === "object") {
+          // Format 4 – numeric-keyed object: { "0": "ans0", "1": "ans1" }
+          Object.entries(parsedCA)
+            .filter(([k]) => !isNaN(parseInt(k)))
+            .forEach(([k, v]) => { selectionsMap[parseInt(k)] = String(v); });
+        }
+
+        // Format 5 – fallback to per-dropdown correct_answer / correct_option_index
+        const dropdownOpts: any[] = questionData?.dropdown_options ?? [];
+        if (Object.keys(selectionsMap).length === 0 && dropdownOpts.length > 0) {
+          dropdownOpts.forEach((dd: any, idx: number) => {
+            if (dd.correct_answer !== undefined) {
+              selectionsMap[idx] = String(dd.correct_answer);
+            } else if (dd.correct_option_index !== undefined && dd.options) {
+              const opt = dd.options[dd.correct_option_index];
+              selectionsMap[idx] = typeof opt === "object"
+                ? String(opt.text ?? opt.value)
+                : String(opt);
+            }
+          });
+        }
+
         normalizedData =
-          correctAnswer && Array.isArray(correctAnswer)
+          Object.keys(selectionsMap).length > 0
             ? {
-                selections: correctAnswer.map(
-                  (option: string, index: number) => ({
-                    dropdown_index: index,
-                    selected_option: option,
-                  }),
-                ),
+                selections: Object.entries(selectionsMap).map(([k, v]) => ({
+                  dropdown_index: parseInt(k),
+                  selected_option: v,
+                })),
               }
             : null;
         break;
+      }
 
       case "logical_expression":
         normalizedData =
@@ -2522,6 +2607,30 @@ export class AdvancedQuizGrader {
           question,
           answerData,
           gradingConfig.config as CodingGradingConfig,
+          maxPoints,
+        );
+
+      case "logical_expression":
+        return this.gradeLogicalExpression(
+          question,
+          answerData,
+          gradingConfig.config as BaseGradingConfig,
+          maxPoints,
+        );
+
+      case "drag_drop":
+        return this.gradeDragDrop(
+          question,
+          answerData,
+          gradingConfig.config as BaseGradingConfig,
+          maxPoints,
+        );
+
+      case "algorithmic":
+        return await this.gradeAlgorithmic(
+          question,
+          answerData,
+          gradingConfig.config as BaseGradingConfig,
           maxPoints,
         );
 

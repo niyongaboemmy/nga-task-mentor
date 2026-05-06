@@ -50,11 +50,15 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
 
     // If we have existing answer, reorder items based on ordered_item_ids
     if (answer) {
-      const orderedIds = (answer as any).ordered_item_ids || (Array.isArray(answer) ? answer : null);
+      const orderedIds =
+        (answer as any).ordered_item_ids ||
+        (Array.isArray(answer) ? answer : null);
       if (orderedIds && Array.isArray(orderedIds)) {
         const orderedItems = orderedIds
           .map((id) => dataItems.find((item) => item.id === id))
-          .filter((item): item is NonNullable<typeof item> => item !== undefined);
+          .filter(
+            (item): item is NonNullable<typeof item> => item !== undefined,
+          );
         return orderedItems.length === dataItems.length
           ? orderedItems
           : dataItems;
@@ -69,7 +73,9 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
 
   useEffect(() => {
     if (answer) {
-      const orderedIds = (answer as any).ordered_item_ids || (Array.isArray(answer) ? answer : null);
+      const orderedIds =
+        (answer as any).ordered_item_ids ||
+        (Array.isArray(answer) ? answer : null);
       if (orderedIds && Array.isArray(orderedIds)) {
         const orderedItems = orderedIds
           .map((id) => orderingData.items.find((item) => item.id === id))
@@ -352,7 +358,7 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
       )}
 
       {/* Correct Answer Display */}
-      {showCorrectAnswer && (
+      {/* {showCorrectAnswer && (
         <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-800 rounded-2xl p-6 shadow-sm">
           <h3 className="font-bold text-lg mb-4 text-blue-900 dark:text-blue-300 flex items-center gap-2">
             <CheckCircle className="w-5 h-5" />
@@ -375,7 +381,7 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
             ))}
           </div>
         </div>
-      )}
+      )} */}
 
       {/* Drag Hint */}
       {!showCorrectAnswer && draggedIndex !== null && (
