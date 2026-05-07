@@ -1,9 +1,8 @@
 import mammoth from "mammoth";
-// pdf-parse uses CommonJS default export
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const pdfParse = require("pdf-parse") as (
-  buffer: Buffer,
-) => Promise<{ text: string }>;
+const { PDFParse } = require("pdf-parse") as {
+  PDFParse: new (opts: { data: Uint8Array }) => { getText(): Promise<{ text: string }>; destroy(): Promise<void> };
+};
 
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -28,7 +27,9 @@ export class DocumentExtractorService {
       const result = await mammoth.extractRawText({ buffer });
       rawText = result.value;
     } else if (isPdf) {
-      const result = await pdfParse(buffer);
+      const parser = new PDFParse({ data: new Uint8Array(buffer) });
+      const result = await parser.getText();
+      await parser.destroy();
       rawText = result.text;
     } else {
       throw new Error(

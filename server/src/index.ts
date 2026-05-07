@@ -68,8 +68,9 @@ const allowedOrigins = [
   process.env.ALLOWED_ORIGINS,
   process.env.CORS_ORIGIN,
   process.env.FRONTEND_URL,
-  // Hard-coded dev fallbacks so local dev always works on common Vite ports
+  // Hard-coded dev fallbacks and production domains
   "http://localhost:5173,http://localhost:5174,http://localhost:3000",
+  "https://nga.ac.rw,https://taskmentor.hts.rw,https://task-mentor-gamma.vercel.app",
 ]
   .filter(Boolean)
   .flatMap((s) => s!.split(","))
@@ -79,7 +80,22 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      // Check if origin is in allowedOrigins list
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+
+      // Additional check for known production domains and localhost
+      if (
+        origin.includes("nga.ac.rw") ||
+        origin.includes("hts.rw") ||
+        origin.startsWith("http://localhost") ||
+        origin.startsWith("http://127.0.0.1")
+      ) {
+        return callback(null, true);
+      }
+
       callback(new Error(`CORS: origin ${origin} not allowed`));
     },
     credentials: true,
@@ -93,22 +109,29 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve static files from uploads directory with explicit CORS
-app.use("/uploads", (req, res, next) => {
-  const origin = req.headers.origin;
-  if (origin) {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-    res.setHeader("Access-Control-Allow-Credentials", "true");
-  } else {
-    res.setHeader("Access-Control-Allow-Origin", "*");
-  }
-  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, x-mis-token");
-  
-  if (req.method === "OPTIONS") {
-    return res.status(200).end();
-  }
-  next();
-}, express.static(path.join(__dirname, "../uploads")));
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    }
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, x-mis-token",
+    );
+
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
+    next();
+  },
+  express.static(path.join(__dirname, "../uploads")),
+);
 
 // Test database connection and sync models
 const initializeDatabase = async (): Promise<void> => {
