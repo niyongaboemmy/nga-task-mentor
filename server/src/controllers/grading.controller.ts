@@ -289,15 +289,15 @@ export const gradeSubmission = async (req: Request, res: Response) => {
           },
           { transaction },
         );
-        totalEarned += questionGrade;
+        totalEarned += Number(questionGrade);
       } else {
-        totalEarned += attempt.points_earned || 0;
+        totalEarned += parseFloat(String(attempt.points_earned)) || 0;
       }
     }
 
     // Calculate final scores
     const maxPossible =
-      quiz?.questions?.reduce((sum, q) => sum + q.points, 0) || 0;
+      quiz?.questions?.reduce((sum, q) => sum + (parseFloat(String(q.points)) || 0), 0) || 0;
     const percentage = maxPossible > 0 ? (totalEarned / maxPossible) * 100 : 0;
     const passed = quiz?.passing_score
       ? percentage >= quiz.passing_score

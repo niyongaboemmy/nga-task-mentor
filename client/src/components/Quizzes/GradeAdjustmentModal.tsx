@@ -126,7 +126,18 @@ const GradeAdjustmentModal: React.FC<Props> = ({
     try {
       const res = await QuizApiService.getSubmissionForGrading(submissionId);
       if (res.success && res.data) {
-        const d: SubmissionData = res.data;
+        const raw = res.data;
+        const d: SubmissionData = {
+          ...raw,
+          current_score: parseFloat(raw.current_score) || 0,
+          max_score: parseFloat(raw.max_score) || 0,
+          percentage: parseFloat(raw.percentage) || 0,
+          questions: (raw.questions ?? []).map((q: any) => ({
+            ...q,
+            points: parseFloat(q.points) || 0,
+            points_earned: q.points_earned != null ? parseFloat(q.points_earned) : null,
+          })),
+        };
         setData(d);
         const initial: Record<number, number> = {};
         d.questions.forEach((q) => {
