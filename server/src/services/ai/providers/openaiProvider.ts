@@ -7,7 +7,10 @@ import {
   AIFeedback,
   AISummary,
   AITestCase,
+  AIGenerateFromDocumentParams,
+  AIGeneratedQuestion,
 } from "../types";
+import { buildGenerateFromDocumentPrompt } from "../prompts/generateFromDocumentPrompt";
 
 export class OpenaiProvider implements AiProvider {
   private openai: OpenAI;
@@ -270,5 +273,60 @@ export class OpenaiProvider implements AiProvider {
       response_format: { type: "json_object" },
     });
     return JSON.parse(response.choices[0].message.content || "{}");
+  }
+
+  async generateQuestionsFromDocument(
+    params: AIGenerateFromDocumentParams,
+  ): Promise<AIGeneratedQuestion[]> {
+    const prompt = buildGenerateFromDocumentPrompt(params);
+    // Use a separate openai instance with higher timeout for this operation
+    const openaiLong = new OpenAI({
+      apiKey: process.env.OPENAI_API_KEY,
+      timeout: 90000,
+    });
+    const response = await openaiLong.chat.completions.create({
+      model: "gpt-4o",
+      messages: [
+        {
+          role: "system",
+          content:
+            'You are an expert educational question designer. Respond ONLY with a JSON object containing a "questions" array of question objects.',
+        },
+        { role: "user", content: prompt },
+      ],
+      response_format: { type: "json_object" },
+      max_tokens: 8000,
+    });
+
+    const parsed = JSON.parse(
+      response.choices[0].message.content || '{"questions":[]}',
+    );
+    const arr = parsed.questions || (Array.isArray(parsed) ? parsed : []);
+    return this.normalizeGeneratedQuestions(arr, params.difficulty);
+  }
+
+  private normalizeGeneratedQuestions(
+    raw: any[],
+    difficulty: string,
+  ): AIGeneratedQuestion[] {
+    return raw
+      .filter(
+        (q) =>
+          q &&
+          typeof q.question_type === "string" &&
+          typeof q.question_text === "string" &&
+          q.question_data &&
+          typeof q.question_data === "object",
+      )
+      .map((q) => ({
+        question_type: q.question_type,
+        question_text: String(q.question_text),
+        question_data: q.question_data,
+        correct_answer: q.correct_answer ?? null,
+        explanation: q.explanation || "",
+        difficulty_level: q.difficulty_level || difficulty,
+        tags: Array.isArray(q.tags) ? q.tags : [],
+        time_limit_seconds: Number(q.time_limit_seconds) || 60,
+      }));
   }
 }

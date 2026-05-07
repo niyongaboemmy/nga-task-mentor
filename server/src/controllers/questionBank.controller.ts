@@ -7,6 +7,10 @@ import { QuestionValidator } from "../utils/questionValidation";
 import { QuestionType } from "../types/quiz.types";
 import { WordParserService } from "../services/WordParserService";
 import { WordTemplateService } from "../services/WordTemplateService";
+import { ExcelTemplateService } from "../services/ExcelTemplateService";
+import { ExcelParserService } from "../services/ExcelParserService";
+import { DocumentExtractorService } from "../services/DocumentExtractorService";
+import { aiService } from "../services/ai/aiService";
 import axios from "axios";
 import {
   getMisToken,
@@ -549,6 +553,43 @@ export const bulkCreateCourseQuestions = async (
   }
 };
 
+// @desc    Download Excel (XLSX) Template
+// @route   GET /api/courses/:courseId/question-bank/template/xlsx
+// @access  Private (instructor, admin)
+export const downloadXlsxTemplate = async (req: Request, res: Response) => {
+  try {
+    const buffer = ExcelTemplateService.generateTemplate();
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    );
+    res.setHeader(
+      "Content-Disposition",
+      "attachment; filename=question_bank_template.xlsx",
+    );
+    res.send(buffer);
+  } catch (error) {
+    console.error("Download xlsx template error:", error);
+    res.status(500).json({ success: false, message: "Error generating Excel template" });
+  }
+};
+
+// @desc    Parse uploaded Excel (XLSX) file
+// @route   POST /api/courses/:courseId/question-bank/upload/xlsx
+// @access  Private (instructor, admin)
+export const parseXlsxQuestions = async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+    const questions = ExcelParserService.parseXlsx(req.file.buffer);
+    res.status(200).json({ success: true, data: questions });
+  } catch (error) {
+    console.error("Parse xlsx error:", error);
+    res.status(500).json({ success: false, message: "Error parsing Excel file" });
+  }
+};
+
 // @desc    Get scheme of work entries from MIS
 // @route   GET /api/courses/:courseId/question-bank/scheme-of-work
 // @access  Private (instructor, admin)
@@ -684,5 +725,107 @@ export const getSchemeOfWorkEntries = async (req: Request, res: Response) => {
     res.status(200).json(response.data);
   } catch (error: any) {
     return handleMisError(error, res, "Error fetching scheme of work entries");
+  }
+};
+
+// @desc    AI-generate questions from uploaded PDF or DOCX document
+// @route   POST /api/courses/:courseId/question-bank/ai-generate
+// @access  Private (instructor, admin)
+export const generateQuestionsFromDocument = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, message: "No file uploaded" });
+    }
+
+    const { question_types, count_per_type, difficulty, additional_context } =
+      req.body;
+
+    const questionTypes: string[] = Array.isArray(question_types)
+      ? question_types
+      : JSON.parse(question_types || "[]");
+
+    if (!questionTypes.length) {
+      return res.status(400).json({
+        success: false,
+        message: "At least one question type must be selected",
+      });
+    }
+
+    const countPerType = Math.min(
+      Math.max(parseInt(String(count_per_type), 10) || 2, 1),
+      10,
+    );
+    const difficultyLevel = (["EASY", "MEDIUM", "DIFFICULT"].includes(
+      String(difficulty).toUpperCase(),
+    )
+      ? String(difficulty).toUpperCase()
+      : "MEDIUM") as "EASY" | "MEDIUM" | "DIFFICULT";
+
+    const { text, charCount, truncated } =
+      await DocumentExtractorService.extractText(
+        req.file.buffer,
+        req.file.mimetype,
+        req.file.originalname,
+      );
+
+    if (!text || text.trim().length < 50) {
+      return res.status(422).json({
+        success: false,
+        message:
+          "Could not extract meaningful text from the document. Please check the file is not empty or password-protected.",
+      });
+    }
+
+    const generated = await aiService.generateQuestionsFromDocument({
+      documentText: text,
+      questionTypes,
+      countPerType,
+      difficulty: difficultyLevel,
+      additionalContext: additional_context || undefined,
+    });
+
+    // Filter out questions that fail structural validation
+    const valid: typeof generated = [];
+    const skipped: typeof generated = [];
+    for (const q of generated) {
+      const validation = QuestionValidator.validateQuestionData(
+        q.question_type as QuestionType,
+        q.question_data,
+      );
+      if (validation.isValid) {
+        valid.push(q);
+      } else {
+        skipped.push(q);
+        console.warn(
+          `[AI Generate] Skipping invalid ${q.question_type}:`,
+          validation.errors,
+        );
+      }
+    }
+
+    if (!valid.length) {
+      return res.status(422).json({
+        success: false,
+        message:
+          "AI could not generate valid questions from this document. Try selecting fewer types or uploading a different document.",
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      count: valid.length,
+      skipped: skipped.length,
+      document_info: { char_count: charCount, truncated },
+      data: valid,
+    });
+  } catch (error: any) {
+    console.error("[AI Generate] Error:", error.message);
+    res.status(500).json({
+      success: false,
+      message: error.message || "Failed to generate questions. Please try again.",
+    });
   }
 };

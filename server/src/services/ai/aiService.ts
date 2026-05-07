@@ -9,6 +9,8 @@ import {
   AIFeedback,
   AISummary,
   AITestCase,
+  AIGenerateFromDocumentParams,
+  AIGeneratedQuestion,
 } from "./types";
 
 class AiServiceManager implements AiProvider {
@@ -184,6 +186,15 @@ class AiServiceManager implements AiProvider {
     return this.executeWithFallback(
       (p) => p.summarizeLesson(lessonContent, targetAudience, length),
       "summarizeLesson",
+    );
+  }
+
+  async generateQuestionsFromDocument(
+    params: AIGenerateFromDocumentParams,
+  ): Promise<AIGeneratedQuestion[]> {
+    return this.executeWithFallback(
+      (p) => p.generateQuestionsFromDocument(params),
+      "generateQuestionsFromDocument",
     );
   }
 

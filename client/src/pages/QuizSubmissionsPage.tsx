@@ -27,8 +27,10 @@ import {
   BarChart3,
   Trash2,
   AlertTriangle,
+  PenLine,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
 
 interface QuizSubmission {
   id: number;
@@ -74,6 +76,9 @@ const QuizSubmissionsPage: React.FC = () => {
     studentName?: string;
   } | null>(null);
   const [resettingAll, setResettingAll] = useState(false);
+  const [adjustingSubmissionId, setAdjustingSubmissionId] = useState<
+    number | null
+  >(null);
 
   useEffect(() => {
     if (quizId) {
@@ -574,7 +579,7 @@ const QuizSubmissionsPage: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <button
                       onClick={() =>
                         navigate(
@@ -586,6 +591,17 @@ const QuizSubmissionsPage: React.FC = () => {
                       <Eye className="w-3 h-3 mr-1" />
                       View
                     </button>
+                    {submission.grade_status !== "pending" && (
+                      <button
+                        onClick={() =>
+                          setAdjustingSubmissionId(submission.submission_id)
+                        }
+                        className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-violet-500 to-purple-500 text-white text-xs font-medium rounded-xl hover:from-violet-600 hover:to-purple-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
+                      >
+                        <PenLine className="w-3 h-3 mr-1" />
+                        Adjust
+                      </button>
+                    )}
                     <button
                       onClick={() =>
                         setConfirmDelete({
@@ -697,6 +713,19 @@ const QuizSubmissionsPage: React.FC = () => {
                               <Eye className="w-3 h-3 mr-1" />
                               View
                             </button>
+                            {submission.grade_status !== "pending" && (
+                              <button
+                                onClick={() =>
+                                  setAdjustingSubmissionId(
+                                    submission.submission_id,
+                                  )
+                                }
+                                className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-violet-500 to-purple-500 text-white text-xs font-medium rounded-lg hover:from-violet-600 hover:to-purple-600 transition-all duration-200 hover:scale-105"
+                              >
+                                <PenLine className="w-3 h-3 mr-1" />
+                                Adjust
+                              </button>
+                            )}
                             <button
                               onClick={() =>
                                 setConfirmDelete({
@@ -721,6 +750,15 @@ const QuizSubmissionsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Grade Adjustment Modal */}
+      {adjustingSubmissionId !== null && (
+        <GradeAdjustmentModal
+          submissionId={adjustingSubmissionId}
+          onClose={() => setAdjustingSubmissionId(null)}
+          onSaved={fetchSubmissions}
+        />
+      )}
 
       {/* Confirmation Modal */}
       {confirmDelete && (
