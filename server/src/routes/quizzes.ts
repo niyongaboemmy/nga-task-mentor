@@ -45,6 +45,7 @@ import {
   updateSubmissionFeedback,
   getQuizSubmissions as getInstructorQuizSubmissions,
   initializeManualSubmission,
+  getQuizStudents,
 } from "../controllers/grading.controller";
 import {
   getBloomsTaxonomyLevels,
@@ -210,6 +211,11 @@ router.get(
   "/:quizId/submissions",
   authorize("instructor", "admin"),
   getInstructorQuizSubmissions,
+);
+router.get(
+  "/:quizId/students",
+  authorize("instructor", "admin"),
+  getQuizStudents,
 );
 router.get(
   "/:quizId/analytics",

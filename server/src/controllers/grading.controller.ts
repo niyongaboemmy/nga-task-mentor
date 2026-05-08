@@ -776,3 +776,42 @@ export const initializeManualSubmission = async (req: Request, res: Response) =>
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// @desc    Search local student accounts for manual marks wizard
+// @route   GET /api/quizzes/:quizId/students?search=...
+// @access  Private/Instructor/Admin
+export const getQuizStudents = async (req: Request, res: Response) => {
+  try {
+    const { search } = req.query;
+    const where: any = { role: "student" };
+
+    if (search && String(search).trim()) {
+      const term = `%${String(search).trim()}%`;
+      where[Op.or] = [
+        { first_name: { [Op.like]: term } },
+        { last_name: { [Op.like]: term } },
+        { email: { [Op.like]: term } },
+      ];
+    }
+
+    const users = await User.findAll({
+      where,
+      attributes: ["id", "first_name", "last_name", "email"],
+      order: [["first_name", "ASC"], ["last_name", "ASC"]],
+      limit: 50,
+    });
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      data: users.map((u) => ({
+        id: u.id,
+        name: (u as any).full_name || `${u.first_name} ${u.last_name}`,
+        email: u.email,
+      })),
+    });
+  } catch (error) {
+    console.error("Get quiz students error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};

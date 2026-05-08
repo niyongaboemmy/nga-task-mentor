@@ -40,11 +40,11 @@ interface QuizSubmission {
   student_id: number;
   student_name?: string;
   student_email?: string;
-  submitted_at: string;
+  completed_at: string | null;
   time_taken: number;
-  total_score: number;
-  max_score: number;
-  percentage: number;
+  total_score: number | string;
+  max_score: number | string;
+  percentage: number | string;
   grade?: string;
   status: "completed" | "in_progress" | "expired";
   grade_status: "graded" | "pending" | "auto_graded";
@@ -253,8 +253,13 @@ const QuizSubmissionsPage: React.FC = () => {
     return `${minutes}m ${remainingSeconds}s`;
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+  const pct = (s: QuizSubmission) => parseFloat(String(s.percentage)) || 0;
+
+  const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return "—";
+    const d = new Date(dateString);
+    if (isNaN(d.getTime())) return "—";
+    return d.toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       hour: "2-digit",
@@ -276,13 +281,13 @@ const QuizSubmissionsPage: React.FC = () => {
     averageScore:
       submissions.length > 0
         ? Math.round(
-            submissions.reduce((sum, s) => sum + s.percentage, 0) /
+            submissions.reduce((sum, s) => sum + pct(s), 0) /
               submissions.length,
           )
         : 0,
     highestScore:
       submissions.length > 0
-        ? Math.max(...submissions.map((s) => s.percentage))
+        ? Math.max(...submissions.map((s) => pct(s)))
         : 0,
   };
 
@@ -547,7 +552,7 @@ const QuizSubmissionsPage: React.FC = () => {
                         <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-500 rounded-xl flex items-center justify-center">
                           <User className="w-5 h-5 text-white" />
                         </div>
-                        {submission.percentage >= 90 && (
+                        {pct(submission) >= 90 && (
                           <Crown className="absolute -top-1 -right-1 w-4 h-4 text-yellow-500 animate-pulse" />
                         )}
                       </div>
@@ -584,7 +589,7 @@ const QuizSubmissionsPage: React.FC = () => {
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3 h-3 text-gray-400" />
                         <span className="text-gray-600 dark:text-gray-400">
-                          {formatDate(submission.submitted_at || "")}
+                          {formatDate(submission.completed_at)}
                         </span>
                       </div>
 
@@ -604,13 +609,13 @@ const QuizSubmissionsPage: React.FC = () => {
 
                       <div className="flex items-center gap-2">
                         <Trophy
-                          className={`w-3 h-3 ${getScoreColor(submission.percentage)}`}
+                          className={`w-3 h-3 ${getScoreColor(pct(submission))}`}
                         />
                         <span
-                          className={`font-bold ${getScoreColor(submission.percentage)}`}
+                          className={`font-bold ${getScoreColor(pct(submission))}`}
                         >
-                          {Math.round(submission.percentage)}% (
-                          {getGradeLetter(submission.percentage)})
+                          {Math.round(pct(submission))}% (
+                          {getGradeLetter(pct(submission))})
                         </span>
                       </div>
                     </div>
@@ -725,17 +730,17 @@ const QuizSubmissionsPage: React.FC = () => {
                         </td>
                         <td className="px-4 py-3">
                           <span
-                            className={`text-sm font-bold ${getScoreColor(submission.percentage)}`}
+                            className={`text-sm font-bold ${getScoreColor(pct(submission))}`}
                           >
-                            {Math.round(submission.percentage)}% (
-                            {getGradeLetter(submission.percentage)})
+                            {Math.round(pct(submission))}% (
+                            {getGradeLetter(pct(submission))})
                           </span>
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
                           {formatTime(submission.time_taken)}
                         </td>
                         <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
-                          {formatDate(submission.submitted_at)}
+                          {formatDate(submission.completed_at)}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
