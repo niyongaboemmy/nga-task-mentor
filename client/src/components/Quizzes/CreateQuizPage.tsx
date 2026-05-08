@@ -19,7 +19,7 @@ export const CreateQuizPage: React.FC = () => {
     title: "",
     description: "",
     course_id: courseId ? parseInt(courseId) : 0,
-    type: "practice",
+    type: "Quiz",
     show_results_immediately: true,
     randomize_questions: false,
     show_correct_answers: false,

@@ -67,12 +67,14 @@ const QuizHeader: React.FC<{
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case "exam":
+      case "Exam":
         return "bg-red-100 dark:bg-gray-800 dark:text-white text-red-700 border-red-200 dark:border-red-200/30";
-      case "graded":
+      case "Assessment":
         return "bg-indigo-100 dark:bg-gray-800 dark:text-white text-indigo-700 border-indigo-200 dark:border-indigo-200/30";
-      case "practice":
+      case "Homework":
         return "bg-orange-100 dark:bg-gray-800 dark:text-white text-orange-700 border-orange-200 dark:border-orange-200/30";
+      case "Quiz":
+        return "bg-green-100 dark:bg-gray-800 dark:text-white text-green-700 border-green-200 dark:border-green-200/30";
       default:
         return "bg-gray-100 text-gray-700 border-gray-200";
     }
@@ -136,13 +138,15 @@ const QuizHeader: React.FC<{
                       <div className="flex items-center gap-1">
                         <div
                           className={`w-1.5 h-1.5 rounded-full ${
-                            quiz.type === "exam"
+                            quiz.type === "Exam"
                               ? "bg-red-500"
-                              : quiz.type === "graded"
-                                ? "bg-green-500"
-                                : quiz.type === "practice"
+                              : quiz.type === "Assessment"
+                                ? "bg-indigo-500"
+                                : quiz.type === "Homework"
                                   ? "bg-orange-500"
-                                  : "bg-gray-500"
+                                  : quiz.type === "Quiz"
+                                    ? "bg-green-500"
+                                    : "bg-gray-500"
                           }`}
                         ></div>
                         {quiz.type.charAt(0).toUpperCase() + quiz.type.slice(1)}

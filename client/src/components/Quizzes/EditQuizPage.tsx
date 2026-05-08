@@ -20,7 +20,7 @@ export const EditQuizPage: React.FC = () => {
   const [formData, setFormData] = useState<UpdateQuizRequest>({
     title: "",
     description: "",
-    type: "practice",
+    type: "Quiz",
     show_results_immediately: true,
     randomize_questions: false,
     show_correct_answers: false,
@@ -267,9 +267,10 @@ export const EditQuizPage: React.FC = () => {
                   onChange={(e) => handleChange("type", e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
                 >
-                  <option value="practice">Practice Quiz</option>
-                  <option value="graded">Graded Quiz</option>
-                  <option value="exam">Exam</option>
+                  <option value="Assessment">Assessment</option>
+                  <option value="Homework">Homework</option>
+                  <option value="Quiz">Quiz</option>
+                  <option value="Exam">Exam</option>
                 </select>
               </div>
 

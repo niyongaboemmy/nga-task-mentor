@@ -28,7 +28,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
     title: "",
     description: "",
     course_id: courseId,
-    type: "practice",
+    type: "Quiz",
     show_results_immediately: true,
     randomize_questions: false,
     show_correct_answers: false,
@@ -182,9 +182,10 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
             onChange={(e) => handleChange("type", e.target.value)}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
-            <option value="practice">Practice Quiz</option>
-            <option value="graded">Graded Quiz</option>
-            <option value="exam">Exam</option>
+            <option value="Assessment">Assessment</option>
+            <option value="Homework">Homework</option>
+            <option value="Quiz">Quiz</option>
+            <option value="Exam">Exam</option>
           </select>
         </div>
 

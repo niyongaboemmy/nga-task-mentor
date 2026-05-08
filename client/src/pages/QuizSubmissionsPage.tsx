@@ -28,9 +28,12 @@ import {
   Trash2,
   AlertTriangle,
   PenLine,
+  ClipboardList,
+  X,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
+import { QuizApiService } from "../services/quizApi";
 
 interface QuizSubmission {
   id: number;
@@ -79,6 +82,9 @@ const QuizSubmissionsPage: React.FC = () => {
   const [adjustingSubmissionId, setAdjustingSubmissionId] = useState<
     number | null
   >(null);
+  const [showManualModal, setShowManualModal] = useState(false);
+  const [manualStudentId, setManualStudentId] = useState("");
+  const [initializingManual, setInitializingManual] = useState(false);
 
   useEffect(() => {
     if (quizId) {
@@ -137,6 +143,28 @@ const QuizSubmissionsPage: React.FC = () => {
       setError(error.response?.data?.message || "Failed to load submissions");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleInitializeManual = async () => {
+    if (!quizId || !manualStudentId) return;
+    const studentId = parseInt(manualStudentId, 10);
+    if (isNaN(studentId) || studentId <= 0) {
+      toast.error("Please enter a valid student ID");
+      return;
+    }
+    setInitializingManual(true);
+    try {
+      const result = await QuizApiService.initializeManualSubmission(Number(quizId), studentId);
+      toast.success("Manual submission created. You can now assign marks.");
+      setShowManualModal(false);
+      setManualStudentId("");
+      await fetchSubmissions();
+      setAdjustingSubmissionId(result.data.submission_id);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to initialize submission");
+    } finally {
+      setInitializingManual(false);
     }
   };
 
@@ -313,16 +341,25 @@ const QuizSubmissionsPage: React.FC = () => {
               <ArrowLeft className="w-3 h-3" />
               <span className="text-xs font-medium">Back</span>
             </button>
-            {submissions.length > 0 && (
+            <div className="flex items-center gap-2">
               <button
-                onClick={() => setConfirmDelete({ type: "all" })}
-                disabled={resettingAll}
-                className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800 rounded-full shadow-sm transition-all duration-200 text-red-700 dark:text-red-300 text-xs font-medium disabled:opacity-50"
+                onClick={() => setShowManualModal(true)}
+                className="inline-flex items-center gap-2 px-3 py-2 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 border border-violet-200 dark:border-violet-800 rounded-full shadow-sm transition-all duration-200 text-violet-700 dark:text-violet-300 text-xs font-medium"
               >
-                <Trash2 className="w-3 h-3" />
-                Reset All Submissions
+                <ClipboardList className="w-3 h-3" />
+                Record Manual Marks
               </button>
-            )}
+              {submissions.length > 0 && (
+                <button
+                  onClick={() => setConfirmDelete({ type: "all" })}
+                  disabled={resettingAll}
+                  className="inline-flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/40 border border-red-200 dark:border-red-800 rounded-full shadow-sm transition-all duration-200 text-red-700 dark:text-red-300 text-xs font-medium disabled:opacity-50"
+                >
+                  <Trash2 className="w-3 h-3" />
+                  Reset All Submissions
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-in slide-in-from-bottom duration-500">
@@ -758,6 +795,64 @@ const QuizSubmissionsPage: React.FC = () => {
           onClose={() => setAdjustingSubmissionId(null)}
           onSaved={fetchSubmissions}
         />
+      )}
+
+      {/* Record Manual Marks Modal */}
+      {showManualModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                  <ClipboardList className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                    Record Manual Marks
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Initialize a submission for paper-based grading
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowManualModal(false); setManualStudentId(""); }}
+                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-500" />
+              </button>
+            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
+              Enter the student's ID to create an empty submission record. You can then assign marks for each question.
+            </p>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Student ID
+            </label>
+            <input
+              type="number"
+              value={manualStudentId}
+              onChange={(e) => setManualStudentId(e.target.value)}
+              placeholder="Enter student ID..."
+              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white mb-4"
+              onKeyDown={(e) => e.key === "Enter" && handleInitializeManual()}
+            />
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowManualModal(false); setManualStudentId(""); }}
+                className="flex-1 px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleInitializeManual}
+                disabled={!manualStudentId || initializingManual}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-colors disabled:opacity-50"
+              >
+                {initializingManual ? "Creating..." : "Create & Grade"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Confirmation Modal */}

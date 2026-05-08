@@ -44,6 +44,7 @@ import {
   getQuizAnalytics,
   updateSubmissionFeedback,
   getQuizSubmissions as getInstructorQuizSubmissions,
+  initializeManualSubmission,
 } from "../controllers/grading.controller";
 import {
   getBloomsTaxonomyLevels,
@@ -195,6 +196,13 @@ router.put(
   "/submissions/:submissionId/feedback",
   authorize("instructor", "admin"),
   updateSubmissionFeedback,
+);
+
+// Initialize a manual submission (instructor records paper-based marks)
+router.post(
+  "/:quizId/submissions/initialize-manual",
+  authorize("instructor", "admin"),
+  initializeManualSubmission,
 );
 
 // Quiz submissions and analytics

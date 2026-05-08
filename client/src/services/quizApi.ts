@@ -366,6 +366,17 @@ export class QuizApiService {
     return response.data;
   }
 
+  static async initializeManualSubmission(
+    quizId: number,
+    studentId: number,
+  ): Promise<{ success: boolean; data: any }> {
+    const response = await axios.post(
+      `/quizzes/${quizId}/submissions/initialize-manual`,
+      { student_id: studentId },
+    );
+    return response.data;
+  }
+
   // Bloom's Taxonomy Levels
   static async getBloomsTaxonomyLevels(): Promise<{
     success: boolean;

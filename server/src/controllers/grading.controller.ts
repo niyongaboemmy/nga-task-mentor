@@ -664,3 +664,115 @@ export const updateSubmissionFeedback = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+// @desc    Initialize a manual submission (no online attempt) for grading paper-based work
+// @route   POST /api/quizzes/:quizId/submissions/initialize-manual
+// @access  Private/Instructor/Admin
+export const initializeManualSubmission = async (req: Request, res: Response) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { quizId } = req.params;
+    const { student_id } = req.body;
+
+    if (!student_id) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: "student_id is required" });
+    }
+
+    const quiz = await Quiz.findByPk(quizId, {
+      include: [
+        {
+          model: QuizQuestion,
+          as: "questions",
+          attributes: ["id", "points"],
+        },
+      ],
+      transaction,
+    });
+
+    if (!quiz) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: "Quiz not found" });
+    }
+
+    if (
+      quiz.created_by !== req.user.id &&
+      req.user.role !== "admin"
+    ) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to create submissions for this quiz",
+      });
+    }
+
+    const student = await User.findByPk(student_id, { transaction });
+    if (!student) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    const questions = quiz.questions || [];
+    const maxScore = questions.reduce((sum, q) => sum + (parseFloat(String(q.points)) || 0), 0);
+
+    const existingCount = await QuizSubmission.count({
+      where: { quiz_id: quizId, student_id },
+      transaction,
+    });
+
+    const now = new Date();
+
+    const submission = await QuizSubmission.create(
+      {
+        quiz_id: Number(quizId),
+        student_id,
+        status: "completed",
+        grade_status: "pending",
+        total_score: 0,
+        max_score: maxScore,
+        percentage: 0,
+        passed: false,
+        attempt_number: existingCount + 1,
+        started_at: now,
+        completed_at: now,
+        time_taken: 0,
+      },
+      { transaction },
+    );
+
+    for (const question of questions) {
+      await QuizAttempt.create(
+        {
+          quiz_id: Number(quizId),
+          question_id: question.id,
+          student_id,
+          submission_id: submission.id,
+          status: "completed",
+          started_at: now,
+          completed_at: now,
+          time_taken: 0,
+          points_earned: 0,
+        },
+        { transaction },
+      );
+    }
+
+    await transaction.commit();
+
+    res.status(201).json({
+      success: true,
+      data: {
+        submission_id: submission.id,
+        quiz_id: Number(quizId),
+        student_id,
+        max_score: maxScore,
+        questions_count: questions.length,
+        message: "Manual submission initialized. You can now assign marks.",
+      },
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Initialize manual submission error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
