@@ -377,6 +377,16 @@ export class QuizApiService {
     return response.data;
   }
 
+  static async getQuizStudents(
+    quizId: number,
+    search?: string,
+  ): Promise<{ success: boolean; count: number; data: { id: number; name: string; email: string }[] }> {
+    const response = await axios.get(`/quizzes/${quizId}/students`, {
+      params: search ? { search } : undefined,
+    });
+    return response.data;
+  }
+
   // Bloom's Taxonomy Levels
   static async getBloomsTaxonomyLevels(): Promise<{
     success: boolean;

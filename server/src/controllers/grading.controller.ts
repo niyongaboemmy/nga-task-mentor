@@ -578,10 +578,30 @@ export const getQuizSubmissions = async (req: Request, res: Response) => {
       order: [["completed_at", "DESC"]],
     });
 
+    // Deduplicate: keep one submission per student.
+    // Priority: completed/graded > completed/auto_graded > completed/pending > in_progress/expired
+    // Within the same priority tier, keep the most recent (already DESC-sorted above).
+    const statusPriority = (s: any): number => {
+      if (s.status === "completed" && s.grade_status === "graded") return 4;
+      if (s.status === "completed" && s.grade_status === "auto_graded") return 3;
+      if (s.status === "completed") return 2;
+      return 1;
+    };
+
+    const bestByStudent = new Map<number, (typeof submissions)[0]>();
+    for (const sub of submissions) {
+      const existing = bestByStudent.get(sub.student_id);
+      if (!existing || statusPriority(sub) > statusPriority(existing)) {
+        bestByStudent.set(sub.student_id, sub);
+      }
+    }
+
+    const deduped = Array.from(bestByStudent.values());
+
     res.status(200).json({
       success: true,
-      count: submissions.length,
-      data: submissions.map((submission) => ({
+      count: deduped.length,
+      data: deduped.map((submission) => ({
         submission_id: submission.id,
         student_id: submission.student_id,
         student_name: (submission as any).submissionStudent?.full_name,
@@ -714,6 +734,15 @@ export const initializeManualSubmission = async (req: Request, res: Response) =>
 
     const questions = quiz.questions || [];
     const maxScore = questions.reduce((sum, q) => sum + (parseFloat(String(q.points)) || 0), 0);
+
+    // Abandon any stale in_progress submissions so they don't show as duplicates
+    await QuizSubmission.update(
+      { status: "abandoned" },
+      {
+        where: { quiz_id: quizId, student_id, status: "in_progress" },
+        transaction,
+      },
+    );
 
     const existingCount = await QuizSubmission.count({
       where: { quiz_id: quizId, student_id },

@@ -30,10 +30,12 @@ import {
   PenLine,
   ClipboardList,
   X,
+  ChevronRight,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
 import { QuizApiService } from "../services/quizApi";
+import type { QuizQuestion } from "../types/quiz.types";
 
 interface QuizSubmission {
   id: number;
@@ -83,7 +85,19 @@ const QuizSubmissionsPage: React.FC = () => {
     number | null
   >(null);
   const [showManualModal, setShowManualModal] = useState(false);
-  const [manualStudentId, setManualStudentId] = useState("");
+  const [manualStep, setManualStep] = useState<1 | 2 | 3>(1);
+  const [manualStudent, setManualStudent] = useState<{
+    id: number;
+    name: string;
+    email: string;
+  } | null>(null);
+  const [manualStudentSearch, setManualStudentSearch] = useState("");
+  const [enrolledStudents, setEnrolledStudents] = useState<
+    { id: number; name: string; email: string }[]
+  >([]);
+  const [manualQuestions, setManualQuestions] = useState<QuizQuestion[]>([]);
+  const [manualMarks, setManualMarks] = useState<Record<number, number>>({});
+  const [loadingManualData, setLoadingManualData] = useState(false);
   const [initializingManual, setInitializingManual] = useState(false);
 
   useEffect(() => {
@@ -107,9 +121,13 @@ const QuizSubmissionsPage: React.FC = () => {
     try {
       await axios.delete(`/quizzes/submissions/${submissionId}/delete`);
       toast.success("Submission deleted successfully");
-      setSubmissions((prev) => prev.filter((s) => s.submission_id !== submissionId));
+      setSubmissions((prev) =>
+        prev.filter((s) => s.submission_id !== submissionId),
+      );
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to delete submission");
+      toast.error(
+        err?.response?.data?.message || "Failed to delete submission",
+      );
     } finally {
       setDeletingId(null);
       setConfirmDelete(null);
@@ -124,45 +142,97 @@ const QuizSubmissionsPage: React.FC = () => {
       toast.success("All submissions and proctoring data deleted");
       setSubmissions([]);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to delete submissions");
+      toast.error(
+        err?.response?.data?.message || "Failed to delete submissions",
+      );
     } finally {
       setResettingAll(false);
       setConfirmDelete(null);
     }
   };
 
-  const fetchSubmissions = async () => {
+  const fetchSubmissions = async (silent = false) => {
     if (!quizId) return;
 
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await axios.get(`/quizzes/${quizId}/submissions`);
       setSubmissions(response.data.data || []);
     } catch (error: any) {
       console.error("Error fetching submissions:", error);
-      setError(error.response?.data?.message || "Failed to load submissions");
+      if (!silent)
+        setError(error.response?.data?.message || "Failed to load submissions");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
-  const handleInitializeManual = async () => {
-    if (!quizId || !manualStudentId) return;
-    const studentId = parseInt(manualStudentId, 10);
-    if (isNaN(studentId) || studentId <= 0) {
-      toast.error("Please enter a valid student ID");
-      return;
+  const resetManualModal = () => {
+    setShowManualModal(false);
+    setManualStep(1);
+    setManualStudent(null);
+    setManualStudentSearch("");
+    setEnrolledStudents([]);
+    setManualQuestions([]);
+    setManualMarks({});
+  };
+
+  const handleOpenManualModal = async () => {
+    setShowManualModal(true);
+    setManualStep(1);
+    setManualStudent(null);
+    setManualStudentSearch("");
+    setManualMarks({});
+    if (!quizId) return;
+    setLoadingManualData(true);
+    try {
+      const [studentsRes, questionsRes] = await Promise.all([
+        QuizApiService.getQuizStudents(Number(quizId)),
+        QuizApiService.getQuizQuestions(Number(quizId)),
+      ]);
+      const gradedIds = new Set(
+        submissions
+          .filter(
+            (s) =>
+              s.status === "completed" ||
+              s.grade_status === "graded" ||
+              s.grade_status === "auto_graded",
+          )
+          .map((s) => s.student_id),
+      );
+      setEnrolledStudents(studentsRes.data.filter((s) => !gradedIds.has(s.id)));
+      const questions = questionsRes.data;
+      setManualQuestions(questions);
+      const initial: Record<number, number> = {};
+      questions.forEach((q) => {
+        initial[q.id] = 0;
+        (q as any).points = parseFloat(String(q.points));
+      });
+      setManualMarks(initial);
+    } catch (err: any) {
+      toast.error("Failed to load students or questions");
+    } finally {
+      setLoadingManualData(false);
     }
+  };
+
+  const handleManualApprove = async () => {
+    if (!quizId || !manualStudent) return;
     setInitializingManual(true);
     try {
-      const result = await QuizApiService.initializeManualSubmission(Number(quizId), studentId);
-      toast.success("Manual submission created. You can now assign marks.");
-      setShowManualModal(false);
-      setManualStudentId("");
-      await fetchSubmissions();
-      setAdjustingSubmissionId(result.data.submission_id);
+      const initRes = await QuizApiService.initializeManualSubmission(
+        Number(quizId),
+        manualStudent.id,
+      );
+      await QuizApiService.gradeSubmission(
+        initRes.data.submission_id,
+        manualMarks,
+      );
+      toast.success("Marks recorded successfully.");
+      resetManualModal();
+      await fetchSubmissions(true);
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || "Failed to initialize submission");
+      toast.error(err?.response?.data?.message || "Failed to record marks");
     } finally {
       setInitializingManual(false);
     }
@@ -286,9 +356,7 @@ const QuizSubmissionsPage: React.FC = () => {
           )
         : 0,
     highestScore:
-      submissions.length > 0
-        ? Math.max(...submissions.map((s) => pct(s)))
-        : 0,
+      submissions.length > 0 ? Math.max(...submissions.map((s) => pct(s))) : 0,
   };
 
   if (loading) {
@@ -348,8 +416,8 @@ const QuizSubmissionsPage: React.FC = () => {
             </button>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => setShowManualModal(true)}
-                className="inline-flex items-center gap-2 px-3 py-2 bg-violet-50 dark:bg-violet-900/20 hover:bg-violet-100 dark:hover:bg-violet-900/40 border border-violet-200 dark:border-violet-800 rounded-full shadow-sm transition-all duration-200 text-violet-700 dark:text-violet-300 text-xs font-medium"
+                onClick={handleOpenManualModal}
+                className="inline-flex items-center gap-2 px-3 py-2 bg-blue-50 dark:bg-blue-900/20 hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 dark:border-blue-800 rounded-full shadow-sm transition-all duration-200 text-blue-700 dark:text-blue-300 text-xs font-medium"
               >
                 <ClipboardList className="w-3 h-3" />
                 Record Manual Marks
@@ -541,7 +609,7 @@ const QuizSubmissionsPage: React.FC = () => {
             // Card View
             filteredSubmissions.map((submission, index) => (
               <div
-                key={submission.id}
+                key={submission.submission_id}
                 className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-xl sm:rounded-2xl p-4 sm:p-6 hover:shadow-xl transition-all duration-300 hover:scale-[1.01] animate-in slide-in-from-bottom"
                 style={{ animationDelay: `${index * 50}ms` }}
               >
@@ -638,7 +706,7 @@ const QuizSubmissionsPage: React.FC = () => {
                         onClick={() =>
                           setAdjustingSubmissionId(submission.submission_id)
                         }
-                        className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-violet-500 to-purple-500 text-white text-xs font-medium rounded-xl hover:from-violet-600 hover:to-purple-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
+                        className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-500 text-white text-xs font-medium rounded-xl hover:from-blue-600 hover:to-blue-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
                       >
                         <PenLine className="w-3 h-3 mr-1" />
                         Adjust
@@ -649,7 +717,8 @@ const QuizSubmissionsPage: React.FC = () => {
                         setConfirmDelete({
                           type: "single",
                           submissionId: submission.submission_id,
-                          studentName: submission.student_name || "this student",
+                          studentName:
+                            submission.student_name || "this student",
                         })
                       }
                       disabled={deletingId === submission.submission_id}
@@ -694,7 +763,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   <tbody>
                     {filteredSubmissions.map((submission, index) => (
                       <tr
-                        key={submission.id}
+                        key={submission.submission_id}
                         className="border-t border-gray-100 dark:border-gray-800 hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors"
                       >
                         <td className="px-4 py-3">
@@ -762,7 +831,7 @@ const QuizSubmissionsPage: React.FC = () => {
                                     submission.submission_id,
                                   )
                                 }
-                                className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-violet-500 to-purple-500 text-white text-xs font-medium rounded-lg hover:from-violet-600 hover:to-purple-600 transition-all duration-200 hover:scale-105"
+                                className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-500 text-white text-xs font-medium rounded-lg hover:from-blue-600 hover:to-blue-600 transition-all duration-200 hover:scale-105"
                               >
                                 <PenLine className="w-3 h-3 mr-1" />
                                 Adjust
@@ -773,7 +842,8 @@ const QuizSubmissionsPage: React.FC = () => {
                                 setConfirmDelete({
                                   type: "single",
                                   submissionId: submission.submission_id,
-                                  studentName: submission.student_name || "this student",
+                                  studentName:
+                                    submission.student_name || "this student",
                                 })
                               }
                               disabled={deletingId === submission.submission_id}
@@ -802,59 +872,320 @@ const QuizSubmissionsPage: React.FC = () => {
         />
       )}
 
-      {/* Record Manual Marks Modal */}
+      {/* Record Manual Marks Modal — 3-step wizard */}
       {showManualModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
-            <div className="flex items-center justify-between mb-4">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl shadow-2xl w-full max-w-4xl mx-4 flex flex-col max-h-[90vh]">
+            {/* Header */}
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800 flex-shrink-0">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 bg-violet-100 dark:bg-violet-900/30 rounded-full flex items-center justify-center flex-shrink-0">
-                  <ClipboardList className="w-5 h-5 text-violet-600 dark:text-violet-400" />
+                <div className="w-9 h-9 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                  <ClipboardList className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white">
                     Record Manual Marks
                   </h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
-                    Initialize a submission for paper-based grading
+                    Step {manualStep} of 3 —{" "}
+                    {manualStep === 1
+                      ? "Select student"
+                      : manualStep === 2
+                        ? "Enter marks"
+                        : "Preview & approve"}
                   </p>
                 </div>
               </div>
               <button
-                onClick={() => { setShowManualModal(false); setManualStudentId(""); }}
+                onClick={resetManualModal}
                 className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <X className="w-4 h-4 text-gray-500" />
               </button>
             </div>
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-4">
-              Enter the student's ID to create an empty submission record. You can then assign marks for each question.
-            </p>
-            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Student ID
-            </label>
-            <input
-              type="number"
-              value={manualStudentId}
-              onChange={(e) => setManualStudentId(e.target.value)}
-              placeholder="Enter student ID..."
-              className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-violet-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white mb-4"
-              onKeyDown={(e) => e.key === "Enter" && handleInitializeManual()}
-            />
-            <div className="flex gap-3">
+
+            {/* Step indicators */}
+            <div className="flex items-center gap-2 px-6 py-3 flex-shrink-0">
+              {([1, 2, 3] as const).map((s) => (
+                <React.Fragment key={s}>
+                  <div
+                    className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${manualStep >= s ? "bg-blue-600 text-white" : "bg-gray-100 dark:bg-gray-800 text-gray-400"}`}
+                  >
+                    {s}
+                  </div>
+                  {s < 3 && (
+                    <div
+                      className={`flex-1 h-0.5 ${manualStep > s ? "bg-blue-600" : "bg-gray-100 dark:bg-gray-800"}`}
+                    />
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+
+            {/* Step content */}
+            <div className="flex-1 overflow-y-auto px-6 py-2">
+              {/* Step 1: Select student */}
+              {manualStep === 1 && (
+                <div>
+                  <div className="relative mb-3">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search students..."
+                      value={manualStudentSearch}
+                      onChange={(e) => setManualStudentSearch(e.target.value)}
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                    />
+                  </div>
+                  {loadingManualData ? (
+                    <div className="py-8 text-center text-sm text-gray-500">
+                      Loading students...
+                    </div>
+                  ) : enrolledStudents.length === 0 ? (
+                    <div className="py-8 text-center text-sm text-gray-500">
+                      All enrolled students have already been graded.
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {enrolledStudents
+                        .filter(
+                          (s) =>
+                            !manualStudentSearch ||
+                            s.name
+                              .toLowerCase()
+                              .includes(manualStudentSearch.toLowerCase()) ||
+                            s.email
+                              .toLowerCase()
+                              .includes(manualStudentSearch.toLowerCase()),
+                        )
+                        .map((s) => (
+                          <button
+                            key={s.id}
+                            onClick={() => setManualStudent(s)}
+                            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${manualStudent?.id === s.id ? "bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700" : "hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent"}`}
+                          >
+                            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <User className="w-4 h-4 text-white" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                {s.name}
+                              </div>
+                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                {s.email}
+                              </div>
+                            </div>
+                            {manualStudent?.id === s.id && (
+                              <CheckCircle className="w-4 h-4 text-blue-600 ml-auto flex-shrink-0" />
+                            )}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Step 2: Enter marks */}
+              {manualStep === 2 && (
+                <div>
+                  <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center gap-2">
+                    <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {manualStudent?.name}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate">
+                        {manualStudent?.email}
+                      </div>
+                    </div>
+                  </div>
+                  {manualQuestions.length === 0 ? (
+                    <div className="py-8 text-center text-sm text-gray-500">
+                      No questions found for this quiz.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {manualQuestions.map((q, idx) => {
+                        const text =
+                          q.questionBank?.question_text ||
+                          q.question_text ||
+                          `Question ${idx + 1}`;
+                        const max = parseFloat(String(q.points));
+                        const current = manualMarks[q.id] ?? 0;
+                        return (
+                          <div
+                            key={q.id}
+                            className="flex items-start gap-3 p-3 border border-gray-100 dark:border-gray-800 rounded-xl"
+                          >
+                            <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-lg flex items-center justify-center flex-shrink-0 text-xs font-bold text-blue-700 dark:text-blue-300 mt-0.5">
+                              {idx + 1}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2">
+                                {text}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                Max: {max} pts
+                              </p>
+                            </div>
+                            <input
+                              type="number"
+                              min={0}
+                              max={max}
+                              step={0.5}
+                              value={current}
+                              onChange={(e) => {
+                                const v = Math.min(
+                                  max,
+                                  Math.max(0, parseFloat(e.target.value) || 0),
+                                );
+                                setManualMarks((prev) => ({
+                                  ...prev,
+                                  [q.id]: v,
+                                }));
+                              }}
+                              className="w-20 px-2 py-1.5 text-sm text-center border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white flex-shrink-0"
+                            />
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl flex items-center justify-between">
+                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      Total
+                    </span>
+                    <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                      {Object.values(manualMarks).reduce((a, b) => a + b, 0)} /{" "}
+                      {manualQuestions.reduce(
+                        (a, q) => a + parseFloat(String(q.points)),
+                        0,
+                      )}{" "}
+                      pts
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Preview */}
+              {manualStep === 3 && (
+                <div>
+                  <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center gap-2">
+                    <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
+                    <div className="min-w-0">
+                      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                        {manualStudent?.name}
+                      </div>
+                      <div className="text-xs text-gray-500 truncate">
+                        {manualStudent?.email}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="border border-gray-100 dark:border-gray-800 rounded-xl overflow-hidden">
+                    <table className="w-full text-sm">
+                      <thead className="bg-gray-50 dark:bg-gray-800/50">
+                        <tr>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">
+                            #
+                          </th>
+                          <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500">
+                            Question
+                          </th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500">
+                            Max
+                          </th>
+                          <th className="px-3 py-2 text-right text-xs font-semibold text-gray-500">
+                            Awarded
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {manualQuestions.map((q, idx) => {
+                          const text =
+                            q.questionBank?.question_text ||
+                            q.question_text ||
+                            `Question ${idx + 1}`;
+                          return (
+                            <tr
+                              key={q.id}
+                              className="border-t border-gray-100 dark:border-gray-800"
+                            >
+                              <td className="px-3 py-2 text-xs text-gray-400">
+                                {idx + 1}
+                              </td>
+                              <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300 max-w-[180px] truncate">
+                                {text}
+                              </td>
+                              <td className="px-3 py-2 text-xs text-gray-500 text-right">
+                                {parseFloat(String(q.points))}
+                              </td>
+                              <td className="px-3 py-2 text-xs font-semibold text-blue-700 dark:text-blue-300 text-right">
+                                {manualMarks[q.id] ?? 0}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {(() => {
+                    const total = Object.values(manualMarks).reduce(
+                      (a, b) => a + b,
+                      0,
+                    );
+                    const max = manualQuestions.reduce(
+                      (a, q) => a + parseFloat(String(q.points)),
+                      0,
+                    );
+                    const pct = max > 0 ? Math.round((total / max) * 100) : 0;
+                    return (
+                      <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                          Final Score
+                        </span>
+                        <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
+                          {total} / {max} pts ({pct}%)
+                        </span>
+                      </div>
+                    );
+                  })()}
+                </div>
+              )}
+            </div>
+
+            {/* Footer buttons */}
+            <div className="flex gap-3 px-6 py-4 border-t border-gray-100 dark:border-gray-800 flex-shrink-0">
               <button
-                onClick={() => { setShowManualModal(false); setManualStudentId(""); }}
+                onClick={
+                  manualStep === 1
+                    ? resetManualModal
+                    : () => setManualStep((s) => (s - 1) as 1 | 2 | 3)
+                }
                 className="flex-1 px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
-                Cancel
+                {manualStep === 1 ? "Cancel" : "Back"}
               </button>
-              <button
-                onClick={handleInitializeManual}
-                disabled={!manualStudentId || initializingManual}
-                className="flex-1 px-4 py-2 text-sm font-medium bg-violet-600 hover:bg-violet-700 text-white rounded-xl transition-colors disabled:opacity-50"
-              >
-                {initializingManual ? "Creating..." : "Create & Grade"}
-              </button>
+              {manualStep < 3 ? (
+                <button
+                  onClick={() => setManualStep((s) => (s + 1) as 2 | 3)}
+                  disabled={
+                    manualStep === 1
+                      ? !manualStudent
+                      : manualQuestions.length === 0
+                  }
+                  className="flex-1 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors disabled:opacity-50"
+                >
+                  Next
+                </button>
+              ) : (
+                <button
+                  onClick={handleManualApprove}
+                  disabled={initializingManual}
+                  className="flex-1 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors disabled:opacity-50"
+                >
+                  {initializingManual ? "Saving..." : "Approve & Save"}
+                </button>
+              )}
             </div>
           </div>
         </div>
