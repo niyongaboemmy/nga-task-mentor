@@ -32,7 +32,10 @@ interface RecentActivity {
 // Student Dashboard Statistics
 export const getStudentStats = async (req: Request, res: Response) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.id;
+    if (!userId) {
+      return res.status(401).json({ success: false, message: "Unauthorized" });
+    }
 
     // Get total courses from MIS API
     let totalCourses = 0;
@@ -54,51 +57,62 @@ export const getStudentStats = async (req: Request, res: Response) => {
       }
     } catch (courseError) {
       console.warn("Could not fetch courses count:", courseError);
-      // Continue with 0 courses
     }
 
     // Get all published assignments
-    const totalAssignments = await Assignment.count({
-      where: {
-        status: "published",
-      },
-    });
+    let totalAssignments = 0;
+    try {
+      totalAssignments = await Assignment.count({
+        where: { status: "published" },
+      });
+    } catch (e) {
+      console.error("Error counting assignments:", e);
+    }
 
     // Get user's submissions
-    const userSubmissions = await Submission.findAll({
-      where: { student_id: userId },
-    });
+    let userSubmissions: any[] = [];
+    try {
+      userSubmissions = await Submission.findAll({
+        where: { student_id: userId },
+        attributes: ["assignment_id"],
+      });
+    } catch (e) {
+      console.error("Error fetching submissions:", e);
+    }
 
-    // Count completed assignments (assignments with submissions)
     const completedAssignments = userSubmissions.length;
 
-    // Count pending assignments (published assignments without submissions)
-    const submittedIds = userSubmissions.map((s) => s.assignment_id);
-    const pendingSubmissions = await Assignment.count({
-      where: {
-        status: "published",
-        ...(submittedIds.length > 0 && {
-          id: { [Op.notIn]: submittedIds },
-        }),
-      },
-    });
-
-    const stats: DashboardStats = {
-      totalCourses,
-      totalAssignments,
-      pendingSubmissions,
-      completedAssignments,
-    };
+    // Count pending assignments — guard against empty array for Op.notIn
+    let pendingSubmissions = 0;
+    try {
+      const submittedIds = userSubmissions.map((s) => s.assignment_id).filter(Boolean);
+      pendingSubmissions = await Assignment.count({
+        where: {
+          status: "published",
+          ...(submittedIds.length > 0 && {
+            id: { [Op.notIn]: submittedIds },
+          }),
+        },
+      });
+    } catch (e) {
+      console.error("Error counting pending submissions:", e);
+    }
 
     res.status(200).json({
       success: true,
-      data: stats,
+      data: {
+        totalCourses,
+        totalAssignments,
+        pendingSubmissions,
+        completedAssignments,
+      },
     });
   } catch (error) {
     console.error("Error fetching student stats:", error);
     res.status(500).json({
       success: false,
       message: "Error fetching dashboard statistics",
+      detail: error instanceof Error ? error.message : String(error),
     });
   }
 };
@@ -117,7 +131,7 @@ export const getStudentPendingAssignments = async (
       attributes: ["assignment_id"],
     });
 
-    const submittedAssignmentIds = userSubmissions.map((s) => s.assignment_id);
+    const submittedAssignmentIds = userSubmissions.map((s) => s.assignment_id).filter(Boolean);
 
     // Get pending assignments (published assignments without submissions)
     const pendingAssignments = await Assignment.findAll({
@@ -130,11 +144,11 @@ export const getStudentPendingAssignments = async (
       ],
       where: {
         status: "published",
-        id: {
-          [Op.notIn]: submittedAssignmentIds,
-        },
+        ...(submittedAssignmentIds.length > 0 && {
+          id: { [Op.notIn]: submittedAssignmentIds },
+        }),
         due_date: {
-          [Op.gt]: new Date(), // Not overdue
+          [Op.gt]: new Date(),
         },
       },
       order: [["due_date", "ASC"]],
