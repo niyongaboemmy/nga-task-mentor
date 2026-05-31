@@ -1,0 +1,118 @@
+name: Deploy to cPanel
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  # ─── Job 1: Deploy React client ───────────────────────────────────────────
+  deploy-client:
+    name: Build & Deploy Client
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: client/package-lock.json
+
+      - name: Install dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Build client
+        working-directory: client
+        run: npm run build
+
+      - name: Deploy client via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./client/dist/
+          server-dir: /public_html/taskmentor/
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+
+  # ─── Job 2: Deploy Node.js server ─────────────────────────────────────────
+  deploy-server:
+    name: Build & Deploy Server
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "npm"
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install server dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Build server (TypeScript → dist/)
+        working-directory: server
+        run: npm run build
+
+      - name: Deploy server files via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./server/
+          server-dir: /home/${{ secrets.CPANEL_USERNAME }}/taskmentor-api/
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            **/src/**
+            **/*.ts
+            **/*.test.*
+            **/logs/**
+            **/uploads/**
+            **/uploads2/**
+            **/*.sql
+            **/*.db
+            **/*.sqlite
+            **/scratch/**
+            **/test-*.js
+            **/check-*.js
+            **/create-*.js
+            **/debug-*.js
+            **/verify-*.js
+            **/populate-*.js
+            **/grade-*.js
+            **/update-*.js
+            **/export-*.js
+
+      # After FTP upload, SSH in to install deps and restart the app
+      - name: Install production deps & restart app via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SSH_HOST }}
+          username: ${{ secrets.SSH_USERNAME }}
+          password: ${{ secrets.SSH_PASSWORD }}
+          port: 22
+          script: |
+            cd ~/taskmentor-api
+            npm install --omit=dev
+            npx sequelize-cli db:migrate --env production
+            pm2 restart ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
+            pm2 save
