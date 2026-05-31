@@ -71,6 +71,17 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(true);
   const [showProctoringMonitor, setShowProctoringMonitor] = useState(false);
   const [showSaveWarning, setShowSaveWarning] = useState(false);
+  const [testRunning, setTestRunning] = useState(false);
+  const [testResults, setTestResults] = useState<Array<{
+    passed: boolean;
+    input?: string;
+    expected?: string;
+    actual?: string;
+    error?: string | null;
+    executionTime?: number;
+    status?: string;
+  }>>([]);
+  const [testError, setTestError] = useState<string | null>(null);
   // Removed navigation confirmation modal state - no longer needed
 
   // Initialize quiz
@@ -212,21 +223,17 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
     }
   }, [quiz?.time_limit, submissionId, timeRemaining]);
 
-  const handleAnswerChange = (questionId: number, answer: AnswerDataType) => {
-    // Only allow changes if quiz hasn't been submitted and question hasn't been answered yet
-    if (!quizSubmitted && !locallyAnsweredQuestions.has(questionId)) {
-      setAnswers((prev) => ({ ...prev, [questionId]: answer }));
+  // Clear test results when navigating to a different question
+  useEffect(() => {
+    setTestResults([]);
+    setTestError(null);
+  }, [currentQuestionIndex]);
 
-      // Mark question as answered and auto-advance to next question
+  const handleAnswerChange = (questionId: number, answer: AnswerDataType) => {
+    if (!quizSubmitted) {
+      setAnswers((prev) => ({ ...prev, [questionId]: answer }));
       if (answer && Object.keys(answer).length > 0) {
         setLocallyAnsweredQuestions((prev) => new Set([...prev, questionId]));
-
-        // Auto-advance to next question after a short delay
-        setTimeout(() => {
-          if (currentQuestionIndex < (quiz?.questions?.length || 0) - 1) {
-            setCurrentQuestionIndex((prev) => prev + 1);
-          }
-        }, 500); // 500ms delay to show the answer was recorded
       }
     }
   };
@@ -266,36 +273,19 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
     }
 
     if (quiz?.questions && currentQuestionIndex < quiz.questions.length - 1) {
-      const nextIndex = currentQuestionIndex + 1;
-      const nextQuestion = quiz.questions[nextIndex];
-
-      // Allow navigation to unanswered questions only
-      if (nextQuestion && !locallyAnsweredQuestions.has(nextQuestion.id)) {
-        setCurrentQuestionIndex(nextIndex);
-      }
+      setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
   };
 
   const handlePrevious = () => {
     if (currentQuestionIndex > 0) {
-      const prevIndex = currentQuestionIndex - 1;
-      const prevQuestion = quiz?.questions?.[prevIndex];
-
-      // Prevent going back to already answered questions
-      if (prevQuestion && !locallyAnsweredQuestions.has(prevQuestion.id)) {
-        setCurrentQuestionIndex(prevIndex);
-      }
+      setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
 
   const handleQuestionNavigation = (index: number) => {
     if (index !== currentQuestionIndex) {
-      const targetQuestion = quiz?.questions?.[index];
-
-      // Prevent navigation to already answered questions
-      if (targetQuestion && !locallyAnsweredQuestions.has(targetQuestion.id)) {
-        setCurrentQuestionIndex(index);
-      }
+      setCurrentQuestionIndex(index);
     }
   };
 
@@ -307,6 +297,35 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
     setShowSubmitConfirm(false);
     await handleSubmitQuiz();
   };
+
+  const handleRunTests = useCallback(async () => {
+    const question = quiz?.questions?.[currentQuestionIndex];
+    if (!currentSubmission?.submission_id || !question) return;
+    const code = (answers[question.id] as any)?.code;
+    if (!code) return;
+    const language = (question.question_data as any)?.language || "javascript";
+
+    setTestRunning(true);
+    setTestError(null);
+    setTestResults([]);
+    try {
+      const res = await QuizApiService.submitQuestionAnswer(
+        currentSubmission.submission_id,
+        question.id,
+        { code, language },
+      );
+      const results = res?.data?.grading_details?.test_results;
+      if (results?.length) {
+        setTestResults(results);
+      } else {
+        setTestError("No test results returned. Check your code and try again.");
+      }
+    } catch (err: any) {
+      setTestError(err?.message || "Failed to run tests");
+    } finally {
+      setTestRunning(false);
+    }
+  }, [currentSubmission?.submission_id, quiz, currentQuestionIndex, answers]);
 
   // Removed navigation confirmation functions - no longer needed
 
@@ -565,16 +584,13 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                   <button
                     key={question.id}
                     onClick={() => handleQuestionNavigation(index)}
-                    disabled={
-                      status === "answered" && index !== currentQuestionIndex
-                    }
                     className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center text-xs font-medium transition-all relative ${
                       index === currentQuestionIndex
                         ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200"
                         : status === "submitted"
                           ? "border-purple-500 bg-purple-50 text-purple-700 hover:bg-purple-100"
                           : status === "answered"
-                            ? "border-green-500 bg-green-50 text-green-700 opacity-60 cursor-not-allowed"
+                            ? "border-green-500 bg-green-50 text-green-700 hover:bg-green-100"
                             : status === "flagged"
                               ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100"
                               : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
@@ -749,18 +765,61 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
                     {/* Run Tests Button for Coding Questions */}
                     {currentQuestion.question_type === "coding" &&
-                      answers[currentQuestion.id] &&
                       !quizSubmitted && (
                         <div className="mb-4">
                           <button
-                            onClick={() => {
-                              // TODO: Implement test running functionality
-                              console.log("Running tests...");
-                            }}
-                            className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors font-medium"
+                            onClick={handleRunTests}
+                            disabled={testRunning || !(answers[currentQuestion.id] as any)?.code}
+                            className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium flex items-center justify-center gap-2"
                           >
-                            Run Tests
+                            {testRunning ? (
+                              <>
+                                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                                </svg>
+                                Running...
+                              </>
+                            ) : "Run Tests"}
                           </button>
+                          {/* Test Results Panel */}
+                          {(testResults.length > 0 || testError) && (
+                            <div className="mt-3 space-y-2">
+                              {testError && (
+                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                                  {testError}
+                                </div>
+                              )}
+                              {testResults.length > 0 && (
+                                <>
+                                  <div className="text-xs font-medium text-gray-600 mb-1">
+                                    {testResults.filter(r => r.passed).length}/{testResults.length} tests passed
+                                  </div>
+                                  <div className="space-y-1 max-h-48 overflow-y-auto">
+                                    {testResults.map((result, idx) => (
+                                      <div
+                                        key={idx}
+                                        className={`flex items-start justify-between p-2 rounded border text-xs ${
+                                          result.passed
+                                            ? "bg-green-50 border-green-200 text-green-700"
+                                            : "bg-red-50 border-red-200 text-red-700"
+                                        }`}
+                                      >
+                                        <span className="font-medium shrink-0">
+                                          {result.passed ? "✓" : "✗"} Test {idx + 1}
+                                        </span>
+                                        {!result.passed && result.error && (
+                                          <span className="opacity-75 truncate ml-2">
+                                            {result.error}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
 

@@ -32,14 +32,25 @@ const itemVariants = {
   },
 };
 
+const VALID_TABS = ["overview", "assignments", "quizzes", "students"] as const;
+type TabId = (typeof VALID_TABS)[number];
+
+const getStoredTab = (courseId: string): TabId => {
+  try {
+    const stored = sessionStorage.getItem(`course-tab-${courseId}`);
+    if (stored && VALID_TABS.includes(stored as TabId)) return stored as TabId;
+  } catch {}
+  return "overview";
+};
+
 const CourseDetails: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const dispatch = useDispatch<AppDispatch>();
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<
-    "overview" | "assignments" | "quizzes" | "students" | "submissions"
-  >("overview");
+  const [activeTab, setActiveTab] = useState<TabId>(
+    () => getStoredTab(courseId || ""),
+  );
 
   // Get auth user for role checking
   const authUser = useSelector((state: RootState) => state.auth.user);
@@ -360,7 +371,13 @@ const CourseDetails: React.FC = () => {
               .map((tab) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id as any)}
+                  onClick={() => {
+                    const tabId = tab.id as TabId;
+                    setActiveTab(tabId);
+                    try {
+                      sessionStorage.setItem(`course-tab-${courseId}`, tabId);
+                    } catch {}
+                  }}
                   className={`${
                     activeTab === tab.id
                       ? "border-blue-500 text-blue-600 dark:text-blue-500"

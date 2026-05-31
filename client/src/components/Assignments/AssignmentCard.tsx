@@ -224,7 +224,8 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
   };
 
   const isOverdue = (() => {
-    if (isStudent && userGrade) return false;
+    if (currentStatus === "completed") return false;
+    if (isStudent && (userGrade || userSubmission)) return false;
     const due = new Date(assignment.due_date);
     const nowUTC = Date.now();
     const dueUTC = due.getTime();
@@ -313,7 +314,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
             </div>
 
             {/* Live countdown - Responsive sizing */}
-            {!(isStudent && userGrade) && (
+            {!(isStudent && userGrade) && currentStatus !== "completed" && (
               <div className="min-w-0 flex-shrink-0">
                 <LiveCountdown
                   dueDate={assignment.due_date}

@@ -20,6 +20,7 @@ export interface SubmissionItemInterface {
   resubmissions: any[];
   is_late: boolean;
   comments: any[];
+  rubric_scores?: any;
   createdAt: string;
   updatedAt: string;
   student: {
@@ -29,6 +30,12 @@ export interface SubmissionItemInterface {
     email: string;
     profile_image?: string;
   };
+  submittedByUser?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  } | null;
 }
 
 interface SubmissionSummaryItemProps {
@@ -127,6 +134,16 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
                 <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                   {submission.student?.email || "No email available"}
                 </p>
+                {submission.submittedByUser && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <svg className="w-3 h-3 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                      Submitted by {submission.submittedByUser.first_name} {submission.submittedByUser.last_name}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Submission Meta */}
@@ -199,7 +216,7 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
             <span className="capitalize">{submission.status}</span>
           </div>
 
-          {/* View Details Button - Only show for actual submissions, not placeholders */}
+          {/* View Details Button */}
           {onViewDetails && !isPlaceholder && (
             <button
               onClick={onViewDetails}
@@ -229,11 +246,17 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
             </button>
           )}
 
-          {/* For placeholders, show a different message */}
-          {isPlaceholder && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 px-3 py-2">
-              Not submitted yet
-            </div>
+          {/* Grade button for placeholder (not submitted) students */}
+          {isPlaceholder && onViewDetails && (
+            <button
+              onClick={onViewDetails}
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-amber-700 dark:text-amber-400 hover:text-amber-900 dark:hover:text-amber-200 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-full transition-colors border border-amber-200 dark:border-amber-700"
+            >
+              <svg className="h-4 w-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+              Grade Student
+            </button>
           )}
         </div>
       </div>

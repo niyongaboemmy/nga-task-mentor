@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { toast } from "react-toastify";
+import axios from "../../utils/axiosConfig";
 import {
   Eye,
   Edit3,
@@ -18,6 +19,8 @@ import {
   Play,
   ArrowLeft,
   Library,
+  AlertTriangle,
+  RefreshCw,
 } from "lucide-react";
 import type { RootState, AppDispatch } from "../../store";
 import {
@@ -46,7 +49,8 @@ const QuizHeader: React.FC<{
   editing: boolean;
   onEdit: () => void;
   onNavigate: (path: string) => void;
-}> = ({ quiz, questions, editing, onEdit, onNavigate }) => {
+  onResetAllSubmissions?: () => void;
+}> = ({ quiz, questions, editing, onEdit, onNavigate, onResetAllSubmissions }) => {
   const navigate = useNavigate();
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -63,12 +67,14 @@ const QuizHeader: React.FC<{
 
   const getTypeColor = (type: string) => {
     switch (type) {
-      case "exam":
+      case "Exam":
         return "bg-red-100 dark:bg-gray-800 dark:text-white text-red-700 border-red-200 dark:border-red-200/30";
-      case "graded":
+      case "Assessment":
         return "bg-indigo-100 dark:bg-gray-800 dark:text-white text-indigo-700 border-indigo-200 dark:border-indigo-200/30";
-      case "practice":
+      case "Homework":
         return "bg-orange-100 dark:bg-gray-800 dark:text-white text-orange-700 border-orange-200 dark:border-orange-200/30";
+      case "Quiz":
+        return "bg-green-100 dark:bg-gray-800 dark:text-white text-green-700 border-green-200 dark:border-green-200/30";
       default:
         return "bg-gray-100 text-gray-700 border-gray-200";
     }
@@ -132,13 +138,15 @@ const QuizHeader: React.FC<{
                       <div className="flex items-center gap-1">
                         <div
                           className={`w-1.5 h-1.5 rounded-full ${
-                            quiz.type === "exam"
+                            quiz.type === "Exam"
                               ? "bg-red-500"
-                              : quiz.type === "graded"
-                                ? "bg-green-500"
-                                : quiz.type === "practice"
+                              : quiz.type === "Assessment"
+                                ? "bg-indigo-500"
+                                : quiz.type === "Homework"
                                   ? "bg-orange-500"
-                                  : "bg-gray-500"
+                                  : quiz.type === "Quiz"
+                                    ? "bg-green-500"
+                                    : "bg-gray-500"
                           }`}
                         ></div>
                         {quiz.type.charAt(0).toUpperCase() + quiz.type.slice(1)}
@@ -319,6 +327,15 @@ const QuizHeader: React.FC<{
             <Users className="w-4 h-4" />
             View Submissions
           </button>
+          {onResetAllSubmissions && (
+            <button
+              onClick={onResetAllSubmissions}
+              className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium border border-red-300 text-red-700 dark:text-red-300 dark:border-red-600 dark:hover:bg-red-900/30 rounded-2xl hover:bg-red-50 transition-all duration-200 hover:scale-105 transform"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Reset All Submissions
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -652,6 +669,9 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
   const [selectedBankQuestion, setSelectedBankQuestion] =
     useState<QuestionBankEntry | null>(null);
 
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resettingAll, setResettingAll] = useState(false);
+
   // Drag and drop state
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
@@ -799,6 +819,20 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
     }
   }, [currentQuiz]);
 
+  const handleResetAllSubmissions = async () => {
+    if (!currentQuiz) return;
+    setResettingAll(true);
+    try {
+      await axios.delete(`/quizzes/${currentQuiz.id}/submissions/all`);
+      toast.success("All submissions and proctoring data deleted");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to reset submissions");
+    } finally {
+      setResettingAll(false);
+      setShowResetConfirm(false);
+    }
+  };
+
   const handleEdit = () => setEditing(true);
 
   const handleSave = async () => {
@@ -873,6 +907,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                 editing={editing}
                 onEdit={handleEdit}
                 onNavigate={navigate}
+                onResetAllSubmissions={() => setShowResetConfirm(true)}
               />
             </div>
           )}
@@ -1021,6 +1056,46 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
           )}
         </div>
       </div>
+
+      {/* Reset All Submissions Confirmation */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-2xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                  Reset All Submissions
+                </h3>
+                <p className="text-xs text-gray-500 dark:text-gray-400">
+                  This action cannot be undone
+                </p>
+              </div>
+            </div>
+            <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
+              This will permanently delete <strong>all student submissions</strong> and all proctoring data for <strong>{currentQuiz?.title}</strong>.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                disabled={resettingAll}
+                className="flex-1 px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleResetAllSubmissions}
+                disabled={resettingAll}
+                className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors disabled:opacity-50"
+              >
+                {resettingAll ? "Deleting..." : "Delete All"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

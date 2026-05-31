@@ -12,9 +12,9 @@ export class MatchingHandler implements IQuestionHandler {
     const correct_matches: Record<string, string> = {};
 
     for (const p of paragraphs) {
-      // Mammoth might encode <-> as &lt;-&gt; or just keep it if it's plain text
-      // We look for any variation of a separator
-      const separatorMatch = p.match(/&lt;-&gt;|<->|↔/);
+      // Match <-> in all forms: raw, fully HTML-encoded, or partially decoded
+      // (partial decode happens when &gt; is decoded but &lt; is not)
+      const separatorMatch = p.match(/&lt;-&gt;|&lt;->|<->|↔/);
       if (separatorMatch) {
         const separator = separatorMatch[0];
         const parts = p.split(separator).map((s) => s.trim());

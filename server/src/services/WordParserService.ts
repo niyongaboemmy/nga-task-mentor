@@ -49,6 +49,22 @@ export class WordParserService {
     return questions;
   }
 
+  // Decode safe HTML entities that mammoth inserts for special chars in plain text.
+  // We intentionally skip &lt; / &gt; to avoid turning encoded angle-brackets into
+  // real HTML tags, which would confuse the subsequent tag-stripping regexes.
+  private static decodeEntities(str: string): string {
+    // Decode &amp; first (must be before others to avoid double-decoding).
+    // We intentionally decode &gt; (>) but NOT &lt; (<): decoding &lt; would turn
+    // encoded angle-brackets into real HTML tags and confuse the tag-stripping regex.
+    // Decoding only &gt; is safe because an unmatched > cannot start a new HTML tag.
+    return str
+      .replace(/&amp;/g, "&")
+      .replace(/&gt;/g, ">")
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/&nbsp;/g, " ");
+  }
+
   private static parseQuestionBlock(block: string): ParsedQuestion | null {
     // In HTML, we can't just split by \n and trim easily because formatting might be multi-line
     // We'll use a regex-based extraction or a simple "line-by-paragraph" approach
@@ -86,8 +102,7 @@ export class WordParserService {
 
     for (let i = 0; i < paragraphs.length; i++) {
       const p = paragraphs[i];
-      const textOnly = p
-        .replace(/<[^>]*>/g, "")
+      const textOnly = this.decodeEntities(p.replace(/<[^>]*>/g, ""))
         .trim()
         .toLowerCase();
 
@@ -125,7 +140,7 @@ export class WordParserService {
       } else if (textOnly.startsWith("data:")) {
         isParsingData = true;
       } else if (isParsingData) {
-        dataParagraphs.push(p);
+        dataParagraphs.push(this.decodeEntities(p));
       } else {
         if (!questionHtml) {
           questionHtml = p;

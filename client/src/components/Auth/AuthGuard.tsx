@@ -1,36 +1,35 @@
-import React, { useEffect } from "react";
+import React from "react";
+import { Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import HomePage from "../HomePage";
 
 const AuthGuard: React.FC = () => {
   const { isAuthenticated, loading } = useAuth();
 
-  useEffect(() => {
-    // Show loading state while checking authentication
-    if (loading) {
-      return;
-    }
-
-    // If user is authenticated, redirect to dashboard
-    if (isAuthenticated) {
-      window.location.href = (import.meta.env.BASE_URL + "/dashboard").replace(
-        /\/+/g,
-        "/",
-      );
-      return;
-    }
-  }, [isAuthenticated, loading]);
-
-  // Show loading spinner while checking authentication
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-white dark:from-gray-950 dark:to-gray-950">
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative h-12 w-12">
+            <div className="absolute inset-0 rounded-full border-4 border-blue-100 dark:border-blue-900" />
+            <div className="absolute inset-0 rounded-full border-4 border-blue-600 border-t-transparent animate-spin" />
+          </div>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Loading…
+          </p>
+        </div>
       </div>
     );
   }
 
-  // Show homepage if not authenticated
+  if (isAuthenticated) {
+    const dashboardPath = (import.meta.env.BASE_URL + "/dashboard").replace(
+      /\/+/g,
+      "/",
+    );
+    return <Navigate to={dashboardPath} replace />;
+  }
+
   return <HomePage />;
 };
 

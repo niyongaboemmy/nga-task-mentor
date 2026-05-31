@@ -7,6 +7,7 @@ import {
   Loader2,
   Download,
   AlertCircle,
+  Table,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Modal from "../ui/Modal";
@@ -22,6 +23,13 @@ interface DocxUploadModalProps {
   onSuccess: () => void;
 }
 
+type FileFormat = "docx" | "xlsx";
+
+const XLSX_MIME =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+const DOCX_MIME =
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+
 const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
   isOpen,
   onClose,
@@ -29,44 +37,63 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
   onSuccess,
 }) => {
   const [file, setFile] = useState<File | null>(null);
+  const [fileFormat, setFileFormat] = useState<FileFormat | null>(null);
   const [loading, setLoading] = useState(false);
   const [parsedQuestions, setParsedQuestions] = useState<any[] | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
+      const selected = e.target.files[0];
       if (
-        selectedFile.type ===
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document" ||
-        selectedFile.name.endsWith(".docx")
+        selected.type === DOCX_MIME ||
+        selected.name.toLowerCase().endsWith(".docx")
       ) {
-        setFile(selectedFile);
+        setFile(selected);
+        setFileFormat("docx");
+      } else if (
+        selected.type === XLSX_MIME ||
+        selected.name.toLowerCase().endsWith(".xlsx")
+      ) {
+        setFile(selected);
+        setFileFormat("xlsx");
       } else {
-        toast.error("Please select a valid .docx file");
+        toast.error("Please select a valid .docx or .xlsx file");
       }
     }
   };
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (!file || !fileFormat) return;
     setLoading(true);
     try {
-      const response = await QuestionBankApiService.parseDocxQuestions(
-        courseId,
-        file,
-      );
+      let response: { success: boolean; data: any[] };
+      if (fileFormat === "xlsx") {
+        response = await QuestionBankApiService.parseXlsxQuestions(
+          courseId,
+          file,
+        );
+      } else {
+        response = await QuestionBankApiService.parseDocxQuestions(
+          courseId,
+          file,
+        );
+      }
       setParsedQuestions(response.data);
       toast.success("File parsed successfully. Please review questions.");
     } catch (err) {
       console.error("Upload error", err);
-      toast.error("Failed to parse Word document. Check the format.");
+      toast.error(
+        fileFormat === "xlsx"
+          ? "Failed to parse Excel file. Check the format."
+          : "Failed to parse Word document. Check the format.",
+      );
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDownloadTemplate = async () => {
+  const handleDownloadDocxTemplate = async () => {
     try {
       const blob = await QuestionBankApiService.downloadDocxTemplate(courseId);
       const url = window.URL.createObjectURL(blob);
@@ -76,8 +103,23 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
       document.body.appendChild(link);
       link.click();
       link.remove();
-    } catch (err) {
-      toast.error("Failed to download template");
+    } catch {
+      toast.error("Failed to download Word template");
+    }
+  };
+
+  const handleDownloadXlsxTemplate = async () => {
+    try {
+      const blob = await QuestionBankApiService.downloadXlsxTemplate(courseId);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", "question_bank_template.xlsx");
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+    } catch {
+      toast.error("Failed to download Excel template");
     }
   };
 
@@ -91,7 +133,7 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
       toast.success(`${questions.length} questions imported successfully`);
       onSuccess();
       onClose();
-    } catch (err) {
+    } catch {
       toast.error("Failed to import questions");
     } finally {
       setLoading(false);
@@ -110,6 +152,7 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
 
   const reset = () => {
     setFile(null);
+    setFileFormat(null);
     setParsedQuestions(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -121,8 +164,8 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
         reset();
         onClose();
       }}
-      title="Import Questions from Word"
-      subtitle="Upload a .docx file following our template format"
+      title="Import Questions from Word or Excel"
+      subtitle="Upload a .docx or .xlsx file following our template format"
       size={"full"}
       className="h-full"
     >
@@ -140,15 +183,25 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
               <div className="text-sm text-blue-700 dark:text-blue-300">
                 <p className="font-semibold mb-1">Before you upload:</p>
                 <p>
-                  Make sure your document follows our specific structure for
-                  accurate parsing. You can download our sample template below.
+                  Make sure your file follows our template structure for
+                  accurate parsing. Download a sample template below.
                 </p>
-                <button
-                  onClick={handleDownloadTemplate}
-                  className="mt-3 flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold hover:underline"
-                >
-                  <Download className="w-4 h-4" /> Download Sample Template
-                </button>
+                <div className="mt-3 flex flex-wrap gap-4">
+                  <button
+                    onClick={handleDownloadDocxTemplate}
+                    className="flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold hover:underline"
+                  >
+                    <FileText className="w-4 h-4" /> Download Word Template
+                    (.docx)
+                  </button>
+                  <button
+                    onClick={handleDownloadXlsxTemplate}
+                    className="flex items-center gap-2 text-green-600 dark:text-green-400 font-bold hover:underline"
+                  >
+                    <Table className="w-4 h-4" /> Download Excel Template
+                    (.xlsx)
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -164,18 +217,27 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
                 type="file"
                 ref={fileInputRef}
                 onChange={handleFileChange}
-                accept=".docx"
+                accept=".docx,.xlsx"
                 className="hidden"
               />
               {file ? (
                 <>
-                  <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400 rounded-2xl flex items-center justify-center mb-4">
+                  <div
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${
+                      fileFormat === "xlsx"
+                        ? "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                        : "bg-green-100 dark:bg-green-900/30 text-green-600 dark:text-green-400"
+                    }`}
+                  >
                     <Check className="w-8 h-8" />
                   </div>
                   <p className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
                     {file.name}
                   </p>
-                  <p className="text-sm text-gray-500">File ready for upload</p>
+                  <p className="text-sm text-gray-500">
+                    {fileFormat === "xlsx" ? "Excel" : "Word"} file ready for
+                    upload
+                  </p>
                 </>
               ) : (
                 <>
@@ -183,10 +245,10 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
                     <Upload className="w-8 h-8" />
                   </div>
                   <p className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
-                    Choose a Word File
+                    Choose a Word or Excel File
                   </p>
                   <p className="text-sm text-gray-500">
-                    Drag & drop or click to browse
+                    Drag & drop or click to browse (.docx or .xlsx)
                   </p>
                 </>
               )}
@@ -207,6 +269,10 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
                 {loading ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" /> Parsing...
+                  </>
+                ) : fileFormat === "xlsx" ? (
+                  <>
+                    <Table className="w-4 h-4" /> Parse Excel File
                   </>
                 ) : (
                   <>

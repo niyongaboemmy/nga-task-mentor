@@ -19,13 +19,21 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
   // Ensure options is always an array to prevent undefined errors
   const options = questionData.options || [];
 
-  const [selectedOptions, setSelectedOptions] = useState<number[]>(
-    currentAnswer?.selected_option_indices ?? [],
-  );
+  const [selectedOptions, setSelectedOptions] = useState<number[]>(() => {
+    if (!currentAnswer) return [];
+    if (Array.isArray(currentAnswer as any)) return currentAnswer as any;
+    return (currentAnswer as any).selected_option_indices ?? [];
+  });
 
   useEffect(() => {
-    if (currentAnswer?.selected_option_indices) {
-      setSelectedOptions(currentAnswer.selected_option_indices);
+    if (currentAnswer) {
+      if (Array.isArray(currentAnswer as any)) {
+        setSelectedOptions(currentAnswer as any);
+      } else if ((currentAnswer as any).selected_option_indices) {
+        setSelectedOptions((currentAnswer as any).selected_option_indices);
+      }
+    } else {
+      setSelectedOptions([]);
     }
   }, [currentAnswer]);
 
@@ -106,7 +114,7 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
         let optionClassName =
           "flex items-center p-4 rounded-2xl border-2 cursor-pointer transition-all duration-300 transform hover:scale-[1.02] active:scale-[0.98] ";
 
-        if (disabled || showCorrectAnswer) {
+        if (showCorrectAnswer) {
           optionClassName += "cursor-default hover:scale-100 active:scale-100 ";
           if (isCorrect) {
             optionClassName +=
@@ -114,6 +122,15 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
           } else if (isIncorrectSelection) {
             optionClassName +=
               "border-red-500 bg-gradient-to-r from-red-50 to-pink-50 dark:from-red-900 dark:to-pink-900 shadow-sm";
+          } else {
+            optionClassName +=
+              "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 opacity-60";
+          }
+        } else if (disabled) {
+          optionClassName += "cursor-default hover:scale-100 active:scale-100 ";
+          if (isSelected) {
+            optionClassName +=
+              "border-blue-500 bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/30 dark:to-indigo-900/30 shadow-md ring-2 ring-blue-200 dark:ring-blue-800";
           } else {
             optionClassName +=
               "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 opacity-60";

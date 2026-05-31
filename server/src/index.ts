@@ -44,33 +44,94 @@ import cookieParser from "cookie-parser";
 app.set("trust proxy", 1); // Trust one proxy (e.g., cPanel)
 app.use(
   helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "frame-src": ["'self'", "blob:", "http://localhost:*", "https://*"],
+        "img-src": [
+          "'self'",
+          "data:",
+          "blob:",
+          "http://localhost:*",
+          "https://*",
+        ],
+        "connect-src": ["'self'", "http://localhost:*", "https://*"],
+      },
+    },
     crossOriginResourcePolicy: { policy: "cross-origin" },
     crossOriginEmbedderPolicy: false,
   }),
 );
 app.use(cookieParser()); // Parse cookies
+// Collect allowed origins from all env vars that may define them
+const allowedOrigins = [
+  process.env.ALLOWED_ORIGINS,
+  process.env.CORS_ORIGIN,
+  process.env.FRONTEND_URL,
+  // Hard-coded dev fallbacks and production domains
+  "http://localhost:5173,http://localhost:5174,http://localhost:3000",
+  "https://nga.ac.rw,https://taskmentor.hts.rw,https://task-mentor-gamma.vercel.app",
+]
+  .filter(Boolean)
+  .flatMap((s) => s!.split(","))
+  .map((o) => o.trim())
+  .filter((v, i, arr) => Boolean(v) && arr.indexOf(v) === i);
+
 app.use(
   cors({
-    origin: true,
+    origin: (origin, callback) => {
+      // Allow requests with no origin (like mobile apps or curl requests)
+      if (!origin) return callback(null, true);
+
+      // Check if origin is in allowedOrigins list
+      if (allowedOrigins.includes(origin)) return callback(null, true);
+
+      // Additional check for known production domains and localhost
+      if (
+        origin.includes("nga.ac.rw") ||
+        origin.includes("hts.rw") ||
+        origin.startsWith("http://localhost") ||
+        origin.startsWith("http://127.0.0.1")
+      ) {
+        return callback(null, true);
+      }
+
+      callback(new Error(`CORS: origin ${origin} not allowed`));
+    },
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
     allowedHeaders: ["Content-Type", "Authorization", "x-mis-token"],
   }),
 );
-
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10000, // limit each IP to 100 requests per windowMs
-});
-app.use(limiter);
 
 // Body parser middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from uploads directory
-app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
+// Serve static files from uploads directory with explicit CORS
+app.use(
+  "/uploads",
+  (req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader("Access-Control-Allow-Origin", origin);
+      res.setHeader("Access-Control-Allow-Credentials", "true");
+    } else {
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    }
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
+    res.setHeader(
+      "Access-Control-Allow-Headers",
+      "Content-Type, Authorization, x-mis-token",
+    );
+
+    if (req.method === "OPTIONS") {
+      return res.status(200).end();
+    }
+    next();
+  },
+  express.static(path.join(__dirname, "../uploads")),
+);
 
 // Test database connection and sync models
 const initializeDatabase = async (): Promise<void> => {

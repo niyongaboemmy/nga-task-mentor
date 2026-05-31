@@ -2,10 +2,9 @@ import {
   BrowserRouter as Router,
   Routes,
   Route,
+  Navigate,
   useParams,
 } from "react-router-dom";
-import { Provider } from "react-redux";
-import { store } from "./store";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 // import TimezoneChecker from "./components/TimezoneChecker";
@@ -48,6 +47,7 @@ import CourseReportsPage from "./pages/CourseReportsPage";
 import StudentReportsPage from "./pages/StudentReportsPage";
 import BloomsTaxonomyManagementPage from "./components/Quizzes/BloomsTaxonomyManagementPage";
 import QuestionBankPage from "./pages/QuestionBankPage";
+import SubmissionDetailPage from "./pages/SubmissionDetailPage";
 
 // Wrapper components for routes that need useParams
 const QuizViewWrapper = () => {
@@ -57,7 +57,7 @@ const QuizViewWrapper = () => {
 
 const QuizTakerWrapper = () => {
   const { submissionId } = useParams<{ submissionId: string }>();
-  return <QuizTaker quiz={{} as any} submissionId={parseInt(submissionId!)} />;
+  return <QuizTaker submissionId={parseInt(submissionId!)} />;
 };
 
 const EditQuestionPageWrapper = () => {
@@ -125,6 +125,10 @@ const QuestionBankPageWrapper = () => {
 
 const QuizSubmissionsPageWrapper = () => {
   return <QuizSubmissionsPage />;
+};
+
+const SubmissionDetailPageWrapper = () => {
+  return <SubmissionDetailPage />;
 };
 
 function AppContent() {
@@ -481,6 +485,16 @@ function AppContent() {
               }
             />
             <Route
+              path="/quizzes/:quizId/submissions/:submissionId"
+              element={
+                <ProtectedRoute roles={["instructor", "admin"]}>
+                  <Layout>
+                    <SubmissionDetailPageWrapper />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
               path="/admin/blooms-taxonomy"
               element={
                 <ProtectedRoute roles={["admin"]}>
@@ -490,6 +504,7 @@ function AppContent() {
                 </ProtectedRoute>
               }
             />
+            <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
           <ToastContainer
             position="top-right"
@@ -516,14 +531,7 @@ function AppContent() {
 }
 
 function App() {
-  return (
-    <Provider store={store}>
-      {/* AuthProvider is already in main.tsx */}
-      {/* <TimezoneChecker> */}
-      <AppContent />
-      {/* </TimezoneChecker> */}
-    </Provider>
-  );
+  return <AppContent />;
 }
 
 export default App;

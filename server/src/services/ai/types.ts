@@ -39,6 +39,25 @@ export interface AITestCase {
   explanation: string;
 }
 
+export interface AIGenerateFromDocumentParams {
+  documentText: string;
+  questionTypes: string[];
+  countPerType: number;
+  difficulty: "EASY" | "MEDIUM" | "DIFFICULT";
+  additionalContext?: string;
+}
+
+export interface AIGeneratedQuestion {
+  question_type: string;
+  question_text: string;
+  question_data: Record<string, any>;
+  correct_answer?: any;
+  explanation?: string;
+  difficulty_level: string;
+  tags?: string[];
+  time_limit_seconds?: number;
+}
+
 export interface AiProvider {
   /**
    * Grades a short answer question.
@@ -122,4 +141,11 @@ export interface AiProvider {
     targetAudience: "student" | "teacher",
     length: "short" | "medium" | "detailed",
   ): Promise<AISummary>;
+
+  /**
+   * Generate structured quiz questions from document text.
+   */
+  generateQuestionsFromDocument(
+    params: AIGenerateFromDocumentParams,
+  ): Promise<AIGeneratedQuestion[]>;
 }

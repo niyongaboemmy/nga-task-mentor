@@ -102,21 +102,16 @@ export const getUsers = async (req: Request, res: Response) => {
           : undefined,
     });
 
-    if (response.data.data && response.data.data.length > 0) {
-      const users = response.data.data;
-      res.status(200).json({
-        success: true,
-        count: users.length,
-        data: users,
-        // meta: response.data.meta,
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        message: "Failed to fetch users from MIS",
-      });
-    }
+    const users = response.data.data ?? [];
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      data: users,
+    });
   } catch (error: any) {
+    if (error.response?.status === 404) {
+      return res.status(200).json({ success: true, count: 0, data: [] });
+    }
     return handleMisError(error, res, "Error fetching users");
   }
 };

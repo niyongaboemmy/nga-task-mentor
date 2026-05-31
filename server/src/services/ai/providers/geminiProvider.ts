@@ -7,7 +7,10 @@ import {
   AIFeedback,
   AISummary,
   AITestCase,
+  AIGenerateFromDocumentParams,
+  AIGeneratedQuestion,
 } from "../types";
+import { buildGenerateFromDocumentPrompt } from "../prompts/generateFromDocumentPrompt";
 
 export class GeminiProvider implements AiProvider {
   private genAI: GoogleGenerativeAI;
@@ -21,9 +24,12 @@ export class GeminiProvider implements AiProvider {
     });
   }
 
-  private async generateJson(prompt: string): Promise<any> {
+  private async generateJson(
+    prompt: string,
+    timeoutMs: number = 30000,
+  ): Promise<any> {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       const result = await this.model.generateContent(prompt, {
@@ -38,7 +44,16 @@ export class GeminiProvider implements AiProvider {
         .replace(/^```(?:json)?\s*/m, "")
         .replace(/\s*```\s*$/m, "")
         .trim();
-      return JSON.parse(cleaned);
+      try {
+        return JSON.parse(cleaned);
+      } catch {
+        // Try extracting the first JSON array from partial response
+        const arrMatch = cleaned.match(/\[[\s\S]*\]/);
+        if (arrMatch) return JSON.parse(arrMatch[0]);
+        const objMatch = cleaned.match(/\{[\s\S]*\}/);
+        if (objMatch) return JSON.parse(objMatch[0]);
+        throw new Error("Failed to parse Gemini JSON response");
+      }
     } catch (error: any) {
       console.error("[Gemini Error]", error.message);
       throw error;
@@ -241,5 +256,42 @@ Content: ${lessonContent.slice(0, 3000)}
 JSON format: {"summary": "string", "keyPoints": ["string"], "vocabulary": ["string"]}`;
 
     return await this.generateJson(prompt);
+  }
+
+  async generateQuestionsFromDocument(
+    params: AIGenerateFromDocumentParams,
+  ): Promise<AIGeneratedQuestion[]> {
+    const prompt = buildGenerateFromDocumentPrompt(params);
+    // Use 90s timeout — large documents need more processing time
+    const result = await this.generateJson(prompt, 90000);
+    const arr = Array.isArray(result)
+      ? result
+      : result.questions || result.data || [];
+    return this.normalizeGeneratedQuestions(arr, params.difficulty);
+  }
+
+  private normalizeGeneratedQuestions(
+    raw: any[],
+    difficulty: string,
+  ): AIGeneratedQuestion[] {
+    return raw
+      .filter(
+        (q) =>
+          q &&
+          typeof q.question_type === "string" &&
+          typeof q.question_text === "string" &&
+          q.question_data &&
+          typeof q.question_data === "object",
+      )
+      .map((q) => ({
+        question_type: q.question_type,
+        question_text: String(q.question_text),
+        question_data: q.question_data,
+        correct_answer: q.correct_answer ?? null,
+        explanation: q.explanation || "",
+        difficulty_level: q.difficulty_level || difficulty,
+        tags: Array.isArray(q.tags) ? q.tags : [],
+        time_limit_seconds: Number(q.time_limit_seconds) || 60,
+      }));
   }
 }

@@ -398,6 +398,12 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
   const [isRunning, setIsRunning] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
   const [testResults, setTestResults] = useState<any[]>([]);
+  const [expandedResults, setExpandedResults] = useState<Set<number>>(new Set());
+  const [gradingResult, setGradingResult] = useState<{
+    is_correct: boolean | null;
+    points_earned: number | null;
+    feedback?: string;
+  } | null>(null);
   const [consoleLog, setConsoleLog] = useState<ConsoleEntry[]>([]);
   const [lastError, setLastError] = useState<string | undefined>();
   const [stdinValue, setStdinValue] = useState("");
@@ -564,6 +570,7 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
     if (isTesting || !submissionId) return;
     setIsTesting(true);
     setBottomPanel("results");
+    setExpandedResults(new Set());
     try {
       const code = isProjectMode
         ? JSON.stringify(files)
@@ -573,10 +580,15 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
         question.id,
         { code, language },
       );
-      if (res.data?.grading_details?.test_results) {
-        setTestResults(res.data.grading_details.test_results);
+      const details = res.data?.grading_details;
+      const results = details?.testResults || details?.test_results;
+      if (results?.length) {
+        setTestResults(results);
       } else {
         toast.info("Tests submitted. Waiting for results...");
+      }
+      if (res.data?.grading_result) {
+        setGradingResult(res.data.grading_result);
       }
     } catch (err: any) {
       toast.error(err.message || "Failed to run tests");
@@ -1184,57 +1196,113 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
                                   <AlertTriangle size={20} />
                                 )}
                               </div>
-                              <div>
+                              <div className="flex-1">
                                 <h4 className="font-bold text-white text-sm">
                                   {allPassed
                                     ? "All Tests Passed!"
                                     : "Some Tests Failed"}
                                 </h4>
                                 <p className="text-xs text-slate-400">
-                                  Score:{" "}
-                                  {Math.round(
-                                    (passedCount / testResults.length) * 100,
+                                  {passedCount}/{testResults.length} tests passed
+                                  {gradingResult?.points_earned != null && (
+                                    <span className="ml-2 text-blue-400 font-medium">
+                                      · {gradingResult.points_earned} pts earned
+                                    </span>
                                   )}
-                                  % ({passedCount}/{testResults.length})
                                 </p>
                               </div>
+                              {gradingResult?.is_correct != null && (
+                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
+                                  gradingResult.is_correct
+                                    ? "bg-emerald-500/20 text-emerald-400"
+                                    : "bg-rose-500/20 text-rose-400"
+                                }`}>
+                                  {gradingResult.is_correct ? "CORRECT" : "INCORRECT"}
+                                </span>
+                              )}
                             </div>
                             <div className="grid grid-cols-1 gap-2">
-                              {testResults.map((result, idx) => (
-                                <div
-                                  key={idx}
-                                  className={`p-3 rounded-lg border flex items-center justify-between transition-colors ${
-                                    result.passed
-                                      ? "bg-emerald-500/5 border-emerald-500/20"
-                                      : "bg-rose-500/5 border-rose-500/20"
-                                  }`}
-                                >
-                                  <div className="flex items-center gap-3">
-                                    {result.passed ? (
-                                      <Check
-                                        size={16}
-                                        className="text-emerald-500"
-                                      />
-                                    ) : (
-                                      <X size={16} className="text-rose-500" />
-                                    )}
-                                    <div className="flex flex-col">
-                                      <span className="text-[12px] font-medium text-white">
-                                        Test Case {idx + 1}:{" "}
-                                        {result.name || "Default"}
-                                      </span>
-                                      {!result.passed && (
-                                        <span className="text-[10px] text-rose-400 mt-1">
-                                          {result.error || "Wrong output"}
-                                        </span>
-                                      )}
+                              {testResults.map((result, idx) => {
+                                const isExpanded = expandedResults.has(idx);
+                                const hasDiff = !result.passed && (result.input != null || result.expected != null || result.actual != null);
+                                return (
+                                  <div
+                                    key={idx}
+                                    className={`rounded-lg border transition-colors ${
+                                      result.passed
+                                        ? "bg-emerald-500/5 border-emerald-500/20"
+                                        : "bg-rose-500/5 border-rose-500/20"
+                                    }`}
+                                  >
+                                    <div
+                                      className={`p-3 flex items-center justify-between ${hasDiff ? "cursor-pointer" : ""}`}
+                                      onClick={() => {
+                                        if (!hasDiff) return;
+                                        setExpandedResults((prev) => {
+                                          const next = new Set(prev);
+                                          next.has(idx) ? next.delete(idx) : next.add(idx);
+                                          return next;
+                                        });
+                                      }}
+                                    >
+                                      <div className="flex items-center gap-3">
+                                        {result.passed ? (
+                                          <Check size={16} className="text-emerald-500" />
+                                        ) : (
+                                          <X size={16} className="text-rose-500" />
+                                        )}
+                                        <div className="flex flex-col">
+                                          <span className="text-[12px] font-medium text-white">
+                                            Test Case {idx + 1}
+                                            {result.name ? `: ${result.name}` : ""}
+                                          </span>
+                                          {!result.passed && (
+                                            <span className="text-[10px] text-rose-400 mt-0.5">
+                                              {result.error || result.status || "Wrong output"}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </div>
+                                      <div className="flex items-center gap-3">
+                                        {result.executionTime != null && (
+                                          <span className="text-[10px] text-slate-500 font-mono">
+                                            {result.executionTime < 1
+                                              ? `${Math.round(result.executionTime * 1000)}ms`
+                                              : `${result.executionTime.toFixed(2)}s`}
+                                          </span>
+                                        )}
+                                        {hasDiff && (
+                                          isExpanded
+                                            ? <ChevronUp size={14} className="text-slate-500" />
+                                            : <ChevronDown size={14} className="text-slate-500" />
+                                        )}
+                                      </div>
                                     </div>
+                                    {isExpanded && hasDiff && (
+                                      <div className="border-t border-rose-500/10 px-3 pb-3 pt-2 space-y-2 font-mono text-[11px]">
+                                        {result.input != null && (
+                                          <div>
+                                            <span className="text-slate-500 uppercase tracking-wide text-[9px]">Input</span>
+                                            <pre className="mt-1 bg-[#0d0d0d] rounded p-2 text-[#ddd] overflow-x-auto whitespace-pre-wrap">{String(result.input)}</pre>
+                                          </div>
+                                        )}
+                                        {result.expected != null && (
+                                          <div>
+                                            <span className="text-slate-500 uppercase tracking-wide text-[9px]">Expected</span>
+                                            <pre className="mt-1 bg-emerald-950/40 rounded p-2 text-emerald-300 overflow-x-auto whitespace-pre-wrap">{String(result.expected)}</pre>
+                                          </div>
+                                        )}
+                                        {result.actual != null && (
+                                          <div>
+                                            <span className="text-slate-500 uppercase tracking-wide text-[9px]">Your output</span>
+                                            <pre className="mt-1 bg-rose-950/40 rounded p-2 text-rose-300 overflow-x-auto whitespace-pre-wrap">{String(result.actual)}</pre>
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
-                                  <div className="text-[10px] text-slate-500 font-mono">
-                                    {result.time}s
-                                  </div>
-                                </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           </>
                         ) : (

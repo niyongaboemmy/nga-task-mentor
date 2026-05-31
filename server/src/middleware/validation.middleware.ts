@@ -74,9 +74,10 @@ export const validate = (schema: z.ZodSchema) => {
       next();
     } catch (error) {
       if (error instanceof z.ZodError) {
-        // Explicitly cast to any to handle TS unknown type in catch block
-        const zodError = error as any;
-        const errors = zodError.errors.map((err: any) => ({
+        // .issues is the canonical Zod property; .errors is an alias that may
+        // be missing in some builds — fall back gracefully.
+        const issues: any[] = (error.issues ?? (error as any).errors) ?? [];
+        const errors = issues.map((err: any) => ({
           field: err.path ? err.path.join(".") : "unknown",
           message: err.message,
         }));

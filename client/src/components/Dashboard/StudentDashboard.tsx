@@ -13,6 +13,7 @@ import {
   TrendingUp,
   CheckCircle,
   ListTodo,
+  ArrowRight,
 } from "lucide-react";
 import { motion } from "framer-motion";
 
@@ -49,10 +50,22 @@ interface DashboardStats {
 
 interface RecentActivity {
   id: string;
-  type: "assignment" | "submission" | "course";
+  type: "assignment" | "submission" | "course" | "quiz";
   title: string;
   description: string;
   timestamp: string;
+  resource_id?: string;
+}
+
+function getActivityLink(activity: RecentActivity): string {
+  const resourceId = activity.resource_id ?? activity.id.split("_").slice(1).join("_");
+  switch (activity.type) {
+    case "assignment":
+    case "submission": return resourceId ? `/assignments/${resourceId}` : "/assignments";
+    case "course": return resourceId ? `/courses/${resourceId}` : "/courses";
+    case "quiz": return resourceId ? `/quizzes/${resourceId}` : "/assignments";
+    default: return "/assignments";
+  }
 }
 
 interface StudentDashboardData {
@@ -73,6 +86,26 @@ interface StudentDashboardData {
 const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
   data,
 }) => {
+  const enrolledCourseIds = React.useMemo(
+    () => data.enrolledCourses.map((c) => String(c.id)),
+    [data.enrolledCourses],
+  );
+
+  const filteredAssignments = React.useMemo(
+    () =>
+      data.pendingAssignments.filter((a) =>
+        enrolledCourseIds.includes(String(a.course_id)),
+      ),
+    [data.pendingAssignments, enrolledCourseIds],
+  );
+
+  const filteredQuizzes = React.useMemo(
+    () =>
+      data.availableQuizzes.filter((q) =>
+        enrolledCourseIds.includes(String(q.course_id)),
+      ),
+    [data.availableQuizzes, enrolledCourseIds],
+  );
   // Function to calculate urgency level based on due date
   const getUrgencyLevel = (dueDate: string) => {
     const now = new Date();
@@ -249,7 +282,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
       )}
 
       {/* Assignment Cards - Modern List Design */}
-      {data?.pendingAssignments && data.pendingAssignments.length > 0 && (
+      {filteredAssignments && filteredAssignments.length > 0 && (
         <motion.div
           variants={itemVariants}
           className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
@@ -277,29 +310,30 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
           </div>
 
           <div className="grid gap-4">
-            {data.pendingAssignments.slice(0, 3).map((assignment, index) => {
+            {filteredAssignments.slice(0, 3).map((assignment, index) => {
               const urgency = getUrgencyLevel(assignment.due_date);
 
               return (
-                <motion.div
-                  key={index + 1}
-                  variants={itemVariants}
-                  className={`group relative rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1 border-2 ${
-                    urgency === "critical"
-                      ? "bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
-                      : urgency === "urgent"
-                        ? "bg-orange-50/50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-900/30"
-                        : "bg-white dark:bg-gray-800/50 border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800"
-                  }`}
-                >
-                  <div className="relative z-10">
-                    <AssignmentCard
-                      assignment={assignment}
-                      compact={true}
-                      showSubmissions={false}
-                    />
-                  </div>
-                </motion.div>
+                <Link key={index + 1} to={`/assignments/${assignment.id}`} className="block">
+                  <motion.div
+                    variants={itemVariants}
+                    className={`group relative rounded-[2rem] p-6 transition-all duration-300 hover:-translate-y-1 border-2 ${
+                      urgency === "critical"
+                        ? "bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
+                        : urgency === "urgent"
+                          ? "bg-orange-50/50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-900/30"
+                          : "bg-white dark:bg-gray-800/50 border-gray-100 dark:border-gray-700 hover:border-blue-200 dark:hover:border-blue-800"
+                    }`}
+                  >
+                    <div className="relative z-10">
+                      <AssignmentCard
+                        assignment={assignment}
+                        compact={true}
+                        showSubmissions={false}
+                      />
+                    </div>
+                  </motion.div>
+                </Link>
               );
             })}
           </div>
@@ -307,7 +341,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
       )}
 
       {/* Available Copurse Quizzes Section */}
-      {data?.availableQuizzes && data.availableQuizzes.length > 0 && (
+      {filteredQuizzes && filteredQuizzes.length > 0 && (
         <motion.div
           variants={itemVariants}
           className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800"
@@ -323,7 +357,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                     Available Quizzes
                   </h3>
                   <span className="px-3 py-1 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-bold uppercase tracking-wider">
-                    {data.availableQuizzes.length} Active
+                    {filteredQuizzes.length} Active
                   </span>
                 </div>
                 <p className="text-base font-medium text-gray-500 dark:text-gray-400">
@@ -340,7 +374,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {data.availableQuizzes
+            {filteredQuizzes
               .slice(0, 3)
               .map((quiz: any, index: number) => {
                 const deadline = quiz.deadline || quiz.end_date;
@@ -473,9 +507,10 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                   48 * 60 * 60 * 1000;
 
               return (
-                <div
+                <Link
                   key={course.id || index}
-                  className={`group relative rounded-xl p-3 sm:p-4 transition-all duration-200 hover:shadow-sm ${
+                  to={`/courses/${course.id}`}
+                  className={`group relative rounded-xl p-3 sm:p-4 transition-all duration-200 hover:shadow-sm block ${
                     isExpired
                       ? "bg-red-50/80 dark:bg-red-900/20 border border-red-200 dark:border-red-800"
                       : isUrgent
@@ -587,7 +622,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
                       </div>
                     </div>
                   </div>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -622,57 +657,66 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
         <div className="space-y-4">
           {data?.recentActivity && data.recentActivity.length > 0 ? (
             data.recentActivity.slice(0, 4).map((activity: RecentActivity) => (
-              <motion.div
+              <Link
                 key={activity.id}
-                variants={itemVariants}
-                className="group relative flex items-start gap-4 p-4 rounded-3xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
+                to={getActivityLink(activity)}
+                className="block"
               >
-                {/* Activity icon */}
-                <div
-                  className={`relative z-10 flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 group-hover:scale-110 ${
-                    activity.type === "assignment"
-                      ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
-                      : activity.type === "submission"
-                        ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
-                        : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
-                  }`}
+                <motion.div
+                  variants={itemVariants}
+                  className="group relative flex items-start gap-4 p-4 rounded-3xl hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-all duration-200"
                 >
-                  {activity.type === "assignment" && (
-                    <ListTodo className="w-6 h-6" />
-                  )}
-                  {activity.type === "submission" && (
-                    <CheckCircle className="w-6 h-6" />
-                  )}
-                  {activity.type === "course" && (
-                    <BookOpen className="w-6 h-6" />
-                  )}
-                </div>
+                  {/* Activity icon */}
+                  <div
+                    className={`relative z-10 flex-shrink-0 w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-200 group-hover:scale-110 ${
+                      activity.type === "assignment"
+                        ? "bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                        : activity.type === "submission"
+                          ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400"
+                          : "bg-violet-100 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400"
+                    }`}
+                  >
+                    {activity.type === "assignment" && (
+                      <ListTodo className="w-6 h-6" />
+                    )}
+                    {activity.type === "submission" && (
+                      <CheckCircle className="w-6 h-6" />
+                    )}
+                    {activity.type === "course" && (
+                      <BookOpen className="w-6 h-6" />
+                    )}
+                    {activity.type === "quiz" && (
+                      <CheckCircle className="w-6 h-6" />
+                    )}
+                  </div>
 
-                {/* Content */}
-                <div className="flex-1 min-w-0 pt-1">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
-                    <div className="flex-1">
-                      <p className="text-base font-bold text-gray-900 dark:text-white truncate">
-                        {activity.title}
-                      </p>
-                      <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
-                        {activity.description}
-                      </p>
-                    </div>
-                    <div className="flex-shrink-0">
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
-                        {new Date(activity.timestamp).toLocaleDateString(
-                          "en-US",
-                          {
-                            month: "short",
-                            day: "numeric",
-                          },
-                        )}
-                      </span>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0 pt-1">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <p className="text-base font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate transition-colors">
+                          {activity.title}
+                        </p>
+                        <p className="text-sm font-medium text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                          {activity.description}
+                        </p>
+                      </div>
+                      <div className="flex-shrink-0 flex items-center gap-2">
+                        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                          {new Date(activity.timestamp).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "numeric",
+                            },
+                          )}
+                        </span>
+                        <ArrowRight className="w-4 h-4 text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
                     </div>
                   </div>
-                </div>
-              </motion.div>
+                </motion.div>
+              </Link>
             ))
           ) : (
             <div className="text-center py-12">

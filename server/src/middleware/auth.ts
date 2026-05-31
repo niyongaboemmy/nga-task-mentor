@@ -33,9 +33,9 @@ export const protect = async (
       req.headers.authorization.startsWith("Bearer")
     ) {
       token = req.headers.authorization.split(" ")[1];
-    } else if (req.cookies && req.cookies.nga_auth_token) {
+    } else if (req.cookies && req.cookies.tm_auth_token) {
       // Check for token in cookies
-      token = req.cookies.nga_auth_token;
+      token = req.cookies.tm_auth_token;
     }
 
     // Make sure token exists and is not a placeholder

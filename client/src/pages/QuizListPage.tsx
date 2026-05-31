@@ -366,9 +366,10 @@ const QuizListPage: React.FC = () => {
                   className="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
                 >
                   <option value="all">All Types</option>
-                  <option value="exam">Exam</option>
-                  <option value="graded">Graded</option>
-                  <option value="practice">Practice</option>
+                  <option value="Assessment">Assessment</option>
+                  <option value="Homework">Homework</option>
+                  <option value="Quiz">Quiz</option>
+                  <option value="Exam">Exam</option>
                 </select>
 
                 <select

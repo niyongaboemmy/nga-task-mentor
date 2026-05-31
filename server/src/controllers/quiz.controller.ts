@@ -2,6 +2,8 @@ import { Request, Response } from "express";
 import axios from "axios";
 import { QuizQuestion, QuizAttempt, User, Quiz, QuestionBank } from "../models";
 import QuizSubmission from "../models/QuizSubmission.model";
+import ProctoringSession from "../models/ProctoringSession.model";
+import ProctoringEvent from "../models/ProctoringEvent.model";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
@@ -1014,18 +1016,16 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
 
       const questionData = question.questionBank?.question_data as any;
 
-      // Check if question has individual time limit and if it was exceeded
-      let questionTimedOut = false;
-      if (
-        question.time_limit_seconds &&
-        answer.time_taken > question.time_limit_seconds
-      ) {
-        questionTimedOut = true;
-      }
+      // Per-question timeout is enforced client-side via the countdown timer.
+      // time_taken from the client is not reliable for server-side enforcement
+      // (stale localStorage start times can produce wildly large values).
+      // The overall quiz end_time is the authoritative server-side time limit.
+      const questionTimedOut = false;
 
       // Scoring logic based on grading settings
       let isCorrect = false;
       let pointsEarned = 0;
+      let gradingResult: any = null;
 
       if (questionTimedOut) {
         // If question timed out, no points awarded
@@ -1038,7 +1038,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       } else {
         // Use advanced grading for all question types for consistency and to trigger AI grading
         try {
-          const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
+          gradingResult = await AdvancedQuizGrader.gradeWithConfig(
             question,
             answer.answer,
           );
@@ -1116,6 +1116,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         max_points: Number(question.points),
         explanation:
           question.questionBank?.explanation || "No explanation provided.",
+        feedback: gradingResult?.feedback || (questionTimedOut ? "Timed out" : "Pending"),
         timed_out: questionTimedOut,
         time_limit_seconds: question.time_limit_seconds,
       });
@@ -1174,6 +1175,12 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
 // Helper function to get correct answer for a question
 const getCorrectAnswerForQuestion = (question: any): any => {
   switch (question.question_type) {
+    case "single_choice":
+      return (
+        question.question_data?.correct_option_index ??
+        question.correct_answer?.correct_option_index ??
+        question.correct_answer
+      );
     case "multiple_choice":
     case "true_false":
       return question.correct_answer;
@@ -1279,13 +1286,25 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
     const showCorrectAnswers = submission.quiz?.show_correct_answers === true;
 
     const results = attempts.map((attempt) => {
+      const rawQuestionData = attempt.attemptQuestion?.questionBank?.question_data as any;
+      // Always return question_data so the "Your Answer" panel can render options,
+      // but strip correct-answer fields when show_correct_answers is false.
+      let questionData: any = null;
+      if (rawQuestionData) {
+        if (showCorrectAnswers) {
+          questionData = rawQuestionData;
+        } else {
+          // Return a copy without fields that reveal the correct answer
+          const { correct_option_index, correct_option_indices, correct_answer: _ca, correct_matches, ...safe } = rawQuestionData;
+          questionData = safe;
+        }
+      }
+
       const result = {
         question_id: attempt.question_id,
         question_text: attempt.attemptQuestion?.questionBank?.question_text,
         question_type: attempt.attemptQuestion?.questionBank?.question_type,
-        question_data: showCorrectAnswers
-          ? attempt.attemptQuestion?.questionBank?.question_data
-          : null,
+        question_data: questionData,
         user_answer: attempt.submitted_answer,
         correct_answer: showCorrectAnswers ? attempt.correct_answer : null,
         is_correct: showCorrectAnswers ? attempt.is_correct : null,
@@ -1648,11 +1667,13 @@ export const getAIHint = async (req: Request, res: Response) => {
 };
 
 // @desc    Run code snippet instantly (no grading, just execution)
+//          When `test_cases` array is provided, runs code against each case and returns pass/fail.
 // @route   POST /api/quizzes/questions/:questionId/run-code
+//          POST /api/quizzes/preview-run  (instructor prep, no questionId required)
 // @access  Private
 export const runCode = async (req: Request, res: Response) => {
   try {
-    const { code, language, stdin } = req.body;
+    const { code, language, stdin, test_cases } = req.body;
 
     if (!code || !language) {
       return res.status(400).json({
@@ -1661,19 +1682,88 @@ export const runCode = async (req: Request, res: Response) => {
       });
     }
 
-    // For web languages (html/css/react/vue), skip Judge0 and return the code directly
-    // The frontend renders it in an iframe
     const webLanguages = ["html", "css", "react", "vue", "angular", "nextjs"];
-    if (webLanguages.includes(language.toLowerCase())) {
+    const isWeb = webLanguages.includes(language.toLowerCase());
+
+    // ── Batch mode: run code against multiple test cases ──────────────────────
+    if (Array.isArray(test_cases) && test_cases.length > 0) {
+      if (isWeb) {
+        // Web languages can't be auto-tested via Judge0 — return preview flag
+        const results = test_cases.map((tc: any) => ({
+          testCaseId: tc.id,
+          passed: null, // visual only
+          input: tc.input,
+          expected: tc.expected_output,
+          actual: null,
+          error: null,
+          executionTime: 0,
+          memoryUsed: null,
+          status: "Web Preview",
+          is_hidden: tc.is_hidden,
+        }));
+        return res.json({ success: true, data: { results, web_preview: true, passed: 0, total: test_cases.length } });
+      }
+
+      const normalizeOutput = (s: string | null | undefined) =>
+        (s ?? "").replace(/\r\n/g, "\n").trimEnd();
+
+      const results: any[] = [];
+      for (const tc of test_cases) {
+        try {
+          const result = await Judge0Service.runSingle(code, language, tc.input ?? "");
+          const actual = normalizeOutput(result.stdout);
+          const expected = normalizeOutput(tc.expected_output);
+          const compileError = result.compile_output || result.message;
+          const runtimeError = result.stderr;
+          const statusId = result.status?.id;
+          // Judge0 status 3 = Accepted; also do our own string compare
+          const passed = statusId === 3 || actual === expected;
+          results.push({
+            testCaseId: tc.id,
+            passed,
+            input: tc.is_hidden ? null : (tc.input ?? ""),
+            expected: tc.is_hidden ? null : tc.expected_output,
+            actual: result.stdout ?? null,
+            error: !passed
+              ? (compileError || runtimeError || result.status?.description || "Wrong Answer")
+              : null,
+            executionTime: parseFloat(result.time || "0") * 1000,
+            memoryUsed: result.memory ?? null,
+            status: result.status?.description ?? "Unknown",
+            is_hidden: tc.is_hidden ?? false,
+          });
+        } catch (tcErr: any) {
+          results.push({
+            testCaseId: tc.id,
+            passed: false,
+            input: tc.is_hidden ? null : (tc.input ?? ""),
+            expected: tc.is_hidden ? null : tc.expected_output,
+            actual: null,
+            error: tcErr.message || "Execution failed",
+            executionTime: 0,
+            memoryUsed: null,
+            status: "Error",
+            is_hidden: tc.is_hidden ?? false,
+          });
+        }
+      }
+
       return res.json({
         success: true,
         data: {
-          stdout: null,
-          stderr: null,
-          web_preview: true,
-          language,
-          execution_time: 0,
+          results,
+          passed: results.filter((r) => r.passed).length,
+          total: results.length,
+          web_preview: false,
         },
+      });
+    }
+
+    // ── Single-run mode ───────────────────────────────────────────────────────
+    if (isWeb) {
+      return res.json({
+        success: true,
+        data: { stdout: null, stderr: null, web_preview: true, language, execution_time: 0 },
       });
     }
 
@@ -1684,9 +1774,9 @@ export const runCode = async (req: Request, res: Response) => {
       data: {
         stdout: result.stdout,
         stderr: result.stderr || result.compile_output,
-        exit_code: result.status.id,
-        status: result.status.description,
-        execution_time: parseFloat(result.time || "0") * 1000, // ms
+        exit_code: result.status?.id,
+        status: result.status?.description,
+        execution_time: parseFloat(result.time || "0") * 1000,
         memory_used: result.memory,
         web_preview: false,
       },
@@ -1730,5 +1820,101 @@ export const generateTestCases = async (req: Request, res: Response) => {
       success: false,
       message: error.message || "Failed to generate test cases",
     });
+  }
+};
+
+// @desc    Delete a single quiz submission and its proctoring data
+// @route   DELETE /api/quizzes/submissions/:submissionId/delete
+// @access  Private (instructor, admin)
+export const deleteQuizSubmission = async (req: Request, res: Response) => {
+  const { submissionId } = req.params;
+  const transaction = await sequelize.transaction();
+
+  try {
+    const submission = await QuizSubmission.findByPk(submissionId, { transaction });
+    if (!submission) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: "Submission not found" });
+    }
+
+    const quizId = submission.quiz_id;
+    const studentId = submission.student_id;
+
+    // Delete proctoring events for this student's sessions on this quiz
+    const sessions = await ProctoringSession.findAll({
+      where: { quiz_id: quizId, student_id: studentId },
+      attributes: ["id"],
+      transaction,
+    });
+    const sessionIds = sessions.map((s: any) => s.id);
+    if (sessionIds.length > 0) {
+      await ProctoringEvent.destroy({ where: { session_id: sessionIds }, transaction });
+      await ProctoringSession.destroy({ where: { id: sessionIds }, transaction });
+    }
+
+    // Delete quiz attempts
+    await QuizAttempt.destroy({ where: { submission_id: submissionId }, transaction });
+
+    // Delete submission
+    await submission.destroy({ transaction });
+
+    await transaction.commit();
+    res.status(200).json({ success: true, message: "Submission and proctoring data deleted" });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Delete submission error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Delete ALL submissions and proctoring data for a quiz
+// @route   DELETE /api/quizzes/:quizId/submissions/all
+// @access  Private (instructor, admin)
+export const deleteAllQuizSubmissions = async (req: Request, res: Response) => {
+  const { quizId } = req.params;
+  const transaction = await sequelize.transaction();
+
+  try {
+    const quiz = await Quiz.findByPk(quizId, { transaction });
+    if (!quiz) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: "Quiz not found" });
+    }
+
+    // Delete all proctoring events for this quiz's sessions
+    const sessions = await ProctoringSession.findAll({
+      where: { quiz_id: quizId },
+      attributes: ["id"],
+      transaction,
+    });
+    const sessionIds = sessions.map((s: any) => s.id);
+    if (sessionIds.length > 0) {
+      await ProctoringEvent.destroy({ where: { session_id: sessionIds }, transaction });
+      await ProctoringSession.destroy({ where: { id: sessionIds }, transaction });
+    }
+
+    // Delete all quiz attempts belonging to this quiz's submissions
+    const submissions = await QuizSubmission.findAll({
+      where: { quiz_id: quizId },
+      attributes: ["id"],
+      transaction,
+    });
+    const submissionIds = submissions.map((s: any) => s.id);
+    if (submissionIds.length > 0) {
+      await QuizAttempt.destroy({ where: { submission_id: submissionIds }, transaction });
+    }
+
+    // Delete all submissions
+    const count = await QuizSubmission.destroy({ where: { quiz_id: quizId }, transaction });
+
+    await transaction.commit();
+    res.status(200).json({
+      success: true,
+      message: `Deleted ${count} submission(s) and all associated proctoring data`,
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Delete all quiz submissions error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
   }
 };

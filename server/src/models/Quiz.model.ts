@@ -15,7 +15,7 @@ import ProctoringSettings from "./ProctoringSettings.model";
 import ProctoringSession from "./ProctoringSession.model";
 
 export type QuizStatus = "draft" | "published" | "completed";
-export type QuizType = "practice" | "graded" | "exam";
+export type QuizType = "Assessment" | "Homework" | "Quiz" | "Exam";
 
 export interface IQuizAttributes {
   id?: number;
@@ -104,9 +104,9 @@ export class Quiz extends Model<IQuizAttributes, QuizCreationAttributes> {
   status!: QuizStatus;
 
   @Column({
-    type: DataType.ENUM("practice", "graded", "exam"),
+    type: DataType.ENUM("Assessment", "Homework", "Quiz", "Exam"),
     allowNull: false,
-    defaultValue: "practice",
+    defaultValue: "Quiz",
   })
   type!: QuizType;
 

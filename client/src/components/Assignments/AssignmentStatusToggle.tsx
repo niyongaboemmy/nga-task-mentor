@@ -6,7 +6,7 @@ interface AssignmentStatusToggleProps {
   currentStatus: "draft" | "published" | "completed" | "removed";
   onStatusChange: (
     assignmentId: string,
-    status: "draft" | "published" | "completed" | "removed"
+    status: "draft" | "published" | "completed" | "removed",
   ) => void;
   canManage: boolean;
   variant?: "select" | "badge";
@@ -73,7 +73,7 @@ const AssignmentStatusToggle: React.FC<AssignmentStatusToggleProps> = ({
   ];
 
   const currentOption = statusOptions.find(
-    (option) => option.value === currentStatus
+    (option) => option.value === currentStatus,
   );
 
   // Close dropdown when clicking outside
@@ -104,7 +104,7 @@ const AssignmentStatusToggle: React.FC<AssignmentStatusToggleProps> = ({
   };
 
   const handleStatusChange = async (
-    newStatus: "draft" | "published" | "completed" | "removed"
+    newStatus: "draft" | "published" | "completed" | "removed",
   ) => {
     if (!canManage || isChangingStatus || newStatus === currentStatus) return;
 
@@ -173,7 +173,7 @@ const AssignmentStatusToggle: React.FC<AssignmentStatusToggleProps> = ({
           border
           border-gray-200/60
           dark:border-gray-600/60
-          rounded-xl
+          rounded-full
           font-medium
           cursor-pointer
           focus:outline-none

@@ -48,6 +48,24 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = (props) => {
     }
   }
 
+  // Handle potential stringified answer
+  let answer = (restProps as any).answer;
+  if (typeof answer === "string" && answer.trim()) {
+    try {
+      // Only try to parse if it looks like JSON (starts with { or [)
+      const trimmed = answer.trim();
+      if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+        answer = JSON.parse(trimmed);
+      } else if (!isNaN(Number(trimmed)) && trimmed !== "") {
+        // If it's a numeric string, we might need to decide how to handle it.
+        // For now, let's just parse it as a number.
+        answer = JSON.parse(trimmed);
+      }
+    } catch (e) {
+      // Not JSON, keep as string
+    }
+  }
+
   const question = {
     ...originalQuestion,
     question_type: questionType,
@@ -64,39 +82,40 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = (props) => {
       originalQuestion.questionBank?.attachments,
   };
 
+  const finalProps = { ...restProps, answer, question };
+
   switch (question.question_type) {
     case "single_choice":
-      return <SingleChoiceQuestion {...restProps} question={question} />;
+      return <SingleChoiceQuestion {...finalProps} />;
 
     case "multiple_choice":
-      return <MultipleChoiceQuestion {...restProps} question={question} />;
+      return <MultipleChoiceQuestion {...finalProps} />;
 
     case "true_false":
-      return <TrueFalseQuestion {...restProps} question={question} />;
+      return <TrueFalseQuestion {...finalProps} />;
 
     case "numerical":
-      return <NumericalQuestion {...restProps} question={question} />;
+      return <NumericalQuestion {...finalProps} />;
 
     case "fill_blank":
-      return <FillBlankQuestion {...restProps} question={question} />;
+      return <FillBlankQuestion {...finalProps} />;
 
     case "matching":
-      return <MatchingQuestion {...restProps} question={question} />;
+      return <MatchingQuestion {...finalProps} />;
 
     case "dropdown":
-      return <DropdownQuestion {...restProps} question={question} />;
+      return <DropdownQuestion {...finalProps} />;
 
     case "algorithmic":
-      return <AlgorithmicQuestion {...restProps} question={question} />;
+      return <AlgorithmicQuestion {...finalProps} />;
 
     case "short_answer":
-      return <ShortAnswerQuestion {...restProps} question={question} />;
+      return <ShortAnswerQuestion {...finalProps} />;
 
     case "coding":
       return (
         <CodingQuestion
-          {...(restProps as any)}
-          question={question}
+          {...(finalProps as any)}
           isProjectMode={
             Boolean((question as any)?.question_data?.project_mode) ||
             Boolean(
@@ -118,13 +137,13 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = (props) => {
       );
 
     case "logical_expression":
-      return <LogicalExpressionQuestion {...restProps} question={question} />;
+      return <LogicalExpressionQuestion {...finalProps} />;
 
     case "drag_drop":
-      return <DragDropQuestion {...restProps} question={question} />;
+      return <DragDropQuestion {...finalProps} />;
 
     case "ordering":
-      return <OrderingQuestion {...restProps} question={question} />;
+      return <OrderingQuestion {...finalProps} />;
 
     default:
       return (

@@ -10,6 +10,7 @@ import {
 import { getQuestionBankInclude } from "../utils/quizUtils";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
+import { AdvancedQuizGrader } from "../utils/quizGrader";
 
 // @desc    Get pending submissions for grading
 // @route   GET /api/quiz-submissions/pending
@@ -138,6 +139,7 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
                   attributes: [
                     "question_text",
                     "question_type",
+                    "question_data",
                     "correct_answer",
                     "explanation",
                   ],
@@ -196,19 +198,25 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
         max_score: submission.max_score,
         percentage: submission.percentage,
         passed: submission.passed,
-        questions: questions.map((question) => ({
-          question_id: question.id,
-          question_text: question.questionBank?.question_text,
-          question_type: question.questionBank?.question_type,
-          points: question.points,
-          order: question.order,
-          explanation: question.questionBank?.explanation,
-          correct_answer: question.questionBank?.correct_answer,
-          student_answer: attemptsByQuestion[question.id]?.submitted_answer,
-          is_correct: attemptsByQuestion[question.id]?.is_correct,
-          points_earned: attemptsByQuestion[question.id]?.points_earned,
-          time_taken: attemptsByQuestion[question.id]?.time_taken,
-        })),
+        questions: questions.map((question) => {
+          // Use the grader's normalizeCorrectAnswer so the frontend always
+          // receives a consistent format regardless of how the question was saved.
+          const normalized = AdvancedQuizGrader.normalizeCorrectAnswer(question);
+          return {
+            question_id: question.id,
+            question_text: question.questionBank?.question_text,
+            question_type: question.questionBank?.question_type,
+            question_data: question.questionBank?.question_data,
+            points: question.points,
+            order: question.order,
+            explanation: question.questionBank?.explanation,
+            correct_answer: normalized.data,
+            student_answer: attemptsByQuestion[question.id]?.submitted_answer,
+            is_correct: attemptsByQuestion[question.id]?.is_correct,
+            points_earned: attemptsByQuestion[question.id]?.points_earned,
+            time_taken: attemptsByQuestion[question.id]?.time_taken,
+          };
+        }),
       },
     });
   } catch (error) {
@@ -281,15 +289,15 @@ export const gradeSubmission = async (req: Request, res: Response) => {
           },
           { transaction },
         );
-        totalEarned += questionGrade;
+        totalEarned += Number(questionGrade);
       } else {
-        totalEarned += attempt.points_earned || 0;
+        totalEarned += parseFloat(String(attempt.points_earned)) || 0;
       }
     }
 
     // Calculate final scores
     const maxPossible =
-      quiz?.questions?.reduce((sum, q) => sum + q.points, 0) || 0;
+      quiz?.questions?.reduce((sum, q) => sum + (parseFloat(String(q.points)) || 0), 0) || 0;
     const percentage = maxPossible > 0 ? (totalEarned / maxPossible) * 100 : 0;
     const passed = quiz?.passing_score
       ? percentage >= quiz.passing_score
@@ -570,10 +578,30 @@ export const getQuizSubmissions = async (req: Request, res: Response) => {
       order: [["completed_at", "DESC"]],
     });
 
+    // Deduplicate: keep one submission per student.
+    // Priority: completed/graded > completed/auto_graded > completed/pending > in_progress/expired
+    // Within the same priority tier, keep the most recent (already DESC-sorted above).
+    const statusPriority = (s: any): number => {
+      if (s.status === "completed" && s.grade_status === "graded") return 4;
+      if (s.status === "completed" && s.grade_status === "auto_graded") return 3;
+      if (s.status === "completed") return 2;
+      return 1;
+    };
+
+    const bestByStudent = new Map<number, (typeof submissions)[0]>();
+    for (const sub of submissions) {
+      const existing = bestByStudent.get(sub.student_id);
+      if (!existing || statusPriority(sub) > statusPriority(existing)) {
+        bestByStudent.set(sub.student_id, sub);
+      }
+    }
+
+    const deduped = Array.from(bestByStudent.values());
+
     res.status(200).json({
       success: true,
-      count: submissions.length,
-      data: submissions.map((submission) => ({
+      count: deduped.length,
+      data: deduped.map((submission) => ({
         submission_id: submission.id,
         student_id: submission.student_id,
         student_name: (submission as any).submissionStudent?.full_name,
@@ -653,6 +681,166 @@ export const updateSubmissionFeedback = async (req: Request, res: Response) => {
   } catch (error) {
     await transaction.rollback();
     console.error("Update submission feedback error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Initialize a manual submission (no online attempt) for grading paper-based work
+// @route   POST /api/quizzes/:quizId/submissions/initialize-manual
+// @access  Private/Instructor/Admin
+export const initializeManualSubmission = async (req: Request, res: Response) => {
+  const transaction = await sequelize.transaction();
+  try {
+    const { quizId } = req.params;
+    const { student_id } = req.body;
+
+    if (!student_id) {
+      await transaction.rollback();
+      return res.status(400).json({ success: false, message: "student_id is required" });
+    }
+
+    const quiz = await Quiz.findByPk(quizId, {
+      include: [
+        {
+          model: QuizQuestion,
+          as: "questions",
+          attributes: ["id", "points"],
+        },
+      ],
+      transaction,
+    });
+
+    if (!quiz) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: "Quiz not found" });
+    }
+
+    if (
+      quiz.created_by !== req.user.id &&
+      req.user.role !== "admin"
+    ) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to create submissions for this quiz",
+      });
+    }
+
+    const student = await User.findByPk(student_id, { transaction });
+    if (!student) {
+      await transaction.rollback();
+      return res.status(404).json({ success: false, message: "Student not found" });
+    }
+
+    const questions = quiz.questions || [];
+    const maxScore = questions.reduce((sum, q) => sum + (parseFloat(String(q.points)) || 0), 0);
+
+    // Abandon any stale in_progress submissions so they don't show as duplicates
+    await QuizSubmission.update(
+      { status: "abandoned" },
+      {
+        where: { quiz_id: quizId, student_id, status: "in_progress" },
+        transaction,
+      },
+    );
+
+    const existingCount = await QuizSubmission.count({
+      where: { quiz_id: quizId, student_id },
+      transaction,
+    });
+
+    const now = new Date();
+
+    const submission = await QuizSubmission.create(
+      {
+        quiz_id: Number(quizId),
+        student_id,
+        status: "completed",
+        grade_status: "pending",
+        total_score: 0,
+        max_score: maxScore,
+        percentage: 0,
+        passed: false,
+        attempt_number: existingCount + 1,
+        started_at: now,
+        completed_at: now,
+        time_taken: 0,
+      },
+      { transaction },
+    );
+
+    for (const question of questions) {
+      await QuizAttempt.create(
+        {
+          quiz_id: Number(quizId),
+          question_id: question.id,
+          student_id,
+          submission_id: submission.id,
+          status: "completed",
+          started_at: now,
+          completed_at: now,
+          time_taken: 0,
+          points_earned: 0,
+        },
+        { transaction },
+      );
+    }
+
+    await transaction.commit();
+
+    res.status(201).json({
+      success: true,
+      data: {
+        submission_id: submission.id,
+        quiz_id: Number(quizId),
+        student_id,
+        max_score: maxScore,
+        questions_count: questions.length,
+        message: "Manual submission initialized. You can now assign marks.",
+      },
+    });
+  } catch (error) {
+    await transaction.rollback();
+    console.error("Initialize manual submission error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Search local student accounts for manual marks wizard
+// @route   GET /api/quizzes/:quizId/students?search=...
+// @access  Private/Instructor/Admin
+export const getQuizStudents = async (req: Request, res: Response) => {
+  try {
+    const { search } = req.query;
+    const where: any = { role: "student" };
+
+    if (search && String(search).trim()) {
+      const term = `%${String(search).trim()}%`;
+      where[Op.or] = [
+        { first_name: { [Op.like]: term } },
+        { last_name: { [Op.like]: term } },
+        { email: { [Op.like]: term } },
+      ];
+    }
+
+    const users = await User.findAll({
+      where,
+      attributes: ["id", "first_name", "last_name", "email"],
+      order: [["first_name", "ASC"], ["last_name", "ASC"]],
+      limit: 50,
+    });
+
+    res.status(200).json({
+      success: true,
+      count: users.length,
+      data: users.map((u) => ({
+        id: u.id,
+        name: (u as any).full_name || `${u.first_name} ${u.last_name}`,
+        email: u.email,
+      })),
+    });
+  } catch (error) {
+    console.error("Get quiz students error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

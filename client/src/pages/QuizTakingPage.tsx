@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "../utils/axiosConfig";
 import html2canvas from "html2canvas";
@@ -120,7 +120,7 @@ const QuizTakingPage: React.FC = () => {
   const [pauseReason, setPauseReason] = useState("");
   const [showViolationWarning, setShowViolationWarning] = useState(false);
   const [currentViolation, setCurrentViolation] = useState<any>(null);
-  const [contentDisabled, setContentDisabled] = useState(false);
+  // contentDisabled removed — violations no longer block quiz; use isExamPaused for instructor-initiated pauses
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [isCodingFullscreen, setIsCodingFullscreen] = useState(false);
@@ -156,7 +156,9 @@ const QuizTakingPage: React.FC = () => {
     requestId: string;
     sessionToken: string;
   } | null>(null);
-  const [socketRef, setSocketRef] = useState<any>(null);
+  const socketRef = useRef<any>(null);
+  // Stable ref to submitQuiz — avoids stale closures inside timer/socket callbacks
+  const submitQuizRef = useRef<() => Promise<void>>(async () => {});
 
   // Volume check state
   const [showVolumeCheck, setShowVolumeCheck] = useState(false);
@@ -220,8 +222,13 @@ const QuizTakingPage: React.FC = () => {
     const key = getQuestionStartKey(currentQuestion.id);
     const existing = localStorage.getItem(key);
     const parsed = existing ? Number(existing) : NaN;
+    const maxStalenessMs = Math.max(
+      (currentQuestion?.questionBank?.time_limit_seconds ?? 600) * 1000 * 2,
+      10 * 60 * 1000, // 10 minutes floor
+    );
+    const isStale = !Number.isFinite(parsed) || parsed <= 0 || (Date.now() - parsed) > maxStalenessMs;
 
-    if (existing && Number.isFinite(parsed) && parsed > 0) {
+    if (!isStale) {
       questionStartTimeRef.current = parsed;
     } else {
       const now = Date.now();
@@ -263,17 +270,8 @@ const QuizTakingPage: React.FC = () => {
         }
       }
 
-      // Load saved locked indices
-      const lockedIndicesKey = `quiz_${id}_locked_indices`;
-      const savedLockedIndices = localStorage.getItem(lockedIndicesKey);
-      if (savedLockedIndices) {
-        try {
-          const parsedLocked = JSON.parse(savedLockedIndices);
-          setLockedQuestionIndices(new Set(parsedLocked));
-        } catch (error) {
-          localStorage.removeItem(lockedIndicesKey);
-        }
-      }
+      // Clear any stale locked indices from localStorage
+      localStorage.removeItem(`quiz_${id}_locked_indices`);
     }
   }, [id]);
 
@@ -292,34 +290,37 @@ const QuizTakingPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (timeLeft > 0 && quizStartTime && !showInstructions && !isExamPaused) {
-      const timer = setTimeout(() => {
-        setTimeLeft((prev) => {
-          if (prev <= 1) {
-            handleAutoSubmit();
-            return 0;
-          }
-          const newTimeLeft = prev - 1;
+    if (!quizStartTime || showInstructions) return;
 
-          // Save timer state to localStorage
-          if (id && quizStartTime) {
-            const timerSessionKey = `quiz_${id}_timer`;
-            localStorage.setItem(
-              timerSessionKey,
-              JSON.stringify({
-                timeLeft: newTimeLeft,
-                quizStartTime: quizStartTime.toISOString(),
-              }),
-            );
-          }
+    // timeLeft === -1 means unlimited (no time limit) — never auto-submit
+    if (timeLeft === -1) return;
 
-          return newTimeLeft;
-        });
-      }, 1000);
-
-      return () => clearTimeout(timer);
+    // Time expired — auto-submit
+    if (timeLeft <= 0) {
+      submitQuizRef.current();
+      return;
     }
-  }, [timeLeft, quizStartTime, showInstructions, id]);
+
+    if (isExamPaused) return;
+
+    const timer = setTimeout(() => {
+      setTimeLeft((prev) => {
+        if (prev === -1) return -1; // unlimited guard
+        const newTimeLeft = Math.max(0, prev - 1);
+        if (id) {
+          try {
+            localStorage.setItem(
+              `quiz_${id}_timer`,
+              JSON.stringify({ timeLeft: newTimeLeft, quizStartTime: quizStartTime.toISOString() }),
+            );
+          } catch (_) {}
+        }
+        return newTimeLeft;
+      });
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [timeLeft, quizStartTime, showInstructions, isExamPaused, id]);
 
   // Initialize socket connection for audio confirmation when proctoring session is active
   useEffect(() => {
@@ -363,10 +364,10 @@ const QuizTakingPage: React.FC = () => {
                 data.reason || "Quiz terminated by instructor",
               );
               setShowQuizTerminated(true);
-              // Auto-submit the quiz
+              // Auto-submit after 3s using the latest submitQuiz via ref (avoids stale closure)
               setTimeout(() => {
-                handleAutoSubmit();
-              }, 3000); // Give student time to read the message
+                submitQuizRef.current();
+              }, 3000);
             }
           });
 
@@ -406,7 +407,6 @@ const QuizTakingPage: React.FC = () => {
             if (data.sessionToken === proctoringSession.session_token) {
               setPauseReason(data.reason || "Exam paused by instructor");
               setIsExamPaused(true);
-              setContentDisabled(true);
               // Emit status change to server
               socket.emit("exam-status-changed", {
                 sessionToken: proctoringSession.session_token,
@@ -421,7 +421,6 @@ const QuizTakingPage: React.FC = () => {
             if (data.sessionToken === proctoringSession.session_token) {
               setIsExamPaused(false);
               setPauseReason("");
-              setContentDisabled(false);
               // Emit status change to server
               socket.emit("exam-status-changed", {
                 sessionToken: proctoringSession.session_token,
@@ -457,7 +456,6 @@ const QuizTakingPage: React.FC = () => {
               setIsExamPaused(false);
               setShowWarning(false);
               setShowNote(false);
-              setContentDisabled(false);
             }
           });
 
@@ -471,7 +469,7 @@ const QuizTakingPage: React.FC = () => {
               hasProctoringSession: !!proctoringSession,
               sessionToken: proctoringSession?.session_token,
               hasVideoElement: !!proctoringVideoElement,
-              hasSocketRef: !!socketRef,
+              hasSocketRef: !!socketRef.current,
             });
             if (data.sessionToken === proctoringSession?.session_token) {
               await captureAndSendCameraScreenshot(socket);
@@ -492,12 +490,17 @@ const QuizTakingPage: React.FC = () => {
             },
           );
 
-          socket.on("connect_error", (error: any) => {
-            // console.error("QuizTakingPage socket connection error:", error);
+          socket.on("disconnect", () => {
+            setSocketConnected(false);
           });
 
-          setSocketRef(socket);
-          console.log("Socket ref set, socket id:", socket.id);
+          socket.on("connect_error", (error: any) => {
+            setSocketConnected(false);
+            setConnectionError("Connection lost. Attempting to reconnect...");
+          });
+
+          socketRef.current = socket;
+          console.log("Socket connected, socket id:", socket.id);
         } catch (error) {
           console.error("Error initializing socket in QuizTakingPage:", error);
         }
@@ -507,9 +510,9 @@ const QuizTakingPage: React.FC = () => {
     }
 
     return () => {
-      if (socketRef) {
-        socketRef.disconnect();
-        setSocketRef(null);
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
       }
     };
   }, [proctoringSession, showProctoringSetup, showInstructions]);
@@ -584,29 +587,15 @@ const QuizTakingPage: React.FC = () => {
             })),
           );
 
-          // Identify locked indices (already submitted)
-          const locked = new Set<number>();
+          // Find first unanswered question to start at
           let firstUnsubmittedIndex = -1;
-
           quizQuestions.forEach((q, idx) => {
-            if (answeredQuestionIds.has(q.id)) {
-              locked.add(idx);
-            } else if (firstUnsubmittedIndex === -1) {
+            if (!answeredQuestionIds.has(q.id) && firstUnsubmittedIndex === -1) {
               firstUnsubmittedIndex = idx;
             }
           });
 
-          if (locked.size > 0) {
-            setLockedQuestionIndices(locked);
-            // Save locked indices to localStorage for persistence
-            const lockedIndicesKey = `quiz_${id}_locked_indices`;
-            localStorage.setItem(
-              lockedIndicesKey,
-              JSON.stringify(Array.from(locked)),
-            );
-          }
-
-          // Start at first unsubmitted question if found
+          // Start at first unanswered question if found
           if (firstUnsubmittedIndex !== -1) {
             setCurrentQuestionIndex(firstUnsubmittedIndex);
           }
@@ -614,14 +603,39 @@ const QuizTakingPage: React.FC = () => {
 
         // Calculate remaining time
         const startedAt = new Date(submission.started_at);
+        const hasTimeLimit = quiz?.time_limit && quiz.time_limit > 0;
+        const totalTimeInSeconds = hasTimeLimit ? (quiz!.time_limit ?? 0) * 60 : -1;
         const elapsed = Math.floor((Date.now() - startedAt.getTime()) / 1000);
-        const totalTimeInSeconds = (quiz?.time_limit || 0) * 60;
-        const remainingTime = Math.max(0, totalTimeInSeconds - elapsed);
+
+        // If time limit exists and has fully elapsed, don't restore — let it auto-submit
+        // gracefully by not setting quizStartTime with timeLeft=0 (which would fire immediately)
+        let remainingTime: number;
+        if (totalTimeInSeconds === -1) {
+          remainingTime = -1; // unlimited
+        } else {
+          remainingTime = Math.max(0, totalTimeInSeconds - elapsed);
+          // If time already expired, submit immediately but with existing answers
+          if (remainingTime === 0) {
+            setExistingSubmission(submission);
+            if (submission.answers && submission.answers.length > 0) {
+              setAnswers(
+                submission.answers.map((answer: any) => ({
+                  question_id: answer.question_id,
+                  answer: answer.answer_data || answer.user_answer,
+                  time_taken: answer.time_taken || 0,
+                })),
+              );
+            }
+            setTimeLeft(0);
+            setQuizStartTime(startedAt);
+            setShowInstructions(false);
+            return;
+          }
+        }
 
         setTimeLeft(remainingTime);
         setQuizStartTime(startedAt);
 
-        // Update timer state in localStorage if resuming
         if (id) {
           const timerSessionKey = `quiz_${id}_timer`;
           localStorage.setItem(
@@ -650,21 +664,13 @@ const QuizTakingPage: React.FC = () => {
     }
 
     try {
-      setError(null); // Clear any previous errors
-
-      // First, perform volume check
-      setShowVolumeCheck(true);
-      await startVolumeCheck();
+      setError(null);
+      await proceedWithQuizStart();
     } catch (error: any) {
-      // console.error("Error starting quiz:", error);
-
-      // Extract error message from response
       let errorMessage = "Failed to start quiz. Please try again.";
 
       if (error.response?.data?.message) {
         const serverMessage = error.response.data.message;
-
-        // Provide more helpful messages for specific errors
         if (serverMessage.includes("Quiz is not currently available")) {
           errorMessage =
             "This quiz is not currently available. It may be in draft status, completed, or outside its scheduled time period. Please contact your instructor for more information.";
@@ -717,7 +723,11 @@ const QuizTakingPage: React.FC = () => {
     const submission = response.data.data;
     setExistingSubmission(submission);
     setQuizStartTime(new Date());
-    setTimeLeft((quiz?.time_limit || 0) * 60);
+    // -1 = unlimited (no time limit); otherwise convert minutes → seconds
+    const timeLimitSecs = quiz?.time_limit && quiz.time_limit > 0
+      ? quiz.time_limit * 60
+      : -1;
+    setTimeLeft(timeLimitSecs);
 
     // Save initial timer state to localStorage
     if (id) {
@@ -725,7 +735,7 @@ const QuizTakingPage: React.FC = () => {
       localStorage.setItem(
         timerSessionKey,
         JSON.stringify({
-          timeLeft: (quiz?.time_limit || 0) * 60,
+          timeLeft: timeLimitSecs,
           quizStartTime: new Date().toISOString(),
         }),
       );
@@ -781,7 +791,7 @@ const QuizTakingPage: React.FC = () => {
   // Capture camera screenshot and send to instructor
   // Accept optional socket parameter to avoid closure issues
   const captureAndSendCameraScreenshot = async (socket?: any) => {
-    const activeSocket = socket || socketRef;
+    const activeSocket = socket || socketRef.current;
 
     console.log("captureAndSendCameraScreenshot called:", {
       hasVideoElement: !!proctoringVideoElement,
@@ -844,7 +854,7 @@ const QuizTakingPage: React.FC = () => {
   // Capture quiz interface screenshot and send to instructor
   // Accept optional socket parameter to avoid closure issues
   const captureAndSendInterfaceScreenshot = async (socket?: any) => {
-    const activeSocket = socket || socketRef;
+    const activeSocket = socket || socketRef.current;
 
     console.log("captureAndSendInterfaceScreenshot called:", {
       hasSocket: !!activeSocket,
@@ -889,9 +899,9 @@ const QuizTakingPage: React.FC = () => {
   };
 
   const handleAudioConfirmation = (confirmed: boolean) => {
-    if (!audioConfirmationRequest || !socketRef) return;
+    if (!audioConfirmationRequest || !socketRef.current) return;
 
-    socketRef.emit("student-audio-confirmation", {
+    socketRef.current.emit("student-audio-confirmation", {
       sessionToken: audioConfirmationRequest.sessionToken,
       confirmed,
       requestId: audioConfirmationRequest.requestId,
@@ -1224,39 +1234,9 @@ const QuizTakingPage: React.FC = () => {
     }
   };
 
-  const handleProctoringViolation = (violation: any) => {
-    // setProctoringViolations((prev) => [violation, ...prev.slice(0, 9)]); // Keep last 10 violations
-
-    // Track active violations that disable content
-    // const violationKey = `${violation.type}_${violation.severity}`;
-    // setActiveViolations((prev) => new Set(prev).add(violationKey));
-
-    // Disable content for critical violations and high-priority face/object violations
-    const shouldDisableContent =
-      violation.severity === "critical" ||
-      (violation.severity === "high" &&
-        (violation.type === "face_not_visible" ||
-          violation.type === "mobile_phone_detected" ||
-          violation.type === "unauthorized_object_detected" ||
-          violation.type === "multiple_faces"));
-
-    if (shouldDisableContent) {
-      setContentDisabled(true);
-    }
-
-    // Show warning popup for high and critical violations
-    if (violation.severity === "high" || violation.severity === "critical") {
-      setCurrentViolation(violation);
-      setShowViolationWarning(true);
-
-      // Auto-hide after 10 seconds for non-critical violations
-      if (violation.severity !== "critical") {
-        setTimeout(() => {
-          setShowViolationWarning(false);
-          setCurrentViolation(null);
-        }, 10000);
-      }
-    }
+  const handleProctoringViolation = (_violation: any) => {
+    // Violations are recorded silently to DB via ProctoringMonitorComponent + socket pipeline.
+    // Nothing is shown to the candidate — monitoring is invisible to them.
   };
 
   // const handleViolationResolved = () => {
@@ -1403,32 +1383,11 @@ const QuizTakingPage: React.FC = () => {
           );
           if (forceSave) {
             setIsCurrentSaved(true);
-            // Mark this question as explicitly saved
             setExplicitlySavedQuestions((prev) => {
               const next = new Set(prev);
               next.add(String(questionId));
               return next;
             });
-
-            // Lock this question index since it's manually saved (submitted)
-            const currentIdx = quizQuestions.findIndex(
-              (q) => String(q.id) === String(questionId),
-            );
-            if (currentIdx !== -1) {
-              setLockedQuestionIndices((prev) => {
-                const next = new Set(prev);
-                next.add(currentIdx);
-
-                // Also save to localStorage for persistence
-                const lockedIndicesKey = `quiz_${id}_locked_indices`;
-                localStorage.setItem(
-                  lockedIndicesKey,
-                  JSON.stringify(Array.from(next)),
-                );
-
-                return next;
-              });
-            }
 
             toast.success("Answer saved!", {
               position: "bottom-right",
@@ -1553,6 +1512,11 @@ const QuizTakingPage: React.FC = () => {
       setIsSubmitting(false);
     }
   }, [quiz, answers, quizStartTime, existingSubmission, id, navigate]);
+
+  // Keep ref in sync so timer/socket callbacks always call the latest version
+  useEffect(() => {
+    submitQuizRef.current = submitQuiz;
+  }, [submitQuiz]);
 
   const nextInstruction = () => {
     if (currentInstructionStep < instructions.length - 1) {
@@ -1720,7 +1684,7 @@ const QuizTakingPage: React.FC = () => {
         onAnswerChange={(answer, forceSave) =>
           updateAnswer(question.id, answer, forceSave)
         }
-        disabled={contentDisabled}
+        disabled={isExamPaused || lockedQuestionIndices.has(currentQuestionIndex)}
         timeRemaining={perQuestionTimeLeft || undefined}
         onStart={() => setIsCodingFullscreen(true)}
         onNext={handleNext}
@@ -1752,13 +1716,8 @@ const QuizTakingPage: React.FC = () => {
       updateAnswer(currentQuestion.id, currentAnswer, true);
     }
 
-    // Lock current index on timeout
-    setLockedQuestionIndices((prev) => {
-      const next = new Set(prev).add(currentQuestionIndex);
-      const lockedIndicesKey = `quiz_${id}_locked_indices`;
-      localStorage.setItem(lockedIndicesKey, JSON.stringify(Array.from(next)));
-      return next;
-    });
+    // Track timed-out question (prevents re-answering after timer expires)
+    setLockedQuestionIndices((prev) => new Set(prev).add(currentQuestionIndex));
 
     if (currentQuestionIndex < totalQuestions - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
@@ -1784,25 +1743,25 @@ const QuizTakingPage: React.FC = () => {
   }, [currentQuestionIndex, currentQuestion?.id]);
 
   useEffect(() => {
-    if (
-      perQuestionTimeLeft !== null &&
-      perQuestionTimeLeft > 0 &&
-      !showInstructions &&
-      !isExamPaused &&
-      !contentDisabled
-    ) {
-      const timer = setTimeout(() => {
-        setPerQuestionTimeLeft((prev) => (prev !== null ? prev - 1 : null));
-      }, 1000);
-      return () => clearTimeout(timer);
-    } else if (perQuestionTimeLeft === 0) {
+    if (perQuestionTimeLeft === null) return;
+
+    if (perQuestionTimeLeft <= 0) {
       handlePerQuestionTimeout();
+      return;
     }
+
+    // Pause per-question timer when exam is paused or a violation banner is showing
+    if (showInstructions || isExamPaused || showViolationWarning) return;
+
+    const timer = setTimeout(() => {
+      setPerQuestionTimeLeft((prev) => (prev !== null ? Math.max(0, prev - 1) : null));
+    }, 1000);
+    return () => clearTimeout(timer);
   }, [
     perQuestionTimeLeft,
     showInstructions,
     isExamPaused,
-    contentDisabled,
+    showViolationWarning,
     currentQuestionIndex,
     handlePerQuestionTimeout,
   ]);
@@ -1820,29 +1779,18 @@ const QuizTakingPage: React.FC = () => {
   }, [currentQuestion, updateAnswer]);
 
   const handleNext = useCallback(async () => {
+    // Cancel per-question timer immediately to prevent race with auto-advance
+    setPerQuestionTimeLeft(null);
     setIsSubmitting(true);
     try {
       await submitCurrentAnswer();
-      // Lock current index if configured to not return
-      setLockedQuestionIndices((prev) => {
-        const next = new Set(prev).add(currentQuestionIndex);
-        const lockedIndicesKey = `quiz_${id}_locked_indices`;
-        localStorage.setItem(
-          lockedIndicesKey,
-          JSON.stringify(Array.from(next)),
-        );
-        return next;
-      });
       setCurrentQuestionIndex((prev) => Math.min(totalQuestions - 1, prev + 1));
     } finally {
       setIsSubmitting(false);
     }
   }, [
     submitCurrentAnswer,
-    currentQuestionIndex,
     totalQuestions,
-    id,
-    setLockedQuestionIndices,
   ]);
 
   if (loading) {
@@ -2296,45 +2244,6 @@ const QuizTakingPage: React.FC = () => {
       {/* Pause Overlay - When exam is paused */}
       <PauseOverlay isVisible={isExamPaused} reason={pauseReason} />
 
-      {/* Connection Status Popup */}
-      {showConnectionPopup && proctoringSession && (
-        <div className="fixed bottom-4 right-4 z-50 bg-white dark:bg-gray-800 rounded-xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 max-w-sm">
-          <div className="flex items-center gap-3">
-            <div
-              className={`w-3 h-3 rounded-full ${socketConnected ? "bg-green-500" : "bg-yellow-500 animate-pulse"}`}
-            ></div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-gray-800 dark:text-gray-200">
-                {socketConnected
-                  ? "Connected to proctoring server"
-                  : "Connecting to proctoring server..."}
-              </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
-                Live monitoring active
-              </p>
-            </div>
-            <button
-              onClick={() => setShowConnectionPopup(false)}
-              className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M6 18L18 6M6 6l12 12"
-                />
-              </svg>
-            </button>
-          </div>
-        </div>
-      )}
-
       {/* Main quiz content container */}
       <div>
         {/* Fullscreen Required Overlay */}
@@ -2386,110 +2295,6 @@ const QuizTakingPage: React.FC = () => {
           </div>
         )}
 
-        {/* Content Disabled Overlay */}
-        {contentDisabled && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-md z-50 flex items-center justify-center">
-            <div className="bg-white dark:bg-gray-900 rounded-lg p-8 max-w-lg w-full mx-4 text-center shadow-2xl border border-red-300 dark:border-red-700">
-              <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6 animate-pulse">
-                <AlertCircle className="w-10 h-10 text-red-600 dark:text-red-400" />
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
-                Quiz Temporarily Disabled
-              </h3>
-              <p className="text-gray-700 dark:text-gray-200 mb-6 text-lg leading-relaxed">
-                Your quiz interaction has been paused due to a proctoring
-                violation. Please check your camera feed and resolve the issue
-                to continue.
-              </p>
-              <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-6">
-                <h4 className="text-sm font-semibold text-red-800 dark:text-red-200 mb-2">
-                  How to Resolve:
-                </h4>
-                <ul className="text-sm text-red-700 dark:text-red-300 space-y-1 text-left">
-                  <li>• Ensure your face is clearly visible in the camera</li>
-                  <li>• Remove any phones or unauthorized objects from view</li>
-                  <li>• Look directly at the camera/screen</li>
-                  <li>• Stay in fullscreen mode if required</li>
-                </ul>
-              </div>
-              <p className="text-sm text-gray-500 dark:text-gray-200">
-                The floating camera monitor shows real-time status and specific
-                issues.
-              </p>
-            </div>
-          </div>
-        )}
-        {/* Violation Warning Popup */}
-        {showViolationWarning && currentViolation && (
-          <div className="fixed top-4 left-4 z-50 max-w-md w-full mx-4">
-            <div
-              className={`bg-white dark:bg-gray-900 border rounded-lg shadow-lg p-4 ${
-                currentViolation.severity === "critical"
-                  ? "border-red-500 bg-red-50 dark:bg-red-900/20"
-                  : currentViolation.severity === "high"
-                    ? "border-orange-500 bg-orange-50 dark:bg-orange-900/20"
-                    : "border-yellow-500 bg-yellow-50 dark:bg-yellow-900/20"
-              }`}
-            >
-              <div className="flex items-start gap-3">
-                <div
-                  className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
-                    currentViolation.severity === "critical"
-                      ? "bg-red-500"
-                      : currentViolation.severity === "high"
-                        ? "bg-orange-500"
-                        : "bg-yellow-500"
-                  }`}
-                >
-                  <AlertCircle className="w-4 h-4 text-white" />
-                </div>
-                <div className="flex-1">
-                  <h3
-                    className={`font-semibold text-sm ${
-                      currentViolation.severity === "critical"
-                        ? "text-red-800 dark:text-red-200"
-                        : currentViolation.severity === "high"
-                          ? "text-orange-800 dark:text-orange-200"
-                          : "text-yellow-800 dark:text-yellow-200"
-                    }`}
-                  >
-                    Proctoring Alert
-                  </h3>
-                  <p
-                    className={`text-sm mt-1 ${
-                      currentViolation.severity === "critical"
-                        ? "text-red-700 dark:text-red-300"
-                        : currentViolation.severity === "high"
-                          ? "text-orange-700 dark:text-orange-300"
-                          : "text-yellow-700 dark:text-yellow-300"
-                    }`}
-                  >
-                    {currentViolation.message}
-                  </p>
-                  <p className="text-xs text-gray-600 dark:text-gray-200 mt-2">
-                    Please ensure you follow all testing guidelines to avoid
-                    violations.
-                  </p>
-                </div>
-                <button
-                  onClick={() => {
-                    setShowViolationWarning(false);
-                    setCurrentViolation(null);
-                  }}
-                  className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 ${
-                    currentViolation.severity === "critical"
-                      ? "text-red-600"
-                      : currentViolation.severity === "high"
-                        ? "text-orange-600"
-                        : "text-yellow-600"
-                  }`}
-                >
-                  ×
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Proctoring Monitor Component */}
@@ -2529,29 +2334,10 @@ const QuizTakingPage: React.FC = () => {
                 proctoringSettings.object_detection_sensitivity,
             }}
             onViolation={handleProctoringViolation}
-            onViolationResolved={() => setContentDisabled(false)}
+            onViolationResolved={() => { setShowViolationWarning(false); setCurrentViolation(null); }}
           />
         )}
 
-      {/* Proctoring Error Display */}
-      {proctoringError && (
-        <div className="fixed bottom-4 left-4 z-50 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-2 max-w-xs">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="h-3 w-3 text-red-600 dark:text-red-400 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <p className="text-xs text-red-700 dark:text-red-300 truncate">
-                {proctoringError}
-              </p>
-            </div>
-            <button
-              onClick={() => setProctoringError(null)}
-              className="text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 text-xs leading-none flex-shrink-0"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-      )}
       {/* Error Display */}
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
@@ -2646,7 +2432,7 @@ const QuizTakingPage: React.FC = () => {
                   setShowConfirmSubmit(true);
                 }}
                 disabled={
-                  isSubmitting || answeredQuestions === 0 || contentDisabled
+                  isSubmitting || answeredQuestions === 0 || isExamPaused
                 }
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
               >
@@ -2673,7 +2459,7 @@ const QuizTakingPage: React.FC = () => {
         <div
           className={`overflow-y-auto p-6 ${
             (proctoringSettings?.require_fullscreen && !isFullscreenMode) ||
-            contentDisabled
+            isExamPaused
               ? "blur-sm pointer-events-none select-none"
               : ""
           } ${isCodingFullscreen ? "hidden" : ""}`}
@@ -2772,7 +2558,7 @@ const QuizTakingPage: React.FC = () => {
         <div
           className={`overflow-y-auto p-6 ${
             (proctoringSettings?.require_fullscreen && !isFullscreenMode) ||
-            contentDisabled
+            isExamPaused
               ? "blur-sm pointer-events-none select-none"
               : ""
           }`}
@@ -2794,7 +2580,7 @@ const QuizTakingPage: React.FC = () => {
                   renderQuestion(currentQuestion, {
                     submissionId: existingSubmission?.id,
                     isFullscreen: isCodingFullscreen,
-                    disabled: lockedQuestionIndices.has(currentQuestionIndex),
+                    disabled: isExamPaused || lockedQuestionIndices.has(currentQuestionIndex),
                   })}
               </div>
             </div>
@@ -2812,9 +2598,8 @@ const QuizTakingPage: React.FC = () => {
               }
               disabled={
                 currentQuestionIndex === 0 ||
-                contentDisabled ||
-                !isCurrentSaved ||
-                lockedQuestionIndices.has(currentQuestionIndex - 1)
+                isExamPaused ||
+                !isCurrentSaved
               }
               className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
@@ -2832,27 +2617,20 @@ const QuizTakingPage: React.FC = () => {
                     key={index}
                     onClick={() => setCurrentQuestionIndex(index)}
                     disabled={
-                      contentDisabled ||
-                      !isCurrentSaved ||
-                      lockedQuestionIndices.has(index)
+                      isExamPaused ||
+                      !isCurrentSaved
                     }
                     title={
-                      lockedQuestionIndices.has(index)
-                        ? "Question submitted or timed out"
-                        : isAnswered
-                          ? "Question answered"
-                          : "Question not answered"
+                      isAnswered
+                        ? "Question answered"
+                        : "Question not answered"
                     }
                     className={`relative w-10 h-10 rounded-xl text-sm font-bold flex items-center justify-center transition-all ${
                       index === currentQuestionIndex
                         ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110 z-10"
-                        : lockedQuestionIndices.has(index)
-                          ? "bg-gray-400 text-white cursor-not-allowed opacity-60"
-                          : isAnswered
-                            ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20"
-                            : "bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
-                    } ${
-                      contentDisabled ? "opacity-50 cursor-not-allowed" : ""
+                        : isAnswered
+                          ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600"
+                          : "bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
                     }`}
                   >
                     {isAnswered && (
@@ -2879,7 +2657,7 @@ const QuizTakingPage: React.FC = () => {
               onClick={handleNext}
               disabled={
                 currentQuestionIndex === totalQuestions - 1 ||
-                contentDisabled ||
+                isExamPaused ||
                 !isCurrentSaved ||
                 isSubmitting
               }

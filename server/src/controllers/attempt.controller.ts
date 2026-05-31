@@ -358,6 +358,8 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
           feedback:
             gradingResult.feedback || (isCorrect ? "Correct!" : "Incorrect"),
         },
+        // Pass detailed coding test results back to the student's IDE
+        grading_details: (gradingResult as any).detailed_feedback ?? null,
         question_completed: true,
       },
     });

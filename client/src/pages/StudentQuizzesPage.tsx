@@ -79,21 +79,39 @@ const StudentQuizzesPage: React.FC = () => {
       try {
         setLoading(true);
 
+        // Fetch enrolled courses to know which ones the student is in
+        const enrolledResponse = await axios.get("/courses");
+        const enrolled =
+          enrolledResponse.data.data || enrolledResponse.data || [];
+        const enrolledNames = enrolled.map((c: any) => c.title || c.name);
+
         // Fetch completed quiz results
         const resultsResponse = await axios.get("/quizzes/my-results");
         const results = resultsResponse.data.data || [];
-        setQuizResults(results);
+        // Filter results by enrolled course names
+        const filteredResults = results.filter(
+          (r: QuizResult) =>
+            !r.course_name || enrolledNames.includes(r.course_name),
+        );
+        setQuizResults(filteredResults);
 
         // Fetch available quizzes
         const availableResponse = await axios.get("/quizzes/available");
         const available = availableResponse.data.data || [];
-        setAvailableQuizzes(available);
+        // Filter available quizzes by enrolled course names
+        const filteredAvailable = available.filter(
+          (q: AvailableQuiz) =>
+            !q.course_name || enrolledNames.includes(q.course_name),
+        );
+        setAvailableQuizzes(filteredAvailable);
 
         // Extract unique courses from both results and available quizzes
         const allCourses = [
           ...new Set([
-            ...results.map((r: QuizResult) => r.course_name).filter(Boolean),
-            ...available
+            ...filteredResults
+              .map((r: QuizResult) => r.course_name)
+              .filter(Boolean),
+            ...filteredAvailable
               .map((q: AvailableQuiz) => q.course_name)
               .filter(Boolean),
           ]),

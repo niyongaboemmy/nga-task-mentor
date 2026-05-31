@@ -23,7 +23,27 @@ const submissionRoutes = require("./routes/submissions");
 const app = express();
 
 // Security middleware
-app.use(helmet());
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        ...helmet.contentSecurityPolicy.getDefaultDirectives(),
+        "frame-src": ["'self'", "blob:", "http://localhost:*", "https://*"],
+        "img-src": [
+          "'self'",
+          "data:",
+          "blob:",
+          "http://localhost:*",
+          "https://*",
+        ],
+        "connect-src": ["'self'", "http://localhost:*", "https://*"],
+      },
+    },
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -31,17 +51,28 @@ app.use(
       if (!origin) return callback(null, true);
 
       const allowedOrigins = [
-        process.env.CLIENT_URL || "http://localhost:5174",
-        "http://localhost:3000",
+        process.env.CLIENT_URL,
+        process.env.FRONTEND_URL,
         "http://localhost:5173",
         "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:3000",
         "http://127.0.0.1:5173",
         "http://127.0.0.1:5174",
+        "http://127.0.0.1:5175",
         "http://127.0.0.1:3000",
         "https://task-mentor-gamma.vercel.app",
-      ];
+        "https://nga.ac.rw",
+        "https://taskmentor.hts.rw",
+      ].filter(Boolean);
 
-      if (allowedOrigins.indexOf(origin) !== -1) {
+      if (
+        allowedOrigins.indexOf(origin) !== -1 ||
+        origin.startsWith("http://localhost") ||
+        origin.startsWith("http://127.0.0.1") ||
+        origin.includes("nga.ac.rw") ||
+        origin.includes("hts.rw")
+      ) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
@@ -50,7 +81,7 @@ app.use(
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 
 // Rate limiting
@@ -87,7 +118,7 @@ const initializeDatabase = async () => {
       console.log(
         `Server running in ${
           process.env.NODE_ENV || "development"
-        } mode on port ${PORT}`
+        } mode on port ${PORT}`,
       );
     });
   } catch (error) {

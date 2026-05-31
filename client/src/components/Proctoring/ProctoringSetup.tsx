@@ -58,6 +58,8 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
   const [identityVerified, setIdentityVerified] = useState(false);
   const [photoCaptured, setPhotoCaptured] = useState<string | null>(null);
   const [faceVerified, setFaceVerified] = useState(false);
+  // When the device has no camera, skip video-dependent steps
+  const [noCameraMode, setNoCameraMode] = useState(false);
 
   // Connection status states
   const [socketConnected, setSocketConnected] = useState(false);
@@ -109,10 +111,20 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
   const steps: SetupStep[] = [
     {
       id: "permissions",
-      title: "Camera & Microphone Permissions",
-      description: "Grant access to your camera and microphone for proctoring",
+      title: noCameraMode ? "Microphone Permission" : "Camera & Microphone Permissions",
+      description: noCameraMode
+        ? "Grant access to your microphone for proctoring (no camera detected)"
+        : "Grant access to your camera and microphone for proctoring",
       component: (
-        <CameraPermissionStep onComplete={() => handleStepComplete(0)} />
+        <CameraPermissionStep
+          onComplete={() => handleStepComplete(0)}
+          onNoCameraMode={() => {
+            setNoCameraMode(true);
+            setFaceVerified(true);    // auto-skip face verification
+            setIdentityVerified(true); // auto-skip identity verification
+            handleStepComplete(0);
+          }}
+        />
       ),
       completed: false,
     },
@@ -120,13 +132,15 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
       id: "face-verification",
       title: "Face Verification",
       description: "",
-      component: (
+      component: noCameraMode ? (
+        <NoCameraSkipNotice stepName="Face Verification" />
+      ) : (
         <FaceVerificationStep
           onFaceVerified={() => setFaceVerified(true)}
           faceVerified={faceVerified}
         />
       ),
-      completed: faceVerified,
+      completed: noCameraMode ? true : faceVerified,
     },
     {
       id: "environment",
@@ -147,8 +161,10 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
     {
       id: "identity",
       title: "Identity Verification",
-      description: "Take a photo for identity verification",
-      component: (
+      description: noCameraMode ? "Skipped — no camera available" : "Take a photo for identity verification",
+      component: noCameraMode ? (
+        <NoCameraSkipNotice stepName="Identity Verification" />
+      ) : (
         <IdentityVerificationStep
           videoRef={videoRef as React.RefObject<HTMLVideoElement>}
           canvasRef={canvasRef as React.RefObject<HTMLCanvasElement>}
@@ -159,7 +175,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           photoCaptured={photoCaptured}
         />
       ),
-      completed: identityVerified,
+      completed: noCameraMode ? true : identityVerified,
     },
     {
       id: "confirmation",
@@ -171,6 +187,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           environmentCheck={environmentCheck}
           identityVerified={identityVerified}
           faceVerified={faceVerified}
+          noCameraMode={noCameraMode}
         />
       ),
       completed: true,
@@ -333,11 +350,17 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
   const startWebRTCStream = async (sessionToken: string) => {
     sessionTokenRef.current = sessionToken;
     try {
-      // Get user media (camera and microphone)
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { width: 640, height: 480 },
-        audio: true,
-      });
+      // Try camera+audio first; fall back to audio-only if no camera is available
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: { width: 640, height: 480 },
+          audio: true,
+        });
+      } catch {
+        // No camera — continue with audio only
+        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      }
 
       // Notify parent component that video and stream are ready
       if (onVideoReady) {
@@ -1086,70 +1109,117 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 };
 
 // Camera Permission Step Component
-const CameraPermissionStep: React.FC<{ onComplete: () => void }> = ({
-  onComplete,
-}) => {
+const CameraPermissionStep: React.FC<{
+  onComplete: () => void;
+  onNoCameraMode: () => void;
+}> = ({ onComplete, onNoCameraMode }) => {
   const [permissionsGranted, setPermissionsGranted] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [cameraUnavailable, setCameraUnavailable] = useState(false);
 
   const requestPermissions = async () => {
+    setError(null);
+    setCameraUnavailable(false);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: true,
         audio: true,
       });
-
-      // Stop the stream immediately after getting permission
       stream.getTracks().forEach((track) => track.stop());
-
       setPermissionsGranted(true);
-      setError(null);
       onComplete();
-    } catch (err) {
-      setError("Camera and microphone access is required for proctoring");
-      console.error("Error requesting permissions:", err);
+    } catch (err: any) {
+      const isNoCameraError =
+        err?.name === "NotFoundError" ||
+        err?.name === "DevicesNotFoundError" ||
+        err?.name === "NotReadableError" ||
+        err?.message?.toLowerCase().includes("video");
+
+      if (isNoCameraError) {
+        // Try audio-only to see if microphone works
+        try {
+          const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioStream.getTracks().forEach((t) => t.stop());
+          setCameraUnavailable(true);
+          setError(null);
+        } catch {
+          setError("Microphone access is also unavailable. Please check your device permissions.");
+        }
+      } else {
+        setError("Could not access camera or microphone. Please check your browser permissions.");
+      }
     }
   };
 
   return (
     <div className="text-center">
       <div className="mb-4">
-        <div className="w-16 h-16 mx-auto bg-blue-100 rounded-full flex items-center justify-center mb-4">
-          <svg
-            className="w-8 h-8 text-blue-600"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-            />
-          </svg>
+        <div className={`w-16 h-16 mx-auto rounded-full flex items-center justify-center mb-4 ${cameraUnavailable ? "bg-amber-100 dark:bg-amber-900/30" : "bg-blue-100 dark:bg-blue-900/30"}`}>
+          {cameraUnavailable ? (
+            <svg className="w-8 h-8 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+            </svg>
+          ) : (
+            <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+          )}
         </div>
-        <p className="text-gray-600 dark:text-gray-400 mb-4">
-          We need access to your camera and microphone to monitor the testing
-          environment and ensure academic integrity.
-        </p>
+
+        {cameraUnavailable ? (
+          <div className="space-y-3">
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-4 text-left">
+              <p className="text-amber-800 dark:text-amber-300 font-semibold text-sm mb-1">No Camera Detected</p>
+              <p className="text-amber-700 dark:text-amber-400 text-sm">
+                Your device does not have a camera or camera access was denied. Your microphone is available. You can continue the quiz — camera-based steps will be skipped. Your instructor has been notified.
+              </p>
+            </div>
+            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
+              <button
+                onClick={requestPermissions}
+                className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+              >
+                Try Again
+              </button>
+              <button
+                onClick={onNoCameraMode}
+                className="px-6 py-2 text-sm bg-amber-600 hover:bg-amber-700 text-white rounded-full font-medium transition-colors"
+              >
+                Continue without Camera
+              </button>
+            </div>
+          </div>
+        ) : (
+          <>
+            <p className="text-gray-600 dark:text-gray-400 mb-4">
+              We need access to your camera and microphone to monitor the testing
+              environment and ensure academic integrity.
+            </p>
+            {error && (
+              <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl p-4 mb-4">
+                <p className="text-red-800 dark:text-red-300 text-sm">{error}</p>
+              </div>
+            )}
+            {!permissionsGranted ? (
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button onClick={requestPermissions} size="lg">
+                  Grant Camera & Microphone Access
+                </Button>
+                <button
+                  onClick={onNoCameraMode}
+                  className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                >
+                  I don't have a camera
+                </button>
+              </div>
+            ) : (
+              <div className="text-green-600 dark:text-green-400 font-medium">
+                ✓ Permissions granted successfully
+              </div>
+            )}
+          </>
+        )}
       </div>
-
-      {error && (
-        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md p-4 mb-4">
-          <p className="text-red-800 dark:text-red-300">{error}</p>
-        </div>
-      )}
-
-      {!permissionsGranted ? (
-        <Button onClick={requestPermissions} size="lg">
-          Grant Camera & Microphone Access
-        </Button>
-      ) : (
-        <div className="text-green-600 dark:text-green-400 font-medium">
-          ✓ Permissions granted successfully
-        </div>
-      )}
     </div>
   );
 };
@@ -2163,12 +2233,28 @@ const FaceVerificationStep: React.FC<{
 };
 
 // Confirmation Step Component
+// Shown in place of camera-dependent steps when noCameraMode is active
+const NoCameraSkipNotice: React.FC<{ stepName: string }> = ({ stepName }) => (
+  <div className="flex flex-col items-center justify-center py-6 text-center gap-3">
+    <div className="w-14 h-14 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
+      <svg className="w-7 h-7 text-amber-600 dark:text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      </svg>
+    </div>
+    <p className="text-amber-800 dark:text-amber-300 font-semibold">{stepName} Skipped</p>
+    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+      This step requires a camera. Since no camera was detected on your device, it has been automatically skipped.
+    </p>
+  </div>
+);
+
 const ConfirmationStep: React.FC<{
   browserInfo: any;
   environmentCheck: any;
   identityVerified: boolean;
   faceVerified: boolean;
-}> = ({ browserInfo, environmentCheck, identityVerified, faceVerified }) => {
+  noCameraMode?: boolean;
+}> = ({ browserInfo, environmentCheck, identityVerified, faceVerified, noCameraMode }) => {
   return (
     <div className="space-y-4">
       {/* <div className="bg-green-50 border border-green-200 dark:border-green-800 dark:bg-green-900/30 rounded-2xl p-4">
@@ -2215,13 +2301,27 @@ const ConfirmationStep: React.FC<{
         </div>
       </div>
 
+      {noCameraMode && (
+        <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-2xl p-4 flex items-start gap-3">
+          <svg className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">No Camera Mode</p>
+            <p className="text-sm text-amber-700 dark:text-amber-400 mt-0.5">
+              You are proceeding without a camera. Face verification and identity capture were skipped. Audio monitoring is still active. Your instructor has been informed.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="bg-yellow-50 border border-yellow-200 dark:border-yellow-800 dark:bg-yellow-900/30 rounded-2xl p-4">
         <h4 className="font-medium text-yellow-900 dark:text-yellow-300 mb-2">
           Important Reminders:
         </h4>
         <ul className="text-sm text-yellow-800 dark:text-yellow-300 space-y-1">
           <li>• Do not leave the testing area during the quiz</li>
-          <li>• Keep your face visible to the camera at all times</li>
+          {!noCameraMode && <li>• Keep your face visible to the camera at all times</li>}
           <li>• Do not use unauthorized materials or devices</li>
           <li>• Any suspicious activity will be flagged for review</li>
         </ul>

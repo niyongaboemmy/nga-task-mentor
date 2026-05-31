@@ -21,10 +21,12 @@ import {
   Eye,
   Clock,
   BookOpen,
+  Sparkles,
 } from "lucide-react";
 import { QuestionBankApiService, QuizApiService } from "../../services/quizApi";
 import QuestionBankModal from "./QuestionBankModal";
 import DocxUploadModal from "./DocxUploadModal";
+import AIGenerateModal from "./AIGenerateModal";
 import QuestionPreviewModal from "../Quizzes/QuestionPreviewModal";
 import RichTextDisplay from "../Common/RichTextDisplay";
 import { CourseApiService } from "../../services/courseApi";
@@ -140,6 +142,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isDocxModalOpen, setIsDocxModalOpen] = useState(false);
+  const [isAIGenerateOpen, setIsAIGenerateOpen] = useState(false);
   const [selectedQuestion, setSelectedQuestion] =
     useState<QuestionBankEntry | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
@@ -357,6 +360,13 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
               onClick={() => setIsDocxModalOpen(true)}
             >
               <FileText className="w-4 h-4" /> Import from Word
+            </button>
+
+            <button
+              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-xl transition-colors"
+              onClick={() => setIsAIGenerateOpen(true)}
+            >
+              <Sparkles className="w-4 h-4" /> AI Generate
             </button>
 
             <button
@@ -803,6 +813,13 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
       <DocxUploadModal
         isOpen={isDocxModalOpen}
         onClose={() => setIsDocxModalOpen(false)}
+        courseId={courseId}
+        onSuccess={fetchQuestions}
+      />
+
+      <AIGenerateModal
+        isOpen={isAIGenerateOpen}
+        onClose={() => setIsAIGenerateOpen(false)}
         courseId={courseId}
         onSuccess={fetchQuestions}
       />

@@ -14,6 +14,8 @@ import {
   getQuizSubmissions,
   updateQuizSubmission,
   resetQuizSubmission,
+  deleteQuizSubmission,
+  deleteAllQuizSubmissions,
   getAIHint,
   runCode,
   generateTestCases,
@@ -42,6 +44,8 @@ import {
   getQuizAnalytics,
   updateSubmissionFeedback,
   getQuizSubmissions as getInstructorQuizSubmissions,
+  initializeManualSubmission,
+  getQuizStudents,
 } from "../controllers/grading.controller";
 import {
   getBloomsTaxonomyLevels,
@@ -122,6 +126,8 @@ router.post(
   authorize("instructor", "admin"),
   generateTestCases,
 );
+// Instructor-only: run code against test cases during question preparation (no submission needed)
+router.post("/preview-run", authorize("instructor", "admin"), runCode);
 
 // Quiz submission routes
 router.post("/submissions", authorize("student"), createQuizSubmission);
@@ -134,6 +140,16 @@ router.post(
   "/submissions/:id/reset",
   authorize("instructor", "admin"),
   resetQuizSubmission,
+);
+router.delete(
+  "/submissions/:submissionId/delete",
+  authorize("instructor", "admin"),
+  deleteQuizSubmission,
+);
+router.delete(
+  "/:quizId/submissions/all",
+  authorize("instructor", "admin"),
+  deleteAllQuizSubmissions,
 );
 router.post("/:quizId/start", authorize("student"), startQuizAttempt);
 router.get(
@@ -183,11 +199,23 @@ router.put(
   updateSubmissionFeedback,
 );
 
+// Initialize a manual submission (instructor records paper-based marks)
+router.post(
+  "/:quizId/submissions/initialize-manual",
+  authorize("instructor", "admin"),
+  initializeManualSubmission,
+);
+
 // Quiz submissions and analytics
 router.get(
   "/:quizId/submissions",
   authorize("instructor", "admin"),
   getInstructorQuizSubmissions,
+);
+router.get(
+  "/:quizId/students",
+  authorize("instructor", "admin"),
+  getQuizStudents,
 );
 router.get(
   "/:quizId/analytics",

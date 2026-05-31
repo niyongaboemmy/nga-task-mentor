@@ -626,14 +626,14 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
       include: [
         {
           model: User,
-          attributes: [
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-            "profile_image",
-            "mis_user_id",
-          ],
+          as: "student",
+          attributes: ["id", "first_name", "last_name", "email", "profile_image", "mis_user_id"],
+        },
+        {
+          model: User,
+          as: "submittedByUser",
+          attributes: ["id", "first_name", "last_name", "email"],
+          required: false,
         },
       ],
     });
@@ -877,15 +877,7 @@ export const submitAssignment = async (req: Request, res: Response) => {
 
     // 4. Skip enrollment check since course IDs come from external API
 
-    // 5. Check if assignment is still open for submissions (compare UTC times)
-    const now = new Date();
-    if (isPastDate(assignment.due_date)) {
-      return res.status(400).json({
-        success: false,
-        message:
-          "Assignment deadline has passed. Submissions are no longer accepted.",
-      });
-    }
+    // 5. Allow late submissions — deadline passed submissions are accepted but marked is_late
 
     // 6. Check if student has already submitted
     const existingSubmission = await Submission.findOne({
@@ -958,6 +950,101 @@ export const submitAssignment = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Submit assignment error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Grade a student who has not submitted (create a graded submission)
+// @route   POST /api/assignments/:assignmentId/grade-student
+// @access  Private (instructor, admin)
+export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
+  try {
+    const { assignmentId } = req.params;
+    const { student_mis_id, student_email, score, feedback, rubric_scores } = req.body;
+
+    const assignment = await Assignment.findByPk(assignmentId);
+    if (!assignment) {
+      return res.status(404).json({ success: false, message: "Assignment not found" });
+    }
+
+    const maxScore = parseFloat(String(assignment.max_score));
+    const numScore = parseFloat(String(score));
+    if (isNaN(numScore) || numScore < 0 || numScore > maxScore) {
+      return res.status(400).json({
+        success: false,
+        message: `Score must be between 0 and ${maxScore}`,
+      });
+    }
+
+    // Find the local student user
+    let student: any = null;
+    if (student_mis_id) {
+      student = await User.findOne({ where: { mis_user_id: student_mis_id } });
+    }
+    if (!student && student_email) {
+      student = await User.findOne({ where: { email: student_email } });
+    }
+    if (!student) {
+      return res.status(404).json({
+        success: false,
+        message: "Student not found in the system. They may not have logged in yet.",
+      });
+    }
+
+    // Check for an existing submission
+    let submission = await Submission.findOne({
+      where: { assignment_id: assignmentId, student_id: student.id },
+    });
+
+    const gradeString = `${numScore}/${maxScore}`;
+
+    const instructorId = (req as any).user?.id || null;
+    const userAttrs = ["id", "first_name", "last_name", "email", "profile_image", "mis_user_id"];
+
+    if (submission) {
+      // Update existing submission, also record who submitted on behalf if not already set
+      const updateData: any = {
+        grade: gradeString,
+        status: "graded",
+        feedback: feedback || submission.feedback,
+        rubric_scores: rubric_scores || null,
+      };
+      if (!submission.submitted_by && instructorId) {
+        updateData.submitted_by = instructorId;
+      }
+      await Submission.update(updateData, { where: { id: submission.id } });
+      submission = await Submission.findByPk(submission.id, {
+        include: [
+          { model: User, as: "student", attributes: userAttrs },
+          { model: User, as: "submittedByUser", attributes: userAttrs },
+        ],
+      }) as any;
+    } else {
+      // Create a new graded submission on behalf of the student
+      submission = await Submission.create({
+        assignment_id: parseInt(assignmentId),
+        student_id: student.id,
+        submitted_by: instructorId,
+        text_submission: null,
+        file_submissions: null,
+        status: "graded" as any,
+        submitted_at: new Date(),
+        is_late: isPastDate(assignment.due_date),
+        grade: gradeString,
+        feedback: feedback || null,
+        rubric_scores: rubric_scores || null,
+      });
+      submission = await Submission.findByPk((submission as any).id, {
+        include: [
+          { model: User, as: "student", attributes: userAttrs },
+          { model: User, as: "submittedByUser", attributes: userAttrs },
+        ],
+      }) as any;
+    }
+
+    res.status(200).json({ success: true, data: submission });
+  } catch (error) {
+    console.error("Grade unsubmitted student error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

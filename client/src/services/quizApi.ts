@@ -271,6 +271,41 @@ export class QuizApiService {
     return response.data;
   }
 
+  /** Instructor prep: run starter code against test cases without creating a submission */
+  static async previewRunTests(data: {
+    code: string;
+    language: string;
+    test_cases: Array<{
+      id: string;
+      input: string;
+      expected_output: string;
+      is_hidden?: boolean;
+      points?: number;
+    }>;
+  }): Promise<{
+    success: boolean;
+    data: {
+      results: Array<{
+        testCaseId: string;
+        passed: boolean | null;
+        input: string | null;
+        expected: string | null;
+        actual: string | null;
+        error: string | null;
+        executionTime: number;
+        memoryUsed: number | null;
+        status: string;
+        is_hidden: boolean;
+      }>;
+      passed: number;
+      total: number;
+      web_preview?: boolean;
+    };
+  }> {
+    const response = await axios.post("/quizzes/preview-run", data);
+    return response.data;
+  }
+
   // Grading and Analytics
   static async getPendingSubmissions(
     courseId?: number,
@@ -327,6 +362,27 @@ export class QuizApiService {
   ): Promise<{ success: boolean; count: number; data: any[] }> {
     const response = await axios.get(`/quizzes/${quizId}/submissions`, {
       params: filters,
+    });
+    return response.data;
+  }
+
+  static async initializeManualSubmission(
+    quizId: number,
+    studentId: number,
+  ): Promise<{ success: boolean; data: any }> {
+    const response = await axios.post(
+      `/quizzes/${quizId}/submissions/initialize-manual`,
+      { student_id: studentId },
+    );
+    return response.data;
+  }
+
+  static async getQuizStudents(
+    quizId: number,
+    search?: string,
+  ): Promise<{ success: boolean; count: number; data: { id: number; name: string; email: string }[] }> {
+    const response = await axios.get(`/quizzes/${quizId}/students`, {
+      params: search ? { search } : undefined,
     });
     return response.data;
   }
@@ -484,6 +540,30 @@ export class QuestionBankApiService {
     return response.data;
   }
 
+  /** Get Excel (XLSX) Template */
+  static async downloadXlsxTemplate(courseId: number): Promise<Blob> {
+    const response = await axios.get(
+      `/courses/${courseId}/question-bank/template/xlsx`,
+      { responseType: "blob" },
+    );
+    return response.data;
+  }
+
+  /** Upload and parse XLSX */
+  static async parseXlsxQuestions(
+    courseId: number,
+    file: File,
+  ): Promise<{ success: boolean; data: any[] }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await axios.post(
+      `/courses/${courseId}/question-bank/upload/xlsx`,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return response.data;
+  }
+
   /** Upload and parse Docx */
   static async parseDocxQuestions(
     courseId: number,
@@ -520,7 +600,7 @@ export class QuestionBankApiService {
     courseId: number,
     classGroupId: number,
     academicTermId: number,
-  ): Promise<{ success: boolean; data: SchemeOfWorkEntry[] }> {
+  ): Promise<{ success: boolean; data: { scheme: Record<string, unknown>; entries: SchemeOfWorkEntry[] } | SchemeOfWorkEntry[] }> {
     const response = await axios.get(
       `/courses/${courseId}/question-bank/scheme-of-work`,
       {
@@ -528,6 +608,46 @@ export class QuestionBankApiService {
           class_group_id: classGroupId,
           academic_term_id: academicTermId,
         },
+      },
+    );
+    return response.data;
+  }
+
+  /**
+   * Upload a PDF or DOCX document and use AI to generate questions from it.
+   * Returns a preview — questions are NOT saved. Call bulkCreateCourseQuestions() after confirmation.
+   */
+  static async generateQuestionsFromDocument(
+    courseId: number,
+    file: File,
+    options: {
+      questionTypes: string[];
+      countPerType: number;
+      difficulty: "EASY" | "MEDIUM" | "DIFFICULT";
+      additionalContext?: string;
+    },
+  ): Promise<{
+    success: boolean;
+    count: number;
+    skipped: number;
+    document_info: { char_count: number; truncated: boolean };
+    data: any[];
+  }> {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("question_types", JSON.stringify(options.questionTypes));
+    formData.append("count_per_type", String(options.countPerType));
+    formData.append("difficulty", options.difficulty);
+    if (options.additionalContext) {
+      formData.append("additional_context", options.additionalContext);
+    }
+
+    const response = await axios.post(
+      `/courses/${courseId}/question-bank/ai-generate`,
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 120000,
       },
     );
     return response.data;

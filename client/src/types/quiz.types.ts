@@ -27,7 +27,7 @@ export interface BloomsTaxonomyLevel {
 }
 
 export type QuizStatus = "draft" | "published" | "completed";
-export type QuizType = "practice" | "graded" | "exam";
+export type QuizType = "Assessment" | "Homework" | "Quiz" | "Exam";
 export type AttemptStatus =
   | "in_progress"
   | "completed"
