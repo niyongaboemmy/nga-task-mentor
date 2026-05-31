@@ -626,14 +626,14 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
       include: [
         {
           model: User,
-          attributes: [
-            "id",
-            "first_name",
-            "last_name",
-            "email",
-            "profile_image",
-            "mis_user_id",
-          ],
+          as: "student",
+          attributes: ["id", "first_name", "last_name", "email", "profile_image", "mis_user_id"],
+        },
+        {
+          model: User,
+          as: "submittedByUser",
+          attributes: ["id", "first_name", "last_name", "email"],
+          required: false,
         },
       ],
     });
@@ -998,25 +998,33 @@ export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
 
     const gradeString = `${numScore}/${maxScore}`;
 
+    const instructorId = (req as any).user?.id || null;
+    const userAttrs = ["id", "first_name", "last_name", "email", "profile_image", "mis_user_id"];
+
     if (submission) {
-      // Update existing submission
-      await Submission.update(
-        {
-          grade: gradeString,
-          status: "graded",
-          feedback: feedback || submission.feedback,
-          rubric_scores: rubric_scores || null,
-        },
-        { where: { id: submission.id } },
-      );
+      // Update existing submission, also record who submitted on behalf if not already set
+      const updateData: any = {
+        grade: gradeString,
+        status: "graded",
+        feedback: feedback || submission.feedback,
+        rubric_scores: rubric_scores || null,
+      };
+      if (!submission.submitted_by && instructorId) {
+        updateData.submitted_by = instructorId;
+      }
+      await Submission.update(updateData, { where: { id: submission.id } });
       submission = await Submission.findByPk(submission.id, {
-        include: [{ model: User, attributes: ["id", "first_name", "last_name", "email", "profile_image", "mis_user_id"] }],
+        include: [
+          { model: User, as: "student", attributes: userAttrs },
+          { model: User, as: "submittedByUser", attributes: userAttrs },
+        ],
       }) as any;
     } else {
-      // Create a new graded submission
+      // Create a new graded submission on behalf of the student
       submission = await Submission.create({
         assignment_id: parseInt(assignmentId),
         student_id: student.id,
+        submitted_by: instructorId,
         text_submission: null,
         file_submissions: null,
         status: "graded" as any,
@@ -1027,7 +1035,10 @@ export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
         rubric_scores: rubric_scores || null,
       });
       submission = await Submission.findByPk((submission as any).id, {
-        include: [{ model: User, attributes: ["id", "first_name", "last_name", "email", "profile_image", "mis_user_id"] }],
+        include: [
+          { model: User, as: "student", attributes: userAttrs },
+          { model: User, as: "submittedByUser", attributes: userAttrs },
+        ],
       }) as any;
     }
 

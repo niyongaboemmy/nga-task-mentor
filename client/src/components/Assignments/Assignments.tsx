@@ -322,10 +322,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                     assignment={assignment}
                     showSubmissions={!compact}
                     compact={compact}
-                    canManage={
-                      canManageAssignments &&
-                      course?.instructor?.id === user?.id
-                    }
+                    canManage={canManageAssignments}
                     onStatusChange={handleStatusChange}
                   />
                 </motion.div>

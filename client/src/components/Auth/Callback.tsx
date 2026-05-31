@@ -16,7 +16,7 @@ const Callback: React.FC = () => {
   const [stage, setStage] = useState<Stage>("processing");
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [errorKind, setErrorKind] = useState<
-    "expired" | "network" | "server" | "missing"
+    "expired" | "network" | "server" | "missing" | "credentials"
   >("server");
   const [retryCount, setRetryCount] = useState(0);
   const [welcomeName, setWelcomeName] = useState<string>("");
@@ -66,7 +66,7 @@ const Callback: React.FC = () => {
 
         if (cancelled) return;
 
-        if (response.data.success) {
+        if (response.data.success && response.data.token) {
           // Persist tokens for header-based auth fallback
           localStorage.setItem("tm_auth_token", response.data.token);
           if (response.data.misToken) {
@@ -93,9 +93,10 @@ const Callback: React.FC = () => {
           const msg = response.data.message || "Authentication failed";
           const isExpired =
             msg.toLowerCase().includes("expir") ||
-            msg.toLowerCase().includes("invalid") ||
-            msg.toLowerCase().includes("used");
-          setErrorKind(isExpired ? "expired" : "server");
+            msg.toLowerCase().includes("used") ||
+            (msg.toLowerCase().includes("invalid") && msg.toLowerCase().includes("code"));
+          const isCredentials = msg.toLowerCase().includes("credential") || msg.toLowerCase().includes("client");
+          setErrorKind(isExpired ? "expired" : isCredentials ? "credentials" : "server");
           setErrorMessage(msg);
           setStage("error");
           sessionStorage.removeItem(sessionKey);
@@ -111,8 +112,11 @@ const Callback: React.FC = () => {
         const isExpiredCode =
           serverMsg &&
           (serverMsg.toLowerCase().includes("expir") ||
-            serverMsg.toLowerCase().includes("invalid") ||
-            serverMsg.toLowerCase().includes("used"));
+            serverMsg.toLowerCase().includes("used") ||
+            (serverMsg.toLowerCase().includes("invalid") && serverMsg.toLowerCase().includes("code")));
+        const isCredentialError =
+          serverMsg &&
+          (serverMsg.toLowerCase().includes("credential") || serverMsg.toLowerCase().includes("client"));
 
         const canRetry = (isTimeout || isNetwork) && attempt <= maxRetries;
 
@@ -134,6 +138,9 @@ const Callback: React.FC = () => {
 
         if (isExpiredCode) {
           kind = "expired";
+          message = serverMsg;
+        } else if (isCredentialError) {
+          kind = "credentials";
           message = serverMsg;
         } else if (isTimeout) {
           kind = "network";
@@ -322,7 +329,9 @@ const Callback: React.FC = () => {
                         ? "No sign-in code found"
                         : errorKind === "network"
                           ? "Connection problem"
-                          : "Sign-in failed"}
+                          : errorKind === "credentials"
+                            ? "Authentication configuration error"
+                            : "Sign-in failed"}
                   </h2>
                   <p className="text-sm text-gray-500 dark:text-gray-400">
                     {errorMessage}
@@ -333,6 +342,11 @@ const Callback: React.FC = () => {
                 {errorKind === "expired" && (
                   <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800 rounded-2xl p-3 text-sm text-amber-700 dark:text-amber-300">
                     Sign-in codes are single-use and expire after 5 minutes. Please start the sign-in process again.
+                  </div>
+                )}
+                {errorKind === "credentials" && (
+                  <div className="bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-800 rounded-2xl p-3 text-sm text-red-700 dark:text-red-300">
+                    The application SSO credentials are misconfigured. Please contact your system administrator.
                   </div>
                 )}
                 {errorKind === "network" && (

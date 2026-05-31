@@ -20,6 +20,7 @@ export interface SubmissionItemInterface {
   resubmissions: any[];
   is_late: boolean;
   comments: any[];
+  rubric_scores?: any;
   createdAt: string;
   updatedAt: string;
   student: {
@@ -29,6 +30,12 @@ export interface SubmissionItemInterface {
     email: string;
     profile_image?: string;
   };
+  submittedByUser?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+  } | null;
 }
 
 interface SubmissionSummaryItemProps {
@@ -127,6 +134,16 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
                 <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
                   {submission.student?.email || "No email available"}
                 </p>
+                {submission.submittedByUser && (
+                  <div className="flex items-center gap-1 mt-1">
+                    <svg className="w-3 h-3 text-purple-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span className="text-xs text-purple-600 dark:text-purple-400 font-medium">
+                      Submitted by {submission.submittedByUser.first_name} {submission.submittedByUser.last_name}
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Submission Meta */}

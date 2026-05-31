@@ -46,6 +46,7 @@ export interface ISubmissionAttributes {
   id?: number;
   assignment_id: number;
   student_id: number;
+  submitted_by?: number | null;
   status: SubmissionStatus;
   submitted_at?: Date;
   text_submission?: string | null;
@@ -101,6 +102,10 @@ export class Submission extends Model<
   @Column(DataType.INTEGER)
   public student_id!: number;
 
+  @ForeignKey(() => User)
+  @Column({ type: DataType.INTEGER, allowNull: true, defaultValue: null })
+  public submitted_by?: number | null;
+
   @Column({
     type: DataType.ENUM("draft", "submitted", "late", "graded", "resubmitted"),
     allowNull: false,
@@ -155,6 +160,9 @@ export class Submission extends Model<
 
   @BelongsTo(() => User, "student_id")
   public student!: User;
+
+  @BelongsTo(() => User, "submitted_by")
+  public submittedByUser?: User;
 
   // Add validation methods
   static validateSubmission(submission: ISubmissionAttributes): void {

@@ -191,6 +191,16 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                     {assignment.course_id || "CS101"}
                   </span>
                 </div>
+                {(submission as any).submittedByUser && (
+                  <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1 bg-white/15 rounded-full w-fit">
+                    <svg className="w-3 h-3 text-white/80 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-white/90">
+                      Submitted by {(submission as any).submittedByUser.first_name} {(submission as any).submittedByUser.last_name}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
             <button
