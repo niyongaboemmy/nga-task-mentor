@@ -15,6 +15,7 @@ import {
   handleMisError,
 } from "../utils/misUtils";
 
+// This controller manages all assignment-related operations, including creation, retrieval, updating, deletion, and submission handling. It also integrates with the NGA MIS to fetch enrolled students and manage assignment visibility based on course enrollment. The controller ensures that only authorized users can perform certain actions (e.g., only instructors can create assignments) and that students can only see and submit assignments for courses they are enrolled in. It also handles file uploads for assignments and submissions, storing metadata in the database and files on disk.
 // @desc    Get assignments for a specific course
 // @route   GET /api/courses/:courseId/assignments
 // @access  Private
@@ -627,7 +628,14 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
         {
           model: User,
           as: "student",
-          attributes: ["id", "first_name", "last_name", "email", "profile_image", "mis_user_id"],
+          attributes: [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "profile_image",
+            "mis_user_id",
+          ],
         },
         {
           model: User,
@@ -960,11 +968,14 @@ export const submitAssignment = async (req: Request, res: Response) => {
 export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
   try {
     const { assignmentId } = req.params;
-    const { student_mis_id, student_email, score, feedback, rubric_scores } = req.body;
+    const { student_mis_id, student_email, score, feedback, rubric_scores } =
+      req.body;
 
     const assignment = await Assignment.findByPk(assignmentId);
     if (!assignment) {
-      return res.status(404).json({ success: false, message: "Assignment not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Assignment not found" });
     }
 
     const maxScore = parseFloat(String(assignment.max_score));
@@ -987,7 +998,8 @@ export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
     if (!student) {
       return res.status(404).json({
         success: false,
-        message: "Student not found in the system. They may not have logged in yet.",
+        message:
+          "Student not found in the system. They may not have logged in yet.",
       });
     }
 
@@ -999,7 +1011,14 @@ export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
     const gradeString = `${numScore}/${maxScore}`;
 
     const instructorId = (req as any).user?.id || null;
-    const userAttrs = ["id", "first_name", "last_name", "email", "profile_image", "mis_user_id"];
+    const userAttrs = [
+      "id",
+      "first_name",
+      "last_name",
+      "email",
+      "profile_image",
+      "mis_user_id",
+    ];
 
     if (submission) {
       // Update existing submission, also record who submitted on behalf if not already set
@@ -1013,12 +1032,12 @@ export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
         updateData.submitted_by = instructorId;
       }
       await Submission.update(updateData, { where: { id: submission.id } });
-      submission = await Submission.findByPk(submission.id, {
+      submission = (await Submission.findByPk(submission.id, {
         include: [
           { model: User, as: "student", attributes: userAttrs },
           { model: User, as: "submittedByUser", attributes: userAttrs },
         ],
-      }) as any;
+      })) as any;
     } else {
       // Create a new graded submission on behalf of the student
       submission = await Submission.create({
@@ -1034,12 +1053,12 @@ export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
         feedback: feedback || null,
         rubric_scores: rubric_scores || null,
       });
-      submission = await Submission.findByPk((submission as any).id, {
+      submission = (await Submission.findByPk((submission as any).id, {
         include: [
           { model: User, as: "student", attributes: userAttrs },
           { model: User, as: "submittedByUser", attributes: userAttrs },
         ],
-      }) as any;
+      })) as any;
     }
 
     res.status(200).json({ success: true, data: submission });
