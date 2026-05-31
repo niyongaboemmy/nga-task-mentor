@@ -58,7 +58,7 @@ interface RecentActivity {
 }
 
 function getActivityLink(activity: RecentActivity): string {
-  const resourceId = activity.resource_id ?? activity.id.split("_").slice(1).join("_");
+  const resourceId = activity.resource_id ?? String(activity.id).split("_").slice(1).join("_");
   switch (activity.type) {
     case "assignment":
     case "submission": return resourceId ? `/assignments/${resourceId}` : "/assignments";

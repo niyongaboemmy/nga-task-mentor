@@ -73,12 +73,13 @@ export const getStudentStats = async (req: Request, res: Response) => {
     const completedAssignments = userSubmissions.length;
 
     // Count pending assignments (published assignments without submissions)
+    const submittedIds = userSubmissions.map((s) => s.assignment_id);
     const pendingSubmissions = await Assignment.count({
       where: {
         status: "published",
-        id: {
-          [Op.notIn]: userSubmissions.map((s) => s.assignment_id),
-        },
+        ...(submittedIds.length > 0 && {
+          id: { [Op.notIn]: submittedIds },
+        }),
       },
     });
 
