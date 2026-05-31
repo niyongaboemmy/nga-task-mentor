@@ -1,4 +1,4 @@
-name: Deploy to cPanel
+name: Deploy Server to cPanel
 
 on:
   push:
@@ -7,45 +7,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ─── Job 1: Deploy React client ───────────────────────────────────────────
-  deploy-client:
-    name: Build & Deploy Client
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "npm"
-          cache-dependency-path: client/package-lock.json
-
-      - name: Install dependencies
-        working-directory: client
-        run: npm ci --legacy-peer-deps
-
-      - name: Build client
-        working-directory: client
-        run: npm run build
-
-      - name: Deploy client via FTP
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          local-dir: ./client/dist/
-          server-dir: /public_html/taskmentor/
-          dangerous-clean-slate: false
-          exclude: |
-            **/.git*
-            **/.git*/**
-            **/node_modules/**
-
-  # ─── Job 2: Deploy Node.js server ─────────────────────────────────────────
   deploy-server:
     name: Build & Deploy Server
     runs-on: ubuntu-latest
@@ -58,15 +19,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "npm"
-          cache-dependency-path: server/package-lock.json
-
-      - name: Upgrade npm
-        run: npm install -g npm@latest
 
       - name: Install server dependencies
         working-directory: server
-        run: npm ci
+        run: npm install --legacy-peer-deps
 
       - name: Build server (TypeScript → dist/)
         working-directory: server
@@ -94,7 +50,6 @@ jobs:
             **/*.sql
             **/*.db
             **/*.sqlite
-            **/scratch/**
             **/test-*.js
             **/check-*.js
             **/create-*.js
@@ -105,7 +60,6 @@ jobs:
             **/update-*.js
             **/export-*.js
 
-      # After FTP upload, SSH in to install deps and restart the app
       - name: Install production deps & restart app via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
