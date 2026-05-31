@@ -22,7 +22,7 @@ jobs:
 
       - name: Install server dependencies
         working-directory: server
-        run: npm install --legacy-peer-deps
+        run: rm -f package-lock.json && npm install --legacy-peer-deps
 
       - name: Build server (TypeScript → dist/)
         working-directory: server
