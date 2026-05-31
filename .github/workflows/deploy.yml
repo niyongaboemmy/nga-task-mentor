@@ -61,6 +61,9 @@ jobs:
           cache: "npm"
           cache-dependency-path: server/package-lock.json
 
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
       - name: Install server dependencies
         working-directory: server
         run: npm ci
