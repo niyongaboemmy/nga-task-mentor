@@ -37,7 +37,7 @@ jobs:
           protocol: ftps
           port: 21
           local-dir: ./server/
-          server-dir: /home/${{ secrets.CPANEL_USERNAME }}/taskmentor-api/
+          server-dir: taskmentor-api/
           dangerous-clean-slate: false
           exclude: |
             **/.git*
