@@ -35,6 +35,7 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
         },
         {
           model: Submission,
+          as: "submissions",
           required: false, // Don't filter out assignments without submissions
           where: isStudent ? { student_id: req.user.id } : {}, // If student, only their submission
           include: [

@@ -29,28 +29,11 @@ const setupAssociations = () => {
   // ----------------------
   // Assignment Associations
   // ----------------------
-  Assignment.belongsTo(User, {
-    foreignKey: "created_by",
-    as: "assignmentCreator",
-  });
-
-  Assignment.hasMany(Submission, {
-    foreignKey: "assignment_id",
-    as: "assignmentSubmissions",
-  });
-
-  // ----------------------
-  // Submission Associations
-  // ----------------------
-  Submission.belongsTo(Assignment, {
-    foreignKey: "assignment_id",
-    as: "submissionAssignment",
-  });
-
-  Submission.belongsTo(User, {
-    foreignKey: "student_id",
-    as: "submissionStudent",
-  });
+  // Note: Assignment <-> User (creator) and Assignment <-> Submission associations
+  // are defined via decorators in Assignment.model.ts (as: "creator", "submissions").
+  // Note: Submission <-> Assignment and Submission <-> User (student, submittedByUser)
+  // associations are defined via decorators in Submission.model.ts.
+  // Duplicate registrations are intentionally omitted to avoid Sequelize ambiguity errors.
 
   // ----------------------
   // Quiz Associations
