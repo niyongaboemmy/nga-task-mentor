@@ -859,8 +859,10 @@ const StudentDetails: React.FC = () => {
                               }`}
                             >
                               {submission
-                                ? submission.grade || "Grading..."
-                                : "0"}
+                                ? submission.grade
+                                  ? `${parseFloat(submission.grade).toFixed(1)}`
+                                  : "Grading..."
+                                : "—"}
                               <span className="text-xs font-medium text-gray-400 ml-0.5">
                                 / {assignment.max_score}
                               </span>

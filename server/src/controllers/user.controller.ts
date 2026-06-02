@@ -472,18 +472,15 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
       });
     }
 
-    // Resolve the MIS student ID from the local user record
-    const user = await User.findByPk(Number(userId));
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-    const misStudentId = user.mis_user_id ?? userId;
+    // userId from URL is the MIS user ID — find the matching local user record
+    const localUser = await User.findOne({ where: { mis_user_id: Number(userId) } });
+    const localStudentId = localUser?.id ?? null;
 
     // Fetch enrolled subjects from MIS — treat any failure as empty enrollment
     let enrolledSubjects: any[] = [];
     try {
       const misResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/students/${misStudentId}/enrolled-subjects`,
+        `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -509,6 +506,7 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
     }
 
     // Fetch all assignments for enrolled courses, left-joining the student's submission
+    const submissionWhere = localStudentId ? { student_id: localStudentId } : undefined;
     const assignments = await Assignment.findAll({
       where: {
         course_id: { [Op.in]: courseIds },
@@ -518,7 +516,7 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
         {
           model: Submission,
           as: "submissions",
-          where: { student_id: Number(userId) },
+          where: submissionWhere,
           required: false,
         },
       ],
@@ -579,16 +577,13 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
       });
     }
 
-    // Resolve the MIS student ID from the local user record
-    const user = await User.findByPk(Number(userId));
-    if (!user) {
-      return res.status(404).json({ success: false, message: "User not found" });
-    }
-    const misStudentId = user.mis_user_id ?? userId;
+    // userId from URL is the MIS user ID — find the matching local user record
+    const localUser = await User.findOne({ where: { mis_user_id: Number(userId) } });
+    const localStudentId = localUser?.id ?? null;
 
     // Fetch user's enrolled subjects from MIS API
     const misResponse = await axios.get(
-      `${process.env.NGA_MIS_BASE_URL}/academics/students/${misStudentId}/enrolled-subjects`,
+      `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -618,7 +613,7 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
         {
           model: QuizSubmission,
           as: "quizSubmissions",
-          where: { student_id: Number(userId) },
+          where: localStudentId ? { student_id: localStudentId } : undefined,
           required: false, // Left join
         },
       ],
