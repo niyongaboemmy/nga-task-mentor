@@ -16,6 +16,8 @@ import {
   Clock,
   Search,
   BookOpen,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { QuestionBankApiService, QuizApiService } from "../../services/quizApi";
 import type {
@@ -70,7 +72,7 @@ const DIFFICULTY_LEVELS: {
   { value: "DIFFICULT", label: "Difficult", dot: "bg-red-500" },
 ];
 
-const INITIAL_FORM_STATE: CreateCourseQuestionRequest = {
+const getInitialFormState = (): CreateCourseQuestionRequest => ({
   question_type: "single_choice",
   question_text: "",
   question_data: { options: ["", ""], correct_option_index: 0 },
@@ -82,7 +84,7 @@ const INITIAL_FORM_STATE: CreateCourseQuestionRequest = {
   time_limit_seconds: 60,
   scheme_of_work_entry_id: null,
   scheme_of_work_entry_title: null,
-};
+});
 
 const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   isOpen,
@@ -93,7 +95,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   quizId,
 }) => {
   const [formData, setFormData] =
-    useState<CreateCourseQuestionRequest>(INITIAL_FORM_STATE);
+    useState<CreateCourseQuestionRequest>(getInitialFormState);
 
   // Use the scheme of work context for caching
   const { getEntries } = useSchemeOfWork();
@@ -146,7 +148,9 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
             question.scheme_of_work_entry_title || null,
         });
       } else {
-        setFormData(INITIAL_FORM_STATE);
+        setFormData(getInitialFormState());
+        setTagInput("");
+        setSchemeSearch("");
       }
       setActiveTab("general");
 
@@ -291,6 +295,17 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
   if (!isOpen) return null;
 
+  const TAB_ORDER: ("general" | "content" | "advanced")[] = [
+    "general",
+    "content",
+    "advanced",
+  ];
+  const currentTabIndex = TAB_ORDER.indexOf(activeTab);
+  const isFirstTab = currentTabIndex === 0;
+  const isLastTab = currentTabIndex === TAB_ORDER.length - 1;
+  const goNext = () => setActiveTab(TAB_ORDER[currentTabIndex + 1]);
+  const goPrev = () => setActiveTab(TAB_ORDER[currentTabIndex - 1]);
+
   const renderQuestionForm = () => {
     const props = {
       data: formData.question_data,
@@ -372,26 +387,64 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
             </button>
           </div>
 
-          {/* Tabs */}
-          <div className="flex-shrink-0 flex px-6 border-b border-gray-100 dark:border-gray-800/50">
-            {[
-              { id: "general", label: "General Information", icon: FileText },
-              { id: "content", label: "Question Content", icon: CheckCircle2 },
-              { id: "advanced", label: "Advanced Options", icon: SlidersIcon },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-6 py-4 text-sm font-medium border-b-2 transition-all duration-200 ${
-                  activeTab === tab.id
-                    ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-                }`}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </button>
-            ))}
+          {/* Step Indicator */}
+          <div className="flex-shrink-0 px-6 py-4 border-b border-gray-100 dark:border-gray-800/50">
+            <div className="flex items-center justify-between">
+              {[
+                { id: "general", label: "General Information", icon: FileText, step: 1 },
+                { id: "content", label: "Question Content", icon: CheckCircle2, step: 2 },
+                { id: "advanced", label: "Advanced Options", icon: SlidersIcon, step: 3 },
+              ].map((tab, idx, arr) => {
+                const stepIdx = TAB_ORDER.indexOf(tab.id as any);
+                const isActive = activeTab === tab.id;
+                const isDone = currentTabIndex > stepIdx;
+                return (
+                  <React.Fragment key={tab.id}>
+                    <button
+                      onClick={() => setActiveTab(tab.id as any)}
+                      className="flex flex-col items-center gap-1.5 group"
+                    >
+                      <div
+                        className={`w-9 h-9 rounded-full flex items-center justify-center text-sm font-bold border-2 transition-all duration-200 ${
+                          isActive
+                            ? "bg-blue-600 border-blue-600 text-white shadow-md shadow-blue-200 dark:shadow-none"
+                            : isDone
+                            ? "bg-blue-100 border-blue-400 text-blue-600 dark:bg-blue-900/40 dark:border-blue-600 dark:text-blue-400"
+                            : "bg-gray-100 border-gray-200 text-gray-400 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-500"
+                        }`}
+                      >
+                        {isDone ? (
+                          <CheckCircle2 className="w-4 h-4" />
+                        ) : (
+                          tab.step
+                        )}
+                      </div>
+                      <span
+                        className={`text-xs font-semibold transition-colors duration-200 whitespace-nowrap ${
+                          isActive
+                            ? "text-blue-600 dark:text-blue-400"
+                            : isDone
+                            ? "text-blue-500 dark:text-blue-500"
+                            : "text-gray-400 dark:text-gray-500"
+                        }`}
+                      >
+                        {tab.label}
+                      </span>
+                    </button>
+                    {idx < arr.length - 1 && (
+                      <div className="flex-1 mx-3 mb-5">
+                        <div className="h-0.5 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-blue-400 dark:bg-blue-600 rounded-full transition-all duration-300"
+                            style={{ width: isDone ? "100%" : "0%" }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
+            </div>
           </div>
 
           {/* Form Body */}
@@ -812,8 +865,8 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 dark:border-gray-800/50 bg-gray-50/50 dark:bg-gray-900/50 flex items-center justify-between">
-            <div className="hidden sm:block">
+          <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 dark:border-gray-800/50 bg-gray-50/50 dark:bg-gray-900/50 flex items-center justify-between gap-4">
+            <div className="hidden sm:block flex-shrink-0">
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 * Required fields. All changes will be saved to the course bank.
               </p>
@@ -825,23 +878,44 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
               >
                 Cancel
               </button>
-              <button
-                onClick={handleSave}
-                disabled={isSubmitting}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-blue-200 dark:shadow-none transition-all disabled:opacity-50"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  <>
-                    <Save className="w-4 h-4" />
-                    {question ? "Update Question" : "Create Question"}
-                  </>
-                )}
-              </button>
+
+              {!isFirstTab && (
+                <button
+                  onClick={goPrev}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                  Previous
+                </button>
+              )}
+
+              {!isLastTab ? (
+                <button
+                  onClick={goNext}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-3 rounded-2xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 font-semibold text-sm hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"
+                >
+                  Next
+                  <ChevronRight className="w-4 h-4" />
+                </button>
+              ) : (
+                <button
+                  onClick={handleSave}
+                  disabled={isSubmitting}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-blue-200 dark:shadow-none transition-all disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4" />
+                      {question ? "Update Question" : "Create Question"}
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>

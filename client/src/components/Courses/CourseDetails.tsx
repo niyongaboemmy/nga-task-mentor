@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { motion } from "framer-motion";
@@ -7,7 +7,7 @@ import { QuizList } from "../Quizzes/QuizList";
 import { fetchCourse, fetchCourses } from "../../store/slices/courseSlice";
 import type { RootState, AppDispatch } from "../../store";
 import type { Course } from "../../types/course.types";
-import { Library } from "lucide-react";
+import { Library, Search, Users, Mail, ChevronRight, SlidersHorizontal } from "lucide-react";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -480,58 +480,174 @@ const CourseDetails: React.FC = () => {
           )}
 
           {activeTab === "students" && (
-            <div className="space-y-6 p-4">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-xl font-bold flex items-center gap-2">
-                  <span className="w-1.5 h-6 bg-green-500 rounded-full"></span>
-                  Enrolled Students
-                </h3>
-                <span className="px-3 py-1 bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 rounded-full text-xs font-bold">
-                  {course.enrolledStudents?.length || 0} Active
-                </span>
-              </div>
-
-              {course.enrolledStudents && course.enrolledStudents.length > 0 ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {course.enrolledStudents.map((student) => (
-                    <Link
-                      key={student.user?.user_id || student.user?.id}
-                      to={`/students/${student.user?.user_id || student.user?.id}`}
-                      className="flex items-center p-4 bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-blue-500/50 transition-all hover:shadow-lg group"
-                    >
-                      <div className="flex-shrink-0">
-                        <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center text-white font-bold text-lg shadow-lg group-hover:scale-110 transition-transform">
-                          {student.profile?.first_name?.[0] ||
-                            student.user?.first_name?.[0] ||
-                            "U"}
-                        </div>
-                      </div>
-                      <div className="ml-4 overflow-hidden">
-                        <h4 className="font-bold text-gray-900 dark:text-white truncate">
-                          {student.profile?.first_name ||
-                            student.user?.first_name}{" "}
-                          {student.profile?.last_name ||
-                            student.user?.last_name}
-                        </h4>
-                        <p className="text-gray-500 text-xs truncate">
-                          {student.user?.email}
-                        </p>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-16 bg-gray-50/50 dark:bg-gray-800/20 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-800">
-                  <p className="text-gray-500 font-medium mt-4">
-                    No students enrolled in this course.
-                  </p>
-                </div>
-              )}
-            </div>
+            <StudentsList students={course.enrolledStudents || []} />
           )}
         </div>
       </motion.div>
     </motion.div>
+  );
+};
+
+const AVATAR_COLORS = [
+  "from-blue-500 to-indigo-600",
+  "from-violet-500 to-purple-600",
+  "from-emerald-500 to-teal-600",
+  "from-rose-500 to-pink-600",
+  "from-amber-500 to-orange-600",
+  "from-cyan-500 to-sky-600",
+];
+
+type SortKey = "name" | "email";
+
+const StudentsList: React.FC<{ students: any[] }> = ({ students }) => {
+  const [search, setSearch] = useState("");
+  const [sortKey, setSortKey] = useState<SortKey>("name");
+  const [showSort, setShowSort] = useState(false);
+
+  const filtered = useMemo(() => {
+    const q = search.toLowerCase();
+    return students
+      .filter((s) => {
+        const name = `${s.profile?.first_name || s.user?.first_name || ""} ${s.profile?.last_name || s.user?.last_name || ""}`.toLowerCase();
+        const email = (s.user?.email || "").toLowerCase();
+        return name.includes(q) || email.includes(q);
+      })
+      .sort((a, b) => {
+        if (sortKey === "name") {
+          const na = `${a.profile?.first_name || a.user?.first_name || ""} ${a.profile?.last_name || a.user?.last_name || ""}`;
+          const nb = `${b.profile?.first_name || b.user?.first_name || ""} ${b.profile?.last_name || b.user?.last_name || ""}`;
+          return na.localeCompare(nb);
+        }
+        return (a.user?.email || "").localeCompare(b.user?.email || "");
+      });
+  }, [students, search, sortKey]);
+
+  return (
+    <div className="p-4 space-y-4">
+      {/* Header row */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="flex items-center gap-2 flex-1">
+          <Users className="w-5 h-5 text-gray-400" />
+          <h3 className="text-base font-bold text-gray-900 dark:text-white">
+            Enrolled Students
+          </h3>
+          <span className="ml-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold rounded-full">
+            {students.length} active
+          </span>
+        </div>
+
+        {/* Search */}
+        <div className="relative flex-1 sm:max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by name or email..."
+            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+          />
+        </div>
+
+        {/* Sort */}
+        <div className="relative">
+          <button
+            onClick={() => setShowSort((v) => !v)}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+            Sort: {sortKey === "name" ? "Name" : "Email"}
+          </button>
+          {showSort && (
+            <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-10 overflow-hidden">
+              {(["name", "email"] as SortKey[]).map((key) => (
+                <button
+                  key={key}
+                  onClick={() => { setSortKey(key); setShowSort(false); }}
+                  className={`w-full text-left px-4 py-2.5 text-sm transition-colors capitalize ${
+                    sortKey === key
+                      ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold"
+                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                  }`}
+                >
+                  {key}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Count hint when filtered */}
+      {search && (
+        <p className="text-xs text-gray-400 dark:text-gray-500">
+          Showing {filtered.length} of {students.length} students
+        </p>
+      )}
+
+      {/* Table */}
+      {filtered.length > 0 ? (
+        <div className="rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
+          {/* Table header */}
+          <div className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
+            <span className="w-8" />
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Name</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 hidden sm:block">Email</span>
+            <span className="w-5" />
+          </div>
+
+          {/* Rows */}
+          <div className="divide-y divide-gray-50 dark:divide-gray-800">
+            {filtered.map((student, idx) => {
+              const id = student.user?.user_id || student.user?.id;
+              const firstName = student.profile?.first_name || student.user?.first_name || "";
+              const lastName = student.profile?.last_name || student.user?.last_name || "";
+              const fullName = `${firstName} ${lastName}`.trim() || "Unknown";
+              const email = student.user?.email || "";
+              const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
+              const initials = `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase() || "?";
+
+              return (
+                <Link
+                  key={id}
+                  to={`/students/${id}`}
+                  className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-4 px-4 py-3 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors group"
+                >
+                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
+                    {initials}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                      {fullName}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate sm:hidden">{email}</p>
+                  </div>
+                  <div className="hidden sm:flex items-center gap-1.5 min-w-0">
+                    <Mail className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
+                    <span className="text-sm text-gray-500 dark:text-gray-400 truncate">{email}</span>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-16 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+          <Users className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+          <p className="text-sm font-medium text-gray-400 dark:text-gray-500">
+            {search ? "No students match your search." : "No students enrolled in this course."}
+          </p>
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="mt-2 text-xs text-blue-500 hover:text-blue-600 font-medium"
+            >
+              Clear search
+            </button>
+          )}
+        </div>
+      )}
+    </div>
   );
 };
 
