@@ -41,8 +41,8 @@ interface StudentAssignment {
 
 interface QuizSubmissionRecord {
   id: number;
-  total_score: number;
-  percentage: number;
+  total_score: number | string;
+  percentage: number | string;
   passed: boolean;
   attempt_number: number;
   completed_at: string;
@@ -52,7 +52,7 @@ interface StudentQuiz {
   id: number;
   title: string;
   course_id: number;
-  passing_score: number;
+  passing_score: number | string;
   quizSubmissions: QuizSubmissionRecord[];
   subject: {
     subject_name: string;
@@ -629,10 +629,10 @@ const StudentDetails: React.FC = () => {
                 <div className="divide-y divide-gray-200/50 dark:divide-gray-700/50">
                   {courses.map((course) => {
                     const courseAssignments = assignments.filter(
-                      (a) => a.course_id.toString() === course.subject_id,
+                      (a) => a.subject?.subject_code === course.subject_code,
                     );
                     const courseQuizzes = quizzes.filter(
-                      (q) => q.course_id.toString() === course.subject_id,
+                      (q) => q.subject?.subject_code === course.subject_code,
                     );
                     const submittedAssignments = courseAssignments.filter(
                       (a) => a.submissions?.[0],
@@ -971,7 +971,7 @@ const StudentDetails: React.FC = () => {
                                   : "text-gray-400"
                               }`}
                             >
-                              {submission ? `${submission.percentage}%` : "0%"}
+                              {submission ? `${parseFloat(String(submission.percentage)).toFixed(1)}%` : "0%"}
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
