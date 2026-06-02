@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import { Card, CardContent } from "../ui/Card";
 import axios from "../../utils/axiosConfig";
 
 interface ProctoringAnalyticsProps {
@@ -11,17 +10,8 @@ interface AnalyticsData {
   averageRiskScore: number;
   totalViolations: number;
   flaggedSessions: number;
-  riskDistribution: {
-    low: number;
-    medium: number;
-    high: number;
-    critical: number;
-  };
-  commonViolations: Array<{
-    type: string;
-    count: number;
-    percentage: number;
-  }>;
+  riskDistribution: { low: number; medium: number; high: number; critical: number };
+  commonViolations: Array<{ type: string; count: number; percentage: number }>;
   sessionDetails: Array<{
     student_name: string;
     risk_score: number;
@@ -31,40 +21,49 @@ interface AnalyticsData {
   }>;
 }
 
-const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
-  quizId,
-}) => {
+const riskColor = (score: number) => {
+  if (score >= 75) return { pill: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400", bar: "bg-red-500" };
+  if (score >= 50) return { pill: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400", bar: "bg-orange-500" };
+  if (score >= 25) return { pill: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400", bar: "bg-yellow-500" };
+  return { pill: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400", bar: "bg-green-500" };
+};
+
+const violationIcon: Record<string, string> = {
+  face_not_visible: "👤",
+  microphone_level_low: "🎙️",
+  fullscreen_exited: "⛶",
+  multiple_faces: "👥",
+  tab_switched: "🔀",
+  copy_paste: "📋",
+  unknown: "⚠️",
+};
+
+const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [timeRange, setTimeRange] = useState<"all" | "week" | "month">("all");
 
   useEffect(() => {
-    loadAnalytics();
-  }, [quizId, timeRange]);
-
-  const loadAnalytics = async () => {
-    setLoading(true);
-    try {
-      const { data } = await axios.get(
-        `/proctoring/quizzes/${quizId}/analytics`,
-        { params: { timeRange } },
-      );
-      if (data.success) {
-        setAnalytics(data.data);
+    const load = async () => {
+      setLoading(true);
+      try {
+        const { data } = await axios.get(`/proctoring/quizzes/${quizId}/analytics`, { params: { timeRange } });
+        if (data.success) setAnalytics(data.data);
+      } catch (e) {
+        console.error("Error loading proctoring analytics:", e);
+      } finally {
+        setLoading(false);
       }
-    } catch (error) {
-      console.error("Error loading proctoring analytics:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
+    load();
+  }, [quizId, timeRange]);
 
   const exportReport = async () => {
     try {
-      const response = await axios.get(
-        `/proctoring/quizzes/${quizId}/analytics/export`,
-        { params: { timeRange }, responseType: "blob" },
-      );
+      const response = await axios.get(`/proctoring/quizzes/${quizId}/analytics/export`, {
+        params: { timeRange },
+        responseType: "blob",
+      });
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const a = document.createElement("a");
       a.href = url;
@@ -73,36 +72,54 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (error) {
-      console.error("Error exporting report:", error);
+    } catch (e) {
+      console.error("Error exporting report:", e);
     }
   };
 
   if (loading) {
-    return <div className="text-center py-8">Loading analytics...</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-3">
+        <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-sm text-gray-500 dark:text-gray-400">Loading analytics…</p>
+      </div>
+    );
   }
 
   if (!analytics) {
-    return <div className="text-center py-8">No analytics data available</div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-2">
+        <span className="text-4xl">📊</span>
+        <p className="text-base font-semibold text-gray-700 dark:text-gray-300">No analytics data available</p>
+        <p className="text-sm text-gray-400">Data will appear once sessions have been recorded.</p>
+      </div>
+    );
   }
 
+  const riskLevels = [
+    { key: "low", label: "Low", color: "bg-green-500" },
+    { key: "medium", label: "Medium", color: "bg-yellow-500" },
+    { key: "high", label: "High", color: "bg-orange-500" },
+    { key: "critical", label: "Critical", color: "bg-red-500" },
+  ] as const;
+
+  const avgRisk = analytics.averageRiskScore ?? 0;
+  const avgRiskColors = riskColor(avgRisk);
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6 p-1">
+
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
-            Proctoring Analytics
-          </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
-            Monitor and analyze proctoring session data
-          </p>
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Proctoring Analytics</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Monitor and analyze proctoring session data</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-2">
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value as any)}
-            className="px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
+            className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
           >
             <option value="all">All Time</option>
             <option value="month">Last Month</option>
@@ -110,293 +127,194 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
           </select>
           <button
             onClick={exportReport}
-            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all duration-200"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-sm"
           >
-            Export Report
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export
           </button>
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        {/* Card 1 */}
-        <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50">
-          <CardContent className="p-4">
-            <div className="flex items-center">
-              <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-                <svg
-                  className="w-5 h-5 text-blue-600 dark:text-blue-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Total Sessions
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  {analytics.totalSessions}
-                </p>
-              </div>
+      {/* Stat Cards */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {[
+          {
+            label: "Total Sessions",
+            value: analytics.totalSessions,
+            icon: "🎥",
+            bg: "bg-blue-50 dark:bg-blue-900/20",
+            iconBg: "bg-blue-100 dark:bg-blue-900/40",
+            text: "text-blue-600 dark:text-blue-400",
+          },
+          {
+            label: "Avg Risk Score",
+            value: avgRisk.toFixed(1),
+            icon: "⚡",
+            bg: avgRisk >= 50 ? "bg-red-50 dark:bg-red-900/20" : "bg-yellow-50 dark:bg-yellow-900/20",
+            iconBg: avgRisk >= 50 ? "bg-red-100 dark:bg-red-900/40" : "bg-yellow-100 dark:bg-yellow-900/40",
+            text: avgRisk >= 50 ? "text-red-600 dark:text-red-400" : "text-yellow-600 dark:text-yellow-400",
+          },
+          {
+            label: "Total Violations",
+            value: analytics.totalViolations.toLocaleString(),
+            icon: "🚨",
+            bg: "bg-rose-50 dark:bg-rose-900/20",
+            iconBg: "bg-rose-100 dark:bg-rose-900/40",
+            text: "text-rose-600 dark:text-rose-400",
+          },
+          {
+            label: "Flagged Sessions",
+            value: analytics.flaggedSessions,
+            icon: "🚩",
+            bg: "bg-orange-50 dark:bg-orange-900/20",
+            iconBg: "bg-orange-100 dark:bg-orange-900/40",
+            text: "text-orange-600 dark:text-orange-400",
+          },
+        ].map((card) => (
+          <div
+            key={card.label}
+            className={`${card.bg} rounded-2xl p-4 border border-white/60 dark:border-gray-800/60`}
+          >
+            <div className={`w-9 h-9 ${card.iconBg} rounded-xl flex items-center justify-center text-lg mb-3`}>
+              {card.icon}
             </div>
-          </CardContent>
-        </Card>
-
-        {/* Card 2 */}
-        <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50">
-          <CardContent className="p-4">
-            <div className="flex items-center">
-              <div className="p-2 bg-yellow-100 dark:bg-yellow-900/30 rounded-xl">
-                <svg
-                  className="w-5 h-5 text-yellow-600 dark:text-yellow-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Avg Risk Score
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  {(analytics.averageRiskScore ?? 0).toFixed(1)}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card 3 */}
-        <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50">
-          <CardContent className="p-4">
-            <div className="flex items-center">
-              <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-xl">
-                <svg
-                  className="w-5 h-5 text-red-600 dark:text-red-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Total Violations
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  {analytics.totalViolations}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Card 4 */}
-        <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50">
-          <CardContent className="p-4">
-            <div className="flex items-center">
-              <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-xl">
-                <svg
-                  className="w-5 h-5 text-orange-600 dark:text-orange-400"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M13 10V3L4 14h7v7l9-11h-7z"
-                  />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <p className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Flagged Sessions
-                </p>
-                <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  {analytics.flaggedSessions}
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">{card.label}</p>
+            <p className={`text-2xl font-bold ${card.text}`}>{card.value}</p>
+          </div>
+        ))}
       </div>
 
-      {/* Risk Distribution Chart */}
-      <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50">
-        <CardContent className="p-4">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
-            Risk Score Distribution
-          </h3>
-          <div className="space-y-3">
-            {Object.entries(analytics.riskDistribution).map(
-              ([level, count]) => (
-                <div key={level} className="flex items-center">
-                  <div className="w-16 text-xs font-medium capitalize text-gray-900 dark:text-white">
-                    {level}
+      {/* Risk Distribution + Common Violations side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+
+        {/* Risk Distribution */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
+          <h3 className="text-sm font-bold text-gray-800 dark:text-white mb-4">Risk Score Distribution</h3>
+          <div className="space-y-4">
+            {riskLevels.map(({ key, label, color }) => {
+              const count = analytics.riskDistribution[key];
+              const pct = analytics.totalSessions > 0 ? (count / analytics.totalSessions) * 100 : 0;
+              return (
+                <div key={key}>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">{label}</span>
+                    <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                      {count} <span className="font-normal text-gray-400">({Math.round(pct)}%)</span>
+                    </span>
                   </div>
-                  <div className="flex-1 mx-3">
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3">
+                  <div className="w-full h-2.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full ${color} rounded-full transition-all duration-500`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Common Violations */}
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
+          <h3 className="text-sm font-bold text-gray-800 dark:text-white mb-4">Common Violations</h3>
+          <div className="space-y-2">
+            {analytics.commonViolations.map((v, i) => {
+              const icon = violationIcon[v.type] ?? violationIcon.unknown;
+              const pct = v.percentage;
+              return (
+                <div key={i} className="flex items-center gap-3">
+                  <span className="text-base flex-shrink-0">{icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize truncate">
+                        {v.type.replace(/_/g, " ")}
+                      </span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
+                        {v.count.toLocaleString()} · {pct.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="w-full h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                       <div
-                        className={`h-3 rounded-full ${
-                          level === "critical"
-                            ? "bg-red-500"
-                            : level === "high"
-                              ? "bg-orange-500"
-                              : level === "medium"
-                                ? "bg-yellow-500"
-                                : "bg-green-500"
-                        }`}
-                        style={{
-                          width: `${
-                            analytics.totalSessions > 0
-                              ? (count / analytics.totalSessions) * 100
-                              : 0
-                          }%`,
-                        }}
+                        className="h-full bg-rose-400 dark:bg-rose-500 rounded-full transition-all duration-500"
+                        style={{ width: `${pct}%` }}
                       />
                     </div>
                   </div>
-                  <div className="w-10 text-xs text-gray-600 dark:text-gray-400">
-                    {count}
-                  </div>
                 </div>
-              ),
-            )}
+              );
+            })}
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
-      {/* Common Violations */}
-      <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50">
-        <CardContent className="p-4">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
-            Common Violations
-          </h3>
-          <div className="space-y-2">
-            {analytics.commonViolations.map((violation, index) => (
-              <div
-                key={index}
-                className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-xl"
-              >
-                <div className="flex items-center">
-                  <span className="text-sm font-medium text-gray-900 dark:text-white capitalize">
-                    {violation.type.replace(/_/g, " ")}
-                  </span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-xs text-gray-600 dark:text-gray-400">
-                    {violation.count} times
-                  </span>
-                  <span className="text-xs font-medium text-gray-900 dark:text-white">
-                    {violation.percentage.toFixed(1)}%
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Session Details Table */}
-      <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50">
-        <CardContent className="p-4">
-          <h3 className="text-base font-semibold text-gray-900 dark:text-white mb-3">
-            Session Details
-          </h3>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-gray-200 dark:border-gray-700">
-                  <th className="text-left py-2 px-3 font-medium text-gray-900 dark:text-white text-xs">
-                    Student
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-gray-900 dark:text-white text-xs">
-                    Risk Score
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-gray-900 dark:text-white text-xs">
-                    Violations
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-gray-900 dark:text-white text-xs">
-                    Status
-                  </th>
-                  <th className="text-left py-2 px-3 font-medium text-gray-900 dark:text-white text-xs">
-                    Start Time
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {analytics.sessionDetails.map((session, index) => (
-                  <tr
-                    key={index}
-                    className="border-b border-gray-100 dark:border-gray-700"
-                  >
-                    <td className="py-2 px-3 text-sm text-gray-900 dark:text-white">
-                      {session.student_name}
+      {/* Session Details */}
+      <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden">
+        <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800">
+          <h3 className="text-sm font-bold text-gray-800 dark:text-white">Session Details</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="bg-gray-50 dark:bg-gray-800/60">
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">#</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Student</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Risk Score</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Violations</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Status</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Start Time</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
+              {analytics.sessionDetails.map((s, i) => {
+                const colors = riskColor(s.risk_score);
+                const initials = s.student_name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
+                return (
+                  <tr key={i} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors">
+                    <td className="px-5 py-3.5 text-xs text-gray-400 dark:text-gray-600 font-mono">{i + 1}</td>
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2.5">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
+                          {initials}
+                        </div>
+                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{s.student_name}</span>
+                      </div>
                     </td>
-                    <td className="py-2 px-3">
-                      <span
-                        className={`px-2 py-1 rounded-xl text-xs font-medium ${
-                          session.risk_score >= 80
-                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                            : session.risk_score >= 60
-                              ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
-                              : session.risk_score >= 30
-                                ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
-                                : "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                        }`}
-                      >
-                        {session.risk_score}
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-2">
+                        <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${colors.pill}`}>
+                          {s.risk_score.toFixed(1)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <span className={`text-sm font-semibold ${s.violations > 200 ? "text-rose-600 dark:text-rose-400" : s.violations > 100 ? "text-orange-600 dark:text-orange-400" : "text-gray-700 dark:text-gray-300"}`}>
+                        {s.violations.toLocaleString()}
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-sm text-gray-900 dark:text-white">
-                      {session.violations}
-                    </td>
-                    <td className="py-2 px-3">
-                      <span
-                        className={`px-2 py-1 rounded-xl text-xs font-medium ${
-                          session.status === "flagged"
-                            ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
-                            : session.status === "completed"
-                              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400"
-                              : "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400"
-                        }`}
-                      >
-                        {session.status}
+                    <td className="px-5 py-3.5">
+                      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold capitalize ${
+                        s.status === "flagged"
+                          ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                          : s.status === "completed"
+                            ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                            : "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${s.status === "active" ? "bg-blue-500 animate-pulse" : s.status === "flagged" ? "bg-red-500" : "bg-green-500"}`} />
+                        {s.status}
                       </span>
                     </td>
-                    <td className="py-2 px-3 text-sm text-gray-600 dark:text-gray-400">
-                      {new Date(session.start_time).toLocaleString()}
+                    <td className="px-5 py-3.5 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      {new Date(s.start_time).toLocaleString()}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 };
