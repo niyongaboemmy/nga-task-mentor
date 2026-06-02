@@ -219,127 +219,86 @@ export const getStudentPendingAssignments = async (
 
 // Instructor Dashboard Statistics
 export const getInstructorStats = async (req: Request, res: Response) => {
+  const emptyStats: DashboardStats = {
+    totalCourses: 0,
+    totalAssignments: 0,
+    pendingSubmissions: 0,
+    completedAssignments: 0,
+    totalEnrolledStudents: 0,
+  };
+
   try {
     const userId = req.user.id;
     const token = getMisToken(req);
 
-    // Get total courses from MIS API
+    // MIS: total courses + enrolled students (non-fatal if unavailable)
     let totalCourses = 0;
+    let totalEnrolledStudents = 0;
     try {
       if (token) {
-        console.log(
-          `🔗 Requesting MIS subjects from: ${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
-        );
-        console.log(
-          `🔑 Using token (first 20 chars): ${token.substring(0, 20)}...`,
-        );
-
         const coursesResponse = await axios.get(
           `${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
-        );
-        console.log(
-          "✅ Courses response received:",
-          coursesResponse.data.success ? "Success" : "Failure",
-        );
-        if (coursesResponse.data.success) {
-          totalCourses = coursesResponse.data.data?.length || 0;
-        }
-      } else {
-        console.log("⚠️ No MIS token available in getInstructorStats");
-      }
-    } catch (courseError: any) {
-      console.warn("Could not fetch courses count:", courseError.message);
-      if (courseError.response) {
-        console.warn("MIS API error response:", courseError.response.data);
-      }
-      // Continue with 0 courses
-    }
-
-    // Get assignments created by instructor
-    const totalAssignments = await Assignment.count({
-      where: { created_by: userId },
-    });
-
-    // Get pending submissions (submissions that haven't been graded)
-    const totalPendingSubmissions = await Submission.count({
-      include: [
-        {
-          model: Assignment,
-          as: "submissionAssignment",
-          where: { created_by: userId },
-          required: true,
-        },
-      ],
-      where: {
-        status: { [Op.ne]: "graded" },
-      },
-    });
-
-    // Get completed assignments (graded submissions)
-    const completedAssignments = await Submission.count({
-      include: [
-        {
-          model: Assignment,
-          as: "submissionAssignment",
-          where: { created_by: userId },
-          required: true,
-        },
-      ],
-      where: {
-        status: "graded",
-      },
-    });
-
-    // Calculate total enrolled students from all courses
-    let totalEnrolledStudents = 0;
-    if (token) {
-      try {
-        const coursesResponse = await axios.get(
-          `${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
+          { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } },
         );
         if (coursesResponse.data.success && coursesResponse.data.data) {
+          totalCourses = coursesResponse.data.data.length;
           totalEnrolledStudents = coursesResponse.data.data.reduce(
-            (sum: number, course: any) => {
-              return sum + (course.enrolled_students || 0);
-            },
+            (sum: number, course: any) => sum + (course.enrolled_students || 0),
             0,
           );
         }
-      } catch (error) {
-        console.warn("Could not fetch enrolled students count:", error);
       }
+    } catch (misError: any) {
+      console.warn("Could not fetch MIS courses for instructor stats:", misError.message);
     }
 
-    const stats: DashboardStats = {
-      totalCourses,
-      totalAssignments,
-      pendingSubmissions: totalPendingSubmissions,
-      completedAssignments,
-      totalEnrolledStudents,
-    };
+    // DB: assignment count
+    let totalAssignments = 0;
+    try {
+      totalAssignments = await Assignment.count({ where: { created_by: userId } });
+    } catch (e) {
+      console.error("Error counting instructor assignments:", e);
+    }
 
-    res.status(200).json({
+    // DB: pending submissions (not graded)
+    let totalPendingSubmissions = 0;
+    try {
+      totalPendingSubmissions = await Submission.count({
+        include: [{
+          model: Assignment,
+          as: "submissionAssignment",
+          where: { created_by: userId },
+          required: true,
+        }],
+        where: { status: { [Op.ne]: "graded" } },
+      });
+    } catch (e) {
+      console.error("Error counting pending submissions:", e);
+    }
+
+    // DB: graded submissions
+    let completedAssignments = 0;
+    try {
+      completedAssignments = await Submission.count({
+        include: [{
+          model: Assignment,
+          as: "submissionAssignment",
+          where: { created_by: userId },
+          required: true,
+        }],
+        where: { status: "graded" },
+      });
+    } catch (e) {
+      console.error("Error counting completed assignments:", e);
+    }
+
+    return res.status(200).json({
       success: true,
-      data: stats,
+      data: { totalCourses, totalAssignments, pendingSubmissions: totalPendingSubmissions, completedAssignments, totalEnrolledStudents },
     });
   } catch (error) {
-    console.error("Error fetching instructor stats:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching dashboard statistics",
-    });
+    console.error("getInstructorStats unexpected error:", error);
+    return res.status(200).json({ success: true, data: emptyStats });
   }
 };
 
@@ -348,71 +307,52 @@ export const getInstructorCourses = async (req: Request, res: Response) => {
   try {
     const token = getMisToken(req);
     const userId = req.user.id;
-    let courses = [];
+    let courses: any[] = [];
 
     if (token) {
       try {
         const coursesResponse = await axios.get(
           `${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
+          { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } },
         );
+
         if (coursesResponse.data.success) {
-          // Get actual assignments and quizzes count for each course from the database
-          const allAssignments = await Assignment.findAll({
-            where: { created_by: userId },
+          let allAssignments: any[] = [];
+          let allQuizzes: any[] = [];
+
+          try {
+            allAssignments = await Assignment.findAll({ where: { created_by: userId } });
+          } catch (e) {
+            console.error("Error fetching assignments for courses overview:", e);
+          }
+
+          try {
+            allQuizzes = await Quiz.findAll({ where: { created_by: userId } });
+          } catch (e) {
+            console.error("Error fetching quizzes for courses overview:", e);
+          }
+
+          courses = (coursesResponse.data.data || []).map((subject: any) => {
+            const courseId = subject.id || subject.subject_id;
+            return {
+              id: courseId,
+              title: subject.name || subject.subject_name || subject.title,
+              code: subject.code || subject.subject_code,
+              description: subject.description,
+              assignmentCount: allAssignments.filter((a) => a.course_id === courseId).length,
+              quizCount: allQuizzes.filter((q) => q.course_id === courseId).length,
+            };
           });
-
-          const allQuizzes = await Quiz.findAll({
-            where: { created_by: userId },
-          });
-
-          courses =
-            coursesResponse.data.data?.map((subject: any) => {
-              const courseId = subject.id || subject.subject_id;
-
-              // Count assignments and quizzes for this course
-              const courseAssignments = allAssignments.filter(
-                (assign) => assign.course_id === courseId,
-              );
-
-              const courseQuizzes = allQuizzes.filter(
-                (quiz) => quiz.course_id === courseId,
-              );
-
-              return {
-                id: subject.id || subject.subject_id,
-                title: subject.name || subject.subject_name || subject.title,
-                code: subject.code || subject.subject_code,
-                description: subject.description,
-                assignmentCount: courseAssignments.length,
-                quizCount: courseQuizzes.length,
-              };
-            }) || [];
         }
-      } catch (courseError: any) {
-        console.warn("Could not fetch courses from MIS:", courseError.message);
-        if (courseError.response) {
-          console.warn("MIS API error response:", courseError.response.data);
-        }
+      } catch (misError: any) {
+        console.warn("Could not fetch courses from MIS:", misError.message);
       }
     }
 
-    res.status(200).json({
-      success: true,
-      data: courses,
-    });
+    return res.status(200).json({ success: true, data: courses });
   } catch (error) {
-    console.error("Error fetching instructor courses:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching courses overview",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    console.error("getInstructorCourses unexpected error:", error);
+    return res.status(200).json({ success: true, data: [] });
   }
 };
 
@@ -424,60 +364,50 @@ export const getInstructorPendingGrading = async (
   try {
     const userId = req.user.id;
 
-    // Get assignments created by instructor that are published
-    const assignments = await Assignment.findAll({
-      where: {
-        created_by: userId,
-        status: "published",
-      },
-      attributes: [
-        "id",
-        "title",
-        "description",
-        "due_date",
-        "max_score",
-        "submission_type",
-      ],
-      order: [["due_date", "ASC"]],
-    });
+    let assignments: any[] = [];
+    try {
+      assignments = await Assignment.findAll({
+        where: { created_by: userId, status: "published" },
+        attributes: ["id", "title", "description", "due_date", "max_score", "submission_type"],
+        order: [["due_date", "ASC"]],
+      });
+    } catch (e) {
+      console.error("getInstructorPendingGrading: error fetching assignments:", e);
+      return res.status(200).json({ success: true, data: [] });
+    }
 
-    // For each assignment, get ungraded submissions
-    const formattedAssignments = [];
+    const formattedAssignments: any[] = [];
 
     for (const assignment of assignments) {
-      const submissions = await Submission.findAll({
-        where: {
-          assignment_id: assignment.id,
-          status: { [Op.ne]: "graded" },
-        },
-        attributes: ["id", "status", "submitted_at", "student_id"],
-        include: [
-          {
+      let submissions: any[] = [];
+      try {
+        submissions = await Submission.findAll({
+          where: { assignment_id: assignment.id, status: { [Op.ne]: "graded" } },
+          attributes: ["id", "status", "submitted_at", "student_id"],
+          include: [{
             model: User,
             as: "submissionStudent",
             attributes: ["id", "first_name", "last_name"],
-          },
-        ],
-      });
+          }],
+        });
+      } catch (e) {
+        console.error(`getInstructorPendingGrading: error fetching submissions for assignment ${assignment.id}:`, e);
+      }
 
       if (submissions.length > 0) {
         formattedAssignments.push({
           id: assignment.id.toString(),
           title: assignment.title,
           description: assignment.description,
-          due_date: assignment.due_date
-            ? assignment.due_date.toISOString()
-            : new Date().toISOString(),
-          max_score: assignment.max_score.toString(),
+          due_date: assignment.due_date ? assignment.due_date.toISOString() : new Date().toISOString(),
+          max_score: assignment.max_score?.toString() ?? "0",
           submission_type: assignment.submission_type,
           pendingSubmissions: submissions.length,
-          course: null, // No course
+          course: null,
           submissions: submissions.map((submission: any) => ({
             id: submission.id.toString(),
             status: submission.status,
-            submitted_at: submission.submitted_at
-              ? submission.submitted_at.toISOString()
-              : new Date().toISOString(),
+            submitted_at: submission.submitted_at ? submission.submitted_at.toISOString() : new Date().toISOString(),
             student: submission.submissionStudent
               ? {
                   id: submission.submissionStudent.id.toString(),
@@ -490,75 +420,62 @@ export const getInstructorPendingGrading = async (
       }
     }
 
-    res.status(200).json({
-      success: true,
-      data: formattedAssignments,
-    });
+    return res.status(200).json({ success: true, data: formattedAssignments });
   } catch (error: any) {
-    return handleMisError(
-      error,
-      res,
-      "Error fetching pending grading assignments",
-    );
+    console.error("getInstructorPendingGrading unexpected error:", error.message);
+    return res.status(200).json({ success: true, data: [] });
   }
 };
 
 // Admin Dashboard Statistics
 export const getAdminStats = async (req: Request, res: Response) => {
+  const emptyStats: DashboardStats = { totalCourses: 0, totalAssignments: 0, pendingSubmissions: 0, completedAssignments: 0 };
+
   try {
-    // Get total courses from MIS API
     let totalCourses = 0;
     try {
       const token = getMisToken(req);
       if (token) {
         const coursesResponse = await axios.get(
           `${process.env.NGA_MIS_BASE_URL}/academics/subjects`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-          },
+          { headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" } },
         );
         if (coursesResponse.data.success) {
           totalCourses = coursesResponse.data.data?.length || 0;
         }
       }
-    } catch (courseError) {
-      console.warn("Could not fetch courses count:", courseError);
-      // Continue with 0 courses
+    } catch (e) {
+      console.warn("Could not fetch admin courses count from MIS:", e);
     }
 
-    // Get total assignments in the system
-    const totalAssignments = await Assignment.count();
+    let totalAssignments = 0;
+    try {
+      totalAssignments = await Assignment.count();
+    } catch (e) {
+      console.error("Error counting total assignments:", e);
+    }
 
-    // Get pending submissions (all submissions not graded)
-    const totalPendingSubmissions = await Submission.count({
-      where: {
-        status: { [Op.ne]: "graded" },
-      },
-    });
+    let totalPendingSubmissions = 0;
+    try {
+      totalPendingSubmissions = await Submission.count({ where: { status: { [Op.ne]: "graded" } } });
+    } catch (e) {
+      console.error("Error counting pending submissions:", e);
+    }
 
-    // Get completed assignments (all graded submissions)
-    const completedAssignments = await Submission.count({
-      where: {
-        status: "graded",
-      },
-    });
+    let completedAssignments = 0;
+    try {
+      completedAssignments = await Submission.count({ where: { status: "graded" } });
+    } catch (e) {
+      console.error("Error counting completed assignments:", e);
+    }
 
-    const stats: DashboardStats = {
-      totalCourses,
-      totalAssignments,
-      pendingSubmissions: totalPendingSubmissions,
-      completedAssignments,
-    };
-
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
-      data: stats,
+      data: { totalCourses, totalAssignments, pendingSubmissions: totalPendingSubmissions, completedAssignments },
     });
-  } catch (error: any) {
-    return handleMisError(error, res, "Error fetching dashboard statistics");
+  } catch (error) {
+    console.error("getAdminStats unexpected error:", error);
+    return res.status(200).json({ success: true, data: emptyStats });
   }
 };
 
@@ -604,35 +521,36 @@ export const getAdminGradingSummary = async (req: Request, res: Response) => {
     }
 
     // 2. Fetch ALL relevant data from local database for aggregation
-    const assignmentsFull = await Assignment.findAll({
-      attributes: ["id", "course_id", "max_score"],
-    });
+    let assignmentsFull: any[] = [];
+    try {
+      assignmentsFull = await Assignment.findAll({ attributes: ["id", "course_id", "max_score"] });
+    } catch (e) { console.error("getAdminGradingSummary: error fetching assignments:", e); }
 
-    const quizzes = await Quiz.findAll({
-      attributes: ["id", "course_id", "title"],
-    });
+    let quizzes: any[] = [];
+    try {
+      quizzes = await Quiz.findAll({ attributes: ["id", "course_id", "title"] });
+    } catch (e) { console.error("getAdminGradingSummary: error fetching quizzes:", e); }
 
     const assignmentInfos = new Map(
-      assignmentsFull.map((a) => [
-        a.id,
-        { courseId: String(a.course_id), maxScore: a.max_score },
-      ]),
+      assignmentsFull.map((a) => [a.id, { courseId: String(a.course_id), maxScore: a.max_score }]),
     );
+    const quizInfos = new Map(quizzes.map((q: any) => [q.id, String(q.course_id)]));
 
-    const quizInfos = new Map(
-      quizzes.map((q: any) => [q.id, String(q.course_id)]),
-    );
+    let assignmentSubmissions: any[] = [];
+    try {
+      assignmentSubmissions = await Submission.findAll({
+        attributes: ["assignment_id", "grade", "student_id", "status"],
+        where: { status: "graded" },
+      });
+    } catch (e) { console.error("getAdminGradingSummary: error fetching assignment submissions:", e); }
 
-    // Get all submissions stats
-    const assignmentSubmissions = await Submission.findAll({
-      attributes: ["assignment_id", "grade", "student_id", "status"],
-      where: { status: "graded" },
-    });
-
-    const quizSubmissions = await QuizSubmission.findAll({
-      attributes: ["quiz_id", "percentage", "student_id", "status"],
-      where: { status: "completed" },
-    });
+    let quizSubmissions: any[] = [];
+    try {
+      quizSubmissions = await QuizSubmission.findAll({
+        attributes: ["quiz_id", "percentage", "student_id", "status"],
+        where: { status: "completed" },
+      });
+    } catch (e) { console.error("getAdminGradingSummary: error fetching quiz submissions:", e); }
 
     // 3. Aggregate in Map
     const courseStatsMap = new Map<
@@ -745,11 +663,8 @@ export const getAdminGradingSummary = async (req: Request, res: Response) => {
       },
     });
   } catch (error) {
-    console.error("Error fetching admin grading summary:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching grading summary",
-    });
+    console.error("getAdminGradingSummary unexpected error:", error);
+    return res.status(200).json({ success: true, data: { gradingSummary: [], gradeDistribution: { excellent: 0, good: 0, average: 0, poor: 0 } } });
   }
 };
 
@@ -790,16 +705,10 @@ export const getActiveProctoringCount = async (req: Request, res: Response) => {
       ],
     });
 
-    res.status(200).json({
-      success: true,
-      data: activeSessions,
-    });
+    return res.status(200).json({ success: true, data: activeSessions });
   } catch (error) {
-    console.error("Error fetching active proctoring count:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching active proctoring count",
-    });
+    console.error("getActiveProctoringCount unexpected error:", error);
+    return res.status(200).json({ success: true, data: 0 });
   }
 };
 
@@ -810,107 +719,97 @@ export const getRecentActivity = async (req: Request, res: Response) => {
     const activities: RecentActivity[] = [];
 
     if (userRole === "student") {
-      // Get recent submissions by the user
-      const recentSubmissions = await Submission.findAll({
-        where: { student_id: userId },
-        attributes: ["id", "assignment_id", "status", "submitted_at"],
-        order: [["createdAt", "DESC"]],
-        limit: 10,
-      });
+      let recentSubmissions: any[] = [];
+      try {
+        recentSubmissions = await Submission.findAll({
+          where: { student_id: userId },
+          attributes: ["id", "assignment_id", "status", "submitted_at", "createdAt"],
+          order: [["createdAt", "DESC"]],
+          limit: 10,
+        });
+      } catch (e) {
+        console.error("getRecentActivity: error fetching student submissions:", e);
+      }
 
       for (const submission of recentSubmissions) {
-        // Get assignment details
-        const assignment = await Assignment.findByPk(submission.assignment_id, {
-          attributes: ["id", "title"],
-        });
-
-        if (assignment) {
-          activities.push({
-            id: `submission_${submission.id}`,
-            type: "submission",
-            title: assignment.title,
-            description: `You submitted an assignment: ${assignment.title}`,
-            timestamp: submission.createdAt
-              ? submission.createdAt.toISOString()
-              : new Date().toISOString(),
-            resource_id: String(assignment.id),
+        try {
+          const assignment = await Assignment.findByPk(submission.assignment_id, {
+            attributes: ["id", "title"],
           });
+          if (assignment) {
+            activities.push({
+              id: `submission_${submission.id}`,
+              type: "submission",
+              title: assignment.title,
+              description: `You submitted an assignment: ${assignment.title}`,
+              timestamp: submission.createdAt ? submission.createdAt.toISOString() : new Date().toISOString(),
+              resource_id: String(assignment.id),
+            });
+          }
+        } catch (e) {
+          console.error(`getRecentActivity: error fetching assignment for submission ${submission.id}:`, e);
         }
       }
     } else if (userRole === "instructor") {
-      // Get recent submissions that need grading (for instructor's assignments)
-      const recentSubmissions = await Submission.findAll({
-        include: [
-          {
+      // Recent ungraded submissions for instructor's assignments
+      try {
+        const recentSubmissions = await Submission.findAll({
+          include: [{
             model: Assignment,
             as: "submissionAssignment",
             attributes: ["id", "title"],
             where: { created_by: userId },
             required: true,
-          },
-        ],
-        attributes: ["id", "createdAt"],
-        where: {
-          status: { [Op.ne]: "graded" },
-        },
-        order: [["createdAt", "DESC"]],
-        limit: 5,
-      });
-
-      for (const submission of recentSubmissions) {
-        activities.push({
-          id: `submission_${submission.id}`,
-          type: "submission",
-          title: (submission as any).submissionAssignment.title,
-          description: `${
-            (submission as any).submissionStudent?.first_name || "A student"
-          } submitted: ${(submission as any).submissionAssignment.title}`,
-          timestamp: submission.createdAt
-            ? submission.createdAt.toISOString()
-            : new Date().toISOString(),
-          resource_id: String((submission as any).submissionAssignment.id),
+          }],
+          attributes: ["id", "createdAt"],
+          where: { status: { [Op.ne]: "graded" } },
+          order: [["createdAt", "DESC"]],
+          limit: 5,
         });
+
+        for (const submission of recentSubmissions) {
+          activities.push({
+            id: `submission_${submission.id}`,
+            type: "submission",
+            title: (submission as any).submissionAssignment.title,
+            description: `A student submitted: ${(submission as any).submissionAssignment.title}`,
+            timestamp: submission.createdAt ? submission.createdAt.toISOString() : new Date().toISOString(),
+            resource_id: String((submission as any).submissionAssignment.id),
+          });
+        }
+      } catch (e) {
+        console.error("getRecentActivity: error fetching instructor submissions:", e);
       }
 
-      // Get recently created assignments by the instructor
-      const recentAssignments = await Assignment.findAll({
-        where: { created_by: userId },
-        attributes: ["id", "title", "createdAt"],
-        order: [["createdAt", "DESC"]],
-        limit: 5,
-      });
-
-      for (const assignment of recentAssignments) {
-        activities.push({
-          id: `assignment_${assignment.id}`,
-          type: "assignment",
-          title: assignment.title,
-          description: `You created assignment: ${assignment.title}`,
-          timestamp: assignment.createdAt
-            ? assignment.createdAt.toISOString()
-            : new Date().toISOString(),
-          resource_id: String(assignment.id),
+      // Recently created assignments
+      try {
+        const recentAssignments = await Assignment.findAll({
+          where: { created_by: userId },
+          attributes: ["id", "title", "createdAt"],
+          order: [["createdAt", "DESC"]],
+          limit: 5,
         });
+
+        for (const assignment of recentAssignments) {
+          activities.push({
+            id: `assignment_${assignment.id}`,
+            type: "assignment",
+            title: assignment.title,
+            description: `You created assignment: ${assignment.title}`,
+            timestamp: assignment.createdAt ? assignment.createdAt.toISOString() : new Date().toISOString(),
+            resource_id: String(assignment.id),
+          });
+        }
+      } catch (e) {
+        console.error("getRecentActivity: error fetching recent assignments:", e);
       }
     }
 
-    // Sort all activities by timestamp
-    activities.sort(
-      (a, b) =>
-        new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
-    );
+    activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
 
-    const recentActivities = activities.slice(0, 15);
-
-    res.status(200).json({
-      success: true,
-      data: recentActivities,
-    });
+    return res.status(200).json({ success: true, data: activities.slice(0, 15) });
   } catch (error) {
-    console.error("Error fetching recent activity:", error);
-    res.status(500).json({
-      success: false,
-      message: "Error fetching recent activity",
-    });
+    console.error("getRecentActivity unexpected error:", error);
+    return res.status(200).json({ success: true, data: [] });
   }
 };

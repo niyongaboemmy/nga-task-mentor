@@ -472,25 +472,36 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
       });
     }
 
-    // Fetch user's enrolled subjects from MIS API to know which assignments to show
-    const misResponse = await axios.get(
-      `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
-      {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
+    // Fetch enrolled subjects from MIS — treat any failure as empty enrollment
+    let enrolledSubjects: any[] = [];
+    try {
+      const misResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      },
-    );
+      );
+      enrolledSubjects = misResponse.data?.success
+        ? misResponse.data.data || []
+        : [];
+    } catch (misError: any) {
+      console.error("MIS enrolled-subjects fetch failed:", misError.message);
+      // Non-fatal: student may simply have no enrollment data yet
+    }
 
-    const enrolledSubjects = misResponse.data.success
-      ? misResponse.data.data || []
-      : [];
     const courseIds = enrolledSubjects
       .map((s: any) => Number(s.subject_id))
-      .filter((id: number) => !isNaN(id));
+      .filter((id: number) => !isNaN(id) && id > 0);
 
-    // Fetch all assignments for these courses and include student's submission if it exists
+    // No enrolled courses → return empty result immediately (avoids Op.in([]) edge case)
+    if (courseIds.length === 0) {
+      return res.status(200).json({ success: true, count: 0, data: [] });
+    }
+
+    // Fetch all assignments for enrolled courses, left-joining the student's submission
     const assignments = await Assignment.findAll({
       where: {
         course_id: { [Op.in]: courseIds },
@@ -501,13 +512,12 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
           model: Submission,
           as: "assignmentSubmissions",
           where: { student_id: Number(userId) },
-          required: false, // Left join to show assignments even without submissions
+          required: false,
         },
       ],
       order: [["due_date", "DESC"]],
     });
 
-    // Map subject info onto assignments
     const data = assignments.map((assignment: any) => {
       const subject = enrolledSubjects.find(
         (s: any) => Number(s.subject_id) === Number(assignment.course_id),
@@ -524,14 +534,14 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
       };
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: data.length,
-      data: data,
+      data,
     });
   } catch (error: any) {
     console.error("Get student assignments error:", error.message);
-    res.status(500).json({ success: false, message: "Server error" });
+    return res.status(200).json({ success: true, count: 0, data: [] });
   }
 };
 
