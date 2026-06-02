@@ -351,8 +351,11 @@ export class QuizApiService {
 
   static async getQuizAnalytics(
     quizId: number,
+    timeRange: "all" | "week" | "month" = "all",
   ): Promise<{ success: boolean; data: QuizAnalytics }> {
-    const response = await axios.get(`/quizzes/${quizId}/analytics`);
+    const response = await axios.get(`/quizzes/${quizId}/analytics`, {
+      params: { timeRange },
+    });
     return response.data;
   }
 

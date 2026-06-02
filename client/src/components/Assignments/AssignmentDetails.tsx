@@ -4,8 +4,7 @@ import { useParams, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../store";
 import { fetchCourses } from "../../store/slices/courseSlice";
-import api from "../../utils/axiosConfig";
-import axiosLib from "axios";
+import api, { isAxiosError } from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
 import SubmissionModal from "./SubmissionModal";
 import AssignmentHeader from "./AssignmentHeader";
@@ -274,7 +273,7 @@ const AssignmentDetails = () => {
       setSubmissions(response.data.data || response.data);
     } catch (error) {
       console.error("Error fetching submissions:", error);
-      if (axiosLib.isAxiosError(error) && error.response?.status === 403) {
+      if (isAxiosError(error) && error.response?.status === 403) {
         setSubmissions([]);
       } else {
         setSubmissions([]);

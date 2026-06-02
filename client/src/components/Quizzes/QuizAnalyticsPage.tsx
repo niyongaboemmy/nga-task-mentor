@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "../ui/Card";
 import { Button } from "../ui/Button";
-import axios from "../../utils/axiosConfig";
+import { QuizApiService } from "../../services/quizApi";
 import {
   BarChart3,
   TrendingUp,
@@ -63,15 +63,12 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
       try {
         setLoading(true);
 
-        // Load quiz details
-        const quizResponse = await axios.get(`/quizzes/${quizId}`);
-        setQuiz(quizResponse.data.data);
-
-        // Load analytics
-        const analyticsResponse = await axios.get(
-          `/quizzes/${quizId}/analytics?timeRange=${timeRange}`,
-        );
-        setAnalytics(analyticsResponse.data.data);
+        const [quizResponse, analyticsResponse] = await Promise.all([
+          QuizApiService.getQuiz(Number(quizId)),
+          QuizApiService.getQuizAnalytics(Number(quizId), timeRange),
+        ]);
+        setQuiz(quizResponse.data);
+        setAnalytics(analyticsResponse.data);
       } catch (error) {
         console.error("Error loading data:", error);
         setError("Failed to load analytics data");

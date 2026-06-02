@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "../ui/Card";
+import axios from "../../utils/axiosConfig";
 
 interface ProctoringAnalyticsProps {
   quizId: string;
@@ -44,16 +45,10 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
   const loadAnalytics = async () => {
     setLoading(true);
     try {
-      const response = await fetch(
-        `/proctoring/quizzes/${quizId}/analytics?timeRange=${timeRange}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
+      const { data } = await axios.get(
+        `/proctoring/quizzes/${quizId}/analytics`,
+        { params: { timeRange } },
       );
-
-      const data = await response.json();
       if (data.success) {
         setAnalytics(data.data);
       }
@@ -66,17 +61,11 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
 
   const exportReport = async () => {
     try {
-      const response = await fetch(
-        `/proctoring/quizzes/${quizId}/analytics/export?timeRange=${timeRange}`,
-        {
-          headers: {
-            Authorization: `Bearer ${localStorage.getItem("token")}`,
-          },
-        },
+      const response = await axios.get(
+        `/proctoring/quizzes/${quizId}/analytics/export`,
+        { params: { timeRange }, responseType: "blob" },
       );
-
-      const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
+      const url = window.URL.createObjectURL(new Blob([response.data]));
       const a = document.createElement("a");
       a.href = url;
       a.download = `proctoring-report-${quizId}-${timeRange}.pdf`;

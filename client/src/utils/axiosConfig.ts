@@ -1,5 +1,7 @@
-import axios from "axios";
+import axios, { isAxiosError } from "axios";
 import type { AxiosResponse } from "axios";
+
+export { isAxiosError };
 
 // Configure axios base URL for backend API
 const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
