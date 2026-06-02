@@ -403,7 +403,7 @@ const QuizSubmissionsPage: React.FC = () => {
 
   return (
     <div className="">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-8xl mx-auto px-3 sm:px-4 lg:px-6 py-4 sm:py-6 lg:py-8">
         {/* Header */}
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">

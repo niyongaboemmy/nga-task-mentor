@@ -106,7 +106,7 @@ const HomePage: React.FC = () => {
 
       {/* Hero Section */}
       <section className="bg-white dark:bg-gray-900/80">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
               TaskMentor
@@ -139,7 +139,7 @@ const HomePage: React.FC = () => {
 
       {/* Features Section */}
       <section className="py-20 bg-gray-50 dark:bg-gray-900/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
               Everything you need to manage
@@ -171,7 +171,7 @@ const HomePage: React.FC = () => {
 
       {/* Stats Section */}
       <section className="py-20 bg-white dark:bg-gray-950">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl p-12">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
@@ -246,7 +246,7 @@ const HomePage: React.FC = () => {
 
       {/* Footer */}
       <footer className="bg-white dark:bg-gray-800/40 border-t border-gray-200 dark:border-gray-800/40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
               <Logo size="medium" />

@@ -91,7 +91,7 @@ const NoteNotification: React.FC<NoteNotificationProps> = ({
   return (
     <div className="fixed top-0 left-0 right-0 z-[9999] animate-slide-down">
       <div className="bg-gradient-to-r from-blue-500 to-blue-600 dark:from-blue-600 dark:to-blue-700 shadow-lg border-b-4 border-blue-700 dark:border-blue-800">
-        <div className="max-w-7xl mx-auto px-4 py-3">
+        <div className="max-w-8xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between gap-4">
             {/* Left side - Note Icon and Message */}
             <div className="flex items-center gap-3 flex-1 min-w-0">

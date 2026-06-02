@@ -41,7 +41,7 @@ const QuestionBankPage: React.FC = () => {
 
   return (
     <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto space-y-2">
+      <div className="max-w-8xl mx-auto space-y-2">
         {/* Navigation Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white/80 dark:bg-gray-900/50 backdrop-blur-xl border border-gray-200/60 dark:border-gray-800/30 p-4 rounded-3xl">
           <div className="flex items-center gap-4">

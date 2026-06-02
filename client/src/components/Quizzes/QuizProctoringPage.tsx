@@ -73,7 +73,7 @@ export const QuizProctoringPage: React.FC<QuizProctoringPageProps> = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4">
+    <div className="max-w-8xl mx-auto py-8 px-4">
       {/* Header */}
       <div className="mb-8">
         <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-4">

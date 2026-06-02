@@ -2347,7 +2347,7 @@ const QuizTakingPage: React.FC = () => {
       {/* Error Display */}
       {error && (
         <div className="p-4 bg-red-50 dark:bg-red-900/20 border-b border-red-200 dark:border-red-800">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="max-w-8xl mx-auto flex items-center justify-between">
             <div className="flex items-center">
               <AlertCircle className="h-5 w-5 text-red-600 dark:text-red-400 mr-3" />
               <div>
@@ -2597,7 +2597,7 @@ const QuizTakingPage: React.FC = () => {
       {/* Navigation Footer */}
       {!isCodingFullscreen && (
         <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
-          <div className="max-w-7xl mx-auto flex items-center justify-between">
+          <div className="max-w-8xl mx-auto flex items-center justify-between">
             <button
               onClick={() =>
                 setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))
