@@ -174,7 +174,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({
                   Avg Risk Score
                 </p>
                 <p className="text-xl font-bold text-gray-900 dark:text-white">
-                  {analytics.averageRiskScore.toFixed(1)}
+                  {(analytics.averageRiskScore ?? 0).toFixed(1)}
                 </p>
               </div>
             </div>

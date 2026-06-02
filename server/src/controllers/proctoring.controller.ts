@@ -1390,27 +1390,35 @@ export const getProctoringAnalytics = async (req: Request, res: Response) => {
     }
 
     const totalSessions = sessions.length;
-    const flaggedSessions = sessions.filter((s) => s.status === "flagged" || s.flags_count > 0).length;
+
+    // risk_score and flags_count come back as decimal strings from Sequelize — parse them
+    const toNum = (v: any) => parseFloat(v) || 0;
+
+    const flaggedSessions = sessions.filter(
+      (s: any) => s.status === "flagged" || toNum(s.flags_count) > 0,
+    ).length;
     const averageRiskScore =
       totalSessions > 0
-        ? Math.round(sessions.reduce((sum, s) => sum + (s.risk_score || 0), 0) / totalSessions)
+        ? Math.round(sessions.reduce((sum: number, s: any) => sum + toNum(s.risk_score), 0) / totalSessions)
         : 0;
 
-    // Aggregate all events
+    // Aggregate all events, excluding internal lifecycle events from violation counts
+    const LIFECYCLE_EVENTS = new Set(["session_start", "session_end"]);
     const allEvents = sessions.flatMap((s: any) => s.events || []);
-    const totalViolations = allEvents.length;
+    const violationEvents = allEvents.filter((e: any) => !LIFECYCLE_EVENTS.has(e.event_type));
+    const totalViolations = violationEvents.length;
 
-    // Risk distribution by status/score
+    // Risk distribution bucketed by parsed risk_score
     const riskDistribution = {
-      low: sessions.filter((s) => s.risk_score < 25).length,
-      medium: sessions.filter((s) => s.risk_score >= 25 && s.risk_score < 50).length,
-      high: sessions.filter((s) => s.risk_score >= 50 && s.risk_score < 75).length,
-      critical: sessions.filter((s) => s.risk_score >= 75).length,
+      low: sessions.filter((s: any) => toNum(s.risk_score) < 25).length,
+      medium: sessions.filter((s: any) => { const r = toNum(s.risk_score); return r >= 25 && r < 50; }).length,
+      high: sessions.filter((s: any) => { const r = toNum(s.risk_score); return r >= 50 && r < 75; }).length,
+      critical: sessions.filter((s: any) => toNum(s.risk_score) >= 75).length,
     };
 
-    // Common violation types
+    // Common violation types (lifecycle events already excluded)
     const violationCounts: Record<string, number> = {};
-    allEvents.forEach((e: any) => {
+    violationEvents.forEach((e: any) => {
       const type = e.event_type || "unknown";
       violationCounts[type] = (violationCounts[type] || 0) + 1;
     });
@@ -1428,8 +1436,8 @@ export const getProctoringAnalytics = async (req: Request, res: Response) => {
       student_name: s.student
         ? `${s.student.first_name} ${s.student.last_name}`
         : `Student #${s.student_id}`,
-      risk_score: s.risk_score || 0,
-      violations: (s.events || []).length,
+      risk_score: toNum(s.risk_score),
+      violations: (s.events || []).filter((e: any) => !LIFECYCLE_EVENTS.has(e.event_type)).length,
       status: s.status,
       start_time: s.start_time ? s.start_time.toISOString() : null,
     }));
