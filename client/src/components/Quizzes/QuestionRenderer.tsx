@@ -44,7 +44,25 @@ export const QuestionRenderer: React.FC<QuestionRendererProps> = (props) => {
         "Failed to parse question_data for question ID:",
         originalQuestion.id,
       );
-      questionData = {}; // Fallback to empty object
+      questionData = {};
+    }
+  } else if (
+    questionData &&
+    typeof questionData === "object" &&
+    !Array.isArray(questionData) &&
+    "0" in questionData
+  ) {
+    // Handle character-indexed object — a JSON string that was incorrectly
+    // spread character-by-character (e.g. {"0":"{","1":"\"","2":"o",...})
+    try {
+      const str = Object.values(questionData as Record<string, string>).join("");
+      questionData = JSON.parse(str);
+    } catch (error) {
+      console.error(
+        "Failed to reconstruct question_data for question ID:",
+        originalQuestion.id,
+      );
+      questionData = {};
     }
   }
 

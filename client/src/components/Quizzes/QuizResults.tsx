@@ -108,8 +108,13 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
     );
   }
 
-  const isManualGrading = !!quizResults.grading_settings?.require_manual_grading;
+  const isManualGrading =
+    !!quizResults.grading_settings?.require_manual_grading ||
+    quizResults.grade_status === "pending";
   const isPendingManualGrade = isManualGrading && quizResults.grade_status === "pending";
+
+  // API may return results as either "results" or "attempts"
+  const attempts: any[] = quizResults.results || quizResults.attempts || [];
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
@@ -299,15 +304,13 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-400">
                   <span className="w-2 h-2 rounded-full bg-current"></span>
-                  {quizResults.attempts?.filter((a: any) => a.is_correct)
-                    .length || 0}{" "}
+                  {attempts.filter((a: any) => a.is_correct).length}{" "}
                   Correct
                 </span>
                 <span className="text-gray-300 dark:text-gray-700">|</span>
                 <span className="flex items-center gap-1.5 text-sm font-medium text-red-600 dark:text-red-400">
                   <span className="w-2 h-2 rounded-full bg-current"></span>
-                  {quizResults.attempts?.filter((a: any) => !a.is_correct)
-                    .length || 0}{" "}
+                  {attempts.filter((a: any) => !a.is_correct).length}{" "}
                   Incorrect
                 </span>
               </div>
@@ -315,7 +318,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
           </div>
 
           <div className="space-y-4">
-            {(quizResults.attempts || []).map((attempt: any, index: number) => (
+            {attempts.map((attempt: any, index: number) => (
               <div
                 key={attempt.question_id}
                 className="bg-white rounded-xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-md transition-all duration-200"

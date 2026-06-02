@@ -1287,15 +1287,25 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
 
     const results = attempts.map((attempt) => {
       const rawQuestionData = attempt.attemptQuestion?.questionBank?.question_data as any;
+      // Parse question_data if stored as a JSON string in the database
+      let parsedQuestionData: any = rawQuestionData;
+      if (typeof rawQuestionData === "string") {
+        try {
+          parsedQuestionData = JSON.parse(rawQuestionData);
+        } catch {
+          parsedQuestionData = {};
+        }
+      }
+
       // Always return question_data so the "Your Answer" panel can render options,
       // but strip correct-answer fields when show_correct_answers is false.
       let questionData: any = null;
-      if (rawQuestionData) {
+      if (parsedQuestionData) {
         if (showCorrectAnswers) {
-          questionData = rawQuestionData;
+          questionData = parsedQuestionData;
         } else {
           // Return a copy without fields that reveal the correct answer
-          const { correct_option_index, correct_option_indices, correct_answer: _ca, correct_matches, ...safe } = rawQuestionData;
+          const { correct_option_index, correct_option_indices, correct_answer: _ca, correct_matches, ...safe } = parsedQuestionData;
           questionData = safe;
         }
       }

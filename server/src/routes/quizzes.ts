@@ -36,6 +36,7 @@ import {
   getQuizAttemptStatus,
   getStudentQuizHistory,
   submitAllAnswers,
+  getSubmissionResults,
 } from "../controllers/attempt.controller";
 import {
   getPendingSubmissions,
@@ -156,6 +157,11 @@ router.get(
   "/attempts/:submissionId",
   authorize("student"),
   getQuizAttemptStatus,
+);
+router.get(
+  "/attempts/:submissionId/results",
+  authorize("student"),
+  getSubmissionResults,
 );
 
 // Question answering routes
