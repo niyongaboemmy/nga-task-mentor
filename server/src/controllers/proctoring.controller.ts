@@ -1351,3 +1351,113 @@ export const endProctoringSession = async (req: Request, res: Response) => {
     });
   }
 };
+
+// @desc    Get proctoring analytics for a quiz
+// @route   GET /api/proctoring/quizzes/:quizId/analytics
+// @access  Private (instructor, admin)
+export const getProctoringAnalytics = async (req: Request, res: Response) => {
+  try {
+    const { quizId } = req.params;
+    const { timeRange = "all" } = req.query as { timeRange?: string };
+
+    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only instructors and admins can view proctoring analytics",
+      });
+    }
+
+    // Build date filter based on timeRange
+    const dateFilter: any = {};
+    if (timeRange === "week") {
+      dateFilter.start_time = { [Op.gte]: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000) };
+    } else if (timeRange === "month") {
+      dateFilter.start_time = { [Op.gte]: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) };
+    }
+
+    let sessions: any[] = [];
+    try {
+      sessions = await ProctoringSession.findAll({
+        where: { quiz_id: quizId, ...dateFilter },
+        include: [
+          { model: ProctoringEvent, as: "events", attributes: ["event_type", "severity"] },
+          { model: User, as: "student", attributes: ["id", "first_name", "last_name"] },
+        ],
+      });
+    } catch (e) {
+      console.error("getProctoringAnalytics: error fetching sessions:", e);
+      return res.status(200).json({ success: true, data: emptyAnalytics() });
+    }
+
+    const totalSessions = sessions.length;
+    const flaggedSessions = sessions.filter((s) => s.status === "flagged" || s.flags_count > 0).length;
+    const averageRiskScore =
+      totalSessions > 0
+        ? Math.round(sessions.reduce((sum, s) => sum + (s.risk_score || 0), 0) / totalSessions)
+        : 0;
+
+    // Aggregate all events
+    const allEvents = sessions.flatMap((s: any) => s.events || []);
+    const totalViolations = allEvents.length;
+
+    // Risk distribution by status/score
+    const riskDistribution = {
+      low: sessions.filter((s) => s.risk_score < 25).length,
+      medium: sessions.filter((s) => s.risk_score >= 25 && s.risk_score < 50).length,
+      high: sessions.filter((s) => s.risk_score >= 50 && s.risk_score < 75).length,
+      critical: sessions.filter((s) => s.risk_score >= 75).length,
+    };
+
+    // Common violation types
+    const violationCounts: Record<string, number> = {};
+    allEvents.forEach((e: any) => {
+      const type = e.event_type || "unknown";
+      violationCounts[type] = (violationCounts[type] || 0) + 1;
+    });
+    const commonViolations = Object.entries(violationCounts)
+      .map(([type, count]) => ({
+        type,
+        count,
+        percentage: totalViolations > 0 ? Math.round((count / totalViolations) * 100) : 0,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 10);
+
+    // Per-session detail
+    const sessionDetails = sessions.map((s: any) => ({
+      student_name: s.student
+        ? `${s.student.first_name} ${s.student.last_name}`
+        : `Student #${s.student_id}`,
+      risk_score: s.risk_score || 0,
+      violations: (s.events || []).length,
+      status: s.status,
+      start_time: s.start_time ? s.start_time.toISOString() : null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        totalSessions,
+        averageRiskScore,
+        totalViolations,
+        flaggedSessions,
+        riskDistribution,
+        commonViolations,
+        sessionDetails,
+      },
+    });
+  } catch (error) {
+    console.error("getProctoringAnalytics unexpected error:", error);
+    return res.status(200).json({ success: true, data: emptyAnalytics() });
+  }
+};
+
+const emptyAnalytics = () => ({
+  totalSessions: 0,
+  averageRiskScore: 0,
+  totalViolations: 0,
+  flaggedSessions: 0,
+  riskDistribution: { low: 0, medium: 0, high: 0, critical: 0 },
+  commonViolations: [],
+  sessionDetails: [],
+});

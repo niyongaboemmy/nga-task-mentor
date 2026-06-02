@@ -14,6 +14,7 @@ import {
   getActiveStreams,
   endProctoringSession,
   getSessionEvents,
+  getProctoringAnalytics,
 } from "../controllers/proctoring.controller";
 import { protect } from "../middleware/auth";
 
@@ -39,6 +40,9 @@ router.post("/events", logProctoringEvent);
 
 // Instructor warning event logging (message is NOT stored)
 router.post("/warning-events", logWarningEvent);
+
+// Proctoring analytics
+router.get("/quizzes/:quizId/analytics", getProctoringAnalytics);
 
 // Proctoring session management (instructors/admins)
 router.get("/quizzes/:quizId/proctoring/sessions", getProctoringSessions);
