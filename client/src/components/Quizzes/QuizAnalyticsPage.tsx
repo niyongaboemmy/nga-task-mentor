@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { QuizApiService } from "../../services/quizApi";
+import type { QuizAnalytics } from "../../types/quiz.types";
 import {
   BarChart3,
   TrendingUp,
@@ -12,38 +13,7 @@ import {
   Award,
   AlertTriangle,
   CheckCircle,
-  XCircle,
 } from "lucide-react";
-
-interface QuizAnalytics {
-  totalAttempts: number;
-  averageScore: number;
-  completionRate: number;
-  averageTime: number;
-  questionStats: {
-    questionId: number;
-    questionText: string;
-    correctRate: number;
-    averageTime: number;
-    attempts: number;
-  }[];
-  scoreDistribution: {
-    range: string;
-    count: number;
-  }[];
-  timeDistribution: {
-    range: string;
-    count: number;
-  }[];
-  recentAttempts: {
-    id: number;
-    studentName: string;
-    score: number;
-    timeSpent: number;
-    completedAt: string;
-    status: "completed" | "incomplete";
-  }[];
-}
 
 interface QuizAnalyticsPageProps {}
 
@@ -183,7 +153,7 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
                       Total Attempts
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {analytics.totalAttempts}
+                      {analytics.total_submissions}
                     </p>
                   </div>
                 </div>
@@ -199,7 +169,7 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
                       Average Score
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {analytics.averageScore.toFixed(1)}%
+                      {analytics.average_score.toFixed(1)}%
                     </p>
                   </div>
                 </div>
@@ -215,7 +185,7 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
                       Completion Rate
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {analytics.completionRate.toFixed(1)}%
+                      {analytics.pass_rate.toFixed(1)}%
                     </p>
                   </div>
                 </div>
@@ -231,7 +201,14 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
                       Average Time
                     </p>
                     <p className="text-2xl font-bold text-gray-900">
-                      {formatTime(analytics.averageTime)}
+                      {formatTime(
+                        analytics.student_analytics.length > 0
+                          ? Math.round(
+                              analytics.student_analytics.reduce((s, a) => s + (a.total_time / a.attempts), 0) /
+                              analytics.student_analytics.length,
+                            )
+                          : 0,
+                      )}
                     </p>
                   </div>
                 </div>
@@ -246,31 +223,36 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {analytics.scoreDistribution.map((range, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center justify-between"
-                  >
-                    <span className="text-sm font-medium">{range.range}</span>
-                    <div className="flex items-center gap-2">
-                      <div className="w-32 bg-gray-200 rounded-full h-2">
-                        <div
-                          className="bg-blue-600 h-2 rounded-full"
-                          style={{
-                            width: `${
-                              analytics.totalAttempts > 0
-                                ? (range.count / analytics.totalAttempts) * 100
-                                : 0
-                            }%`,
-                          }}
-                        ></div>
+                {[
+                  { range: "90–100%", min: 90, max: 100 },
+                  { range: "75–89%", min: 75, max: 89 },
+                  { range: "60–74%", min: 60, max: 74 },
+                  { range: "Below 60%", min: 0, max: 59 },
+                ].map(({ range, min, max }) => {
+                  const count = analytics.student_analytics.filter(
+                    (a) => a.best_score >= min && a.best_score <= max,
+                  ).length;
+                  return (
+                    <div key={range} className="flex items-center justify-between">
+                      <span className="text-sm font-medium">{range}</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-32 bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full"
+                            style={{
+                              width: `${
+                                analytics.total_submissions > 0
+                                  ? (count / analytics.total_submissions) * 100
+                                  : 0
+                              }%`,
+                            }}
+                          />
+                        </div>
+                        <span className="text-sm text-gray-600 w-8">{count}</span>
                       </div>
-                      <span className="text-sm text-gray-600 w-8">
-                        {range.count}
-                      </span>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -282,36 +264,31 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {analytics.questionStats.map((question) => (
+                {analytics.question_analytics.map((question) => (
                   <div
-                    key={question.questionId}
+                    key={question.question_id}
                     className="border border-gray-200 rounded-lg p-4"
                   >
                     <div className="flex justify-between items-start mb-2">
                       <h3 className="text-sm font-medium text-gray-900 line-clamp-2">
-                        {question.questionText}
+                        {question.question_text}
                       </h3>
                       <div className="flex items-center gap-4 text-sm">
                         <span className="text-gray-600">
-                          {question.attempts} attempts
+                          {question.total_attempts} attempts
                         </span>
                         <span
-                          className={`font-medium ${getScoreColor(
-                            question.correctRate * 100,
-                          )}`}
+                          className={`font-medium ${getScoreColor(question.correct_rate)}`}
                         >
-                          {Math.round(question.correctRate * 100)}% correct
+                          {Math.round(question.correct_rate)}% correct
                         </span>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span>Avg. time: {formatTime(question.averageTime)}</span>
                     </div>
                     <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
                       <div
                         className="bg-green-600 h-2 rounded-full"
-                        style={{ width: `${question.correctRate * 100}%` }}
-                      ></div>
+                        style={{ width: `${question.correct_rate}%` }}
+                      />
                     </div>
                   </div>
                 ))}
@@ -326,45 +303,39 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-3">
-                {analytics.recentAttempts.map((attempt) => (
+                {analytics.student_analytics.map((student) => (
                   <div
-                    key={attempt.id}
+                    key={student.student_id}
                     className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
                         <span className="text-sm font-medium text-blue-600">
-                          {attempt.studentName.charAt(0).toUpperCase()}
+                          {(student.student_name || student.student_email || "?").charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
                         <p className="text-sm font-medium text-gray-900">
-                          {attempt.studentName}
+                          {student.student_name || student.student_email}
                         </p>
                         <p className="text-xs text-gray-600">
-                          {new Date(attempt.completedAt).toLocaleDateString()}
+                          {student.last_attempt
+                            ? new Date(student.last_attempt).toLocaleDateString()
+                            : "—"}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <div className="text-right">
-                        <p
-                          className={`text-sm font-medium ${getScoreColor(
-                            attempt.score,
-                          )}`}
-                        >
-                          {attempt.score}%
+                        <p className={`text-sm font-medium ${getScoreColor(student.best_score)}`}>
+                          {student.best_score.toFixed(1)}%
                         </p>
                         <p className="text-xs text-gray-600">
-                          {formatTime(attempt.timeSpent)}
+                          {formatTime(Math.round(student.total_time / student.attempts))}
                         </p>
                       </div>
                       <div className="flex items-center">
-                        {attempt.status === "completed" ? (
-                          <CheckCircle className="w-5 h-5 text-green-600" />
-                        ) : (
-                          <XCircle className="w-5 h-5 text-red-600" />
-                        )}
+                        <CheckCircle className="w-5 h-5 text-green-600" />
                       </div>
                     </div>
                   </div>

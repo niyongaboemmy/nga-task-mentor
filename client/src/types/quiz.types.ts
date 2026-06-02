@@ -530,15 +530,35 @@ export interface GradingResult {
 
 // Analytics interfaces
 export interface QuizAnalytics {
+  quiz_id: number;
+  quiz_title: string;
   total_submissions: number;
   average_score: number;
-  average_time: number;
+  highest_score: number;
+  lowest_score: number;
   pass_rate: number;
-  question_difficulty: Array<{
+  question_analytics: Array<{
     question_id: number;
-    difficulty_score: number;
+    question_text: string;
+    total_attempts: number;
+    correct_attempts: number;
+    average_points: number;
+    total_points_earned: number;
     correct_rate: number;
+    difficulty_score: number;
   }>;
+  student_analytics: Array<{
+    student_id: number;
+    student_name: string | null;
+    student_email: string;
+    attempts: number;
+    total_score: number;
+    best_score: number;
+    total_time: number;
+    last_attempt: string | null;
+    average_score: number;
+  }>;
+  generated_at: string;
 }
 
 export interface StudentPerformance {
