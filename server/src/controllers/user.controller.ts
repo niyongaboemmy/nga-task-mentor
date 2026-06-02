@@ -4,7 +4,7 @@ import axios from "axios";
 import path from "path";
 import fs from "fs";
 import { getMisToken, handleMisError } from "../utils/misUtils";
-import { Submission, Assignment, QuizSubmission, Quiz } from "../models";
+import { Submission, Assignment, QuizSubmission, Quiz, User } from "../models";
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -472,11 +472,18 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
       });
     }
 
+    // Resolve the MIS student ID from the local user record
+    const user = await User.findByPk(Number(userId));
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    const misStudentId = user.mis_user_id ?? userId;
+
     // Fetch enrolled subjects from MIS — treat any failure as empty enrollment
     let enrolledSubjects: any[] = [];
     try {
       const misResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
+        `${process.env.NGA_MIS_BASE_URL}/academics/students/${misStudentId}/enrolled-subjects`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -572,9 +579,16 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
       });
     }
 
+    // Resolve the MIS student ID from the local user record
+    const user = await User.findByPk(Number(userId));
+    if (!user) {
+      return res.status(404).json({ success: false, message: "User not found" });
+    }
+    const misStudentId = user.mis_user_id ?? userId;
+
     // Fetch user's enrolled subjects from MIS API
     const misResponse = await axios.get(
-      `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
+      `${process.env.NGA_MIS_BASE_URL}/academics/students/${misStudentId}/enrolled-subjects`,
       {
         headers: {
           Authorization: `Bearer ${token}`,
@@ -588,7 +602,11 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
       : [];
     const courseIds = enrolledSubjects
       .map((s: any) => Number(s.subject_id))
-      .filter((id: number) => !isNaN(id));
+      .filter((id: number) => !isNaN(id) && id > 0);
+
+    if (courseIds.length === 0) {
+      return res.status(200).json({ success: true, count: 0, data: [] });
+    }
 
     // Fetch all quizzes for these courses and include student's submission if it exists
     const quizzes = await Quiz.findAll({
