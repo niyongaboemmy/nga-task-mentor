@@ -517,7 +517,7 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
       include: [
         {
           model: Submission,
-          as: "assignmentSubmissions",
+          as: "submissions",
           where: { student_id: Number(userId) },
           required: false,
         },
@@ -548,7 +548,7 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Get student assignments error:", error.message);
-    return res.status(200).json({ success: true, count: 0, data: [] });
+    return res.status(500).json({ success: false, message: "Server error" });
   }
 };
 

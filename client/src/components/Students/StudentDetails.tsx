@@ -32,7 +32,7 @@ interface StudentAssignment {
   course_id: number;
   max_score: number;
   due_date: string;
-  assignmentSubmissions: AssignmentSubmission[];
+  submissions: AssignmentSubmission[];
   subject: {
     subject_name: string;
     subject_code: string;
@@ -537,7 +537,7 @@ const StudentDetails: React.FC = () => {
                       <p className="text-3xl font-bold text-green-600 dark:text-green-400">
                         {
                           assignments.filter(
-                            (a) => a.assignmentSubmissions?.[0],
+                            (a) => a.submissions?.[0],
                           ).length
                         }
                         /{assignments.length}
@@ -602,12 +602,12 @@ const StudentDetails: React.FC = () => {
                       <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">
                         {(() => {
                           const gradedAssignments = assignments.filter(
-                            (a) => a.assignmentSubmissions?.[0]?.grade,
+                            (a) => a.submissions?.[0]?.grade,
                           );
                           if (gradedAssignments.length === 0) return "N/A";
                           const total = gradedAssignments.reduce((sum, a) => {
                             const grade = parseFloat(
-                              a.assignmentSubmissions[0].grade!,
+                              a.submissions[0].grade!,
                             );
                             return sum + (grade / a.max_score) * 100;
                           }, 0);
@@ -635,7 +635,7 @@ const StudentDetails: React.FC = () => {
                       (q) => q.course_id.toString() === course.subject_id,
                     );
                     const submittedAssignments = courseAssignments.filter(
-                      (a) => a.assignmentSubmissions?.[0],
+                      (a) => a.submissions?.[0],
                     );
                     const attemptedQuizzes = courseQuizzes.filter(
                       (q) => q.quizSubmissions?.[0],
@@ -803,7 +803,7 @@ const StudentDetails: React.FC = () => {
               {assignments.length > 0 ? (
                 <div className="bg-white/60 dark:bg-gray-800/20 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
                   {assignments.map((assignment, index) => {
-                    const submission = assignment.assignmentSubmissions?.[0];
+                    const submission = assignment.submissions?.[0];
                     return (
                       <div
                         key={index + 1}
