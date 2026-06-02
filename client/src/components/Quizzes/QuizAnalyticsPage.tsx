@@ -88,10 +88,10 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto py-8 px-4">
+    <div className="max-w-7xl mx-auto py-5 px-4">
       {/* Header */}
-      <div className="mb-8">
-        <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-4">
+      <div className="mb-5">
+        <nav className="flex items-center space-x-2 text-xs text-gray-600 mb-3">
           <button
             onClick={() => navigate(`/quizzes/${quizId}`)}
             className="hover:text-blue-600"
@@ -103,10 +103,10 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
         </nav>
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-xl font-bold text-gray-900 mb-1">
               Quiz Analytics
             </h1>
-            <p className="text-gray-600">
+            <p className="text-sm text-gray-600">
               Performance insights for "{quiz.title}"
             </p>
           </div>
@@ -114,7 +114,7 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
             <select
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value as any)}
-              className="px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Time</option>
               <option value="month">Last Month</option>
@@ -131,28 +131,28 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
       </div>
 
       {!analytics ? (
-        <div className="text-center py-12">
-          <BarChart3 className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">
+        <div className="text-center py-8">
+          <BarChart3 className="w-10 h-10 text-gray-400 mx-auto mb-3" />
+          <h3 className="text-base font-medium text-gray-900 mb-1">
             No Analytics Data
           </h3>
-          <p className="text-gray-600">
+          <p className="text-sm text-gray-600">
             Analytics will be available once students start taking this quiz.
           </p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {/* Key Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                 <div className="flex items-center">
-                  <Users className="w-8 h-8 text-blue-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
+                  <Users className="w-6 h-6 text-blue-600 shrink-0" />
+                  <div className="ml-3">
+                    <p className="text-xs font-medium text-gray-600">
                       Total Attempts
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-lg font-bold text-gray-900">
                       {analytics.total_submissions}
                     </p>
                   </div>
@@ -161,14 +161,14 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
             </Card>
 
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                 <div className="flex items-center">
-                  <Target className="w-8 h-8 text-green-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
+                  <Target className="w-6 h-6 text-green-600 shrink-0" />
+                  <div className="ml-3">
+                    <p className="text-xs font-medium text-gray-600">
                       Average Score
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-lg font-bold text-gray-900">
                       {analytics.average_score.toFixed(1)}%
                     </p>
                   </div>
@@ -177,14 +177,14 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
             </Card>
 
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                 <div className="flex items-center">
-                  <CheckCircle className="w-8 h-8 text-purple-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
+                  <CheckCircle className="w-6 h-6 text-purple-600 shrink-0" />
+                  <div className="ml-3">
+                    <p className="text-xs font-medium text-gray-600">
                       Completion Rate
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-lg font-bold text-gray-900">
                       {analytics.pass_rate.toFixed(1)}%
                     </p>
                   </div>
@@ -193,14 +193,14 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
             </Card>
 
             <Card>
-              <CardContent className="p-6">
+              <CardContent className="p-4">
                 <div className="flex items-center">
-                  <Clock className="w-8 h-8 text-orange-600" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
+                  <Clock className="w-6 h-6 text-orange-600 shrink-0" />
+                  <div className="ml-3">
+                    <p className="text-xs font-medium text-gray-600">
                       Average Time
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-lg font-bold text-gray-900">
                       {formatTime(
                         analytics.student_analytics.length > 0
                           ? Math.round(
@@ -219,10 +219,10 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
           {/* Score Distribution */}
           <Card>
             <CardHeader>
-              <h2 className="text-xl font-semibold">Score Distribution</h2>
+              <h2 className="text-base font-semibold">Score Distribution</h2>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {[
                   { range: "90–100%", min: 90, max: 100 },
                   { range: "75–89%", min: 75, max: 89 },
@@ -234,11 +234,11 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
                   ).length;
                   return (
                     <div key={range} className="flex items-center justify-between">
-                      <span className="text-sm font-medium">{range}</span>
-                      <div className="flex items-center gap-2">
-                        <div className="w-32 bg-gray-200 rounded-full h-2">
+                      <span className="text-xs font-medium w-20 shrink-0">{range}</span>
+                      <div className="flex items-center gap-2 flex-1">
+                        <div className="flex-1 bg-gray-200 rounded-full h-1.5">
                           <div
-                            className="bg-blue-600 h-2 rounded-full"
+                            className="bg-blue-600 h-1.5 rounded-full"
                             style={{
                               width: `${
                                 analytics.total_submissions > 0
@@ -248,7 +248,7 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
                             }}
                           />
                         </div>
-                        <span className="text-sm text-gray-600 w-8">{count}</span>
+                        <span className="text-xs text-gray-600 w-6 text-right">{count}</span>
                       </div>
                     </div>
                   );
@@ -260,20 +260,20 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
           {/* Question Performance */}
           <Card>
             <CardHeader>
-              <h2 className="text-xl font-semibold">Question Performance</h2>
+              <h2 className="text-base font-semibold">Question Performance</h2>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div className="space-y-2">
                 {analytics.question_analytics.map((question) => (
                   <div
                     key={question.question_id}
-                    className="border border-gray-200 rounded-lg p-4"
+                    className="border border-gray-200 rounded-lg p-3"
                   >
-                    <div className="flex justify-between items-start mb-2">
-                      <h3 className="text-sm font-medium text-gray-900 line-clamp-2">
+                    <div className="flex justify-between items-start mb-1.5">
+                      <h3 className="text-xs font-medium text-gray-900 line-clamp-2 flex-1 mr-4">
                         {question.question_text}
                       </h3>
-                      <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-3 text-xs shrink-0">
                         <span className="text-gray-600">
                           {question.total_attempts} attempts
                         </span>
@@ -284,9 +284,9 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
                         </span>
                       </div>
                     </div>
-                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                    <div className="w-full bg-gray-200 rounded-full h-1.5">
                       <div
-                        className="bg-green-600 h-2 rounded-full"
+                        className="bg-green-600 h-1.5 rounded-full"
                         style={{ width: `${question.correct_rate}%` }}
                       />
                     </div>
@@ -299,44 +299,42 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
           {/* Recent Attempts */}
           <Card>
             <CardHeader>
-              <h2 className="text-xl font-semibold">Recent Attempts</h2>
+              <h2 className="text-base font-semibold">Recent Attempts</h2>
             </CardHeader>
             <CardContent>
-              <div className="space-y-3">
+              <div className="space-y-2">
                 {analytics.student_analytics.map((student) => (
                   <div
                     key={student.student_id}
-                    className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                    className="flex items-center justify-between p-2.5 bg-gray-50 rounded-lg"
                   >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                        <span className="text-sm font-medium text-blue-600">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 bg-blue-100 rounded-full flex items-center justify-center shrink-0">
+                        <span className="text-xs font-medium text-blue-600">
                           {(student.student_name || student.student_email || "?").charAt(0).toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">
+                        <p className="text-xs font-medium text-gray-900">
                           {student.student_name || student.student_email}
                         </p>
-                        <p className="text-xs text-gray-600">
+                        <p className="text-xs text-gray-500">
                           {student.last_attempt
                             ? new Date(student.last_attempt).toLocaleDateString()
                             : "—"}
                         </p>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <p className={`text-sm font-medium ${getScoreColor(student.best_score)}`}>
+                        <p className={`text-xs font-medium ${getScoreColor(student.best_score)}`}>
                           {student.best_score.toFixed(1)}%
                         </p>
-                        <p className="text-xs text-gray-600">
+                        <p className="text-xs text-gray-500">
                           {formatTime(Math.round(student.total_time / student.attempts))}
                         </p>
                       </div>
-                      <div className="flex items-center">
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                      </div>
+                      <CheckCircle className="w-4 h-4 text-green-600 shrink-0" />
                     </div>
                   </div>
                 ))}

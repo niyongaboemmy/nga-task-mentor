@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer base {
+  html {
+    font-size: 14px; /* scale down all rem-based Tailwind utilities globally */
+  }
+}
+
 /* Make assignment description HTML content theme-aware */
 .assignment-description * {
   color: inherit !important;
