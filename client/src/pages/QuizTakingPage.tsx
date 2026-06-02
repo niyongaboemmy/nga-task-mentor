@@ -1708,6 +1708,11 @@ const QuizTakingPage: React.FC = () => {
   const handlePerQuestionTimeout = useCallback(() => {
     if (!currentQuestion) return;
 
+    // Nullify immediately so the timer useEffect does not re-fire this callback
+    // while state updates from setLockedQuestionIndices/setCurrentQuestionIndex
+    // are still propagating, which was causing infinite save+submit loops.
+    setPerQuestionTimeLeft(null);
+
     const currentAnswer = answers.find(
       (a) => a.question_id === currentQuestion.id,
     )?.answer;
@@ -1722,14 +1727,15 @@ const QuizTakingPage: React.FC = () => {
     if (currentQuestionIndex < totalQuestions - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
-      submitQuiz();
+      // Use the stable ref so we always call the latest submitQuiz closure
+      // and avoid a double-submit if the callback dep list is stale.
+      submitQuizRef.current();
     }
   }, [
     currentQuestion,
     currentQuestionIndex,
     totalQuestions,
     answers,
-    submitQuiz,
     updateAnswer,
   ]);
 
