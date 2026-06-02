@@ -3,6 +3,10 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
+      maxWidth: {
+        "8xl": "1440px",
+        "9xl": "1600px",
+      },
       keyframes: {
         fadeInUp: {
           "0%": { opacity: "0", transform: "translateY(20px)" },

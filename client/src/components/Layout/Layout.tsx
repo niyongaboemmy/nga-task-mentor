@@ -147,7 +147,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         role="navigation"
         aria-label="Main navigation"
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
               {/* Systems Menu Toggle */}
@@ -534,7 +534,7 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="max-w-7xl mx-auto py-3 md:py-4 px-4 sm:px-6 lg:px-8"
+        className="max-w-8xl mx-auto py-3 md:py-4 px-4 sm:px-6 lg:px-8"
       >
         <div className="">{children}</div>
       </motion.main>
