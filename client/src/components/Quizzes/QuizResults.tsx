@@ -7,6 +7,7 @@ import {
   AlertCircle,
   Home,
   BookOpen,
+  ClipboardList,
 } from "lucide-react";
 import type { RootState, AppDispatch } from "../../store";
 import { fetchQuizResults } from "../../store/slices/quizSlice";
@@ -107,6 +108,9 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
     );
   }
 
+  const isManualGrading = !!quizResults.grading_settings?.require_manual_grading;
+  const isPendingManualGrade = isManualGrading && quizResults.grade_status === "pending";
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       {/* Header - Sleeker & More Professional */}
@@ -115,8 +119,12 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <span className="px-2.5 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 text-xs font-bold rounded-lg tracking-wider uppercase">
-                  {quizResults.passed ? "Passed" : "Completed"}
+                <span className={`px-2.5 py-1 text-xs font-bold rounded-lg tracking-wider uppercase ${
+                  isPendingManualGrade
+                    ? "bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400"
+                    : "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400"
+                }`}>
+                  {isPendingManualGrade ? "Submitted" : quizResults.passed ? "Passed" : "Completed"}
                 </span>
                 <span className="text-gray-400 dark:text-gray-600">•</span>
                 <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
@@ -129,31 +137,47 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
             </div>
 
             <div className="flex items-center gap-4">
-              <div className="text-right">
-                <div
-                  className={`text-3xl font-black ${getScoreColor(quizResults.percentage)}`}
-                >
-                  {Math.round(quizResults.percentage)}%
+              {isPendingManualGrade ? (
+                <div className="flex items-center gap-3 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl">
+                  <ClipboardList className="w-5 h-5 text-amber-600 dark:text-amber-400 shrink-0" />
+                  <div>
+                    <div className="text-sm font-bold text-amber-700 dark:text-amber-400">
+                      Awaiting Manual Grading
+                    </div>
+                    <div className="text-xs text-amber-600 dark:text-amber-500">
+                      Instructor will review your submission
+                    </div>
+                  </div>
                 </div>
-                <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
-                  Overall Score
-                </div>
-              </div>
-              <div
-                className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg shadow-current/10 ${
-                  quizResults.percentage >= 90
-                    ? "bg-green-100 text-green-700 dark:bg-green-900/30"
-                    : quizResults.percentage >= 80
-                      ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30"
-                      : quizResults.percentage >= 70
-                        ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30"
-                        : quizResults.percentage >= 60
-                          ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30"
-                          : "bg-red-100 text-red-700 dark:bg-red-900/30"
-                }`}
-              >
-                {getScoreLetter(quizResults.percentage)}
-              </div>
+              ) : (
+                <>
+                  <div className="text-right">
+                    <div
+                      className={`text-3xl font-black ${getScoreColor(quizResults.percentage)}`}
+                    >
+                      {Math.round(quizResults.percentage)}%
+                    </div>
+                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                      Overall Score
+                    </div>
+                  </div>
+                  <div
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg shadow-current/10 ${
+                      quizResults.percentage >= 90
+                        ? "bg-green-100 text-green-700 dark:bg-green-900/30"
+                        : quizResults.percentage >= 80
+                          ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30"
+                          : quizResults.percentage >= 70
+                            ? "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30"
+                            : quizResults.percentage >= 60
+                              ? "bg-orange-100 text-orange-700 dark:bg-orange-900/30"
+                              : "bg-red-100 text-red-700 dark:bg-red-900/30"
+                    }`}
+                  >
+                    {getScoreLetter(quizResults.percentage)}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -161,32 +185,53 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
 
       {/* Results Summary Cards */}
       <div className="max-w-6xl mx-auto px-6 py-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-4">
-            <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-400">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
-                />
-              </svg>
+
+        {/* Manual grading pending banner */}
+        {isPendingManualGrade && (
+          <div className="flex items-start gap-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700 rounded-xl p-5 mb-6">
+            <div className="w-10 h-10 bg-amber-100 dark:bg-amber-800/40 rounded-full flex items-center justify-center shrink-0">
+              <ClipboardList className="w-5 h-5 text-amber-600 dark:text-amber-400" />
             </div>
             <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Score
-              </div>
-              <div className="text-lg font-bold text-gray-900 dark:text-white">
-                {quizResults.final_score} / {quizResults.max_score}
-              </div>
+              <p className="font-bold text-amber-800 dark:text-amber-300 text-base">
+                Your submission is under manual review
+              </p>
+              <p className="text-sm text-amber-700 dark:text-amber-400 mt-0.5">
+                This quiz is graded manually by your instructor. Your marks and final result will be available once the instructor has reviewed your answers. You will be notified when grading is complete.
+              </p>
             </div>
           </div>
+        )}
+
+        <div className={`grid gap-4 mb-8 ${isPendingManualGrade ? "grid-cols-1 sm:grid-cols-1 lg:grid-cols-1 max-w-sm" : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"}`}>
+          {/* Score card — hidden while pending manual grade */}
+          {!isPendingManualGrade && (
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-4">
+              <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/20 rounded-lg flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z"
+                  />
+                </svg>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Score
+                </div>
+                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                  {quizResults.final_score} / {quizResults.max_score}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-4">
             <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/20 rounded-lg flex items-center justify-center text-amber-600 dark:text-amber-400">
@@ -214,31 +259,34 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-4">
-            <div className="w-10 h-10 bg-purple-50 dark:bg-purple-900/20 rounded-lg flex items-center justify-center text-purple-600 dark:text-purple-400">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                />
-              </svg>
-            </div>
-            <div>
-              <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                Pass Status
+          {/* Pass status — hidden while pending manual grade */}
+          {!isPendingManualGrade && (
+            <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 flex items-center gap-4">
+              <div className="w-10 h-10 bg-purple-50 dark:bg-purple-900/20 rounded-lg flex items-center justify-center text-purple-600 dark:text-purple-400">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                  />
+                </svg>
               </div>
-              <div className="text-lg font-bold text-gray-900 dark:text-white">
-                {quizResults.passed ? "Successful" : "Below Target"}
+              <div>
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Pass Status
+                </div>
+                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                  {quizResults.passed ? "Successful" : "Below Target"}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Question Review */}
@@ -247,21 +295,23 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
             <h2 className="text-xl font-bold text-gray-900 dark:text-white">
               Question Review
             </h2>
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-400">
-                <span className="w-2 h-2 rounded-full bg-current"></span>
-                {quizResults.attempts?.filter((a: any) => a.is_correct)
-                  .length || 0}{" "}
-                Correct
-              </span>
-              <span className="text-gray-300 dark:text-gray-700">|</span>
-              <span className="flex items-center gap-1.5 text-sm font-medium text-red-600 dark:text-red-400">
-                <span className="w-2 h-2 rounded-full bg-current"></span>
-                {quizResults.attempts?.filter((a: any) => !a.is_correct)
-                  .length || 0}{" "}
-                Incorrect
-              </span>
-            </div>
+            {!isPendingManualGrade && (
+              <div className="flex items-center gap-2">
+                <span className="flex items-center gap-1.5 text-sm font-medium text-green-600 dark:text-green-400">
+                  <span className="w-2 h-2 rounded-full bg-current"></span>
+                  {quizResults.attempts?.filter((a: any) => a.is_correct)
+                    .length || 0}{" "}
+                  Correct
+                </span>
+                <span className="text-gray-300 dark:text-gray-700">|</span>
+                <span className="flex items-center gap-1.5 text-sm font-medium text-red-600 dark:text-red-400">
+                  <span className="w-2 h-2 rounded-full bg-current"></span>
+                  {quizResults.attempts?.filter((a: any) => !a.is_correct)
+                    .length || 0}{" "}
+                  Incorrect
+                </span>
+              </div>
+            )}
           </div>
 
           <div className="space-y-4">
@@ -281,37 +331,46 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span
-                      className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-                        attempt.is_correct === true
-                          ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
-                          : attempt.is_correct === false
-                          ? "bg-rose-100 text-rose-700 border border-rose-200"
-                          : "bg-amber-100 text-amber-700 border border-amber-200"
-                      }`}
-                    >
-                      {attempt.is_correct === true ? (
-                        <>
-                          <CheckCircle className="w-3 h-3" />
-                          Correct
-                        </>
-                      ) : attempt.is_correct === false ? (
-                        <>
-                          <XCircle className="w-3 h-3" />
-                          Incorrect
-                        </>
-                      ) : (
-                        <>
-                          <AlertCircle className="w-3 h-3" />
-                          Pending
-                        </>
-                      )}
-                    </span>
-                    <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-md">
-                      {attempt.points_earned != null
-                        ? `${attempt.points_earned} / ${attempt.max_points || 0} pts`
-                        : `— / ${attempt.max_points || 0} pts`}
-                    </span>
+                    {isPendingManualGrade ? (
+                      <span className="px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 bg-amber-100 text-amber-700 border border-amber-200">
+                        <AlertCircle className="w-3 h-3" />
+                        Pending
+                      </span>
+                    ) : (
+                      <>
+                        <span
+                          className={`px-2.5 py-1 rounded-full text-xs font-bold uppercase tracking-wider flex items-center gap-1.5 ${
+                            attempt.is_correct === true
+                              ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                              : attempt.is_correct === false
+                              ? "bg-rose-100 text-rose-700 border border-rose-200"
+                              : "bg-amber-100 text-amber-700 border border-amber-200"
+                          }`}
+                        >
+                          {attempt.is_correct === true ? (
+                            <>
+                              <CheckCircle className="w-3 h-3" />
+                              Correct
+                            </>
+                          ) : attempt.is_correct === false ? (
+                            <>
+                              <XCircle className="w-3 h-3" />
+                              Incorrect
+                            </>
+                          ) : (
+                            <>
+                              <AlertCircle className="w-3 h-3" />
+                              Pending
+                            </>
+                          )}
+                        </span>
+                        <span className="text-sm font-bold text-gray-900 bg-gray-100 px-2 py-1 rounded-md">
+                          {attempt.points_earned != null
+                            ? `${attempt.points_earned} / ${attempt.max_points || 0} pts`
+                            : `— / ${attempt.max_points || 0} pts`}
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -332,7 +391,9 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                         </h4>
                         <div
                           className={`p-4 rounded-xl border-2 min-h-[100px] flex items-center justify-center text-center transition-all ${
-                            attempt.is_correct
+                            isPendingManualGrade
+                              ? "bg-gray-50/30 border-gray-200 text-gray-800"
+                              : attempt.is_correct
                               ? "bg-emerald-50/30 border-emerald-100 text-emerald-900"
                               : "bg-rose-50/30 border-rose-100 text-rose-900"
                           }`}
