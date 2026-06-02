@@ -157,7 +157,7 @@ const QuizProctoringContainer: React.FC<QuizProctoringContainerProps> = ({
         socket = io(
           import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
           {
-            transports: ["websocket", "polling"],
+            transports: ["polling", "websocket"],
           },
         );
         socketRef.current = socket;

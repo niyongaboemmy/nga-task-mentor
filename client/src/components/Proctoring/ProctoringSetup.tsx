@@ -382,7 +382,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
       const socket = io(
         import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
         {
-          transports: ["websocket", "polling"],
+          transports: ["polling", "websocket"],
         },
       );
 

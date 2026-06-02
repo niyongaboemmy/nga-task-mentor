@@ -158,7 +158,7 @@ class ProctoringMonitor {
       this.socket = io(
         import.meta.env.VITE_SOCKET_URL || "http://localhost:5003",
         {
-          transports: ["websocket", "polling"],
+          transports: ["polling", "websocket"],
           timeout: 5000,
           reconnection: true,
           reconnectionAttempts: 3,

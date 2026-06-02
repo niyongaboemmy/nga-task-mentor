@@ -1,0 +1,12 @@
+DirectoryIndex disabled
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Proxy WebSocket connections (Socket.IO upgrade)
+  RewriteCond %{HTTP:Upgrade} =websocket [NC]
+  RewriteRule /(.*) ws://127.0.0.1:5003/$1 [P,L]
+
+  # Proxy all other HTTP requests to Node.js
+  RewriteRule /(.*) http://127.0.0.1:5003/$1 [P,L]
+</IfModule>

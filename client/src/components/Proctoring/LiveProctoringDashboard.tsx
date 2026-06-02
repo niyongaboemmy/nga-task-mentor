@@ -225,7 +225,7 @@ const LiveProctoringDashboard: React.FC = () => {
       import.meta.env.VITE_SOCKET_URL || "http://localhost:5003";
 
     socketRef.current = io(socketUrl, {
-      transports: ["websocket", "polling"],
+      transports: ["polling", "websocket"],
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
