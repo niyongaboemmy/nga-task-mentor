@@ -87,8 +87,8 @@ const TYPE_CONFIG: Record<
   },
   Quiz: {
     icon: <HelpCircle className="w-4 h-4" />,
-    bg: "from-teal-500/20 to-green-500/20 dark:from-teal-600/30 dark:to-green-600/30",
-    fg: "text-teal-600 dark:text-teal-400",
+    bg: "from-blue-500/20 to-blue-400/20 dark:from-blue-600/30 dark:to-blue-500/30",
+    fg: "text-blue-600 dark:text-blue-400",
   },
 };
 
@@ -167,65 +167,11 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
             </span>
           )}
 
-          {/* Visibility — who can access this quiz (instructor only) */}
-          {!isStudent && onTogglePublic && (
-            <>
-              <span className="text-gray-300 dark:text-gray-700 select-none">|</span>
-
-              {/* Explicit "Visibility:" label so it's never confused with Status */}
-              <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 select-none">
-                Visibility:
-              </span>
-
-              <button
-                onClick={() => onTogglePublic(quiz.id, quiz.is_public || false)}
-                disabled={isTogglingPublic}
-                aria-label={quiz.is_public ? "Currently public — click to make private" : "Currently private — click to make public"}
-                className="flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
-              >
-                {/* Switch track */}
-                <span
-                  className="relative inline-flex h-4 w-7 flex-shrink-0 items-center rounded-full border transition-colors duration-200 ease-in-out"
-                  style={
-                    quiz.is_public
-                      ? { backgroundColor: "rgb(59 130 246)", borderColor: "rgb(59 130 246)" }
-                      : { backgroundColor: "rgb(209 213 219)", borderColor: "rgb(209 213 219)" }
-                  }
-                >
-                  {isTogglingPublic ? (
-                    <Loader2 className="w-2.5 h-2.5 animate-spin text-white absolute left-1/2 -translate-x-1/2" />
-                  ) : (
-                    <span
-                      className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
-                        quiz.is_public ? "translate-x-[13px]" : "translate-x-[1px]"
-                      }`}
-                    />
-                  )}
-                </span>
-
-                {/* Current state label — clearly describes what IS, not what the action does */}
-                <span className={`text-[11px] font-semibold transition-colors ${
-                  quiz.is_public
-                    ? "text-blue-600 dark:text-blue-400"
-                    : "text-gray-500 dark:text-gray-400"
-                }`}>
-                  {isTogglingPublic ? "Saving…" : quiz.is_public ? "Public" : "Private"}
-                </span>
-
-                {/* Icon for the current state */}
-                {!isTogglingPublic && (
-                  quiz.is_public
-                    ? <Globe className="w-3 h-3 text-blue-500" />
-                    : <Lock className="w-3 h-3 text-gray-400 dark:text-gray-500" />
-                )}
-              </button>
-            </>
-          )}
         </div>
       </div>
 
-      {/* Action buttons — only View and Delete (not Visibility, which is inline above) */}
-      <div className="flex items-center gap-1.5 flex-shrink-0">
+      {/* Right side: visibility toggle + actions */}
+      <div className="flex items-center gap-3 flex-shrink-0">
         {isStudent ? (
           quiz.status === "published" ? (
             <Link
@@ -239,6 +185,55 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
         ) : (
           showActions && (
             <>
+              {/* Visibility toggle — right side, clearly labelled */}
+              {onTogglePublic && (
+                <button
+                  onClick={() => onTogglePublic(quiz.id, quiz.is_public || false)}
+                  disabled={isTogglingPublic}
+                  aria-label={quiz.is_public ? "Currently public — click to make private" : "Currently private — click to make public"}
+                  className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {/* Current state icon */}
+                  {!isTogglingPublic && (
+                    quiz.is_public
+                      ? <Globe className="w-3.5 h-3.5 text-blue-500" />
+                      : <Lock className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                  )}
+
+                  {/* Switch track — larger size */}
+                  <span
+                    className="relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full border transition-colors duration-200 ease-in-out"
+                    style={
+                      quiz.is_public
+                        ? { backgroundColor: "rgb(59 130 246)", borderColor: "rgb(59 130 246)" }
+                        : { backgroundColor: "rgb(209 213 219)", borderColor: "rgb(209 213 219)" }
+                    }
+                  >
+                    {isTogglingPublic ? (
+                      <Loader2 className="w-3 h-3 animate-spin text-white absolute left-1/2 -translate-x-1/2" />
+                    ) : (
+                      <span
+                        className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
+                          quiz.is_public ? "translate-x-[22px]" : "translate-x-[2px]"
+                        }`}
+                      />
+                    )}
+                  </span>
+
+                  {/* State label */}
+                  <span className={`text-xs font-semibold transition-colors w-11 ${
+                    quiz.is_public
+                      ? "text-blue-600 dark:text-blue-400"
+                      : "text-gray-500 dark:text-gray-400"
+                  }`}>
+                    {isTogglingPublic ? "Saving…" : quiz.is_public ? "Public" : "Private"}
+                  </span>
+                </button>
+              )}
+
+              {/* Divider */}
+              {onTogglePublic && <span className="w-px h-6 bg-gray-200 dark:bg-gray-700" />}
+
               <Link
                 to={`/quizzes/${quiz.id}`}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/25 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60 rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105"
