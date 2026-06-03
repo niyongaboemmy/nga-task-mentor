@@ -1142,14 +1142,9 @@ export const getActiveStreams = async (req: Request, res: Response) => {
     }
 
     // Get sessions that are currently active and have proctoring enabled
-    // Include both currently connected and previously connected sessions
     const activeSessions = await ProctoringSession.findAll({
       where: {
         status: "active",
-        // Only show sessions for quizzes created by this instructor (or all for admin)
-        ...(req.user.role !== "admin" && {
-          "$quiz.created_by$": req.user.id,
-        }),
       },
       include: [
         {
