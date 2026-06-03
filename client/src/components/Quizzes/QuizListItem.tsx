@@ -45,7 +45,6 @@ const STATUS_CONFIG: Record<
     label: string;
     dot: string;
     badge: string;
-    bar: string;
     icon: React.ReactNode;
   }
 > = {
@@ -54,7 +53,6 @@ const STATUS_CONFIG: Record<
     dot: "bg-emerald-500",
     badge:
       "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/25 dark:text-emerald-400 dark:ring-emerald-800/60",
-    bar: "bg-gradient-to-b from-emerald-500 to-emerald-400",
     icon: <CheckCircle2 className="w-3 h-3" />,
   },
   draft: {
@@ -62,7 +60,6 @@ const STATUS_CONFIG: Record<
     dot: "bg-amber-500",
     badge:
       "bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/25 dark:text-amber-400 dark:ring-amber-800/60",
-    bar: "bg-gradient-to-b from-amber-500 to-amber-400",
     icon: <FileEdit className="w-3 h-3" />,
   },
   completed: {
@@ -70,7 +67,6 @@ const STATUS_CONFIG: Record<
     dot: "bg-blue-500",
     badge:
       "bg-blue-50 text-blue-700 ring-1 ring-blue-200 dark:bg-blue-900/25 dark:text-blue-400 dark:ring-blue-800/60",
-    bar: "bg-gradient-to-b from-blue-500 to-blue-400",
     icon: <CheckCircle2 className="w-3 h-3" />,
   },
 };
@@ -132,10 +128,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
   };
 
   return (
-    <div className="group relative flex items-stretch gap-0 bg-white dark:bg-gray-900/60 rounded-2xl border border-gray-200/70 dark:border-gray-800/60 hover:border-blue-300 dark:hover:border-blue-700/60 shadow-sm hover:shadow-md hover:shadow-blue-100/40 dark:hover:shadow-blue-900/20 transition-all duration-200 hover:-translate-y-0.5 overflow-hidden animate-in fade-in slide-in-from-bottom-1">
-      {/* Left status accent bar */}
-      <div className={`w-1 flex-shrink-0 rounded-l-2xl ${statusCfg.bar}`} />
-
+    <div className="group relative flex items-center gap-0 bg-white dark:bg-gray-900/60 rounded-2xl border border-gray-200/70 dark:border-gray-800/60 hover:border-blue-300 dark:hover:border-blue-700/60 shadow-sm hover:shadow-md hover:shadow-blue-100/40 dark:hover:shadow-blue-900/20 transition-all duration-200 hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-1">
       {/* Main content */}
       <div className="flex flex-1 items-center gap-4 px-4 py-3 min-w-0">
         {/* Type icon */}
@@ -185,23 +178,6 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
               </span>
             )}
 
-            {/* Visibility indicator (read-only display in meta) */}
-            {!isStudent && (
-              <span
-                className={`flex items-center gap-1 ${
-                  quiz.is_public
-                    ? "text-emerald-600 dark:text-emerald-400"
-                    : "text-gray-400 dark:text-gray-500"
-                }`}
-              >
-                {quiz.is_public ? (
-                  <Globe className="w-3 h-3" />
-                ) : (
-                  <Lock className="w-3 h-3" />
-                )}
-                {quiz.is_public ? "Public" : "Private"}
-              </span>
-            )}
           </div>
         </div>
       </div>
@@ -230,39 +206,42 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
                 View
               </Link>
 
-              {/* Visibility toggle */}
+              {/* Visibility toggle switch */}
               {onTogglePublic && (
                 <button
-                  onClick={() =>
-                    onTogglePublic(quiz.id, quiz.is_public || false)
-                  }
+                  onClick={() => onTogglePublic(quiz.id, quiz.is_public || false)}
                   disabled={isTogglingPublic}
-                  title={
-                    quiz.is_public
-                      ? "Click to make Private"
-                      : "Click to make Public"
-                  }
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all duration-200 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed ${
-                    quiz.is_public
-                      ? "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200/70 dark:bg-emerald-900/25 dark:hover:bg-emerald-900/40 dark:text-emerald-400 dark:border-emerald-800/60"
-                      : "bg-gray-50 hover:bg-gray-100 text-gray-600 border-gray-200/70 dark:bg-gray-800/50 dark:hover:bg-gray-800 dark:text-gray-400 dark:border-gray-700/60"
-                  }`}
+                  className="group/vis flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
+                  aria-label={quiz.is_public ? "Visible to everyone — click to make private" : "Private — click to make public"}
                 >
-                  {isTogglingPublic ? (
-                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  ) : quiz.is_public ? (
-                    <Globe className="w-3.5 h-3.5" />
-                  ) : (
-                    <Lock className="w-3.5 h-3.5" />
-                  )}
-                  <span className="hidden sm:inline">
-                    {isTogglingPublic
-                      ? "Saving…"
-                      : quiz.is_public
-                        ? "Public"
-                        : "Private"}
+                  {/* Labels */}
+                  <span className={`text-[11px] font-medium transition-colors ${!quiz.is_public ? "text-gray-800 dark:text-gray-200" : "text-gray-400 dark:text-gray-600"}`}>
+                    Private
                   </span>
-                  {/* Action hint on hover via tooltip title above */}
+
+                  {/* Switch track */}
+                  <span
+                    className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full border transition-colors duration-200 ease-in-out"
+                    style={
+                      quiz.is_public
+                        ? { backgroundColor: "rgb(16 185 129)", borderColor: "rgb(16 185 129)" }
+                        : { backgroundColor: "rgb(209 213 219)", borderColor: "rgb(209 213 219)" }
+                    }
+                  >
+                    {isTogglingPublic ? (
+                      <Loader2 className="w-3 h-3 animate-spin text-white absolute left-1/2 -translate-x-1/2" />
+                    ) : (
+                      <span
+                        className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
+                          quiz.is_public ? "translate-x-[18px]" : "translate-x-[2px]"
+                        }`}
+                      />
+                    )}
+                  </span>
+
+                  <span className={`text-[11px] font-medium transition-colors ${quiz.is_public ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-gray-600"}`}>
+                    Public
+                  </span>
                 </button>
               )}
 
