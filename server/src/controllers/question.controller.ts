@@ -27,9 +27,8 @@ export const getQuizQuestions = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check if user can access this quiz
-    if (req.user.role !== "admin" && req.user.id !== quiz.created_by) {
-      // Check if student is enrolled in the course via MIS API
+    // Instructors and admins can access any quiz; only students are enrollment-checked
+    if (req.user.role === "student") {
       const token = getMisToken(req);
       const termId = await getCurrentTermId(req);
 
