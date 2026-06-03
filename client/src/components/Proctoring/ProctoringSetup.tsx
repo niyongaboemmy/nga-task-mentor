@@ -499,6 +499,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         }
 
         // Handle remote offer from dashboard (including renegotiation)
+        socket.off("webrtc-offer");
         socket.on("webrtc-offer", async (data: any) => {
           // Debug: Log what data looks like
 
@@ -576,6 +577,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         });
 
         // Handle dashboard reconnection notification
+        socket.off("dashboard-reconnected");
         socket.on("dashboard-reconnected", async (data: any) => {
           if (data.sessionToken === sessionTokenRef.current) {
             // Reset the peer connection to allow dashboard to reconnect
@@ -652,6 +654,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         });
 
         // Handle remote ICE candidates
+        socket.off("webrtc-ice-candidate");
         socket.on("webrtc-ice-candidate", async (data: any) => {
           // Workaround: If sessionToken is undefined, use our local sessionToken
           const effectiveSessionToken = data.sessionToken || sessionToken;
@@ -680,6 +683,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         });
 
         // Handle force audio settings command from dashboard
+        socket.off("force-student-audio");
         socket.on("force-student-audio", async (data: any) => {
           if (data.sessionToken === sessionTokenRef.current) {
             await applySystemAudioSettings(
@@ -690,6 +694,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         });
 
         // Handle warning from dashboard
+        socket.off("send-warning-to-student");
         socket.on("send-warning-to-student", (data: any) => {
           console.log("Student received send-warning-to-student", data);
           if (data.sessionToken === sessionTokenRef.current) {
@@ -708,6 +713,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         });
 
         // Handle pause exam command from dashboard
+        socket.off("pause-student-exam");
         socket.on("pause-student-exam", (data: any) => {
           console.log("Student received pause-student-exam", data);
           if (data.sessionToken === sessionTokenRef.current) {
@@ -721,6 +727,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         });
 
         // Handle resume exam command from dashboard
+        socket.off("resume-student-exam");
         socket.on("resume-student-exam", (data: any) => {
           console.log("Student received resume-student-exam", data);
           if (data.sessionToken === sessionTokenRef.current) {

@@ -604,17 +604,24 @@ const LiveProctoringDashboard: React.FC = () => {
           clearTimeout(pcAny.offerTimeout);
         }
 
-        // Check if peer connection is still valid before creating offer
-        if (
+        const isStale =
           peerConnection.signalingState === "closed" ||
-          peerConnection.connectionState === "closed"
-        ) {
-          console.error(
-            "🚨 Peer connection for",
-            sessionToken,
-            "is closed, cannot create offer",
-          );
+          peerConnection.connectionState === "closed" ||
+          peerConnection.connectionState === "failed" ||
+          peerConnection.connectionState === "disconnected";
+
+        if (isStale) {
+          // Student reconnected with a new peer connection — close the stale one
+          // and kick off a fresh joinStream so all handlers are re-registered
+          peerConnection.close();
           peerConnectionsRef.current.delete(sessionToken);
+          joiningStreamsRef.current.delete(sessionToken);
+          offerInProgressRef.current.delete(sessionToken);
+
+          const stream = activeStreamsRef.current.find(
+            (s) => s.sessionToken === sessionToken,
+          );
+          if (stream) joinStream(stream);
           return;
         }
 
@@ -941,10 +948,24 @@ const LiveProctoringDashboard: React.FC = () => {
 
       // Handle remote stream
       peerConnection.ontrack = (event) => {
+        // Ignore ended tracks — can arrive from a previous dropped connection
+        if (event.track.readyState === "ended") return;
+
         let remoteStream = event.streams[0];
         if (!remoteStream) {
           remoteStream = new MediaStream([event.track]);
         }
+
+        // When a track ends, clear the stale stream so the placeholder shows
+        event.track.onended = () => {
+          setActiveStreams((prev) =>
+            prev.map((s) =>
+              s.sessionToken === stream.sessionToken
+                ? { ...s, stream: undefined }
+                : s,
+            ),
+          );
+        };
 
         // Update the stream in activeStreams
         setActiveStreams((prev) =>
@@ -978,7 +999,6 @@ const LiveProctoringDashboard: React.FC = () => {
 
       // Add connection state handlers
       peerConnection.onconnectionstatechange = () => {
-        // Add status message for connection state
         if (peerConnection.connectionState === "connected") {
           addStatusMessage(
             `Connected to ${stream.student.first_name} ${stream.student.last_name}'s stream`,
@@ -986,12 +1006,16 @@ const LiveProctoringDashboard: React.FC = () => {
           );
         } else if (
           peerConnection.connectionState === "failed" ||
-          peerConnection.connectionState === "disconnected"
+          peerConnection.connectionState === "closed"
         ) {
           addStatusMessage(
             `Connection lost to ${stream.student.first_name} ${stream.student.last_name}`,
             "error",
           );
+          // Remove stale entry so student-webrtc-ready can trigger a fresh joinStream
+          peerConnectionsRef.current.delete(stream.sessionToken);
+          joiningStreamsRef.current.delete(stream.sessionToken);
+          offerInProgressRef.current.delete(stream.sessionToken);
         }
       };
 
@@ -1188,16 +1212,22 @@ const LiveProctoringDashboard: React.FC = () => {
       // Close all existing peer connections
       peerConnectionsRef.current.forEach((pc) => pc.close());
       peerConnectionsRef.current.clear();
+      joiningStreamsRef.current.clear();
+      offerInProgressRef.current.clear();
 
-      // Reconnect to all live streams
-      const liveStreams = getFilteredStreams();
-      for (const stream of liveStreams) {
-        if (stream.isLive) {
-          await joinStream(stream);
-          // Small delay between connections
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
+      // Disconnect and re-initialize socket so all listeners and session state reset
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
       }
+      setSocketConnected(false);
+
+      // Reload streams from API so we get the latest session list
+      await loadActiveStreams();
+
+      // Re-initialize socket — this re-registers all event listeners and
+      // triggers the student-webrtc-ready / stream-started flow automatically
+      initializeSocket();
     } catch (error) {
       console.error("Error reconnecting:", error);
       setError("Failed to reconnect. Please try again.");
@@ -1767,15 +1797,9 @@ const LiveProctoringDashboard: React.FC = () => {
                           ref={(el) => {
                             if (el) {
                               videoRefs.current.set(stream.sessionToken, el);
-                              // Try to assign stream if available
-                              if (
-                                stream.stream &&
-                                el.srcObject !== stream.stream
-                              ) {
+                              if (stream.stream && el.srcObject !== stream.stream) {
                                 el.srcObject = stream.stream;
-                                el.play().catch((e) =>
-                                  console.error("Play error:", e),
-                                );
+                                // autoPlay handles playback; no explicit play() needed
                               }
                             } else {
                               videoRefs.current.delete(stream.sessionToken);

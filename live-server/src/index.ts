@@ -511,26 +511,11 @@ io.on("connection", (socket: Socket) => {
 
     const room = "proctoring-" + data.sessionToken;
     socket.to(room).emit("webrtc-offer", emitData);
-    io.emit("webrtc-offer", emitData);
-
-    console.log(
-      "🔧 SERVER: Forwarded WebRTC offer to room AND broadcasted:",
-      room,
-    );
   });
 
   socket.on("webrtc-answer", (data: any) => {
-    console.log("Received WebRTC answer:", data);
-
     if (!data.sessionToken) {
-      console.error(
-        "⚠️ WARNING: webrtc-answer without sessionToken, broadcasting globally",
-      );
-      io.emit("webrtc-answer", {
-        answer: data.answer,
-        from: socket.id,
-        sessionToken: null,
-      });
+      console.error("⚠️ webrtc-answer received without sessionToken — dropped");
       return;
     }
 
@@ -540,28 +525,13 @@ io.on("connection", (socket: Socket) => {
       from: socket.id,
       sessionToken: data.sessionToken,
     });
-
-    io.emit("webrtc-answer", {
-      answer: data.answer,
-      from: socket.id,
-      sessionToken: data.sessionToken,
-    });
-
-    console.log("Forwarded WebRTC answer to room and broadcasted:", room);
   });
 
   socket.on("webrtc-ice-candidate", (data: any) => {
     console.log("Received WebRTC ICE candidate:", data);
 
     if (!data.sessionToken) {
-      console.error(
-        "⚠️ WARNING: ICE candidate received WITHOUT sessionToken! Broadcasting to all clients as fallback.",
-      );
-      io.emit("webrtc-ice-candidate", {
-        candidate: data.candidate,
-        from: socket.id,
-        sessionToken: null,
-      });
+      console.error("⚠️ ICE candidate received WITHOUT sessionToken — dropped");
       return;
     }
 
