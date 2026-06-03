@@ -41,12 +41,7 @@ interface QuizListItemProps {
 
 const STATUS_CONFIG: Record<
   string,
-  {
-    label: string;
-    dot: string;
-    badge: string;
-    icon: React.ReactNode;
-  }
+  { label: string; dot: string; badge: string; icon: React.ReactNode }
 > = {
   published: {
     label: "Published",
@@ -109,10 +104,8 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
   const isStudent = user?.role === "student";
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const statusCfg =
-    STATUS_CONFIG[quiz.status] ?? STATUS_CONFIG["draft"];
-  const typeCfg =
-    TYPE_CONFIG[quiz.type] ?? TYPE_CONFIG["Quiz"];
+  const statusCfg = STATUS_CONFIG[quiz.status] ?? STATUS_CONFIG["draft"];
+  const typeCfg = TYPE_CONFIG[quiz.type] ?? TYPE_CONFIG["Quiz"];
 
   const isDeleting = deleteLoading === quiz.id.toString();
   const isTogglingPublic = publicLoading === quiz.id.toString();
@@ -128,62 +121,111 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
   };
 
   return (
-    <div className="group relative flex items-center gap-0 bg-white dark:bg-gray-900/60 rounded-2xl border border-gray-200/70 dark:border-gray-800/60 hover:border-blue-300 dark:hover:border-blue-700/60 shadow-sm hover:shadow-md hover:shadow-blue-100/40 dark:hover:shadow-blue-900/20 transition-all duration-200 hover:-translate-y-0.5 animate-in fade-in slide-in-from-bottom-1">
-      {/* Main content */}
-      <div className="flex flex-1 items-center gap-4 px-4 py-3 min-w-0">
-        {/* Type icon */}
-        <div
-          className={`flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br ${typeCfg.bg} flex items-center justify-center`}
-        >
-          <span className={typeCfg.fg}>{typeCfg.icon}</span>
+    <div className="group flex items-center gap-4 bg-white dark:bg-gray-900/60 rounded-2xl border border-gray-200/70 dark:border-gray-800/60 hover:border-blue-300 dark:hover:border-blue-700/60 shadow-sm hover:shadow-md hover:shadow-blue-100/40 dark:hover:shadow-blue-900/20 transition-all duration-200 hover:-translate-y-0.5 px-4 py-3 animate-in fade-in slide-in-from-bottom-1">
+
+      {/* Type icon */}
+      <div className={`flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br ${typeCfg.bg} flex items-center justify-center`}>
+        <span className={typeCfg.fg}>{typeCfg.icon}</span>
+      </div>
+
+      {/* Info block — grows to fill space */}
+      <div className="flex-1 min-w-0">
+
+        {/* Row 1: title + STATUS badge + type tag */}
+        <div className="flex flex-wrap items-center gap-2 mb-1.5">
+          <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+            {quiz.title}
+          </h4>
+
+          {/* STATUS — lifecycle of the quiz */}
+          <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${statusCfg.badge}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+            {statusCfg.label}
+          </span>
+
+          {quiz.type && (
+            <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+              {quiz.type}
+            </span>
+          )}
         </div>
 
-        {/* Quiz info */}
-        <div className="flex-1 min-w-0">
-          <div className="flex flex-wrap items-center gap-2 mb-1">
-            <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate max-w-xs sm:max-w-sm md:max-w-md">
-              {quiz.title}
-            </h4>
-
-            {/* Status badge */}
-            <span
-              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${statusCfg.badge}`}
-            >
-              <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
-              {statusCfg.label}
-            </span>
-
-            {/* Type tag */}
-            {quiz.type && (
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                {quiz.type}
-              </span>
-            )}
-          </div>
-
-          {/* Meta row */}
-          <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
+        {/* Row 2: stats + divider + VISIBILITY toggle */}
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
+          <span className="flex items-center gap-1">
+            <HelpCircle className="w-3 h-3" />
+            {quiz.total_questions ?? 0} questions
+          </span>
+          <span className="flex items-center gap-1">
+            <Star className="w-3 h-3" />
+            {quiz.total_points ?? 0} pts
+          </span>
+          {quiz.time_limit && (
             <span className="flex items-center gap-1">
-              <HelpCircle className="w-3 h-3" />
-              {quiz.total_questions ?? 0} questions
+              <Clock className="w-3 h-3" />
+              {quiz.time_limit} min
             </span>
-            <span className="flex items-center gap-1">
-              <Star className="w-3 h-3" />
-              {quiz.total_points ?? 0} pts
-            </span>
-            {quiz.time_limit && (
-              <span className="flex items-center gap-1">
-                <Clock className="w-3 h-3" />
-                {quiz.time_limit} min
-              </span>
-            )}
+          )}
 
-          </div>
+          {/* Visibility — who can access this quiz (instructor only) */}
+          {!isStudent && onTogglePublic && (
+            <>
+              <span className="text-gray-300 dark:text-gray-700 select-none">|</span>
+
+              {/* Explicit "Visibility:" label so it's never confused with Status */}
+              <span className="text-[11px] font-medium text-gray-400 dark:text-gray-500 select-none">
+                Visibility:
+              </span>
+
+              <button
+                onClick={() => onTogglePublic(quiz.id, quiz.is_public || false)}
+                disabled={isTogglingPublic}
+                aria-label={quiz.is_public ? "Currently public — click to make private" : "Currently private — click to make public"}
+                className="flex items-center gap-1.5 rounded-lg px-1.5 py-0.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {/* Switch track */}
+                <span
+                  className="relative inline-flex h-4 w-7 flex-shrink-0 items-center rounded-full border transition-colors duration-200 ease-in-out"
+                  style={
+                    quiz.is_public
+                      ? { backgroundColor: "rgb(59 130 246)", borderColor: "rgb(59 130 246)" }
+                      : { backgroundColor: "rgb(209 213 219)", borderColor: "rgb(209 213 219)" }
+                  }
+                >
+                  {isTogglingPublic ? (
+                    <Loader2 className="w-2.5 h-2.5 animate-spin text-white absolute left-1/2 -translate-x-1/2" />
+                  ) : (
+                    <span
+                      className={`inline-block h-3 w-3 rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
+                        quiz.is_public ? "translate-x-[13px]" : "translate-x-[1px]"
+                      }`}
+                    />
+                  )}
+                </span>
+
+                {/* Current state label — clearly describes what IS, not what the action does */}
+                <span className={`text-[11px] font-semibold transition-colors ${
+                  quiz.is_public
+                    ? "text-blue-600 dark:text-blue-400"
+                    : "text-gray-500 dark:text-gray-400"
+                }`}>
+                  {isTogglingPublic ? "Saving…" : quiz.is_public ? "Public" : "Private"}
+                </span>
+
+                {/* Icon for the current state */}
+                {!isTogglingPublic && (
+                  quiz.is_public
+                    ? <Globe className="w-3 h-3 text-blue-500" />
+                    : <Lock className="w-3 h-3 text-gray-400 dark:text-gray-500" />
+                )}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
-      {/* Action zone */}
-      <div className="flex items-center gap-1.5 pr-4 flex-shrink-0">
+      {/* Action buttons — only View and Delete (not Visibility, which is inline above) */}
+      <div className="flex items-center gap-1.5 flex-shrink-0">
         {isStudent ? (
           quiz.status === "published" ? (
             <Link
@@ -197,7 +239,6 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
         ) : (
           showActions && (
             <>
-              {/* View button */}
               <Link
                 to={`/quizzes/${quiz.id}`}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/25 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60 rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105"
@@ -206,51 +247,11 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
                 View
               </Link>
 
-              {/* Visibility toggle switch */}
-              {onTogglePublic && (
-                <button
-                  onClick={() => onTogglePublic(quiz.id, quiz.is_public || false)}
-                  disabled={isTogglingPublic}
-                  className="group/vis flex items-center gap-2 px-2 py-1.5 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800/60 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed"
-                  aria-label={quiz.is_public ? "Visible to everyone — click to make private" : "Private — click to make public"}
-                >
-                  {/* Labels */}
-                  <span className={`text-[11px] font-medium transition-colors ${!quiz.is_public ? "text-gray-800 dark:text-gray-200" : "text-gray-400 dark:text-gray-600"}`}>
-                    Private
-                  </span>
-
-                  {/* Switch track */}
-                  <span
-                    className="relative inline-flex h-5 w-9 flex-shrink-0 items-center rounded-full border transition-colors duration-200 ease-in-out"
-                    style={
-                      quiz.is_public
-                        ? { backgroundColor: "rgb(16 185 129)", borderColor: "rgb(16 185 129)" }
-                        : { backgroundColor: "rgb(209 213 219)", borderColor: "rgb(209 213 219)" }
-                    }
-                  >
-                    {isTogglingPublic ? (
-                      <Loader2 className="w-3 h-3 animate-spin text-white absolute left-1/2 -translate-x-1/2" />
-                    ) : (
-                      <span
-                        className={`inline-block h-3.5 w-3.5 rounded-full bg-white shadow transition-transform duration-200 ease-in-out ${
-                          quiz.is_public ? "translate-x-[18px]" : "translate-x-[2px]"
-                        }`}
-                      />
-                    )}
-                  </span>
-
-                  <span className={`text-[11px] font-medium transition-colors ${quiz.is_public ? "text-emerald-600 dark:text-emerald-400" : "text-gray-400 dark:text-gray-600"}`}>
-                    Public
-                  </span>
-                </button>
-              )}
-
-              {/* Delete button with confirm */}
               {onDelete && (
                 <button
                   onClick={handleDeleteClick}
                   disabled={isDeleting}
-                  title={confirmDelete ? "Click again to confirm" : "Delete quiz"}
+                  title={confirmDelete ? "Click again to confirm delete" : "Delete quiz"}
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all duration-200 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed ${
                     confirmDelete
                       ? "bg-red-500 hover:bg-red-600 text-white border-red-500 scale-105 shadow-md shadow-red-200 dark:shadow-red-900/30"
@@ -263,11 +264,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
                     <Trash2 className="w-3.5 h-3.5" />
                   )}
                   <span className="hidden sm:inline">
-                    {isDeleting
-                      ? "Deleting…"
-                      : confirmDelete
-                        ? "Confirm?"
-                        : "Delete"}
+                    {isDeleting ? "Deleting…" : confirmDelete ? "Confirm?" : "Delete"}
                   </span>
                 </button>
               )}
