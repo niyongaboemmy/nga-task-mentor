@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { Assignment, Submission, User } from "../models";
 import { sequelize } from "../config/database";
+import { Op } from "sequelize";
 import fs from "fs";
 import path from "path";
 import {
@@ -25,8 +26,23 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
 
     const isStudent = req.user.role === "student";
 
+    // Scope to academic term: prefer explicit query param, fall back to current term from JWT
+    const termIdParam = req.query.academic_term_id
+      ? parseInt(req.query.academic_term_id as string)
+      : null;
+    const resolvedTermId = termIdParam ?? (await getCurrentTermId(req));
+
+    const termWhere = resolvedTermId
+      ? {
+          [Op.or]: [
+            { academic_term_id: resolvedTermId },
+            { academic_term_id: null }, // include legacy records without a term
+          ],
+        }
+      : {};
+
     const assignments = await Assignment.findAll({
-      where: { course_id: courseId },
+      where: { course_id: courseId, ...termWhere },
       include: [
         {
           model: User,
@@ -263,12 +279,15 @@ export const createAssignment = async (req: Request, res: Response) => {
       }
     }
 
+    const academicTermId = await getCurrentTermId(req);
+
     const assignment = await Assignment.create({
       title: title.trim(),
       description: description.trim(),
       due_date: utcDueDate,
       max_score: parsedMaxScore,
       course_id: parseInt(finalCourseId),
+      academic_term_id: academicTermId ?? null,
       submission_type,
       created_by: req.user.id,
       attachments,

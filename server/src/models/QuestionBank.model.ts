@@ -41,6 +41,7 @@ export interface IQuestionBankAttributes {
     size?: number;
   }> | null;
   created_by: number; // User who created this question
+  academic_term_id?: number | null;
   blooms_taxonomy_level_id?: number | null;
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;
@@ -172,6 +173,14 @@ export class QuestionBank extends Model<
     field: "created_by",
   })
   created_by!: number;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    defaultValue: null,
+    field: "academic_term_id",
+  })
+  academic_term_id?: number | null;
 
   @ForeignKey(() => BloomsTaxonomyLevel)
   @Column({

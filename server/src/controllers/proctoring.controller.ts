@@ -8,6 +8,7 @@ import {
 } from "../models";
 import { sequelize } from "../config/database";
 import { Op } from "sequelize";
+import { getCurrentTermId } from "../utils/misUtils";
 
 // Store active WebRTC connections for live streaming
 const activeStreams = new Map<
@@ -236,6 +237,10 @@ export const startProctoringSession = async (req: Request, res: Response) => {
       req.user.id
     }_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
+    // Use the quiz's own term if available, otherwise resolve from the request JWT
+    const sessionTermId =
+      quiz.academic_term_id ?? (await getCurrentTermId(req)) ?? null;
+
     const session = await ProctoringSession.create(
       {
         quiz_id: parseInt(quizId),
@@ -263,6 +268,7 @@ export const startProctoringSession = async (req: Request, res: Response) => {
         risk_score: 0,
         is_connected: true,
         last_connection_time: new Date(),
+        academic_term_id: sessionTermId,
       },
       { transaction },
     );

@@ -30,6 +30,7 @@ export interface IAssignmentAttributes {
     size?: number;
   }> | null;
   course_id?: number | null;
+  academic_term_id?: number | null;
   created_by: number | null;
   status: "draft" | "published" | "completed" | "removed";
   created_at?: Date;
@@ -233,6 +234,14 @@ export class Assignment extends Model<
     field: "course_id",
   })
   public course_id?: number | null;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    defaultValue: null,
+    field: "academic_term_id",
+  })
+  public academic_term_id?: number | null;
 
   @ForeignKey(() => User)
   @Column({

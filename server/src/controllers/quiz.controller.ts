@@ -35,14 +35,21 @@ export const getQuizzes = async (req: Request, res: Response) => {
     const { courseId } = req.params;
     const whereClause: any = {};
 
-    // Only filter by course_id if courseId is provided
     if (courseId) {
       whereClause.course_id = courseId;
     }
 
-    // If user is not admin or course instructor, only show published quizzes
-    // Note: We need to fetch the course to check instructor_id, but for now we'll skip this check
-    // TODO: Add proper course instructor middleware for quiz routes
+    // Scope to academic term: prefer explicit query param, fall back to current term from JWT
+    const termIdParam = req.query.academic_term_id
+      ? parseInt(req.query.academic_term_id as string)
+      : null;
+    const resolvedTermId = termIdParam ?? (await getCurrentTermId(req));
+    if (resolvedTermId) {
+      whereClause[Op.or] = [
+        { academic_term_id: resolvedTermId },
+        { academic_term_id: null }, // include legacy records without a term
+      ];
+    }
 
     const quizzes = await Quiz.findAll({
       where: whereClause,
@@ -320,6 +327,8 @@ export const createQuiz = async (req: Request, res: Response) => {
         .json({ success: false, message: "Course not found" });
     }
 
+    const academicTermId = await getCurrentTermId(req);
+
     const quiz = await Quiz.create(
       {
         title: quizData.title,
@@ -345,6 +354,7 @@ export const createQuiz = async (req: Request, res: Response) => {
           : undefined,
         end_date: quizData.end_date ? new Date(quizData.end_date) : undefined,
         is_public: quizData.is_public || false,
+        academic_term_id: academicTermId ?? null,
       },
       { transaction },
     );
@@ -644,6 +654,17 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
       }
     }
 
+    // Scope to current academic term
+    const currentTermId = await getCurrentTermId(req);
+    const termFilter = currentTermId
+      ? {
+          [Op.or]: [
+            { academic_term_id: currentTermId },
+            { academic_term_id: null }, // include legacy records without a term
+          ],
+        }
+      : {};
+
     const quizzes = await Quiz.findAll({
       where: {
         [Op.and]: [
@@ -654,6 +675,7 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
               { course_id: { [Op.in]: courseIds } },
             ],
           },
+          termFilter,
         ],
       },
       include: [

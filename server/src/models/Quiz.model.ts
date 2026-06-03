@@ -42,6 +42,7 @@ export interface IQuizAttributes {
     size?: number;
   }> | null;
   course_id?: number | null;
+  academic_term_id?: number | null;
   created_by: number;
   created_at?: Date;
   updated_at?: Date;
@@ -259,6 +260,14 @@ export class Quiz extends Model<IQuizAttributes, QuizCreationAttributes> {
     field: "course_id",
   })
   course_id?: number | null;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    defaultValue: null,
+    field: "academic_term_id",
+  })
+  academic_term_id?: number | null;
 
   @ForeignKey(() => User)
   @Column({

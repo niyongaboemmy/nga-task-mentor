@@ -29,6 +29,7 @@ export interface IProctoringSessionAttributes {
   quiz_id: number;
   student_id: number;
   proctor_id?: number; // For live proctoring
+  academic_term_id?: number | null;
   session_token: string;
   status: ProctoringStatus;
   mode: ProctoringMode;
@@ -96,6 +97,14 @@ export class ProctoringSession extends Model<
     field: "proctor_id",
   })
   proctor_id?: number;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    defaultValue: null,
+    field: "academic_term_id",
+  })
+  academic_term_id?: number | null;
 
   @Column({
     type: DataType.STRING(255),
