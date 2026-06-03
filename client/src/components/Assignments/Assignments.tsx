@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { ClipboardList } from "lucide-react";
+import { ClipboardList, RefreshCw } from "lucide-react";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
 import AssignmentCard, { type AssignmentInterface } from "./AssignmentCard";
+
+// Module-level cache: keyed by courseId, holds the last fetched assignments list
+const assignmentsCache: Map<string, AssignmentInterface[]> = new Map();
 
 interface Course {
   id: string;
@@ -32,16 +35,24 @@ const Assignments: React.FC<AssignmentsProps> = ({
 }) => {
   const { courseId: paramCourseId } = useParams<{ courseId: string }>();
   const currentCourseId = courseId || paramCourseId;
-  const [assignments, setAssignments] = useState<AssignmentInterface[]>([]);
+  const cacheKey = currentCourseId ?? "__none__";
+  const cached = assignmentsCache.get(cacheKey);
+  const [assignments, setAssignments] = useState<AssignmentInterface[]>(cached ?? []);
   const [course, setCourse] = useState<Course | null>(courseData);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!cached);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [filter, setFilter] = useState<
     "all" | "published" | "draft" | "completed" | "removed"
   >("all");
   const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
 
-  const fetchAssignments = useCallback(async () => {
+  const fetchAssignments = useCallback(async (force = false) => {
+    // Skip network request if we have cached data and this isn't a forced refresh
+    if (!force && assignmentsCache.has(cacheKey)) {
+      setIsLoading(false);
+      return;
+    }
     try {
       let endpoint: string;
 
@@ -67,14 +78,16 @@ const Assignments: React.FC<AssignmentsProps> = ({
         );
       }
 
+      assignmentsCache.set(cacheKey, assignmentsData);
       setAssignments(assignmentsData);
     } catch (error) {
       console.error("Error fetching assignments:", error);
       setAssignments([]);
     } finally {
       setIsLoading(false);
+      setIsRefreshing(false);
     }
-  }, [currentCourseId, user?.role]);
+  }, [currentCourseId, user?.role, cacheKey]);
 
   const fetchCourse = useCallback(async () => {
     if (!currentCourseId) return;
@@ -109,6 +122,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
   }, [currentCourseId, user?.role, user?.id]);
 
   useEffect(() => {
+    // fetchAssignments skips the network if cache is warm
     fetchAssignments();
     // Only fetch course if it wasn't provided or if ID changed
     if (
@@ -119,6 +133,11 @@ const Assignments: React.FC<AssignmentsProps> = ({
     }
   }, [currentCourseId, fetchAssignments, fetchCourse, course]);
 
+  const handleRefresh = useCallback(async () => {
+    setIsRefreshing(true);
+    await fetchAssignments(true);
+  }, [fetchAssignments]);
+
   const handleStatusChange = useCallback(
     async (
       assignmentId: string,
@@ -128,7 +147,8 @@ const Assignments: React.FC<AssignmentsProps> = ({
         await axios.patch(`/assignments/${assignmentId}/status`, {
           status,
         });
-        fetchAssignments();
+        // Force-refresh after a mutation so cache is up to date
+        fetchAssignments(true);
       } catch (error) {
         console.error("Error updating assignment status:", error);
       }
@@ -244,6 +264,17 @@ const Assignments: React.FC<AssignmentsProps> = ({
               </div>
 
               <div className="flex items-center justify-between md:justify-end gap-3">
+                {/* Refresh button */}
+                <button
+                  onClick={handleRefresh}
+                  disabled={isRefreshing || isLoading}
+                  title="Refresh assignments"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
+                  <span className="hidden sm:inline">Refresh</span>
+                </button>
+
                 {/* Filter */}
                 {assignments && assignments.length > 0 && (
                   <div className="flex items-center gap-2">

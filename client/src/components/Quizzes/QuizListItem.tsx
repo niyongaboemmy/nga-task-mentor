@@ -1,6 +1,21 @@
-import React from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import {
+  Eye,
+  Trash2,
+  Globe,
+  Lock,
+  ClipboardList,
+  HelpCircle,
+  Star,
+  Clock,
+  BookOpen,
+  Zap,
+  CheckCircle2,
+  FileEdit,
+  Loader2,
+} from "lucide-react";
 
 interface Quiz {
   id: number;
@@ -24,6 +39,68 @@ interface QuizListItemProps {
   showActions?: boolean;
 }
 
+const STATUS_CONFIG: Record<
+  string,
+  {
+    label: string;
+    dot: string;
+    badge: string;
+    bar: string;
+    icon: React.ReactNode;
+  }
+> = {
+  published: {
+    label: "Published",
+    dot: "bg-emerald-500",
+    badge:
+      "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200 dark:bg-emerald-900/25 dark:text-emerald-400 dark:ring-emerald-800/60",
+    bar: "bg-gradient-to-b from-emerald-500 to-emerald-400",
+    icon: <CheckCircle2 className="w-3 h-3" />,
+  },
+  draft: {
+    label: "Draft",
+    dot: "bg-amber-500",
+    badge:
+      "bg-amber-50 text-amber-700 ring-1 ring-amber-200 dark:bg-amber-900/25 dark:text-amber-400 dark:ring-amber-800/60",
+    bar: "bg-gradient-to-b from-amber-500 to-amber-400",
+    icon: <FileEdit className="w-3 h-3" />,
+  },
+  completed: {
+    label: "Completed",
+    dot: "bg-blue-500",
+    badge:
+      "bg-blue-50 text-blue-700 ring-1 ring-blue-200 dark:bg-blue-900/25 dark:text-blue-400 dark:ring-blue-800/60",
+    bar: "bg-gradient-to-b from-blue-500 to-blue-400",
+    icon: <CheckCircle2 className="w-3 h-3" />,
+  },
+};
+
+const TYPE_CONFIG: Record<
+  string,
+  { icon: React.ReactNode; bg: string; fg: string }
+> = {
+  Exam: {
+    icon: <Zap className="w-4 h-4" />,
+    bg: "from-red-500/20 to-orange-500/20 dark:from-red-600/30 dark:to-orange-600/30",
+    fg: "text-red-600 dark:text-red-400",
+  },
+  Assessment: {
+    icon: <ClipboardList className="w-4 h-4" />,
+    bg: "from-blue-500/20 to-indigo-500/20 dark:from-blue-600/30 dark:to-indigo-600/30",
+    fg: "text-blue-600 dark:text-blue-400",
+  },
+  Homework: {
+    icon: <BookOpen className="w-4 h-4" />,
+    bg: "from-purple-500/20 to-violet-500/20 dark:from-purple-600/30 dark:to-violet-600/30",
+    fg: "text-purple-600 dark:text-purple-400",
+  },
+  Quiz: {
+    icon: <HelpCircle className="w-4 h-4" />,
+    bg: "from-teal-500/20 to-green-500/20 dark:from-teal-600/30 dark:to-green-600/30",
+    fg: "text-teal-600 dark:text-teal-400",
+  },
+};
+
 export const QuizListItem: React.FC<QuizListItemProps> = ({
   quiz,
   onDelete,
@@ -34,200 +111,190 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
 }) => {
   const { user } = useAuth();
   const isStudent = user?.role === "student";
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "published":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-      case "draft":
-        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400";
-      case "completed":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400";
-    }
-  };
+  const statusCfg =
+    STATUS_CONFIG[quiz.status] ?? STATUS_CONFIG["draft"];
+  const typeCfg =
+    TYPE_CONFIG[quiz.type] ?? TYPE_CONFIG["Quiz"];
 
-  const getTypeColor = (type: string) => {
-    switch (type) {
-      case "Exam":
-        return "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400";
-      case "Assessment":
-        return "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400";
-      case "Homework":
-        return "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400";
-      case "Quiz":
-        return "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400";
-      default:
-        return "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-400";
+  const isDeleting = deleteLoading === quiz.id.toString();
+  const isTogglingPublic = publicLoading === quiz.id.toString();
+
+  const handleDeleteClick = () => {
+    if (!confirmDelete) {
+      setConfirmDelete(true);
+      setTimeout(() => setConfirmDelete(false), 3000);
+      return;
     }
+    onDelete?.(quiz.id);
+    setConfirmDelete(false);
   };
 
   return (
-    <div className="group bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/50 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 hover:-translate-y-0.5 p-3 animate-in fade-in slide-in-from-bottom-2 duration-500">
-      <div className="flex items-center justify-between gap-4">
-        {/* Left side - Quiz info */}
-        <div className="flex items-center gap-3 flex-1 min-w-0">
-          <div className="flex-shrink-0">
-            <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-xl flex items-center justify-center">
-              <svg
-                className="h-5 w-5 text-blue-600 dark:text-blue-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                />
-              </svg>
-            </div>
+    <div className="group relative flex items-stretch gap-0 bg-white dark:bg-gray-900/60 rounded-2xl border border-gray-200/70 dark:border-gray-800/60 hover:border-blue-300 dark:hover:border-blue-700/60 shadow-sm hover:shadow-md hover:shadow-blue-100/40 dark:hover:shadow-blue-900/20 transition-all duration-200 hover:-translate-y-0.5 overflow-hidden animate-in fade-in slide-in-from-bottom-1">
+      {/* Left status accent bar */}
+      <div className={`w-1 flex-shrink-0 rounded-l-2xl ${statusCfg.bar}`} />
+
+      {/* Main content */}
+      <div className="flex flex-1 items-center gap-4 px-4 py-3 min-w-0">
+        {/* Type icon */}
+        <div
+          className={`flex-shrink-0 w-10 h-10 rounded-xl bg-gradient-to-br ${typeCfg.bg} flex items-center justify-center`}
+        >
+          <span className={typeCfg.fg}>{typeCfg.icon}</span>
+        </div>
+
+        {/* Quiz info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1">
+            <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate max-w-xs sm:max-w-sm md:max-w-md">
+              {quiz.title}
+            </h4>
+
+            {/* Status badge */}
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium ${statusCfg.badge}`}
+            >
+              <span className={`w-1.5 h-1.5 rounded-full ${statusCfg.dot}`} />
+              {statusCfg.label}
+            </span>
+
+            {/* Type tag */}
+            {quiz.type && (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-medium bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400">
+                {quiz.type}
+              </span>
+            )}
           </div>
 
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-1">
-              <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-                {quiz.title}
-              </h4>
+          {/* Meta row */}
+          <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
+            <span className="flex items-center gap-1">
+              <HelpCircle className="w-3 h-3" />
+              {quiz.total_questions ?? 0} questions
+            </span>
+            <span className="flex items-center gap-1">
+              <Star className="w-3 h-3" />
+              {quiz.total_points ?? 0} pts
+            </span>
+            {quiz.time_limit && (
+              <span className="flex items-center gap-1">
+                <Clock className="w-3 h-3" />
+                {quiz.time_limit} min
+              </span>
+            )}
+
+            {/* Visibility indicator (read-only display in meta) */}
+            {!isStudent && (
               <span
-                className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
-                  quiz.status,
-                )}`}
+                className={`flex items-center gap-1 ${
+                  quiz.is_public
+                    ? "text-emerald-600 dark:text-emerald-400"
+                    : "text-gray-400 dark:text-gray-500"
+                }`}
               >
-                {quiz.status.charAt(0).toUpperCase() + quiz.status.slice(1)}
+                {quiz.is_public ? (
+                  <Globe className="w-3 h-3" />
+                ) : (
+                  <Lock className="w-3 h-3" />
+                )}
+                {quiz.is_public ? "Public" : "Private"}
               </span>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-              <span className="flex items-center gap-1">
-                <svg
-                  className="h-3 w-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {quiz.total_questions || 0} questions
-              </span>
-              <span className="flex items-center gap-1">
-                <svg
-                  className="h-3 w-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"
-                  />
-                </svg>
-                {quiz.total_points || 0} points
-              </span>
-              {quiz.time_limit && (
-                <span className="flex items-center gap-1">
-                  <svg
-                    className="h-3 w-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  {quiz.time_limit} min
-                </span>
-              )}
-            </div>
+            )}
           </div>
         </div>
+      </div>
 
-        {/* Right side - Actions */}
-        <div className="flex items-center gap-2">
-          {isStudent ? (
-            quiz.status === "published" ? (
+      {/* Action zone */}
+      <div className="flex items-center gap-1.5 pr-4 flex-shrink-0">
+        {isStudent ? (
+          quiz.status === "published" ? (
+            <Link
+              to={`/quizzes/${quiz.id}/take`}
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-xl text-xs font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg shadow-emerald-500/25"
+            >
+              <Zap className="w-3.5 h-3.5" />
+              Start Quiz
+            </Link>
+          ) : null
+        ) : (
+          showActions && (
+            <>
+              {/* View button */}
               <Link
-                to={`/quizzes/${quiz.id}/take`}
-                className="inline-flex items-center px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-xl text-sm font-normal transition-all duration-200 hover:scale-105 hover:shadow-lg shadow-green-500/20"
+                to={`/quizzes/${quiz.id}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/25 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60 rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105"
               >
-                <svg
-                  className="w-4 h-4 mr-1.5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"
-                  />
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                Open Quiz Now
+                <Eye className="w-3.5 h-3.5" />
+                View
               </Link>
-            ) : null
-          ) : (
-            showActions && (
-              <>
-                <Link
-                  to={`/quizzes/${quiz.id}`}
-                  className="inline-flex items-center px-3 py-1.5 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl text-sm font-normal transition-all duration-200 hover:scale-105"
+
+              {/* Visibility toggle */}
+              {onTogglePublic && (
+                <button
+                  onClick={() =>
+                    onTogglePublic(quiz.id, quiz.is_public || false)
+                  }
+                  disabled={isTogglingPublic}
+                  title={
+                    quiz.is_public
+                      ? "Click to make Private"
+                      : "Click to make Public"
+                  }
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all duration-200 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed ${
+                    quiz.is_public
+                      ? "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200/70 dark:bg-emerald-900/25 dark:hover:bg-emerald-900/40 dark:text-emerald-400 dark:border-emerald-800/60"
+                      : "bg-gray-50 hover:bg-gray-100 text-gray-600 border-gray-200/70 dark:bg-gray-800/50 dark:hover:bg-gray-800 dark:text-gray-400 dark:border-gray-700/60"
+                  }`}
                 >
-                  View
-                </Link>
-
-                {onDelete && (
-                  <button
-                    onClick={() => onDelete(quiz.id)}
-                    disabled={deleteLoading === quiz.id.toString()}
-                    className="inline-flex items-center px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105 hover:shadow-md disabled:opacity-50"
-                  >
-                    {deleteLoading === quiz.id.toString() ? "..." : "Delete"}
-                  </button>
-                )}
-
-                {onTogglePublic && (
-                  <button
-                    onClick={() =>
-                      onTogglePublic(quiz.id, quiz.is_public || false)
-                    }
-                    disabled={publicLoading === quiz.id.toString()}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-xl border transition-colors ${
-                      quiz.is_public
-                        ? "bg-purple-100 text-purple-800 border-purple-200 hover:bg-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
-                        : "bg-gray-100 text-gray-600 border-gray-200 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
-                    } disabled:opacity-50`}
-                  >
-                    {publicLoading === quiz.id.toString()
-                      ? "..."
+                  {isTogglingPublic ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : quiz.is_public ? (
+                    <Globe className="w-3.5 h-3.5" />
+                  ) : (
+                    <Lock className="w-3.5 h-3.5" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isTogglingPublic
+                      ? "Saving…"
                       : quiz.is_public
-                        ? "Private"
-                        : "Public"}
-                  </button>
-                )}
-              </>
-            )
-          )}
-        </div>
+                        ? "Public"
+                        : "Private"}
+                  </span>
+                  {/* Action hint on hover via tooltip title above */}
+                </button>
+              )}
+
+              {/* Delete button with confirm */}
+              {onDelete && (
+                <button
+                  onClick={handleDeleteClick}
+                  disabled={isDeleting}
+                  title={confirmDelete ? "Click again to confirm" : "Delete quiz"}
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all duration-200 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed ${
+                    confirmDelete
+                      ? "bg-red-500 hover:bg-red-600 text-white border-red-500 scale-105 shadow-md shadow-red-200 dark:shadow-red-900/30"
+                      : "bg-red-50 hover:bg-red-100 text-red-600 border-red-200/70 dark:bg-red-900/20 dark:hover:bg-red-900/35 dark:text-red-400 dark:border-red-800/60"
+                  }`}
+                >
+                  {isDeleting ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <Trash2 className="w-3.5 h-3.5" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isDeleting
+                      ? "Deleting…"
+                      : confirmDelete
+                        ? "Confirm?"
+                        : "Delete"}
+                  </span>
+                </button>
+              )}
+            </>
+          )
+        )}
       </div>
     </div>
   );

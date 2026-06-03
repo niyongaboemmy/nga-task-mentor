@@ -8,7 +8,7 @@ import {
   deleteQuiz,
   updateQuiz,
 } from "../../store/slices/quizSlice";
-import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import QuizListItem from "./QuizListItem";
 
 interface QuizListProps {
@@ -25,18 +25,28 @@ export const QuizList: React.FC<QuizListProps> = ({
   showViewAllButton = false,
 }) => {
   const dispatch = useDispatch<AppDispatch>();
-  const { quizzes, loading, error } = useSelector(
+  const { quizzes, loading, error, loadedForCourse } = useSelector(
     (state: RootState) => state.quiz,
   );
   const authUser = useSelector((state: RootState) => state.auth.user);
   const [deleteLoading, setDeleteLoading] = useState<string | null>(null);
   const [publicLoading, setPublicLoading] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const itemsPerPage = 10;
 
   useEffect(() => {
-    dispatch(fetchQuizzes(courseId));
-  }, [dispatch, courseId]);
+    // Only fetch if we haven't already loaded data for this course
+    if (loadedForCourse !== courseId) {
+      dispatch(fetchQuizzes(courseId));
+    }
+  }, [dispatch, courseId, loadedForCourse]);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await dispatch(fetchQuizzes(courseId));
+    setIsRefreshing(false);
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -175,27 +185,38 @@ export const QuizList: React.FC<QuizListProps> = ({
         <h3 className="text-base font-semibold text-gray-900 dark:text-white">
           Quizzes
         </h3>
-        {showCreateButton && (
-          <Link
-            to={`/courses/${courseId}/quizzes/create`}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
+        <div className="flex items-center gap-2">
+          <button
+            onClick={handleRefresh}
+            disabled={isRefreshing || loading.quizzes}
+            title="Refresh quizzes"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            <svg
-              className="w-4 h-4 mr-2"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+            <RefreshCw className={`w-4 h-4 ${isRefreshing || loading.quizzes ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+          {showCreateButton && (
+            <Link
+              to={`/courses/${courseId}/quizzes/create`}
+              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 6v6m0 0v6m0-6h6m-6 0H6"
-              />
-            </svg>
-            Create Quiz
-          </Link>
-        )}
+              <svg
+                className="w-4 h-4 mr-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6v6m0 0v6m0-6h6m-6 0H6"
+                />
+              </svg>
+              Create Quiz
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Quiz List */}

@@ -384,6 +384,9 @@ interface QuizState {
   // Analytics
   analytics: QuizAnalytics | null;
 
+  // Cache tracking
+  loadedForCourse: number | null;
+
   // Loading states
   loading: {
     quizzes: boolean;
@@ -418,6 +421,7 @@ const initialState: QuizState = {
   pendingSubmissions: [],
   submissionForGrading: null,
   analytics: null,
+  loadedForCourse: null,
   loading: {
     quizzes: false,
     quiz: false,
@@ -474,6 +478,7 @@ const quizSlice = createSlice({
         state.loading.quizzes = false;
         state.quizzes = action.payload;
         state.error.quizzes = null;
+        state.loadedForCourse = action.meta.arg;
       })
       .addCase(fetchQuizzes.rejected, (state, action) => {
         state.loading.quizzes = false;
