@@ -45,9 +45,14 @@ export const getQuizzes = async (req: Request, res: Response) => {
       : null;
     const resolvedTermId = termIdParam ?? (await getCurrentTermId(req));
     if (resolvedTermId) {
-      whereClause[Op.or] = [
-        { academic_term_id: resolvedTermId },
-        { academic_term_id: null }, // include legacy records without a term
+      whereClause[Op.and] = [
+        ...(whereClause[Op.and] || []),
+        {
+          [Op.or]: [
+            { academic_term_id: resolvedTermId },
+            { academic_term_id: null },
+          ],
+        },
       ];
     }
 
@@ -656,14 +661,16 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
 
     // Scope to current academic term
     const currentTermId = await getCurrentTermId(req);
-    const termFilter = currentTermId
-      ? {
-          [Op.or]: [
-            { academic_term_id: currentTermId },
-            { academic_term_id: null }, // include legacy records without a term
-          ],
-        }
-      : {};
+    const termCondition = currentTermId
+      ? [
+          {
+            [Op.or]: [
+              { academic_term_id: currentTermId },
+              { academic_term_id: null },
+            ],
+          },
+        ]
+      : [];
 
     const quizzes = await Quiz.findAll({
       where: {
@@ -675,7 +682,7 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
               { course_id: { [Op.in]: courseIds } },
             ],
           },
-          termFilter,
+          ...termCondition,
         ],
       },
       include: [

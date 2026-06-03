@@ -225,6 +225,8 @@ export const createCourseQuestion = async (req: Request, res: Response) => {
       ? tags.map((t: string) => t.toLowerCase().trim())
       : tags;
 
+    const questionTermId = await getCurrentTermId(req);
+
     const question = await QuestionBank.create(
       {
         course_id: parseInt(courseId),
@@ -235,6 +237,7 @@ export const createCourseQuestion = async (req: Request, res: Response) => {
         explanation: explanation ?? null,
         attachments: attachments ?? null,
         created_by: req.user.id,
+        academic_term_id: questionTermId ?? null,
         blooms_taxonomy_level_id: blooms_taxonomy_level_id ?? null,
         tags: sanitizedTags ?? null,
         difficulty_level: difficulty_level ?? null,
@@ -481,6 +484,7 @@ export const bulkCreateCourseQuestions = async (
     }
 
     const createdQuestions = [];
+    const bulkTermId = await getCurrentTermId(req);
 
     for (const q of questions) {
       // Validate Blooms Taxonomy Level if name is provided
@@ -526,6 +530,7 @@ export const bulkCreateCourseQuestions = async (
           explanation: q.explanation ?? null,
           attachments: q.attachments ?? null,
           created_by: req.user.id,
+          academic_term_id: bulkTermId ?? null,
           blooms_taxonomy_level_id: bloomsLevelId,
           tags: sanitizedTags ?? null,
           difficulty_level: q.difficulty_level ?? "MEDIUM",

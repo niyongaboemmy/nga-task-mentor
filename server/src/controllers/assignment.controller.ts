@@ -800,10 +800,21 @@ export const getEnrolledAssignments = async (req: Request, res: Response) => {
         .json({ success: false, message: "Access denied. Students only." });
     }
 
-    // Get all published assignments (since we can't check enrollments locally)
+    // Scope to current academic term
+    const enrolledTermId = await getCurrentTermId(req);
+    const enrolledTermWhere = enrolledTermId
+      ? {
+          [Op.or]: [
+            { academic_term_id: enrolledTermId },
+            { academic_term_id: null },
+          ],
+        }
+      : {};
+
     const assignments = await Assignment.findAll({
       where: {
         status: "published",
+        ...enrolledTermWhere,
       },
       include: [
         {
