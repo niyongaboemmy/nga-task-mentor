@@ -1064,8 +1064,10 @@ const LiveProctoringDashboard: React.FC = () => {
           role: "dashboard",
         });
       } else {
-        console.error("Socket not connected when trying to join room");
-        setError("Lost connection to server. Please refresh the page.");
+        // Socket not ready yet — clean up the peer connection we just created
+        // and let the socket reconnect flow re-trigger joinStream automatically
+        peerConnection.close();
+        peerConnectionsRef.current.delete(stream.sessionToken);
         return;
       }
 
@@ -1598,10 +1600,19 @@ const LiveProctoringDashboard: React.FC = () => {
                   <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:from-gray-200 dark:to-gray-400">
                     Live Proctoring Dashboard
                   </h1>
-                  <p className="text-sm text-gray-600 flex items-center gap-1">
-                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-                    Real-time student monitoring system
-                  </p>
+                  <div className="flex items-center gap-3 mt-0.5">
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Real-time student monitoring system
+                    </p>
+                    <span className={`flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border ${
+                      socketConnected
+                        ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400"
+                        : "bg-red-50 border-red-200 text-red-600 dark:bg-red-900/20 dark:border-red-700 dark:text-red-400"
+                    }`}>
+                      <span className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
+                      {socketConnected ? "Live server connected" : "Live server disconnected"}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

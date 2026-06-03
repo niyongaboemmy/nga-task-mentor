@@ -123,8 +123,9 @@ interface StreamModalProps {
 const EventsDropdown: React.FC<{
   events: ProctoringEvent[];
   flagsCount: number;
+  isLoadingEvents?: boolean;
   onEventClick?: (event: ProctoringEvent) => void;
-}> = ({ events, flagsCount, onEventClick }) => {
+}> = ({ events, flagsCount, isLoadingEvents = false, onEventClick }) => {
   const [showModal, setShowModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [severityFilter, setSeverityFilter] = useState<string>("all");
@@ -226,8 +227,18 @@ const EventsDropdown: React.FC<{
                     <h2 className="text-base font-bold text-gray-800 dark:text-white">
                       Events & Flags
                     </h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {events.length} events • {flagsCount} flags
+                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                      {isLoadingEvents ? (
+                        <>
+                          <svg className="animate-spin w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z" />
+                          </svg>
+                          Loading events...
+                        </>
+                      ) : (
+                        <>{events.length} events • {flagsCount} flags</>
+                      )}
                     </p>
                   </div>
                 </div>
@@ -395,6 +406,22 @@ const EventsDropdown: React.FC<{
                     </div>
                   </div>
                 ))
+              ) : isLoadingEvents ? (
+                <div className="space-y-2 p-2">
+                  {[...Array(5)].map((_, i) => (
+                    <div key={i} className="flex items-start gap-2 p-2 rounded-lg animate-pulse">
+                      <div className="w-2 h-2 mt-1.5 rounded-full bg-gray-300 dark:bg-gray-600 shrink-0" />
+                      <div className="flex-1 space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <div className="h-4 w-14 bg-gray-300 dark:bg-gray-600 rounded" />
+                          <div className="h-3 w-24 bg-gray-200 dark:bg-gray-700 rounded" />
+                          <div className="h-3 w-20 bg-gray-200 dark:bg-gray-700 rounded" />
+                        </div>
+                        <div className="h-3 w-3/4 bg-gray-200 dark:bg-gray-700 rounded" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
               ) : (
                 <div className="text-center py-8">
                   <Search className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
@@ -447,6 +474,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
   const [isMicEnabled, setIsMicEnabled] = useState(false);
   const [volumeLevel, setVolumeLevel] = useState(50);
   const [events, setEvents] = useState<ProctoringEvent[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
   // Screenshots come from stream prop now
   const screenshotImages = stream?.screenshots?.map((s) => s.image) || [];
   const [showEndQuizModal, setShowEndQuizModal] = useState(false);
@@ -555,6 +583,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
 
   const fetchSessionData = async () => {
     if (!stream) return;
+    setIsLoadingEvents(true);
     try {
       const res = await ProctoringApiService.getActiveStreams();
       const activeStream = res.data.find(
@@ -564,16 +593,14 @@ const StreamModal: React.FC<StreamModalProps> = ({
         const session = (
           await ProctoringApiService.getProctoringSession(activeStream.id)
         ).data;
-        const ss = (session.events || [])
-          .filter((e: ProctoringEvent) => e.screenshot_url)
-          .map((e: ProctoringEvent) => e.screenshot_url);
         setEvents(session.events || []);
-        // Screenshots now come from live stream socket events
       } else {
         setEvents([]);
       }
     } catch (e) {
       setEvents([]);
+    } finally {
+      setIsLoadingEvents(false);
     }
   };
 
@@ -819,6 +846,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
           <EventsDropdown
             events={events}
             flagsCount={stream.flagsCount}
+            isLoadingEvents={isLoadingEvents}
             onEventClick={(event) => {
               setShowEventsModal(false);
             }}
