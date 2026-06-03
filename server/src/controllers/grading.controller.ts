@@ -159,10 +159,9 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
 
     const quiz = submission.quiz;
 
-    // Check authorization - only quiz creator, course instructor, or admin
+    // Check authorization - only instructors or admins (students cannot grade)
     if (
-      quiz?.created_by !== req.user.id &&
-      (quiz as any)?.course?.instructor_id !== req.user.id &&
+      req.user.role !== "instructor" &&
       req.user.role !== "admin"
     ) {
       return res.status(403).json({
@@ -264,10 +263,9 @@ export const gradeSubmission = async (req: Request, res: Response) => {
 
     const quiz = submission.quiz;
 
-    // Check authorization
+    // Check authorization - only instructors or admins
     if (
-      quiz?.created_by !== req.user.id &&
-      (quiz as any)?.course?.instructor_id !== req.user.id &&
+      req.user.role !== "instructor" &&
       req.user.role !== "admin"
     ) {
       await transaction.rollback();
@@ -351,10 +349,9 @@ export const getQuizAnalytics = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check authorization
+    // Check authorization - only instructors or admins
     if (
-      quiz.created_by !== req.user.id &&
-      (quiz as any).course?.instructor_id !== req.user.id &&
+      req.user.role !== "instructor" &&
       req.user.role !== "admin"
     ) {
       return res.status(403).json({
@@ -530,17 +527,6 @@ export const getQuizSubmissions = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check authorization
-    if (
-      quiz.created_by !== req.user.id &&
-      (quiz as any).course?.instructor_id !== req.user.id &&
-      req.user.role !== "admin"
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to view quiz submissions",
-      });
-    }
 
     let whereClause: any = { quiz_id: quizId };
 
@@ -655,10 +641,9 @@ export const updateSubmissionFeedback = async (req: Request, res: Response) => {
 
     const quiz = submission.quiz;
 
-    // Check authorization
+    // Check authorization - only instructors or admins
     if (
-      quiz?.created_by !== req.user.id &&
-      (quiz as any)?.course?.instructor_id !== req.user.id &&
+      req.user.role !== "instructor" &&
       req.user.role !== "admin"
     ) {
       await transaction.rollback();
