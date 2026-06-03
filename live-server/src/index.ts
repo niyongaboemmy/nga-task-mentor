@@ -371,9 +371,9 @@ io.on("connection", (socket: Socket) => {
 
   socket.on(
     "student-stream-started",
-    (data: { sessionToken: string; studentInfo: any; quizInfo: any }) => {
+    (data: { sessionToken: string; studentInfo: any; quizInfo: any; cameraHidden?: boolean }) => {
       console.log("🚨🚨🚨 Student stream started RECEIVED on server:", data);
-      const { sessionToken, studentInfo, quizInfo } = data;
+      const { sessionToken, studentInfo, quizInfo, cameraHidden } = data;
 
       if (!sessionToken) {
         console.error(
@@ -392,6 +392,7 @@ io.on("connection", (socket: Socket) => {
         startTime: new Date(),
         socketId: socket.id,
         isLive: true,
+        cameraHidden: cameraHidden ?? false,
         lastReconnection: isReconnection ? new Date() : null,
       });
 
@@ -407,6 +408,7 @@ io.on("connection", (socket: Socket) => {
         startTime: new Date(),
         isLive: true,
         isReconnection,
+        cameraHidden: cameraHidden ?? false,
       });
 
       io.to("proctoring-" + sessionToken).emit("stream-started", {
@@ -416,6 +418,7 @@ io.on("connection", (socket: Socket) => {
         startTime: new Date(),
         isLive: true,
         isReconnection,
+        cameraHidden: cameraHidden ?? false,
       });
 
       console.log(

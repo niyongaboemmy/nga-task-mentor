@@ -14,6 +14,7 @@ import {
   Search,
   Filter,
   X,
+  VideoOff,
 } from "lucide-react";
 
 interface LiveStream {
@@ -38,6 +39,7 @@ interface LiveStream {
   disconnectedAt?: string;
   lastReconnection?: string;
   examStatus?: "active" | "paused" | "ended" | "warning";
+  cameraHidden?: boolean;
   screenshots?: {
     type: "camera" | "interface";
     image: string;
@@ -89,6 +91,7 @@ const LiveProctoringDashboard: React.FC = () => {
   const peerConnectionsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const localAudioStreamsRef = useRef<Map<string, MediaStream>>(new Map());
   const joiningStreamsRef = useRef<Set<string>>(new Set()); // Track streams currently being joined
+  const offerInProgressRef = useRef<Set<string>>(new Set()); // Prevent concurrent offer creation per session
   const pendingICECandidatesRef = useRef<Map<string, any[]>>(new Map()); // Queue ICE candidates until peer connection is ready
   const socketIdToSessionRef = useRef<Map<string, string>>(new Map()); // Map socket IDs to session tokens
   const activeStreamsRef = useRef<LiveStream[]>([]); // Ref for current active streams
@@ -144,13 +147,22 @@ const LiveProctoringDashboard: React.FC = () => {
     activeStreams.forEach((stream) => {
       if (stream.stream) {
         const videoEl = videoRefs.current.get(stream.sessionToken);
-        if (videoEl && videoEl.srcObject !== stream.stream) {
-          videoEl.srcObject = stream.stream;
-          videoEl.play().catch((e) => console.error("Play error:", e));
+        if (videoEl) {
+          if (videoEl.srcObject !== stream.stream) {
+            videoEl.srcObject = stream.stream;
+          }
+          // Only call play() if not already playing to avoid AbortError
+          if (videoEl.paused) {
+            videoEl.play().catch((e) => {
+              if ((e as DOMException).name !== "AbortError") {
+                console.error("Play error:", e);
+              }
+            });
+          }
         }
       }
     });
-  }, [activeStreams]); // Re-run when activeStreams changes
+  }, [activeStreams]);
 
   // Establish WebRTC connections when socket connects or streams are loaded
   useEffect(() => {
@@ -606,26 +618,28 @@ const LiveProctoringDashboard: React.FC = () => {
           return;
         }
 
-        // Check signaling state before creating offer
-        // Allow "stable" (new connection) and "have-local-offer" (offer created, waiting for answer)
+        // Only create offer if no offer has been sent yet (initial stable state, no localDescription)
+        // If localDescription is already set, an offer was already sent — skip to avoid duplicate offers
         if (
-          peerConnection.signalingState !== "stable" &&
-          peerConnection.signalingState !== "have-local-offer"
+          peerConnection.signalingState !== "stable" ||
+          peerConnection.localDescription !== null ||
+          offerInProgressRef.current.has(sessionToken)
         ) {
           return;
         }
 
+        offerInProgressRef.current.add(sessionToken);
         try {
           const offer = await peerConnection.createOffer();
+          // Re-check after async gap — another path may have sent an offer while we awaited
+          if (peerConnection.localDescription !== null) return;
           await peerConnection.setLocalDescription(offer);
 
           if (socketRef.current?.connected) {
-            const offerData = {
-              offer: offer,
-              sessionToken: sessionToken,
-            };
-
-            socketRef.current.emit("webrtc-offer", offerData);
+            socketRef.current.emit("webrtc-offer", {
+              offer,
+              sessionToken,
+            });
           }
         } catch (error) {
           console.error(
@@ -633,6 +647,8 @@ const LiveProctoringDashboard: React.FC = () => {
             sessionToken + ":",
             error,
           );
+        } finally {
+          offerInProgressRef.current.delete(sessionToken);
         }
       } else {
       }
@@ -953,28 +969,11 @@ const LiveProctoringDashboard: React.FC = () => {
           );
         }
 
-        // Try to assign to video element using videoRefs
+        // Assign srcObject directly — the useEffect watching activeStreams will call play()
         const videoEl = videoRefs.current.get(stream.sessionToken);
-        if (videoEl) {
+        if (videoEl && videoEl.srcObject !== remoteStream) {
           videoEl.srcObject = remoteStream;
-          videoEl.play().catch((e) => console.error("Play failed:", e));
         }
-
-        // Force video element update (fallback)
-        setTimeout(() => {
-          const videoElements = document.querySelectorAll(
-            `[data-session-token="${stream.sessionToken}"]`,
-          );
-          videoElements.forEach((videoEl) => {
-            const video = videoEl as HTMLVideoElement;
-            if (video && video.srcObject !== remoteStream) {
-              video.srcObject = remoteStream;
-              video
-                .play()
-                .catch((e) => console.error("Play failed via timeout:", e));
-            }
-          });
-        }, 100);
       };
 
       // Add connection state handlers
@@ -1063,67 +1062,42 @@ const LiveProctoringDashboard: React.FC = () => {
 
       // Set a timeout as fallback - if no ready signal after 5 seconds, send offer anyway
       const offerTimeout = setTimeout(async () => {
-        // Check if offer was already sent (by student-webrtc-ready handler)
         const pc = peerConnectionsRef.current.get(stream.sessionToken);
-        if (pc && pc.signalingState === "stable") {
-          return;
-        }
-        if (pc && pc.localDescription) {
+        // Skip if offer was already sent, negotiation done, or another path is creating an offer
+        if (
+          !pc ||
+          pc.localDescription !== null ||
+          offerInProgressRef.current.has(stream.sessionToken)
+        ) {
           return;
         }
 
+        offerInProgressRef.current.add(stream.sessionToken);
         try {
-          const offer = await peerConnection.createOffer();
-          await peerConnection.setLocalDescription(offer);
+          const offer = await pc.createOffer();
+          // Re-check after async gap
+          if (pc.localDescription !== null) return;
+          await pc.setLocalDescription(offer);
           if (socketRef.current?.connected) {
-            const offerData = {
-              offer: offer,
+            socketRef.current.emit("webrtc-offer", {
+              offer,
               sessionToken: stream.sessionToken,
-            };
-            socketRef.current.emit("webrtc-offer", offerData);
+            });
           }
         } catch (error) {
           console.error(
             `📡 Failed to send fallback offer for ${stream.sessionToken}:`,
             error,
           );
+        } finally {
+          offerInProgressRef.current.delete(stream.sessionToken);
         }
       }, 5000); // Wait 5 seconds for student to be ready
 
       // Store timeout ID so we can cancel it when student-webrtc-ready is received
       (peerConnection as any).offerTimeout = offerTimeout;
 
-      // Check signaling state before creating offer
-      // Allow "stable" (new connection) and "have-local-offer" (offer created, waiting for answer)
-      if (
-        peerConnection.signalingState !== "stable" &&
-        peerConnection.signalingState !== "have-local-offer"
-      ) {
-        return;
-      }
-
-      try {
-        const offer = await peerConnection.createOffer({
-          offerToReceiveAudio: true,
-          offerToReceiveVideo: true,
-        });
-        await peerConnection.setLocalDescription(offer);
-
-        // Ensure we send it AFTER setting local description
-        if (socketRef.current?.connected) {
-          const offerData = {
-            offer: offer,
-            sessionToken: stream.sessionToken,
-          };
-
-          socketRef.current.emit("webrtc-offer", offerData);
-        }
-      } catch (error) {
-        console.error(
-          `Failed to send initial offer for ${stream.sessionToken}:`,
-          error,
-        );
-      }
+      // Offer will be created by student-webrtc-ready handler or the fallback timeout above
     } catch (error) {
       console.error("Error joining stream:", error);
       setError("Failed to join stream. Please try again.");
@@ -1813,11 +1787,14 @@ const LiveProctoringDashboard: React.FC = () => {
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/30 dark:to-gray-700/30">
                         <div className="text-center">
-                          <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-3">
-                            <User className="w-8 h-8 text-gray-400 dark:text-gray-400" />
+                          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 ${stream.cameraHidden ? "bg-gray-800" : "bg-white"}`}>
+                            {stream.cameraHidden
+                              ? <VideoOff className="w-8 h-8 text-gray-400" />
+                              : <User className="w-8 h-8 text-gray-400 dark:text-gray-400" />
+                            }
                           </div>
                           <p className="text-xs text-gray-500 font-medium dark:text-gray-400">
-                            {stream.isLive ? "Connecting..." : "No Stream"}
+                            {stream.cameraHidden ? "Camera hidden" : stream.isLive ? "Connecting..." : "No Stream"}
                           </p>
                         </div>
                       </div>
@@ -1863,6 +1840,16 @@ const LiveProctoringDashboard: React.FC = () => {
                         <div className="flex items-center gap-1 px-2 py-1 bg-orange-500 text-white text-xs font-bold rounded dark:bg-orange-700 dark:text-white">
                           <AlertTriangle className="w-3 h-3" />
                           {stream.riskScore}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Camera hidden indicator */}
+                    {stream.cameraHidden && (
+                      <div className="absolute bottom-3 left-3">
+                        <div className="flex items-center gap-1 px-2 py-1 bg-gray-800/90 text-white text-xs font-medium rounded backdrop-blur-sm">
+                          <VideoOff className="w-3 h-3" />
+                          Camera hidden
                         </div>
                       </div>
                     )}

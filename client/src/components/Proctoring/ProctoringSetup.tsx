@@ -406,6 +406,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           // Then notify server that student stream has started
           socket.emit("student-stream-started", {
             sessionToken: sessionTokenRef.current,
+            cameraHidden: noCameraMode,
             studentInfo: {
               id: parseInt(user?.id || "1"),
               first_name: user?.first_name || "Student",
