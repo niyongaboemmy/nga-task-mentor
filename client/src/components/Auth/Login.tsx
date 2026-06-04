@@ -93,9 +93,8 @@ const Login: React.FC = () => {
                     />
                   </svg>
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    Sign in with your{" "}
-                    <strong>NGA Central MIS</strong> account to access
-                    TaskMentor.
+                    Sign in with your <strong>NGA Central MIS</strong> account
+                    to access TaskMentor.
                   </p>
                 </div>
 
@@ -131,7 +130,7 @@ const Login: React.FC = () => {
               <p className="text-sm text-gray-500 dark:text-gray-400">
                 No account or need password help?{" "}
                 <a
-                  href="https://nga-central-mis.vercel.app"
+                  href="https://ngamis.isengesho.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
