@@ -92,9 +92,12 @@ app.get("/turn-credentials", async (_req, res) => {
       return res.json(fallback);
     }
 
-    const data = await cfRes.json() as { iceServers: object[] };
-    // Cloudflare returns iceServers with stun + turn + turns entries
-    return res.json({ iceServers: data.iceServers, ttl: 86400 });
+    const data = await cfRes.json() as { iceServers: object | object[] };
+    // Cloudflare may return iceServers as a single object — wrap in array for WebRTC spec
+    const iceServers = Array.isArray(data.iceServers)
+      ? data.iceServers
+      : [data.iceServers];
+    return res.json({ iceServers, ttl: 86400 });
   } catch (err) {
     console.error("Failed to fetch Cloudflare TURN credentials:", err);
     return res.json(fallback);
