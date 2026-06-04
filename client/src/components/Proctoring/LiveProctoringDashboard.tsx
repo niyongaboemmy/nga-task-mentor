@@ -882,6 +882,25 @@ const LiveProctoringDashboard: React.FC = () => {
     );
   };
 
+  const fetchIceServers = async (): Promise<RTCIceServer[]> => {
+    const fallback: RTCIceServer[] = [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ];
+    try {
+      const socketUrl =
+        import.meta.env.VITE_SOCKET_URL || "http://localhost:5003";
+      const res = await fetch(`${socketUrl}/turn-credentials`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) return fallback;
+      const data = await res.json();
+      return (data.iceServers as RTCIceServer[]) ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   const joinStream = async (stream: LiveStream) => {
     // Prevent concurrent join attempts for the same stream
     if (joiningStreamsRef.current.has(stream.sessionToken)) {
@@ -925,12 +944,13 @@ const LiveProctoringDashboard: React.FC = () => {
         socketRef.current?.id || "",
       );
 
-      // Initialize WebRTC peer connection for receiving stream
+      // Initialize WebRTC peer connection with STUN + TURN for cross-network support
+      const iceServers = await fetchIceServers();
       const peerConnection = new RTCPeerConnection({
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:stun1.l.google.com:19302" },
-        ],
+        iceServers,
+        iceCandidatePoolSize: 10,
+        bundlePolicy: "max-bundle",
+        rtcpMuxPolicy: "require",
       });
 
       peerConnectionsRef.current.set(stream.sessionToken, peerConnection);
@@ -1036,9 +1056,16 @@ const LiveProctoringDashboard: React.FC = () => {
             "success",
           );
         } else if (peerConnection.iceConnectionState === "failed") {
+          // Trigger ICE restart before falling back to full reconnect
+          peerConnection.restartIce();
           addStatusMessage(
-            `WebRTC connection failed for ${stream.student.first_name} ${stream.student.last_name}`,
-            "error",
+            `Reconnecting to ${stream.student.first_name} ${stream.student.last_name}...`,
+            "warning",
+          );
+        } else if (peerConnection.iceConnectionState === "disconnected") {
+          addStatusMessage(
+            `${stream.student.first_name} ${stream.student.last_name} temporarily disconnected`,
+            "warning",
           );
         }
       };

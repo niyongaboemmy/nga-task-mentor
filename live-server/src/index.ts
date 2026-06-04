@@ -23,6 +23,10 @@ const MAX_PARTICIPANTS = parseInt(
   10,
 );
 
+// Cloudflare TURN server configuration
+const CF_TURN_TOKEN_ID = process.env.CLOUDFLARE_TURN_TOKEN_ID;
+const CF_TURN_API_TOKEN = process.env.CLOUDFLARE_TURN_API_TOKEN;
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
@@ -54,6 +58,47 @@ app.get("/health", (_req, res) => {
     proctoringStreams: activeProctoringStreams.size,
     nodeEnv: NODE_ENV,
   });
+});
+
+// TURN credentials endpoint — fetches short-lived credentials from Cloudflare
+// Cloudflare Realtime TURN: 1,000 GB/month free, global Anycast network
+app.get("/turn-credentials", async (_req, res) => {
+  const fallback = {
+    iceServers: [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ],
+  };
+
+  if (!CF_TURN_TOKEN_ID || !CF_TURN_API_TOKEN) {
+    return res.json(fallback);
+  }
+
+  try {
+    const cfRes = await fetch(
+      `https://rtc.live.cloudflare.com/v1/turn/keys/${CF_TURN_TOKEN_ID}/credentials/generate`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${CF_TURN_API_TOKEN}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ttl: 86400 }),
+      },
+    );
+
+    if (!cfRes.ok) {
+      console.error("Cloudflare TURN API error:", cfRes.status, await cfRes.text());
+      return res.json(fallback);
+    }
+
+    const data = await cfRes.json() as { iceServers: object[] };
+    // Cloudflare returns iceServers with stun + turn + turns entries
+    return res.json({ iceServers: data.iceServers, ttl: 86400 });
+  } catch (err) {
+    console.error("Failed to fetch Cloudflare TURN credentials:", err);
+    return res.json(fallback);
+  }
 });
 
 // Get all rooms

@@ -347,6 +347,25 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
     }
   };
 
+  const fetchIceServers = async (): Promise<RTCIceServer[]> => {
+    const fallback: RTCIceServer[] = [
+      { urls: "stun:stun.l.google.com:19302" },
+      { urls: "stun:stun1.l.google.com:19302" },
+    ];
+    try {
+      const socketUrl =
+        import.meta.env.VITE_SOCKET_URL || "http://localhost:5003";
+      const res = await fetch(`${socketUrl}/turn-credentials`, {
+        signal: AbortSignal.timeout(5000),
+      });
+      if (!res.ok) return fallback;
+      const data = await res.json();
+      return (data.iceServers as RTCIceServer[]) ?? fallback;
+    } catch {
+      return fallback;
+    }
+  };
+
   const startWebRTCStream = async (sessionToken: string) => {
     sessionTokenRef.current = sessionToken;
     try {
@@ -389,7 +408,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
       // Global socket listener for debugging
       // socket.onAny((eventName, ...args) => {});
 
-      socket.on("connect", () => {
+      socket.on("connect", async () => {
         setSocketConnected(true);
         setShowConnectionPopup(true);
         setConnectionError(null);
@@ -423,12 +442,13 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           throw new Error("Lost connection to server");
         }
 
-        // Create WebRTC peer connection
+        // Create WebRTC peer connection with STUN + TURN for cross-network support
+        const iceServers = await fetchIceServers();
         const peerConnection = new RTCPeerConnection({
-          iceServers: [
-            { urls: "stun:stun.l.google.com:19302" },
-            { urls: "stun:stun1.l.google.com:19302" },
-          ],
+          iceServers,
+          iceCandidatePoolSize: 10,
+          bundlePolicy: "max-bundle",
+          rtcpMuxPolicy: "require",
         });
 
         // Add local stream tracks (addTrack implicitly creates sendrecv transceivers)
@@ -468,20 +488,18 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         // peerConnection.onconnectionstatechange = () => {};
 
         peerConnection.oniceconnectionstatechange = () => {
-          // Update WebRTC connection status
-          if (
-            peerConnection.iceConnectionState === "connected" ||
-            peerConnection.iceConnectionState === "completed"
-          ) {
+          const state = peerConnection.iceConnectionState;
+          if (state === "connected" || state === "completed") {
             setWebrtcConnected(true);
             setShowConnectionPopup(true);
-          } else if (
-            peerConnection.iceConnectionState === "failed" ||
-            peerConnection.iceConnectionState === "disconnected"
-          ) {
+          } else if (state === "failed") {
+            // Attempt ICE restart before giving up
+            peerConnection.restartIce();
+            setWebrtcConnected(false);
+          } else if (state === "disconnected") {
             setWebrtcConnected(false);
             setConnectionError(
-              "WebRTC connection failed. Please refresh and try again.",
+              "WebRTC connection lost. Reconnecting...",
             );
             setShowConnectionPopup(true);
           }
