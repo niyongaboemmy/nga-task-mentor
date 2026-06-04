@@ -431,14 +431,13 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           ],
         });
 
-        // Add local stream tracks to peer connection
+        // Add local stream tracks (addTrack implicitly creates sendrecv transceivers)
         stream.getTracks().forEach((track) => {
           peerConnection.addTrack(track, stream);
         });
 
-        // Add transceivers explicitly to guarantee they are considered in the offer/answer
-        peerConnection.addTransceiver("video", { direction: "sendonly" });
-        peerConnection.addTransceiver("audio", { direction: "sendrecv" });
+        // One extra transceiver to receive audio from the dashboard instructor
+        peerConnection.addTransceiver("audio", { direction: "recvonly" });
 
         // Handle remote audio stream from dashboard
         peerConnection.ontrack = (event) => {
