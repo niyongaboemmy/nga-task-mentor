@@ -1,12 +1,17 @@
-name: Deploy Server to cPanel
+name: Deploy Server
 
 on:
   push:
     branches:
       - main
+    paths:
+      - 'server/**'
+      - 'live-server/**'
+      - '.github/workflows/deploy-server.yml'
   workflow_dispatch:
 
 jobs:
+  # ─── Job 1: Deploy Main Server ────────────────────────────────────────────────
   deploy-server:
     name: Build & Deploy Server
     runs-on: ubuntu-latest
@@ -76,7 +81,7 @@ jobs:
             pm2 restart ecosystem.config.js --env production || pm2 start ecosystem.config.js --env production
             pm2 save
 
-  # ─── Job 2: Deploy Live Server (Socket.IO) ────────────────────────────────
+  # ─── Job 2: Deploy Live Server (Socket.IO) ────────────────────────────────────
   deploy-live-server:
     name: Build & Deploy Live Server
     runs-on: ubuntu-latest
