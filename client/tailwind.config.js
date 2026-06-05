@@ -5,7 +5,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: [
-          '"Source Sans 3"',
+          '"Nunito Sans"',
           'ui-sans-serif',
           'system-ui',
           '-apple-system',
@@ -14,7 +14,7 @@ module.exports = {
           'sans-serif',
         ],
         mono: [
-          '"IBM Plex Mono"',
+          '"Roboto Mono"',
           'ui-monospace',
           'SFMono-Regular',
           'Menlo',

@@ -23,7 +23,7 @@ ChartJS.register(
   Legend,
 );
 
-ChartJS.defaults.font.family = '"Source Sans 3", ui-sans-serif, system-ui, sans-serif';
+ChartJS.defaults.font.family = '"Nunito Sans", ui-sans-serif, system-ui, sans-serif';
 ChartJS.defaults.font.size = 12;
 
 // Interfaces
