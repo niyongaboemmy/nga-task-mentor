@@ -23,7 +23,7 @@ ChartJS.register(
   Legend,
 );
 
-ChartJS.defaults.font.family = '"Poppins", ui-sans-serif, system-ui, sans-serif';
+ChartJS.defaults.font.family = '"Inter", ui-sans-serif, system-ui, sans-serif';
 ChartJS.defaults.font.size = 12;
 
 // Interfaces

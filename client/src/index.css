@@ -8,6 +8,16 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  body {
+    line-height: 1.6;
+  }
+
+  /* Optical sizing: let Inter auto-tune letterforms per size */
+  * {
+    font-optical-sizing: auto;
   }
 
   table td,

@@ -5,7 +5,7 @@ module.exports = {
     extend: {
       fontFamily: {
         sans: [
-          '"Poppins"',
+          '"Inter"',
           'ui-sans-serif',
           'system-ui',
           '-apple-system',
