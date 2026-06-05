@@ -5,6 +5,15 @@
 @layer base {
   html {
     font-size: 14px; /* scale down all rem-based Tailwind utilities globally */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  table td,
+  table th,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 

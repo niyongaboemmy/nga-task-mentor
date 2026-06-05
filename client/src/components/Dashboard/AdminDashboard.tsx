@@ -23,6 +23,9 @@ ChartJS.register(
   Legend,
 );
 
+ChartJS.defaults.font.family = '"Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif';
+ChartJS.defaults.font.size = 12;
+
 // Interfaces
 interface DashboardStats {
   totalCourses: number;

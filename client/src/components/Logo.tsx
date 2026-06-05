@@ -62,7 +62,6 @@ const Logo: React.FC<React.PropsWithChildren<LogoProps>> = ({
       {showText && (
         <span
           className={`${textSizeClasses[size]} font-semibold text-gray-800 dark:text-gray-200 tracking-wide`}
-          style={{ fontFamily: "'Inter', 'Segoe UI', sans-serif" }}
         >
           TaskMentor
         </span>
