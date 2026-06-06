@@ -2596,8 +2596,8 @@ const QuizTakingPage: React.FC = () => {
 
       {/* Navigation Footer */}
       {!isCodingFullscreen && (
-        <div className="border-t border-gray-200 dark:border-gray-700 px-6 py-4">
-          <div className="max-w-8xl mx-auto flex items-center justify-between">
+        <div className="border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4">
+          <div className="max-w-8xl mx-auto flex items-center gap-3">
             <button
               onClick={() =>
                 setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))
@@ -2607,13 +2607,14 @@ const QuizTakingPage: React.FC = () => {
                 isExamPaused ||
                 !isCurrentSaved
               }
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="flex-shrink-0 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <ArrowLeft className="h-4 w-4 mr-2 inline" />
               Previous
             </button>
 
-            <div className="flex items-center gap-2">
+            <div className="flex-1 overflow-x-auto">
+              <div className="flex items-center gap-2 py-1">
               {quizQuestions.map((question, index) => {
                 const isAnswered = answers.find(
                   (a) => a.question_id === question.id,
@@ -2631,7 +2632,7 @@ const QuizTakingPage: React.FC = () => {
                         ? "Question answered"
                         : "Question not answered"
                     }
-                    className={`relative w-10 h-10 rounded-xl text-sm font-bold flex items-center justify-center transition-all ${
+                    className={`relative flex-shrink-0 w-10 h-10 rounded-xl text-sm font-bold flex items-center justify-center transition-all ${
                       index === currentQuestionIndex
                         ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110 z-10"
                         : isAnswered
@@ -2648,6 +2649,7 @@ const QuizTakingPage: React.FC = () => {
                   </button>
                 );
               })}
+              </div>
             </div>
 
             {!isCurrentSaved && (
@@ -2667,7 +2669,7 @@ const QuizTakingPage: React.FC = () => {
                 !isCurrentSaved ||
                 isSubmitting
               }
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-shrink-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isSubmitting ? (
                 <>
