@@ -663,67 +663,69 @@ const LiveProctoringDashboard: React.FC = () => {
   };
 
   const loadActiveStreams = async () => {
+    let streams: LiveStream[] = [];
     try {
       setIsLoading(true);
       const data = await ProctoringApiService.getActiveStreams();
+      streams = data.data;
 
-      // Don't clear existing streams and peer connections on refresh
-      // Instead, merge with existing data to preserve connections
-      setActiveStreams((prevStreams) => {
-        const newStreams = data.data;
-        // Merge new data with existing streams, preserving connection state
-        return newStreams.map((newStream: LiveStream) => {
+      // Merge with existing streams, preserving connection state
+      setActiveStreams((prevStreams) =>
+        streams.map((newStream: LiveStream) => {
           const existingStream = prevStreams.find(
             (s) => s.sessionToken === newStream.sessionToken,
           );
           return existingStream
             ? { ...newStream, ...existingStream }
             : newStream;
-        });
-      });
+        }),
+      );
 
-      // Load saved screenshots from database for each stream
-      for (const stream of data.data) {
-        try {
-          const screenshotsData = await ProctoringApiService.getSessionEvents(
-            stream.sessionToken,
-          );
-          if (screenshotsData.success && screenshotsData.data.length > 0) {
-            // Add saved screenshots to the stream
-            setActiveStreams((prev) =>
-              prev.map((s) =>
-                s.sessionToken === stream.sessionToken
-                  ? {
-                      ...s,
-                      screenshots: [
-                        ...(s.screenshots || []),
-                        ...screenshotsData.data,
-                      ].slice(-20), // Keep last 20 screenshots
-                    }
-                  : s,
-              ),
-            );
-          }
-        } catch (screenshotError) {
-          console.error(
-            `Failed to load screenshots for session ${stream.sessionToken}:`,
-            screenshotError,
-          );
-        }
-      }
-
-      // Request current live status from socket server to update online/offline state
+      // Request current live status from socket server
       if (socketRef.current?.connected) {
         socketRef.current.emit("get-active-streams");
-      } else {
       }
 
-      setError(null); // Clear any previous errors
+      setError(null);
     } catch (error) {
       console.error("Error loading active streams:", error);
       setError("Failed to load active streams");
     } finally {
+      // Unblock the UI immediately — screenshots load in the background
       setIsLoading(false);
+    }
+
+    // Load screenshots for all streams in parallel (non-blocking)
+    if (streams.length > 0) {
+      await Promise.all(
+        streams.map(async (stream: LiveStream) => {
+          try {
+            const screenshotsData = await ProctoringApiService.getSessionEvents(
+              stream.sessionToken,
+            );
+            if (screenshotsData.success && screenshotsData.data.length > 0) {
+              setActiveStreams((prev) =>
+                prev.map((s) =>
+                  s.sessionToken === stream.sessionToken
+                    ? {
+                        ...s,
+                        screenshots: [
+                          ...(s.screenshots || []),
+                          ...screenshotsData.data,
+                        ].slice(-20),
+                      }
+                    : s,
+                ),
+              );
+            }
+          } catch (screenshotError) {
+            console.error(
+              `Failed to load screenshots for session ${stream.sessionToken}:`,
+              screenshotError,
+            );
+          }
+        }),
+      );
     }
   };
 
