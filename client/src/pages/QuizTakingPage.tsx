@@ -2597,6 +2597,12 @@ const QuizTakingPage: React.FC = () => {
       {/* Navigation Footer */}
       {!isCodingFullscreen && (
         <div className="border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4">
+          {!isCurrentSaved && (
+            <div className="flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400 animate-pulse mb-2 text-sm font-bold">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>Please save your answer before proceeding.</span>
+            </div>
+          )}
           <div className="max-w-8xl mx-auto flex items-center gap-3">
             <button
               onClick={() =>
@@ -2613,53 +2619,41 @@ const QuizTakingPage: React.FC = () => {
               Previous
             </button>
 
-            <div className="flex-1 overflow-x-auto">
+            <div className="flex-1 min-w-0 overflow-x-auto">
               <div className="flex items-center gap-2 py-1">
-              {quizQuestions.map((question, index) => {
-                const isAnswered = answers.find(
-                  (a) => a.question_id === question.id,
-                );
-                return (
-                  <button
-                    key={index}
-                    onClick={() => setCurrentQuestionIndex(index)}
-                    disabled={
-                      isExamPaused ||
-                      !isCurrentSaved
-                    }
-                    title={
-                      isAnswered
-                        ? "Question answered"
-                        : "Question not answered"
-                    }
-                    className={`relative flex-shrink-0 w-10 h-10 rounded-xl text-sm font-bold flex items-center justify-center transition-all ${
-                      index === currentQuestionIndex
-                        ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110 z-10"
-                        : isAnswered
-                          ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600"
-                          : "bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
-                    }`}
-                  >
-                    {isAnswered && (
-                      <div className="absolute -top-1.5 -right-1.5 bg-white dark:bg-gray-900 rounded-full p-0.5 border-2 border-emerald-500 shadow-sm">
-                        <Check className="h-2.5 w-2.5 text-emerald-500 stroke-[4px]" />
-                      </div>
-                    )}
-                    {index + 1}
-                  </button>
-                );
-              })}
+                {quizQuestions.map((question, index) => {
+                  const isAnswered = answers.find(
+                    (a) => a.question_id === question.id,
+                  );
+                  return (
+                    <button
+                      key={index}
+                      onClick={() => setCurrentQuestionIndex(index)}
+                      disabled={isExamPaused || !isCurrentSaved}
+                      title={
+                        isAnswered
+                          ? "Question answered"
+                          : "Question not answered"
+                      }
+                      className={`relative flex-shrink-0 w-10 h-10 rounded-xl text-sm font-bold flex items-center justify-center transition-all ${
+                        index === currentQuestionIndex
+                          ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110 z-10"
+                          : isAnswered
+                            ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600"
+                            : "bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
+                      }`}
+                    >
+                      {isAnswered && (
+                        <div className="absolute -top-1.5 -right-1.5 bg-white dark:bg-gray-900 rounded-full p-0.5 border-2 border-emerald-500 shadow-sm">
+                          <Check className="h-2.5 w-2.5 text-emerald-500 stroke-[4px]" />
+                        </div>
+                      )}
+                      {index + 1}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-
-            {!isCurrentSaved && (
-              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 animate-pulse">
-                <AlertCircle className="h-4 w-4" />
-                <span className="text-sm font-bold">
-                  Please save your answer before proceeding.
-                </span>
-              </div>
-            )}
 
             <button
               onClick={handleNext}
