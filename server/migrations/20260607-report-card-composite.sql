@@ -207,7 +207,51 @@ EXECUTE _s;
 DEALLOCATE PREPARE _s;
 
 -- -----------------------------------------------------------------------------
--- 5. Mark both migrations as applied in SequelizeMeta
+-- 5. Add `status` column to report_cards if not already present
+--    Status lifecycle: draft → saved → approved
+--      draft    = assessments being built by instructors
+--      saved    = class teacher finalised; ready for admin review
+--      approved = admin approved; students may now view and download
+-- -----------------------------------------------------------------------------
+
+SET @_has_status = (
+  SELECT COUNT(*)
+  FROM   INFORMATION_SCHEMA.COLUMNS
+  WHERE  TABLE_SCHEMA = DATABASE()
+    AND  TABLE_NAME   = 'report_cards'
+    AND  COLUMN_NAME  = 'status'
+);
+
+SET @_sql_status = IF(
+  @_has_status = 0,
+  'ALTER TABLE `report_cards` ADD COLUMN `status` ENUM(''draft'',''saved'',''approved'') NOT NULL DEFAULT ''draft'' AFTER `pdf_path`',
+  'SELECT ''status column already present'' AS info'
+);
+PREPARE _s FROM @_sql_status;
+EXECUTE _s;
+DEALLOCATE PREPARE _s;
+
+-- Index on status for fast overview queries
+DROP PROCEDURE IF EXISTS _add_index3;
+DELIMITER $$
+CREATE PROCEDURE _add_index3()
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS
+    WHERE TABLE_SCHEMA = DATABASE()
+      AND TABLE_NAME   = 'report_cards'
+      AND INDEX_NAME   = 'idx_report_cards_status'
+  ) THEN
+    ALTER TABLE `report_cards`
+      ADD INDEX `idx_report_cards_status` (`status`);
+  END IF;
+END$$
+DELIMITER ;
+CALL _add_index3();
+DROP PROCEDURE IF EXISTS _add_index3;
+
+-- -----------------------------------------------------------------------------
+-- 6. Mark migrations as applied in SequelizeMeta
 -- -----------------------------------------------------------------------------
 
 CREATE TABLE IF NOT EXISTS `SequelizeMeta` (
@@ -220,7 +264,8 @@ CREATE TABLE IF NOT EXISTS `SequelizeMeta` (
 
 INSERT IGNORE INTO `SequelizeMeta` (`name`) VALUES
   ('20260607000000-create-report-card-tables.js'),
-  ('20260607120000-add-uuid-pdf-to-report-cards.js');
+  ('20260607120000-add-uuid-pdf-to-report-cards.js'),
+  ('20260607130000-add-status-to-report-cards.js');
 
 -- -----------------------------------------------------------------------------
 

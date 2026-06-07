@@ -7,8 +7,9 @@ import { QuizList } from "../Quizzes/QuizList";
 import { fetchCourse, fetchCourses } from "../../store/slices/courseSlice";
 import type { RootState, AppDispatch } from "../../store";
 import type { Course } from "../../types/course.types";
-import { Library, Search, Users, Mail, ChevronRight, SlidersHorizontal, ClipboardList, FileText } from "lucide-react";
+import { Library, Search, Users, Mail, ChevronRight, SlidersHorizontal, ClipboardList } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import CourseReportCardsPanel from "../ReportCard/CourseReportCardsPanel";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -33,7 +34,7 @@ const itemVariants = {
   },
 };
 
-const VALID_TABS = ["overview", "assignments", "quizzes", "students"] as const;
+const VALID_TABS = ["overview", "assignments", "quizzes", "students", "report-cards"] as const;
 type TabId = (typeof VALID_TABS)[number];
 
 const getStoredTab = (courseId: string): TabId => {
@@ -200,42 +201,18 @@ const CourseDetails: React.FC = () => {
                 </p>
               </div>
               <div>
-                <div className="flex items-center justify-end gap-3 flex-wrap">
+                <div className="flex items-center justify-end gap-3">
                   <Link
                     to={`/courses/${courseId}/reports`}
                     className="flex items-center justify-center gap-2 p-1.5 px-4 rounded-full border dark:border-2 border-blue-500 bg-white hover:bg-blue-500 hover:text-white dark:bg-blue-800/20 dark:border-blue-600 dark:hover:bg-blue-700 text-blue-600 dark:text-blue-400 dark:hover:text-white transition-all"
                     title="View Course Reports"
                   >
-                    <svg
-                      className="w-5 h-5"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     <span>Report</span>
                   </Link>
-
-                  {isInstructorOrAdmin && (
-                    <>
-                      <Link
-                        to={`/courses/${courseId}/report-card-attributes${currentTerm && currentYear ? `?term=${encodeURIComponent(currentTerm)}&year=${encodeURIComponent(currentYear)}` : ""}`}
-                        className="flex items-center gap-2 p-1.5 px-4 rounded-full border dark:border-2 border-emerald-500 bg-white hover:bg-emerald-500 hover:text-white dark:bg-emerald-800/20 dark:border-emerald-600 dark:hover:bg-emerald-700 text-emerald-600 dark:text-emerald-400 dark:hover:text-white transition-all text-sm font-medium"
-                        title="Fill general attributes for all students"
-                      >
-                        <FileText className="w-4 h-4" />
-                        <span className="hidden sm:inline">Class Attributes</span>
-                        <span className="sm:hidden">Attrs</span>
-                      </Link>
-                    </>
-                  )}
-
                   <Link
                     to="/courses"
                     className="text-center inline-flex items-center px-5 py-2 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-orange-300 dark:hover:border-blue-700 dark:hover:bg-blue-700 dark:hover:text-white dark:text-orange-300 transition-all duration-200"
@@ -428,6 +405,24 @@ const CourseDetails: React.FC = () => {
                 Question Bank
               </Link>
             )}
+
+            {/* Report Cards tab — instructor/admin only */}
+            {isInstructorOrAdmin && (
+              <button
+                onClick={() => {
+                  setActiveTab("report-cards");
+                  try { sessionStorage.setItem(`course-tab-${courseId}`, "report-cards"); } catch {}
+                }}
+                className={`${
+                  activeTab === "report-cards"
+                    ? "border-violet-500 text-violet-600 dark:text-violet-400"
+                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
+                } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors`}
+              >
+                <ClipboardList className="h-4 w-4" />
+                Report Cards
+              </button>
+            )}
           </nav>
         </div>
 
@@ -503,6 +498,20 @@ const CourseDetails: React.FC = () => {
               currentTerm={currentTerm}
               currentYear={currentYear}
               isInstructorOrAdmin={isInstructorOrAdmin}
+            />
+          )}
+
+          {activeTab === "report-cards" && isInstructorOrAdmin && (
+            <CourseReportCardsPanel
+              courseId={parseInt(courseId!)}
+              courseName={course.title}
+              students={(course.enrolledStudents || []).map((s: any) => ({
+                id: s.user?.id || s.user?.user_id,
+                name: `${s.profile?.first_name || s.user?.first_name || ""} ${s.profile?.last_name || s.user?.last_name || ""}`.trim() || `Student #${s.user?.id}`,
+              })).filter((s: any) => s.id)}
+              currentTerm={currentTerm}
+              currentYear={currentYear}
+              isAdmin={authUser?.role === "admin"}
             />
           )}
         </div>

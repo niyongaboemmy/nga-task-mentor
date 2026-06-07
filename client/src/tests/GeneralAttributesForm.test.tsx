@@ -145,6 +145,7 @@ describe("GeneralAttributesForm", () => {
       message: "Saved",
       data: {
         report_card_id: 1,
+        status: "draft" as const,
         class_teacher_comment: null,
         attendance: { present: 1, absent: 0, late: 0 },
         attributes: [],
@@ -193,6 +194,7 @@ describe("GeneralAttributesForm", () => {
       message: "Saved",
       data: {
         report_card_id: 1,
+        status: "draft" as const,
         class_teacher_comment: null,
         attendance: { present: 1, absent: 0, late: 0 },
         attributes: [],
@@ -225,6 +227,7 @@ describe("GeneralAttributesForm", () => {
         message: "Saved",
         data: {
           report_card_id: 1,
+          status: "draft" as const,
           class_teacher_comment: null,
           attendance: { present: 1, absent: 0, late: 0 },
           attributes: [],
@@ -236,6 +239,7 @@ describe("GeneralAttributesForm", () => {
         message: "Saved",
         data: {
           report_card_id: 3,
+          status: "draft" as const,
           class_teacher_comment: null,
           attendance: { present: 1, absent: 0, late: 0 },
           attributes: [],

@@ -19,49 +19,76 @@ import type {
   BuilderSavePayload,
   AttributesSavePayload,
   GeneratePdfPayload,
+  UpdateStatusPayload,
 } from "../validations/reportCard.validation";
 
 // ─── POST /api/report-cards/builder/save ─────────────────────────────────────
+// Design: one report card per student+term+year. Multiple instructors each call
+// this endpoint for their own subject (course). We do a partial replace —
+// destroying only rows that belong to the subject_ids present in this payload,
+// so that other subjects' mappings are never touched.
 
 export const saveBuilder = async (req: Request, res: Response) => {
   try {
     const body = req.body as BuilderSavePayload;
     const { student_id, term, academic_year, assessments } = body;
 
-    const [reportCard] = await ReportCard.findOrCreate({
+    // Find or create the single report card for this student+term+year.
+    const [reportCard, created] = await ReportCard.findOrCreate({
       where: { student_id, term, academic_year },
       defaults: {
         student_id,
         term,
         academic_year,
+        status: "draft",
         attendance_present: 0,
         attendance_absent: 0,
         attendance_late: 0,
       },
     });
 
-    // Upsert each assessment mapping (destroy existing for this report card and re-create)
-    await ReportCardAssessment.destroy({
-      where: { report_card_id: reportCard.id },
-    });
+    // Partial replace: only wipe rows for the specific subject_ids being saved.
+    // This preserves every other subject's mappings already in the report card.
+    if (assessments.length > 0) {
+      const incomingSubjectIds = [...new Set(assessments.map((a) => a.subject_id))];
 
-    const created = await ReportCardAssessment.bulkCreate(
-      assessments.map((a) => ({
-        report_card_id: reportCard.id!,
-        subject_id: a.subject_id,
-        assessment_type: a.assessment_type,
-        assessment_id: a.assessment_id,
-        category: a.category,
-      })),
-    );
+      await ReportCardAssessment.destroy({
+        where: {
+          report_card_id: reportCard.id,
+          subject_id: { [Op.in]: incomingSubjectIds },
+        },
+      });
+
+      await ReportCardAssessment.bulkCreate(
+        assessments.map((a) => ({
+          report_card_id: reportCard.id!,
+          subject_id: a.subject_id,
+          assessment_type: a.assessment_type,
+          assessment_id: a.assessment_id,
+          category: a.category,
+        })),
+      );
+    }
+
+    // Count total assessments and unique subjects now in this report card
+    const allMappings = await ReportCardAssessment.findAll({
+      where: { report_card_id: reportCard.id },
+      attributes: ["subject_id", "assessment_id"],
+    });
+    const subjectsMapped = new Set(allMappings.map((m) => m.subject_id)).size;
 
     res.status(200).json({
       success: true,
-      message: "Assessment mappings saved successfully",
+      message: created
+        ? "Report card initialized and assessments saved"
+        : "Assessment mappings updated for subject",
       data: {
         report_card_id: reportCard.id,
-        mappings_count: created.length,
-        assessments: created,
+        status: reportCard.status,
+        is_new: created,
+        subject_mappings_saved: assessments.length,
+        total_subjects_mapped: subjectsMapped,
+        total_assessments_mapped: allMappings.length,
       },
     });
   } catch (error) {
@@ -92,13 +119,13 @@ export const saveAttributes = async (req: Request, res: Response) => {
         student_id,
         term,
         academic_year,
+        status: "draft",
         attendance_present: attendance_present ?? 0,
         attendance_absent: attendance_absent ?? 0,
         attendance_late: attendance_late ?? 0,
       },
     });
 
-    // Update attendance and comment fields on every call
     await reportCard.update({
       class_teacher_comment: class_teacher_comment ?? null,
       attendance_present: attendance_present ?? reportCard.attendance_present,
@@ -106,10 +133,7 @@ export const saveAttributes = async (req: Request, res: Response) => {
       attendance_late: attendance_late ?? reportCard.attendance_late,
     });
 
-    // Replace all attributes for this report card
-    await ReportCardAttribute.destroy({
-      where: { report_card_id: reportCard.id },
-    });
+    await ReportCardAttribute.destroy({ where: { report_card_id: reportCard.id } });
 
     const created = await ReportCardAttribute.bulkCreate(
       attributes.map((a) => ({
@@ -124,6 +148,7 @@ export const saveAttributes = async (req: Request, res: Response) => {
       message: "Attributes and teacher comment saved successfully",
       data: {
         report_card_id: reportCard.id,
+        status: reportCard.status,
         class_teacher_comment: reportCard.class_teacher_comment,
         attendance: {
           present: reportCard.attendance_present,
@@ -139,7 +164,165 @@ export const saveAttributes = async (req: Request, res: Response) => {
   }
 };
 
-// ─── Shared aggregation helper ───────────────────────────────────────────────
+// ─── GET /api/report-cards/overview ──────────────────────────────────────────
+// Returns the report card status for a batch of students in a given term/year.
+// The frontend passes the student IDs it already holds from the enrollment list.
+// Query params: term, academic_year, student_ids (comma-separated)
+
+export const getCourseOverview = async (req: Request, res: Response) => {
+  try {
+    const { term, academic_year, student_ids } = req.query as {
+      term?: string;
+      academic_year?: string;
+      student_ids?: string;
+    };
+
+    if (!term || !academic_year || !student_ids) {
+      return res.status(400).json({
+        success: false,
+        message: "term, academic_year, and student_ids are required",
+      });
+    }
+
+    const ids = student_ids
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n) && n > 0);
+
+    if (ids.length === 0) {
+      return res.status(400).json({ success: false, message: "No valid student_ids provided" });
+    }
+
+    // Fetch all report cards for these students in the given term/year
+    const reportCards = await ReportCard.findAll({
+      where: { student_id: { [Op.in]: ids }, term, academic_year },
+      attributes: ["id", "student_id", "status", "updated_at"],
+    });
+
+    // For each report card, count distinct subjects mapped and whether attributes exist
+    const rcIds = reportCards.map((rc) => rc.id!);
+
+    const [assessmentCounts, attributeCounts] = await Promise.all([
+      rcIds.length > 0
+        ? ReportCardAssessment.findAll({
+            where: { report_card_id: { [Op.in]: rcIds } },
+            attributes: ["report_card_id", "subject_id"],
+          })
+        : [],
+      rcIds.length > 0
+        ? ReportCardAttribute.findAll({
+            where: { report_card_id: { [Op.in]: rcIds } },
+            attributes: ["report_card_id"],
+          })
+        : [],
+    ]);
+
+    // Build lookup maps
+    const subjectsPerCard = new Map<number, Set<number>>();
+    for (const a of assessmentCounts as ReportCardAssessment[]) {
+      if (!subjectsPerCard.has(a.report_card_id)) {
+        subjectsPerCard.set(a.report_card_id, new Set());
+      }
+      subjectsPerCard.get(a.report_card_id)!.add(a.subject_id);
+    }
+
+    const hasAttributesPerCard = new Set(
+      (attributeCounts as ReportCardAttribute[]).map((a) => a.report_card_id),
+    );
+
+    const rcByStudent = new Map(reportCards.map((rc) => [rc.student_id, rc]));
+
+    const result = ids.map((studentId) => {
+      const rc = rcByStudent.get(studentId);
+      if (!rc) {
+        return {
+          student_id: studentId,
+          report_card_id: null,
+          status: null,
+          subjects_mapped: 0,
+          has_attributes: false,
+          updated_at: null,
+        };
+      }
+      return {
+        student_id: studentId,
+        report_card_id: rc.id,
+        status: rc.status,
+        subjects_mapped: subjectsPerCard.get(rc.id!)?.size ?? 0,
+        has_attributes: hasAttributesPerCard.has(rc.id!),
+        updated_at: rc.updatedAt,
+      };
+    });
+
+    res.status(200).json({ success: true, data: result });
+  } catch (error) {
+    console.error("getCourseOverview error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── PATCH /api/report-cards/:id/status ──────────────────────────────────────
+// Instructors: draft ↔ saved
+// Admins:      any → any (including approved)
+// Students:    forbidden
+
+export const updateStatus = async (req: Request, res: Response) => {
+  try {
+    const cardId = parseInt(req.params.id, 10);
+    if (isNaN(cardId)) {
+      return res.status(400).json({ success: false, message: "Invalid report card ID" });
+    }
+
+    const { status } = req.body as UpdateStatusPayload;
+    const userRole: string = (req as any).user?.role ?? "";
+
+    if (userRole === "student") {
+      return res.status(403).json({ success: false, message: "Students cannot change report card status" });
+    }
+
+    // Only admins can approve
+    if (status === "approved" && userRole !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only administrators can approve report cards",
+      });
+    }
+
+    // Instructors may only set draft or saved
+    if (userRole === "instructor" && !["draft", "saved"].includes(status)) {
+      return res.status(403).json({
+        success: false,
+        message: "Instructors can only set status to draft or saved",
+      });
+    }
+
+    const reportCard = await ReportCard.findByPk(cardId);
+    if (!reportCard) {
+      return res.status(404).json({ success: false, message: "Report card not found" });
+    }
+
+    // Guard: cannot un-approve once approved (only admin can revert)
+    if (reportCard.status === "approved" && status !== "approved" && userRole !== "admin") {
+      return res.status(403).json({
+        success: false,
+        message: "Only an administrator can revert an approved report card",
+      });
+    }
+
+    await reportCard.update({ status });
+
+    res.status(200).json({
+      success: true,
+      message: `Report card status updated to '${status}'`,
+      data: { report_card_id: cardId, status },
+    });
+  } catch (error) {
+    console.error("updateStatus error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── Shared aggregation helper ────────────────────────────────────────────────
 
 async function aggregateReportCardData(reportCard: ReportCard) {
   const studentId = reportCard.student_id;
@@ -220,10 +403,13 @@ async function aggregateReportCardData(reportCard: ReportCard) {
     calculateSubjectGrade(subject_id, scores),
   );
 
-  return { grades, attributes };
+  return { grades, attributes, rawMappings: assessmentMappings };
 }
 
 // ─── GET /api/report-cards/student/:studentId ────────────────────────────────
+// Students: only returns approved cards.
+// Instructors/admins: see any status.
+// Includes raw assessment mappings so the builder can pre-populate.
 
 export const getStudentReportCard = async (req: Request, res: Response) => {
   try {
@@ -232,17 +418,27 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "Invalid studentId" });
     }
 
+    const userRole: string = (req as any).user?.role ?? "";
     const { term, academic_year } = req.query as { term?: string; academic_year?: string };
+
     const whereClause: any = { student_id: studentId };
     if (term) whereClause.term = term;
     if (academic_year) whereClause.academic_year = academic_year;
 
-    const reportCard = await ReportCard.findOne({ where: whereClause });
-    if (!reportCard) {
-      return res.status(404).json({ success: false, message: "Report card not found" });
+    // Students can only see approved report cards
+    if (userRole === "student") {
+      whereClause.status = "approved";
     }
 
-    const { grades, attributes } = await aggregateReportCardData(reportCard);
+    const reportCard = await ReportCard.findOne({ where: whereClause });
+    if (!reportCard) {
+      const message = userRole === "student"
+        ? "No approved report card found for this term"
+        : "Report card not found";
+      return res.status(404).json({ success: false, message });
+    }
+
+    const { grades, attributes, rawMappings } = await aggregateReportCardData(reportCard);
 
     res.status(200).json({
       success: true,
@@ -253,6 +449,7 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
           student_id: reportCard.student_id,
           term: reportCard.term,
           academic_year: reportCard.academic_year,
+          status: reportCard.status,
           class_teacher_comment: reportCard.class_teacher_comment ?? null,
           attendance: {
             present: reportCard.attendance_present,
@@ -266,6 +463,13 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
         },
         grades,
         attributes,
+        // Raw mappings included so the builder can restore previously saved state
+        raw_assessments: rawMappings.map((m) => ({
+          subject_id: m.subject_id,
+          assessment_type: m.assessment_type,
+          assessment_id: m.assessment_id,
+          category: m.category,
+        })),
       },
     });
   } catch (error) {
@@ -275,10 +479,13 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
 };
 
 // ─── POST /api/report-cards/generate-pdf ─────────────────────────────────────
+// Only approved report cards can be downloaded by students.
+// Instructors/admins can generate PDFs at any status.
 
 export const generatePdf = async (req: Request, res: Response) => {
   try {
     const { report_card_id } = req.body as GeneratePdfPayload;
+    const userRole: string = (req as any).user?.role ?? "";
 
     const reportCard = await ReportCard.findByPk(report_card_id, {
       include: [{ model: User, as: "student", attributes: ["id", "first_name", "last_name"] }],
@@ -286,6 +493,14 @@ export const generatePdf = async (req: Request, res: Response) => {
 
     if (!reportCard) {
       return res.status(404).json({ success: false, message: "Report card not found" });
+    }
+
+    // Students can only generate PDFs for approved cards
+    if (userRole === "student" && reportCard.status !== "approved") {
+      return res.status(403).json({
+        success: false,
+        message: "This report card has not been approved yet",
+      });
     }
 
     const student = (reportCard as any).student as User | undefined;
@@ -319,7 +534,6 @@ export const generatePdf = async (req: Request, res: Response) => {
       verification_base_url: verificationBaseUrl,
     });
 
-    // Persist path so we can serve it without re-generating
     const relativePath = savePdfToDisk(pdfBuffer, reportCard.uuid);
     await reportCard.update({ pdf_path: relativePath });
 
@@ -339,6 +553,7 @@ export const generatePdf = async (req: Request, res: Response) => {
 };
 
 // ─── GET /api/public/verify/report-card/:uuid ────────────────────────────────
+// Public verification — no auth required, but only confirms approved cards.
 
 export const verifyReportCard = async (req: Request, res: Response) => {
   try {
@@ -349,7 +564,7 @@ export const verifyReportCard = async (req: Request, res: Response) => {
     }
 
     const reportCard = await ReportCard.findOne({
-      where: { uuid },
+      where: { uuid, status: "approved" },
       include: [{ model: User, as: "student", attributes: ["id", "first_name", "last_name"] }],
     });
 
@@ -357,7 +572,7 @@ export const verifyReportCard = async (req: Request, res: Response) => {
       return res.status(404).json({
         success: false,
         verified: false,
-        message: "No report card found for this verification code",
+        message: "No verified report card found for this code",
       });
     }
 
@@ -381,6 +596,7 @@ export const verifyReportCard = async (req: Request, res: Response) => {
         student_name: studentName,
         term: reportCard.term,
         academic_year: reportCard.academic_year,
+        status: reportCard.status,
         average_score: averageScore,
         subjects_count: grades.length,
         issued_by: "National Grammar Academy",

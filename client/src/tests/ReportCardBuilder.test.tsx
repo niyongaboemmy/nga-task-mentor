@@ -150,7 +150,7 @@ describe("ReportCardBuilder", () => {
     vi.mocked(reportCardApi.ReportCardApiService.saveBuilder).mockResolvedValueOnce({
       success: true,
       message: "Saved",
-      data: { report_card_id: 7, mappings_count: 1, assessments: [] },
+      data: { report_card_id: 7, status: "draft" as const, is_new: false, subject_mappings_saved: 1, total_subjects_mapped: 1, total_assessments_mapped: 1 },
     });
 
     // Render with an already-mapped state — we achieve this by simulating a drop

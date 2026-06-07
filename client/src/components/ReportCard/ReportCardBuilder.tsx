@@ -1,4 +1,4 @@
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -51,7 +51,11 @@ export interface ReportCardBuilderProps {
   term: string;
   academicYear: string;
   subjects: SubjectOption[];
+  /** Pre-populate drop zones from an existing saved card */
+  initialDropped?: Partial<Record<AssessmentCategory, AssessmentDragItem[]>>;
   onSaved?: (reportCardId: number) => void;
+  /** When true, drag-drop and save are disabled (approved card, non-admin view) */
+  readOnly?: boolean;
 }
 
 // ─── Category config ─────────────────────────────────────────────────────────
@@ -260,20 +264,35 @@ export default function ReportCardBuilder({
   term,
   academicYear,
   subjects,
+  initialDropped,
   onSaved,
+  readOnly = false,
 }: ReportCardBuilderProps) {
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(
     subjects[0]?.id ?? null,
   );
   const [dropped, setDropped] = useState<Record<AssessmentCategory, AssessmentDragItem[]>>({
-    CW: [],
-    HW: [],
-    MD: [],
-    EOT: [],
+    CW: initialDropped?.CW ?? [],
+    HW: initialDropped?.HW ?? [],
+    MD: initialDropped?.MD ?? [],
+    EOT: initialDropped?.EOT ?? [],
   });
   const [activeDragItem, setActiveDragItem] = useState<AssessmentDragItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [subjectOpen, setSubjectOpen] = useState(false);
+
+  // When a new pre-populated state arrives (e.g. navigating between students),
+  // reset the drop zones so they reflect the loaded card.
+  const [syncKey, setSyncKey] = useState(0);
+  useEffect(() => {
+    setDropped({
+      CW: initialDropped?.CW ?? [],
+      HW: initialDropped?.HW ?? [],
+      MD: initialDropped?.MD ?? [],
+      EOT: initialDropped?.EOT ?? [],
+    });
+    setSyncKey((k) => k + 1);
+  }, [initialDropped]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -316,12 +335,14 @@ export default function ReportCardBuilder({
   );
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
+    if (readOnly) return;
     setActiveDragItem(event.active.data.current as AssessmentDragItem);
-  }, []);
+  }, [readOnly]);
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
       setActiveDragItem(null);
+      if (readOnly) return;
       const { over, active } = event;
       if (!over) return;
 
@@ -383,7 +404,7 @@ export default function ReportCardBuilder({
       });
 
       if (result.success) {
-        toast.success(`Saved ${result.data.mappings_count} assessment mapping(s).`);
+        toast.success(`Saved ${result.data.subject_mappings_saved} assessment mapping(s) for this subject.`);
         onSaved?.(result.data.report_card_id);
       }
     } catch {
@@ -397,6 +418,7 @@ export default function ReportCardBuilder({
 
   return (
     <DndContext
+      key={syncKey}
       sensors={sensors}
       collisionDetection={closestCenter}
       onDragStart={handleDragStart}
@@ -422,24 +444,32 @@ export default function ReportCardBuilder({
                   {totalMapped} mapped
                 </span>
               )}
-              <button
-                onClick={handleSave}
-                disabled={isSaving || totalMapped === 0}
-                data-testid="save-button"
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
-                  bg-gradient-to-r from-indigo-500 to-purple-600 text-white
-                  hover:from-indigo-400 hover:to-purple-500
-                  disabled:opacity-40 disabled:cursor-not-allowed
-                  shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50
-                  transition-all duration-200 active:scale-95"
-              >
-                {isSaving ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Save className="w-4 h-4" />
-                )}
-                {isSaving ? "Saving…" : "Save Mappings"}
-              </button>
+              {readOnly ? (
+                <span className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold
+                  bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+                  <CheckCircle2 className="w-4 h-4" />
+                  Approved — view only
+                </span>
+              ) : (
+                <button
+                  onClick={handleSave}
+                  disabled={isSaving || totalMapped === 0}
+                  data-testid="save-button"
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
+                    bg-gradient-to-r from-indigo-500 to-purple-600 text-white
+                    hover:from-indigo-400 hover:to-purple-500
+                    disabled:opacity-40 disabled:cursor-not-allowed
+                    shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50
+                    transition-all duration-200 active:scale-95"
+                >
+                  {isSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  {isSaving ? "Saving…" : "Save Mappings"}
+                </button>
+              )}
             </div>
           </div>
         </div>

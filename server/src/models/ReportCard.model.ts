@@ -9,6 +9,8 @@ import {
 } from "sequelize-typescript";
 import { User } from "./User.model";
 
+export type ReportCardStatus = "draft" | "saved" | "approved";
+
 export interface IReportCardAttributes {
   id?: number;
   uuid?: string;
@@ -16,6 +18,7 @@ export interface IReportCardAttributes {
   student_id: number;
   term: string;
   academic_year: string;
+  status?: ReportCardStatus;
   class_teacher_comment?: string | null;
   attendance_present: number;
   attendance_absent: number;
@@ -94,6 +97,13 @@ export class ReportCard extends Model<
     },
   })
   public academic_year!: string;
+
+  @Column({
+    type: DataType.ENUM("draft", "saved", "approved"),
+    allowNull: false,
+    defaultValue: "draft",
+  })
+  public status!: ReportCardStatus;
 
   @Column({
     type: DataType.TEXT,
