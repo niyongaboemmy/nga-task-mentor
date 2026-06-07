@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { X, Download, Printer, Loader2, AlertCircle, RefreshCw } from "lucide-react";
+import { X, Download, Printer, Loader2, AlertCircle, RefreshCw, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ReportCardApiService,
@@ -793,6 +793,16 @@ function SignatureLine({ label }: { label: string }) {
 
 // ─── Shell modal with fetch / download logic ──────────────────────────────────
 
+const A4_PX = 794; // A4 width at 96dpi
+
+function calcAutoZoom(): number {
+  const vw = window.innerWidth;
+  if (vw < 480)  return Math.max(0.38, (vw - 32) / A4_PX);
+  if (vw < 768)  return Math.max(0.5,  (vw - 48) / A4_PX);
+  if (vw < 1024) return Math.max(0.65, (vw - 80) / A4_PX);
+  return 1.0;
+}
+
 export default function ReportCardPreview({
   studentId,
   studentName,
@@ -807,7 +817,13 @@ export default function ReportCardPreview({
   const [error, setError]     = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
   const [printMode, setPrintMode]     = useState(false);
+  const [zoom, setZoom]               = useState(() => calcAutoZoom());
   const printFrameRef = useRef<HTMLIFrameElement | null>(null);
+
+  const stepZoom = (delta: number) =>
+    setZoom((z) => Math.min(1.5, Math.max(0.3, parseFloat((z + delta).toFixed(2)))));
+
+  const resetZoom = () => setZoom(calcAutoZoom());
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -879,41 +895,75 @@ export default function ReportCardPreview({
         {!printMode && (
           <div
             data-toolbar="true"
-            className="flex items-center justify-between px-6 py-3 flex-shrink-0"
+            className="flex items-center justify-between gap-3 px-3 sm:px-5 py-2.5 flex-shrink-0 flex-wrap"
             style={{ background: "#0f172a", borderBottom: "1px solid #1e293b" }}
           >
-            <div>
-              <span className="text-white font-semibold text-sm">Report Card Preview</span>
+            {/* Left: title */}
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="text-white font-semibold text-sm hidden xs:inline">Report Card</span>
               {data && (
-                <span className="ml-3 text-sm text-slate-400">
-                  {studentName} · {data.report_card.term} · {data.report_card.academic_year}
+                <span className="text-xs text-slate-400 truncate max-w-[160px] sm:max-w-none">
+                  <span className="hidden sm:inline">{studentName} · </span>
+                  {data.report_card.term} · {data.report_card.academic_year}
                 </span>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
+            {/* Center: zoom controls */}
+            <div className="flex items-center gap-1 bg-slate-800 rounded-xl px-1 py-1">
+              <button
+                onClick={() => stepZoom(-0.1)}
+                disabled={zoom <= 0.3}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 transition-colors"
+                aria-label="Zoom out"
+              >
+                <ZoomOut className="w-3.5 h-3.5" />
+              </button>
+              <span className="text-[11px] font-semibold text-slate-300 min-w-[36px] text-center tabular-nums">
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                onClick={() => stepZoom(0.1)}
+                disabled={zoom >= 1.5}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 transition-colors"
+                aria-label="Zoom in"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
+              </button>
+              <button
+                onClick={resetZoom}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                aria-label="Reset zoom"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+
+            {/* Right: actions */}
+            <div className="flex items-center gap-1.5">
               <button
                 onClick={handleBrowserPrint}
                 disabled={!data}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600
                   text-white text-xs font-medium transition-colors disabled:opacity-40"
               >
                 <Printer className="w-3.5 h-3.5" />
-                Print
+                <span className="hidden sm:inline">Print</span>
               </button>
 
               <button
                 onClick={handleDownloadPdf}
                 disabled={!data || downloading}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold
-                  bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-40"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+                  bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-40
+                  shadow-sm shadow-indigo-500/20"
               >
                 {downloading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
                 ) : (
                   <Download className="w-3.5 h-3.5" />
                 )}
-                {downloading ? "Generating…" : "Download PDF"}
+                <span className="hidden sm:inline">{downloading ? "Generating…" : "Download PDF"}</span>
               </button>
 
               <button
@@ -938,10 +988,10 @@ export default function ReportCardPreview({
           {error && !loading && (
             <div className="flex flex-col items-center justify-center gap-4 text-white/70 my-20">
               <AlertCircle className="w-10 h-10 text-red-400" />
-              <p className="text-sm text-red-300">{error}</p>
+              <p className="text-sm text-red-300 text-center">{error}</p>
               <button
                 onClick={fetchData}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
                 Retry
@@ -952,17 +1002,25 @@ export default function ReportCardPreview({
           {data && !loading && (
             <div
               style={{
-                boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
-                borderRadius: 4,
-                overflow: "hidden",
+                transform: `scale(${zoom})`,
+                transformOrigin: "top center",
+                marginBottom: zoom < 1 ? `${(zoom - 1) * 1123}px` : 0,
               }}
             >
-              <ReportCardDocument
-                data={data}
-                studentName={studentName}
-                subjectNames={subjectNames}
-                verificationUrl={verificationUrl}
-              />
+              <div
+                style={{
+                  boxShadow: "0 25px 60px rgba(0,0,0,0.5)",
+                  borderRadius: 4,
+                  overflow: "hidden",
+                }}
+              >
+                <ReportCardDocument
+                  data={data}
+                  studentName={studentName}
+                  subjectNames={subjectNames}
+                  verificationUrl={verificationUrl}
+                />
+              </div>
             </div>
           )}
         </div>

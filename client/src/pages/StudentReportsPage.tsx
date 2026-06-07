@@ -172,13 +172,43 @@ const StudentReportsPage: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-gray-500 font-medium">
-            Loading your academic profile...
+        <div className="flex flex-col items-center gap-5">
+          <div className="relative w-14 h-14">
+            <div className="absolute inset-0 rounded-full border-4 border-blue-100 dark:border-blue-900/30" />
+            <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
+          </div>
+          <p className="text-gray-500 dark:text-gray-400 font-semibold text-sm">
+            Loading your academic profile…
           </p>
         </div>
       </div>
+    );
+  }
+
+  if (!loading && reports.length === 0) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center px-4"
+      >
+        <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center shadow-xl shadow-blue-100 dark:shadow-none border border-blue-200/50 dark:border-blue-800/40">
+          <GraduationCap className="w-10 h-10 text-blue-500 dark:text-blue-400" />
+        </div>
+        <div>
+          <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">No Reports Yet</h2>
+          <p className="mt-2 text-gray-500 dark:text-gray-400 max-w-sm leading-relaxed">
+            You're not enrolled in any courses yet, or no grades have been recorded. Check back after your instructor publishes results.
+          </p>
+        </div>
+        <button
+          onClick={fetchReports}
+          className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 active:scale-95"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </button>
+      </motion.div>
     );
   }
 
@@ -192,40 +222,40 @@ const StudentReportsPage: React.FC = () => {
       {/* Header Section */}
       <motion.div
         variants={itemVariants}
-        className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6"
+        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
-        <div className="flex flex-col md:flex-row items-center gap-5">
-          <div className="w-16 h-16 rounded-[1.5rem] bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-2xl shadow-blue-500/30 transform -rotate-3">
-            <LayoutDashboard className="w-8 h-8" />
+        <div className="flex items-center gap-4">
+          <div className="w-14 h-14 rounded-[1.25rem] bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-xl shadow-blue-500/25 flex-shrink-0">
+            <LayoutDashboard className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-4xl text-center md:text-left font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
               Academic Performance
             </h1>
-            <p className="mt-1 text-center md:text-left text-gray-500 dark:text-gray-400 font-medium flex items-center gap-2">
-              <span className="hidden md:inline-block px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-black uppercase tracking-wider">
+            <p className="mt-0.5 text-gray-500 dark:text-gray-400 text-sm font-medium flex items-center gap-2">
+              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-[10px] font-black uppercase tracking-wider">
                 Student Report
               </span>
-              <span>Comprehensive overview of your grades and progress.</span>
+              <span className="hidden sm:inline">Comprehensive overview of your grades.</span>
             </p>
           </div>
         </div>
         <button
           onClick={fetchReports}
-          className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-[2rem] hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-black text-xs uppercase tracking-wider text-gray-600 dark:text-gray-300"
+          className="px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-gray-600 dark:text-gray-300 self-start sm:self-auto active:scale-95"
         >
           <RefreshCw className="w-4 h-4" />
-          <span>Refresh Data</span>
+          <span>Refresh</span>
         </button>
       </motion.div>
 
       {/* Summary Stats Cards */}
       <motion.div
         variants={itemVariants}
-        className="grid grid-cols-1 md:grid-cols-3 gap-6"
+        className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
       >
         {/* Overall Grade Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
 
           <div className="relative z-10">
@@ -254,7 +284,7 @@ const StudentReportsPage: React.FC = () => {
         </div>
 
         {/* Completion Rate Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-green-500/10 transition-colors duration-700" />
           <div className="relative z-10">
             <p className="text-xs font-black text-green-600 dark:text-green-400 uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -280,7 +310,7 @@ const StudentReportsPage: React.FC = () => {
         </div>
 
         {/* Course Count Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-purple-500/10 transition-colors duration-700" />
           <div className="relative z-10">
             <p className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -318,22 +348,22 @@ const StudentReportsPage: React.FC = () => {
       {/* Main Content Area */}
       <motion.div
         variants={containerVariants}
-        className="grid grid-cols-1 lg:grid-cols-3 gap-8"
+        className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8"
       >
         {/* Left Column: Grade Distribution Chart */}
         <motion.div
           variants={itemVariants}
-          className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-[1.6rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-8"
+          className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-[1.6rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8"
         >
-          <div className="flex items-center gap-3 mb-8">
-            <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <h3 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
+            <h3 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight">
               Performance Overview
             </h3>
           </div>
-          <div className="h-[350px] w-full">
+          <div className="h-[220px] sm:h-[280px] lg:h-[350px] w-full">
             <Bar data={chartData} options={chartOptions} />
           </div>
         </motion.div>
@@ -342,13 +372,13 @@ const StudentReportsPage: React.FC = () => {
         <div className="space-y-6">
           <motion.div
             variants={itemVariants}
-            className="bg-white dark:bg-gray-900 rounded-[1.6rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-8"
+            className="bg-white dark:bg-gray-900 rounded-[1.6rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8"
           >
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+              <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 flex-shrink-0">
                 <Filter className="w-5 h-5" />
               </div>
-              <h3 className="text-xl font-black text-gray-900 dark:text-white tracking-tight">
+              <h3 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight">
                 Status Breakdown
               </h3>
             </div>
@@ -419,20 +449,20 @@ const StudentReportsPage: React.FC = () => {
       </motion.div>
 
       {/* Detailed Course Cards Grid */}
-      <div className="pt-4">
-        <h3 className="text-2xl font-black text-gray-900 dark:text-white mb-6 flex items-center gap-3">
-          <GraduationCap className="w-8 h-8 text-blue-600 dark:text-blue-400" />
+      <div className="pt-2">
+        <h3 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white mb-5 flex items-center gap-3">
+          <GraduationCap className="w-7 h-7 text-blue-600 dark:text-blue-400 flex-shrink-0" />
           Subject Details
         </h3>
         <motion.div
           variants={containerVariants}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6"
         >
           {reports.map((report) => (
             <motion.div
               key={report.courseId}
               variants={itemVariants}
-              className="group bg-white dark:bg-gray-900 rounded-[2rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-8 hover:-translate-y-1 transition-all duration-300"
+              className="group bg-white dark:bg-gray-900 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8 hover:-translate-y-1 transition-all duration-300"
             >
               <div className="flex justify-between items-start mb-6">
                 <div>
