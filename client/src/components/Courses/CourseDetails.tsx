@@ -76,6 +76,18 @@ const CourseDetails: React.FC = () => {
     return courses.find((c) => String(c.id) === String(courseId)) || null;
   }, [currentCourse, courses, courseId]);
 
+  // Stable students array for CourseReportCardsPanel — avoids fetchOverview firing on every render
+  const reportCardStudents = useMemo(() => {
+    if (!course) return [];
+    return (course.enrolledStudents ?? [])
+      .map((s: any) => ({
+        id: s.user?.id || s.user?.user_id,
+        name: `${s.profile?.first_name || s.user?.first_name || ""} ${s.profile?.last_name || s.user?.last_name || ""}`.trim()
+          || `Student #${s.user?.id}`,
+      }))
+      .filter((s: any) => s.id);
+  }, [course]);
+
   useEffect(() => {
     const initializeCourse = async () => {
       if (!courseId) return;
@@ -505,10 +517,7 @@ const CourseDetails: React.FC = () => {
             <CourseReportCardsPanel
               courseId={parseInt(courseId!)}
               courseName={course.title}
-              students={(course.enrolledStudents || []).map((s: any) => ({
-                id: s.user?.id || s.user?.user_id,
-                name: `${s.profile?.first_name || s.user?.first_name || ""} ${s.profile?.last_name || s.user?.last_name || ""}`.trim() || `Student #${s.user?.id}`,
-              })).filter((s: any) => s.id)}
+              students={reportCardStudents}
               currentTerm={currentTerm}
               currentYear={currentYear}
               isAdmin={authUser?.role === "admin"}
@@ -647,7 +656,7 @@ const StudentsList: React.FC<{
               const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
               const initials = `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase() || "?";
 
-              const builderUrl = `/courses/${courseId}/report-card-builder?studentId=${id}${currentTerm ? `&term=${encodeURIComponent(currentTerm)}` : ""}${currentYear ? `&year=${encodeURIComponent(currentYear)}` : ""}`;
+              const builderUrl = `/courses/${courseId}/report-card-builder?studentId=${id}&name=${encodeURIComponent(fullName)}${currentTerm ? `&term=${encodeURIComponent(currentTerm)}` : ""}${currentYear ? `&year=${encodeURIComponent(currentYear)}` : ""}`;
 
               return (
                 <div

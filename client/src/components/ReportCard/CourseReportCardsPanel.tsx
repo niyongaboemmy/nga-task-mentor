@@ -187,8 +187,9 @@ export default function CourseReportCardsPanel({
   const [loadingOverview, setLoadingOverview] = useState(false);
   const [overviewError, setOverviewError] = useState<string | null>(null);
 
-  const [approvingId, setApprovingId] = useState<number | null>(null);
-  const [revertingId, setRevertingId] = useState<number | null>(null);
+  const [approvingId, setApprovingId]           = useState<number | null>(null);
+  const [revertingId, setRevertingId]           = useState<number | null>(null);
+  const [markingCompleteId, setMarkingCompleteId] = useState<number | null>(null);
 
   const [previewStudent, setPreviewStudent] = useState<{ id: number; name: string } | null>(null);
 
@@ -213,6 +214,25 @@ export default function CourseReportCardsPanel({
   }, [term, year, students]);
 
   useEffect(() => { fetchOverview(); }, [fetchOverview]);
+
+  const handleMarkComplete = async (studentId: number) => {
+    const row = overviewMap.get(studentId);
+    if (!row?.report_card_id) return;
+    setMarkingCompleteId(studentId);
+    try {
+      await ReportCardApiService.updateStatus(row.report_card_id, "saved");
+      toast.success("Report card marked as complete — ready for admin review.");
+      setOverviewMap((prev) => {
+        const next = new Map(prev);
+        next.set(studentId, { ...row, status: "saved" });
+        return next;
+      });
+    } catch {
+      toast.error("Failed to mark as complete.");
+    } finally {
+      setMarkingCompleteId(null);
+    }
+  };
 
   const handleApprove = async (studentId: number) => {
     const row = overviewMap.get(studentId);
@@ -344,8 +364,9 @@ export default function CourseReportCardsPanel({
               const hasAttrs = row?.has_attributes ?? false;
               const rcId = row?.report_card_id ?? null;
 
-              const isApproving = approvingId === student.id;
-              const isReverting = revertingId === student.id;
+              const isApproving       = approvingId === student.id;
+              const isReverting       = revertingId === student.id;
+              const isMarkingComplete = markingCompleteId === student.id;
 
               return (
                 <motion.div
@@ -408,7 +429,7 @@ export default function CourseReportCardsPanel({
                   <div className="flex items-center justify-end gap-2 w-36">
                     {/* Build / Edit */}
                     <Link
-                      to={`${builderBase}?studentId=${student.id}${termYearQs ? `&term=${encodeURIComponent(term)}&year=${encodeURIComponent(year)}` : ""}`}
+                      to={`${builderBase}?studentId=${student.id}&name=${encodeURIComponent(student.name)}${term && year ? `&term=${encodeURIComponent(term)}&year=${encodeURIComponent(year)}` : ""}`}
                       className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
                         bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300
                         hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-colors"
@@ -430,6 +451,25 @@ export default function CourseReportCardsPanel({
                         title="Preview report card"
                       >
                         <Eye className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+
+                    {/* Mark as complete — any role, draft card that has content */}
+                    {status === "draft" && rcId && (subjectsMapped > 0 || hasAttrs) && (
+                      <button
+                        onClick={() => handleMarkComplete(student.id)}
+                        disabled={isMarkingComplete}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
+                          bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300
+                          hover:bg-blue-200 dark:hover:bg-blue-800/50 disabled:opacity-50 transition-colors"
+                        title="Mark as complete — send for admin review"
+                      >
+                        {isMarkingComplete ? (
+                          <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        ) : (
+                          <CheckCircle2 className="w-3.5 h-3.5" />
+                        )}
+                        <span className="hidden sm:inline">Done</span>
                       </button>
                     )}
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useParams, useSearchParams, Link } from "react-router-dom";
+import { useParams, useSearchParams, Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ArrowLeft,
@@ -143,19 +143,21 @@ export default function ReportCardBuilderPage() {
   const [searchParams] = useSearchParams();
   const { user: authUser } = useAuth();
 
-  const studentId   = parseInt(searchParams.get("studentId") ?? "0", 10);
-  const term        = searchParams.get("term") ?? authUser?.currentAcademicTerm?.name ?? "";
+  const studentId    = parseInt(searchParams.get("studentId") ?? "0", 10);
+  const term         = searchParams.get("term") ?? authUser?.currentAcademicTerm?.name ?? "";
   const academicYear = searchParams.get("year") ?? authUser?.currentAcademicYear?.name ?? "";
+  const nameParam    = searchParams.get("name") ?? "";
 
   // ── Load course assets ────────────────────────────────────────────────────
   const [subject, setSubject] = useState<SubjectOption | null>(null);
-  const [studentName, setStudentName] = useState<string>("");
+  const [studentName, setStudentName] = useState<string>(nameParam);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   // ── Existing report card state (for pre-population & status display) ──────
   const [reportCardId, setReportCardId] = useState<number | null>(null);
   const [rcStatus, setRcStatus] = useState<ReportCardStatus | null>(null);
+  const [hasAttributes, setHasAttributes] = useState(false);
   const [initialMappings, setInitialMappings] = useState<AssessmentItem[]>([]);
   const [allMappedSubjectIds, setAllMappedSubjectIds] = useState<number[]>([]);
   const [rcLoading, setRcLoading] = useState(false);
@@ -163,6 +165,7 @@ export default function ReportCardBuilderPage() {
   // ── Status change ─────────────────────────────────────────────────────────
   const [statusChanging, setStatusChanging] = useState(false);
 
+  const navigate = useNavigate();
   const isAdmin = authUser?.role === "admin";
   const isInstructor = authUser?.role === "instructor";
 
@@ -188,19 +191,21 @@ export default function ReportCardBuilderPage() {
           assignments: ((assignmentsRes as any).data ?? []).map((a: any) => ({ id: a.id, title: a.title })),
         });
 
-        // Try to find the student name from course enrollment
-        try {
-          const studentsRes = await CourseApiService.getCourseStudents(id);
-          const found = (studentsRes.data ?? []).find(
-            (s: any) => (s.user?.id || s.user?.user_id) === studentId,
-          );
-          if (found) {
-            const fn = found.profile?.first_name || found.user?.first_name || "";
-            const ln = found.profile?.last_name  || found.user?.last_name  || "";
-            setStudentName(`${fn} ${ln}`.trim());
+        // Fetch student name only if it wasn't already passed via the URL ?name= param
+        if (!nameParam) {
+          try {
+            const studentsRes = await CourseApiService.getCourseStudents(id);
+            const found = (studentsRes.data ?? []).find(
+              (s: any) => (s.user?.id || s.user?.user_id) === studentId,
+            );
+            if (found) {
+              const fn = found.profile?.first_name || found.user?.first_name || "";
+              const ln = found.profile?.last_name  || found.user?.last_name  || "";
+              setStudentName(`${fn} ${ln}`.trim());
+            }
+          } catch {
+            // non-fatal — name display degrades gracefully
           }
-        } catch {
-          // non-fatal — name display degrades gracefully
         }
       } catch {
         setError("Failed to load course data. Please go back and try again.");
@@ -224,6 +229,7 @@ export default function ReportCardBuilderPage() {
         const rc = res.data.report_card;
         setReportCardId(rc.id);
         setRcStatus(rc.status);
+        setHasAttributes((res.data.attributes ?? []).length > 0);
         setInitialMappings(res.data.raw_assessments ?? []);
 
         // Which subject_ids are already in the card (from all instructors)?
@@ -233,6 +239,7 @@ export default function ReportCardBuilderPage() {
         // 404 = no card yet; that is fine — builder will create it on first save
         setReportCardId(null);
         setRcStatus(null);
+        setHasAttributes(false);
         setInitialMappings([]);
         setAllMappedSubjectIds([]);
       } finally {
@@ -315,9 +322,11 @@ export default function ReportCardBuilderPage() {
   };
 
   // ── Derived step for indicator ────────────────────────────────────────────
+  // Step 2 activates as soon as attributes have been filled (even if still draft),
+  // or when the card is saved/approved — indicating assessment mapping is complete.
   const currentStep: 1 | 2 | 3 =
-    rcStatus === "approved" ? 3 :
-    rcStatus === "saved"    ? 2 :
+    rcStatus === "approved"                          ? 3 :
+    (rcStatus === "saved" || hasAttributes)          ? 2 :
     1;
 
   // ── Render guards ──────────────────────────────────────────────────────────
@@ -358,14 +367,17 @@ export default function ReportCardBuilderPage() {
         <div className="flex flex-wrap items-center justify-between gap-4">
           {/* Back + breadcrumb */}
           <div className="flex items-center gap-3">
-            <Link
-              to={`/courses/${courseId}#report-cards`}
+            <button
+              onClick={() => {
+                try { sessionStorage.setItem(`course-tab-${courseId}`, "report-cards"); } catch {}
+                navigate(`/courses/${courseId}`);
+              }}
               className="flex items-center gap-1.5 text-sm text-indigo-300 hover:text-indigo-200 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">{subject.name}</span>
               <span className="sm:hidden">Back</span>
-            </Link>
+            </button>
             <span className="text-white/20">/</span>
             <span className="text-sm text-white/60">Report Card Builder</span>
           </div>
@@ -477,6 +489,19 @@ export default function ReportCardBuilderPage() {
         </div>
       </div>
 
+      {/* ── Saved-card lock notice ── */}
+      {rcStatus === "saved" && (
+        <div className="px-4 pb-2">
+          <div className="max-w-6xl mx-auto">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-400/30 text-sm text-blue-300">
+              <Info className="w-4 h-4 flex-shrink-0" />
+              This card is marked as complete and is awaiting admin review.
+              To make changes, click <strong className="font-semibold">Revert to Draft</strong> above first.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Main content: subject context + builder ── */}
       <div className="px-4 pb-8">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5">
@@ -535,7 +560,7 @@ export default function ReportCardBuilderPage() {
               subjects={[subject]}
               initialDropped={initialDropped}
               onSaved={onBuilderSaved}
-              readOnly={rcStatus === "approved" && !isAdmin}
+              readOnly={rcStatus === "saved" || (rcStatus === "approved" && !isAdmin)}
             />
           </div>
         </div>

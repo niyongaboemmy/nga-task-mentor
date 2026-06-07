@@ -46,6 +46,12 @@ export interface StudentRow {
   name: string;
 }
 
+export interface StudentInitialData {
+  attendance: AttendanceStatus;
+  attributes: Partial<Record<GeneralAttribute, AttributeRating>>;
+  comment: string;
+}
+
 interface StudentFormState {
   attendance: AttendanceStatus;
   attributes: Partial<Record<GeneralAttribute, AttributeRating>>;
@@ -53,29 +59,39 @@ interface StudentFormState {
   saved: boolean;
   saving: boolean;
   error: string | null;
+  reportCardId: number | null;
 }
 
 export interface GeneralAttributesFormProps {
   students: StudentRow[];
   term: string;
   academicYear: string;
-  /** Called after all students are saved successfully */
-  onAllSaved?: () => void;
+  /** Pre-populated values from existing saved data (keyed by student ID) */
+  initialData?: Record<number, StudentInitialData>;
+  /** Called after all students are saved successfully; receives the saved report card IDs */
+  onAllSaved?: (reportCardIds: number[]) => void;
 }
 
-function buildInitialState(students: StudentRow[]): Record<number, StudentFormState> {
+function buildInitialState(
+  students: StudentRow[],
+  initialData?: Record<number, StudentInitialData>,
+): Record<number, StudentFormState> {
   return Object.fromEntries(
-    students.map((s) => [
-      s.id,
-      {
-        attendance: "present" as AttendanceStatus,
-        attributes: {},
-        comment: "",
-        saved: false,
-        saving: false,
-        error: null,
-      },
-    ]),
+    students.map((s) => {
+      const pre = initialData?.[s.id];
+      return [
+        s.id,
+        {
+          attendance: pre?.attendance ?? ("present" as AttendanceStatus),
+          attributes: pre?.attributes ?? {},
+          comment: pre?.comment ?? "",
+          saved: false,
+          saving: false,
+          error: null,
+          reportCardId: null,
+        },
+      ];
+    }),
   );
 }
 
@@ -222,10 +238,11 @@ export default function GeneralAttributesForm({
   students,
   term,
   academicYear,
+  initialData,
   onAllSaved,
 }: GeneralAttributesFormProps) {
   const [formState, setFormState] = useState<Record<number, StudentFormState>>(() =>
-    buildInitialState(students),
+    buildInitialState(students, initialData),
   );
   const [isSavingAll, setIsSavingAll] = useState(false);
 
@@ -266,7 +283,8 @@ export default function GeneralAttributesForm({
     [updateStudentField],
   );
 
-  const saveStudent = async (student: StudentRow): Promise<boolean> => {
+  // Returns the report_card_id on success, null on failure.
+  const saveStudent = async (student: StudentRow): Promise<number | null> => {
     const state = formState[student.id];
     const attributes = GENERAL_ATTRIBUTES.filter((a) => state.attributes[a]).map((a) => ({
       attribute_name: a,
@@ -281,7 +299,7 @@ export default function GeneralAttributesForm({
           error: "Please rate at least one attribute.",
         },
       }));
-      return false;
+      return null;
     }
 
     setFormState((prev) => ({
@@ -290,7 +308,7 @@ export default function GeneralAttributesForm({
     }));
 
     try {
-      await ReportCardApiService.saveAttributes({
+      const result = await ReportCardApiService.saveAttributes({
         student_id: student.id,
         term,
         academic_year: academicYear,
@@ -303,9 +321,14 @@ export default function GeneralAttributesForm({
 
       setFormState((prev) => ({
         ...prev,
-        [student.id]: { ...prev[student.id], saving: false, saved: true },
+        [student.id]: {
+          ...prev[student.id],
+          saving: false,
+          saved: true,
+          reportCardId: result.data.report_card_id,
+        },
       }));
-      return true;
+      return result.data.report_card_id;
     } catch {
       setFormState((prev) => ({
         ...prev,
@@ -315,26 +338,26 @@ export default function GeneralAttributesForm({
           error: "Save failed. Try again.",
         },
       }));
-      return false;
+      return null;
     }
   };
 
   const handleSaveAll = async () => {
     setIsSavingAll(true);
-    let successCount = 0;
+    const savedIds: number[] = [];
 
     for (const student of students) {
-      const ok = await saveStudent(student);
-      if (ok) successCount++;
+      const rcId = await saveStudent(student);
+      if (rcId !== null) savedIds.push(rcId);
     }
 
     setIsSavingAll(false);
 
-    if (successCount === students.length) {
-      toast.success(`All ${successCount} student records saved successfully.`);
-      onAllSaved?.();
+    if (savedIds.length === students.length) {
+      toast.success(`All ${savedIds.length} student records saved successfully.`);
+      onAllSaved?.(savedIds);
     } else {
-      toast.warning(`${successCount} of ${students.length} records saved. Check errors above.`);
+      toast.warning(`${savedIds.length} of ${students.length} records saved. Check errors above.`);
     }
   };
 
