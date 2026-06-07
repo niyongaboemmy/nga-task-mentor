@@ -45,6 +45,8 @@ import { LiveProctoringDashboard } from "./components/Proctoring";
 import QuizListPage from "./pages/QuizListPage";
 import CourseReportsPage from "./pages/CourseReportsPage";
 import StudentReportsPage from "./pages/StudentReportsPage";
+import ReportCardBuilderPage from "./pages/ReportCardBuilderPage";
+import GeneralAttributesPage from "./pages/GeneralAttributesPage";
 import BloomsTaxonomyManagementPage from "./components/Quizzes/BloomsTaxonomyManagementPage";
 import QuestionBankPage from "./pages/QuestionBankPage";
 import SubmissionDetailPage from "./pages/SubmissionDetailPage";
@@ -214,6 +216,26 @@ function AppContent() {
                 <ProtectedRoute roles={["instructor", "admin", "student"]}>
                   <Layout>
                     <CourseReportsPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/courses/:courseId/report-card-builder"
+              element={
+                <ProtectedRoute roles={["instructor", "admin"]}>
+                  <Layout>
+                    <ReportCardBuilderPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/courses/:courseId/report-card-attributes"
+              element={
+                <ProtectedRoute roles={["instructor", "admin"]}>
+                  <Layout>
+                    <GeneralAttributesPage />
                   </Layout>
                 </ProtectedRoute>
               }

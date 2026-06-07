@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useCallback } from "react";
 import { Link } from "react-router-dom";
 import AssignmentCard, {
   type AssignmentInterface,
@@ -14,8 +14,15 @@ import {
   CheckCircle,
   ListTodo,
   ArrowRight,
+  FileText,
+  Download,
+  Eye,
+  Loader2,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useAuth } from "../../contexts/AuthContext";
+import ReportCardPreview from "../ReportCard/ReportCardPreview";
+import { ReportCardApiService } from "../../services/reportCardApi";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -86,6 +93,40 @@ interface StudentDashboardData {
 const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
   data,
 }) => {
+  const { user } = useAuth();
+
+  // ── Report Card state ──
+  const [showPreview, setShowPreview]         = useState(false);
+  const [downloadingPdf, setDownloadingPdf]   = useState(false);
+
+  const currentTerm        = user?.currentAcademicTerm?.name as string | undefined;
+  const currentAcademicYear = user?.currentAcademicYear?.name as string | undefined;
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!user?.id) return;
+    setDownloadingPdf(true);
+    try {
+      const res = await ReportCardApiService.getStudentReportCard(
+        parseInt(String(user.id), 10),
+        { term: currentTerm, academic_year: currentAcademicYear },
+      );
+      if (!res.success) throw new Error("not_found");
+      const blob = await ReportCardApiService.generatePdf(res.data.report_card.id);
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `ReportCard-${data.user.first_name}_${data.user.last_name}-${res.data.report_card.term}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      alert("Could not generate PDF. Your report card may not be available yet.");
+    } finally {
+      setDownloadingPdf(false);
+    }
+  }, [user, currentTerm, currentAcademicYear, data.user]);
+
   const enrolledCourseIds = React.useMemo(
     () => data.enrolledCourses.map((c) => String(c.id)),
     [data.enrolledCourses],
@@ -734,6 +775,92 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({
           )}
         </div>
       </motion.div>
+
+      {/* ── My Report Cards ── */}
+      <motion.div
+        variants={itemVariants}
+        className="bg-white dark:bg-gray-900 rounded-[2rem] p-6 border border-gray-100 dark:border-gray-800 shadow-sm"
+      >
+        <div className="flex items-center justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20">
+              <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-black text-gray-900 dark:text-white">
+                My Report Cards
+              </h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                {currentTerm && currentAcademicYear
+                  ? `${currentTerm} · ${currentAcademicYear}`
+                  : "Current academic term"}
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+          {/* Card preview tile */}
+          <div className="flex-1 flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-indigo-50 to-purple-50 dark:from-indigo-900/20 dark:to-purple-900/20 border border-indigo-100 dark:border-indigo-800/40">
+            <div className="w-12 h-14 bg-white dark:bg-gray-800 rounded-xl shadow-sm flex items-center justify-center border border-gray-100 dark:border-gray-700 flex-shrink-0">
+              <FileText className="w-6 h-6 text-indigo-500" />
+            </div>
+            <div>
+              <p className="font-bold text-gray-900 dark:text-white text-sm">
+                Academic Report Card
+              </p>
+              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                {currentTerm ?? "—"} · {currentAcademicYear ?? "—"}
+              </p>
+              <p className="text-xs text-indigo-600 dark:text-indigo-400 font-semibold mt-1">
+                {data.user.first_name} {data.user.last_name}
+              </p>
+            </div>
+          </div>
+
+          {/* Action buttons */}
+          <div className="flex gap-2 sm:flex-col">
+            <button
+              onClick={() => setShowPreview(true)}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl
+                bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold
+                shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50
+                transition-all duration-200 active:scale-95"
+            >
+              <Eye className="w-4 h-4" />
+              View
+            </button>
+
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-3 rounded-2xl
+                bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-bold
+                shadow-lg shadow-emerald-500/30
+                disabled:opacity-50 disabled:cursor-not-allowed
+                transition-all duration-200 active:scale-95"
+            >
+              {downloadingPdf ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              {downloadingPdf ? "Generating…" : "Download PDF"}
+            </button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Report Card Preview modal */}
+      {showPreview && user?.id && (
+        <ReportCardPreview
+          studentId={parseInt(String(user.id), 10)}
+          studentName={`${data.user.first_name} ${data.user.last_name}`}
+          term={currentTerm}
+          academicYear={currentAcademicYear}
+          onClose={() => setShowPreview(false)}
+        />
+      )}
 
       {/* Mobile-optimized floating elements */}
       <div className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 pointer-events-none">

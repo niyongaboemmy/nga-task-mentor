@@ -37,6 +37,8 @@ import dashboardRoutes from "./routes/dashboard";
 import quizRoutes from "./routes/quizzes";
 import proctoringRoutes from "./routes/proctoring";
 import questionBankRoutes from "./routes/questionBank";
+import reportCardRoutes from "./routes/reportCards";
+import { verifyReportCard } from "./controllers/reportCard.controller";
 
 import cookieParser from "cookie-parser";
 
@@ -152,6 +154,9 @@ const initializeDatabase = async (): Promise<void> => {
       ProctoringSettings,
       BloomsTaxonomyLevel,
       QuestionBank,
+      ReportCard,
+      ReportCardAttribute,
+      ReportCardAssessment,
     } = await import("./models");
 
     // Add models to Sequelize instance
@@ -168,6 +173,9 @@ const initializeDatabase = async (): Promise<void> => {
       ProctoringSettings,
       BloomsTaxonomyLevel,
       QuestionBank,
+      ReportCard,
+      ReportCardAttribute,
+      ReportCardAssessment,
     ]);
 
     // Set up model associations
@@ -200,6 +208,9 @@ const startServer = async (): Promise<void> => {
     app.use("/api/dashboard", dashboardRoutes);
     app.use("/api/quizzes", quizRoutes);
     app.use("/api/proctoring", proctoringRoutes);
+    app.use("/api/report-cards", reportCardRoutes);
+    // Public (no auth) — QR code verification
+    app.get("/api/public/verify/report-card/:uuid", verifyReportCard);
 
     // Health check endpoint
     app.get("/health", (req: Request, res: Response) => {

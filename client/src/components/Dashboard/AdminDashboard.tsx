@@ -1,5 +1,6 @@
 import React, { useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import BulkExportReportCards from "../ReportCard/BulkExportReportCards";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -581,6 +582,9 @@ const AdminDashboard: React.FC<{ data: AdminDashboardData }> = ({ data }) => {
           </Link>
         </div>
       </div>
+
+      {/* ── Bulk Export Report Cards ── */}
+      <BulkExportReportCards />
 
       {/* CSS for animations */}
       <style>{`

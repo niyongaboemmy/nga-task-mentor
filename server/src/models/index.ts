@@ -10,6 +10,9 @@ import ProctoringEvent from "./ProctoringEvent.model";
 import ProctoringSettings from "./ProctoringSettings.model";
 import BloomsTaxonomyLevel from "./BloomsTaxonomyLevel.model";
 import QuestionBank from "./QuestionBank.model";
+import ReportCard from "./ReportCard.model";
+import ReportCardAttribute from "./ReportCardAttribute.model";
+import ReportCardAssessment from "./ReportCardAssessment.model";
 
 // Set up associations after all models are imported
 const setupAssociations = () => {
@@ -176,6 +179,27 @@ const setupAssociations = () => {
     foreignKey: "reviewed_by",
     as: "eventReviewer",
   });
+
+  // ----------------------
+  // ReportCard Associations
+  // Note: ReportCard.belongsTo(User), ReportCardAttribute.belongsTo(ReportCard),
+  // and ReportCardAssessment.belongsTo(ReportCard) are registered via @BelongsTo
+  // decorators in their model files — only the reverse hasMany goes here.
+  // ----------------------
+  User.hasMany(ReportCard, {
+    foreignKey: "student_id",
+    as: "reportCards",
+  });
+
+  ReportCard.hasMany(ReportCardAttribute, {
+    foreignKey: "report_card_id",
+    as: "attributes",
+  });
+
+  ReportCard.hasMany(ReportCardAssessment, {
+    foreignKey: "report_card_id",
+    as: "assessments",
+  });
 };
 
 // Export as named exports for compatibility
@@ -192,6 +216,9 @@ export {
   ProctoringSettings,
   BloomsTaxonomyLevel,
   QuestionBank,
+  ReportCard,
+  ReportCardAttribute,
+  ReportCardAssessment,
   setupAssociations,
 };
 
@@ -208,5 +235,8 @@ export default {
   ProctoringSettings,
   BloomsTaxonomyLevel,
   QuestionBank,
+  ReportCard,
+  ReportCardAttribute,
+  ReportCardAssessment,
   setupAssociations,
 };
