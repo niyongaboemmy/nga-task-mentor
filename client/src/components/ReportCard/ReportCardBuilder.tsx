@@ -142,7 +142,7 @@ function DraggableCard({
         flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium cursor-grab active:cursor-grabbing
         select-none transition-all duration-150
         ${isOverlay
-          ? "bg-white/95 border-indigo-400 shadow-2xl shadow-indigo-500/30 scale-105 rotate-1"
+          ? "bg-white/95 border-blue-400 shadow-2xl shadow-blue-500/30 scale-105 rotate-1"
           : isDragging
           ? "opacity-40 bg-white/20 border-white/20"
           : "bg-white/10 border-white/20 hover:bg-white/20 hover:border-white/40 hover:shadow-lg hover:shadow-black/20"
@@ -424,7 +424,7 @@ export default function ReportCardBuilder({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4 md:p-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 p-4 md:p-6">
         {/* ── Header ── */}
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -456,10 +456,10 @@ export default function ReportCardBuilder({
                   disabled={isSaving || totalMapped === 0}
                   data-testid="save-button"
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
-                    bg-gradient-to-r from-indigo-500 to-blue-600 text-white
-                    hover:from-indigo-400 hover:to-blue-500
+                    bg-gradient-to-r from-blue-500 to-blue-600 text-white
+                    hover:from-blue-400 hover:to-blue-500
                     disabled:opacity-40 disabled:cursor-not-allowed
-                    shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50
+                    shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50
                     transition-all duration-200 active:scale-95"
                 >
                   {isSaving ? (
@@ -505,7 +505,7 @@ export default function ReportCardBuilder({
                   }}
                   className={`w-full text-left px-4 py-2.5 text-sm transition-colors
                     ${selectedSubjectId === s.id
-                      ? "bg-indigo-600/40 text-white font-medium"
+                      ? "bg-blue-600/40 text-white font-medium"
                       : "text-white/70 hover:bg-white/10 hover:text-white"
                     }`}
                 >

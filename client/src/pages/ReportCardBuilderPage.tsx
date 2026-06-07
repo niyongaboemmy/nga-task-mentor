@@ -60,7 +60,7 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 }) {
               ${active ? "bg-white/15 border border-white/30" : "opacity-50"}`}
             >
               <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
-                ${done ? "bg-emerald-500 text-white" : active ? "bg-indigo-400 text-white" : "bg-white/20 text-white/60"}`}
+                ${done ? "bg-emerald-500 text-white" : active ? "bg-blue-500 text-white" : "bg-white/20 text-white/60"}`}
               >
                 {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : step.id}
               </div>
@@ -93,18 +93,18 @@ function SubjectContextPanel({
   return (
     <div className="bg-white/5 border border-white/10 rounded-2xl p-4 space-y-3">
       <div className="flex items-center gap-2">
-        <Info className="w-4 h-4 text-indigo-300" />
+        <Info className="w-4 h-4 text-blue-400" />
         <span className="text-sm font-semibold text-white/80">Report card context</span>
       </div>
 
       {/* Current subject */}
-      <div className="flex items-center gap-3 p-3 rounded-xl bg-indigo-500/20 border border-indigo-400/30">
-        <BookOpen className="w-4 h-4 text-indigo-300 flex-shrink-0" />
+      <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-500/20 border border-blue-400/30">
+        <BookOpen className="w-4 h-4 text-blue-300 flex-shrink-0" />
         <div>
-          <p className="text-xs text-indigo-200/70">You are mapping assessments for</p>
+          <p className="text-xs text-blue-200/70">You are mapping assessments for</p>
           <p className="text-sm font-semibold text-white">{courseName}</p>
         </div>
-        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/40 text-indigo-200 font-medium">
+        <span className="ml-auto text-[10px] px-2 py-0.5 rounded-full bg-blue-500/40 text-blue-200 font-medium">
           This subject
         </span>
       </div>
@@ -332,9 +332,9 @@ export default function ReportCardBuilderPage() {
   // ── Render guards ──────────────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-3 text-white/70">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+          <Loader2 className="w-8 h-8 animate-spin text-blue-400" />
           <p className="text-sm">Loading course assessments…</p>
         </div>
       </div>
@@ -343,13 +343,13 @@ export default function ReportCardBuilderPage() {
 
   if (error || !subject || !studentId) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4 text-white/70">
           <AlertCircle className="w-10 h-10 text-red-400" />
           <p className="text-sm text-red-300 max-w-sm text-center">
             {error ?? "Missing student ID. Navigate here from the Students tab inside a course."}
           </p>
-          <Link to={`/courses/${courseId}`} className="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 text-sm">
+          <Link to={`/courses/${courseId}`} className="flex items-center gap-2 text-blue-300 hover:text-blue-200 text-sm">
             <ArrowLeft className="w-4 h-4" /> Back to course
           </Link>
         </div>
@@ -360,7 +360,7 @@ export default function ReportCardBuilderPage() {
   const attrUrl = `/courses/${courseId}/report-card-attributes${term && academicYear ? `?term=${encodeURIComponent(term)}&year=${encodeURIComponent(academicYear)}` : ""}`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
 
       {/* ── Top navigation bar ── */}
       <div className="sticky top-0 z-30 backdrop-blur-xl bg-slate-900/80 border-b border-white/10 px-4 py-3">
@@ -372,7 +372,7 @@ export default function ReportCardBuilderPage() {
                 try { sessionStorage.setItem(`course-tab-${courseId}`, "report-cards"); } catch {}
                 navigate(`/courses/${courseId}`);
               }}
-              className="flex items-center gap-1.5 text-sm text-indigo-300 hover:text-indigo-200 transition-colors"
+              className="flex items-center gap-1.5 text-sm text-blue-300 hover:text-blue-200 transition-colors"
             >
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden sm:inline">{subject.name}</span>
