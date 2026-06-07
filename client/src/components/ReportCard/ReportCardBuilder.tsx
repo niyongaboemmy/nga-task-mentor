@@ -86,11 +86,11 @@ const CATEGORIES: Record<AssessmentCategory, CategoryMeta> = {
     label: "Homework",
     shortLabel: "HW",
     weight: 10,
-    bg: "from-purple-500/20 to-purple-600/10",
-    border: "border-purple-400/40",
-    badge: "bg-purple-500 text-white",
-    dot: "bg-purple-400",
-    dropBg: "bg-purple-500/10",
+    bg: "from-cyan-500/20 to-cyan-600/10",
+    border: "border-cyan-400/40",
+    badge: "bg-cyan-500 text-white",
+    dot: "bg-cyan-400",
+    dropBg: "bg-cyan-500/10",
   },
   MD: {
     label: "Mid-Term",
@@ -155,14 +155,14 @@ function DraggableCard({
       {item.assessment_type === "quiz" ? (
         <BookOpen className="w-3.5 h-3.5 text-blue-300 flex-shrink-0" />
       ) : (
-        <ClipboardList className="w-3.5 h-3.5 text-purple-300 flex-shrink-0" />
+        <ClipboardList className="w-3.5 h-3.5 text-cyan-300 flex-shrink-0" />
       )}
       <span className="text-white/90 truncate flex-1">{item.title}</span>
       <span
         className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${
           item.assessment_type === "quiz"
             ? "bg-blue-500/30 text-blue-200"
-            : "bg-purple-500/30 text-purple-200"
+            : "bg-cyan-500/30 text-cyan-200"
         }`}
       >
         {item.assessment_type === "quiz" ? "Quiz" : "Assign"}
@@ -185,7 +185,7 @@ function DroppedItem({
       {item.assessment_type === "quiz" ? (
         <BookOpen className="w-3.5 h-3.5 text-blue-300 flex-shrink-0" />
       ) : (
-        <ClipboardList className="w-3.5 h-3.5 text-purple-300 flex-shrink-0" />
+        <ClipboardList className="w-3.5 h-3.5 text-cyan-300 flex-shrink-0" />
       )}
       <span className="text-white/90 truncate flex-1">{item.title}</span>
       <button
@@ -456,8 +456,8 @@ export default function ReportCardBuilder({
                   disabled={isSaving || totalMapped === 0}
                   data-testid="save-button"
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
-                    bg-gradient-to-r from-indigo-500 to-purple-600 text-white
-                    hover:from-indigo-400 hover:to-purple-500
+                    bg-gradient-to-r from-indigo-500 to-blue-600 text-white
+                    hover:from-indigo-400 hover:to-blue-500
                     disabled:opacity-40 disabled:cursor-not-allowed
                     shadow-lg shadow-indigo-500/30 hover:shadow-indigo-500/50
                     transition-all duration-200 active:scale-95"
@@ -531,7 +531,7 @@ export default function ReportCardBuilder({
                 <BookOpen className="w-3 h-3 text-blue-300" /> Quiz
               </span>
               <span className="flex items-center gap-1">
-                <ClipboardList className="w-3 h-3 text-purple-300" /> Assignment
+                <ClipboardList className="w-3 h-3 text-cyan-300" /> Assignment
               </span>
               <span className="ml-auto flex items-center gap-1">
                 <GripVertical className="w-3 h-3" /> Drag to category

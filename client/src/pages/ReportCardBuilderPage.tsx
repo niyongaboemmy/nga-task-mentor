@@ -389,7 +389,7 @@ export default function ReportCardBuilderPage() {
 
       {/* ── Student + status banner ── */}
       <div className="px-4 pt-5 pb-3">
-        <div className="max-w-6xl mx-auto">
+        <div className="max-w-[1400px] mx-auto">
           <div className="flex flex-wrap items-start justify-between gap-4
             bg-white/5 border border-white/10 rounded-2xl px-5 py-4">
 
@@ -492,7 +492,7 @@ export default function ReportCardBuilderPage() {
       {/* ── Saved-card lock notice ── */}
       {rcStatus === "saved" && (
         <div className="px-4 pb-2">
-          <div className="max-w-6xl mx-auto">
+          <div className="max-w-[1400px] mx-auto">
             <div className="flex items-center gap-3 p-3 rounded-xl bg-blue-500/10 border border-blue-400/30 text-sm text-blue-300">
               <Info className="w-4 h-4 flex-shrink-0" />
               This card is marked as complete and is awaiting admin review.
@@ -504,7 +504,7 @@ export default function ReportCardBuilderPage() {
 
       {/* ── Main content: subject context + builder ── */}
       <div className="px-4 pb-8">
-        <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-[260px_1fr] gap-5">
+        <div className="max-w-[1400px] mx-auto grid grid-cols-1 lg:grid-cols-[280px_1fr] xl:grid-cols-[320px_1fr] gap-6">
 
           {/* Left: context sidebar */}
           <div className="space-y-4">
