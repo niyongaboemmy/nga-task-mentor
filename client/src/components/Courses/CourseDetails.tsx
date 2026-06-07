@@ -7,7 +7,8 @@ import { QuizList } from "../Quizzes/QuizList";
 import { fetchCourse, fetchCourses } from "../../store/slices/courseSlice";
 import type { RootState, AppDispatch } from "../../store";
 import type { Course } from "../../types/course.types";
-import { Library, Search, Users, Mail, ChevronRight, SlidersHorizontal } from "lucide-react";
+import { Library, Search, Users, Mail, ChevronRight, SlidersHorizontal, ClipboardList, FileText } from "lucide-react";
+import { useAuth } from "../../contexts/AuthContext";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -54,6 +55,10 @@ const CourseDetails: React.FC = () => {
 
   // Get auth user for role checking
   const authUser = useSelector((state: RootState) => state.auth.user);
+  const { user: authContext } = useAuth();
+  const currentTerm = authContext?.currentAcademicTerm?.name as string | undefined;
+  const currentYear = authContext?.currentAcademicYear?.name as string | undefined;
+  const isInstructorOrAdmin = ["instructor", "admin"].includes(authUser?.role || "");
 
   // Get courses and loading state from Redux store
   const courseState = useSelector((state: RootState) => state.course);
@@ -195,29 +200,41 @@ const CourseDetails: React.FC = () => {
                 </p>
               </div>
               <div>
-                <div className="flex items-center justify-end gap-3">
+                <div className="flex items-center justify-end gap-3 flex-wrap">
                   <Link
                     to={`/courses/${courseId}/reports`}
                     className="flex items-center justify-center gap-2 p-1.5 px-4 rounded-full border dark:border-2 border-blue-500 bg-white hover:bg-blue-500 hover:text-white dark:bg-blue-800/20 dark:border-blue-600 dark:hover:bg-blue-700 text-blue-600 dark:text-blue-400 dark:hover:text-white transition-all"
                     title="View Course Reports"
                   >
-                    <div>
-                      <svg
-                        className="w-5 h-5"
-                        fill="none"
-                        stroke="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                        />
-                      </svg>
-                    </div>
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                      />
+                    </svg>
                     <span>Report</span>
                   </Link>
+
+                  {isInstructorOrAdmin && (
+                    <>
+                      <Link
+                        to={`/courses/${courseId}/report-card-attributes${currentTerm && currentYear ? `?term=${encodeURIComponent(currentTerm)}&year=${encodeURIComponent(currentYear)}` : ""}`}
+                        className="flex items-center gap-2 p-1.5 px-4 rounded-full border dark:border-2 border-emerald-500 bg-white hover:bg-emerald-500 hover:text-white dark:bg-emerald-800/20 dark:border-emerald-600 dark:hover:bg-emerald-700 text-emerald-600 dark:text-emerald-400 dark:hover:text-white transition-all text-sm font-medium"
+                        title="Fill general attributes for all students"
+                      >
+                        <FileText className="w-4 h-4" />
+                        <span className="hidden sm:inline">Class Attributes</span>
+                        <span className="sm:hidden">Attrs</span>
+                      </Link>
+                    </>
+                  )}
 
                   <Link
                     to="/courses"
@@ -480,7 +497,13 @@ const CourseDetails: React.FC = () => {
           )}
 
           {activeTab === "students" && (
-            <StudentsList students={course.enrolledStudents || []} />
+            <StudentsList
+              students={course.enrolledStudents || []}
+              courseId={courseId!}
+              currentTerm={currentTerm}
+              currentYear={currentYear}
+              isInstructorOrAdmin={isInstructorOrAdmin}
+            />
           )}
         </div>
       </motion.div>
@@ -499,7 +522,13 @@ const AVATAR_COLORS = [
 
 type SortKey = "name" | "email";
 
-const StudentsList: React.FC<{ students: any[] }> = ({ students }) => {
+const StudentsList: React.FC<{
+  students: any[];
+  courseId: string;
+  currentTerm?: string;
+  currentYear?: string;
+  isInstructorOrAdmin: boolean;
+}> = ({ students, courseId, currentTerm, currentYear, isInstructorOrAdmin }) => {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [showSort, setShowSort] = useState(false);
@@ -588,10 +617,13 @@ const StudentsList: React.FC<{ students: any[] }> = ({ students }) => {
       {filtered.length > 0 ? (
         <div className="rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
           {/* Table header */}
-          <div className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
+          <div className={`grid ${isInstructorOrAdmin ? "grid-cols-[auto_1fr_1fr_auto_auto]" : "grid-cols-[auto_1fr_1fr_auto]"} items-center gap-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800`}>
             <span className="w-8" />
             <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Name</span>
             <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 hidden sm:block">Email</span>
+            {isInstructorOrAdmin && (
+              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 hidden sm:block">Report Card</span>
+            )}
             <span className="w-5" />
           </div>
 
@@ -606,27 +638,40 @@ const StudentsList: React.FC<{ students: any[] }> = ({ students }) => {
               const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
               const initials = `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase() || "?";
 
+              const builderUrl = `/courses/${courseId}/report-card-builder?studentId=${id}${currentTerm ? `&term=${encodeURIComponent(currentTerm)}` : ""}${currentYear ? `&year=${encodeURIComponent(currentYear)}` : ""}`;
+
               return (
-                <Link
+                <div
                   key={id}
-                  to={`/students/${id}`}
-                  className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-4 px-4 py-3 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors group"
+                  className={`grid ${isInstructorOrAdmin ? "grid-cols-[auto_1fr_1fr_auto_auto]" : "grid-cols-[auto_1fr_1fr_auto]"} items-center gap-4 px-4 py-3 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors group`}
                 >
                   <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
                     {initials}
                   </div>
-                  <div className="min-w-0">
+                  <Link to={`/students/${id}`} className="min-w-0">
                     <p className="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {fullName}
                     </p>
                     <p className="text-xs text-gray-400 truncate sm:hidden">{email}</p>
-                  </div>
+                  </Link>
                   <div className="hidden sm:flex items-center gap-1.5 min-w-0">
                     <Mail className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
                     <span className="text-sm text-gray-500 dark:text-gray-400 truncate">{email}</span>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-blue-400 transition-colors flex-shrink-0" />
-                </Link>
+                  {isInstructorOrAdmin && (
+                    <Link
+                      to={builderUrl}
+                      className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-colors whitespace-nowrap"
+                      title="Open Report Card Builder for this student"
+                    >
+                      <ClipboardList className="w-3.5 h-3.5" />
+                      Build
+                    </Link>
+                  )}
+                  <Link to={`/students/${id}`}>
+                    <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-blue-400 transition-colors flex-shrink-0" />
+                  </Link>
+                </div>
               );
             })}
           </div>
