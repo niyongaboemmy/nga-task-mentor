@@ -13,6 +13,8 @@ import QuestionBank from "./QuestionBank.model";
 import ReportCard from "./ReportCard.model";
 import ReportCardAttribute from "./ReportCardAttribute.model";
 import ReportCardAssessment from "./ReportCardAssessment.model";
+import ManualAssessment from "./ManualAssessment.model";
+import ManualAssessmentScore from "./ManualAssessmentScore.model";
 
 // Set up associations after all models are imported
 const setupAssociations = () => {
@@ -200,6 +202,19 @@ const setupAssociations = () => {
     foreignKey: "report_card_id",
     as: "assessments",
   });
+
+  // ----------------------
+  // ManualAssessment Associations
+  // ----------------------
+  ManualAssessment.hasMany(ManualAssessmentScore, {
+    foreignKey: "manual_assessment_id",
+    as: "scores",
+  });
+
+  ManualAssessmentScore.belongsTo(ManualAssessment, {
+    foreignKey: "manual_assessment_id",
+    as: "assessment",
+  });
 };
 
 // Export as named exports for compatibility
@@ -219,6 +234,8 @@ export {
   ReportCard,
   ReportCardAttribute,
   ReportCardAssessment,
+  ManualAssessment,
+  ManualAssessmentScore,
   setupAssociations,
 };
 
@@ -238,5 +255,7 @@ export default {
   ReportCard,
   ReportCardAttribute,
   ReportCardAssessment,
+  ManualAssessment,
+  ManualAssessmentScore,
   setupAssociations,
 };

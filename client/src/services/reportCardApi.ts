@@ -1,7 +1,7 @@
 import axios from "../utils/axiosConfig";
 
 export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT";
-export type AssessmentType = "quiz" | "assignment";
+export type AssessmentType = "quiz" | "assignment" | "manual";
 export type AttributeRating = "Excellent" | "Very good" | "Good";
 export type ReportCardStatus = "draft" | "saved" | "approved";
 

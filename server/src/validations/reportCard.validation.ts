@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const assessmentItemSchema = z.object({
   subject_id: z.number().int().positive("subject_id must be a positive integer"),
-  assessment_type: z.enum(["quiz", "assignment"] as const),
+  assessment_type: z.enum(["quiz", "assignment", "manual"] as const),
   assessment_id: z.number().int().positive("assessment_id must be a positive integer"),
   category: z.enum(["CW", "HW", "MD", "EOT"] as const),
 });

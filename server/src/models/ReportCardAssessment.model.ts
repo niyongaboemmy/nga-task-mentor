@@ -8,7 +8,7 @@ import {
 } from "sequelize-typescript";
 import { ReportCard } from "./ReportCard.model";
 
-export type AssessmentType = "quiz" | "assignment";
+export type AssessmentType = "quiz" | "assignment" | "manual";
 export type AssessmentCategory = "CW" | "HW" | "MD" | "EOT";
 
 export interface IReportCardAssessmentAttributes {
@@ -27,7 +27,7 @@ export type ReportCardAssessmentCreationAttributes = Omit<
   "id" | "created_at" | "updated_at"
 >;
 
-const VALID_ASSESSMENT_TYPES: AssessmentType[] = ["quiz", "assignment"];
+const VALID_ASSESSMENT_TYPES: AssessmentType[] = ["quiz", "assignment", "manual"];
 const VALID_CATEGORIES: AssessmentCategory[] = ["CW", "HW", "MD", "EOT"];
 
 @Table({
@@ -63,14 +63,14 @@ export class ReportCardAssessment extends Model<
   public subject_id!: number;
 
   @Column({
-    type: DataType.ENUM("quiz", "assignment"),
+    type: DataType.ENUM("quiz", "assignment", "manual"),
     allowNull: false,
     field: "assessment_type",
     validate: {
       notNull: { msg: "Assessment type is required" },
       isIn: {
         args: [VALID_ASSESSMENT_TYPES],
-        msg: "Assessment type must be one of: quiz, assignment",
+        msg: "Assessment type must be one of: quiz, assignment, manual",
       },
     },
   })
@@ -107,7 +107,7 @@ export class ReportCardAssessment extends Model<
       throw new Error("Subject ID is required");
     }
     if (!VALID_ASSESSMENT_TYPES.includes(assessment.assessment_type)) {
-      throw new Error("Assessment type must be one of: quiz, assignment");
+      throw new Error("Assessment type must be one of: quiz, assignment, manual");
     }
     if (!assessment.assessment_id) {
       throw new Error("Assessment ID is required");

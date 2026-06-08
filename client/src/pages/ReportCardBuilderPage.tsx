@@ -32,6 +32,11 @@ import {
   type AssessmentItem,
   type ReportCardStatus,
 } from "../services/reportCardApi";
+import {
+  ManualAssessmentApiService,
+  type ManualAssessment,
+} from "../services/manualAssessmentApi";
+import type { StudentEntry } from "../components/ReportCard/ManualAssessmentModal";
 import { useAuth } from "../contexts/AuthContext";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -189,6 +194,8 @@ export default function ReportCardBuilderPage() {
 
   // ── Load course assets ────────────────────────────────────────────────────
   const [subject, setSubject] = useState<SubjectOption | null>(null);
+  const [manualAssessments, setManualAssessments] = useState<ManualAssessment[]>([]);
+  const [enrolledStudents, setEnrolledStudents] = useState<StudentEntry[]>([]);
   const [studentName, setStudentName] = useState<string>(nameParam);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -208,7 +215,7 @@ export default function ReportCardBuilderPage() {
   const isAdmin = authUser?.role === "admin";
   const isInstructor = authUser?.role === "instructor";
 
-  // ── Fetch course + quizzes + assignments ──────────────────────────────────
+  // ── Fetch course + quizzes + assignments + manual assessments + students ────
   useEffect(() => {
     if (!courseId) return;
     const id = parseInt(courseId, 10);
@@ -217,41 +224,49 @@ export default function ReportCardBuilderPage() {
       setLoading(true);
       setError(null);
       try {
-        const [courseRes, quizzesRes, assignmentsRes] = await Promise.all([
+        const [courseRes, quizzesRes, assignmentsRes, studentsRes, manualsRes] = await Promise.all([
           CourseApiService.getCourse(id),
           CourseApiService.getCourseQuizzes(id),
           axiosConfig.get(`/courses/${id}/assignments`).then((r) => r.data),
+          CourseApiService.getCourseStudents(id).catch(() => ({ data: [] })),
+          ManualAssessmentApiService.list({
+            course_id: id,
+            term:          searchParams.get("term") ?? authUser?.currentAcademicTerm?.name ?? "",
+            academic_year: searchParams.get("year") ?? authUser?.currentAcademicYear?.name ?? "",
+          }).catch(() => ({ success: true, data: [] as ManualAssessment[] })),
         ]);
+
+        const rawStudents: any[] = studentsRes.data ?? [];
+
+        // Build enrolled student list for the score-entry modal
+        const entries: StudentEntry[] = rawStudents.map((s: any) => {
+          const uid  = s.user?.id ?? s.user?.user_id ?? s.student_id ?? 0;
+          const fn   = s.profile?.first_name ?? s.user?.first_name ?? "";
+          const ln   = s.profile?.last_name  ?? s.user?.last_name  ?? "";
+          return { student_id: uid, name: `${fn} ${ln}`.trim() || `Student #${uid}` };
+        });
+        setEnrolledStudents(entries);
+
+        const fetchedManuals: ManualAssessment[] = manualsRes.data ?? [];
+        setManualAssessments(fetchedManuals);
 
         setSubject({
           id,
           name: courseRes.data.title ?? `Course #${id}`,
-          quizzes: (quizzesRes.data ?? []).map((q: any) => ({
-            id: q.id,
-            title: q.title,
-          })),
-          assignments: ((assignmentsRes as any).data ?? []).map((a: any) => ({
-            id: a.id,
-            title: a.title,
-          })),
+          quizzes: (quizzesRes.data ?? []).map((q: any) => ({ id: q.id, title: q.title })),
+          assignments: ((assignmentsRes as any).data ?? []).map((a: any) => ({ id: a.id, title: a.title })),
+          manualAssessments: fetchedManuals,
         });
 
-        // Fetch student name only if it wasn't already passed via the URL ?name= param
+        // Set student name from URL param or from the students list
         if (!nameParam) {
-          try {
-            const studentsRes = await CourseApiService.getCourseStudents(id);
-            const found = (studentsRes.data ?? []).find(
-              (s: any) => (s.user?.id || s.user?.user_id) === studentId,
-            );
-            if (found) {
-              const fn =
-                found.profile?.first_name || found.user?.first_name || "";
-              const ln =
-                found.profile?.last_name || found.user?.last_name || "";
-              setStudentName(`${fn} ${ln}`.trim());
-            }
-          } catch {
-            // non-fatal — name display degrades gracefully
+          const found = rawStudents.find(
+            (s: any) => (s.user?.id || s.user?.user_id) === studentId,
+          );
+          if (found) {
+            const fn = found.profile?.first_name || found.user?.first_name || "";
+            const ln = found.profile?.last_name  || found.user?.last_name  || "";
+            setStudentName(`${fn} ${ln}`.trim());
           }
         }
       } catch {

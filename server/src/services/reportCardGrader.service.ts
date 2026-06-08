@@ -21,7 +21,7 @@ export const CATEGORY_WEIGHTS: Record<AssessmentCategory, number> = {
 
 export interface AssessmentScore {
   assessment_id: number;
-  assessment_type: "quiz" | "assignment";
+  assessment_type: "quiz" | "assignment" | "manual";
   category: AssessmentCategory;
   /** Student's raw score (numerator) */
   raw_score: number;

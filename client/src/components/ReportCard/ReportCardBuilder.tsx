@@ -23,6 +23,10 @@ import {
   Loader2,
   Plus,
   Zap,
+  PencilRuler,
+  Pencil,
+  ListChecks,
+  Trash2,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { AnimatePresence, motion } from "framer-motion";
@@ -31,6 +35,11 @@ import {
   type AssessmentCategory,
   type AssessmentType,
 } from "../../services/reportCardApi";
+import ManualAssessmentModal, {
+  type ManualAssessmentModalMode,
+  type StudentEntry,
+} from "./ManualAssessmentModal";
+import { ManualAssessmentApiService, type ManualAssessment } from "../../services/manualAssessmentApi";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -40,13 +49,16 @@ export interface AssessmentDragItem {
   assessment_type: AssessmentType;
   title: string;
   subject_id: number;
+  /** max_score stored on manual items so the grader can reference it */
+  max_score?: number;
 }
 
 export interface SubjectOption {
   id: number;
   name: string;
-  quizzes:     { id: number; title: string }[];
-  assignments: { id: number; title: string }[];
+  quizzes:           { id: number; title: string }[];
+  assignments:       { id: number; title: string }[];
+  manualAssessments: ManualAssessment[];
 }
 
 export interface ReportCardBuilderProps {
@@ -57,6 +69,12 @@ export interface ReportCardBuilderProps {
   initialDropped?: Partial<Record<AssessmentCategory, AssessmentDragItem[]>>;
   onSaved?: (reportCardId: number) => void;
   readOnly?: boolean;
+  /** Students in the course — needed for score entry modal */
+  students?: StudentEntry[];
+  /** Called when a manual assessment is created (parent refreshes its list) */
+  onManualAssessmentCreated?: (assessment: ManualAssessment) => void;
+  /** Called when a manual assessment is deleted */
+  onManualAssessmentDeleted?: (assessmentId: number) => void;
 }
 
 // ─── Category config ──────────────────────────────────────────────────────────
@@ -191,11 +209,17 @@ function DraggableCard({
   isOverlay = false,
   readOnly = false,
   onQuickAssign,
+  onEnterScores,
+  onEdit,
+  onDelete,
 }: {
   item: AssessmentDragItem;
   isOverlay?: boolean;
   readOnly?: boolean;
   onQuickAssign?: (item: AssessmentDragItem) => void;
+  onEnterScores?: (item: AssessmentDragItem) => void;
+  onEdit?: (item: AssessmentDragItem) => void;
+  onDelete?: (item: AssessmentDragItem) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: item.dndId,
@@ -203,6 +227,7 @@ function DraggableCard({
   });
 
   const style = { transform: CSS.Translate.toString(transform) };
+  const isManual = item.assessment_type === "manual";
 
   return (
     <div
@@ -212,7 +237,7 @@ function DraggableCard({
         relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium
         select-none transition-all duration-150 group
         ${isOverlay
-          ? "bg-white text-slate-900 border-blue-400 shadow-2xl shadow-blue-500/40 scale-105 rotate-1"
+          ? "bg-white text-slate-900 border-violet-400 shadow-2xl shadow-violet-500/40 scale-105 rotate-1"
           : isDragging
           ? "opacity-20 bg-white/[0.04] border-white/[0.06]"
           : readOnly
@@ -226,28 +251,89 @@ function DraggableCard({
       {!readOnly && (
         <GripVertical className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-slate-400" : "text-slate-600"}`} />
       )}
-      {item.assessment_type === "quiz" ? (
+
+      {isManual ? (
+        <PencilRuler className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-violet-600" : "text-violet-400"}`} />
+      ) : item.assessment_type === "quiz" ? (
         <BookOpen className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-blue-600" : "text-blue-400"}`} />
       ) : (
         <ClipboardList className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-cyan-600" : "text-cyan-400"}`} />
       )}
-      <span className={`truncate flex-1 text-xs font-medium ${isOverlay ? "text-slate-800" : "text-slate-200"}`}>{item.title}</span>
-      <span
-        className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${
-          item.assessment_type === "quiz"
-            ? isOverlay ? "bg-blue-100 text-blue-700" : "bg-blue-900/60 text-blue-300"
-            : isOverlay ? "bg-cyan-100 text-cyan-700" : "bg-cyan-900/60 text-cyan-300"
-        }`}
-      >
-        {item.assessment_type === "quiz" ? "Quiz" : "Assign"}
+
+      <span className={`truncate flex-1 text-xs font-medium ${isOverlay ? "text-slate-800" : "text-slate-200"}`}>
+        {item.title}
       </span>
 
-      {/* Quick-assign button */}
-      {!readOnly && !isOverlay && onQuickAssign && (
+      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${
+        isManual
+          ? isOverlay ? "bg-violet-100 text-violet-700" : "bg-violet-900/60 text-violet-300"
+          : item.assessment_type === "quiz"
+          ? isOverlay ? "bg-blue-100 text-blue-700" : "bg-blue-900/60 text-blue-300"
+          : isOverlay ? "bg-cyan-100 text-cyan-700" : "bg-cyan-900/60 text-cyan-300"
+      }`}>
+        {isManual ? "Manual" : item.assessment_type === "quiz" ? "Quiz" : "Assign"}
+      </span>
+
+      {/* Action buttons for manual assessments */}
+      {isManual && !readOnly && !isOverlay && (
+        <div
+          className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          {onEnterScores && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEnterScores(item); }}
+              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-violet-600/50
+                flex items-center justify-center transition-all duration-150"
+              title="Enter student scores"
+            >
+              <ListChecks className="w-3 h-3 text-slate-300" />
+            </button>
+          )}
+          {onEdit && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onEdit(item); }}
+              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-blue-600/50
+                flex items-center justify-center transition-all duration-150"
+              title="Edit assessment"
+            >
+              <Pencil className="w-3 h-3 text-slate-300" />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              onClick={(e) => { e.stopPropagation(); onDelete(item); }}
+              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-red-600/50
+                flex items-center justify-center transition-all duration-150"
+              title="Delete assessment"
+            >
+              <Trash2 className="w-3 h-3 text-slate-300" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Quick-assign button for non-manual */}
+      {!isManual && !readOnly && !isOverlay && onQuickAssign && (
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onQuickAssign(item); }}
           className="flex-shrink-0 w-5 h-5 rounded-md bg-white/[0.08] hover:bg-blue-600/50
+            flex items-center justify-center opacity-0 group-hover:opacity-100
+            transition-all duration-150 touch-action-auto"
+          aria-label={`Quick assign ${item.title}`}
+          title="Quick assign to category"
+        >
+          <Plus className="w-3 h-3 text-slate-300" />
+        </button>
+      )}
+
+      {/* Quick-assign for manual too */}
+      {isManual && !readOnly && !isOverlay && onQuickAssign && (
+        <button
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => { e.stopPropagation(); onQuickAssign(item); }}
+          className="flex-shrink-0 w-5 h-5 rounded-md bg-white/[0.08] hover:bg-violet-600/50
             flex items-center justify-center opacity-0 group-hover:opacity-100
             transition-all duration-150 touch-action-auto"
           aria-label={`Quick assign ${item.title}`}
@@ -269,6 +355,7 @@ function DroppedItem({
   item: AssessmentDragItem;
   onRemove: (dndId: string) => void;
 }) {
+  const isManual = item.assessment_type === "manual";
   return (
     <motion.div
       layout
@@ -277,12 +364,19 @@ function DroppedItem({
       exit={{ opacity: 0, scale: 0.9 }}
       className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/20 border border-white/[0.08] text-sm group"
     >
-      {item.assessment_type === "quiz" ? (
+      {isManual ? (
+        <PencilRuler className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" />
+      ) : item.assessment_type === "quiz" ? (
         <BookOpen className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
       ) : (
         <ClipboardList className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
       )}
       <span className="text-slate-200 truncate flex-1 text-xs font-medium">{item.title}</span>
+      {isManual && (
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-900/60 text-violet-300 font-semibold flex-shrink-0">
+          Manual
+        </span>
+      )}
       <button
         onClick={() => onRemove(item.dndId)}
         className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full
@@ -409,6 +503,9 @@ export default function ReportCardBuilder({
   initialDropped,
   onSaved,
   readOnly = false,
+  students = [],
+  onManualAssessmentCreated,
+  onManualAssessmentDeleted,
 }: ReportCardBuilderProps) {
   const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(subjects[0]?.id ?? null);
   const [dropped, setDropped] = useState<Record<AssessmentCategory, AssessmentDragItem[]>>({
@@ -421,6 +518,10 @@ export default function ReportCardBuilder({
   const [isSaving, setIsSaving] = useState(false);
   const [subjectOpen, setSubjectOpen] = useState(false);
   const [quickAssignItem, setQuickAssignItem] = useState<AssessmentDragItem | null>(null);
+
+  // Manual assessment modal state
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalMode, setModalMode] = useState<ManualAssessmentModalMode>({ type: "create" });
 
   const [syncKey, setSyncKey] = useState(0);
   useEffect(() => {
@@ -459,7 +560,15 @@ export default function ReportCardBuilder({
       title: a.title,
       subject_id: selectedSubject.id,
     }));
-    return [...quizItems, ...assignItems];
+    const manualItems: AssessmentDragItem[] = selectedSubject.manualAssessments.map((m) => ({
+      dndId: `manual-${m.id}`,
+      assessment_id: m.id,
+      assessment_type: "manual",
+      title: m.title,
+      subject_id: selectedSubject.id,
+      max_score: m.max_score,
+    }));
+    return [...quizItems, ...assignItems, ...manualItems];
   }, [selectedSubject]);
 
   const droppedDndIds = useMemo(
@@ -471,6 +580,9 @@ export default function ReportCardBuilder({
     () => allSubjectItems.filter((item) => !droppedDndIds.has(item.dndId)),
     [allSubjectItems, droppedDndIds],
   );
+
+  const availableManuals  = useMemo(() => availableItems.filter((i) => i.assessment_type === "manual"), [availableItems]);
+  const availableOthers   = useMemo(() => availableItems.filter((i) => i.assessment_type !== "manual"), [availableItems]);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     if (readOnly) return;
@@ -522,6 +634,25 @@ export default function ReportCardBuilder({
     });
   }, []);
 
+  const handleDeleteManual = useCallback(async (item: AssessmentDragItem) => {
+    if (!confirm(`Delete "${item.title}"? This will also remove all student scores.`)) return;
+    try {
+      await ManualAssessmentApiService.delete(item.assessment_id);
+      // Remove from any dropped category
+      setDropped((prev) => {
+        const next = { ...prev };
+        CATEGORY_ORDER.forEach((cat) => {
+          next[cat] = next[cat].filter((i) => i.dndId !== item.dndId);
+        });
+        return next;
+      });
+      onManualAssessmentDeleted?.(item.assessment_id);
+      toast.success(`"${item.title}" deleted.`);
+    } catch {
+      toast.error("Failed to delete assessment.");
+    }
+  }, [onManualAssessmentDeleted]);
+
   const handleSave = async () => {
     if (!selectedSubjectId) {
       toast.error("Please select a subject first.");
@@ -538,7 +669,7 @@ export default function ReportCardBuilder({
     );
 
     if (allMappings.length === 0) {
-      toast.error("Drop at least one assessment into a category before saving.");
+      toast.error("Add at least one assessment into a category before saving.");
       return;
     }
 
@@ -564,202 +695,316 @@ export default function ReportCardBuilder({
 
   const totalMapped = Object.values(dropped).reduce((sum, arr) => sum + arr.length, 0);
 
+  const openCreateModal = () => {
+    setModalMode({ type: "create" });
+    setModalOpen(true);
+  };
+
+  const openEditModal = (item: AssessmentDragItem) => {
+    const ma = selectedSubject?.manualAssessments.find((m) => m.id === item.assessment_id);
+    if (!ma) return;
+    setModalMode({ type: "edit", assessment: ma });
+    setModalOpen(true);
+  };
+
+  const openScoresModal = (item: AssessmentDragItem) => {
+    const ma = selectedSubject?.manualAssessments.find((m) => m.id === item.assessment_id);
+    if (!ma) return;
+    setModalMode({ type: "scores", assessment: ma });
+    setModalOpen(true);
+  };
+
   return (
-    <DndContext
-      key={syncKey}
-      sensors={sensors}
-      collisionDetection={closestCenter}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="p-5 sm:p-6">
-        {/* ── Header ── */}
-        <div className="mb-5">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h1 className="text-lg font-bold text-white tracking-tight">Report Card Builder</h1>
-              <p className="text-xs text-slate-500 mt-0.5">{term} · {academicYear} · Student #{studentId}</p>
-            </div>
+    <>
+      <DndContext
+        key={syncKey}
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="p-5 sm:p-6">
+          {/* ── Header ── */}
+          <div className="mb-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-lg font-bold text-white tracking-tight">Report Card Builder</h1>
+                <p className="text-xs text-slate-500 mt-0.5">{term} · {academicYear} · Student #{studentId}</p>
+              </div>
 
-            <div className="flex items-center gap-2.5 flex-wrap">
-              {totalMapped > 0 && (
-                <motion.span
-                  initial={{ opacity: 0, scale: 0.8 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 rounded-full px-3 py-1.5"
-                >
-                  <CheckCircle2 className="w-3 h-3" />
-                  {totalMapped} mapped
-                </motion.span>
-              )}
-              {readOnly ? (
-                <span className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-                  bg-emerald-950/50 border border-emerald-800/50 text-emerald-300">
-                  <CheckCircle2 className="w-4 h-4" />
-                  Approved — view only
-                </span>
-              ) : (
-                <button
-                  onClick={handleSave}
-                  disabled={isSaving || totalMapped === 0}
-                  data-testid="save-button"
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
-                    bg-blue-600 hover:bg-blue-500 text-white
-                    disabled:opacity-40 disabled:cursor-not-allowed
-                    shadow-lg shadow-blue-900/50
-                    transition-all duration-200 active:scale-95"
-                >
-                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  {isSaving ? "Saving…" : "Save Mappings"}
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── Weight summary ── */}
-        {totalMapped > 0 && (
-          <div className="mb-4 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
-            <WeightSummary dropped={dropped} />
-          </div>
-        )}
-
-        {/* ── Subject selector ── */}
-        <div className="mb-5 relative">
-          <button
-            onClick={() => setSubjectOpen((o) => !o)}
-            data-testid="subject-selector"
-            className="w-full sm:w-80 flex items-center justify-between gap-2 px-4 py-2.5
-              bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm font-medium
-              hover:bg-white/[0.08] hover:border-white/[0.16] transition-all"
-          >
-            <span className="truncate text-slate-200">
-              {selectedSubject ? selectedSubject.name : "Select a subject"}
-            </span>
-            <ChevronDown
-              className={`w-4 h-4 text-slate-500 flex-shrink-0 transition-transform duration-200 ${subjectOpen ? "rotate-180" : ""}`}
-            />
-          </button>
-
-          <AnimatePresence>
-            {subjectOpen && (
-              <motion.div
-                initial={{ opacity: 0, y: -6 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.15 }}
-                className="absolute top-full mt-1.5 left-0 z-50 w-full sm:w-80
-                  bg-[#0D1525] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
-              >
-                {subjects.map((s) => (
-                  <button
-                    key={s.id}
-                    onClick={() => { setSelectedSubjectId(s.id); setSubjectOpen(false); }}
-                    className={`w-full text-left px-4 py-2.5 text-sm transition-colors
-                      ${selectedSubjectId === s.id
-                        ? "bg-blue-600/30 text-white font-semibold"
-                        : "text-slate-400 hover:bg-white/[0.05] hover:text-white"
-                      }`}
+              <div className="flex items-center gap-2.5 flex-wrap">
+                {totalMapped > 0 && (
+                  <motion.span
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    className="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 rounded-full px-3 py-1.5"
                   >
-                    {s.name}
+                    <CheckCircle2 className="w-3 h-3" />
+                    {totalMapped} mapped
+                  </motion.span>
+                )}
+                {readOnly ? (
+                  <span className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
+                    bg-emerald-950/50 border border-emerald-800/50 text-emerald-300">
+                    <CheckCircle2 className="w-4 h-4" />
+                    Approved — view only
+                  </span>
+                ) : (
+                  <button
+                    onClick={handleSave}
+                    disabled={isSaving || totalMapped === 0}
+                    data-testid="save-button"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
+                      bg-blue-600 hover:bg-blue-500 text-white
+                      disabled:opacity-40 disabled:cursor-not-allowed
+                      shadow-lg shadow-blue-900/50
+                      transition-all duration-200 active:scale-95"
+                  >
+                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {isSaving ? "Saving…" : "Save Mappings"}
                   </button>
-                ))}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-
-        {/* ── Touch hint ── */}
-        {!readOnly && (
-          <p className="mb-4 text-[11px] text-slate-700 flex items-center gap-1.5 sm:hidden">
-            <GripVertical className="w-3 h-3" />
-            Press &amp; hold to drag, or tap <Plus className="w-3 h-3 inline mx-0.5" /> to quick-assign
-          </p>
-        )}
-
-        {/* ── Main two-panel layout ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
-          {/* Left panel – available assessments */}
-          <div className="bg-[#0A1020] border border-white/[0.07] rounded-2xl overflow-hidden flex flex-col">
-            <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between flex-shrink-0">
-              <h2 className="text-sm font-semibold text-white">Available Assessments</h2>
-              <span className="text-xs text-slate-600 tabular-nums">{availableItems.length} item{availableItems.length !== 1 ? "s" : ""}</span>
+                )}
+              </div>
             </div>
+          </div>
 
-            {/* Legend */}
-            <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-4 text-[11px] text-slate-600 flex-shrink-0">
-              <span className="flex items-center gap-1.5">
-                <BookOpen className="w-3 h-3 text-blue-500" /> Quiz
-              </span>
-              <span className="flex items-center gap-1.5">
-                <ClipboardList className="w-3 h-3 text-cyan-500" /> Assignment
-              </span>
-              {!readOnly && (
-                <span className="ml-auto flex items-center gap-1 text-slate-700">
-                  <GripVertical className="w-3 h-3" /> Drag
-                </span>
-              )}
+          {/* ── Weight summary ── */}
+          {totalMapped > 0 && (
+            <div className="mb-4 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+              <WeightSummary dropped={dropped} />
             </div>
+          )}
 
-            <div
-              className="p-3 flex flex-col gap-2 max-h-[48vh] lg:max-h-[calc(100vh-300px)] overflow-y-auto
-                scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/[0.08]"
-              data-testid="available-items"
+          {/* ── Subject selector ── */}
+          <div className="mb-5 relative">
+            <button
+              onClick={() => setSubjectOpen((o) => !o)}
+              data-testid="subject-selector"
+              className="w-full sm:w-80 flex items-center justify-between gap-2 px-4 py-2.5
+                bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm font-medium
+                hover:bg-white/[0.08] hover:border-white/[0.16] transition-all"
             >
-              {availableItems.length === 0 ? (
-                <div className="py-12 text-center space-y-3">
-                  <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-950/50 border border-emerald-900/50 flex items-center justify-center">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
-                  </div>
-                  <p className="text-slate-600 text-xs">
-                    {allSubjectItems.length === 0
-                      ? "No assessments found for this subject"
-                      : "All assessments have been categorised"}
-                  </p>
-                </div>
-              ) : (
-                <>
-                  {availableItems.map((item) => (
-                    <div key={item.dndId} className="relative">
-                      <DraggableCard
-                        item={item}
-                        readOnly={readOnly}
-                        onQuickAssign={!readOnly ? (i) => setQuickAssignItem(i) : undefined}
-                      />
-                      <AnimatePresence>
-                        {quickAssignItem?.dndId === item.dndId && (
-                          <QuickAssignPopover
-                            item={item}
-                            onAssign={(cat) => handleQuickAssign(item, cat)}
-                            onClose={() => setQuickAssignItem(null)}
-                          />
-                        )}
-                      </AnimatePresence>
-                    </div>
+              <span className="truncate text-slate-200">
+                {selectedSubject ? selectedSubject.name : "Select a subject"}
+              </span>
+              <ChevronDown
+                className={`w-4 h-4 text-slate-500 flex-shrink-0 transition-transform duration-200 ${subjectOpen ? "rotate-180" : ""}`}
+              />
+            </button>
+
+            <AnimatePresence>
+              {subjectOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: -6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.15 }}
+                  className="absolute top-full mt-1.5 left-0 z-50 w-full sm:w-80
+                    bg-[#0D1525] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+                >
+                  {subjects.map((s) => (
+                    <button
+                      key={s.id}
+                      onClick={() => { setSelectedSubjectId(s.id); setSubjectOpen(false); }}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors
+                        ${selectedSubjectId === s.id
+                          ? "bg-blue-600/30 text-white font-semibold"
+                          : "text-slate-400 hover:bg-white/[0.05] hover:text-white"
+                        }`}
+                    >
+                      {s.name}
+                    </button>
                   ))}
-                </>
+                </motion.div>
               )}
+            </AnimatePresence>
+          </div>
+
+          {/* ── Touch hint ── */}
+          {!readOnly && (
+            <p className="mb-4 text-[11px] text-slate-700 flex items-center gap-1.5 sm:hidden">
+              <GripVertical className="w-3 h-3" />
+              Press &amp; hold to drag, or tap <Plus className="w-3 h-3 inline mx-0.5" /> to quick-assign
+            </p>
+          )}
+
+          {/* ── Main two-panel layout ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
+            {/* Left panel – available assessments */}
+            <div className="bg-[#0A1020] border border-white/[0.07] rounded-2xl overflow-hidden flex flex-col">
+              <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between flex-shrink-0">
+                <h2 className="text-sm font-semibold text-white">Available Assessments</h2>
+                <span className="text-xs text-slate-600 tabular-nums">{availableItems.length} item{availableItems.length !== 1 ? "s" : ""}</span>
+              </div>
+
+              {/* Legend */}
+              <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-4 text-[11px] text-slate-600 flex-shrink-0 flex-wrap">
+                <span className="flex items-center gap-1.5">
+                  <BookOpen className="w-3 h-3 text-blue-500" /> Quiz
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <ClipboardList className="w-3 h-3 text-cyan-500" /> Assignment
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <PencilRuler className="w-3 h-3 text-violet-500" /> Manual
+                </span>
+                {!readOnly && (
+                  <span className="ml-auto flex items-center gap-1 text-slate-700">
+                    <GripVertical className="w-3 h-3" /> Drag
+                  </span>
+                )}
+              </div>
+
+              <div
+                className="p-3 flex flex-col gap-2 flex-1 overflow-y-auto
+                  scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/[0.08]"
+                data-testid="available-items"
+              >
+                {/* Quizzes & assignments */}
+                {availableOthers.length > 0 && (
+                  <div className="space-y-2">
+                    {availableOthers.map((item) => (
+                      <div key={item.dndId} className="relative">
+                        <DraggableCard
+                          item={item}
+                          readOnly={readOnly}
+                          onQuickAssign={!readOnly ? (i) => setQuickAssignItem(i) : undefined}
+                        />
+                        <AnimatePresence>
+                          {quickAssignItem?.dndId === item.dndId && (
+                            <QuickAssignPopover
+                              item={item}
+                              onAssign={(cat) => handleQuickAssign(item, cat)}
+                              onClose={() => setQuickAssignItem(null)}
+                            />
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Manual entries section */}
+                <div className="mt-2 space-y-2">
+                  {/* Section header */}
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-1.5">
+                      <PencilRuler className="w-3 h-3 text-violet-500" />
+                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                        Manual Entries
+                      </span>
+                    </div>
+                    {!readOnly && selectedSubject && (
+                      <button
+                        onClick={openCreateModal}
+                        className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg
+                          bg-violet-900/40 border border-violet-700/40 text-violet-300
+                          hover:bg-violet-800/50 transition-all font-medium"
+                      >
+                        <Plus className="w-3 h-3" />
+                        Add Entry
+                      </button>
+                    )}
+                  </div>
+
+                  {availableManuals.length === 0 && !readOnly ? (
+                    <div className="px-3 py-4 rounded-xl border border-dashed border-violet-900/50 text-center">
+                      <p className="text-xs text-slate-700 leading-relaxed">
+                        No manual entries yet.{" "}
+                        {selectedSubject && (
+                          <button
+                            onClick={openCreateModal}
+                            className="text-violet-400 hover:text-violet-300 underline-offset-2 underline transition-colors"
+                          >
+                            Add one
+                          </button>
+                        )}{" "}
+                        for physical-paper marks.
+                      </p>
+                    </div>
+                  ) : (
+                    availableManuals.map((item) => (
+                      <div key={item.dndId} className="relative">
+                        <DraggableCard
+                          item={item}
+                          readOnly={readOnly}
+                          onQuickAssign={!readOnly ? (i) => setQuickAssignItem(i) : undefined}
+                          onEnterScores={!readOnly ? openScoresModal : undefined}
+                          onEdit={!readOnly ? openEditModal : undefined}
+                          onDelete={!readOnly ? handleDeleteManual : undefined}
+                        />
+                        <AnimatePresence>
+                          {quickAssignItem?.dndId === item.dndId && (
+                            <QuickAssignPopover
+                              item={item}
+                              onAssign={(cat) => handleQuickAssign(item, cat)}
+                              onClose={() => setQuickAssignItem(null)}
+                            />
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Empty state when both lists are empty */}
+                {availableItems.length === 0 && allSubjectItems.length > 0 && (
+                  <div className="py-12 text-center space-y-3">
+                    <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-950/50 border border-emerald-900/50 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                    </div>
+                    <p className="text-slate-600 text-xs">All assessments have been categorised</p>
+                  </div>
+                )}
+
+                {allSubjectItems.length === 0 && !selectedSubject && (
+                  <div className="py-12 text-center">
+                    <p className="text-slate-600 text-xs">Select a subject to see assessments</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Right panel – category drop zones */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {CATEGORY_ORDER.map((cat) => (
+                <CategoryDropZone
+                  key={cat}
+                  category={cat}
+                  items={dropped[cat]}
+                  onRemove={handleRemoveFromCategory}
+                />
+              ))}
             </div>
           </div>
-
-          {/* Right panel – category drop zones */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {CATEGORY_ORDER.map((cat) => (
-              <CategoryDropZone
-                key={cat}
-                category={cat}
-                items={dropped[cat]}
-                onRemove={handleRemoveFromCategory}
-              />
-            ))}
-          </div>
         </div>
-      </div>
 
-      {/* Drag overlay */}
-      <DragOverlay dropAnimation={null}>
-        {activeDragItem ? <DraggableCard item={activeDragItem} isOverlay /> : null}
-      </DragOverlay>
-    </DndContext>
+        {/* Drag overlay */}
+        <DragOverlay dropAnimation={null}>
+          {activeDragItem ? <DraggableCard item={activeDragItem} isOverlay /> : null}
+        </DragOverlay>
+      </DndContext>
+
+      {/* Manual assessment modal */}
+      {selectedSubject && (
+        <ManualAssessmentModal
+          open={modalOpen}
+          mode={modalMode}
+          courseId={selectedSubject.id}
+          term={term}
+          academicYear={academicYear}
+          students={students}
+          onClose={() => setModalOpen(false)}
+          onCreated={(assessment) => {
+            setModalOpen(false);
+            onManualAssessmentCreated?.(assessment);
+          }}
+          onUpdated={(assessment) => {
+            setModalOpen(false);
+            onManualAssessmentCreated?.(assessment);
+          }}
+        />
+      )}
+    </>
   );
 }

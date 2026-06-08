@@ -5,6 +5,8 @@ import { ReportCardAttribute } from "../models/ReportCardAttribute.model";
 import { ReportCardAssessment } from "../models/ReportCardAssessment.model";
 import { QuizSubmission } from "../models/QuizSubmission.model";
 import { Submission } from "../models/Submission.model";
+import { ManualAssessment } from "../models/ManualAssessment.model";
+import { ManualAssessmentScore } from "../models/ManualAssessmentScore.model";
 import { User } from "../models/User.model";
 import {
   calculateSubjectGrade,
@@ -333,8 +335,9 @@ async function aggregateReportCardData(reportCard: ReportCard) {
 
   const quizIds       = assessmentMappings.filter((m) => m.assessment_type === "quiz").map((m) => m.assessment_id);
   const assignmentIds = assessmentMappings.filter((m) => m.assessment_type === "assignment").map((m) => m.assessment_id);
+  const manualIds     = assessmentMappings.filter((m) => m.assessment_type === "manual").map((m) => m.assessment_id);
 
-  const [quizSubmissions, assignmentSubmissions, attributes] = await Promise.all([
+  const [quizSubmissions, assignmentSubmissions, manualAssessments, manualScores, attributes] = await Promise.all([
     quizIds.length > 0
       ? QuizSubmission.findAll({
           where: { student_id: studentId, quiz_id: { [Op.in]: quizIds } },
@@ -345,6 +348,18 @@ async function aggregateReportCardData(reportCard: ReportCard) {
       ? Submission.findAll({
           where: { student_id: studentId, assignment_id: { [Op.in]: assignmentIds } },
           attributes: ["assignment_id", "grade"],
+        })
+      : [],
+    manualIds.length > 0
+      ? ManualAssessment.findAll({
+          where: { id: { [Op.in]: manualIds } },
+          attributes: ["id", "max_score"],
+        })
+      : [],
+    manualIds.length > 0
+      ? ManualAssessmentScore.findAll({
+          where: { student_id: studentId, manual_assessment_id: { [Op.in]: manualIds } },
+          attributes: ["manual_assessment_id", "score"],
         })
       : [],
     ReportCardAttribute.findAll({
@@ -358,6 +373,12 @@ async function aggregateReportCardData(reportCard: ReportCard) {
   );
   const assignmentScoreMap = new Map(
     (assignmentSubmissions as Submission[]).map((s) => [s.assignment_id, s]),
+  );
+  const manualMaxScoreMap = new Map(
+    (manualAssessments as ManualAssessment[]).map((a) => [a.id, parseFloat(String(a.max_score))]),
+  );
+  const manualScoreMap = new Map(
+    (manualScores as ManualAssessmentScore[]).map((s) => [s.manual_assessment_id, parseFloat(String(s.score))]),
   );
 
   const subjectMap = new Map<number, AssessmentScore[]>();
@@ -376,7 +397,7 @@ async function aggregateReportCardData(reportCard: ReportCard) {
           max_score: parseFloat(String(sub.max_score)),
         };
       }
-    } else {
+    } else if (mapping.assessment_type === "assignment") {
       const sub = assignmentScoreMap.get(mapping.assessment_id);
       if (sub) {
         const parsed = parseAssignmentGrade(sub.grade ?? null);
@@ -389,6 +410,18 @@ async function aggregateReportCardData(reportCard: ReportCard) {
             max_score: parsed.max_score,
           };
         }
+      }
+    } else if (mapping.assessment_type === "manual") {
+      const score    = manualScoreMap.get(mapping.assessment_id);
+      const maxScore = manualMaxScoreMap.get(mapping.assessment_id);
+      if (score !== undefined && maxScore !== undefined && maxScore > 0) {
+        entry = {
+          assessment_id: mapping.assessment_id,
+          assessment_type: "manual",
+          category: mapping.category as any,
+          raw_score: score,
+          max_score: maxScore,
+        };
       }
     }
 
