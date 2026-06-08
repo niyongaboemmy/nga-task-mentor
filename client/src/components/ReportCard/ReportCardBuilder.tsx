@@ -65,7 +65,7 @@ interface CategoryMeta {
   label: string;
   shortLabel: string;
   weight: number;
-  gradient: string;
+  bg: string;
   border: string;
   badge: string;
   dot: string;
@@ -78,45 +78,45 @@ const CATEGORIES: Record<AssessmentCategory, CategoryMeta> = {
     label: "Class Work",
     shortLabel: "CW",
     weight: 15,
-    gradient: "from-blue-500/15 to-blue-600/5",
-    border: "border-blue-400/30",
-    badge: "bg-blue-500 text-white",
+    bg: "bg-blue-950/50",
+    border: "border-blue-800/50",
+    badge: "bg-blue-600 text-white",
     dot: "bg-blue-400",
-    dropBg: "bg-blue-500/10",
-    ring: "ring-blue-400/30",
+    dropBg: "bg-blue-900/30",
+    ring: "ring-blue-500/40",
   },
   HW: {
     label: "Homework",
     shortLabel: "HW",
     weight: 10,
-    gradient: "from-cyan-500/15 to-cyan-600/5",
-    border: "border-cyan-400/30",
-    badge: "bg-cyan-500 text-white",
+    bg: "bg-cyan-950/50",
+    border: "border-cyan-800/50",
+    badge: "bg-cyan-600 text-white",
     dot: "bg-cyan-400",
-    dropBg: "bg-cyan-500/10",
-    ring: "ring-cyan-400/30",
+    dropBg: "bg-cyan-900/30",
+    ring: "ring-cyan-500/40",
   },
   MD: {
     label: "Mid-Term",
     shortLabel: "MD",
     weight: 25,
-    gradient: "from-amber-500/15 to-amber-600/5",
-    border: "border-amber-400/30",
-    badge: "bg-amber-500 text-white",
+    bg: "bg-amber-950/50",
+    border: "border-amber-800/50",
+    badge: "bg-amber-600 text-white",
     dot: "bg-amber-400",
-    dropBg: "bg-amber-500/10",
-    ring: "ring-amber-400/30",
+    dropBg: "bg-amber-900/30",
+    ring: "ring-amber-500/40",
   },
   EOT: {
     label: "End of Term",
     shortLabel: "EOT",
     weight: 50,
-    gradient: "from-emerald-500/15 to-emerald-600/5",
-    border: "border-emerald-400/30",
-    badge: "bg-emerald-500 text-white",
+    bg: "bg-emerald-950/50",
+    border: "border-emerald-800/50",
+    badge: "bg-emerald-600 text-white",
     dot: "bg-emerald-400",
-    dropBg: "bg-emerald-500/10",
-    ring: "ring-emerald-400/30",
+    dropBg: "bg-emerald-900/30",
+    ring: "ring-emerald-500/40",
   },
 };
 
@@ -155,11 +155,11 @@ function QuickAssignPopover({
       exit={{ opacity: 0, scale: 0.92, y: -4 }}
       transition={{ duration: 0.15 }}
       className="absolute left-0 top-full mt-1.5 z-50 w-52
-        bg-slate-800/98 backdrop-blur-xl border border-white/15 rounded-2xl shadow-2xl overflow-hidden"
+        bg-[#0D1525] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
     >
-      <div className="px-3 py-2.5 border-b border-white/8">
-        <p className="text-[11px] font-semibold text-white/50 uppercase tracking-wider">Assign to category</p>
-        <p className="text-xs text-white/70 truncate mt-0.5">{item.title}</p>
+      <div className="px-3 py-2.5 border-b border-white/[0.06]">
+        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Assign to category</p>
+        <p className="text-xs text-slate-300 truncate mt-0.5">{item.title}</p>
       </div>
       <div className="p-1.5 space-y-0.5">
         {CATEGORY_ORDER.map((cat) => {
@@ -169,10 +169,10 @@ function QuickAssignPopover({
               key={cat}
               onClick={() => { onAssign(cat); onClose(); }}
               className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm
-                hover:bg-white/8 transition-colors text-left group"
+                hover:bg-white/[0.06] transition-colors text-left group"
             >
               <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${meta.dot}`} />
-              <span className="flex-1 text-white/80 group-hover:text-white font-medium">{meta.label}</span>
+              <span className="flex-1 text-slate-300 group-hover:text-white font-medium">{meta.label}</span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${meta.badge}`}>
                 {meta.weight}%
               </span>
@@ -212,31 +212,31 @@ function DraggableCard({
         relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium
         select-none transition-all duration-150 group
         ${isOverlay
-          ? "bg-white/95 border-blue-400 shadow-2xl shadow-blue-500/30 scale-105 rotate-1"
+          ? "bg-white text-slate-900 border-blue-400 shadow-2xl shadow-blue-500/40 scale-105 rotate-1"
           : isDragging
-          ? "opacity-30 bg-white/10 border-white/10"
+          ? "opacity-20 bg-white/[0.04] border-white/[0.06]"
           : readOnly
-          ? "bg-white/8 border-white/15 cursor-default"
-          : "bg-white/10 border-white/20 hover:bg-white/15 hover:border-white/35 hover:shadow-lg hover:shadow-black/20 cursor-grab active:cursor-grabbing"
+          ? "bg-white/[0.04] border-white/[0.07] cursor-default"
+          : "bg-white/[0.06] border-white/[0.1] hover:bg-white/[0.1] hover:border-white/[0.18] hover:shadow-md hover:shadow-black/30 cursor-grab active:cursor-grabbing"
         }
       `}
       {...attributes}
       {...listeners}
     >
       {!readOnly && (
-        <GripVertical className="w-3.5 h-3.5 text-white/30 flex-shrink-0" />
+        <GripVertical className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-slate-400" : "text-slate-600"}`} />
       )}
       {item.assessment_type === "quiz" ? (
-        <BookOpen className="w-3.5 h-3.5 text-blue-300 flex-shrink-0" />
+        <BookOpen className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-blue-600" : "text-blue-400"}`} />
       ) : (
-        <ClipboardList className="w-3.5 h-3.5 text-cyan-300 flex-shrink-0" />
+        <ClipboardList className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-cyan-600" : "text-cyan-400"}`} />
       )}
-      <span className="text-white/85 truncate flex-1 text-xs">{item.title}</span>
+      <span className={`truncate flex-1 text-xs font-medium ${isOverlay ? "text-slate-800" : "text-slate-200"}`}>{item.title}</span>
       <span
         className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${
           item.assessment_type === "quiz"
-            ? "bg-blue-500/25 text-blue-200"
-            : "bg-cyan-500/25 text-cyan-200"
+            ? isOverlay ? "bg-blue-100 text-blue-700" : "bg-blue-900/60 text-blue-300"
+            : isOverlay ? "bg-cyan-100 text-cyan-700" : "bg-cyan-900/60 text-cyan-300"
         }`}
       >
         {item.assessment_type === "quiz" ? "Quiz" : "Assign"}
@@ -247,13 +247,13 @@ function DraggableCard({
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onQuickAssign(item); }}
-          className="flex-shrink-0 w-5 h-5 rounded-md bg-white/15 hover:bg-indigo-500/50
+          className="flex-shrink-0 w-5 h-5 rounded-md bg-white/[0.08] hover:bg-blue-600/50
             flex items-center justify-center opacity-0 group-hover:opacity-100
             transition-all duration-150 touch-action-auto"
           aria-label={`Quick assign ${item.title}`}
           title="Quick assign to category"
         >
-          <Plus className="w-3 h-3 text-white/80" />
+          <Plus className="w-3 h-3 text-slate-300" />
         </button>
       )}
     </div>
@@ -275,18 +275,18 @@ function DroppedItem({
       initial={{ opacity: 0, scale: 0.95 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
-      className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/12 border border-white/15 text-sm group"
+      className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/20 border border-white/[0.08] text-sm group"
     >
       {item.assessment_type === "quiz" ? (
-        <BookOpen className="w-3.5 h-3.5 text-blue-300 flex-shrink-0" />
+        <BookOpen className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
       ) : (
-        <ClipboardList className="w-3.5 h-3.5 text-cyan-300 flex-shrink-0" />
+        <ClipboardList className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
       )}
-      <span className="text-white/85 truncate flex-1 text-xs">{item.title}</span>
+      <span className="text-slate-200 truncate flex-1 text-xs font-medium">{item.title}</span>
       <button
         onClick={() => onRemove(item.dndId)}
         className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full
-          hover:bg-red-500/30 text-white/40 hover:text-red-300"
+          hover:bg-red-500/20 text-slate-600 hover:text-red-400"
         aria-label={`Remove ${item.title}`}
       >
         <X className="w-3 h-3" />
@@ -314,16 +314,16 @@ function CategoryDropZone({
       ref={setNodeRef}
       data-testid={`drop-zone-${category}`}
       className={`
-        flex flex-col rounded-2xl border backdrop-blur-sm transition-all duration-200 overflow-hidden
-        bg-gradient-to-br ${meta.gradient} ${meta.border}
-        ${isOver ? `ring-2 ${meta.ring} ${meta.dropBg} shadow-lg scale-[1.01]` : ""}
+        flex flex-col rounded-2xl border transition-all duration-200 overflow-hidden
+        ${meta.bg} ${meta.border}
+        ${isOver ? `ring-2 ${meta.ring} scale-[1.01] shadow-lg shadow-black/40` : ""}
       `}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-white/8">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
         <div className="flex items-center gap-2.5">
-          <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${meta.dot} shadow-sm`} />
-          <span className="font-semibold text-white/90 text-sm">{meta.label}</span>
+          <span className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.dot}`} />
+          <span className="font-semibold text-white text-sm">{meta.label}</span>
           <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${meta.badge}`}>
             {meta.weight}%
           </span>
@@ -333,7 +333,7 @@ function CategoryDropZone({
             key={items.length}
             initial={{ scale: 0.7, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="text-xs text-white/40 tabular-nums"
+            className="text-xs text-slate-500 tabular-nums"
           >
             {items.length} item{items.length !== 1 ? "s" : ""}
           </motion.span>
@@ -342,16 +342,16 @@ function CategoryDropZone({
 
       {/* Drop area */}
       <div
-        className={`flex-1 p-3 min-h-[110px] flex flex-col gap-2 transition-colors duration-150 ${
-          isOver ? "bg-white/4" : ""
+        className={`flex-1 p-3 min-h-[120px] flex flex-col gap-2 transition-colors duration-150 ${
+          isOver ? "bg-white/[0.03]" : ""
         }`}
       >
         {items.length === 0 ? (
-          <div className="flex-1 flex flex-col items-center justify-center gap-2 py-4">
-            <div className={`w-8 h-8 rounded-xl border-2 border-dashed ${meta.border} flex items-center justify-center`}>
-              <Plus className="w-3.5 h-3.5 text-white/20" />
+          <div className="flex-1 flex flex-col items-center justify-center gap-2.5 py-6">
+            <div className={`w-9 h-9 rounded-xl border-2 border-dashed ${meta.border} flex items-center justify-center`}>
+              <Plus className="w-4 h-4 text-slate-700" />
             </div>
-            <p className="text-white/20 text-xs text-center select-none">
+            <p className="text-slate-700 text-xs text-center select-none">
               {isOver ? "Release to drop" : "Drag or assign here"}
             </p>
           </div>
@@ -376,21 +376,23 @@ function WeightSummary({ dropped }: { dropped: Record<AssessmentCategory, Assess
   );
 
   return (
-    <div className="flex items-center gap-3 text-xs text-white/40 flex-wrap">
-      <span className="flex items-center gap-1">
-        <Zap className="w-3 h-3" />
-        Weight coverage:
+    <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+      <span className="flex items-center gap-1.5">
+        <Zap className="w-3 h-3 text-slate-600" />
+        <span className="text-slate-500">Weight:</span>
       </span>
       {CATEGORY_ORDER.map((cat) => (
         <span
           key={cat}
-          className={`flex items-center gap-1 transition-opacity ${dropped[cat].length > 0 ? "opacity-100" : "opacity-30"}`}
+          className={`flex items-center gap-1 transition-opacity ${dropped[cat].length > 0 ? "opacity-100" : "opacity-25"}`}
         >
           <span className={`w-1.5 h-1.5 rounded-full ${CATEGORIES[cat].dot}`} />
-          {CATEGORIES[cat].shortLabel} {CATEGORIES[cat].weight}%
+          <span className={dropped[cat].length > 0 ? "text-slate-300" : "text-slate-600"}>
+            {CATEGORIES[cat].shortLabel} {CATEGORIES[cat].weight}%
+          </span>
         </span>
       ))}
-      <span className={`ml-auto font-semibold ${totalWeight >= 100 ? "text-emerald-400" : "text-white/50"}`}>
+      <span className={`ml-auto font-semibold ${totalWeight >= 100 ? "text-emerald-400" : "text-slate-500"}`}>
         {totalWeight}% covered
       </span>
     </div>
@@ -570,29 +572,29 @@ export default function ReportCardBuilder({
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="p-4 md:p-6">
+      <div className="p-5 sm:p-6">
         {/* ── Header ── */}
         <div className="mb-5">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">Report Card Builder</h1>
-              <p className="text-xs text-white/40 mt-0.5">{term} · {academicYear} · Student #{studentId}</p>
+              <h1 className="text-lg font-bold text-white tracking-tight">Report Card Builder</h1>
+              <p className="text-xs text-slate-500 mt-0.5">{term} · {academicYear} · Student #{studentId}</p>
             </div>
 
-            <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex items-center gap-2.5 flex-wrap">
               {totalMapped > 0 && (
                 <motion.span
                   initial={{ opacity: 0, scale: 0.8 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  className="flex items-center gap-1.5 text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1"
+                  className="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 rounded-full px-3 py-1.5"
                 >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <CheckCircle2 className="w-3 h-3" />
                   {totalMapped} mapped
                 </motion.span>
               )}
               {readOnly ? (
                 <span className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-                  bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+                  bg-emerald-950/50 border border-emerald-800/50 text-emerald-300">
                   <CheckCircle2 className="w-4 h-4" />
                   Approved — view only
                 </span>
@@ -602,10 +604,9 @@ export default function ReportCardBuilder({
                   disabled={isSaving || totalMapped === 0}
                   data-testid="save-button"
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
-                    bg-gradient-to-r from-blue-500 to-blue-600 text-white
-                    hover:from-blue-400 hover:to-blue-500
+                    bg-blue-600 hover:bg-blue-500 text-white
                     disabled:opacity-40 disabled:cursor-not-allowed
-                    shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40
+                    shadow-lg shadow-blue-900/50
                     transition-all duration-200 active:scale-95"
                 >
                   {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
@@ -618,7 +619,7 @@ export default function ReportCardBuilder({
 
         {/* ── Weight summary ── */}
         {totalMapped > 0 && (
-          <div className="mb-4 px-3 py-2.5 rounded-xl bg-white/5 border border-white/8">
+          <div className="mb-4 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]">
             <WeightSummary dropped={dropped} />
           </div>
         )}
@@ -628,15 +629,15 @@ export default function ReportCardBuilder({
           <button
             onClick={() => setSubjectOpen((o) => !o)}
             data-testid="subject-selector"
-            className="w-full sm:w-72 flex items-center justify-between gap-2 px-4 py-2.5
-              bg-white/8 backdrop-blur-sm border border-white/15 rounded-xl text-white text-sm font-medium
-              hover:bg-white/12 hover:border-white/25 transition-all"
+            className="w-full sm:w-80 flex items-center justify-between gap-2 px-4 py-2.5
+              bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm font-medium
+              hover:bg-white/[0.08] hover:border-white/[0.16] transition-all"
           >
-            <span className="truncate">
+            <span className="truncate text-slate-200">
               {selectedSubject ? selectedSubject.name : "Select a subject"}
             </span>
             <ChevronDown
-              className={`w-4 h-4 text-white/50 flex-shrink-0 transition-transform duration-200 ${subjectOpen ? "rotate-180" : ""}`}
+              className={`w-4 h-4 text-slate-500 flex-shrink-0 transition-transform duration-200 ${subjectOpen ? "rotate-180" : ""}`}
             />
           </button>
 
@@ -647,8 +648,8 @@ export default function ReportCardBuilder({
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -6 }}
                 transition={{ duration: 0.15 }}
-                className="absolute top-full mt-1.5 left-0 z-50 w-full sm:w-72
-                  bg-slate-800/98 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl overflow-hidden"
+                className="absolute top-full mt-1.5 left-0 z-50 w-full sm:w-80
+                  bg-[#0D1525] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
               >
                 {subjects.map((s) => (
                   <button
@@ -656,8 +657,8 @@ export default function ReportCardBuilder({
                     onClick={() => { setSelectedSubjectId(s.id); setSubjectOpen(false); }}
                     className={`w-full text-left px-4 py-2.5 text-sm transition-colors
                       ${selectedSubjectId === s.id
-                        ? "bg-blue-600/40 text-white font-semibold"
-                        : "text-white/70 hover:bg-white/8 hover:text-white"
+                        ? "bg-blue-600/30 text-white font-semibold"
+                        : "text-slate-400 hover:bg-white/[0.05] hover:text-white"
                       }`}
                   >
                     {s.name}
@@ -670,47 +671,47 @@ export default function ReportCardBuilder({
 
         {/* ── Touch hint ── */}
         {!readOnly && (
-          <p className="mb-4 text-[11px] text-white/25 flex items-center gap-1.5 sm:hidden">
+          <p className="mb-4 text-[11px] text-slate-700 flex items-center gap-1.5 sm:hidden">
             <GripVertical className="w-3 h-3" />
             Press &amp; hold to drag, or tap <Plus className="w-3 h-3 inline mx-0.5" /> to quick-assign
           </p>
         )}
 
         {/* ── Main two-panel layout ── */}
-        <div className="grid grid-cols-1 lg:grid-cols-[320px_1fr] gap-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
           {/* Left panel – available assessments */}
-          <div className="bg-white/5 backdrop-blur-sm border border-white/10 rounded-2xl overflow-hidden">
-            <div className="px-4 py-3 border-b border-white/8 flex items-center justify-between">
+          <div className="bg-[#0A1020] border border-white/[0.07] rounded-2xl overflow-hidden flex flex-col">
+            <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between flex-shrink-0">
               <h2 className="text-sm font-semibold text-white">Available Assessments</h2>
-              <span className="text-xs text-white/35 tabular-nums">{availableItems.length} item{availableItems.length !== 1 ? "s" : ""}</span>
+              <span className="text-xs text-slate-600 tabular-nums">{availableItems.length} item{availableItems.length !== 1 ? "s" : ""}</span>
             </div>
 
             {/* Legend */}
-            <div className="px-4 py-2 border-b border-white/5 flex items-center gap-4 text-[11px] text-white/35">
+            <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-4 text-[11px] text-slate-600 flex-shrink-0">
               <span className="flex items-center gap-1.5">
-                <BookOpen className="w-3 h-3 text-blue-300" /> Quiz
+                <BookOpen className="w-3 h-3 text-blue-500" /> Quiz
               </span>
               <span className="flex items-center gap-1.5">
-                <ClipboardList className="w-3 h-3 text-cyan-300" /> Assignment
+                <ClipboardList className="w-3 h-3 text-cyan-500" /> Assignment
               </span>
               {!readOnly && (
-                <span className="ml-auto flex items-center gap-1 text-white/20">
-                  <GripVertical className="w-3 h-3" /> Drag to assign
+                <span className="ml-auto flex items-center gap-1 text-slate-700">
+                  <GripVertical className="w-3 h-3" /> Drag
                 </span>
               )}
             </div>
 
             <div
-              className="p-3 flex flex-col gap-2 max-h-[50vh] lg:max-h-[calc(100vh-320px)] overflow-y-auto
-                scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/10"
+              className="p-3 flex flex-col gap-2 max-h-[48vh] lg:max-h-[calc(100vh-300px)] overflow-y-auto
+                scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/[0.08]"
               data-testid="available-items"
             >
               {availableItems.length === 0 ? (
-                <div className="py-12 text-center space-y-2">
-                  <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-500/10 border border-emerald-400/20 flex items-center justify-center">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-400/60" />
+                <div className="py-12 text-center space-y-3">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-950/50 border border-emerald-900/50 flex items-center justify-center">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                   </div>
-                  <p className="text-white/30 text-xs">
+                  <p className="text-slate-600 text-xs">
                     {allSubjectItems.length === 0
                       ? "No assessments found for this subject"
                       : "All assessments have been categorised"}
