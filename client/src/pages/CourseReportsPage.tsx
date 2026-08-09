@@ -32,6 +32,9 @@ import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../store";
 import { fetchCourses } from "../store/slices/courseSlice";
 import StudentGradeModal from "../components/Courses/StudentGradeModal";
+import AcademicPeriodPicker, {
+  type SelectedPeriod,
+} from "../components/Common/AcademicPeriodPicker";
 
 ChartJS.register(
   CategoryScale,
@@ -130,6 +133,7 @@ const CourseReportsPage: React.FC = () => {
     null,
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [viewPeriod, setViewPeriod] = useState<SelectedPeriod | null>(null);
 
   // Redux: Get Course Info
   const courseState = useSelector((state: RootState) => state.course);
@@ -152,12 +156,16 @@ const CourseReportsPage: React.FC = () => {
       dispatch(fetchCourses()); // Ensure list is loaded
     }
     fetchGrades();
-  }, [courseId, dispatch]);
+  }, [courseId, dispatch, viewPeriod]);
 
   const fetchGrades = async () => {
     try {
       setLoading(true);
-      const response = await axios.get(`/courses/${courseId}/grades`);
+      const response = await axios.get(`/courses/${courseId}/grades`, {
+        params: viewPeriod
+          ? { academicTermId: viewPeriod.academicTermId }
+          : undefined,
+      });
       if (response.data.success) {
         setData(response.data.data);
       }
@@ -411,7 +419,8 @@ const CourseReportsPage: React.FC = () => {
         </div>
 
         {!isStudent && (
-          <div className="flex gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <AcademicPeriodPicker onChange={setViewPeriod} />
             <button
               onClick={fetchGrades}
               className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-black text-xs uppercase tracking-wider text-gray-600 dark:text-gray-300"

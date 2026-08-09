@@ -39,7 +39,7 @@ export interface CategoryResult {
   /** Individual assessment details */
   assessments: Array<{
     assessment_id: number;
-    assessment_type: "quiz" | "assignment";
+    assessment_type: "quiz" | "assignment" | "manual";
     raw_score: number;
     max_score: number;
     percentage: number;
@@ -116,6 +116,20 @@ export function calculateSubjectGrade(
     categories,
     total_score: parseFloat(total_score.toFixed(2)),
   };
+}
+
+/**
+ * Single source of truth for the letter-grade scale, shared by the on-screen
+ * preview (client/src/services/reportCardApi.ts) and the downloaded PDF
+ * (reportCardPdf.service.ts) — previously each hardcoded its own scale
+ * (A>=90 vs A>=80, etc.), so a student's preview and PDF could disagree.
+ */
+export function scoreToLetterGrade(score: number): { letter: string; remark: string } {
+  if (score >= 90) return { letter: "A", remark: "Distinction" };
+  if (score >= 75) return { letter: "B", remark: "Merit" };
+  if (score >= 60) return { letter: "C", remark: "Credit" };
+  if (score >= 45) return { letter: "D", remark: "Pass" };
+  return { letter: "F", remark: "Fail" };
 }
 
 /**

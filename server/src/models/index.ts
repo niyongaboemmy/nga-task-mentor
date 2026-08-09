@@ -202,19 +202,6 @@ const setupAssociations = () => {
     foreignKey: "report_card_id",
     as: "assessments",
   });
-
-  // ----------------------
-  // ManualAssessment Associations
-  // ----------------------
-  ManualAssessment.hasMany(ManualAssessmentScore, {
-    foreignKey: "manual_assessment_id",
-    as: "scores",
-  });
-
-  ManualAssessmentScore.belongsTo(ManualAssessment, {
-    foreignKey: "manual_assessment_id",
-    as: "assessment",
-  });
 };
 
 // Export as named exports for compatibility

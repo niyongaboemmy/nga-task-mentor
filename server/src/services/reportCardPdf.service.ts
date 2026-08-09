@@ -11,6 +11,7 @@ import QRCode from "qrcode";
 import path from "path";
 import fs from "fs";
 import type { SubjectGrade } from "./reportCardGrader.service";
+import { scoreToLetterGrade } from "./reportCardGrader.service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -29,6 +30,10 @@ export interface ReportCardPdfData {
   attendance_late: number;
   // Grades per subject (from reportCardGrader)
   grades: SubjectGrade[];
+  // Maps subject_id -> display name. Falls back to "Subject #N" when a given
+  // id has no entry (e.g. MIS lookup failed) — see resolveSubjectNames in
+  // reportCard.controller.ts.
+  subject_names?: Record<number, string>;
   // Behavioral attributes
   attributes: Array<{ attribute_name: string; rating: string }>;
   // Teacher comment
@@ -39,36 +44,34 @@ export interface ReportCardPdfData {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+// Matches the client's on-screen palette (ReportCardPreview.tsx) so the
+// downloaded PDF no longer looks like a different document from the preview.
 const COLORS = {
-  primary: "#003366",   // deep navy — school header
-  accent: "#0066CC",    // bright blue — section headings
+  primary: "#1e3a5f",   // navy — school header (was #003366)
+  accent: "#2563eb",    // blue — section headings (was #0066CC)
   light: "#E8F0FE",     // light blue fill for header rows
   border: "#CCCCCC",
   text: "#1A1A1A",
   muted: "#666666",
   white: "#FFFFFF",
-  pass: "#1A7A1A",
-  fail: "#CC0000",
+  pass: "#059669",       // emerald, matches STATUS_META "approved"
+  fail: "#dc2626",       // red, matches the client's F-grade color
 };
 
 const FONTS = { normal: "Helvetica", bold: "Helvetica-Bold" };
 
-/** Convert a percentage (0–100) to a letter grade. */
+/**
+ * Convert a percentage (0–100) to a letter grade. Delegates to the same
+ * scoreToLetterGrade the client's on-screen preview uses (reportCardApi.ts)
+ * so the PDF and preview never disagree on a student's grade/remark again.
+ */
 export function percentageToLetter(pct: number): string {
-  if (pct >= 80) return "A";
-  if (pct >= 70) return "B";
-  if (pct >= 60) return "C";
-  if (pct >= 50) return "D";
-  return "F";
+  return scoreToLetterGrade(pct).letter;
 }
 
-/** Convert a percentage to a remark. */
+/** Convert a percentage to a remark (see percentageToLetter). */
 export function percentageToRemark(pct: number): string {
-  if (pct >= 80) return "Excellent";
-  if (pct >= 70) return "Very Good";
-  if (pct >= 60) return "Good";
-  if (pct >= 50) return "Satisfactory";
-  return "Needs Improvement";
+  return scoreToLetterGrade(pct).remark;
 }
 
 /** Resolve absolute path inside uploads/report-cards/ */
@@ -249,11 +252,13 @@ export async function generateReportCardPdf(data: ReportCardPdfData): Promise<Bu
       ["Academic Year",data.academic_year],
     ];
 
+    // Attendance is recorded as a single term-level status (Present/Absent/
+    // Late), not a day tally — so this shows a ✓/— per status rather than a
+    // day count + total that would misleadingly always read "1 / 1".
     const attendanceRows: [string, string][] = [
-      ["Days Present", String(data.attendance_present)],
-      ["Days Absent",  String(data.attendance_absent)],
-      ["Days Late",    String(data.attendance_late)],
-      ["Total School Days", String(data.attendance_present + data.attendance_absent + data.attendance_late)],
+      ["Present", data.attendance_present ? "Yes" : "—"],
+      ["Absent",  data.attendance_absent  ? "Yes" : "—"],
+      ["Late",    data.attendance_late    ? "Yes" : "—"],
     ];
 
     const infoBlockY = y;
@@ -298,7 +303,7 @@ export async function generateReportCardPdf(data: ReportCardPdfData): Promise<Bu
       const eot = g.categories.EOT?.scaled_score ?? 0;
       const total = g.total_score;
       return [
-        `Subject ${g.subject_id}`,
+        data.subject_names?.[g.subject_id] ?? `Subject #${g.subject_id}`,
         cw  > 0 ? cw.toFixed(2)  : "—",
         hw  > 0 ? hw.toFixed(2)  : "—",
         md  > 0 ? md.toFixed(2)  : "—",

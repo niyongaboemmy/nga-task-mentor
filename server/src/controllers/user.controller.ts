@@ -3,8 +3,45 @@ import { Op } from "sequelize";
 import axios from "axios";
 import path from "path";
 import fs from "fs";
-import { getMisToken, handleMisError } from "../utils/misUtils";
+import {
+  getMisToken,
+  handleMisError,
+  resolveAcademicYearId,
+  resolveAcademicTermId,
+} from "../utils/misUtils";
 import { Submission, Assignment, QuizSubmission, Quiz, User } from "../models";
+
+// MIS role IDs (see nga_central_mis Role table) — used to filter the generic
+// /users/ endpoint via its `userRole` query param.
+const MIS_ROLE_IDS: Record<string, number> = {
+  student: 6,
+};
+
+// The generic MIS /users/ endpoint returns `{ user, profile, roles, permissions }`
+// per record (names live under `profile`), while the rest of this app (e.g. the
+// admin Students list) expects a flat `{ first_name, last_name, ... }` shape —
+// the same flat shape course.controller.ts::getCourse already produces when it
+// maps MIS enrollment data. Normalize here so every caller of getUsers gets a
+// consistent, flat contract regardless of which MIS endpoint served it.
+function flattenMisUser(entry: any) {
+  if (!entry || typeof entry !== "object") return entry;
+  // Already flat (e.g. the /academics/subjects/:id/terms/:id/students endpoint).
+  if (!entry.user && !entry.profile) return entry;
+
+  const user = entry.user || {};
+  const profile = entry.profile || {};
+  return {
+    user_id: user.user_id ?? user.id ?? "",
+    username: user.username ?? user.email ?? "",
+    first_name: profile.first_name ?? user.first_name ?? "",
+    last_name: profile.last_name ?? user.last_name ?? "",
+    gender: profile.gender ?? "",
+    class_group_name: profile.class_group_name ?? "",
+    grade_name: profile.grade_name ?? "",
+    program_name: profile.program_name ?? "",
+    enrolled_at: user.created_at ?? "",
+  };
+}
 
 // @desc    Get all users
 // @route   GET /api/users
@@ -74,21 +111,18 @@ export const getUsers = async (req: Request, res: Response) => {
           });
         }
       }
+
+      // Forward the role filter to MIS so /users/ doesn't return every role
+      // mixed together — MIS expects a numeric `userRole` (role id), not a name.
+      const misRoleId = MIS_ROLE_IDS[role as string];
+      if (misRoleId) {
+        params.userRole = misRoleId;
+      }
     }
     const response = await axios.get<{
       success: boolean;
       message: string;
-      data: {
-        user_id: string;
-        username: string;
-        first_name: string;
-        last_name: string;
-        gender: string;
-        class_group_name: string;
-        grade_name: string;
-        program_name: string;
-        enrolled_at: string;
-      }[];
+      data: any[];
     }>(`${process.env.NGA_MIS_BASE_URL}${endpoint}`, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -102,7 +136,12 @@ export const getUsers = async (req: Request, res: Response) => {
           : undefined,
     });
 
-    const users = response.data.data ?? [];
+    const rawUsers = response.data.data ?? [];
+    // /users/ returns nested { user, profile }; other endpoints are already
+    // flat. flattenMisUser is a no-op for records that are already flat.
+    const users =
+      endpoint === "/users/" ? rawUsers.map(flattenMisUser) : rawUsers;
+
     res.status(200).json({
       success: true,
       count: users.length,
@@ -194,7 +233,10 @@ export const getUserCourses = async (req: Request, res: Response) => {
       });
     }
 
-    // Fetch user's enrolled subjects from MIS API
+    // Fetch user's enrolled subjects from MIS API, scoped to the selected
+    // academic year (otherwise MIS returns every enrollment across every
+    // year the student has ever had).
+    const userCoursesYearId = await resolveAcademicYearId(req);
     const response = await axios.get(
       `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
       {
@@ -202,6 +244,9 @@ export const getUserCourses = async (req: Request, res: Response) => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        params: userCoursesYearId
+          ? { academic_year_id: userCoursesYearId }
+          : {},
         // Enforce HTTPS in production
         httpsAgent:
           process.env.NODE_ENV === "production"
@@ -476,9 +521,12 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
     const localUser = await User.findOne({ where: { mis_user_id: Number(userId) } });
     const localStudentId = localUser?.id ?? null;
 
-    // Fetch enrolled subjects from MIS — treat any failure as empty enrollment
+    // Fetch enrolled subjects from MIS — treat any failure as empty enrollment.
+    // Scoped to the selected academic year (otherwise MIS returns every
+    // enrollment across every year the student has ever had).
     let enrolledSubjects: any[] = [];
     try {
+      const enrolledYearId = await resolveAcademicYearId(req);
       const misResponse = await axios.get(
         `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
         {
@@ -486,6 +534,7 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json",
           },
+          params: enrolledYearId ? { academic_year_id: enrolledYearId } : {},
         },
       );
       enrolledSubjects = misResponse.data?.success
@@ -505,12 +554,24 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
       return res.status(200).json({ success: true, count: 0, data: [] });
     }
 
-    // Fetch all assignments for enrolled courses, left-joining the student's submission
+    // Fetch all assignments for enrolled courses, left-joining the student's
+    // submission, scoped to the selected term so other terms' assignments
+    // don't show up here.
+    const assignmentsTermId = await resolveAcademicTermId(req);
+    const assignmentsTermWhere = assignmentsTermId
+      ? {
+          [Op.or]: [
+            { academic_term_id: assignmentsTermId },
+            { academic_term_id: null },
+          ],
+        }
+      : undefined;
     const submissionWhere = localStudentId ? { student_id: localStudentId } : undefined;
     const assignments = await Assignment.findAll({
       where: {
         course_id: { [Op.in]: courseIds },
         status: { [Op.in]: ["published", "completed"] },
+        ...assignmentsTermWhere,
       },
       include: [
         {
@@ -581,7 +642,10 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
     const localUser = await User.findOne({ where: { mis_user_id: Number(userId) } });
     const localStudentId = localUser?.id ?? null;
 
-    // Fetch user's enrolled subjects from MIS API
+    // Fetch user's enrolled subjects from MIS API, scoped to the selected
+    // academic year (otherwise MIS returns every enrollment across every
+    // year the student has ever had).
+    const studentQuizzesYearId = await resolveAcademicYearId(req);
     const misResponse = await axios.get(
       `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
       {
@@ -589,6 +653,9 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        params: studentQuizzesYearId
+          ? { academic_year_id: studentQuizzesYearId }
+          : {},
       },
     );
 
@@ -603,11 +670,22 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
       return res.status(200).json({ success: true, count: 0, data: [] });
     }
 
-    // Fetch all quizzes for these courses and include student's submission if it exists
+    // Fetch all quizzes for these courses, scoped to the selected term, and
+    // include the student's submission if it exists.
+    const studentQuizzesTermId = await resolveAcademicTermId(req);
+    const studentQuizzesTermWhere = studentQuizzesTermId
+      ? {
+          [Op.or]: [
+            { academic_term_id: studentQuizzesTermId },
+            { academic_term_id: null },
+          ],
+        }
+      : undefined;
     const quizzes = await Quiz.findAll({
       where: {
         course_id: { [Op.in]: courseIds },
         // status: { [Op.in]: ["published", "completed"] },
+        ...studentQuizzesTermWhere,
       },
       include: [
         {

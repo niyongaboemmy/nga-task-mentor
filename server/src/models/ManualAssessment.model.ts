@@ -7,10 +7,22 @@ import {
 } from "sequelize-typescript";
 import { ManualAssessmentScore } from "./ManualAssessmentScore.model";
 
+export type AssessmentType =
+  | "class_work"
+  | "group_work"
+  | "homework"
+  | "midterm"
+  | "participation"
+  | "ca_end_of_term";
+
 export interface IManualAssessmentAttributes {
   id?: number;
   course_id: number;
   title: string;
+  assessment_type?: AssessmentType | null;
+  assessment_number?: number | null;
+  assessment_date?: string | null;
+  add_to_final_grade?: boolean;
   max_score: number;
   term: string;
   academic_year: string;
@@ -54,6 +66,35 @@ export class ManualAssessment extends Model<
     validate: { notEmpty: true },
   })
   public title!: string;
+
+  @Column({
+    type: DataType.STRING(50),
+    allowNull: true,
+    field: "assessment_type",
+  })
+  public assessment_type!: AssessmentType | null;
+
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    field: "assessment_number",
+  })
+  public assessment_number!: number | null;
+
+  @Column({
+    type: DataType.DATEONLY,
+    allowNull: true,
+    field: "assessment_date",
+  })
+  public assessment_date!: string | null;
+
+  @Column({
+    type: DataType.BOOLEAN,
+    allowNull: false,
+    defaultValue: true,
+    field: "add_to_final_grade",
+  })
+  public add_to_final_grade!: boolean;
 
   @Column({
     type: DataType.FLOAT,

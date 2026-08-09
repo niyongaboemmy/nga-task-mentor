@@ -6,6 +6,8 @@ import {
   getCourseOverview,
   updateStatus,
   generatePdf,
+  listReportCardStudents,
+  getAdminSummary,
 } from "../controllers/reportCard.controller";
 import { protect, authorize } from "../middleware/auth";
 import { validate } from "../middleware/validation.middleware";
@@ -47,6 +49,13 @@ router.get(
   authorize("instructor", "admin"),
   getCourseOverview,
 );
+
+// ── Admin cross-course reporting ────────────────────────────────────────────────
+// Lists every report card for a term/year (used by the bulk export "by
+// term/year" mode and admin student search) and an aggregate summary
+// (status counts, per-category and per-subject averages) for that period.
+router.get("/admin/students", authorize("admin"), listReportCardStudents);
+router.get("/admin/summary", authorize("admin"), getAdminSummary);
 
 // ── Status lifecycle ───────────────────────────────────────────────────────────
 // PATCH /api/report-cards/:id/status

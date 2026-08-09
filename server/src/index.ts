@@ -37,6 +37,7 @@ import dashboardRoutes from "./routes/dashboard";
 import quizRoutes from "./routes/quizzes";
 import proctoringRoutes from "./routes/proctoring";
 import questionBankRoutes from "./routes/questionBank";
+import academicsRoutes from "./routes/academics";
 import reportCardRoutes from "./routes/reportCards";
 import manualAssessmentRoutes from "./routes/manualAssessments";
 import { verifyReportCard } from "./controllers/reportCard.controller";
@@ -205,6 +206,7 @@ const startServer = async (): Promise<void> => {
 
     // API Routes (only set up after database is ready)
     app.use("/api/auth", authRoutes);
+    app.use("/api/academics", academicsRoutes);
     app.use("/api/users", userRoutes);
     app.use("/api/courses", courseRoutes);
     app.use("/api/courses/:courseId/question-bank", questionBankRoutes);

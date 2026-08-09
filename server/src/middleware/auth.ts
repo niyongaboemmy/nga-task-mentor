@@ -14,6 +14,7 @@ interface JwtPayload {
   id: number;
   role: string;
   termId?: number; // Add termId to payload interface
+  academicYearId?: number;
   iat: number;
   exp: number;
 }
@@ -78,6 +79,7 @@ export const protect = async (
         role: user.role,
         mis_user_id: user.mis_user_id,
         termId: decoded.termId, // Attach termId from token to req.user
+        academicYearId: decoded.academicYearId,
       };
 
       next();
@@ -139,38 +141,32 @@ export const checkEnrollment = (courseIdParam = "courseId") => {
   };
 };
 
-// Check if user is course instructor
+// Check if user is the owning instructor of the assignment being mutated (or admin).
+// Courses themselves live in the external MIS (the local Course/UserCourse tables
+// were dropped — see migration 20260114224114-drop-courses-and-user-courses-tables),
+// so "owns the course" is determined via Assignment.created_by, the same field
+// quiz.controller.ts/question.controller.ts already use for this check.
 export const isCourseInstructor = async (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   try {
-    const { Course, Assignment } = require("../models");
+    const { Assignment } = require("../models");
 
-    // Check if this is an assignment route (/:id/status or other assignment endpoints)
-    // If there's an assignment_id in params or if the route pattern suggests it's an assignment route
-    const isAssignmentRoute =
-      req.params.id &&
-      (req.route.path.includes("/assignments/") ||
-        req.originalUrl.includes("/assignments/"));
+    const assignment = await Assignment.findByPk(req.params.id);
 
-    let courseId;
+    if (!assignment) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Assignment not found" });
+    }
 
-    if (isAssignmentRoute) {
-      // For assignment routes, first find the assignment to get the course_id
-      const assignment = await Assignment.findByPk(req.params.id);
-
-      if (!assignment) {
-        return res
-          .status(404)
-          .json({ success: false, message: "Assignment not found" });
-      }
-
-      courseId = assignment.course_id;
-    } else {
-      // For course routes, use the id directly as course_id
-      courseId = req.params.id || req.params.courseId;
+    if (req.user.role !== "admin" && assignment.created_by !== req.user.id) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to modify this assignment",
+      });
     }
 
     next();

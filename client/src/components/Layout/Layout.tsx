@@ -7,10 +7,11 @@ import { ThemeToggle } from "../ThemeToggle";
 import { CheckCircle, AlertTriangle, LayoutGrid } from "lucide-react";
 import Logo from "../Logo";
 import SystemsMenu from "./SystemsMenu";
+import AcademicPeriodSwitcher from "./AcademicPeriodSwitcher";
 import type { System } from "../../types/user.types";
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { user, logoutUser } = useAuth();
+  const { user, logoutUser, academicPeriodVersion } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
@@ -87,6 +88,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
             name: "Students",
             href: "/students",
             current: location.pathname.startsWith("/students"),
+          },
+          {
+            name: "Grades",
+            href: "/grades",
+            current: location.pathname.startsWith("/grades"),
           },
         ]
       : []),
@@ -290,12 +296,10 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
             {/* Theme Toggle, Timezone Indicator and User Section */}
             <div className="hidden md:flex items-center space-x-3">
-              {/* Academic Info */}
+              {/* Academic year/term switcher */}
               {user?.currentAcademicYear && user?.currentAcademicTerm && (
-                <div className="hidden xl:flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700/40 mr-2">
-                  <span>{user.currentAcademicYear.name}</span>
-                  <span className="w-1 h-1 rounded-full bg-gray-400"></span>
-                  <span>{user.currentAcademicTerm.name}</span>
+                <div className="hidden xl:block mr-2">
+                  <AcademicPeriodSwitcher />
                 </div>
               )}
 
@@ -523,6 +527,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
                     {/* Placeholder for alignment */}
                   </motion.button>
                 </div>
+
+                {/* Mobile Academic Period Switcher */}
+                {user?.currentAcademicYear && user?.currentAcademicTerm && (
+                  <div className="px-4 pb-3">
+                    <AcademicPeriodSwitcher variant="full" />
+                  </div>
+                )}
               </div>
             </motion.div>
           )}
@@ -536,7 +547,13 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         transition={{ duration: 0.3, delay: 0.1 }}
         className="max-w-8xl mx-auto py-3 md:py-4 px-4 sm:px-6 lg:px-8"
       >
-        <div className="">{children}</div>
+        {/* Remounting on academicPeriodVersion forces every page under Layout
+            to re-run its data-fetching effects against the newly selected
+            academic year/term, without each page needing to know about the
+            switcher. */}
+        <div key={academicPeriodVersion} className="">
+          {children}
+        </div>
       </motion.main>
     </div>
   );

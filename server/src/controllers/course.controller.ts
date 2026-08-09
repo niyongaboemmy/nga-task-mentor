@@ -3,7 +3,8 @@ import axios from "axios";
 import {
   getMisToken,
   hasMisToken,
-  getCurrentTermId,
+  resolveAcademicTermId,
+  resolveAcademicYearId,
   handleMisError,
 } from "../utils/misUtils";
 import {
@@ -35,15 +36,26 @@ export const getCourses = async (req: Request, res: Response) => {
 
     if (req.user?.role === "instructor") {
       endpoint = "/academics/my-assigned-subjects";
-      const termId = await getCurrentTermId(req);
-      params.termId = termId || 4; // Default to 4 if fetch fails
+      // MIS's getMyAssignedSubjects reads `academic_term_id`, not `termId` --
+      // sending the wrong key meant this filter was silently ignored and
+      // every assignment the teacher ever had (across all years) came back.
+      // MIS internally resolves the term to its academic year and filters on
+      // that, so this one param is enough to scope by the selected year too.
+      const termId = await resolveAcademicTermId(req);
+      if (termId) params.academic_term_id = termId;
     } else if (req.user?.role === "student" && req.user.mis_user_id) {
       endpoint = `/academics/students/${req.user.mis_user_id}/enrolled-subjects`;
-      // Students usually only get their current enrollments from this endpoint
+      // Without academic_year_id, MIS returns every enrollment the student
+      // has ever had, across every year -- scope to the selected year.
+      const yearId = await resolveAcademicYearId(req);
+      if (yearId) params.academic_year_id = yearId;
     } else if (req.user?.role === "admin") {
       endpoint = "/academics/subjects";
-      const termId = await getCurrentTermId(req);
-      params.termId = termId || 4;
+      // Note: /academics/subjects (admin catalog) is not term-scoped on the
+      // MIS side; this param is a no-op there today but kept for forward
+      // compatibility and left unset when no term can be resolved.
+      const termId = await resolveAcademicTermId(req);
+      if (termId) params.academic_term_id = termId;
     }
 
     // Call NGA MIS API
@@ -164,10 +176,12 @@ export const getCourse = async (req: Request, res: Response) => {
       });
     }
 
-    // Get enrolled students for this subject and term (dynamic) from MIS
+    // Get enrolled students for this subject and term (dynamic) from MIS.
+    // Honors ?academicTermId= so admins can view a past term's roster
+    // instead of always the requester's current term.
     let enrolledStudents = [];
     try {
-      const termId = await getCurrentTermId(req);
+      const termId = await resolveAcademicTermId(req);
       const studentsResponse = await axios.get(
         `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/${termId}/students`,
         {
@@ -607,7 +621,7 @@ export const getCourseStudents = async (req: Request, res: Response) => {
     // Get enrolled students for this subject and term (dynamic)
     let enrolledStudents = [];
     try {
-      const termId = await getCurrentTermId(req);
+      const termId = await resolveAcademicTermId(req);
       const studentsResponse = await axios.get(
         `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/${termId}/students`,
         {
@@ -711,10 +725,16 @@ export const getCourseGrades = async (req: Request, res: Response) => {
 
     const courseId = req.params.id;
 
+    // Honors ?academicTermId= so admins can view a past term's roster/marks
+    // instead of always the requester's current term.
+    const termId = await resolveAcademicTermId(req);
+    const termWhere = termId
+      ? { [Op.or]: [{ academic_term_id: termId }, { academic_term_id: null }] }
+      : undefined;
+
     // 1. Get enrolled students from MIS
     let enrolledStudents: any[] = [];
     try {
-      const termId = await getCurrentTermId(req);
       const studentsResponse = await axios.get(
         `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}/terms/${termId}/students`,
         {
@@ -740,6 +760,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       where: {
         course_id: courseId,
         status: { [Op.in]: ["published", "completed"] }, // Only show published or completed
+        ...termWhere,
       },
       attributes: ["id", "title", "max_score", "due_date"],
       order: [["due_date", "ASC"]],
@@ -750,6 +771,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       where: {
         course_id: courseId,
         status: "published", // Only parsed published quizzes
+        ...termWhere,
       },
       attributes: ["id", "title", "type", "passing_score"],
       include: [
@@ -1122,7 +1144,10 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         .json({ success: false, message: "Student MIS ID found" });
     }
 
-    // 1. Fetch enrolled subjects from MIS
+    // 1. Fetch enrolled subjects from MIS, scoped to the selected academic
+    // year (without academic_year_id, MIS returns every enrollment the
+    // student has ever had, across every year).
+    const yearId = await resolveAcademicYearId(req);
     const endpoint = `/academics/students/${studentMisId}/enrolled-subjects`;
     const response = await axios.get(
       `${process.env.NGA_MIS_BASE_URL}${endpoint}`,
@@ -1131,6 +1156,7 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
           Authorization: `Bearer ${token}`,
           "Content-Type": "application/json",
         },
+        params: yearId ? { academic_year_id: yearId } : {},
       },
     );
 
@@ -1147,12 +1173,19 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
       return res.status(200).json({ success: true, data: [] });
     }
 
-    // 2. Fetch Assignments and Quizzes
+    // 2. Fetch Assignments and Quizzes, scoped to the selected term so grades
+    // from other terms don't get mixed into this year's overall grade.
+    const termId = await resolveAcademicTermId(req);
+    const termWhere = termId
+      ? { [Op.or]: [{ academic_term_id: termId }, { academic_term_id: null }] }
+      : {};
+
     const assignments = await Assignment.findAll({
       where: {
         course_id: {
           [Op.in]: courseIds,
         },
+        ...termWhere,
       },
       attributes: ["id", "course_id", "max_score", "title"],
     });
@@ -1163,6 +1196,7 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         course_id: {
           [Op.in]: courseIds,
         },
+        ...termWhere,
       },
       attributes: ["id", "course_id", "title"],
       include: [

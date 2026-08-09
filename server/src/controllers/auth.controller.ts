@@ -135,20 +135,52 @@ export const verifyOtp = async (req: Request, res: Response) => {
     );
 
     const { data } = misResponse.data;
-    const {
-      token,
-      user: misUser,
-      profile: misProfile,
-      permissions,
-      assignedPrograms,
-      assignedGrades,
-      forcePasswordChange,
-      roles,
-      currentAcademicYear,
-      currentAcademicTerms,
-    } = data;
+    const { token, user: misUser } = data;
 
-    console.log({ dataToTest: data.roles });
+    // MIS's /auth/verify-otp intentionally omits assignedGrades and systems
+    // (only /users/me returns them — see API_DOCS.md §"POST /auth/verify-otp").
+    // Fetch the full profile the same way ssoCallback() does, so a direct
+    // login gets complete data on the very first response instead of only
+    // after the next session refresh (GET /auth/me → /users/me).
+    let misProfile = data.profile;
+    let permissions = data.permissions;
+    let assignedPrograms = data.assignedPrograms;
+    let assignedGrades: any[] = [];
+    let roles = data.roles;
+    let forcePasswordChange = data.forcePasswordChange;
+    let currentAcademicYear = data.currentAcademicYear;
+    let currentAcademicTerms = data.currentAcademicTerms;
+    let systems: any[] = [];
+
+    try {
+      const profileResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/users/me`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          timeout: 60000,
+          httpsAgent:
+            process.env.NODE_ENV === "production"
+              ? new (require("https").Agent)({ rejectUnauthorized: true })
+              : undefined,
+        },
+      );
+      const profileData = profileResponse.data.data;
+      misProfile = profileData.profile;
+      roles = profileData.roles || [];
+      permissions = profileData.permissions || permissions;
+      assignedPrograms = profileData.assignedPrograms || [];
+      assignedGrades = profileData.assignedGrades || [];
+      currentAcademicYear = profileData.currentAcademicYear;
+      currentAcademicTerms = profileData.currentAcademicTerms || [];
+      forcePasswordChange = profileData.forcePasswordChange;
+      systems = profileData.systems || [];
+    } catch (profileError) {
+      console.warn(
+        "⚠️ Could not fetch full profile after OTP verification, using verify-otp payload",
+      );
+    }
+
+    console.log({ dataToTest: roles });
 
     // Function to map MIS roles to local roles
     const mapMisRoleToLocal = (
@@ -241,10 +273,12 @@ export const verifyOtp = async (req: Request, res: Response) => {
       else if (currentAcademicTerms.length > 0)
         activeTermId = currentAcademicTerms[0].academic_term_id;
     }
+    const activeYearId: number | undefined =
+      currentAcademicYear?.academic_year_id;
 
     // Generate local JWT token
     console.log("🎟️ Generating token with Active Term ID:", activeTermId);
-    const localToken = localUser.getSignedJwtToken(activeTermId);
+    const localToken = localUser.getSignedJwtToken(activeTermId, activeYearId);
 
     // Set cookies
     const cookieOptions = {
@@ -278,6 +312,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
       forcePasswordChange,
       currentAcademicYear,
       currentAcademicTerms,
+      systems,
     });
   } catch (error: any) {
     console.error(
@@ -577,9 +612,11 @@ export const ssoCallback = async (req: Request, res: Response) => {
       else if (currentAcademicTerms.length > 0)
         activeTermId = currentAcademicTerms[0].academic_term_id;
     }
+    const activeYearId: number | undefined =
+      currentAcademicYear?.academic_year_id;
 
     // Generate local JWT token
-    const token = localUser.getSignedJwtToken(activeTermId);
+    const token = localUser.getSignedJwtToken(activeTermId, activeYearId);
 
     // Set cookies
     const cookieOptions = {
@@ -668,13 +705,14 @@ export const refreshToken = async (req: Request, res: Response) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
       id: number;
       termId?: number;
+      academicYearId?: number;
     };
     const user = await User.findByPk(decoded.id);
     if (!user) return res.status(401).json({ message: "Invalid token" });
 
-    // Preserve termId from previous token
+    // Preserve termId/academicYearId from previous token
     console.log("🔄 Refreshing token, preserving Term ID:", decoded.termId);
-    const newToken = user.getSignedJwtToken(decoded.termId);
+    const newToken = user.getSignedJwtToken(decoded.termId, decoded.academicYearId);
 
     const cookieOptions = {
       expires: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day
@@ -687,6 +725,91 @@ export const refreshToken = async (req: Request, res: Response) => {
     res.status(200).json({ success: true, token: newToken });
   } catch (error) {
     res.status(401).json({ message: "Invalid refresh token" });
+  }
+};
+
+// Switch the academic year/term the user is currently viewing.
+//
+// The local JWT's `termId` claim is what every MIS-backed controller
+// resolves via getCurrentTermId(req) as its first, highest-priority source
+// (see server/src/utils/misUtils.ts) -- so re-issuing this token with a new
+// termId is enough to make every existing endpoint (courses, assignments,
+// quizzes, scheme-of-work, question bank, etc.) transparently scope to the
+// newly selected term, with no per-endpoint changes required.
+export const switchAcademicPeriod = async (req: Request, res: Response) => {
+  try {
+    const { academic_year_id, academic_term_id } = req.body;
+
+    const yearId = parseInt(academic_year_id, 10);
+    const termId = parseInt(academic_term_id, 10);
+
+    if (isNaN(yearId) || isNaN(termId)) {
+      return res.status(400).json({
+        success: false,
+        message: "academic_year_id and academic_term_id are required",
+      });
+    }
+
+    const misToken = getMisToken(req);
+    if (!misToken) {
+      return res
+        .status(401)
+        .json({ success: false, message: "MIS session expired" });
+    }
+
+    // Validate the requested year/term actually exist and belong together,
+    // rather than trusting client-supplied ids outright.
+    const [yearsResponse, termsResponse] = await Promise.all([
+      axios.get(`${process.env.NGA_MIS_BASE_URL}/academics/years`, {
+        headers: { Authorization: `Bearer ${misToken}` },
+      }),
+      axios.get(`${process.env.NGA_MIS_BASE_URL}/academics/terms`, {
+        headers: { Authorization: `Bearer ${misToken}` },
+        params: { academic_year_id: yearId },
+      }),
+    ]);
+
+    const academicYear = (yearsResponse.data?.data || []).find(
+      (y: any) => y.academic_year_id === yearId,
+    );
+    const academicTerm = (termsResponse.data?.data || []).find(
+      (t: any) => t.academic_term_id === termId,
+    );
+
+    if (!academicYear || !academicTerm) {
+      return res.status(400).json({
+        success: false,
+        message: "Unknown academic year/term combination",
+      });
+    }
+
+    const localUser = await User.findByPk((req as any).user.id);
+    if (!localUser) {
+      return res.status(401).json({ success: false, message: "Invalid token" });
+    }
+
+    const newToken = localUser.getSignedJwtToken(termId, yearId);
+
+    const cookieOptions = {
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax" as const,
+    };
+    res.cookie("tm_auth_token", newToken, cookieOptions);
+
+    res.status(200).json({
+      success: true,
+      token: newToken,
+      academicYear,
+      academicTerm,
+    });
+  } catch (error: any) {
+    return handleMisError(
+      error,
+      res,
+      "Error switching academic year/term",
+    );
   }
 };
 
@@ -1124,8 +1247,12 @@ export const updatePassword = async (req: Request, res: Response) => {
     user.password = newPassword;
     await user.save();
 
-    // Generate new local token
-    const token = user.getSignedJwtToken();
+    // Generate new local token, preserving the caller's current term/year
+    // selection (getSignedJwtToken() with no args would silently drop it).
+    const token = user.getSignedJwtToken(
+      (req as any).user.termId,
+      (req as any).user.academicYearId,
+    );
 
     // Update Cookies
     const cookieOptions = {

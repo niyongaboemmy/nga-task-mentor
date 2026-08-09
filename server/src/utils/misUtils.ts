@@ -138,10 +138,7 @@ export const getCurrentTermId = async (
         });
 
         const terms = decoded.currentAcademicTerms;
-        if (terms && Array.isArray(terms)) {
-          if (terms.length === 0) {
-            return 4; // When no terms avaialable return term 4
-          }
+        if (terms && Array.isArray(terms) && terms.length > 0) {
           const activeTerm = terms.find(
             (t: any) =>
               Number(t.is_current) === 1 ||
@@ -155,13 +152,11 @@ export const getCurrentTermId = async (
             );
             return activeTerm.academic_term_id;
           }
-          if (terms.length > 0) {
-            console.log(
-              "⚠️ No active term explicitly marked, using first term from MIS Token:",
-              terms[0].academic_term_id,
-            );
-            return terms[0].academic_term_id;
-          }
+          console.log(
+            "⚠️ No active term explicitly marked, using first term from MIS Token:",
+            terms[0].academic_term_id,
+          );
+          return terms[0].academic_term_id;
         }
       }
     } catch (err) {
@@ -205,5 +200,141 @@ export const getCurrentTermId = async (
   } catch (error) {
     console.error("Error fetching current term:", error);
     return null;
+  }
+};
+
+/**
+ * Resolve the academic term a request should be scoped to.
+ *
+ * Centralizes what was previously ad-hoc per-controller `getCurrentTermId(req)`
+ * calls, and additionally honors an explicit `?academicTermId=` override so
+ * admin-facing "view a past academic year/term" screens can look at historical
+ * data without changing the caller's session-wide current term (which lives on
+ * the JWT via switchAcademicPeriod). Falls back to the current term when no
+ * override is supplied.
+ */
+export const resolveAcademicTermId = async (
+  req: Request,
+): Promise<number | null> => {
+  const override = (req.query.academicTermId ?? req.body?.academic_term_id) as
+    | string
+    | undefined;
+  if (override !== undefined && override !== "") {
+    const parsed = Number(override);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return getCurrentTermId(req);
+};
+
+/**
+ * Fetch the current academic YEAR id from the local token, MIS token, or MIS
+ * API, mirroring getCurrentTermId's 3-tier resolution exactly. Needed
+ * separately from the term id because some MIS endpoints (e.g.
+ * /academics/students/:id/enrolled-subjects) filter by academic_year_id, not
+ * academic_term_id -- a term implies a year, but not vice versa.
+ */
+export const getCurrentAcademicYearId = async (
+  req: Request,
+): Promise<number | null> => {
+  // 1. Local JWT claim, set by login/SSO/switchAcademicPeriod.
+  if ((req as any).user && (req as any).user.academicYearId) {
+    return (req as any).user.academicYearId;
+  }
+
+  // 2. Decode MIS token's currentAcademicYear.
+  const token = getMisToken(req);
+  if (token) {
+    try {
+      const decoded: any = jwt.decode(token);
+      const yearId = decoded?.currentAcademicYear?.academic_year_id;
+      if (yearId) return yearId;
+    } catch (err) {
+      console.error("Error decoding MIS token for academic year:", err);
+    }
+  }
+
+  // 3. Live MIS API fallback.
+  if (!token) return null;
+  try {
+    const response = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/users/me`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        httpsAgent:
+          process.env.NODE_ENV === "production"
+            ? new (require("https").Agent)({ rejectUnauthorized: true })
+            : undefined,
+      },
+    );
+    return response.data?.data?.currentAcademicYear?.academic_year_id ?? null;
+  } catch (error) {
+    console.error("Error fetching current academic year:", error);
+    return null;
+  }
+};
+
+/**
+ * Resolve the academic year a request should be scoped to, honoring an
+ * explicit `?academicYearId=` override the same way resolveAcademicTermId
+ * does for terms.
+ */
+export const resolveAcademicYearId = async (
+  req: Request,
+): Promise<number | null> => {
+  const override = (req.query.academicYearId ?? req.body?.academic_year_id) as
+    | string
+    | undefined;
+  if (override !== undefined && override !== "") {
+    const parsed = Number(override);
+    if (!isNaN(parsed)) return parsed;
+  }
+  return getCurrentAcademicYearId(req);
+};
+
+/**
+ * Resolve the human-readable "term"/"academic_year" name strings for the
+ * requester's current academic period (e.g. "Term 1", "2023-2024"). These are
+ * the free-text values Report Card / Manual Assessment records are keyed on
+ * (see ReportCard.model.ts / ManualAssessment.model.ts), sourced from the same
+ * `currentAcademicTerm.name` / `currentAcademicYear.name` the client already
+ * uses to build those records (client/src/pages/ReportCardBuilderPage.tsx).
+ * Returns nulls if unavailable — callers should treat that as "don't filter"
+ * rather than fail, since MIS may be briefly unreachable.
+ */
+export const resolveCurrentAcademicPeriodNames = async (
+  req: Request,
+): Promise<{ term: string | null; academicYear: string | null }> => {
+  const token = getMisToken(req);
+  if (!token) return { term: null, academicYear: null };
+
+  try {
+    const response = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/users/me`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        httpsAgent:
+          process.env.NODE_ENV === "production"
+            ? new (require("https").Agent)({ rejectUnauthorized: true })
+            : undefined,
+      },
+    );
+
+    const terms = response.data?.data?.currentAcademicTerms;
+    const year = response.data?.data?.currentAcademicYear;
+    const activeTerm =
+      Array.isArray(terms) && terms.length > 0
+        ? terms.find(
+            (t: any) =>
+              t.is_current === 1 || t.status === 1 || t.status === "ACTIVE",
+          ) ?? terms[0]
+        : null;
+
+    return {
+      term: activeTerm?.name ?? null,
+      academicYear: year?.name ?? null,
+    };
+  } catch (error) {
+    console.error("Error resolving current academic period names:", error);
+    return { term: null, academicYear: null };
   }
 };

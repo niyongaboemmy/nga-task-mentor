@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { motion } from "framer-motion";
+import axios from "../../utils/axiosConfig";
 import Assignments from "../Assignments/Assignments";
 import { QuizList } from "../Quizzes/QuizList";
 import { fetchCourse, fetchCourses } from "../../store/slices/courseSlice";
@@ -10,6 +11,9 @@ import type { Course } from "../../types/course.types";
 import { Library, Search, Users, Mail, ChevronRight, SlidersHorizontal, ClipboardList } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import CourseReportCardsPanel from "../ReportCard/CourseReportCardsPanel";
+import AcademicPeriodPicker, {
+  type SelectedPeriod,
+} from "../Common/AcademicPeriodPicker";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -75,6 +79,45 @@ const CourseDetails: React.FC = () => {
     }
     return courses.find((c) => String(c.id) === String(courseId)) || null;
   }, [currentCourse, courses, courseId]);
+
+  // Viewing a past academic year/term's roster (Students tab only) — a local,
+  // page-scoped override that does NOT touch the Redux `course` (which always
+  // reflects the requester's live current-term data used by other tabs).
+  const [viewPeriod, setViewPeriod] = useState<SelectedPeriod | null>(null);
+  const [historicalStudents, setHistoricalStudents] = useState<any[] | null>(null);
+  const [loadingHistoricalStudents, setLoadingHistoricalStudents] = useState(false);
+
+  useEffect(() => {
+    if (!viewPeriod || !courseId) {
+      setHistoricalStudents(null);
+      return;
+    }
+    let cancelled = false;
+    setLoadingHistoricalStudents(true);
+    axios
+      .get(`/courses/${courseId}`, {
+        params: { academicTermId: viewPeriod.academicTermId },
+      })
+      .then((res) => {
+        if (!cancelled) {
+          setHistoricalStudents(res.data?.data?.enrolledStudents || []);
+        }
+      })
+      .catch((err) => {
+        console.error("Error fetching historical roster:", err);
+        if (!cancelled) setHistoricalStudents([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingHistoricalStudents(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [viewPeriod, courseId]);
+
+  const displayedStudents = viewPeriod
+    ? historicalStudents ?? []
+    : course?.enrolledStudents || [];
 
   // Stable students array for CourseReportCardsPanel — avoids fetchOverview firing on every render
   const reportCardStudents = useMemo(() => {
@@ -504,13 +547,25 @@ const CourseDetails: React.FC = () => {
           )}
 
           {activeTab === "students" && (
-            <StudentsList
-              students={course.enrolledStudents || []}
-              courseId={courseId!}
-              currentTerm={currentTerm}
-              currentYear={currentYear}
-              isInstructorOrAdmin={isInstructorOrAdmin}
-            />
+            <div className="space-y-4">
+              {isInstructorOrAdmin && (
+                <div className="flex items-center justify-end">
+                  <AcademicPeriodPicker onChange={setViewPeriod} />
+                  {loadingHistoricalStudents && (
+                    <span className="ml-3 text-xs text-gray-400">
+                      Loading roster…
+                    </span>
+                  )}
+                </div>
+              )}
+              <StudentsList
+                students={displayedStudents}
+                courseId={courseId!}
+                currentTerm={viewPeriod?.termName ?? currentTerm}
+                currentYear={viewPeriod?.yearName ?? currentYear}
+                isInstructorOrAdmin={isInstructorOrAdmin}
+              />
+            </div>
           )}
 
           {activeTab === "report-cards" && isInstructorOrAdmin && (

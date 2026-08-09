@@ -320,7 +320,7 @@ export default function ReportCardBuilderPage() {
         Array<{
           dndId: string;
           assessment_id: number;
-          assessment_type: "quiz" | "assignment";
+          assessment_type: "quiz" | "assignment" | "manual";
           title: string;
           subject_id: number;
         }>
@@ -339,6 +339,10 @@ export default function ReportCardBuilderPage() {
     };
 
     for (const mapping of mine) {
+      // Previously only checked quizzes/assignments, so a manual assessment
+      // mapped into a category would silently disappear from the builder on
+      // reload (the saved report_card_assessments row was untouched — this
+      // was a UI pre-population bug only, not a data-loss bug).
       const allItems = [
         ...subject.quizzes.map((q) => ({
           id: q.id,
@@ -349,6 +353,11 @@ export default function ReportCardBuilderPage() {
           id: a.id,
           title: a.title,
           type: "assignment" as const,
+        })),
+        ...subject.manualAssessments.map((m) => ({
+          id: m.id,
+          title: m.title,
+          type: "manual" as const,
         })),
       ];
       const found = allItems.find(

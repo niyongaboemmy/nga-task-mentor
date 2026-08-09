@@ -56,12 +56,14 @@ const SUBJECTS: SubjectOption[] = [
       { id: 11, title: "Geometry Quiz 2" },
     ],
     assignments: [{ id: 20, title: "Homework Set A" }],
+    manualAssessments: [],
   },
   {
     id: 2,
     name: "English",
     quizzes: [{ id: 12, title: "Grammar Test" }],
     assignments: [],
+    manualAssessments: [],
   },
 ];
 
@@ -131,7 +133,7 @@ describe("ReportCardBuilder", () => {
   it("shows empty state when subject has no assessments", async () => {
     const user = userEvent.setup();
     const emptySubjects: SubjectOption[] = [
-      { id: 99, name: "Art", quizzes: [], assignments: [] },
+      { id: 99, name: "Art", quizzes: [], assignments: [], manualAssessments: [] },
     ];
     render(<ReportCardBuilder {...DEFAULT_PROPS} subjects={emptySubjects} />);
 

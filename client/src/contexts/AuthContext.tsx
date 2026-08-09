@@ -15,6 +15,8 @@ import type {
   Role as CentralRole,
   UserResponse,
 } from "../types/user.types";
+import { switchAcademicPeriod as switchAcademicPeriodApi } from "../services/authService";
+import { emitAcademicPeriodChanged } from "../utils/academicPeriodEvents";
 
 const apiAxios = api;
 
@@ -56,6 +58,13 @@ interface AuthContextType {
   removeProfileImage: () => Promise<void>;
   checkAuth: () => Promise<void>;
   loginWithSSOData: (callbackResponse: any) => void;
+  /** Bumped every time the viewed academic year/term changes -- use as a
+   * remount `key` on data-driven containers so they refetch automatically. */
+  academicPeriodVersion: number;
+  switchAcademicPeriod: (
+    academicYearId: number,
+    academicTermId: number,
+  ) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -74,6 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
+  const [academicPeriodVersion, setAcademicPeriodVersion] = useState(0);
   // useRef instead of useState so reads are always synchronous (no stale closure race)
   const isAuthInitializing = useRef(false);
   const dispatch = useDispatch();
@@ -348,6 +358,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
+  const switchAcademicPeriod = async (
+    academicYearId: number,
+    academicTermId: number,
+  ) => {
+    const result = await switchAcademicPeriodApi(academicYearId, academicTermId);
+
+    localStorage.setItem("tm_auth_token", result.token);
+
+    setUser((prevUser) => {
+      if (!prevUser) return prevUser;
+      const updated = {
+        ...prevUser,
+        currentAcademicYear: result.academicYear,
+        currentAcademicTerm: result.academicTerm,
+      };
+      dispatch(loginSuccess(updated));
+      return updated;
+    });
+
+    // Bumping this remounts anything keyed off it (see Layout's main
+    // container), which is the simplest reliable way to make every page's
+    // data-fetching effects re-run against the newly selected term without
+    // having to individually wire each page up to this context.
+    setAcademicPeriodVersion((v) => v + 1);
+
+    // Remounting only resets state *inside* that subtree -- caches that live
+    // in providers mounted above Layout (CourseCacheContext,
+    // SchemeOfWorkContext) or in module scope (Assignments' list cache) need
+    // an explicit signal instead.
+    emitAcademicPeriodChanged();
+  };
+
   const logoutUser = async () => {
     console.log("Logging out user...");
     try {
@@ -381,6 +423,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     removeProfileImage,
     checkAuth,
     loginWithSSOData,
+    academicPeriodVersion,
+    switchAcademicPeriod,
   };
 
   return (

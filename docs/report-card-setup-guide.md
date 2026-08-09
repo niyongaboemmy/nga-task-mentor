@@ -134,20 +134,25 @@ Students can view and download their own report card from the **Student Dashboar
 
 ---
 
-## Step 4 — Bulk Export (Admin)
+## Step 4 — Report Cards Center (Admin)
 
-Administrators can generate PDFs for an entire class at once.
+Administrators can preview analytics and generate PDFs by class, or across an entire term/year.
 
 1. Log in as an admin.
 2. Open the **Admin Dashboard**.
-3. Scroll to the **Bulk Export Report Cards** panel.
-4. Select a **course** from the dropdown — the enrolled student list loads automatically.
-5. Click **Export All**. The system processes each student sequentially (one every ~600 ms).
-6. A progress bar shows overall completion. Each row shows its status:
+3. Scroll to the **Report Cards Center** panel.
+4. Choose a mode:
+   - **By Class** — select a course; the enrolled student list loads automatically.
+   - **By Term / Year** — pick an academic year and term. This loads every student across every class who has a report card for that period, plus a summary: total report cards, status counts (draft/saved/approved), overall average, per-category (CW/HW/MD/EOT) averages, and per-subject averages.
+5. Click **Preview** next to any student to open their report card in the same preview used elsewhere in the app, without leaving the page.
+6. Click **Export All** (or **Download All PDFs**) to generate PDFs for every listed student sequentially (one every ~600 ms).
+7. A progress bar shows overall completion. Each row shows its status:
    - **Pending** — queued
    - **Done** — PDF saved successfully
    - **Error** — generation failed
-7. If any rows show **Error**, click **Retry N failed** to re-attempt only those students.
+8. If any rows show **Error**, click **Retry N failed** to re-attempt only those students.
+
+> **Class-group filtering:** there is currently no "download by class group" filter, since the MIS does not expose a bulk "students in class group X" endpoint. Use **By Class** (course/subject) as the closest equivalent, or **By Term / Year** and cross-reference the roster manually.
 
 ---
 
@@ -166,21 +171,34 @@ Administrators can generate PDFs for an entire class at once.
 
 ## Database Setup (System Administrator)
 
-If you are setting up a new environment (e.g., cPanel shared hosting), run the composite migration **once** before any user accesses the module:
+If you are setting up a new environment (e.g., cPanel shared hosting), run **all three** migrations below, in order, before any user accesses the module. Running only the first one leaves the module's "Manual Assessments" feature broken — inserts with `assessment_type = 'manual'` will fail against the database's `ENUM` even though the application code allows it.
 
 ```sql
--- File: server/migrations/20260607-report-card-composite.sql
--- Compatible with MySQL 5.7+ / MariaDB 10.3+
--- Safe to run multiple times (all DDL is guarded with IF NOT EXISTS checks)
+-- 1. server/migrations/20260607-report-card-composite.sql
+--    Creates report_cards, report_card_attributes, report_card_assessments.
+--    Compatible with MySQL 5.7+ / MariaDB 10.3+; safe to re-run (IF NOT EXISTS guards).
+
+-- 2. server/src/migrations/add_manual_assessments.sql
+--    Extends report_card_assessments.assessment_type to include 'manual', and
+--    creates manual_assessments / manual_assessment_scores.
+
+-- 3. server/migrations/20260608000000-add-grade-columns-to-manual-assessments.js
+--    Adds assessment_type, assessment_date, add_to_final_grade to manual_assessments.
+--    Run via `npx sequelize-cli db:migrate` (or apply its SQL manually if running
+--    outside Sequelize CLI — see the file for the exact ALTER TABLE statements).
 ```
 
 1. Log in to cPanel → **phpMyAdmin**.
 2. Select your application database.
-3. Click **Import**, choose the file `server/migrations/20260607-report-card-composite.sql`, and click **Go**.
-4. Confirm the following three tables exist: `report_cards`, `report_card_attributes`, `report_card_assessments`.
-5. Confirm `SequelizeMeta` contains both migration entries:
+3. Click **Import**, choose `server/migrations/20260607-report-card-composite.sql`, and click **Go**.
+4. Repeat **Import** for `server/src/migrations/add_manual_assessments.sql`.
+5. Apply `server/migrations/20260608000000-add-grade-columns-to-manual-assessments.js` — run `npx sequelize-cli db:migrate` from `server/` if you have shell access, or translate its `queryInterface.addColumn` calls into `ALTER TABLE manual_assessments ADD COLUMN ...` statements and run those via phpMyAdmin if you don't.
+6. Confirm the following tables exist: `report_cards`, `report_card_attributes`, `report_card_assessments`, `manual_assessments`, `manual_assessment_scores`.
+7. Confirm `report_card_assessments.assessment_type` accepts `'manual'` (check the column definition — it should be `ENUM('quiz','assignment','manual')`).
+8. Confirm `SequelizeMeta` contains all relevant migration entries:
    - `20260607000000-create-report-card-tables.js`
    - `20260607120000-add-uuid-pdf-to-report-cards.js`
+   - `20260608000000-add-grade-columns-to-manual-assessments.js`
 
 ---
 

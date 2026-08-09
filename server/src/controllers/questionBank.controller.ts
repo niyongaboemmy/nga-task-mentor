@@ -673,7 +673,10 @@ export const getSchemeOfWorkEntries = async (req: Request, res: Response) => {
                   Authorization: `Bearer ${token}`,
                   "Content-Type": "application/json",
                 },
-                params: { termId: termIdForFallback || 4 },
+                // MIS reads `academic_term_id`, not `termId`.
+                params: termIdForFallback
+                  ? { academic_term_id: termIdForFallback }
+                  : {},
               },
             );
 

@@ -9,10 +9,13 @@ import {
   AlertCircle,
   RefreshCw,
   BookOpen,
+  BarChart3,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CourseApiService } from "../../services/courseApi";
-import { ReportCardApiService } from "../../services/reportCardApi";
+import { ReportCardApiService, STATUS_META } from "../../services/reportCardApi";
+import AcademicPeriodPicker, { type SelectedPeriod } from "../Common/AcademicPeriodPicker";
+import ReportCardPreview from "./ReportCardPreview";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -26,6 +29,9 @@ interface StudentItem {
   id: number;
   first_name: string;
   last_name: string;
+  /** Only set in "period" mode, where listAdminStudents already resolved it —
+   *  lets exportSingleStudent skip the extra getStudentReportCard lookup. */
+  report_card_id?: number;
 }
 
 type ExportStatus = "idle" | "pending" | "done" | "error";
@@ -49,9 +55,28 @@ function triggerBlobDownload(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
+// /courses/:id/students (course.controller.ts::getCourseStudents) returns the
+// nested { user, profile } shape (same as the MIS /users/ endpoint fixed in
+// user.controller.ts::getUsers), not the flat { id, first_name, last_name }
+// this component's StudentItem expects — reading student.first_name directly
+// crashed the whole panel (TypeError on .charAt of undefined). Flatten here.
 async function fetchCourseStudents(courseId: number): Promise<StudentItem[]> {
   const res = await CourseApiService.getCourseStudents(courseId);
-  return res.data as StudentItem[];
+  const flattened: StudentItem[] = (res.data || []).map((s: any) => ({
+    id: s.id ?? s.user?.id ?? s.user?.user_id,
+    first_name: s.first_name ?? s.profile?.first_name ?? s.user?.first_name ?? "",
+    last_name: s.last_name ?? s.profile?.last_name ?? s.user?.last_name ?? "",
+  }));
+  // MIS can return one enrollment record per class group, so the same
+  // student appears twice for a subject taught across multiple groups.
+  // Dedupe by id — exporting/previewing the same student's report card
+  // twice serves no purpose here.
+  const seen = new Set<number>();
+  return flattened.filter((s) => {
+    if (seen.has(s.id)) return false;
+    seen.add(s.id);
+    return true;
+  });
 }
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
@@ -94,18 +119,25 @@ function StatusBadge({ status, error }: { status: ExportStatus; error?: string }
 
 // ─── Main component ───────────────────────────────────────────────────────────
 
+type ExportMode = "course" | "period";
+
 export default function BulkExportReportCards() {
+  const [mode, setMode]                 = useState<ExportMode>("course");
   const [courses, setCourses]           = useState<Course[]>([]);
   const [coursesLoading, setCoursesLoading] = useState(true);
   const [selectedCourseId, setSelectedCourseId] = useState<number | "">("");
   const [term, setTerm]                 = useState("");
   const [academicYear, setAcademicYear] = useState("");
+  const [period, setPeriod]             = useState<SelectedPeriod | null>(null);
   const [students, setStudents]         = useState<StudentItem[]>([]);
   const [studentsLoading, setStudentsLoading] = useState(false);
   const [rows, setRows]                 = useState<ExportRow[]>([]);
   const [isExporting, setIsExporting]   = useState(false);
+  const [summary, setSummary]           = useState<import("../../services/reportCardApi").AdminReportCardSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [previewStudent, setPreviewStudent] = useState<StudentItem | null>(null);
 
-  // Load courses on mount
+  // Load courses on mount (only needed for "course" mode)
   useEffect(() => {
     (async () => {
       try {
@@ -119,13 +151,9 @@ export default function BulkExportReportCards() {
     })();
   }, []);
 
-  // Load students when course changes
+  // Load students when course changes (course mode)
   useEffect(() => {
-    if (!selectedCourseId) {
-      setStudents([]);
-      setRows([]);
-      return;
-    }
+    if (mode !== "course" || !selectedCourseId) return;
     setStudentsLoading(true);
     fetchCourseStudents(Number(selectedCourseId))
       .then((list) => {
@@ -137,7 +165,50 @@ export default function BulkExportReportCards() {
         setRows([]);
       })
       .finally(() => setStudentsLoading(false));
-  }, [selectedCourseId]);
+  }, [mode, selectedCourseId]);
+
+  // Load students + summary when the selected term/year changes (period mode)
+  useEffect(() => {
+    if (mode !== "period" || !period) {
+      setSummary(null);
+      return;
+    }
+    setStudentsLoading(true);
+    setSummaryLoading(true);
+    const params = { term: period.termName, academic_year: period.yearName };
+
+    ReportCardApiService.listAdminStudents(params)
+      .then((res) => {
+        const list: StudentItem[] = res.data.map((s) => {
+          const [first_name, ...rest] = s.name.split(" ");
+          return {
+            id: s.student_id,
+            first_name: first_name || s.name,
+            last_name: rest.join(" "),
+            report_card_id: s.report_card_id,
+          };
+        });
+        setStudents(list);
+        setRows(list.map((s) => ({ student: s, status: "idle" })));
+      })
+      .catch(() => {
+        setStudents([]);
+        setRows([]);
+      })
+      .finally(() => setStudentsLoading(false));
+
+    ReportCardApiService.getAdminSummary(params)
+      .then((res) => setSummary(res.data))
+      .catch(() => setSummary(null))
+      .finally(() => setSummaryLoading(false));
+  }, [mode, period]);
+
+  const handleModeChange = (next: ExportMode) => {
+    setMode(next);
+    setStudents([]);
+    setRows([]);
+    setSummary(null);
+  };
 
   const updateRow = useCallback(
     (studentId: number, patch: Partial<Omit<ExportRow, "student">>) => {
@@ -151,13 +222,25 @@ export default function BulkExportReportCards() {
   const exportSingleStudent = async (student: StudentItem): Promise<void> => {
     updateRow(student.id, { status: "pending", error: undefined });
     try {
-      const res = await ReportCardApiService.getStudentReportCard(student.id, {
-        term: term || undefined,
-        academic_year: academicYear || undefined,
-      });
-      if (!res.success) throw new Error("Report card not found");
-      const blob = await ReportCardApiService.generatePdf(res.data.report_card.id);
-      const filename = `ReportCard-${student.first_name}_${student.last_name}-${res.data.report_card.term}-${res.data.report_card.academic_year}.pdf`;
+      // Period mode already resolved report_card_id via listAdminStudents —
+      // skip the extra lookup and go straight to PDF generation.
+      let reportCardId = student.report_card_id;
+      let termLabel = period?.termName ?? term;
+      let yearLabel = period?.yearName ?? academicYear;
+
+      if (!reportCardId) {
+        const res = await ReportCardApiService.getStudentReportCard(student.id, {
+          term: term || undefined,
+          academic_year: academicYear || undefined,
+        });
+        if (!res.success) throw new Error("Report card not found");
+        reportCardId = res.data.report_card.id;
+        termLabel = res.data.report_card.term;
+        yearLabel = res.data.report_card.academic_year;
+      }
+
+      const blob = await ReportCardApiService.generatePdf(reportCardId);
+      const filename = `ReportCard-${student.first_name}_${student.last_name}-${termLabel}-${yearLabel}.pdf`;
       triggerBlobDownload(blob, filename);
       updateRow(student.id, { status: "done" });
     } catch (err) {
@@ -196,26 +279,56 @@ export default function BulkExportReportCards() {
   const progress   = rows.length > 0 ? (doneCount / rows.length) * 100 : 0;
 
   const selectedCourse = courses.find((c) => c.id === Number(selectedCourseId));
+  const hasSelection = mode === "course" ? selectedCourseId !== "" : period !== null;
 
   return (
     <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center gap-3">
-        <div className="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20">
-          <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+      <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20">
+            <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="text-lg font-black text-gray-900 dark:text-white">
+              Report Cards Center
+            </h2>
+            <p className="text-xs text-gray-500 dark:text-gray-400">
+              Preview analytics and download report cards by class, term, or year.
+            </p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-lg font-black text-gray-900 dark:text-white">
-            Bulk Export Report Cards
-          </h2>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
-            Select a class and term, then download all student PDFs at once.
-          </p>
+
+        {/* Mode toggle */}
+        <div className="flex items-center gap-1 p-1 bg-gray-100 dark:bg-gray-800 rounded-xl">
+          <button
+            onClick={() => handleModeChange("course")}
+            disabled={isExporting}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+              mode === "course"
+                ? "bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                : "text-gray-500 dark:text-gray-400"
+            }`}
+          >
+            By Class
+          </button>
+          <button
+            onClick={() => handleModeChange("period")}
+            disabled={isExporting}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+              mode === "period"
+                ? "bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
+                : "text-gray-500 dark:text-gray-400"
+            }`}
+          >
+            By Term / Year
+          </button>
         </div>
       </div>
 
       <div className="p-6 space-y-6">
         {/* ── Filter Controls ── */}
+        {mode === "course" ? (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Course / Class selector */}
           <div>
@@ -286,12 +399,112 @@ export default function BulkExportReportCards() {
             />
           </div>
         </div>
+        ) : (
+          <div>
+            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+              Academic Year &amp; Term
+            </label>
+            <AcademicPeriodPicker onChange={setPeriod} />
+            <p className="mt-2 text-xs text-gray-400">
+              Downloads every student across all classes who has a report card
+              for the selected term (or every term in the selected year if you
+              pick a year but leave the term as "Select term…").
+            </p>
+          </div>
+        )}
+
+        {/* ── Term/year analytics summary ── */}
+        {mode === "period" && period && (
+          <div className="rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <BarChart3 className="w-4 h-4 text-indigo-500" />
+              <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                Summary — {period.termName}, {period.yearName}
+              </h3>
+            </div>
+            {summaryLoading ? (
+              <div className="flex items-center gap-2 text-sm text-gray-400">
+                <Loader2 className="w-4 h-4 animate-spin" /> Loading summary…
+              </div>
+            ) : summary ? (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800/50 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Report Cards</p>
+                    <p className="text-xl font-black text-gray-900 dark:text-white">{summary.total_report_cards}</p>
+                  </div>
+                  <div className="rounded-xl bg-gray-50 dark:bg-gray-800/50 p-3">
+                    <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Overall Avg</p>
+                    <p className="text-xl font-black text-gray-900 dark:text-white">
+                      {summary.overall_average != null ? `${summary.overall_average}%` : "—"}
+                    </p>
+                  </div>
+                  {(["draft", "saved", "approved"] as const).map((s) => (
+                    <div key={s} className={`rounded-xl p-3 ${STATUS_META[s].bg}`}>
+                      <p className={`text-[10px] uppercase tracking-wider font-semibold ${STATUS_META[s].color}`}>
+                        {STATUS_META[s].label}
+                      </p>
+                      <p className={`text-xl font-black ${STATUS_META[s].color}`}>{summary.status_counts[s]}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <div>
+                  <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-2">
+                    Average by Category
+                  </p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {(["CW", "HW", "MD", "EOT"] as const).map((cat) => (
+                      <div key={cat} className="rounded-lg bg-gray-50 dark:bg-gray-800/50 px-3 py-2 text-center">
+                        <p className="text-[10px] text-gray-400 font-semibold">{cat}</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                          {summary.category_averages[cat] != null ? summary.category_averages[cat] : "—"}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {summary.subject_averages.length > 0 && (
+                  <div>
+                    <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold mb-2">
+                      Average by Subject
+                    </p>
+                    <div className="space-y-1.5">
+                      {summary.subject_averages.map((s) => (
+                        <div key={s.subject_id} className="flex items-center gap-3">
+                          <span className="text-xs text-gray-600 dark:text-gray-300 w-40 truncate">{s.subject_name}</span>
+                          <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-indigo-500 rounded-full"
+                              style={{ width: `${Math.min(100, s.average_score)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-semibold text-gray-500 w-12 text-right">{s.average_score}%</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {summary.truncated && (
+                  <p className="text-xs text-amber-500 flex items-center gap-1">
+                    <AlertCircle className="w-3 h-3" />
+                    Summary is based on the first {summary.total_report_cards} report cards for this period.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <p className="text-sm text-gray-400">No summary available for this period.</p>
+            )}
+          </div>
+        )}
 
         {/* ── Student count & action buttons ── */}
-        {selectedCourseId !== "" && (
+        {hasSelection && (
           <AnimatePresence mode="wait">
             <motion.div
-              key={String(selectedCourseId)}
+              key={mode === "course" ? String(selectedCourseId) : `${period?.academicYearId}-${period?.academicTermId}`}
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0 }}
@@ -306,7 +519,9 @@ export default function BulkExportReportCards() {
                 <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
                   {studentsLoading
                     ? "Loading students…"
-                    : `${students.length} student${students.length !== 1 ? "s" : ""} in ${selectedCourse?.code ?? "this class"}`}
+                    : mode === "course"
+                      ? `${students.length} student${students.length !== 1 ? "s" : ""} in ${selectedCourse?.code ?? "this class"}`
+                      : `${students.length} report card${students.length !== 1 ? "s" : ""} found`}
                 </span>
               </div>
 
@@ -408,6 +623,9 @@ export default function BulkExportReportCards() {
                   <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
                     Status
                   </th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    {/* Preview action column */}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -436,6 +654,14 @@ export default function BulkExportReportCards() {
                     <td className="px-4 py-3 text-right">
                       <StatusBadge status={row.status} error={row.error} />
                     </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => setPreviewStudent(row.student)}
+                        className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline"
+                      >
+                        Preview
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -443,12 +669,24 @@ export default function BulkExportReportCards() {
           </div>
         )}
 
+        {previewStudent && (
+          <ReportCardPreview
+            studentId={previewStudent.id}
+            studentName={`${previewStudent.first_name} ${previewStudent.last_name}`.trim()}
+            term={period?.termName || term || undefined}
+            academicYear={period?.yearName || academicYear || undefined}
+            onClose={() => setPreviewStudent(null)}
+          />
+        )}
+
         {/* Empty state */}
-        {selectedCourseId === "" && (
+        {!hasSelection && (
           <div className="flex flex-col items-center py-12 text-center">
             <BookOpen className="w-10 h-10 text-gray-200 dark:text-gray-700 mb-3" />
             <p className="text-sm font-medium text-gray-400 dark:text-gray-500">
-              Select a class above to load students and start exporting.
+              {mode === "course"
+                ? "Select a class above to load students and start exporting."
+                : "Select an academic year and term above to load report cards and start exporting."}
             </p>
           </div>
         )}

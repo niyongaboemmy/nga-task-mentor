@@ -160,13 +160,16 @@ export class User extends Model<IUserAttributes, UserCreationAttributes> {
   question_attempts?: QuizAttempt[];
 
   // Instance methods
-  getSignedJwtToken(termId?: number): string {
+  getSignedJwtToken(termId?: number, academicYearId?: number): string {
     if (!process.env.JWT_SECRET) {
       throw new Error("JWT_SECRET is not defined");
     }
     const payload: any = { id: this.id, role: this.role };
     if (termId) {
       payload.termId = termId;
+    }
+    if (academicYearId) {
+      payload.academicYearId = academicYearId;
     }
     const secret = process.env.JWT_SECRET;
     const expiresIn = process.env.JWT_EXPIRE

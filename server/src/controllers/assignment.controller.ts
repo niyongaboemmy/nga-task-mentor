@@ -87,7 +87,21 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
 
 export const getAssignments = async (req: Request, res: Response) => {
   try {
-    const assignments = await Assignment.findAll();
+    // Cross-course "all assignments" view -- was unscoped entirely (every
+    // assignment ever created, across every term). Scope to the caller's
+    // current academic term like the other assignment listings, so it also
+    // respects the academic period switcher.
+    const termId = await getCurrentTermId(req);
+    const termWhere = termId
+      ? {
+          [Op.or]: [
+            { academic_term_id: termId },
+            { academic_term_id: null },
+          ],
+        }
+      : {};
+
+    const assignments = await Assignment.findAll({ where: termWhere });
     res
       .status(200)
       .json({ success: true, count: assignments.length, data: assignments });

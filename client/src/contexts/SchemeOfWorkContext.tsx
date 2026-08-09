@@ -3,18 +3,29 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useEffect,
   useRef,
 } from "react";
 import type { ReactNode } from "react";
 import { QuestionBankApiService } from "../services/quizApi";
 import type { SchemeOfWorkEntry } from "../types/quiz.types";
+import { onAcademicPeriodChanged } from "../utils/academicPeriodEvents";
 
+// Keyed by course+class group+term -- entries genuinely differ per term, so
+// keying by courseId alone (as before) served one term's entries back for
+// another once cached, independent of any period-switch feature.
 interface SchemeOfWorkCache {
-  [courseId: number]: {
+  [cacheKey: string]: {
     entries: SchemeOfWorkEntry[];
     timestamp: number;
   };
 }
+
+const cacheKeyFor = (
+  courseId: number,
+  classGroupId: number,
+  academicTermId: number,
+) => `${courseId}:${classGroupId}:${academicTermId}`;
 
 interface SchemeOfWorkContextType {
   getEntries: (
@@ -22,8 +33,12 @@ interface SchemeOfWorkContextType {
     classGroupId: number,
     academicTermId: number,
   ) => Promise<SchemeOfWorkEntry[]>;
-  clearCache: (courseId?: number) => void;
-  isLoading: (courseId: number) => boolean;
+  clearCache: () => void;
+  isLoading: (
+    courseId: number,
+    classGroupId: number,
+    academicTermId: number,
+  ) => boolean;
 }
 
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes cache duration
@@ -35,21 +50,27 @@ export const SchemeOfWorkProvider: React.FC<{ children: ReactNode }> = ({
   children,
 }) => {
   const cacheRef = useRef<SchemeOfWorkCache>({});
-  const loadingRef = useRef<{ [courseId: number]: boolean }>({});
+  const loadingRef = useRef<{ [cacheKey: string]: boolean }>({});
   const [, setRefresh] = useState(0); // Used to force re-render
 
-  const isLoading = useCallback((courseId: number) => {
-    return loadingRef.current[courseId] || false;
-  }, []);
+  const isLoading = useCallback(
+    (courseId: number, classGroupId: number, academicTermId: number) => {
+      return (
+        loadingRef.current[cacheKeyFor(courseId, classGroupId, academicTermId)] ||
+        false
+      );
+    },
+    [],
+  );
 
-  const clearCache = useCallback((courseId?: number) => {
-    if (courseId) {
-      delete cacheRef.current[courseId];
-    } else {
-      cacheRef.current = {};
-    }
+  const clearCache = useCallback(() => {
+    cacheRef.current = {};
     setRefresh((prev) => prev + 1);
   }, []);
+
+  // Entries are fetched per term -- switching the viewed academic period
+  // must drop everything cached under the old term.
+  useEffect(() => onAcademicPeriodChanged(() => clearCache()), [clearCache]);
 
   const getEntries = useCallback(
     async (
@@ -57,27 +78,29 @@ export const SchemeOfWorkProvider: React.FC<{ children: ReactNode }> = ({
       classGroupId: number,
       academicTermId: number,
     ): Promise<SchemeOfWorkEntry[]> => {
+      const key = cacheKeyFor(courseId, classGroupId, academicTermId);
+
       // Check if cached data exists and is still valid
-      const cached = cacheRef.current[courseId];
+      const cached = cacheRef.current[key];
       if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
         return cached.entries;
       }
 
       // Check if already loading
-      if (loadingRef.current[courseId]) {
+      if (loadingRef.current[key]) {
         // Wait for the existing request to complete
         return new Promise((resolve) => {
           const checkInterval = setInterval(() => {
-            if (!loadingRef.current[courseId]) {
+            if (!loadingRef.current[key]) {
               clearInterval(checkInterval);
-              resolve(cacheRef.current[courseId]?.entries || []);
+              resolve(cacheRef.current[key]?.entries || []);
             }
           }, 100);
         });
       }
 
       // Set loading state
-      loadingRef.current[courseId] = true;
+      loadingRef.current[key] = true;
       setRefresh((prev) => prev + 1);
 
       try {
@@ -96,7 +119,7 @@ export const SchemeOfWorkProvider: React.FC<{ children: ReactNode }> = ({
               ? raw.entries
               : [];
 
-          cacheRef.current[courseId] = {
+          cacheRef.current[key] = {
             entries,
             timestamp: Date.now(),
           };
@@ -109,7 +132,7 @@ export const SchemeOfWorkProvider: React.FC<{ children: ReactNode }> = ({
         console.error("Failed to fetch scheme of work entries:", error);
         return [];
       } finally {
-        loadingRef.current[courseId] = false;
+        loadingRef.current[key] = false;
         setRefresh((prev) => prev + 1);
       }
     },

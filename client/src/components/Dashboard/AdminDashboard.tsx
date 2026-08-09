@@ -68,9 +68,14 @@ interface AdminDashboardData {
     average: number;
     poor: number;
   };
+  gradingSummaryError?: boolean;
 }
 
-const AdminDashboard: React.FC<{ data: AdminDashboardData }> = ({ data }) => {
+const AdminDashboard: React.FC<{
+  data: AdminDashboardData;
+  scope: "current" | "all";
+  onScopeChange: (scope: "current" | "all") => void;
+}> = ({ data, scope, onScopeChange }) => {
   const navigate = useNavigate();
   // Bar Chart Data
   const barChartData = useMemo(() => {
@@ -390,9 +395,13 @@ const AdminDashboard: React.FC<{ data: AdminDashboardData }> = ({ data }) => {
                 Average grade per course (Top 7)
               </p>
             </div>
-            <select className="bg-gray-50 dark:bg-gray-800 border-none rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 focus:ring-2 focus:ring-blue-500 cursor-pointer p-2">
-              <option>This Semester</option>
-              <option>Last Semester</option>
+            <select
+              value={scope}
+              onChange={(e) => onScopeChange(e.target.value as "current" | "all")}
+              className="bg-gray-50 dark:bg-gray-800 border-none rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 focus:ring-2 focus:ring-blue-500 cursor-pointer p-2"
+            >
+              <option value="current">Current Term</option>
+              <option value="all">All Time</option>
             </select>
           </div>
           <div className="h-[300px] w-full">
@@ -520,7 +529,14 @@ const AdminDashboard: React.FC<{ data: AdminDashboardData }> = ({ data }) => {
                       colSpan={5}
                       className="px-6 py-12 text-center text-gray-500"
                     >
-                      No grading data available to display.
+                      {data.gradingSummaryError ? (
+                        <span className="text-rose-500">
+                          Couldn't load grading data — the external MIS may be
+                          unreachable. Try refreshing the page.
+                        </span>
+                      ) : (
+                        "No grading data available to display."
+                      )}
                     </td>
                   </tr>
                 )}

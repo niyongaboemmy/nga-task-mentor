@@ -247,7 +247,7 @@ function MobileStudentCard({
               {/* Attendance */}
               <div>
                 <p className="text-[11px] uppercase tracking-wider font-semibold text-white/40 mb-2 mt-2">
-                  Attendance
+                  Attendance (overall status for the term)
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   {ATTENDANCE_OPTIONS.map(({ value, label, color }) => (
@@ -690,7 +690,10 @@ export default function GeneralAttributesForm({
                     <th className="px-4 py-3 text-left text-xs font-semibold text-white/50 uppercase tracking-wider whitespace-nowrap">
                       Student
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-white/50 uppercase tracking-wider whitespace-nowrap">
+                    <th
+                      className="px-4 py-3 text-left text-xs font-semibold text-white/50 uppercase tracking-wider whitespace-nowrap"
+                      title="Overall attendance status for the term, not a day count"
+                    >
                       Attendance
                     </th>
                     {GENERAL_ATTRIBUTES.map((attr) => (

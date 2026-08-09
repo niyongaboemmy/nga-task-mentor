@@ -65,6 +65,7 @@ interface AdminDashboardData {
     average: number;
     poor: number;
   };
+  gradingSummaryError?: boolean;
 }
 
 type DashboardData =
@@ -76,6 +77,10 @@ const Dashboard: React.FC = () => {
   const { user } = useAuth();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  // Admin-only: "current" scopes stats/grading-summary to the active academic
+  // term, "all" removes the term filter. Passed through as ?scope= on the
+  // admin dashboard endpoints (see dashboardController.ts).
+  const [adminScope, setAdminScope] = useState<"current" | "all">("current");
 
   const fetchDashboardData = useCallback(async () => {
     try {
@@ -96,9 +101,9 @@ const Dashboard: React.FC = () => {
           "/dashboard/instructor/active-proctoring",
         ],
         admin: [
-          "/dashboard/admin/stats",
+          `/dashboard/admin/stats${adminScope === "all" ? "?scope=all" : ""}`,
           "/dashboard/activity",
-          "/dashboard/admin/grading-summary",
+          `/dashboard/admin/grading-summary${adminScope === "all" ? "?scope=all" : ""}`,
         ],
       };
 
@@ -123,12 +128,18 @@ const Dashboard: React.FC = () => {
         return response && typeof response === "object" && "error" in response;
       };
 
-      // Check if any responses have errors
-      const validResponses = responses.filter(
-        (response) => !isErrorResponse(response),
-      );
+      // Index into `responses` directly (not a filtered copy) so a failure on
+      // one endpoint doesn't shift every later endpoint's data into the wrong
+      // field — filtering out errors before indexing silently mismapped data
+      // whenever a non-final call failed.
+      const dataAt = (index: number) =>
+        isErrorResponse(responses[index])
+          ? undefined
+          : (responses[index] as any)?.data?.data;
+      const failedAt = (index: number) => isErrorResponse(responses[index]);
 
-      if (validResponses.length !== urls.length) {
+      const anyFailed = responses.some((response) => isErrorResponse(response));
+      if (anyFailed) {
         console.error("Some dashboard API calls failed:");
         responses.forEach((response, index) => {
           if (isErrorResponse(response)) {
@@ -150,17 +161,17 @@ const Dashboard: React.FC = () => {
             last_name: user?.last_name || "",
             roles: user?.roles,
           },
-          stats: (validResponses[0] as any)?.data?.data || {
+          stats: dataAt(0) || {
             totalCourses: 0,
             totalAssignments: 0,
             pendingSubmissions: 0,
             completedAssignments: 0,
           },
-          pendingAssignments: (validResponses[1] as any)?.data?.data || [],
-          recentActivity: (validResponses[2] as any)?.data?.data || [],
-          publicQuizzes: (validResponses[3] as any)?.data?.data || [],
-          enrolledCourses: (validResponses[4] as any)?.data?.data || [],
-          availableQuizzes: (validResponses[5] as any)?.data?.data || [], // Add available quizzes from enrolled courses
+          pendingAssignments: dataAt(1) || [],
+          recentActivity: dataAt(2) || [],
+          publicQuizzes: dataAt(3) || [],
+          enrolledCourses: dataAt(4) || [],
+          availableQuizzes: dataAt(5) || [], // Add available quizzes from enrolled courses
         });
       } else if (role === "instructor") {
         if (!user) {
@@ -174,17 +185,17 @@ const Dashboard: React.FC = () => {
             first_name: user.first_name || "",
             last_name: user.last_name || "",
           },
-          stats: (validResponses[0] as any)?.data?.data || {
+          stats: dataAt(0) || {
             totalCourses: 0,
             totalAssignments: 0,
             pendingSubmissions: 0,
             completedAssignments: 0,
             totalEnrolledStudents: 0,
           },
-          courses: (validResponses[1] as any)?.data?.data || [],
-          pendingGrading: (validResponses[2] as any)?.data?.data || [],
-          recentActivity: (validResponses[3] as any)?.data?.data || [],
-          activeProctoring: (validResponses[4] as any)?.data?.data || 0,
+          courses: dataAt(1) || [],
+          pendingGrading: dataAt(2) || [],
+          recentActivity: dataAt(3) || [],
+          activeProctoring: dataAt(4) || 0,
         } as InstructorDashboardData);
       } else {
         // This block is for admin
@@ -194,38 +205,29 @@ const Dashboard: React.FC = () => {
             first_name: user?.first_name || "",
             last_name: user?.last_name || "",
           },
-          stats: (validResponses[0] as any)?.data?.data || {
+          stats: dataAt(0) || {
             totalCourses: 0,
             totalAssignments: 0,
             pendingSubmissions: 0,
             completedAssignments: 0,
           },
-          recentActivity: (validResponses[1] as any)?.data?.data || [],
+          recentActivity: dataAt(1) || [],
         };
 
-        if (role === "admin" && validResponses[2]) {
-          // validResponses[2] should exist if no error
-          const adminData = (validResponses[2] as any)?.data?.data;
-          setData({
-            ...baseData,
-            gradingSummary: adminData?.gradingSummary || [],
-            gradeDistribution: adminData?.gradeDistribution || null,
-          } as AdminDashboardData);
-        } else {
-          // Fallback for non-admin or error in specific admin endpoint
-          setData({
-            ...baseData,
-            gradingSummary: [],
-            gradeDistribution: undefined,
-          } as AdminDashboardData);
-        }
+        const adminData = dataAt(2);
+        setData({
+          ...baseData,
+          gradingSummary: adminData?.gradingSummary || [],
+          gradeDistribution: adminData?.gradeDistribution || undefined,
+          gradingSummaryError: failedAt(2),
+        } as AdminDashboardData);
       }
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
       setLoading(false);
     }
-  }, [user?.role, user?.id, user?.first_name, user?.last_name]);
+  }, [user?.role, user?.id, user?.first_name, user?.last_name, adminScope]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -274,7 +276,13 @@ const Dashboard: React.FC = () => {
     case "instructor":
       return <InstructorDashboard data={data as InstructorDashboardData} />;
     case "admin":
-      return <AdminDashboard data={data as AdminDashboardData} />;
+      return (
+        <AdminDashboard
+          data={data as AdminDashboardData}
+          scope={adminScope}
+          onScopeChange={setAdminScope}
+        />
+      );
     case "student":
     default:
       return <StudentDashboard data={data as StudentDashboardData} />;

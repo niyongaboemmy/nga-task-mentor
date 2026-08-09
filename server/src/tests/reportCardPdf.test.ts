@@ -99,24 +99,28 @@ function buildTestData(overrides: Partial<ReportCardPdfData> = {}): ReportCardPd
 // Synchronous helper tests (run immediately)
 // ═════════════════════════════════════════════════════════════════════════════
 
+// Scale unified with the client's on-screen preview (reportCardApi.ts
+// scoreToLetterGrade) via reportCardGrader.service.ts's scoreToLetterGrade —
+// previously this PDF used a different A>=80 scale than the client's A>=90,
+// so a student's PDF and preview could disagree on their own grade.
 suite("percentageToLetter");
 expect("100 → A", percentageToLetter(100), eq("A"));
-expect("80  → A", percentageToLetter(80),  eq("A"));
-expect("79  → B", percentageToLetter(79),  eq("B"));
-expect("70  → B", percentageToLetter(70),  eq("B"));
-expect("69  → C", percentageToLetter(69),  eq("C"));
+expect("90  → A", percentageToLetter(90),  eq("A"));
+expect("89  → B", percentageToLetter(89),  eq("B"));
+expect("75  → B", percentageToLetter(75),  eq("B"));
+expect("74  → C", percentageToLetter(74),  eq("C"));
 expect("60  → C", percentageToLetter(60),  eq("C"));
 expect("59  → D", percentageToLetter(59),  eq("D"));
-expect("50  → D", percentageToLetter(50),  eq("D"));
-expect("49  → F", percentageToLetter(49),  eq("F"));
+expect("45  → D", percentageToLetter(45),  eq("D"));
+expect("44  → F", percentageToLetter(44),  eq("F"));
 expect("0   → F", percentageToLetter(0),   eq("F"));
 
 suite("percentageToRemark");
-expect("80+ → Excellent",          percentageToRemark(85), eq("Excellent"));
-expect("70–79 → Very Good",        percentageToRemark(75), eq("Very Good"));
-expect("60–69 → Good",             percentageToRemark(65), eq("Good"));
-expect("50–59 → Satisfactory",     percentageToRemark(55), eq("Satisfactory"));
-expect("<50 → Needs Improvement",  percentageToRemark(40), eq("Needs Improvement"));
+expect("90+ → Distinction",       percentageToRemark(95), eq("Distinction"));
+expect("75–89 → Merit",           percentageToRemark(80), eq("Merit"));
+expect("60–74 → Credit",          percentageToRemark(65), eq("Credit"));
+expect("45–59 → Pass",            percentageToRemark(50), eq("Pass"));
+expect("<45 → Fail",              percentageToRemark(40), eq("Fail"));
 
 // ═════════════════════════════════════════════════════════════════════════════
 // Async PDF tests — wrapped in main() to avoid top-level await

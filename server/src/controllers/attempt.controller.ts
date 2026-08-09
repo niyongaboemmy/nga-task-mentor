@@ -11,6 +11,7 @@ import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { AnswerDataType, GradingResult } from "../types/quiz.types";
 import { AdvancedQuizGrader } from "../utils/quizGrader";
+import { resolveAcademicTermId } from "../utils/misUtils";
 
 const computeAttemptGrading = async (params: {
   submission: any;
@@ -693,6 +694,8 @@ export const getStudentQuizHistory = async (req: Request, res: Response) => {
       });
     }
 
+    const academicTermId = await resolveAcademicTermId(req);
+
     const submissions = await QuizSubmission.findAll({
       where: { student_id: studentId, status: "completed" },
       include: [
@@ -700,6 +703,17 @@ export const getStudentQuizHistory = async (req: Request, res: Response) => {
           model: Quiz,
           as: "quiz",
           attributes: ["id", "title", "description", "course_id", "createdAt"],
+          // Scope "my results" to the resolved term; keep legacy quizzes
+          // (null academic_term_id) so pre-existing history isn't hidden.
+          where: academicTermId
+            ? {
+                [Op.or]: [
+                  { academic_term_id: academicTermId },
+                  { academic_term_id: null },
+                ],
+              }
+            : undefined,
+          required: !!academicTermId,
         },
       ],
       order: [["completed_at", "DESC"]],

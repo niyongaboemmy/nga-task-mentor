@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
+import axios from "axios";
 import { ReportCard } from "../models/ReportCard.model";
 import { ReportCardAttribute } from "../models/ReportCardAttribute.model";
 import { ReportCardAssessment } from "../models/ReportCardAssessment.model";
@@ -23,6 +24,44 @@ import type {
   GeneratePdfPayload,
   UpdateStatusPayload,
 } from "../validations/reportCard.validation";
+import { resolveCurrentAcademicPeriodNames, getMisToken } from "../utils/misUtils";
+
+// ─── Subject name resolution ─────────────────────────────────────────────────
+// Report card data only stores subject_id. Both the on-screen preview and the
+// downloaded PDF previously rendered "Subject #{id}" because neither the API
+// response nor the PDF pipeline ever resolved the id to a real name. Fetch the
+// MIS subject catalog once per request (small, ~1 page) and map ids -> names.
+const resolveSubjectNames = async (
+  req: Request,
+  subjectIds: number[],
+): Promise<Record<number, string>> => {
+  const names: Record<number, string> = {};
+  if (subjectIds.length === 0) return names;
+
+  const token = getMisToken(req);
+  if (!token) return names;
+
+  try {
+    const response = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/subjects`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: { limit: 200 },
+      },
+    );
+    const subjects = response.data?.data || [];
+    for (const s of subjects) {
+      const id = s.id ?? s.subject_id;
+      if (id != null) {
+        names[id] = s.name || s.subject_name || s.title || `Subject #${id}`;
+      }
+    }
+  } catch (error) {
+    console.error("resolveSubjectNames: could not fetch MIS subjects:", error);
+  }
+
+  return names;
+};
 
 // ─── POST /api/report-cards/builder/save ─────────────────────────────────────
 // Design: one report card per student+term+year. Multiple instructors each call
@@ -452,7 +491,18 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
     }
 
     const userRole: string = (req as any).user?.role ?? "";
-    const { term, academic_year } = req.query as { term?: string; academic_year?: string };
+    let { term, academic_year } = req.query as { term?: string; academic_year?: string };
+
+    // Without an explicit term/year, previously fell through to whichever row
+    // Sequelize returned first (no ORDER BY) — could surface a stale term's
+    // report card instead of the current one. Default to the requester's
+    // current academic period; if MIS can't resolve it, fall back to most
+    // recently created so behavior degrades gracefully rather than erroring.
+    if (!term && !academic_year) {
+      const current = await resolveCurrentAcademicPeriodNames(req);
+      term = current.term ?? undefined;
+      academic_year = current.academicYear ?? undefined;
+    }
 
     const whereClause: any = { student_id: studentId };
     if (term) whereClause.term = term;
@@ -463,7 +513,10 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
       whereClause.status = "approved";
     }
 
-    const reportCard = await ReportCard.findOne({ where: whereClause });
+    const reportCard = await ReportCard.findOne({
+      where: whereClause,
+      order: [["createdAt", "DESC"]],
+    });
     if (!reportCard) {
       const message = userRole === "student"
         ? "No approved report card found for this term"
@@ -472,6 +525,10 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
     }
 
     const { grades, attributes, rawMappings } = await aggregateReportCardData(reportCard);
+    const subjectNames = await resolveSubjectNames(
+      req,
+      grades.map((g) => g.subject_id),
+    );
 
     res.status(200).json({
       success: true,
@@ -496,6 +553,7 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
         },
         grades,
         attributes,
+        subject_names: subjectNames,
         // Raw mappings included so the builder can restore previously saved state
         raw_assessments: rawMappings.map((m) => ({
           subject_id: m.subject_id,
@@ -542,6 +600,10 @@ export const generatePdf = async (req: Request, res: Response) => {
       : `Student #${reportCard.student_id}`;
 
     const { grades, attributes } = await aggregateReportCardData(reportCard);
+    const subjectNames = await resolveSubjectNames(
+      req,
+      grades.map((g) => g.subject_id),
+    );
 
     const verificationBaseUrl =
       process.env.APP_PUBLIC_URL ||
@@ -559,6 +621,7 @@ export const generatePdf = async (req: Request, res: Response) => {
       attendance_absent: reportCard.attendance_absent,
       attendance_late: reportCard.attendance_late,
       grades,
+      subject_names: subjectNames,
       attributes: attributes.map((a) => ({
         attribute_name: a.attribute_name,
         rating: a.rating,
@@ -581,6 +644,156 @@ export const generatePdf = async (req: Request, res: Response) => {
     res.status(200).send(pdfBuffer);
   } catch (error) {
     console.error("generatePdf error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── GET /api/report-cards/admin/students ────────────────────────────────────
+// Lists every report card for a term/year, sourced entirely from the local DB
+// (ReportCard.student_id is a real FK to the local User table, so no MIS call
+// is needed for names) — backs the admin "download report cards for a
+// term/year" bulk-export flow and the "individual student" search.
+
+export const listReportCardStudents = async (req: Request, res: Response) => {
+  try {
+    let { term, academic_year } = req.query as { term?: string; academic_year?: string };
+
+    if (!term && !academic_year) {
+      const current = await resolveCurrentAcademicPeriodNames(req);
+      term = current.term ?? undefined;
+      academic_year = current.academicYear ?? undefined;
+    }
+
+    if (!term || !academic_year) {
+      return res.status(400).json({
+        success: false,
+        message: "term and academic_year are required (and could not be resolved from your current period)",
+      });
+    }
+
+    const reportCards = await ReportCard.findAll({
+      where: { term, academic_year },
+      include: [{ model: User, as: "student", attributes: ["id", "first_name", "last_name"] }],
+      order: [["createdAt", "DESC"]],
+    });
+
+    const data = reportCards.map((rc) => {
+      const student = (rc as any).student as User | undefined;
+      return {
+        report_card_id: rc.id,
+        student_id: rc.student_id,
+        uuid: rc.uuid,
+        status: rc.status,
+        name: student
+          ? `${student.first_name} ${student.last_name}`.trim()
+          : `Student #${rc.student_id}`,
+      };
+    });
+
+    res.status(200).json({ success: true, data, term, academic_year });
+  } catch (error) {
+    console.error("listReportCardStudents error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── GET /api/report-cards/admin/summary ─────────────────────────────────────
+// Cross-subject, cross-student aggregate for a term/year: status counts,
+// per-category (CW/HW/MD/EOT) averages, and per-subject averages. Reuses
+// aggregateReportCardData per card rather than re-deriving grade math, so this
+// stays consistent with what each student's own report card shows. Capped at
+// MAX_CARDS since it's a synchronous admin action, not a hot path.
+
+const ADMIN_SUMMARY_MAX_CARDS = 300;
+
+export const getAdminSummary = async (req: Request, res: Response) => {
+  try {
+    let { term, academic_year } = req.query as { term?: string; academic_year?: string };
+
+    if (!term && !academic_year) {
+      const current = await resolveCurrentAcademicPeriodNames(req);
+      term = current.term ?? undefined;
+      academic_year = current.academicYear ?? undefined;
+    }
+
+    if (!term || !academic_year) {
+      return res.status(400).json({
+        success: false,
+        message: "term and academic_year are required (and could not be resolved from your current period)",
+      });
+    }
+
+    const reportCards = await ReportCard.findAll({
+      where: { term, academic_year },
+      limit: ADMIN_SUMMARY_MAX_CARDS,
+    });
+
+    const statusCounts = { draft: 0, saved: 0, approved: 0 };
+    const categoryTotals: Record<string, { sum: number; count: number }> = {
+      CW: { sum: 0, count: 0 },
+      HW: { sum: 0, count: 0 },
+      MD: { sum: 0, count: 0 },
+      EOT: { sum: 0, count: 0 },
+    };
+    const subjectTotals = new Map<number, { sum: number; count: number }>();
+    let overallSum = 0;
+    let overallCount = 0;
+
+    for (const reportCard of reportCards) {
+      statusCounts[reportCard.status as keyof typeof statusCounts] =
+        (statusCounts[reportCard.status as keyof typeof statusCounts] ?? 0) + 1;
+
+      const { grades } = await aggregateReportCardData(reportCard);
+      for (const grade of grades) {
+        overallSum += grade.total_score;
+        overallCount += 1;
+
+        const subjTotal = subjectTotals.get(grade.subject_id) ?? { sum: 0, count: 0 };
+        subjTotal.sum += grade.total_score;
+        subjTotal.count += 1;
+        subjectTotals.set(grade.subject_id, subjTotal);
+
+        for (const cat of Object.keys(categoryTotals)) {
+          const catResult = grade.categories[cat as keyof typeof grade.categories];
+          if (catResult) {
+            categoryTotals[cat].sum += catResult.scaled_score;
+            categoryTotals[cat].count += 1;
+          }
+        }
+      }
+    }
+
+    const subjectIds = Array.from(subjectTotals.keys());
+    const subjectNames = await resolveSubjectNames(req, subjectIds);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        term,
+        academic_year,
+        total_report_cards: reportCards.length,
+        truncated: reportCards.length >= ADMIN_SUMMARY_MAX_CARDS,
+        status_counts: statusCounts,
+        overall_average: overallCount > 0 ? parseFloat((overallSum / overallCount).toFixed(2)) : null,
+        category_averages: Object.fromEntries(
+          Object.entries(categoryTotals).map(([cat, { sum, count }]) => [
+            cat,
+            count > 0 ? parseFloat((sum / count).toFixed(2)) : null,
+          ]),
+        ),
+        subject_averages: subjectIds.map((id) => {
+          const { sum, count } = subjectTotals.get(id)!;
+          return {
+            subject_id: id,
+            subject_name: subjectNames[id] ?? `Subject #${id}`,
+            average_score: parseFloat((sum / count).toFixed(2)),
+            student_count: count,
+          };
+        }),
+      },
+    });
+  } catch (error) {
+    console.error("getAdminSummary error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

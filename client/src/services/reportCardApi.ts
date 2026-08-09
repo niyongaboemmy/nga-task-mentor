@@ -117,6 +117,8 @@ export interface ReportCardData {
   report_card: ReportCardMeta;
   grades: SubjectGrade[];
   attributes: AttributeItem[];
+  // Maps subject_id -> display name, resolved server-side from MIS.
+  subject_names?: Record<number, string>;
   // Raw assessment mappings — used by the builder to pre-populate its state
   raw_assessments: AssessmentItem[];
 }
@@ -164,6 +166,44 @@ export const STATUS_META: Record<
     dot: "bg-emerald-400",
   },
 };
+
+// ─── Admin cross-course reporting ─────────────────────────────────────────────
+
+export interface AdminReportCardStudent {
+  report_card_id: number;
+  student_id: number;
+  uuid: string;
+  status: ReportCardStatus;
+  name: string;
+}
+
+export interface AdminReportCardStudentsResponse {
+  success: boolean;
+  data: AdminReportCardStudent[];
+  term: string;
+  academic_year: string;
+}
+
+export interface AdminReportCardSummary {
+  term: string;
+  academic_year: string;
+  total_report_cards: number;
+  truncated: boolean;
+  status_counts: { draft: number; saved: number; approved: number };
+  overall_average: number | null;
+  category_averages: Record<AssessmentCategory, number | null>;
+  subject_averages: Array<{
+    subject_id: number;
+    subject_name: string;
+    average_score: number;
+    student_count: number;
+  }>;
+}
+
+export interface AdminReportCardSummaryResponse {
+  success: boolean;
+  data: AdminReportCardSummary;
+}
 
 // ─── API service ──────────────────────────────────────────────────────────────
 
@@ -217,6 +257,24 @@ export class ReportCardApiService {
       { report_card_id: reportCardId },
       { responseType: "blob" },
     );
+    return response.data;
+  }
+
+  // Admin: every report card for a term/year, sourced from the local DB.
+  static async listAdminStudents(params: {
+    term: string;
+    academic_year: string;
+  }): Promise<AdminReportCardStudentsResponse> {
+    const response = await axios.get("/report-cards/admin/students", { params });
+    return response.data;
+  }
+
+  // Admin: status counts + per-category + per-subject averages for a term/year.
+  static async getAdminSummary(params: {
+    term: string;
+    academic_year: string;
+  }): Promise<AdminReportCardSummaryResponse> {
+    const response = await axios.get("/report-cards/admin/summary", { params });
     return response.data;
   }
 }

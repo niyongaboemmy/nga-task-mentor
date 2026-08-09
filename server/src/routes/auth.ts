@@ -14,6 +14,7 @@ import {
   ssoCallback,
   proxySsoAuthorize,
   updateTheme,
+  switchAcademicPeriod,
 } from "../controllers/auth.controller";
 import {
   loginSchema,
@@ -41,6 +42,7 @@ router.post("/logout", logout);
 router.post("/sso/callback", ssoCallback);
 router.get("/sso/authorize", protect, proxySsoAuthorize);
 router.patch("/theme", protect, updateTheme);
+router.post("/switch-academic-period", protect, switchAcademicPeriod);
 // Note: forgotPasswordSchema and resetPasswordSchema would also be migrated to the new middleware
 // For now preserving existing imports if they were used elsewhere, but updating routes to use rate limiters
 // router.post("/forgot-password", passwordResetLimiter, validate(forgotPasswordSchema), forgotPassword);

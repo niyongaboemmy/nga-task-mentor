@@ -3,11 +3,13 @@ import React, {
   useContext,
   useState,
   useCallback,
+  useEffect,
   useRef,
 } from "react";
 import type { ReactNode } from "react";
 import { CourseApiService } from "../services/courseApi";
 import type { Course } from "../types/course.types";
+import { onAcademicPeriodChanged } from "../utils/academicPeriodEvents";
 
 interface CourseCache {
   [courseId: number]: {
@@ -47,6 +49,11 @@ export const CourseCacheProvider: React.FC<{ children: ReactNode }> = ({
     }
     setRefresh((prev) => prev + 1);
   }, []);
+
+  // Cached course details (e.g. enrolled students) are scoped to whichever
+  // academic term was active when fetched -- switching term must invalidate
+  // them, since Layout's remount can't reach a cache stored above it.
+  useEffect(() => onAcademicPeriodChanged(() => clearCache()), [clearCache]);
 
   const getCourse = useCallback(
     async (courseId: number): Promise<Course | null> => {

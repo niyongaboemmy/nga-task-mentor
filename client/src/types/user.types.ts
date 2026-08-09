@@ -18,6 +18,23 @@ export interface System {
   created_at: string;
 }
 
+export interface AcademicYear {
+  academic_year_id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_current: number;
+}
+
+export interface AcademicTerm {
+  academic_term_id: number;
+  academic_year_id: number;
+  name: string;
+  start_date: string;
+  end_date: string;
+  is_current: number;
+}
+
 export interface Role {
   role_id: number;
   name: string;

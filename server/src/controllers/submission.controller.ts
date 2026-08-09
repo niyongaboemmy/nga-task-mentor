@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Submission, Assignment, User } from "../models";
 import { Op } from "sequelize";
 import { isPastDate } from "../utils/dateUtils";
+import { resolveAcademicTermId } from "../utils/misUtils";
 import path from "path";
 import fs from "fs";
 
@@ -11,6 +12,7 @@ import fs from "fs";
 export const getSubmissions = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
+    const academicTermId = await resolveAcademicTermId(req);
 
     const submissions = await Submission.findAll({
       where: {
@@ -20,6 +22,17 @@ export const getSubmissions = async (req: Request, res: Response) => {
         {
           model: Assignment,
           attributes: ["id", "title", "course_id"],
+          // Scope to the resolved term, but keep legacy assignments that
+          // predate academic_term_id tracking (null) so nothing vanishes.
+          where: academicTermId
+            ? {
+                [Op.or]: [
+                  { academic_term_id: academicTermId },
+                  { academic_term_id: null },
+                ],
+              }
+            : undefined,
+          required: !!academicTermId,
         },
       ],
     });

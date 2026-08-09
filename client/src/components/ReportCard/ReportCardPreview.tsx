@@ -48,11 +48,6 @@ function gradeColor(score: number): string {
   return "#dc2626";                  // red
 }
 
-function attendancePct(present: number, total: number): string {
-  if (total === 0) return "—";
-  return `${((present / total) * 100).toFixed(0)}%`;
-}
-
 function fmt(n: number): string {
   return n.toFixed(2);
 }
@@ -563,9 +558,11 @@ function ReportCardDocument({
           )}
         </div>
 
-        {/* Attendance Summary */}
+        {/* Attendance Status — a single term-level status (Present/Absent/Late),
+            not a day tally, so no "Total"/"Rate" row is shown (those would
+            always read 1 / 100% and imply day-count tracking this form doesn't do). */}
         <div style={{ minWidth: 160 }}>
-          <SectionTitle>Attendance</SectionTitle>
+          <SectionTitle>Attendance Status (Term)</SectionTitle>
           <table
             style={{
               borderCollapse: "collapse",
@@ -580,7 +577,6 @@ function ReportCardDocument({
                 ["Present", att.present, "#0d9488"],
                 ["Absent",  att.absent,  "#dc2626"],
                 ["Late",    att.late,    "#d97706"],
-                ["Total",   att.total_days, "#1e3a5f"],
               ] as [string, number, string][]
             ).map(([label, val, color], i) => (
               <tr
@@ -594,7 +590,6 @@ function ReportCardDocument({
                   style={{
                     padding: "7px 12px",
                     fontSize: 12,
-                    fontWeight: label === "Total" ? 700 : 400,
                     color: "#374151",
                   }}
                 >
@@ -605,28 +600,14 @@ function ReportCardDocument({
                     padding: "7px 12px",
                     fontSize: 13,
                     fontWeight: 700,
-                    color,
+                    color: val ? color : "#d1d5db",
                     textAlign: "center",
                   }}
                 >
-                  {val}
+                  {val ? "✓" : "—"}
                 </td>
               </tr>
             ))}
-            <tr style={{ background: "#e8f0fe" }}>
-              <td style={{ padding: "7px 12px", fontSize: 12, color: "#374151" }}>Rate</td>
-              <td
-                style={{
-                  padding: "7px 12px",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: "#1e3a5f",
-                  textAlign: "center",
-                }}
-              >
-                {attendancePct(att.present, att.total_days)}
-              </td>
-            </tr>
           </table>
         </div>
       </div>
@@ -1017,7 +998,7 @@ export default function ReportCardPreview({
                 <ReportCardDocument
                   data={data}
                   studentName={studentName}
-                  subjectNames={subjectNames}
+                  subjectNames={{ ...subjectNames, ...data.subject_names }}
                   verificationUrl={verificationUrl}
                 />
               </div>

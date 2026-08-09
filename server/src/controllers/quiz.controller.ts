@@ -21,6 +21,7 @@ import {
 import {
   getMisToken,
   getCurrentTermId,
+  resolveAcademicYearId,
   handleMisError,
 } from "../utils/misUtils";
 
@@ -640,10 +641,14 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
 
     if (token && req.user.mis_user_id) {
       try {
+        // Without academic_year_id, MIS returns every enrollment the student
+        // has ever had, across every year.
+        const yearId = await resolveAcademicYearId(req);
         const enrolledResponse = await axios.get(
           `${process.env.NGA_MIS_BASE_URL}/academics/students/${req.user.mis_user_id}/enrolled-subjects`,
           {
             headers: { Authorization: `Bearer ${token}` },
+            params: yearId ? { academic_year_id: yearId } : {},
           },
         );
         if (enrolledResponse.data?.success && enrolledResponse.data?.data) {

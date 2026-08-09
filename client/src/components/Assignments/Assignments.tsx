@@ -5,9 +5,14 @@ import { ClipboardList, RefreshCw } from "lucide-react";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
 import AssignmentCard, { type AssignmentInterface } from "./AssignmentCard";
+import { onAcademicPeriodChanged } from "../../utils/academicPeriodEvents";
 
-// Module-level cache: keyed by courseId, holds the last fetched assignments list
+// Module-level cache: keyed by courseId, holds the last fetched assignments list.
+// The server scopes /assignments to the caller's current academic term, so this
+// cache is implicitly term-scoped too -- it must be dropped when the viewed
+// term changes, since it lives outside the React tree Layout remounts on switch.
 const assignmentsCache: Map<string, AssignmentInterface[]> = new Map();
+onAcademicPeriodChanged(() => assignmentsCache.clear());
 
 interface Course {
   id: string;
