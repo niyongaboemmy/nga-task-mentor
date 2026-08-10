@@ -1,6 +1,6 @@
 {
   "name": "nga-task-mentor",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "NGA Task Mentor Project",
   "private": true,
   "scripts": {
