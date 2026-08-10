@@ -23,14 +23,16 @@ jobs:
             git reset --hard origin/main
 
             cd server
-            npm ci --omit=dev
+            npm ci
             npm run build
+            npm prune --omit=dev
             # DB migrations are applied manually (see DEPLOYMENT notes) — not auto-run here.
             cd ..
 
             cd live-server
-            npm ci --omit=dev
+            npm ci
             npm run build
+            npm prune --omit=dev
             cd ..
 
             cd client
