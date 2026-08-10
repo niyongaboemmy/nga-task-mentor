@@ -1,10 +1,16 @@
 import "reflect-metadata";
+import dotenv from "dotenv";
+
+// Load environment variables before anything that reads them at import time
+// (e.g. config/database.ts constructs its Sequelize connection at module
+// load, so this must run before that import below.)
+dotenv.config();
+
 import express, { Application, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import path from "path";
-import dotenv from "dotenv";
 import { Sequelize } from "sequelize-typescript";
 import http from "http";
 import {
@@ -13,8 +19,6 @@ import {
 } from "./config/database";
 import { setupAssociations } from "./models";
 
-// Load environment variables
-dotenv.config();
 console.log("Environment variables loaded:");
 console.log("JWT_SECRET:", process.env.JWT_SECRET ? "SET" : "NOT SET");
 console.log("NODE_ENV:", process.env.NODE_ENV);
