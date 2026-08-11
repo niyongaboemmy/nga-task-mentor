@@ -148,5 +148,7 @@ jobs:
             npm run build
             cd ..
 
-            pm2 restart taskmentor-server taskmentor-live --update-env
+            pm2 restart taskmentor-server --update-env || pm2 start server/dist/index.js --name taskmentor-server --update-env
+            pm2 restart taskmentor-live --update-env || pm2 start live-server/dist/index.js --name taskmentor-live --update-env
+            pm2 save
             sudo /usr/sbin/nginx -t && sudo systemctl reload nginx
