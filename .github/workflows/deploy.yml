@@ -124,7 +124,11 @@ jobs:
             VITE_MIS_LOGIN_URL=https://mis.amashuri.com/login
             EOF
 
-            chmod 600 server/.env live-server/.env client/.env
+            # 644, not 600: the SSH deploy user and the user pm2 runs the
+            # process as aren't the same account, so a stricter mode makes
+            # the app unable to read the env file it just wrote (dotenv
+            # fails silently, every var ends up unset).
+            chmod 644 server/.env live-server/.env client/.env
 
             cd server
             npm ci
