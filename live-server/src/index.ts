@@ -1,4 +1,10 @@
-import "dotenv/config";
+import dotenv from "dotenv";
+import path from "path";
+// Resolve .env relative to this file, not process.cwd() — pm2 restarts can
+// run with a different working directory, which otherwise makes dotenv
+// silently find nothing.
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
 import express from "express";
 import { createServer } from "http";
 import { Server, Socket } from "socket.io";

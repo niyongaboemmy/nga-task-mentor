@@ -1,16 +1,18 @@
 import "reflect-metadata";
 import dotenv from "dotenv";
+import path from "path";
 
 // Load environment variables before anything that reads them at import time
 // (e.g. config/database.ts constructs its Sequelize connection at module
-// load, so this must run before that import below.)
-dotenv.config();
+// load, so this must run before that import below.) Resolve .env relative
+// to this file, not process.cwd() — pm2 restarts can run with a different
+// working directory, which otherwise makes dotenv silently find nothing.
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 import express, { Application, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
-import path from "path";
 import { Sequelize } from "sequelize-typescript";
 import http from "http";
 import {
