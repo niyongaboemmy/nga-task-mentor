@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import axios from "axios";
-import path from "path";
 import fs from "fs";
+import path from "path";
+import fileServer from "../utils/fileServer";
 import {
   getMisToken,
   handleMisError,
@@ -473,17 +474,22 @@ export const withdrawFromCourse = async (req: Request, res: Response) => {
 export const getProfilePicture = async (req: Request, res: Response) => {
   try {
     const { filename } = req.params;
-    const filePath = path.join(
+    const found = await fileServer.streamTo(
+      `profile-pictures/${filename}`,
+      res,
+    );
+    if (found) return;
+
+    // Pre-migration profile pictures were written directly to local disk.
+    const legacyPath = path.join(
       __dirname,
       "../../uploads/profile-pictures",
       filename,
     );
-
-    if (fs.existsSync(filePath)) {
-      res.sendFile(filePath);
-    } else {
-      res.status(404).json({ success: false, message: "Image not found" });
+    if (fs.existsSync(legacyPath)) {
+      return res.sendFile(legacyPath);
     }
+    res.status(404).json({ success: false, message: "Image not found" });
   } catch (error) {
     console.error("Get profile picture error:", error);
     res.status(500).json({ success: false, message: "Server error" });

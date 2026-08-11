@@ -16,7 +16,7 @@ import {
 } from "../services/reportCardGrader.service";
 import {
   generateReportCardPdf,
-  savePdfToDisk,
+  saveReportCardPdf,
 } from "../services/reportCardPdf.service";
 import type {
   BuilderSavePayload,
@@ -630,7 +630,7 @@ export const generatePdf = async (req: Request, res: Response) => {
       verification_base_url: verificationBaseUrl,
     });
 
-    const relativePath = savePdfToDisk(pdfBuffer, reportCard.uuid);
+    const relativePath = await saveReportCardPdf(pdfBuffer, reportCard.uuid);
     await reportCard.update({ pdf_path: relativePath });
 
     const filename = `ReportCard-${studentName.replace(/\s+/g, "_")}-${reportCard.term}-${reportCard.academic_year}.pdf`;

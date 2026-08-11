@@ -23,11 +23,12 @@ jobs:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_USER: ${{ secrets.SMTP_USER }}
           SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          FILE_SERVER_API_KEY: ${{ secrets.FILE_SERVER_API_KEY }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: DB_PASS,JWT_SECRET,SSO_CLIENT_SECRET,OPENAI_API_KEY,GEMINI_API_KEY,JUDGE0_API_KEY,CLOUDFLARE_TURN_TOKEN_ID,CLOUDFLARE_TURN_API_TOKEN,SMTP_HOST,SMTP_USER,SMTP_PASS
+          envs: DB_PASS,JWT_SECRET,SSO_CLIENT_SECRET,OPENAI_API_KEY,GEMINI_API_KEY,JUDGE0_API_KEY,CLOUDFLARE_TURN_TOKEN_ID,CLOUDFLARE_TURN_API_TOKEN,SMTP_HOST,SMTP_USER,SMTP_PASS,FILE_SERVER_API_KEY
           script: |
             set -e
             cd /opt/apps/nga-task-mentor
@@ -104,6 +105,9 @@ jobs:
 
             OPENAI_API_KEY="${OPENAI_API_KEY}"
             GEMINI_API_KEY="${GEMINI_API_KEY}"
+
+            FILE_SERVER_URL=http://127.0.0.1:5004
+            FILE_SERVER_API_KEY="${FILE_SERVER_API_KEY}"
             EOF
 
             cat > live-server/.env <<EOF

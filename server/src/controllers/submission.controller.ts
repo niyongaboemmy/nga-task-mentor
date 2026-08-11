@@ -3,8 +3,13 @@ import { Submission, Assignment, User } from "../models";
 import { Op } from "sequelize";
 import { isPastDate } from "../utils/dateUtils";
 import { resolveAcademicTermId } from "../utils/misUtils";
-import path from "path";
 import fs from "fs";
+import path from "path";
+import fileServer from "../utils/fileServer";
+import {
+  generateUniqueFilename,
+  sanitizeKeepExtension,
+} from "../utils/uploadFilename";
 
 // @desc    Get all submissions
 // @route   GET /api/submissions
@@ -223,11 +228,17 @@ export const updateSubmission = async (req: Request, res: Response) => {
     // Handle file update
     if ((req as any).file) {
       const file = (req as any).file;
+      const filename = generateUniqueFilename(
+        "submission",
+        file.originalname,
+        sanitizeKeepExtension,
+      );
+      await fileServer.uploadFile(file.buffer, `submissions/${filename}`);
       submission.file_submissions = [
         {
-          filename: file.filename,
+          filename,
           originalname: file.originalname,
-          path: file.path,
+          path: `submissions/${filename}`,
           size: file.size,
           mimetype: file.mimetype,
         },
@@ -359,35 +370,40 @@ export const downloadFile = async (req: Request, res: Response) => {
         .json({ success: false, message: "Invalid filename" });
     }
 
-    // Find the file in the uploads directory
-    const uploadsDir = path.join(__dirname, "../../uploads");
-    const fullFilePath = path.join(uploadsDir, fileName);
+    // Find the corresponding file metadata from the submission
+    const fileSubmission = fileSubmissions.find(
+      (file: any) => file.filename === fileName,
+    );
+    const originalName = fileSubmission?.originalname || fileName;
+    const mimeType = fileSubmission?.mimetype || "application/octet-stream";
 
-    // Check if file exists
-    if (!fs.existsSync(fullFilePath)) {
+    // New uploads live at submissions/<filename> on the file-server. Older
+    // submissions (uploaded before this migration) were written directly to
+    // the local uploads/ root by the old diskStorage config -- fall back to
+    // that so pre-migration submissions don't 404.
+    const remotePath = `submissions/${fileName}`;
+    let buffer: Buffer | null = null;
+    if (await fileServer.fileExists(remotePath)) {
+      buffer = await fileServer.downloadToBuffer(remotePath);
+    } else {
+      const legacyPath = path.join(__dirname, "../../uploads", fileName);
+      if (fs.existsSync(legacyPath)) {
+        buffer = fs.readFileSync(legacyPath);
+      }
+    }
+
+    if (!buffer) {
       return res
         .status(404)
         .json({ success: false, message: "File not found on server" });
     }
 
-    // Find the corresponding file metadata from the submission
-    const fileSubmission = fileSubmissions.find(
-      (file: any) => file.filename === fileName,
-    );
-
-    const originalName = fileSubmission?.originalname || fileName;
-    const mimeType = fileSubmission?.mimetype || "application/octet-stream";
-
-    // Set appropriate headers and send the file
     res.setHeader("Content-Type", mimeType);
     res.setHeader(
       "Content-Disposition",
       `attachment; filename="${originalName}"`,
     );
-
-    // Stream the file
-    const fileStream = fs.createReadStream(fullFilePath);
-    fileStream.pipe(res);
+    res.send(buffer);
   } catch (error) {
     console.error("Download file error:", error);
     res.status(500).json({ success: false, message: "Server error" });

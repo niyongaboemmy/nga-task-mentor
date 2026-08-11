@@ -1,18 +1,10 @@
 import multer from 'multer';
-import path from 'path';
 import { Request } from 'express';
 
-// Configure storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, 'uploads/profile-pictures/');
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    const extension = path.extname(file.originalname);
-    cb(null, 'profile-' + (req as any).user.id + '-' + uniqueSuffix + extension);
-  }
-});
+// In-memory buffer, uploaded to the shared file-server by the controller
+// (which is also where the filename is now generated, since memoryStorage
+// has no per-file destination/filename callback the way diskStorage did).
+const storage = multer.memoryStorage();
 
 // File filter for images only
 const fileFilter = (req: Request, file: Express.Multer.File, cb: multer.FileFilterCallback) => {

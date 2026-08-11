@@ -1,28 +1,10 @@
 import multer from "multer";
-import path from "path";
-import fs from "fs";
 
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, "../../uploads");
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    // Sanitize filename to remove special characters but keep extension
-    const sanitizeFilename = (name: string) => {
-      const ext = path.extname(name);
-      const base = path.basename(name, ext);
-      const sanitizedBase = base.replace(/[^a-z0-9]/gi, "_").toLowerCase();
-      return sanitizedBase + ext;
-    };
-    const sanitizedName = sanitizeFilename(file.originalname);
-    cb(null, "submission-" + uniqueSuffix + "-" + sanitizedName);
-  },
-});
+// In-memory buffer, uploaded to the shared file-server by the controller
+// (which is also where the filename is now generated -- see
+// utils/uploadFilename.ts -- since memoryStorage has no destination/filename
+// callback the way diskStorage did).
+const storage = multer.memoryStorage();
 
 export const uploadSubmission = multer({
   storage: storage,

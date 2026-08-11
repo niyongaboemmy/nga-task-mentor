@@ -2,8 +2,11 @@ import { Request, Response } from "express";
 import { Assignment, Submission, User } from "../models";
 import { sequelize } from "../config/database";
 import { Op } from "sequelize";
-import fs from "fs";
-import path from "path";
+import fileServer from "../utils/fileServer";
+import {
+  generateUniqueFilename,
+  sanitizeWholeName,
+} from "../utils/uploadFilename";
 import {
   parseLocalDateTimeToUTC,
   formatUTCToLocal,
@@ -157,13 +160,25 @@ export const createAssignment = async (req: Request, res: Response) => {
     const { courseId } = req.params;
 
     // Handle file uploads
-    const attachments =
-      (req.files as Express.Multer.File[])?.map((file) => ({
-        name: file.originalname,
-        url: `/uploads/assignments/${file.filename}`,
-        type: file.mimetype,
-        size: file.size,
-      })) || [];
+    const attachments = await Promise.all(
+      ((req.files as Express.Multer.File[]) || []).map(async (file) => {
+        const filename = generateUniqueFilename(
+          "assignment",
+          file.originalname,
+          sanitizeWholeName,
+        );
+        await fileServer.uploadFile(
+          file.buffer,
+          `assignments/${filename}`,
+        );
+        return {
+          name: file.originalname,
+          url: `/uploads/assignments/${filename}`,
+          type: file.mimetype,
+          size: file.size,
+        };
+      }),
+    );
 
     // Use courseId from params or body
     const finalCourseId = courseId || course_id;
@@ -402,21 +417,14 @@ export const updateAssignment = async (req: Request, res: Response) => {
             ),
         );
 
-        // Delete removed files from disk
-        filesToRemove.forEach((file) => {
+        // Delete removed files from the file-server
+        for (const file of filesToRemove) {
           try {
             // Extract filename from URL (e.g., /uploads/assignments/filename.ext)
             const filename = file.url.split("/").pop();
             if (filename) {
-              const filePath = path.join(
-                __dirname,
-                "../../uploads/assignments",
-                filename,
-              );
-              if (fs.existsSync(filePath)) {
-                fs.unlinkSync(filePath);
-                console.log(`Deleted file: ${filePath}`);
-              }
+              await fileServer.deleteFile(`assignments/${filename}`);
+              console.log(`Deleted file: assignments/${filename}`);
             }
           } catch (err) {
             console.error(
@@ -424,7 +432,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
               (err as Error).message,
             );
           }
-        });
+        }
 
         // Set valid attachments to the retained list (ensuring they match known structure)
         updatedAttachments = retainedAttachments;
@@ -435,12 +443,20 @@ export const updateAssignment = async (req: Request, res: Response) => {
 
     // Add new files
     if (req.files && Array.isArray(req.files) && req.files.length > 0) {
-      const newAttachments = (req.files as Express.Multer.File[]).map(
-        (file) => ({
-          name: file.originalname,
-          url: `/uploads/assignments/${file.filename}`,
-          type: file.mimetype,
-          size: file.size,
+      const newAttachments = await Promise.all(
+        (req.files as Express.Multer.File[]).map(async (file) => {
+          const filename = generateUniqueFilename(
+            "assignment",
+            file.originalname,
+            sanitizeWholeName,
+          );
+          await fileServer.uploadFile(file.buffer, `assignments/${filename}`);
+          return {
+            name: file.originalname,
+            url: `/uploads/assignments/${filename}`,
+            type: file.mimetype,
+            size: file.size,
+          };
         }),
       );
       updatedAttachments = [...updatedAttachments, ...newAttachments];

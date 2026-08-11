@@ -1,31 +1,12 @@
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 import { Request } from "express";
 
-// Ensure upload directory exists
-const uploadDir = path.join(__dirname, "../../uploads/assignments");
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configure storage
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: function (req, file, cb) {
-    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    // Sanitize filename to remove special characters but keep extension
-    const sanitizeFilename = (name: string) =>
-      name.replace(/[^a-z0-9.]/gi, "_").toLowerCase();
-    const originalName = sanitizeFilename(file.originalname);
-    cb(null, "assignment-" + uniqueSuffix + "-" + originalName);
-  },
-});
+// In-memory buffer, uploaded to the shared file-server by the controller
+// (which is also where the filename is now generated -- see
+// utils/uploadFilename.ts -- since memoryStorage has no destination/filename
+// callback the way diskStorage did).
+const storage = multer.memoryStorage();
 
 // File filter (allow most document types)
 const fileFilter = (

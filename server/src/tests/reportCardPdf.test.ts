@@ -6,19 +6,19 @@
  *
  * No database connection — tests exercise generateReportCardPdf() directly.
  * Validates: PDF header bytes, non-zero size, QR embedding, grade/remark
- * helpers, and disk-write idempotency.
+ * helpers, and file-server upload idempotency (requires the file-server to
+ * be reachable at FILE_SERVER_URL, same as production).
  */
 
-import fs from "fs";
 import {
   generateReportCardPdf,
-  savePdfToDisk,
-  resolveReportCardPath,
+  saveReportCardPdf,
+  reportCardStoragePath,
   percentageToLetter,
   percentageToRemark,
-  ensureUploadDir,
 } from "../services/reportCardPdf.service";
 import type { ReportCardPdfData } from "../services/reportCardPdf.service";
+import fileServer from "../utils/fileServer";
 
 // ─── Tiny assertion framework ────────────────────────────────────────────────
 
@@ -230,37 +230,36 @@ async function main() {
     _failed += 2;
   }
 
-  // ── savePdfToDisk ────────────────────────────────────────────────────────
-  suite("savePdfToDisk — writes file and returns relative path");
+  // ── saveReportCardPdf ────────────────────────────────────────────────────
+  suite("saveReportCardPdf — uploads to file-server, returns relative path");
 
   const WRITE_UUID = "test-disk-write-uuid-99";
 
   if (pdfBuffer) {
     try {
-      ensureUploadDir();
-      const relPath = savePdfToDisk(pdfBuffer, WRITE_UUID);
+      const relPath = await saveReportCardPdf(pdfBuffer, WRITE_UUID);
 
       expect("returns string with report-cards/", relPath, includes("report-cards/"));
       expect("path ends with .pdf",               relPath, includes(".pdf"));
 
-      const fullPath = resolveReportCardPath(`report-card-${WRITE_UUID}.pdf`);
-      expect("file exists on disk", fs.existsSync(fullPath), isTrue());
+      const remotePath = reportCardStoragePath(WRITE_UUID);
+      expect("file exists on file-server", await fileServer.fileExists(remotePath), isTrue());
 
-      const onDisk = fs.readFileSync(fullPath);
-      expect("written file matches buffer size",       onDisk.length, eq(pdfBuffer.length));
-      expect("written file starts with %PDF-", onDisk.slice(0, 5).toString("ascii"), eq("%PDF-"));
+      const stored = await fileServer.downloadToBuffer(remotePath);
+      expect("stored file matches buffer size",       stored.length, eq(pdfBuffer.length));
+      expect("stored file starts with %PDF-", stored.slice(0, 5).toString("ascii"), eq("%PDF-"));
 
       // Idempotency: second save overwrites cleanly
-      const relPath2 = savePdfToDisk(pdfBuffer, WRITE_UUID);
+      const relPath2 = await saveReportCardPdf(pdfBuffer, WRITE_UUID);
       expect("second save returns same relative path", relPath2, eq(relPath));
-      expect("file still exists after overwrite",      fs.existsSync(fullPath), isTrue());
+      expect("file still exists after overwrite", await fileServer.fileExists(remotePath), isTrue());
 
       // Clean up
-      fs.unlinkSync(fullPath);
-      expect("cleanup: file removed", fs.existsSync(fullPath), isFalse());
+      await fileServer.deleteFile(remotePath);
+      expect("cleanup: file removed", await fileServer.fileExists(remotePath), isFalse());
 
     } catch (e: any) {
-      console.log(`  \x1b[31m✗\x1b[0m disk write threw: ${e.message}`);
+      console.log(`  \x1b[31m✗\x1b[0m file-server write threw: ${e.message}`);
       _failed += 7;
     }
   } else {

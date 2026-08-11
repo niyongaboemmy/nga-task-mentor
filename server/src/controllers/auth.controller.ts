@@ -6,9 +6,9 @@ import axios from "axios";
 import { getMisToken, handleMisError } from "../utils/misUtils";
 import { Sequelize, Op } from "sequelize";
 import { User } from "../models/User.model";
-import fs from "fs";
-import path from "path";
 import { uploadProfilePicture } from "../middleware/upload";
+import fileServer from "../utils/fileServer";
+import { generateUniqueFilename, sanitizeKeepExtension } from "../utils/uploadFilename";
 
 // User login - forwards to NGA Central MIS
 // Security: Protected by rate limiter and input validation at route level (see routes/auth.routes.ts)
@@ -1045,27 +1045,43 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
         });
       }
 
-      // Delete old profile image if it exists
-      if (user.profile_image) {
-        const oldImagePath = path.join(
-          process.cwd(),
-          "uploads",
-          "profile-pictures",
-          user.profile_image,
+      const filename = generateUniqueFilename(
+        `profile-${userId}`,
+        req.file.originalname,
+        sanitizeKeepExtension,
+      );
+
+      try {
+        await fileServer.uploadFile(
+          req.file.buffer,
+          `profile-pictures/${filename}`,
         );
-        if (fs.existsSync(oldImagePath)) {
-          fs.unlinkSync(oldImagePath);
-        }
+      } catch (uploadErr) {
+        console.error("Profile picture upload to file-server failed:", uploadErr);
+        return res.status(502).json({
+          success: false,
+          message: "Failed to store profile picture",
+        });
+      }
+
+      // Delete old profile image if it exists (best-effort, don't fail the
+      // request if the old file is already gone)
+      if (user.profile_image) {
+        fileServer
+          .deleteFile(`profile-pictures/${user.profile_image}`)
+          .catch((err) =>
+            console.error("Failed to delete old profile picture:", err),
+          );
       }
 
       // Update user profile image filename
-      user.profile_image = req.file.filename;
+      user.profile_image = filename;
       await user.save();
 
       res.status(200).json({
         success: true,
         data: {
-          profile_image: req.file.filename,
+          profile_image: filename,
         },
         message: "Profile picture uploaded successfully",
       });
@@ -1099,16 +1115,7 @@ export const deleteProfileImage = async (req: Request, res: Response) => {
       });
     }
 
-    // Delete file from filesystem
-    const imagePath = path.join(
-      process.cwd(),
-      "uploads",
-      "profile-pictures",
-      user.profile_image,
-    );
-    if (fs.existsSync(imagePath)) {
-      fs.unlinkSync(imagePath);
-    }
+    await fileServer.deleteFile(`profile-pictures/${user.profile_image}`);
 
     // Update user record
     user.profile_image = null;

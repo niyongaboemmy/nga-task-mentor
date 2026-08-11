@@ -8,8 +8,7 @@
 
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
-import path from "path";
-import fs from "fs";
+import fileServer from "../utils/fileServer";
 import type { SubjectGrade } from "./reportCardGrader.service";
 import { scoreToLetterGrade } from "./reportCardGrader.service";
 
@@ -74,15 +73,9 @@ export function percentageToRemark(pct: number): string {
   return scoreToLetterGrade(pct).remark;
 }
 
-/** Resolve absolute path inside uploads/report-cards/ */
-export function resolveReportCardPath(filename: string): string {
-  return path.resolve(__dirname, "../../uploads/report-cards", filename);
-}
-
-/** Ensure the report-cards upload directory exists. */
-export function ensureUploadDir(): void {
-  const dir = path.resolve(__dirname, "../../uploads/report-cards");
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+/** The file-server path a report card PDF is stored under for a given uuid. */
+export function reportCardStoragePath(uuid: string): string {
+  return `report-cards/report-card-${uuid}.pdf`;
 }
 
 // ─── Table drawing helper ─────────────────────────────────────────────────────
@@ -428,13 +421,14 @@ export async function generateReportCardPdf(data: ReportCardPdfData): Promise<Bu
 }
 
 /**
- * Write a PDF buffer to the report-cards upload directory.
+ * Upload a PDF buffer to the shared file-server.
  * Returns the relative path (for storing in the DB).
  */
-export function savePdfToDisk(buffer: Buffer, uuid: string): string {
-  ensureUploadDir();
-  const filename = `report-card-${uuid}.pdf`;
-  const fullPath = resolveReportCardPath(filename);
-  fs.writeFileSync(fullPath, buffer);
-  return `report-cards/${filename}`;
+export async function saveReportCardPdf(
+  buffer: Buffer,
+  uuid: string,
+): Promise<string> {
+  const remotePath = reportCardStoragePath(uuid);
+  await fileServer.uploadFile(buffer, remotePath);
+  return remotePath;
 }

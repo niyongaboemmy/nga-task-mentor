@@ -15,6 +15,8 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { Sequelize } from "sequelize-typescript";
 import http from "http";
+import fs from "fs";
+import fileServer from "./utils/fileServer";
 import {
   sequelize as sequelizeInstance,
   testConnection,
@@ -118,30 +120,64 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// Serve static files from uploads directory with explicit CORS
-app.use(
-  "/uploads",
-  (req, res, next) => {
-    const origin = req.headers.origin;
-    if (origin) {
-      res.setHeader("Access-Control-Allow-Origin", origin);
-      res.setHeader("Access-Control-Allow-Credentials", "true");
-    } else {
-      res.setHeader("Access-Control-Allow-Origin", "*");
-    }
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
-    res.setHeader(
-      "Access-Control-Allow-Headers",
-      "Content-Type, Authorization, x-mis-token",
-    );
+// Proxy uploaded-file requests to the shared file-server, preserving the
+// exact /uploads/<subpath> URL shape every existing DB record and frontend
+// reference already uses (assignments/*, profile-pictures/*, report-cards/*)
+// -- files themselves moved off local disk, but nothing that already links
+// to them needed to change.
+app.get("/uploads/*", async (req, res) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-mis-token",
+  );
 
-    if (req.method === "OPTIONS") {
-      return res.status(200).end();
-    }
-    next();
-  },
-  express.static(path.join(__dirname, "../uploads")),
-);
+  const subpath = (req.params as Record<string, string>)[0];
+  try {
+    const found = await fileServer.streamTo(subpath, res);
+    if (found) return;
+  } catch (error) {
+    console.error("uploads proxy error:", error);
+    if (res.headersSent) return;
+  }
+
+  // Fall back to the old local uploads/ dir for files that predate this
+  // migration and were never copied over to the file-server. Every path
+  // this route ever sees keeps the exact same relative shape it always
+  // did (assignments/x, profile-pictures/x, report-cards/x), so the local
+  // fallback resolves the same way express.static used to.
+  const legacyPath = path.join(__dirname, "../uploads", subpath);
+  if (fs.existsSync(legacyPath) && fs.statSync(legacyPath).isFile()) {
+    return res.sendFile(legacyPath);
+  }
+
+  if (!res.headersSent) {
+    res.status(404).json({ success: false, message: "Not found" });
+  }
+});
+
+app.options("/uploads/*", (req, res) => {
+  const origin = req.headers.origin;
+  if (origin) {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+    res.setHeader("Access-Control-Allow-Credentials", "true");
+  } else {
+    res.setHeader("Access-Control-Allow-Origin", "*");
+  }
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD");
+  res.setHeader(
+    "Access-Control-Allow-Headers",
+    "Content-Type, Authorization, x-mis-token",
+  );
+  res.status(200).end();
+});
 
 // Test database connection and sync models
 const initializeDatabase = async (): Promise<void> => {
