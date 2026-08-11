@@ -121,7 +121,7 @@ jobs:
             VITE_SOCKET_PORT=5003
             VITE_SOCKET_URL=https://live.amashuri.com
             VITE_SSO_CLIENT_ID=taskmentor_app
-            VITE_MIS_LOGIN_URL=https://mis.amashuri.com/mis/login
+            VITE_MIS_LOGIN_URL=https://mis.amashuri.com/login
             EOF
 
             chmod 600 server/.env live-server/.env client/.env
