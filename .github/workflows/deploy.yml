@@ -97,7 +97,7 @@ jobs:
 
             SSO_CLIENT_ID=taskmentor_app
             SSO_CLIENT_SECRET="${SSO_CLIENT_SECRET}"
-            SSO_REDIRECT_URI=https://taskmentor.amashuri.com/taskmentor/sso/callback
+            SSO_REDIRECT_URI=https://taskmentor.amashuri.com/sso/callback
 
             JUDGE0_URL=https://judge0-ce.p.rapidapi.com
             JUDGE0_API_KEY="${JUDGE0_API_KEY}"

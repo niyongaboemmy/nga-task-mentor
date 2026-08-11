@@ -180,7 +180,7 @@ const Callback: React.FC = () => {
           {/* Logo */}
           <div className="flex justify-center mb-6">
             <img
-              src="/taskmentor/nga-logo.png"
+              src="/nga-logo.png"
               alt="NGA Logo"
               className="h-16 w-auto object-contain drop-shadow"
             />

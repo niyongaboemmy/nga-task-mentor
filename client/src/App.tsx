@@ -153,7 +153,7 @@ function AppContent() {
 
   return (
     <ErrorBoundary>
-      <Router basename="/taskmentor">
+      <Router basename="/">
         <div className="min-h-screen bg-background text-foreground">
           <Routes>
             {/* Public routes */}

@@ -11,7 +11,7 @@ const Login: React.FC = () => {
   const { sessionExpired } = useAuth();
 
   const handleSSOLogin = () => {
-    const base = (import.meta.env.BASE_URL || "/taskmentor").replace(/\/$/, "");
+    const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
     const redirectUri = window.location.origin + base + "/sso/callback";
     window.location.href = `${MIS_LOGIN_URL}?client_id=${SSO_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}`;
   };
@@ -104,7 +104,7 @@ const Login: React.FC = () => {
                   className="w-full flex items-center justify-center gap-3 py-4 px-6 text-base font-semibold rounded-full text-white bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 focus:outline-none focus:ring-4 focus:ring-blue-500/30 shadow-lg shadow-blue-500/25 transition-all duration-200 hover:scale-[1.02] active:scale-[0.98]"
                 >
                   <img
-                    src="/taskmentor/nga-logo.png"
+                    src="/nga-logo.png"
                     alt="NGA"
                     className="h-5 w-5 object-contain"
                   />
