@@ -11,16 +11,120 @@ jobs:
     steps:
       - name: Deploy over SSH
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DB_PASS: ${{ secrets.DB_PASS }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          SSO_CLIENT_SECRET: ${{ secrets.SSO_CLIENT_SECRET }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          JUDGE0_API_KEY: ${{ secrets.JUDGE0_API_KEY }}
+          CLOUDFLARE_TURN_TOKEN_ID: ${{ secrets.CLOUDFLARE_TURN_TOKEN_ID }}
+          CLOUDFLARE_TURN_API_TOKEN: ${{ secrets.CLOUDFLARE_TURN_API_TOKEN }}
+          SMTP_HOST: ${{ secrets.SMTP_HOST }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          envs: DB_PASS,JWT_SECRET,SSO_CLIENT_SECRET,OPENAI_API_KEY,GEMINI_API_KEY,JUDGE0_API_KEY,CLOUDFLARE_TURN_TOKEN_ID,CLOUDFLARE_TURN_API_TOKEN,SMTP_HOST,SMTP_USER,SMTP_PASS
           script: |
             set -e
             cd /opt/apps/nga-task-mentor
 
             git fetch origin main
             git reset --hard origin/main
+
+            # --- Generate .env files from GitHub Actions secrets ---
+            # Values are quoted so characters like '#' are not treated as
+            # comment delimiters by dotenv.
+
+            cat > server/.env <<EOF
+            NODE_ENV=production
+            PORT=5002
+            SOCKET_PORT=5003
+            API_PREFIX=/api/v1
+            FRONTEND_URL=https://taskmentor.amashuri.com
+
+            JWT_SECRET="${JWT_SECRET}"
+            JWT_EXPIRE=30d
+            JWT_COOKIE_EXPIRE=30
+
+            DB_HOST=localhost
+            DB_PORT=3306
+            DB_USER=taskmentor_app
+            DB_PASS="${DB_PASS}"
+            DB_NAME=taskmentor_dev
+            DB_DIALECT=mysql
+            DB_LOGGING=false
+            DB_POOL_MAX=5
+            DB_POOL_MIN=0
+            DB_POOL_ACQUIRE=30000
+            DB_POOL_IDLE=10000
+
+            UPLOAD_PATH=./uploads
+            MAX_FILE_SIZE=10485760
+            ALLOWED_FILE_TYPES=image/jpeg,image/png,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain,application/zip,application/x-rar-compressed,application/x-7z-compressed
+
+            SMTP_HOST="${SMTP_HOST}"
+            SMTP_PORT=587
+            SMTP_SECURE=false
+            SMTP_USER="${SMTP_USER}"
+            SMTP_PASS="${SMTP_PASS}"
+            FROM_EMAIL=noreply@amashuri.com
+            FROM_NAME='TaskMentor Team'
+
+            RATE_LIMIT_WINDOW_MS=15*60*1000
+            RATE_LIMIT_MAX=100
+
+            CORS_ORIGIN=https://taskmentor.amashuri.com
+            CORS_METHODS=GET,POST,PUT,DELETE,OPTIONS
+            CORS_CREDENTIALS=true
+
+            NGA_MIS_BASE_URL=https://api.amashuri.com
+
+            LOG_LEVEL=info
+            LOG_TO_FILE=true
+            LOG_FILE_PATH=./logs/app.log
+
+            SECURITY_HEADERS_ENABLED=true
+            CSP_ENABLED=true
+            HSTS_ENABLED=true
+            XSS_PROTECTION_ENABLED=true
+            NOSNIFF_ENABLED=true
+            FRAME_DENY_ENABLED=true
+
+            SSO_CLIENT_ID=taskmentor_app
+            SSO_CLIENT_SECRET="${SSO_CLIENT_SECRET}"
+            SSO_REDIRECT_URI=https://taskmentor.amashuri.com/taskmentor/sso/callback
+
+            JUDGE0_URL=https://judge0-ce.p.rapidapi.com
+            JUDGE0_API_KEY="${JUDGE0_API_KEY}"
+            JUDGE0_RAPIDAPI_HOST=judge0-ce.p.rapidapi.com
+
+            OPENAI_API_KEY="${OPENAI_API_KEY}"
+            GEMINI_API_KEY="${GEMINI_API_KEY}"
+            EOF
+
+            cat > live-server/.env <<EOF
+            PORT=5003
+            SOCKET_PORT=5003
+            NODE_ENV=production
+            CORS_ORIGIN=https://taskmentor.amashuri.com,https://amashuri.com
+            MAX_PARTICIPANTS_PER_ROOM=100
+            CLOUDFLARE_TURN_TOKEN_ID="${CLOUDFLARE_TURN_TOKEN_ID}"
+            CLOUDFLARE_TURN_API_TOKEN="${CLOUDFLARE_TURN_API_TOKEN}"
+            EOF
+
+            cat > client/.env <<EOF
+            VITE_API_BASE_URL=https://taskmentor-api.amashuri.com
+            VITE_SOCKET_PORT=5003
+            VITE_SOCKET_URL=https://live.amashuri.com
+            VITE_SSO_CLIENT_ID=taskmentor_app
+            VITE_MIS_LOGIN_URL=https://mis.amashuri.com/mis/login
+            EOF
+
+            chmod 600 server/.env live-server/.env client/.env
 
             cd server
             npm ci
