@@ -49,6 +49,7 @@ import academicsRoutes from "./routes/academics";
 import reportCardRoutes from "./routes/reportCards";
 import manualAssessmentRoutes from "./routes/manualAssessments";
 import databaseRoutes from "./routes/database.routes";
+import aiService from "./services/ai/aiService";
 import { verifyReportCard } from "./controllers/reportCard.controller";
 
 import cookieParser from "cookie-parser";
@@ -273,9 +274,11 @@ const startServer = async (): Promise<void> => {
 
     // Health check endpoint
     app.get("/health", (req: Request, res: Response) => {
-      res
-        .status(200)
-        .json({ status: "ok", timestamp: new Date().toISOString() });
+      res.status(200).json({
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        aiProviders: aiService.getProviderStatus(),
+      });
     });
 
     // 404 handler
