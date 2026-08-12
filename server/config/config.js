@@ -1,4 +1,7 @@
-require("dotenv").config();
+// Resolve .env relative to this file, not process.cwd() -- same fix as
+// src/index.ts, applies here too since sequelize-cli loads this file
+// directly (bypassing index.ts's own dotenv setup entirely).
+require("dotenv").config({ path: require("path").resolve(__dirname, "../.env") });
 
 module.exports = {
   development: {
