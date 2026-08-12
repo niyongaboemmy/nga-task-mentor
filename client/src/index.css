@@ -4,11 +4,17 @@
 
 @layer base {
   html {
-    font-size: 14px; /* scale down all rem-based Tailwind utilities globally */
+    font-size: 15px; /* matches MIS's global rem-based type scale */
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  }
+
+  @media (min-width: 1920px) {
+    html {
+      font-size: 14.5px;
+    }
   }
 
   body {

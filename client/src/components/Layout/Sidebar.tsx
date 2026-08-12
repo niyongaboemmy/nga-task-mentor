@@ -50,7 +50,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onNavigate }
       {groups.map(({ group, items }) => (
         <div key={group}>
           {!collapsed && (
-            <h3 className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+            <h3 className="px-3 mb-2 text-xs font-semibold uppercase tracking-wider text-text-secondary-light/70 dark:text-text-secondary-dark/70">
               {group}
             </h3>
           )}
@@ -71,7 +71,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onNavigate }
                   className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                     isCurrent
                       ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
-                      : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-blue-700 dark:hover:text-blue-300"
+                      : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark hover:text-blue-700 dark:hover:text-blue-300"
                   } ${collapsed ? "justify-center" : ""}`}
                 >
                   <motion.span whileHover={{ x: collapsed ? 0 : 2 }} className="flex items-center gap-3">
@@ -92,7 +92,7 @@ const MobileAcademicPeriodFooter: React.FC = () => {
   const { user } = useAuth();
   if (!user?.currentAcademicYear || !user?.currentAcademicTerm) return null;
   return (
-    <div className="shrink-0 px-4 py-3 border-t border-gray-200 dark:border-gray-700">
+    <div className="shrink-0 px-4 py-3 border-t border-border-light dark:border-border-dark">
       <AcademicPeriodSwitcher variant="full" />
     </div>
   );
@@ -128,12 +128,12 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
     <>
       {/* Desktop persistent sidebar */}
       <aside
-        className={`hidden lg:flex flex-col shrink-0 h-screen sticky top-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-r border-gray-200/50 dark:border-gray-700/50 transition-all duration-300 ${
+        className={`hidden lg:flex flex-col shrink-0 h-screen sticky top-0 bg-white/90 dark:bg-surface-dark/90 backdrop-blur-lg border-r border-border-light/50 dark:border-border-dark/50 transition-all duration-300 ${
           collapsed ? "w-20" : "w-64"
         }`}
       >
         <div
-          className={`flex items-center h-16 shrink-0 border-b border-gray-200/50 dark:border-gray-700/50 ${
+          className={`flex items-center h-16 shrink-0 border-b border-border-light/50 dark:border-border-dark/50 ${
             collapsed ? "justify-center px-2" : "justify-between px-4"
           }`}
         >
@@ -144,7 +144,7 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
           )}
           <button
             onClick={toggleCollapsed}
-            className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+            className="p-2 rounded-xl text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             {collapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
@@ -170,18 +170,18 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}
-              className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] flex flex-col bg-white dark:bg-gray-900 shadow-2xl lg:hidden"
+              className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] flex flex-col bg-white dark:bg-gray-800 shadow-2xl lg:hidden"
               role="dialog"
               aria-modal="true"
               aria-label="Navigation menu"
             >
-              <div className="flex items-center justify-between h-16 px-4 shrink-0 border-b border-gray-200 dark:border-gray-700">
+              <div className="flex items-center justify-between h-16 px-4 shrink-0 border-b border-border-light dark:border-border-dark">
                 <Link to="/dashboard" onClick={onCloseMobile} aria-label="Dashboard">
                   <Logo size="medium" />
                 </Link>
                 <button
                   onClick={onCloseMobile}
-                  className="p-2 rounded-xl text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800"
+                  className="p-2 rounded-xl text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark"
                   aria-label="Close menu"
                 >
                   <X className="w-5 h-5" />

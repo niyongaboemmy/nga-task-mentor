@@ -23,7 +23,7 @@ interface CardContentProps {
 export const Card: React.FC<CardProps> = ({ children, className = "" }) => {
   return (
     <div
-      className={`bg-white dark:bg-gray-900 ${
+      className={`bg-card-light dark:bg-card-dark ${
         className ? "" : "rounded-3xl"
       } ${className}`}
     >
@@ -38,7 +38,7 @@ export const CardHeader: React.FC<CardHeaderProps> = ({
 }) => {
   return (
     <div
-      className={`px-6 py-4 border-b border-gray-200 dark:border-gray-800/70 ${className}`}
+      className={`px-6 py-4 border-b border-border-light dark:border-gray-700/30 ${className}`}
     >
       {children}
     </div>
@@ -51,7 +51,7 @@ export const CardTitle: React.FC<CardTitleProps> = ({
 }) => {
   return (
     <h3
-      className={`text-lg font-semibold text-gray-900 dark:text-white ${className}`}
+      className={`text-lg font-semibold text-text-primary-light dark:text-text-primary-dark ${className}`}
     >
       {children}
     </h3>

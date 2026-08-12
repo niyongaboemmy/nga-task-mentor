@@ -117,7 +117,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: -20, x: -20 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="absolute left-0 mt-3 w-[400px] md:w-[550px] bg-white/95 dark:bg-slate-900/95 backdrop-blur-xl rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/20 dark:border-slate-700/50 overflow-hidden z-[100]"
+          className="absolute left-0 mt-3 w-[400px] md:w-[550px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/20 dark:border-gray-700/50 overflow-hidden z-[100]"
         >
           {/* Header Section */}
           <div className="p-6 pb-0">
@@ -127,17 +127,17 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                   <LayoutGrid className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-slate-900 dark:text-white leading-tight mb-1">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white leading-tight mb-1">
                     Apps
                   </h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400 font-medium">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
                     NGA Central MIS Ecosystem
                   </p>
                 </div>
               </div>
               <button
                 onClick={onClose}
-                className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-all duration-200 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -146,7 +146,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
             {/* Search Bar */}
             <div className="relative group mb-6">
               <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                <Search className="w-4 h-4 text-slate-400 group-focus-within:text-blue-500 transition-colors" />
+                <Search className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
               </div>
               <input
                 type="text"
@@ -154,13 +154,13 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 autoFocus
-                className="w-full pl-11 pr-4 py-3.5 bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-500"
+                className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
               />
             </div>
           </div>
 
           {/* Grid Section */}
-          <div className="px-6 pb-6 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200 dark:scrollbar-thumb-slate-700">
+          <div className="px-6 pb-6 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-700">
             <div className="grid grid-cols-4 gap-0">
               {/* Static MIS Redirect - Always visible unless searching specifically for something else */}
               {(!searchQuery ||
@@ -175,14 +175,14 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                   className="group relative flex flex-col items-center p-3 pt-6 rounded-[1.5rem] hover:bg-orange-50 dark:hover:bg-orange-600/10 transition-all duration-300 text-center"
                 >
                   <div className="relative mb-3">
-                    <div className="w-16 h-16 rounded-[1.25rem] bg-white dark:bg-slate-800 shadow-[0_8px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.3)] group-hover:shadow-[0_12px_30px_rgba(249,115,22,0.15)] dark:group-hover:shadow-[0_12px_30px_rgba(249,115,22,0.2)] group-hover:-translate-y-1 group-hover:scale-105 flex items-center justify-center border border-slate-100 dark:border-slate-700/50 group-hover:border-orange-200 dark:group-hover:border-orange-500/30 transition-all duration-300 overflow-hidden">
+                    <div className="w-16 h-16 rounded-[1.25rem] bg-white dark:bg-gray-800 shadow-[0_8px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.3)] group-hover:shadow-[0_12px_30px_rgba(249,115,22,0.15)] dark:group-hover:shadow-[0_12px_30px_rgba(249,115,22,0.2)] group-hover:-trangray-y-1 group-hover:scale-105 flex items-center justify-center border border-gray-100 dark:border-gray-700/50 group-hover:border-orange-200 dark:group-hover:border-orange-500/30 transition-all duration-300 overflow-hidden">
                       <LayoutGrid className="w-8 h-8 text-orange-500 opacity-80" />
                     </div>
                     <div className="absolute -top-1 -right-1 bg-orange-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg">
                       <ArrowRight className="w-2.5 h-2.5" />
                     </div>
                   </div>
-                  <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 truncate w-full px-1">
+                  <span className="text-[13px] font-bold text-gray-700 dark:text-gray-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 truncate w-full px-1">
                     Back to MIS
                   </span>
                   <div className="mt-1 flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -204,7 +204,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                   className="group relative flex flex-col items-center p-3 pt-6 rounded-[1.5rem] hover:bg-blue-50 dark:hover:bg-blue-600/10 transition-all duration-300 text-center"
                 >
                   <div className="relative mb-3">
-                    <div className="w-16 h-16 rounded-[1.25rem] bg-white dark:bg-slate-800 shadow-[0_8px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.3)] group-hover:shadow-[0_12px_30px_rgba(37,99,235,0.15)] dark:group-hover:shadow-[0_12px_30px_rgba(37,99,235,0.2)] group-hover:-translate-y-1 group-hover:scale-105 flex items-center justify-center border border-slate-100 dark:border-slate-700/50 group-hover:border-blue-200 dark:group-hover:border-blue-500/30 transition-all duration-300 overflow-hidden">
+                    <div className="w-16 h-16 rounded-[1.25rem] bg-white dark:bg-gray-800 shadow-[0_8px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.3)] group-hover:shadow-[0_12px_30px_rgba(37,99,235,0.15)] dark:group-hover:shadow-[0_12px_30px_rgba(37,99,235,0.2)] group-hover:-trangray-y-1 group-hover:scale-105 flex items-center justify-center border border-gray-100 dark:border-gray-700/50 group-hover:border-blue-200 dark:group-hover:border-blue-500/30 transition-all duration-300 overflow-hidden">
                       {system.icon_url ? (
                         <img
                           src={system.icon_url}
@@ -220,7 +220,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                       <ArrowRight className="w-2.5 h-2.5" />
                     </div>
                   </div>
-                  <span className="text-[13px] font-bold text-slate-700 dark:text-slate-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate w-full px-1">
+                  <span className="text-[13px] font-bold text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate w-full px-1">
                     {system.name}
                   </span>
                   <div className="mt-1 flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -238,10 +238,10 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
               searchQuery &&
               !"back to mis".includes(searchQuery.toLowerCase()) && (
                 <div className="text-center py-12">
-                  <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Search className="w-8 h-8 text-slate-300 dark:text-slate-600" />
+                  <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Search className="w-8 h-8 text-gray-300 dark:text-gray-600" />
                   </div>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">
+                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
                     No systems found matching "{searchQuery}"
                   </p>
                 </div>
