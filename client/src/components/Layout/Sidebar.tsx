@@ -2,7 +2,6 @@ import React, { useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
-import Logo from "../Logo";
 import AcademicPeriodSwitcher from "./AcademicPeriodSwitcher";
 import { useAuth } from "../../contexts/AuthContext";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -126,21 +125,23 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
 
   return (
     <>
-      {/* Desktop persistent sidebar */}
+      {/* Desktop persistent sidebar — sits below the fixed top bar, matching
+          MIS's Sidebar (no logo of its own; the top bar owns branding). */}
       <aside
-        className={`hidden lg:flex flex-col shrink-0 h-screen sticky top-0 bg-white/90 dark:bg-surface-dark/90 backdrop-blur-lg border-r border-border-light/50 dark:border-border-dark/50 transition-all duration-300 ${
+        className={`hidden lg:flex flex-col shrink-0 sticky top-16 bg-white/90 dark:bg-surface-dark/90 backdrop-blur-lg border-r border-border-light/50 dark:border-border-dark/50 transition-all duration-300 ${
           collapsed ? "w-20" : "w-64"
         }`}
+        style={{ height: "calc(100vh - 4rem)" }}
       >
         <div
-          className={`flex items-center h-16 shrink-0 border-b border-border-light/50 dark:border-border-dark/50 ${
+          className={`flex items-center h-14 shrink-0 border-b border-border-light/50 dark:border-border-dark/50 ${
             collapsed ? "justify-center px-2" : "justify-between px-4"
           }`}
         >
           {!collapsed && (
-            <Link to="/dashboard" aria-label="Dashboard">
-              <Logo size="medium" />
-            </Link>
+            <span className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
+              Menu
+            </span>
           )}
           <button
             onClick={toggleCollapsed}
@@ -153,7 +154,8 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
         <SidebarContent collapsed={collapsed} />
       </aside>
 
-      {/* Mobile/tablet overlay drawer */}
+      {/* Mobile/tablet overlay drawer — starts below the fixed top bar so
+          the logo/waffle menu stay visible above it, matching MIS. */}
       <AnimatePresence>
         {mobileOpen && (
           <>
@@ -170,15 +172,16 @@ const Sidebar: React.FC<SidebarProps> = ({ mobileOpen, onCloseMobile }) => {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}
-              className="fixed inset-y-0 left-0 z-50 w-72 max-w-[85vw] flex flex-col bg-white dark:bg-gray-800 shadow-2xl lg:hidden"
+              className="fixed top-16 left-0 z-50 w-72 max-w-[85vw] flex flex-col bg-white dark:bg-gray-800 shadow-2xl lg:hidden"
+              style={{ height: "calc(100vh - 4rem)" }}
               role="dialog"
               aria-modal="true"
               aria-label="Navigation menu"
             >
-              <div className="flex items-center justify-between h-16 px-4 shrink-0 border-b border-border-light dark:border-border-dark">
-                <Link to="/dashboard" onClick={onCloseMobile} aria-label="Dashboard">
-                  <Logo size="medium" />
-                </Link>
+              <div className="flex items-center justify-between h-14 px-4 shrink-0 border-b border-border-light dark:border-border-dark">
+                <span className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
+                  Menu
+                </span>
                 <button
                   onClick={onCloseMobile}
                   className="p-2 rounded-xl text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark"

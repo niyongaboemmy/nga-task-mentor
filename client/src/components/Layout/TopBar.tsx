@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Menu, LayoutGrid, LogOut, User as UserIcon } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
@@ -7,22 +7,8 @@ import { getProfileImageUrl } from "../../utils/imageUrl";
 import { ThemeToggle } from "../ThemeToggle";
 import SystemsMenu from "./SystemsMenu";
 import AcademicPeriodSwitcher from "./AcademicPeriodSwitcher";
-import { appRoutes } from "../../routes/routeConfig";
+import Logo from "../Logo";
 import type { System } from "../../types/user.types";
-
-function useBreadcrumbLabel(): string {
-  const location = useLocation();
-  return useMemo(() => {
-    // Prefer an exact/prefix match against a navItem-bearing route so the
-    // breadcrumb always reads like the sidebar item the user is "inside".
-    const match = appRoutes.find(
-      (r) => r.navItem && location.pathname.startsWith(r.path.split(":")[0]),
-    );
-    if (match?.navItem) return match.navItem.label;
-    if (location.pathname.startsWith("/profile")) return "Profile";
-    return "";
-  }, [location.pathname]);
-}
 
 interface TopBarProps {
   onOpenMobileMenu: () => void;
@@ -33,7 +19,6 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
   const [isSystemsMenuOpen, setIsSystemsMenuOpen] = React.useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
-  const breadcrumb = useBreadcrumbLabel();
 
   useEffect(() => {
     if (!isUserMenuOpen) return;
@@ -48,32 +33,11 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
 
   return (
     <header
-      className="sticky top-0 z-30 h-16 shrink-0 flex items-center justify-between gap-3 px-4 sm:px-6 bg-white/80 dark:bg-gray-800/50 backdrop-blur-md border-b border-border-light/50 dark:border-gray-800/50"
+      className="fixed top-0 left-0 right-0 z-50 h-16 flex items-center justify-between gap-3 px-4 sm:px-6 bg-white/80 dark:bg-gray-800/50 backdrop-blur-md border-b border-border-light/50 dark:border-gray-800/50"
       role="banner"
     >
-      <div className="flex items-center gap-3 min-w-0">
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={onOpenMobileMenu}
-          className="lg:hidden p-2 -ml-2 rounded-xl text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark"
-          aria-label="Open navigation menu"
-        >
-          <Menu className="w-5 h-5" />
-        </motion.button>
-        {breadcrumb && (
-          <h1 className="truncate text-sm sm:text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
-            {breadcrumb}
-          </h1>
-        )}
-      </div>
-
-      <div className="flex items-center gap-1.5 sm:gap-3">
-        {user?.currentAcademicYear && user?.currentAcademicTerm && (
-          <div className="hidden md:block">
-            <AcademicPeriodSwitcher />
-          </div>
-        )}
-
+      {/* Systems waffle + Logo — matches MIS's Navbar left cluster */}
+      <div className="flex items-center gap-1 sm:gap-2 min-w-0">
         <div className="relative">
           <motion.button
             whileHover={{ scale: 1.05 }}
@@ -92,8 +56,26 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
             )}
           />
         </div>
+        <Logo to="/dashboard" size="medium" />
+      </div>
+
+      <div className="flex items-center gap-1.5 sm:gap-3">
+        {user?.currentAcademicYear && user?.currentAcademicTerm && (
+          <div className="hidden md:block">
+            <AcademicPeriodSwitcher />
+          </div>
+        )}
 
         <ThemeToggle />
+
+        <motion.button
+          whileTap={{ scale: 0.9 }}
+          onClick={onOpenMobileMenu}
+          className="lg:hidden p-2 rounded-xl text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark"
+          aria-label="Open navigation menu"
+        >
+          <Menu className="w-5 h-5" />
+        </motion.button>
 
         <div
           ref={userMenuRef}
