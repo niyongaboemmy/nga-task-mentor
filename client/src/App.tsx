@@ -553,7 +553,7 @@ function AppContent() {
               path="/admin/database-management"
               element={
                 <ProtectedRoute roles={["admin"]}>
-                  <Layout>
+                  <Layout fullWidth>
                     <DatabaseManagementPage />
                   </Layout>
                 </ProtectedRoute>

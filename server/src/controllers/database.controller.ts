@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { QueryTypes } from "sequelize";
 import { sequelize } from "../config/database";
 import { DatabaseQueryLog, User } from "../models";
+import aiService from "../services/ai/aiService";
 
 const READ_STATEMENTS = ["SELECT", "SHOW", "DESCRIBE", "DESC", "EXPLAIN"];
 const WRITE_STATEMENTS = [
@@ -656,6 +657,57 @@ export const exportTable = async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Export table error:", error);
     res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Draft a SQL query from a natural-language request (never auto-run)
+// @route   POST /api/database/query/ai-generate
+// @access  Private/Admin (step-up required)
+export const generateSqlWithAI = async (req: Request, res: Response) => {
+  try {
+    const { prompt, table } = req.body || {};
+    if (!prompt || typeof prompt !== "string" || !prompt.trim()) {
+      return res
+        .status(400)
+        .json({ success: false, message: "Describe the query you want in plain language" });
+    }
+
+    const tableRows = await sequelize.query<{ TABLE_NAME: string }>(
+      `SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME`,
+      { type: QueryTypes.SELECT },
+    );
+    const tableNames = tableRows.map((r) => r.TABLE_NAME);
+
+    let tableColumns: string[] | undefined;
+    if (table && tableNames.includes(table)) {
+      tableColumns = await getTableColumns(table);
+    }
+
+    const { sql, explanation, providerUsed } = await aiService.generateSqlQuery(
+      prompt.trim(),
+      { tableNames, tableColumns },
+    );
+
+    if (!sql) {
+      return res.status(400).json({
+        success: false,
+        message: "The AI could not generate a query for that request. Try rephrasing it.",
+      });
+    }
+
+    const cleanSql = sql
+      .replace(/^```sql\s*/i, "")
+      .replace(/```$/, "")
+      .replace(/;\s*$/, "")
+      .trim();
+
+    res.status(200).json({
+      success: true,
+      data: { sql: cleanSql, explanation: explanation || null, providerUsed },
+    });
+  } catch (error: any) {
+    console.error("Generate SQL with AI error:", error);
+    res.status(500).json({ success: false, message: error.message || "Server error" });
   }
 };
 

@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
+import { Sparkles, AlertTriangle } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import {
   confirmDbAccess,
@@ -15,12 +16,45 @@ import {
   runQuery,
   getQueryHistory,
   exportTable,
+  generateSqlWithAI,
   type DbTableSummary,
   type DbTableStructure,
   type DbTableDataResult,
   type DbQueryResult,
   type DbQueryLogEntry,
 } from "../services/databaseApi";
+
+const Skeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
+  <div className={`animate-pulse bg-gray-200 dark:bg-gray-800 rounded ${className}`} />
+);
+
+const DataTableSkeleton: React.FC<{ cols?: number; rowsCount?: number }> = ({
+  cols = 5,
+  rowsCount = 8,
+}) => (
+  <div className="space-y-2">
+    <div className="flex gap-3">
+      {Array.from({ length: cols }).map((_, i) => (
+        <Skeleton key={i} className="h-4 flex-1 min-w-[100px]" />
+      ))}
+    </div>
+    {Array.from({ length: rowsCount }).map((_, r) => (
+      <div key={r} className="flex gap-3">
+        {Array.from({ length: cols }).map((_, i) => (
+          <Skeleton key={i} className="h-6 flex-1 min-w-[100px]" />
+        ))}
+      </div>
+    ))}
+  </div>
+);
+
+const TableListSkeleton: React.FC = () => (
+  <div className="space-y-2">
+    {Array.from({ length: 8 }).map((_, i) => (
+      <Skeleton key={i} className="h-10 w-full rounded-xl" />
+    ))}
+  </div>
+);
 
 const TOKEN_KEY = "dbAccessToken";
 const EXPIRY_KEY = "dbAccessTokenExpiry";
@@ -89,6 +123,13 @@ const DatabaseManagementPage: React.FC = () => {
   const [queryResult, setQueryResult] = useState<DbQueryResult | null>(null);
   const [queryError, setQueryError] = useState<string | null>(null);
   const [pendingConfirmType, setPendingConfirmType] = useState<string | null>(
+    null,
+  );
+
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState("");
+  const [aiGenerating, setAiGenerating] = useState(false);
+  const [aiNote, setAiNote] = useState<{ explanation: string | null; providerUsed: string } | null>(
     null,
   );
 
@@ -360,6 +401,22 @@ const DatabaseManagementPage: React.FC = () => {
     executeQuery(false);
   };
 
+  const handleAiGenerate = async () => {
+    if (!aiPrompt.trim()) return;
+    setAiGenerating(true);
+    setAiNote(null);
+    try {
+      const result = await generateSqlWithAI(aiPrompt.trim(), selectedTable || undefined);
+      setSqlQuery(result.sql);
+      setAiNote({ explanation: result.explanation, providerUsed: result.providerUsed });
+      toast.success("SQL query drafted — review before running.");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "AI could not generate a query.");
+    } finally {
+      setAiGenerating(false);
+    }
+  };
+
   // ── Query history ─────────────────────────────────────────────────────
 
   const fetchHistory = useCallback(async () => {
@@ -504,9 +561,7 @@ const DatabaseManagementPage: React.FC = () => {
               className="w-full px-3 py-2 mb-3 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {tablesLoading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600" />
-              </div>
+              <TableListSkeleton />
             ) : (
               <ul className="space-y-1 max-h-[60vh] overflow-y-auto">
                 {filteredTables.map((t) => (
@@ -590,13 +645,12 @@ const DatabaseManagementPage: React.FC = () => {
                       </div>
 
                       {rowsLoading ? (
-                        <div className="flex justify-center py-16">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-                        </div>
+                        <DataTableSkeleton cols={Math.max(4, columnNames.length || 5)} />
                       ) : (
-                        <div className="overflow-x-auto">
+                        <div className="overflow-x-auto border border-gray-100 dark:border-gray-800 rounded-xl">
+                        <div className="max-h-[55vh] overflow-y-auto">
                           <table className="min-w-full text-sm">
-                            <thead>
+                            <thead className="sticky top-0 bg-white dark:bg-gray-900 z-10">
                               <tr className="border-b border-gray-200 dark:border-gray-800">
                                 {columnNames.map((col) => (
                                   <th
@@ -693,6 +747,7 @@ const DatabaseManagementPage: React.FC = () => {
                             </tbody>
                           </table>
                         </div>
+                        </div>
                       )}
 
                       {/* Pagination */}
@@ -723,9 +778,7 @@ const DatabaseManagementPage: React.FC = () => {
                   {tableTab === "structure" && (
                     <div>
                       {structureLoading ? (
-                        <div className="flex justify-center py-16">
-                          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
-                        </div>
+                        <DataTableSkeleton cols={6} rowsCount={6} />
                       ) : structure ? (
                         <div className="space-y-6">
                           <div>
@@ -863,6 +916,58 @@ const DatabaseManagementPage: React.FC = () => {
 
       {topTab === "query" && (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
+            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+              Query editor
+            </span>
+            <button
+              onClick={() => setAiPanelOpen((o) => !o)}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                aiPanelOpen
+                  ? "bg-blue-600 text-white"
+                  : "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
+              }`}
+            >
+              <Sparkles className="w-3.5 h-3.5" />
+              Ask AI to write SQL
+            </button>
+          </div>
+
+          {aiPanelOpen && (
+            <div className="mb-4 p-3 space-y-2 rounded-xl bg-blue-50/40 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/40">
+              <textarea
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                placeholder={
+                  selectedTable
+                    ? `Describe the query, e.g. "show the 10 most recent rows in ${selectedTable}"`
+                    : 'Describe the query, e.g. "list the 10 students with the highest average grade this term"'
+                }
+                rows={2}
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                  Drafts a query for you to review — it never runs automatically.
+                </span>
+                <button
+                  onClick={handleAiGenerate}
+                  disabled={aiGenerating || !aiPrompt.trim()}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  {aiGenerating ? "Generating..." : "Generate SQL"}
+                </button>
+              </div>
+              {aiNote && (
+                <p className="text-[11px] text-blue-700 dark:text-blue-300 border-t border-blue-100 dark:border-blue-900/40 pt-2">
+                  {aiNote.explanation || "Query drafted."}{" "}
+                  <span className="text-gray-400">(via {aiNote.providerUsed})</span>
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 mb-4">
             <CodeMirror
               value={sqlQuery}
@@ -897,7 +1002,13 @@ const DatabaseManagementPage: React.FC = () => {
             </div>
           )}
 
-          {queryResult && (
+          {queryRunning && (
+            <div className="border border-gray-100 dark:border-gray-800 rounded-xl p-3">
+              <DataTableSkeleton cols={5} rowsCount={4} />
+            </div>
+          )}
+
+          {!queryRunning && queryResult && (
             <div>
               <div className="flex items-center justify-between mb-3 text-xs text-gray-500 dark:text-gray-400">
                 <span>
@@ -906,9 +1017,10 @@ const DatabaseManagementPage: React.FC = () => {
                 </span>
               </div>
               {queryResult.rows.length > 0 && (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto border border-gray-100 dark:border-gray-800 rounded-xl">
+                <div className="max-h-[45vh] overflow-y-auto">
                   <table className="min-w-full text-sm">
-                    <thead>
+                    <thead className="sticky top-0 bg-white dark:bg-gray-900 z-10">
                       <tr className="border-b border-gray-200 dark:border-gray-800">
                         {Object.keys(queryResult.rows[0]).map((col) => (
                           <th
@@ -939,6 +1051,7 @@ const DatabaseManagementPage: React.FC = () => {
                     </tbody>
                   </table>
                 </div>
+                </div>
               )}
             </div>
           )}
@@ -948,13 +1061,14 @@ const DatabaseManagementPage: React.FC = () => {
       {topTab === "history" && (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
           {historyLoading ? (
-            <div className="flex justify-center py-16">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600" />
+            <div className="p-4">
+              <DataTableSkeleton cols={5} />
             </div>
           ) : (
             <div className="overflow-x-auto">
+            <div className="max-h-[60vh] overflow-y-auto">
               <table className="min-w-full text-sm">
-                <thead>
+                <thead className="sticky top-0 bg-white dark:bg-gray-900 z-10">
                   <tr className="border-b border-gray-200 dark:border-gray-800">
                     <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">
                       User
@@ -1019,6 +1133,7 @@ const DatabaseManagementPage: React.FC = () => {
                   )}
                 </tbody>
               </table>
+            </div>
             </div>
           )}
           <div className="px-4 py-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">

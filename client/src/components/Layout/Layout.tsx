@@ -10,7 +10,10 @@ import SystemsMenu from "./SystemsMenu";
 import AcademicPeriodSwitcher from "./AcademicPeriodSwitcher";
 import type { System } from "../../types/user.types";
 
-const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const Layout: React.FC<{ children: React.ReactNode; fullWidth?: boolean }> = ({
+  children,
+  fullWidth = false,
+}) => {
   const { user, logoutUser, academicPeriodVersion } = useAuth();
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -556,7 +559,11 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.3, delay: 0.1 }}
-        className="max-w-8xl mx-auto py-3 md:py-4 px-4 sm:px-6 lg:px-8"
+        className={
+          fullWidth
+            ? "w-full py-3 md:py-4 px-4 sm:px-6 lg:px-8"
+            : "max-w-8xl mx-auto py-3 md:py-4 px-4 sm:px-6 lg:px-8"
+        }
       >
         {/* Remounting on academicPeriodVersion forces every page under Layout
             to re-run its data-fetching effects against the newly selected

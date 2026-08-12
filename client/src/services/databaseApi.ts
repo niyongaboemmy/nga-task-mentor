@@ -156,6 +156,24 @@ export const runQuery = async (
   return response.data.data;
 };
 
+export interface AiSqlResult {
+  sql: string;
+  explanation: string | null;
+  providerUsed: string;
+}
+
+export const generateSqlWithAI = async (
+  prompt: string,
+  table?: string,
+): Promise<AiSqlResult> => {
+  const response = await api.post(
+    "/database/query/ai-generate",
+    { prompt, table },
+    { headers: dbAccessHeaders() },
+  );
+  return response.data.data;
+};
+
 export const getQueryHistory = async (
   params: { page?: number; limit?: number } = {},
 ): Promise<{

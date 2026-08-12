@@ -8,6 +8,8 @@ import {
   AITestCase,
   AIGenerateFromDocumentParams,
   AIGeneratedQuestion,
+  AISqlQueryContext,
+  AISqlQueryResult,
 } from "../types";
 
 export class MockProvider implements AiProvider {
@@ -337,5 +339,17 @@ export class MockProvider implements AiProvider {
 
     const typeData = dataMap[type] || dataMap["single_choice"];
     return { ...base, ...typeData };
+  }
+
+  async generateSqlQuery(
+    prompt: string,
+    context: AISqlQueryContext,
+  ): Promise<AISqlQueryResult> {
+    console.log("[AI] MockProvider: generateSqlQuery");
+    const table = context.tableNames[0] || "users";
+    return {
+      sql: `SELECT * FROM \`${table}\` LIMIT 10`,
+      explanation: `Mock AI response (no AI provider configured) — showing the first 10 rows of "${table}" as a placeholder for: "${prompt}"`,
+    };
   }
 }

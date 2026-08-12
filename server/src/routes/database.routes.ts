@@ -10,6 +10,7 @@ import {
   getQueryHistory,
   exportTable,
   getServerStatus,
+  generateSqlWithAI,
 } from "../controllers/database.controller";
 import { protect, authorize, requireDbStepUp } from "../middleware/auth";
 
@@ -55,6 +56,12 @@ router.get(
   exportTable,
 );
 router.post("/query", authorize("admin"), requireDbStepUp, runQuery);
+router.post(
+  "/query/ai-generate",
+  authorize("admin"),
+  requireDbStepUp,
+  generateSqlWithAI,
+);
 router.get(
   "/query/history",
   authorize("admin"),

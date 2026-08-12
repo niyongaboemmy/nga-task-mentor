@@ -9,6 +9,8 @@ import {
   AITestCase,
   AIGenerateFromDocumentParams,
   AIGeneratedQuestion,
+  AISqlQueryContext,
+  AISqlQueryResult,
 } from "../types";
 import { buildGenerateFromDocumentPrompt } from "../prompts/generateFromDocumentPrompt";
 
@@ -268,6 +270,36 @@ JSON format: {"summary": "string", "keyPoints": ["string"], "vocabulary": ["stri
       ? result
       : result.questions || result.data || [];
     return this.normalizeGeneratedQuestions(arr, params.difficulty);
+  }
+
+  async generateSqlQuery(
+    prompt: string,
+    context: AISqlQueryContext,
+  ): Promise<AISqlQueryResult> {
+    const structureLine = context.tableColumns?.length
+      ? `\nThe admin is currently viewing a table with these columns: ${context.tableColumns.join(", ")}.`
+      : "";
+    const fullPrompt = `You are a senior MySQL database administrator helping write a single SQL query for a
+school platform database (MySQL 8). Respond ONLY with valid JSON, no markdown, no extra text.
+
+Available tables: ${context.tableNames.join(", ")}${structureLine}
+
+The admin's request, in their own words:
+"""
+${prompt}
+"""
+
+Write ONE single valid MySQL statement fulfilling this request. Prefer SELECT unless the request explicitly
+asks to insert, update, delete, or alter data. Never produce DROP DATABASE, DROP SCHEMA, GRANT, REVOKE, CREATE
+USER, DROP USER, ALTER USER, SET GLOBAL, or SHUTDOWN. Do not wrap the SQL in markdown code fences, no trailing
+semicolon.
+JSON format: {"sql": string, "explanation": string}`;
+
+    const result = await this.generateJson(fullPrompt);
+    return {
+      sql: String(result.sql || "").trim(),
+      explanation: result.explanation ? String(result.explanation) : undefined,
+    };
   }
 
   private normalizeGeneratedQuestions(

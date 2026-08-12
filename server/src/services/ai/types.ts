@@ -58,6 +58,16 @@ export interface AIGeneratedQuestion {
   time_limit_seconds?: number;
 }
 
+export interface AISqlQueryContext {
+  tableNames: string[];
+  tableColumns?: string[];
+}
+
+export interface AISqlQueryResult {
+  sql: string;
+  explanation?: string;
+}
+
 export interface AiProvider {
   /**
    * Grades a short answer question.
@@ -148,4 +158,13 @@ export interface AiProvider {
   generateQuestionsFromDocument(
     params: AIGenerateFromDocumentParams,
   ): Promise<AIGeneratedQuestion[]>;
+
+  /**
+   * Drafts a single SQL query from a natural-language request, for the
+   * Database Management tool. Never executed automatically.
+   */
+  generateSqlQuery(
+    prompt: string,
+    context: AISqlQueryContext,
+  ): Promise<AISqlQueryResult>;
 }

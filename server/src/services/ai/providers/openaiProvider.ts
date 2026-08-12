@@ -9,6 +9,8 @@ import {
   AITestCase,
   AIGenerateFromDocumentParams,
   AIGeneratedQuestion,
+  AISqlQueryContext,
+  AISqlQueryResult,
 } from "../types";
 import { buildGenerateFromDocumentPrompt } from "../prompts/generateFromDocumentPrompt";
 
@@ -303,6 +305,39 @@ export class OpenaiProvider implements AiProvider {
     );
     const arr = parsed.questions || (Array.isArray(parsed) ? parsed : []);
     return this.normalizeGeneratedQuestions(arr, params.difficulty);
+  }
+
+  async generateSqlQuery(
+    prompt: string,
+    context: AISqlQueryContext,
+  ): Promise<AISqlQueryResult> {
+    const structureLine = context.tableColumns?.length
+      ? `\nThe admin is currently viewing a table with these columns: ${context.tableColumns.join(", ")}.`
+      : "";
+    const response = await this.openai.chat.completions.create({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: `You are a senior MySQL database administrator helping write a single SQL query for a
+school platform database (MySQL 8). Respond ONLY with valid JSON with these keys:
+- sql (string): ONE single valid MySQL statement. Prefer SELECT unless the request explicitly asks to
+  insert, update, delete, or alter data. Never produce DROP DATABASE, DROP SCHEMA, GRANT, REVOKE, CREATE
+  USER, DROP USER, ALTER USER, SET GLOBAL, or SHUTDOWN. No markdown code fences, no trailing semicolon.
+- explanation (string): one or two plain-language sentences explaining what the query does.`,
+        },
+        {
+          role: "user",
+          content: `Available tables: ${context.tableNames.join(", ")}${structureLine}\n\nRequest: ${prompt}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+    });
+    const result = JSON.parse(response.choices[0].message.content || "{}");
+    return {
+      sql: String(result.sql || "").trim(),
+      explanation: result.explanation ? String(result.explanation) : undefined,
+    };
   }
 
   private normalizeGeneratedQuestions(

@@ -11,6 +11,8 @@ import {
   AITestCase,
   AIGenerateFromDocumentParams,
   AIGeneratedQuestion,
+  AISqlQueryContext,
+  AISqlQueryResult,
 } from "./types";
 
 class AiServiceManager implements AiProvider {
@@ -196,6 +198,38 @@ class AiServiceManager implements AiProvider {
       (p) => p.generateQuestionsFromDocument(params),
       "generateQuestionsFromDocument",
     );
+  }
+
+  // Kept separate from executeWithFallback (rather than reusing it) so the caller can
+  // see which provider actually answered — the Database Management AI panel surfaces
+  // this to the admin, unlike the other operations here which don't need it.
+  async generateSqlQuery(
+    prompt: string,
+    context: AISqlQueryContext,
+  ): Promise<AISqlQueryResult & { providerUsed: string }> {
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        console.log("[AI] Using Primary (Gemini) for generateSqlQuery");
+        const result = await this.primary.generateSqlQuery(prompt, context);
+        return { ...result, providerUsed: "gemini" };
+      } catch (error: any) {
+        console.error("[AI] Primary (Gemini) failed for generateSqlQuery:", error.message);
+      }
+    }
+
+    if (process.env.OPENAI_API_KEY) {
+      try {
+        console.log("[AI] Using Secondary (OpenAI) for generateSqlQuery");
+        const result = await this.secondary.generateSqlQuery(prompt, context);
+        return { ...result, providerUsed: "openai" };
+      } catch (error: any) {
+        console.error("[AI] Secondary (OpenAI) failed for generateSqlQuery:", error.message);
+      }
+    }
+
+    console.log("[AI] Using Fallback (Mock) for generateSqlQuery");
+    const result = await this.fallback.generateSqlQuery(prompt, context);
+    return { ...result, providerUsed: "mock" };
   }
 
   getProviderStatus() {
