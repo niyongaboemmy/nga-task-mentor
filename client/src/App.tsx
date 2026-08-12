@@ -52,6 +52,7 @@ import QuestionBankPage from "./pages/QuestionBankPage";
 import SubmissionDetailPage from "./pages/SubmissionDetailPage";
 import GradesPage from "./pages/GradesPage";
 import AssessmentMarksPage from "./pages/AssessmentMarksPage";
+import DatabaseManagementPage from "./pages/DatabaseManagementPage";
 
 // Wrapper components for routes that need useParams
 const QuizViewWrapper = () => {
@@ -544,6 +545,16 @@ function AppContent() {
                 <ProtectedRoute roles={["admin"]}>
                   <Layout>
                     <BloomsTaxonomyManagementPage />
+                  </Layout>
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/admin/database-management"
+              element={
+                <ProtectedRoute roles={["admin"]}>
+                  <Layout>
+                    <DatabaseManagementPage />
                   </Layout>
                 </ProtectedRoute>
               }

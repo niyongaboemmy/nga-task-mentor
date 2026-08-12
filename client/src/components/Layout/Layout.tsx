@@ -96,6 +96,17 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
           },
         ]
       : []),
+    ...(user?.role === "admin"
+      ? [
+          {
+            name: "Database Management",
+            href: "/admin/database-management",
+            current: location.pathname.startsWith(
+              "/admin/database-management",
+            ),
+          },
+        ]
+      : []),
   ];
 
   const dropdownItems = [

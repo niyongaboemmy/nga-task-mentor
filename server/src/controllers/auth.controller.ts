@@ -67,6 +67,67 @@ export const login = async (req: Request, res: Response) => {
   }
 };
 
+// Confirm (re-verify) the current admin's password before granting access to
+// the Database Management tool. Local bcrypt hashes are placeholder values
+// for MIS/SSO-provisioned users, so we can't reliably check the password
+// locally -- instead we reuse the exact same MIS /auth/login call login()
+// makes, since a 2xx there is MIS's own confirmation the password is correct
+// (we just ignore the OTP/tempToken it also returns, since password-only
+// confirmation is all this step-up needs).
+export const confirmDbAccess = async (req: Request, res: Response) => {
+  try {
+    const { password } = req.body;
+    const authUser = (req as any).user;
+
+    if (!password) {
+      return res.status(400).json({ message: "Please provide a password" });
+    }
+
+    if (!authUser?.email) {
+      return res.status(401).json({ message: "Not authorized" });
+    }
+
+    try {
+      await axios.post(
+        `${process.env.NGA_MIS_BASE_URL}/auth/login`,
+        {
+          username: authUser.email,
+          password,
+        },
+        {
+          httpsAgent:
+            process.env.NODE_ENV === "production"
+              ? new (require("https").Agent)({ rejectUnauthorized: true })
+              : undefined,
+        },
+      );
+    } catch (misError: any) {
+      if (process.env.NODE_ENV === "development") {
+        console.error(
+          "confirmDbAccess MIS error:",
+          misError.response?.data || misError.message,
+        );
+      }
+      return res.status(401).json({ message: "Incorrect password" });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      return res.status(500).json({ message: "Server error" });
+    }
+
+    const dbAccessToken = jwt.sign(
+      { id: authUser.id, dbAccess: true },
+      process.env.JWT_SECRET,
+      { expiresIn: 1200 },
+    );
+
+    res.status(200).json({ dbAccessToken, expiresIn: 1200 });
+  } catch (error) {
+    console.error("Confirm DB access error:", error);
+    res.status(500).json({ message: "Server error during confirmation" });
+  }
+};
+
 // OTP Verification - forwards to NGA Central MIS
 export const verifyOtp = async (req: Request, res: Response) => {
   try {

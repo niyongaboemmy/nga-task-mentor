@@ -114,6 +114,45 @@ export const authorize = (...roles: string[]) => {
   };
 };
 
+// Require a short-lived step-up token (X-Db-Access-Token) proving the admin
+// recently re-entered their password, in addition to the normal session JWT.
+// Used to gate the Database Management tool's raw-SQL/table-CRUD endpoints.
+export const requireDbStepUp = (
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) => {
+  const token = req.headers["x-db-access-token"];
+
+  if (!token || typeof token !== "string") {
+    return res.status(401).json({
+      success: false,
+      message: "Database access token required",
+    });
+  }
+
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET!) as {
+      id: number;
+      dbAccess: boolean;
+    };
+
+    if (decoded.dbAccess !== true || decoded.id !== req.user.id) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid database access token",
+      });
+    }
+
+    next();
+  } catch (error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired database access token",
+    });
+  }
+};
+
 // Check if user is enrolled in course
 export const checkEnrollment = (courseIdParam = "courseId") => {
   return async (req: Request, res: Response, next: NextFunction) => {

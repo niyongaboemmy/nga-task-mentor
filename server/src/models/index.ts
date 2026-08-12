@@ -15,6 +15,7 @@ import ReportCardAttribute from "./ReportCardAttribute.model";
 import ReportCardAssessment from "./ReportCardAssessment.model";
 import ManualAssessment from "./ManualAssessment.model";
 import ManualAssessmentScore from "./ManualAssessmentScore.model";
+import DatabaseQueryLog from "./DatabaseQueryLog.model";
 
 // Set up associations after all models are imported
 const setupAssociations = () => {
@@ -202,6 +203,17 @@ const setupAssociations = () => {
     foreignKey: "report_card_id",
     as: "assessments",
   });
+
+  // ----------------------
+  // DatabaseQueryLog Associations
+  // Note: DatabaseQueryLog.belongsTo(User) is already declared via the
+  // @BelongsTo decorator in DatabaseQueryLog.model.ts — only the reverse
+  // hasMany goes here.
+  // ----------------------
+  User.hasMany(DatabaseQueryLog, {
+    foreignKey: "user_id",
+    as: "databaseQueryLogs",
+  });
 };
 
 // Export as named exports for compatibility
@@ -223,6 +235,7 @@ export {
   ReportCardAssessment,
   ManualAssessment,
   ManualAssessmentScore,
+  DatabaseQueryLog,
   setupAssociations,
 };
 
@@ -244,5 +257,6 @@ export default {
   ReportCardAssessment,
   ManualAssessment,
   ManualAssessmentScore,
+  DatabaseQueryLog,
   setupAssociations,
 };

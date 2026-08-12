@@ -15,6 +15,7 @@ import {
   proxySsoAuthorize,
   updateTheme,
   switchAcademicPeriod,
+  confirmDbAccess,
 } from "../controllers/auth.controller";
 import {
   loginSchema,
@@ -28,7 +29,7 @@ import {
   otpLimiter,
   passwordResetLimiter,
 } from "../middleware/rateLimiter.middleware";
-import { protect } from "../middleware/auth";
+import { protect, authorize } from "../middleware/auth";
 import { handleMulterError } from "../middleware/upload";
 
 const router = Router();
@@ -68,5 +69,12 @@ router.post(
   uploadProfileImage,
 );
 router.delete("/delete-profile-image", protect, deleteProfileImage);
+
+router.post(
+  "/confirm-db-access",
+  protect,
+  authorize("admin"),
+  confirmDbAccess,
+);
 
 export default router;
