@@ -113,7 +113,12 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-mis-token"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "x-mis-token",
+      "X-Db-Access-Token",
+    ],
   }),
 );
 
