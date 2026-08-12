@@ -78,7 +78,19 @@ fi
 
 echo -e "${YELLOW}== 6. Restarting API process ==${NC}"
 if command -v pm2 &> /dev/null; then
-  pm2 restart spwms-api || echo -e "${RED}pm2 restart failed — check the process name with 'pm2 list' and restart manually.${NC}"
+  # Two ecosystem.config.js files exist in this repo with different process
+  # names ("taskmentor-server" at repo root, "spwms-api" under server/) —
+  # try both rather than assuming, and fall back to whatever pm2 actually
+  # has running if neither matches.
+  if pm2 restart taskmentor-server 2>/dev/null; then
+    :
+  elif pm2 restart spwms-api 2>/dev/null; then
+    :
+  else
+    echo -e "${RED}Neither 'taskmentor-server' nor 'spwms-api' found in pm2. Current processes:${NC}"
+    pm2 list
+    echo -e "${RED}Restart the correct one manually: pm2 restart <name>${NC}"
+  fi
   pm2 save
 else
   echo -e "${RED}pm2 not found on this server — restart the Node process manually (however you normally do it).${NC}"
