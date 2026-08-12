@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useCallback } from "react";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import StudentDashboard from "./StudentDashboard";
 import InstructorDashboard from "./InstructorDashboard";
 import AdminDashboard from "./AdminDashboard";
@@ -75,6 +76,17 @@ type DashboardData =
 
 const Dashboard: React.FC = () => {
   const { user } = useAuth();
+  const { can } = usePermissions();
+  // Which dashboard variant to show — most-privileged permission wins, so a
+  // custom role can be granted any one of the three views without code
+  // changes. Drives both which endpoints to fetch and which component renders.
+  const dashboardVariant: "admin" | "instructor" | "student" = can(
+    "DASHBOARD_VIEW_ADMIN",
+  )
+    ? "admin"
+    : can("DASHBOARD_VIEW_INSTRUCTOR")
+      ? "instructor"
+      : "student";
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   // Admin-only: "current" scopes stats/grading-summary to the active academic
@@ -107,7 +119,7 @@ const Dashboard: React.FC = () => {
         ],
       };
 
-      const role = user?.role || "student";
+      const role = dashboardVariant;
       const urls =
         endpoints[role as keyof typeof endpoints] || endpoints.student;
 
@@ -227,7 +239,7 @@ const Dashboard: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [user?.role, user?.id, user?.first_name, user?.last_name, adminScope]);
+  }, [dashboardVariant, user?.id, user?.first_name, user?.last_name, adminScope]);
 
   useEffect(() => {
     fetchDashboardData();
@@ -271,8 +283,9 @@ const Dashboard: React.FC = () => {
     );
   }
 
-  // Render appropriate dashboard based on user role
-  switch (user?.role) {
+  // Render the dashboard variant matching the highest-privilege permission
+  // the user holds (see dashboardVariant above).
+  switch (dashboardVariant) {
     case "instructor":
       return <InstructorDashboard data={data as InstructorDashboardData} />;
     case "admin":

@@ -6,6 +6,7 @@ import type { AppDispatch, RootState } from "../../store";
 import { fetchCourses } from "../../store/slices/courseSlice";
 import api, { isAxiosError } from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import SubmissionModal from "./SubmissionModal";
 import AssignmentHeader from "./AssignmentHeader";
 import SubmissionList from "./SubmissionList";
@@ -82,6 +83,7 @@ const AssignmentDetails = () => {
     "submissions",
   );
   const { user } = useAuth();
+  const { can } = usePermissions();
   const { courses } = useSelector(
     (state: RootState) => state.course || { courses: [] },
   );
@@ -290,10 +292,7 @@ const AssignmentDetails = () => {
           submission.student_id?.toString()) === user?.id?.toString(),
     );
 
-  const isStudent = !!(
-    user?.role === "student" ||
-    user?.roles?.some((r) => r.name.toLowerCase() === "student")
-  );
+  const isStudent = can("SUBMISSIONS_CREATE");
   const dueDate = assignment ? new Date(assignment.due_date) : null;
   const isOverdue = dueDate
     ? (() => {
@@ -310,13 +309,7 @@ const AssignmentDetails = () => {
     !!user &&
     assignment?.status === "published";
   const canManageAssignment = !!(
-    user?.role === "instructor" ||
-    user?.role === "admin" ||
-    user?.roles?.some(
-      (r) =>
-        r.name.toLowerCase() === "instructor" ||
-        r.name.toLowerCase() === "admin",
-    )
+    can("ASSIGNMENTS_EDIT")
   );
 
   const handleStatusChange = useCallback(

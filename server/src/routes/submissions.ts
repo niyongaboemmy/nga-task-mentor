@@ -9,7 +9,7 @@ import {
   gradeSubmission,
   addComment,
 } from "../controllers/submission.controller";
-import { protect, authorize, checkEnrollment } from "../middleware/auth";
+import { protect, authorizePermission, checkEnrollment } from "../middleware/auth";
 import { uploadSubmission } from "../middleware/submissionUpload";
 
 const router = Router();
@@ -20,40 +20,50 @@ router.use(protect);
 // Student routes
 router.post(
   "/assignments/:assignmentId/submissions",
-  authorize("student"),
+  authorizePermission("SUBMISSIONS_CREATE"),
   checkEnrollment(),
   uploadSubmission.single("file_submission"),
   createSubmission,
 );
 
-// Student and instructor routes
+// Student and instructor routes (controller enforces own-vs-all scoping)
 router
   .route("/:id")
-  .get(authorize("student", "instructor", "admin"), getSubmission)
+  .get(
+    authorizePermission("SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"),
+    getSubmission,
+  )
   .put(
-    authorize("student", "instructor", "admin"),
+    authorizePermission("SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"),
     uploadSubmission.single("file_submission"),
     updateSubmission,
   )
-  .delete(authorize("student", "instructor", "admin"), deleteSubmission);
+  .delete(
+    authorizePermission("SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"),
+    deleteSubmission,
+  );
 
 // Get submissions (for assignments or users)
-router.get("/", authorize("student", "instructor", "admin"), getSubmissions);
+router.get(
+  "/",
+  authorizePermission("SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"),
+  getSubmissions,
+);
 
 // Download submission file
 router.get(
   "/:id/files/:fileId",
-  authorize("student", "instructor", "admin"),
+  authorizePermission("SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"),
   downloadFile,
 );
 
 // Grade submission (instructor/admin only)
-router.patch("/:id/grade", authorize("instructor", "admin"), gradeSubmission);
+router.patch("/:id/grade", authorizePermission("SUBMISSIONS_GRADE"), gradeSubmission);
 
 // Add comment to submission
 router.post(
   "/:id/comments",
-  authorize("student", "instructor", "admin"),
+  authorizePermission("SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"),
   addComment,
 );
 

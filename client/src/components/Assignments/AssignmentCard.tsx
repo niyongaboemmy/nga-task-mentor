@@ -5,7 +5,7 @@ import AssignmentStatusToggle from "./AssignmentStatusToggle";
 import { Clock, Calendar, Timer } from "lucide-react";
 import { formatDateTimeLocal } from "../../utils/dateUtils";
 import { getProfileImageUrl } from "../../utils/imageUrl";
-import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import { Award, CheckCircle2 } from "lucide-react";
 
 export interface RubricCriterion {
@@ -182,8 +182,8 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
   canManage = false,
   onStatusChange,
 }) => {
-  const { user } = useAuth();
-  const isStudent = user?.role === "student";
+  const { can } = usePermissions();
+  const isStudent = can("SUBMISSIONS_CREATE");
 
   // Find the student's submission and its grade
   const userSubmission = isStudent

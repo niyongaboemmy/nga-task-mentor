@@ -27,8 +27,8 @@ export const getQuizQuestions = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Instructors and admins can access any quiz; only students are enrollment-checked
-    if (req.user.role === "student") {
+    // Instructors and admins can access any quiz; only plain quiz-takers are enrollment-checked
+    if (!req.user.permissions?.has("QUIZZES_EDIT")) {
       const token = getMisToken(req);
       const termId = await getCurrentTermId(req);
 
@@ -70,7 +70,7 @@ export const getQuizQuestions = async (req: Request, res: Response) => {
     // For students, don't include correct answers unless show_correct_answers is true
     let questionsData = questions.map((q) => q.toJSON());
 
-    if (req.user.role === "student" && !quiz.show_correct_answers) {
+    if (!req.user.permissions?.has("QUIZ_QUESTIONS_VIEW_WITH_ANSWERS") && !quiz.show_correct_answers) {
       questionsData = questionsData.map((q: any) => {
         if (q.questionBank) {
           const { correct_answer, explanation, ...bankWithoutAnswer } =
@@ -125,7 +125,7 @@ export const getQuestion = async (req: Request, res: Response) => {
     let questionData: any = question.toJSON();
 
     // For students, don't include correct answers unless show_correct_answers is true
-    if (req.user.role === "student" && !quiz?.show_correct_answers) {
+    if (!req.user.permissions?.has("QUIZ_QUESTIONS_VIEW_WITH_ANSWERS") && !quiz?.show_correct_answers) {
       if (questionData.questionBank) {
         const { correct_answer, explanation, ...bankWithoutAnswer } =
           questionData.questionBank;
@@ -163,7 +163,7 @@ export const createQuestion = async (req: Request, res: Response) => {
     }
 
     // Check if user is quiz creator or admin
-    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
+    if (quiz.created_by !== req.user.id && !req.user.permissions?.has("QUIZZES_MANAGE_ANY")) {
       try {
         await transaction.rollback();
       } catch (re) {
@@ -345,9 +345,9 @@ export const updateQuestion = async (req: Request, res: Response) => {
     const questionCreatorId = parseInt(String(bankQuestion?.created_by));
 
     const isAuthorized =
-      req.user.role === "admin" ||
+      req.user.permissions?.has("QUIZZES_MANAGE_ANY") ||
       quizCreatorId === userId ||
-      (req.user.role === "instructor" && questionCreatorId === userId);
+      (req.user.permissions?.has("QUESTION_BANK_EDIT") && questionCreatorId === userId);
 
     if (!isAuthorized) {
       try {
@@ -482,9 +482,9 @@ export const deleteQuestion = async (req: Request, res: Response) => {
     const questionCreatorId = parseInt(String(bankQuestion?.created_by));
 
     const isAuthorized =
-      req.user.role === "admin" ||
+      req.user.permissions?.has("QUIZZES_MANAGE_ANY") ||
       userId === quizCreatorId ||
-      (req.user.role === "instructor" && questionCreatorId === userId);
+      (req.user.permissions?.has("QUESTION_BANK_EDIT") && questionCreatorId === userId);
 
     if (!isAuthorized) {
       try {
@@ -572,7 +572,7 @@ export const reorderQuestions = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
+    if (quiz.created_by !== req.user.id && !req.user.permissions?.has("QUIZZES_MANAGE_ANY")) {
       try {
         await transaction.rollback();
       } catch (re) {
@@ -650,7 +650,7 @@ export const bulkImportQuestions = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
+    if (quiz.created_by !== req.user.id && !req.user.permissions?.has("QUIZZES_MANAGE_ANY")) {
       try {
         await transaction.rollback();
       } catch (re) {

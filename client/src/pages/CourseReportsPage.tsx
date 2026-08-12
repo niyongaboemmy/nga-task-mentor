@@ -32,6 +32,7 @@ import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../store";
 import { fetchCourses } from "../store/slices/courseSlice";
 import StudentGradeModal from "../components/Courses/StudentGradeModal";
+import { usePermissions } from "../hooks/usePermissions";
 import AcademicPeriodPicker, {
   type SelectedPeriod,
 } from "../components/Common/AcademicPeriodPicker";
@@ -140,7 +141,10 @@ const CourseReportsPage: React.FC = () => {
   const currentCourse = courseState?.currentCourse;
   const courses = courseState?.courses || [];
   const authUser = useSelector((state: RootState) => state.auth.user);
-  const isStudent = authUser?.role === "student";
+  const { can } = usePermissions();
+  // Default to the self-view unless the caller holds the broader "view all
+  // students' grades" permission.
+  const isStudent = !can("COURSES_VIEW_GRADES");
 
   // Derive course data
   const course = React.useMemo(() => {

@@ -104,8 +104,8 @@ export const getUsers = async (req: Request, res: Response) => {
     // but the search and academic endpoints above already filter by role.
     if (role && endpoint === "/users/") {
       // Non-admin users have restrictions on the main endpoint
-      if (req.user.role !== "admin") {
-        if (role !== "student" || req.user.role !== "instructor") {
+      if (!req.user.permissions?.has("USERS_EDIT")) {
+        if (role !== "student" || !req.user.permissions?.has("USERS_VIEW_ALL")) {
           return res.status(403).json({
             success: false,
             message: "Not authorized to access this resource",
@@ -169,11 +169,10 @@ export const getUser = async (req: Request, res: Response) => {
       });
     }
 
-    // IDOR Protection: Users can only view their own profile unless they are admin/instructor
+    // IDOR Protection: Users can only view their own profile unless they hold USERS_VIEW_ALL
     if (
       req.user.id.toString() !== req.params.id &&
-      req.user.role !== "admin" &&
-      req.user.role !== "instructor"
+      !req.user.permissions?.has("USERS_VIEW_ALL")
     ) {
       return res.status(403).json({
         success: false,
@@ -226,8 +225,8 @@ export const getUserCourses = async (req: Request, res: Response) => {
       });
     }
 
-    // Only admins and instructors can view user courses
-    if (req.user.role !== "admin" && req.user.role !== "instructor") {
+    // Only holders of USERS_VIEW_OTHERS_ACTIVITY can view another user's courses
+    if (!req.user.permissions?.has("USERS_VIEW_OTHERS_ACTIVITY")) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to view this user's courses",
@@ -514,8 +513,7 @@ export const getStudentAssignments = async (req: Request, res: Response) => {
     // IDOR Protection
     if (
       req.user.id.toString() !== userId &&
-      req.user.role !== "admin" &&
-      req.user.role !== "instructor"
+      !req.user.permissions?.has("USERS_VIEW_OTHERS_ACTIVITY")
     ) {
       return res.status(403).json({
         success: false,
@@ -635,8 +633,7 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
     // IDOR Protection
     if (
       req.user.id.toString() !== userId &&
-      req.user.role !== "admin" &&
-      req.user.role !== "instructor"
+      !req.user.permissions?.has("USERS_VIEW_OTHERS_ACTIVITY")
     ) {
       return res.status(403).json({
         success: false,

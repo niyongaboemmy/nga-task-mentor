@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ClipboardList, RefreshCw } from "lucide-react";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import AssignmentCard, { type AssignmentInterface } from "./AssignmentCard";
 import { onAcademicPeriodChanged } from "../../utils/academicPeriodEvents";
 
@@ -51,6 +52,8 @@ const Assignments: React.FC<AssignmentsProps> = ({
   >("all");
   const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
+  const { can } = usePermissions();
+  const isStudentView = can("SUBMISSIONS_CREATE");
 
   const fetchAssignments = useCallback(async (force = false) => {
     // Skip network request if we have cached data and this isn't a forced refresh
@@ -61,7 +64,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
     try {
       let endpoint: string;
 
-      if (user?.role === "student") {
+      if (isStudentView) {
         if (currentCourseId) {
           endpoint = `/courses/${currentCourseId}/assignments`;
         } else {
@@ -77,7 +80,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
       let assignmentsData = response.data.data || response.data;
 
       // For students, filter out deleted assignments
-      if (user?.role === "student") {
+      if (isStudentView) {
         assignmentsData = assignmentsData.filter(
           (assignment: AssignmentInterface) => assignment.status !== "removed",
         );
@@ -92,7 +95,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, [currentCourseId, user?.role, cacheKey]);
+  }, [currentCourseId, isStudentView, cacheKey]);
 
   const fetchCourse = useCallback(async () => {
     if (!currentCourseId) return;
@@ -102,13 +105,13 @@ const Assignments: React.FC<AssignmentsProps> = ({
       const courseData = response.data.data || response.data;
 
       // For students, check if they're enrolled in this course
-      if (user?.role === "student") {
+      if (isStudentView) {
         // Check if student is enrolled by looking at course enrollment status
         // If the course doesn't have enrollment info or student is not enrolled, don't set course
         if (
           !courseData.students ||
           !courseData.students.some(
-            (student: any) => student.id.toString() === user.id.toString(),
+            (student: any) => student.id.toString() === user?.id?.toString(),
           )
         ) {
           setCourse(null);
@@ -120,11 +123,11 @@ const Assignments: React.FC<AssignmentsProps> = ({
     } catch (error) {
       console.error("Error fetching course:", error);
       // For students, if they can't access the course, set course to null
-      if (user?.role === "student") {
+      if (isStudentView) {
         setCourse(null);
       }
     }
-  }, [currentCourseId, user?.role, user?.id]);
+  }, [currentCourseId, isStudentView, user?.id]);
 
   useEffect(() => {
     // fetchAssignments skips the network if cache is warm
@@ -164,7 +167,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
   const filteredAssignments = useMemo(() => {
     return assignments.filter((assignment) => {
       // Students should only see published, completed, or public assignments
-      if (user?.role === "student") {
+      if (isStudentView) {
         return (
           assignment.status === "published" || assignment.status === "completed"
         );
@@ -187,11 +190,11 @@ const Assignments: React.FC<AssignmentsProps> = ({
         courseTitle.includes(query)
       );
     });
-  }, [assignments, user?.role, filter, searchQuery]);
+  }, [assignments, isStudentView, filter, searchQuery]);
 
   const canManageAssignments = useMemo(() => {
-    return user?.role === "instructor" || user?.role === "admin";
-  }, [user?.role]);
+    return can("ASSIGNMENTS_CREATE");
+  }, [can]);
 
   if (isLoading) {
     return (
@@ -225,7 +228,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                     <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
                       {currentCourseId
                         ? "Manage and review assignments for this course"
-                        : user?.role === "student"
+                        : isStudentView
                           ? "Your course assignments"
                           : "All course assignments"}
                     </p>
@@ -384,14 +387,14 @@ const Assignments: React.FC<AssignmentsProps> = ({
                 />
               </svg>
               <h3 className="mt-2 text-base font-medium">
-                {user?.role === "student"
+                {isStudentView
                   ? "No assignments available"
                   : filter === "all"
                     ? "No assignments yet"
                     : `No ${filter} assignments`}
               </h3>
               <p className="mt-1 text-sm text-gray-500">
-                {user?.role === "student"
+                {isStudentView
                   ? "You need to be enrolled in courses to see assignments."
                   : filter === "all"
                     ? "Assignments will appear here once they're created."

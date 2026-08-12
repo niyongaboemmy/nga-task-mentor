@@ -161,8 +161,7 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
 
     // Check authorization - only instructors or admins (students cannot grade)
     if (
-      req.user.role !== "instructor" &&
-      req.user.role !== "admin"
+      !req.user.permissions?.has("QUIZZES_GRADE")
     ) {
       return res.status(403).json({
         success: false,
@@ -265,8 +264,7 @@ export const gradeSubmission = async (req: Request, res: Response) => {
 
     // Check authorization - only instructors or admins
     if (
-      req.user.role !== "instructor" &&
-      req.user.role !== "admin"
+      !req.user.permissions?.has("QUIZZES_GRADE")
     ) {
       await transaction.rollback();
       return res.status(403).json({
@@ -351,8 +349,7 @@ export const getQuizAnalytics = async (req: Request, res: Response) => {
 
     // Check authorization - only instructors or admins
     if (
-      req.user.role !== "instructor" &&
-      req.user.role !== "admin"
+      !req.user.permissions?.has("QUIZZES_GRADE")
     ) {
       return res.status(403).json({
         success: false,
@@ -643,8 +640,7 @@ export const updateSubmissionFeedback = async (req: Request, res: Response) => {
 
     // Check authorization - only instructors or admins
     if (
-      req.user.role !== "instructor" &&
-      req.user.role !== "admin"
+      !req.user.permissions?.has("QUIZZES_GRADE")
     ) {
       await transaction.rollback();
       return res.status(403).json({
@@ -702,7 +698,7 @@ export const initializeManualSubmission = async (req: Request, res: Response) =>
 
     if (
       quiz.created_by !== req.user.id &&
-      req.user.role !== "admin"
+      !req.user.permissions?.has("QUIZZES_MANAGE_ANY")
     ) {
       await transaction.rollback();
       return res.status(403).json({

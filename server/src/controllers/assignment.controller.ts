@@ -27,7 +27,7 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
   try {
     const { courseId } = req.params;
 
-    const isStudent = req.user.role === "student";
+    const isStudent = !req.user.permissions?.has("ASSIGNMENTS_VIEW_SUBMISSIONS");
 
     // Scope to academic term: prefer explicit query param, fall back to current term from JWT
     const termIdParam = req.query.academic_term_id
@@ -696,11 +696,13 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
       ],
     });
 
-    // If user is a student, return only their own submission
-    // Support multi-role users by prioritizing instructor/admin roles
-    const isStudentOnly = req.user.role === "student";
+    // Return only the caller's own submission unless they hold the
+    // broader "view all submissions" permission.
+    const canViewAll = req.user.permissions?.has(
+      "ASSIGNMENTS_VIEW_SUBMISSIONS",
+    );
 
-    if (isStudentOnly) {
+    if (!canViewAll) {
       const userSubmission = existingSubmissions.find(
         (submission) => String(submission.student_id) === String(req.user.id),
       );
@@ -824,10 +826,10 @@ export const getEnrolledAssignments = async (req: Request, res: Response) => {
         .json({ success: false, message: "Not authenticated" });
     }
 
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("ASSIGNMENTS_VIEW")) {
       return res
         .status(403)
-        .json({ success: false, message: "Access denied. Students only." });
+        .json({ success: false, message: "Access denied." });
     }
 
     // Scope to current academic term
@@ -921,10 +923,10 @@ export const submitAssignment = async (req: Request, res: Response) => {
         .json({ success: false, message: "Authentication required" });
     }
 
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("SUBMISSIONS_CREATE")) {
       return res.status(403).json({
         success: false,
-        message: "Only students can submit assignments",
+        message: "Not authorized to submit assignments",
       });
     }
 

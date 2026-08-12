@@ -10,6 +10,7 @@ import type { RootState, AppDispatch } from "../../store";
 import type { Course } from "../../types/course.types";
 import { Library, Search, Users, Mail, ChevronRight, SlidersHorizontal, ClipboardList } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import CourseReportCardsPanel from "../ReportCard/CourseReportCardsPanel";
 import AcademicPeriodPicker, {
   type SelectedPeriod,
@@ -58,12 +59,15 @@ const CourseDetails: React.FC = () => {
     () => getStoredTab(courseId || ""),
   );
 
-  // Get auth user for role checking
-  const authUser = useSelector((state: RootState) => state.auth.user);
   const { user: authContext } = useAuth();
   const currentTerm = authContext?.currentAcademicTerm?.name as string | undefined;
   const currentYear = authContext?.currentAcademicYear?.name as string | undefined;
-  const isInstructorOrAdmin = ["instructor", "admin"].includes(authUser?.role || "");
+  const { can } = usePermissions();
+  const isInstructorOrAdmin = can("COURSES_VIEW_STUDENTS");
+  const canCreateQuizzes = can("QUIZZES_CREATE");
+  const canViewQuestionBank = can("QUESTION_BANK_VIEW");
+  const canViewReportCards = can("REPORT_CARDS_VIEW_ALL");
+  const canApproveReportCards = can("REPORT_CARDS_APPROVE");
 
   // Get courses and loading state from Redux store
   const courseState = useSelector((state: RootState) => state.course);
@@ -346,7 +350,7 @@ const CourseDetails: React.FC = () => {
           </div>
         </div>
 
-        {["instructor", "admin"].includes(authUser?.role || "") && (
+        {isInstructorOrAdmin && (
           <div className="bg-white/90 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 p-2 px-4">
             <div className="flex items-center">
               <div className="flex-shrink-0">
@@ -411,9 +415,7 @@ const CourseDetails: React.FC = () => {
             ]
               .filter((tab: any) => {
                 if (tab.restricted) {
-                  return ["instructor", "admin"].includes(
-                    authUser?.role || "student",
-                  );
+                  return isInstructorOrAdmin;
                 }
                 return true;
               })
@@ -451,7 +453,7 @@ const CourseDetails: React.FC = () => {
               ))}
 
             {/* Question Bank Link */}
-            {["instructor", "admin"].includes(authUser?.role || "") && (
+            {canViewQuestionBank && (
               <Link
                 to={`/courses/${courseId}/question-bank`}
                 className="border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors"
@@ -461,8 +463,8 @@ const CourseDetails: React.FC = () => {
               </Link>
             )}
 
-            {/* Report Cards tab — instructor/admin only */}
-            {isInstructorOrAdmin && (
+            {/* Report Cards tab — requires REPORT_CARDS_VIEW_ALL */}
+            {canViewReportCards && (
               <button
                 onClick={() => {
                   setActiveTab("report-cards");
@@ -538,9 +540,7 @@ const CourseDetails: React.FC = () => {
           {activeTab === "quizzes" && (
             <QuizList
               courseId={parseInt(courseId!)}
-              showCreateButton={["instructor", "admin"].includes(
-                authUser?.role || "",
-              )}
+              showCreateButton={canCreateQuizzes}
               limit={10}
               showViewAllButton={true}
             />
@@ -568,14 +568,14 @@ const CourseDetails: React.FC = () => {
             </div>
           )}
 
-          {activeTab === "report-cards" && isInstructorOrAdmin && (
+          {activeTab === "report-cards" && canViewReportCards && (
             <CourseReportCardsPanel
               courseId={parseInt(courseId!)}
               courseName={course.title}
               students={reportCardStudents}
               currentTerm={currentTerm}
               currentYear={currentYear}
-              isAdmin={authUser?.role === "admin"}
+              isAdmin={canApproveReportCards}
             />
           )}
         </div>

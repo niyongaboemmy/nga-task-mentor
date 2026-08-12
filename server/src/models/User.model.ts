@@ -4,7 +4,9 @@ import {
   Model,
   DataType,
   HasMany,
+  BelongsTo,
   BelongsToMany,
+  ForeignKey,
   BeforeCreate,
   BeforeUpdate,
   BeforeBulkCreate,
@@ -17,6 +19,7 @@ import Assignment from "./Assignment.model";
 import Quiz from "./Quiz.model";
 import QuizSubmission from "./QuizSubmission.model";
 import QuizAttempt from "./QuizAttempt.model";
+import Role from "./Role.model";
 
 export type UserRole = "student" | "instructor" | "admin";
 
@@ -26,7 +29,15 @@ export interface IUserAttributes {
   last_name: string;
   email: string;
   password: string;
+  /**
+   * @deprecated Legacy flat role string, retained for backward compatibility
+   * with already-issued JWTs and any lagging `req.user.role` reads. New code
+   * should use `role_id`/the resolved permission set instead. Kept written
+   * in sync with `role_id` on create/update; do not remove until a grep
+   * across the codebase confirms zero remaining reads.
+   */
   role: UserRole;
+  role_id?: number | null;
   mis_user_id?: number | null;
   profile_image?: string | null;
   reset_password_token?: string | null;
@@ -111,6 +122,17 @@ export class User extends Model<IUserAttributes, UserCreationAttributes> {
     defaultValue: "student",
   })
   role!: UserRole;
+
+  @ForeignKey(() => Role)
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: true,
+    field: "role_id",
+  })
+  role_id?: number | null;
+
+  @BelongsTo(() => Role)
+  roleRecord?: Role;
 
   @Column({
     type: DataType.INTEGER,

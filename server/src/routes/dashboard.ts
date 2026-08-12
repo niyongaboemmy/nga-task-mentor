@@ -10,7 +10,7 @@ import {
   getAdminGradingSummary,
   getActiveProctoringCount,
 } from "../controllers/dashboardController";
-import { protect, authorize } from "../middleware/auth";
+import { protect, authorizePermission } from "../middleware/auth";
 
 const router = Router();
 
@@ -18,40 +18,40 @@ const router = Router();
 router.use(protect);
 
 // Student dashboard endpoints
-router.get("/student/stats", authorize("student"), getStudentStats);
+router.get("/student/stats", authorizePermission("DASHBOARD_VIEW_STUDENT"), getStudentStats);
 router.get(
   "/student/pending-assignments",
-  authorize("student"),
+  authorizePermission("DASHBOARD_VIEW_STUDENT"),
   getStudentPendingAssignments,
 );
 
 // Instructor dashboard endpoints
 router.get(
   "/instructor/stats",
-  authorize("instructor", "admin"),
+  authorizePermission("DASHBOARD_VIEW_INSTRUCTOR"),
   getInstructorStats,
 );
 router.get(
   "/instructor/courses",
-  authorize("instructor", "admin"),
+  authorizePermission("DASHBOARD_VIEW_INSTRUCTOR"),
   getInstructorCourses,
 );
 router.get(
   "/instructor/pending-grading",
-  authorize("instructor", "admin"),
+  authorizePermission("DASHBOARD_VIEW_INSTRUCTOR"),
   getInstructorPendingGrading,
 );
 router.get(
   "/instructor/active-proctoring",
-  authorize("instructor", "admin"),
+  authorizePermission("DASHBOARD_VIEW_INSTRUCTOR"),
   getActiveProctoringCount,
 );
 
 // Admin dashboard endpoints
-router.get("/admin/stats", authorize("admin"), getAdminStats);
+router.get("/admin/stats", authorizePermission("DASHBOARD_VIEW_ADMIN"), getAdminStats);
 router.get(
   "/admin/grading-summary",
-  authorize("admin"),
+  authorizePermission("DASHBOARD_VIEW_ADMIN"),
   getAdminGradingSummary,
 );
 

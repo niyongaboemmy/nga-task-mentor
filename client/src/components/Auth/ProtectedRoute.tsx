@@ -1,10 +1,15 @@
 import React from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  /** @deprecated Prefer `permissions` — kept working for any lagging call
+   * sites during migration, to be removed once every route uses permissions. */
   roles?: string[];
+  /** OR semantics: route is accessible if the user holds ANY of these. */
+  permissions?: string[];
 }
 
 const LoadingScreen: React.FC = () => (
@@ -19,13 +24,22 @@ const LoadingScreen: React.FC = () => (
   </div>
 );
 
-const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
+const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
+  children,
+  roles,
+  permissions,
+}) => {
   const { isAuthenticated, loading, user } = useAuth();
+  const { can } = usePermissions();
 
   if (loading) return <LoadingScreen />;
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (permissions && !can(permissions)) {
+    return <Navigate to="/dashboard" replace />;
   }
 
   if (roles && user && !roles.includes(user.role)) {

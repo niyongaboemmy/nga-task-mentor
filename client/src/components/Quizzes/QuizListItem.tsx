@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
-import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import {
   Eye,
   Trash2,
@@ -100,8 +100,8 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
   publicLoading,
   showActions = true,
 }) => {
-  const { user } = useAuth();
-  const isStudent = user?.role === "student";
+  const { can } = usePermissions();
+  const isStudent = !can("QUIZZES_EDIT");
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const statusCfg = STATUS_CONFIG[quiz.status] ?? STATUS_CONFIG["draft"];

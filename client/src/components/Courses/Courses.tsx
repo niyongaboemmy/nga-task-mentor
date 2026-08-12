@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch, shallowEqual } from "react-redux";
 import { motion } from "framer-motion";
 import { BookOpen } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import CourseCard from "./CourseCard";
 import type { RootState, AppDispatch } from "../../store";
 import { fetchCourses } from "../../store/slices/courseSlice";
@@ -32,7 +32,8 @@ const itemVariants = {
 };
 
 const Courses: React.FC = () => {
-  const { user } = useAuth();
+  const { can } = usePermissions();
+  const isCourseManager = can("COURSES_VIEW_STUDENTS");
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [filter, _setFilter] = useState<"all" | "enrolled" | "teaching">("all");
@@ -112,7 +113,7 @@ const Courses: React.FC = () => {
                 Courses
               </h1>
               <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
-                {user?.role === "student"
+                {!isCourseManager
                   ? "Your enrolled courses"
                   : filter === "all"
                     ? "All available courses"
@@ -181,7 +182,7 @@ const Courses: React.FC = () => {
             </h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
               {courses.length === 0
-                ? user?.role === "student"
+                ? !isCourseManager
                   ? "You're not enrolled in any courses yet."
                   : filter === "all"
                     ? "No courses are available yet."

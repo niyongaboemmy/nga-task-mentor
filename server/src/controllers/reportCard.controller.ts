@@ -315,22 +315,24 @@ export const updateStatus = async (req: Request, res: Response) => {
     }
 
     const { status } = req.body as UpdateStatusPayload;
-    const userRole: string = (req as any).user?.role ?? "";
+    const userPermissions: Set<string> = (req as any).user?.permissions ?? new Set();
+    const canApprove = userPermissions.has("REPORT_CARDS_APPROVE");
+    const canEdit = userPermissions.has("REPORT_CARDS_EDIT");
 
-    if (userRole === "student") {
-      return res.status(403).json({ success: false, message: "Students cannot change report card status" });
+    if (!canEdit && !canApprove) {
+      return res.status(403).json({ success: false, message: "Not authorized to change report card status" });
     }
 
-    // Only admins can approve
-    if (status === "approved" && userRole !== "admin") {
+    // Only holders of REPORT_CARDS_APPROVE can approve
+    if (status === "approved" && !canApprove) {
       return res.status(403).json({
         success: false,
         message: "Only administrators can approve report cards",
       });
     }
 
-    // Instructors may only set draft or saved
-    if (userRole === "instructor" && !["draft", "saved"].includes(status)) {
+    // Editors without approve rights may only set draft or saved
+    if (!canApprove && !["draft", "saved"].includes(status)) {
       return res.status(403).json({
         success: false,
         message: "Instructors can only set status to draft or saved",
@@ -342,8 +344,8 @@ export const updateStatus = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: "Report card not found" });
     }
 
-    // Guard: cannot un-approve once approved (only admin can revert)
-    if (reportCard.status === "approved" && status !== "approved" && userRole !== "admin") {
+    // Guard: cannot un-approve once approved (only holders of REPORT_CARDS_APPROVE can revert)
+    if (reportCard.status === "approved" && status !== "approved" && !canApprove) {
       return res.status(403).json({
         success: false,
         message: "Only an administrator can revert an approved report card",
@@ -490,7 +492,8 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "Invalid studentId" });
     }
 
-    const userRole: string = (req as any).user?.role ?? "";
+    const userPermissions: Set<string> = (req as any).user?.permissions ?? new Set();
+    const canViewAll = userPermissions.has("REPORT_CARDS_VIEW_ALL");
     let { term, academic_year } = req.query as { term?: string; academic_year?: string };
 
     // Without an explicit term/year, previously fell through to whichever row
@@ -508,8 +511,8 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
     if (term) whereClause.term = term;
     if (academic_year) whereClause.academic_year = academic_year;
 
-    // Students can only see approved report cards
-    if (userRole === "student") {
+    // Callers without the view-all permission can only see approved report cards
+    if (!canViewAll) {
       whereClause.status = "approved";
     }
 
@@ -518,7 +521,7 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
       order: [["createdAt", "DESC"]],
     });
     if (!reportCard) {
-      const message = userRole === "student"
+      const message = !canViewAll
         ? "No approved report card found for this term"
         : "Report card not found";
       return res.status(404).json({ success: false, message });
@@ -576,7 +579,9 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
 export const generatePdf = async (req: Request, res: Response) => {
   try {
     const { report_card_id } = req.body as GeneratePdfPayload;
-    const userRole: string = (req as any).user?.role ?? "";
+    const canViewAll = ((req as any).user?.permissions as Set<string> | undefined)?.has(
+      "REPORT_CARDS_VIEW_ALL",
+    );
 
     const reportCard = await ReportCard.findByPk(report_card_id, {
       include: [{ model: User, as: "student", attributes: ["id", "first_name", "last_name"] }],
@@ -586,8 +591,8 @@ export const generatePdf = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: "Report card not found" });
     }
 
-    // Students can only generate PDFs for approved cards
-    if (userRole === "student" && reportCard.status !== "approved") {
+    // Callers without the view-all permission can only generate PDFs for approved cards
+    if (!canViewAll && reportCard.status !== "approved") {
       return res.status(403).json({
         success: false,
         message: "This report card has not been approved yet",

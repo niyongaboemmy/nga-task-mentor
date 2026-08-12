@@ -49,6 +49,7 @@ import academicsRoutes from "./routes/academics";
 import reportCardRoutes from "./routes/reportCards";
 import manualAssessmentRoutes from "./routes/manualAssessments";
 import databaseRoutes from "./routes/database.routes";
+import rolesPermissionsRoutes from "./routes/rolesPermissions";
 import aiService from "./services/ai/aiService";
 import { verifyReportCard } from "./controllers/reportCard.controller";
 
@@ -211,6 +212,9 @@ const initializeDatabase = async (): Promise<void> => {
       ManualAssessment,
       ManualAssessmentScore,
       DatabaseQueryLog,
+      Role,
+      Permission,
+      RolePermission,
     } = await import("./models");
 
     // Add models to Sequelize instance
@@ -233,6 +237,9 @@ const initializeDatabase = async (): Promise<void> => {
       ManualAssessment,
       ManualAssessmentScore,
       DatabaseQueryLog,
+      Role,
+      Permission,
+      RolePermission,
     ]);
 
     // Set up model associations
@@ -269,6 +276,7 @@ const startServer = async (): Promise<void> => {
     app.use("/api/report-cards", reportCardRoutes);
     app.use("/api/manual-assessments", manualAssessmentRoutes);
     app.use("/api/database", databaseRoutes);
+    app.use("/api/roles-permissions", rolesPermissionsRoutes);
     // Public (no auth) — QR code verification
     app.get("/api/public/verify/report-card/:uuid", verifyReportCard);
 

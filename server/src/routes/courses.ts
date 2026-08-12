@@ -18,7 +18,7 @@ import { getQuizzes, createQuiz } from "../controllers/quiz.controller";
 import { timezoneMiddleware } from "../utils/dateUtils";
 import { uploadAssignmentAttachment } from "../middleware/assignmentUpload";
 
-import { protect, authorize } from "../middleware/auth";
+import { protect, authorizePermission } from "../middleware/auth";
 import { requireMisToken } from "../middleware/misAuth";
 
 const router = express.Router();
@@ -27,22 +27,36 @@ const router = express.Router();
 router.use(protect);
 router.use(requireMisToken);
 
-router.route("/").get(getCourses).post(createCourse);
+router
+  .route("/")
+  .get(authorizePermission("COURSES_VIEW"), getCourses)
+  .post(authorizePermission("COURSES_CREATE"), createCourse);
 
-router.route("/class-groups").get(getClassGroups);
+router.route("/class-groups").get(authorizePermission("COURSES_VIEW"), getClassGroups);
 
-router.route("/my-grades").get(authorize("student"), getStudentOverallGrades);
+router
+  .route("/my-grades")
+  .get(authorizePermission("COURSES_VIEW_OWN_GRADES"), getStudentOverallGrades);
 
-router.route("/:id").get(getCourse).put(updateCourse).delete(deleteCourse);
-router.route("/:id/students").get(getCourseStudents);
+router
+  .route("/:id")
+  .get(authorizePermission("COURSES_VIEW"), getCourse)
+  .put(authorizePermission("COURSES_EDIT"), updateCourse)
+  .delete(authorizePermission("COURSES_DELETE"), deleteCourse);
+router
+  .route("/:id/students")
+  .get(authorizePermission("COURSES_VIEW_STUDENTS"), getCourseStudents);
 router
   .route("/:id/grades")
-  .get(authorize("instructor", "admin", "student"), getCourseGrades);
+  .get(
+    authorizePermission("COURSES_VIEW_GRADES", "COURSES_VIEW_OWN_GRADES"),
+    getCourseGrades,
+  );
 router
   .route("/:courseId/assignments")
-  .get(getCourseAssignments)
+  .get(authorizePermission("ASSIGNMENTS_VIEW"), getCourseAssignments)
   .post(
-    authorize("instructor", "admin"),
+    authorizePermission("ASSIGNMENTS_CREATE"),
     uploadAssignmentAttachment.any(),
     timezoneMiddleware(["due_date"]),
     createAssignment,
@@ -51,7 +65,7 @@ router
 // Quiz routes for courses
 router
   .route("/:courseId/quizzes")
-  .get(protect, getQuizzes)
-  .post(protect, authorize("instructor", "admin"), createQuiz);
+  .get(protect, authorizePermission("QUIZZES_VIEW"), getQuizzes)
+  .post(protect, authorizePermission("QUIZZES_CREATE"), createQuiz);
 
 export default router;

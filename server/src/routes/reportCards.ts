@@ -9,7 +9,7 @@ import {
   listReportCardStudents,
   getAdminSummary,
 } from "../controllers/reportCard.controller";
-import { protect, authorize } from "../middleware/auth";
+import { protect, authorizePermission } from "../middleware/auth";
 import { validate } from "../middleware/validation.middleware";
 import {
   builderSaveSchema,
@@ -27,7 +27,7 @@ router.use(protect);
 // The controller does a partial replace scoped to the subject_ids in the payload.
 router.post(
   "/builder/save",
-  authorize("instructor", "admin"),
+  authorizePermission("REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT"),
   validate(builderSaveSchema),
   saveBuilder,
 );
@@ -35,7 +35,7 @@ router.post(
 // ── Attributes (class teacher / admin) ────────────────────────────────────────
 router.post(
   "/attributes/save",
-  authorize("instructor", "admin"),
+  authorizePermission("REPORT_CARDS_EDIT"),
   validate(attributesSaveSchema),
   saveAttributes,
 );
@@ -46,7 +46,7 @@ router.post(
 // the enrollment list, so this endpoint stays free of NGA MIS dependencies.
 router.get(
   "/overview",
-  authorize("instructor", "admin"),
+  authorizePermission("REPORT_CARDS_VIEW_ALL"),
   getCourseOverview,
 );
 
@@ -54,33 +54,42 @@ router.get(
 // Lists every report card for a term/year (used by the bulk export "by
 // term/year" mode and admin student search) and an aggregate summary
 // (status counts, per-category and per-subject averages) for that period.
-router.get("/admin/students", authorize("admin"), listReportCardStudents);
-router.get("/admin/summary", authorize("admin"), getAdminSummary);
+router.get(
+  "/admin/students",
+  authorizePermission("REPORT_CARDS_VIEW_ALL"),
+  listReportCardStudents,
+);
+router.get(
+  "/admin/summary",
+  authorizePermission("REPORT_CARDS_VIEW_ALL"),
+  getAdminSummary,
+);
 
 // ── Status lifecycle ───────────────────────────────────────────────────────────
 // PATCH /api/report-cards/:id/status
-// Instructors: draft ↔ saved
-// Admins:      any → any (including approved)
+// Editors: draft <-> saved
+// Approvers: any -> any (including approved) — enforced in the controller
 router.patch(
   "/:id/status",
-  authorize("instructor", "admin"),
+  authorizePermission("REPORT_CARDS_EDIT", "REPORT_CARDS_APPROVE"),
   validate(updateStatusSchema),
   updateStatus,
 );
 
 // ── Read ───────────────────────────────────────────────────────────────────────
-// Students receive only approved cards; instructors/admins receive any status.
+// Callers without REPORT_CARDS_VIEW_ALL receive only approved cards (controller-scoped).
 router.get(
   "/student/:studentId",
-  authorize("instructor", "admin", "student"),
+  authorizePermission("REPORT_CARDS_VIEW_OWN", "REPORT_CARDS_VIEW_ALL"),
   getStudentReportCard,
 );
 
 // ── PDF generation ─────────────────────────────────────────────────────────────
-// Students can only generate PDFs for approved cards (enforced in controller).
+// Callers without REPORT_CARDS_VIEW_ALL can only generate PDFs for approved cards
+// (enforced in controller).
 router.post(
   "/generate-pdf",
-  authorize("instructor", "admin", "student"),
+  authorizePermission("REPORT_CARDS_EXPORT_PDF"),
   validate(generatePdfSchema),
   generatePdf,
 );

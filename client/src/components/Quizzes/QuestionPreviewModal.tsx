@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { CodePreviewModal } from "./CodePreviewModal";
 import RichTextDisplay from "../Common/RichTextDisplay";
-import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 
 interface QuestionPreviewModalProps {
   isOpen: boolean;
@@ -30,14 +30,14 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
   allQuestions = [],
   onNavigate,
 }) => {
-  const { user } = useAuth();
+  const { can } = usePermissions();
   const [previewMode, setPreviewMode] = useState<"desktop" | "mobile">(
     "desktop",
   );
   const [showAllQuestions, setShowAllQuestions] = useState(false);
   const [showCodePreview, setShowCodePreview] = useState(false);
 
-  const isInstructor = user?.role === "instructor" || user?.role === "admin";
+  const isInstructor = can("QUIZ_QUESTIONS_VIEW_WITH_ANSWERS");
 
   const currentIndex = allQuestions.findIndex((q) => q.id === question.id);
   const hasNavigation = allQuestions.length > 1 && onNavigate;

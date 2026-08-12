@@ -38,6 +38,7 @@ import {
 } from "../services/manualAssessmentApi";
 import type { StudentEntry } from "../components/ReportCard/ManualAssessmentModal";
 import { useAuth } from "../contexts/AuthContext";
+import { usePermissions } from "../hooks/usePermissions";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -212,8 +213,11 @@ export default function ReportCardBuilderPage() {
   const [statusChanging, setStatusChanging] = useState(false);
 
   const navigate = useNavigate();
-  const isAdmin = authUser?.role === "admin";
-  const isInstructor = authUser?.role === "instructor";
+  const { can } = usePermissions();
+  // draft <-> saved transitions ("mark complete" / "revert to draft")
+  const canEditReportCard = can("REPORT_CARDS_EDIT");
+  // saved <-> approved transitions ("approve" / "revert approval")
+  const canApproveReportCard = can("REPORT_CARDS_APPROVE");
 
   // ── Fetch course + quizzes + assignments + manual assessments + students ────
   useEffect(() => {
@@ -532,7 +536,7 @@ export default function ReportCardBuilderPage() {
               {!rcLoading && reportCardId && (
                 <div className="flex flex-wrap items-center gap-2">
                   {/* Instructor: mark complete (saved) */}
-                  {(isInstructor || isAdmin) && rcStatus === "draft" && (
+                  {canEditReportCard && rcStatus === "draft" && (
                     <button
                       onClick={() => changeStatus("saved")}
                       disabled={statusChanging}
@@ -550,7 +554,7 @@ export default function ReportCardBuilderPage() {
                   )}
 
                   {/* Instructor: revert to draft */}
-                  {(isInstructor || isAdmin) && rcStatus === "saved" && (
+                  {canEditReportCard && rcStatus === "saved" && (
                     <button
                       onClick={() => changeStatus("draft")}
                       disabled={statusChanging}
@@ -568,7 +572,7 @@ export default function ReportCardBuilderPage() {
                   )}
 
                   {/* Admin: approve */}
-                  {isAdmin && rcStatus === "saved" && (
+                  {canApproveReportCard && rcStatus === "saved" && (
                     <button
                       onClick={() => changeStatus("approved")}
                       disabled={statusChanging}
@@ -586,7 +590,7 @@ export default function ReportCardBuilderPage() {
                   )}
 
                   {/* Admin: revert approved */}
-                  {isAdmin && rcStatus === "approved" && (
+                  {canApproveReportCard && rcStatus === "approved" && (
                     <button
                       onClick={() => changeStatus("saved")}
                       disabled={statusChanging}
@@ -606,7 +610,7 @@ export default function ReportCardBuilderPage() {
               )}
 
               {/* Approved lock notice */}
-              {rcStatus === "approved" && !isAdmin && (
+              {rcStatus === "approved" && !canApproveReportCard && (
                 <p className="text-xs text-emerald-400 flex items-center gap-1.5">
                   <CheckCircle2 className="w-3.5 h-3.5" />
                   Approved — student can now view this report card
@@ -675,7 +679,7 @@ export default function ReportCardBuilderPage() {
                   )}
                   {rcStatus === "saved" && (
                     <p className="text-sm text-slate-400 leading-relaxed">
-                      {isAdmin
+                      {canApproveReportCard
                         ? "This card is ready for your review. Click Approve above to publish it to the student."
                         : "Waiting for admin approval. Once approved, the student can view and download the report card."}
                     </p>
@@ -695,7 +699,7 @@ export default function ReportCardBuilderPage() {
               initialDropped={initialDropped}
               onSaved={onBuilderSaved}
               readOnly={
-                rcStatus === "saved" || (rcStatus === "approved" && !isAdmin)
+                rcStatus === "saved" || (rcStatus === "approved" && !canApproveReportCard)
               }
             />
           </div>

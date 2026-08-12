@@ -29,7 +29,7 @@ import {
   otpLimiter,
   passwordResetLimiter,
 } from "../middleware/rateLimiter.middleware";
-import { protect, authorize } from "../middleware/auth";
+import { protect, authorizePermission } from "../middleware/auth";
 import { handleMulterError } from "../middleware/upload";
 
 const router = Router();
@@ -73,7 +73,7 @@ router.delete("/delete-profile-image", protect, deleteProfileImage);
 router.post(
   "/confirm-db-access",
   protect,
-  authorize("admin"),
+  authorizePermission("DATABASE_ADMIN_ACCESS"),
   confirmDbAccess,
 );
 

@@ -55,7 +55,7 @@ import {
   updateBloomsTaxonomyLevel,
   deleteBloomsTaxonomyLevel,
 } from "../controllers/bloomsTaxonomy.controller";
-import { protect, authorize } from "../middleware/auth";
+import { protect, authorizePermission } from "../middleware/auth";
 
 const router = Router();
 
@@ -65,167 +65,191 @@ router.use(protect);
 // -------------------------------------------------------
 // Bloom's Taxonomy Level routes
 // -------------------------------------------------------
-router.get("/blooms-levels", getBloomsTaxonomyLevels);
-router.get("/blooms-levels/:id", getBloomsTaxonomyLevel);
-router.post("/blooms-levels", authorize("admin"), createBloomsTaxonomyLevel);
-router.put("/blooms-levels/:id", authorize("admin"), updateBloomsTaxonomyLevel);
+router.get("/blooms-levels", authorizePermission("QUIZZES_VIEW"), getBloomsTaxonomyLevels);
+router.get("/blooms-levels/:id", authorizePermission("QUIZZES_VIEW"), getBloomsTaxonomyLevel);
+router.post("/blooms-levels", authorizePermission("QUIZZES_CREATE"), createBloomsTaxonomyLevel);
+router.put(
+  "/blooms-levels/:id",
+  authorizePermission("QUIZZES_EDIT"),
+  updateBloomsTaxonomyLevel,
+);
 router.delete(
   "/blooms-levels/:id",
-  authorize("admin"),
+  authorizePermission("QUIZZES_DELETE"),
   deleteBloomsTaxonomyLevel,
 );
 
 // Quiz management routes (for instructors and admins)
 router
   .route("/")
-  .get(protect, getQuizzes) // Allow authenticated users to get all quizzes
-  .post(authorize("instructor", "admin"), createQuiz);
+  .get(authorizePermission("QUIZZES_VIEW"), getQuizzes)
+  .post(authorizePermission("QUIZZES_CREATE"), createQuiz);
 
 // Student quiz routes
-router.get("/available", authorize("student"), getAvailableQuizzes);
-router.get("/public", getPublicQuizzes);
-router.get("/my-results", authorize("student"), getStudentQuizHistory);
-router.post("/:id/submit", authorize("student"), submitQuizAttempt);
-router.get("/:id/results", authorize("student"), getQuizResultsById);
+router.get("/available", authorizePermission("QUIZZES_ATTEMPT"), getAvailableQuizzes);
+router.get("/public", authorizePermission("QUIZZES_VIEW"), getPublicQuizzes);
+router.get(
+  "/my-results",
+  authorizePermission("QUIZZES_VIEW_RESULTS_OWN"),
+  getStudentQuizHistory,
+);
+router.post("/:id/submit", authorizePermission("QUIZZES_ATTEMPT"), submitQuizAttempt);
+router.get(
+  "/:id/results",
+  authorizePermission("QUIZZES_VIEW_RESULTS_OWN"),
+  getQuizResultsById,
+);
 
 // Quiz routes
 router
   .route("/:id")
-  .get(getQuiz)
-  .put(authorize("instructor", "admin"), updateQuiz)
-  .delete(authorize("instructor", "admin"), deleteQuiz);
+  .get(authorizePermission("QUIZZES_VIEW"), getQuiz)
+  .put(authorizePermission("QUIZZES_EDIT"), updateQuiz)
+  .delete(authorizePermission("QUIZZES_DELETE"), deleteQuiz);
 
 // Question routes
-router.get("/:quizId/questions", getQuizQuestions);
-router.get("/questions/:id", getQuestion);
-router.post("/questions/:questionId/ai-hint", getAIHint);
-router.post("/questions/:questionId/run-code", runCode);
+router.get("/:quizId/questions", authorizePermission("QUIZZES_VIEW"), getQuizQuestions);
+router.get("/questions/:id", authorizePermission("QUIZZES_VIEW"), getQuestion);
+router.post(
+  "/questions/:questionId/ai-hint",
+  authorizePermission("QUIZ_QUESTIONS_USE_AI_HINT"),
+  getAIHint,
+);
+router.post(
+  "/questions/:questionId/run-code",
+  authorizePermission("QUIZ_QUESTIONS_RUN_CODE"),
+  runCode,
+);
 
 router.post(
   "/:quizId/questions",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_EDIT"),
   createQuestion,
 );
-router.put("/questions/:id", authorize("instructor", "admin"), updateQuestion);
+router.put("/questions/:id", authorizePermission("QUIZZES_EDIT"), updateQuestion);
 router.delete(
   "/questions/:id",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_EDIT"),
   deleteQuestion,
 );
 router.put(
   "/:quizId/questions/reorder",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_EDIT"),
   reorderQuestions,
 );
 router.post(
   "/:quizId/questions/bulk",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_EDIT"),
   bulkImportQuestions,
 );
 router.post(
   "/generate-test-cases",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_CREATE", "QUIZZES_EDIT"),
   generateTestCases,
 );
 // Instructor-only: run code against test cases during question preparation (no submission needed)
-router.post("/preview-run", authorize("instructor", "admin"), runCode);
+router.post(
+  "/preview-run",
+  authorizePermission("QUIZ_QUESTIONS_RUN_CODE", "QUIZZES_EDIT"),
+  runCode,
+);
 
 // Quiz submission routes
-router.post("/submissions", authorize("student"), createQuizSubmission);
+router.post("/submissions", authorizePermission("QUIZZES_ATTEMPT"), createQuizSubmission);
 router.patch(
   "/submissions/:id",
-  authorize("student", "instructor", "admin"),
+  authorizePermission("QUIZZES_ATTEMPT", "QUIZZES_GRADE"),
   updateQuizSubmission,
 );
 router.post(
   "/submissions/:id/reset",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_GRADE", "QUIZZES_EDIT"),
   resetQuizSubmission,
 );
 router.delete(
   "/submissions/:submissionId/delete",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_GRADE", "QUIZZES_EDIT"),
   deleteQuizSubmission,
 );
 router.delete(
   "/:quizId/submissions/all",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_DELETE"),
   deleteAllQuizSubmissions,
 );
-router.post("/:quizId/start", authorize("student"), startQuizAttempt);
+router.post("/:quizId/start", authorizePermission("QUIZZES_ATTEMPT"), startQuizAttempt);
 router.get(
   "/attempts/:submissionId",
-  authorize("student"),
+  authorizePermission("QUIZZES_ATTEMPT"),
   getQuizAttemptStatus,
 );
 router.get(
   "/attempts/:submissionId/results",
-  authorize("student"),
+  authorizePermission("QUIZZES_VIEW_RESULTS_OWN"),
   getSubmissionResults,
 );
 
 // Question answering routes
 router.post(
   "/attempts/:submissionId/questions/:questionId/answer",
-  authorize("student"),
+  authorizePermission("QUIZZES_ATTEMPT"),
   submitQuestionAnswer,
 );
 router.post(
   "/attempts/:submissionId/submit-all",
-  authorize("student"),
+  authorizePermission("QUIZZES_ATTEMPT"),
   submitAllAnswers,
 );
 
 // Student quiz history
 router.get(
   "/students/:studentId/history",
-  authorize("instructor", "admin", "student"),
+  authorizePermission("QUIZZES_VIEW_RESULTS_OWN", "QUIZZES_VIEW_RESULTS_ALL"),
   getStudentQuizHistory,
 );
 
 // Grading routes (for instructors and admins)
 router.get(
   "/submissions/pending",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_GRADE"),
   getPendingSubmissions,
 );
 router.get(
   "/submissions/:submissionId/grade",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_GRADE"),
   getSubmissionForGrading,
 );
 router.post(
   "/submissions/:submissionId/grade",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_GRADE"),
   gradeSubmission,
 );
 router.put(
   "/submissions/:submissionId/feedback",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_GRADE"),
   updateSubmissionFeedback,
 );
 
 // Initialize a manual submission (instructor records paper-based marks)
 router.post(
   "/:quizId/submissions/initialize-manual",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_GRADE", "QUIZZES_EDIT"),
   initializeManualSubmission,
 );
 
 // Quiz submissions and analytics
 router.get(
   "/:quizId/submissions",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_VIEW_RESULTS_ALL"),
   getInstructorQuizSubmissions,
 );
 router.get(
   "/:quizId/students",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_VIEW_RESULTS_ALL"),
   getQuizStudents,
 );
 router.get(
   "/:quizId/analytics",
-  authorize("instructor", "admin"),
+  authorizePermission("QUIZZES_VIEW_RESULTS_ALL"),
   getQuizAnalytics,
 );
 

@@ -1068,9 +1068,9 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       };
     });
 
-    // Filter if requesting user is a student
+    // Scope to own grades only if the caller lacks the broader view-all permission
     let responseData = studentsWithGrades;
-    if (req.user?.role === "student") {
+    if (!req.user?.permissions?.has("COURSES_VIEW_GRADES")) {
       // Find the student in the list (using MIS ID or User ID logic)
       // The enrolledStudents list comes from MIS and uses MIS IDs usually,
       // but let's check how we mapped it.
@@ -1131,10 +1131,10 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         .json({ success: false, message: "Authentication required" });
     }
 
-    if (req.user?.role !== "student") {
+    if (!req.user?.permissions?.has("COURSES_VIEW_OWN_GRADES")) {
       return res
         .status(403)
-        .json({ success: false, message: "Not authorized. Student only." });
+        .json({ success: false, message: "Not authorized." });
     }
 
     const studentMisId = req.user.mis_user_id;

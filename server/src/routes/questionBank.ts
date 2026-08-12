@@ -14,7 +14,7 @@ import {
   generateQuestionsFromDocument,
 } from "../controllers/questionBank.controller";
 
-import { protect, authorize } from "../middleware/auth";
+import { protect, authorizePermission } from "../middleware/auth";
 
 import multer from "multer";
 
@@ -40,13 +40,13 @@ const aiGenerateUpload = multer({
 router.use(protect);
 
 // Template downloads
-router.get("/template", authorize("instructor", "admin"), downloadDocxTemplate);
-router.get("/template/xlsx", authorize("instructor", "admin"), downloadXlsxTemplate);
+router.get("/template", authorizePermission("QUESTION_BANK_VIEW"), downloadDocxTemplate);
+router.get("/template/xlsx", authorizePermission("QUESTION_BANK_VIEW"), downloadXlsxTemplate);
 
 // Docx upload and parse
 router.post(
   "/upload",
-  authorize("instructor", "admin"),
+  authorizePermission("QUESTION_BANK_CREATE"),
   upload.single("file"),
   parseDocxQuestions,
 );
@@ -54,7 +54,7 @@ router.post(
 // XLSX upload and parse
 router.post(
   "/upload/xlsx",
-  authorize("instructor", "admin"),
+  authorizePermission("QUESTION_BANK_CREATE"),
   upload.single("file"),
   parseXlsxQuestions,
 );
@@ -62,37 +62,37 @@ router.post(
 // Bulk create
 router.post(
   "/bulk",
-  authorize("instructor", "admin"),
+  authorizePermission("QUESTION_BANK_CREATE"),
   bulkCreateCourseQuestions,
 );
 
 // Scheme of work entries
 router.get(
   "/scheme-of-work",
-  authorize("instructor", "admin"),
+  authorizePermission("QUESTION_BANK_VIEW"),
   getSchemeOfWorkEntries,
 );
 
 // AI generate questions from uploaded document
 router.post(
   "/ai-generate",
-  authorize("instructor", "admin"),
+  authorizePermission("QUESTION_BANK_CREATE"),
   aiGenerateUpload.single("file"),
   generateQuestionsFromDocument,
 );
 
 router
   .route("/")
-  .get(authorize("instructor", "admin"), getCourseQuestions)
-  .post(authorize("instructor", "admin"), createCourseQuestion);
+  .get(authorizePermission("QUESTION_BANK_VIEW"), getCourseQuestions)
+  .post(authorizePermission("QUESTION_BANK_CREATE"), createCourseQuestion);
 
 // GET    /api/courses/:courseId/question-bank/:id
 // PUT    /api/courses/:courseId/question-bank/:id
 // DELETE /api/courses/:courseId/question-bank/:id
 router
   .route("/:id")
-  .get(authorize("instructor", "admin"), getQuestionBankQuestion)
-  .put(authorize("instructor", "admin"), updateCourseQuestion)
-  .delete(authorize("instructor", "admin"), deleteCourseQuestion);
+  .get(authorizePermission("QUESTION_BANK_VIEW"), getQuestionBankQuestion)
+  .put(authorizePermission("QUESTION_BANK_EDIT"), updateCourseQuestion)
+  .delete(authorizePermission("QUESTION_BANK_DELETE"), deleteCourseQuestion);
 
 export default router;

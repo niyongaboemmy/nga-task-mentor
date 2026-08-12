@@ -144,7 +144,7 @@ export const getQuiz = async (req: Request, res: Response) => {
     if (
       quiz.status !== "published" &&
       !quiz.is_public &&
-      req.user.role !== "admin" &&
+      !req.user.permissions?.has("QUIZZES_MANAGE_ANY") &&
       req.user.id !== quiz.created_by
     ) {
       return res.status(403).json({
@@ -154,7 +154,7 @@ export const getQuiz = async (req: Request, res: Response) => {
     }
 
     // For students, check if they have already completed this quiz
-    if (req.user.role === "student") {
+    if (!req.user.permissions?.has("QUIZZES_EDIT")) {
       const completedSubmission = await QuizSubmission.findOne({
         where: {
           quiz_id: req.params.id,
@@ -314,7 +314,7 @@ export const createQuiz = async (req: Request, res: Response) => {
 
       // Check if user is course instructor or admin
       // Note: In MIS, instructor_id might be in different field, so we just check admin role for now
-      if (req.user.role !== "admin" && req.user.role !== "instructor") {
+      if (!req.user.permissions?.has("QUIZZES_CREATE")) {
         await transaction.rollback();
         return res.status(403).json({
           success: false,
@@ -403,7 +403,7 @@ export const updateQuiz = async (req: Request, res: Response) => {
     }
 
     // Check if user is quiz creator or admin
-    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
+    if (quiz.created_by !== req.user.id && !req.user.permissions?.has("QUIZZES_MANAGE_ANY")) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -497,7 +497,7 @@ export const deleteQuiz = async (req: Request, res: Response) => {
     }
 
     // Check if user is quiz creator or admin
-    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
+    if (quiz.created_by !== req.user.id && !req.user.permissions?.has("QUIZZES_MANAGE_ANY")) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -543,7 +543,7 @@ export const getQuizStats = async (req: Request, res: Response) => {
     }
 
     // Check authorization
-    if (quiz.created_by !== req.user.id && req.user.role !== "admin") {
+    if (quiz.created_by !== req.user.id && !req.user.permissions?.has("QUIZZES_MANAGE_ANY")) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to view quiz statistics",
@@ -628,7 +628,7 @@ export const getQuizStats = async (req: Request, res: Response) => {
 // @access  Private/Student
 export const getAvailableQuizzes = async (req: Request, res: Response) => {
   try {
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("QUIZZES_ATTEMPT")) {
       return res.status(403).json({
         success: false,
         message: "Only students can access available quizzes",
@@ -744,7 +744,7 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
     // If student, filter out completed quizzes but include in-progress ones with status
     let filteredQuizzes = availableQuizzes;
     let allSubmissions: any[] = [];
-    if (req.user.role === "student") {
+    if (!req.user.permissions?.has("QUIZZES_EDIT")) {
       // Get all submissions for this student (completed and in-progress)
       allSubmissions = await QuizSubmission.findAll({
         where: {
@@ -773,7 +773,7 @@ export const getAvailableQuizzes = async (req: Request, res: Response) => {
 
     const quizzesWithStats = filteredQuizzes.map((quiz) => {
       const inProgressQuizIds =
-        req.user.role === "student"
+        !req.user.permissions?.has("QUIZZES_EDIT")
           ? allSubmissions
               .filter((sub: any) => sub.status === "in_progress")
               .map((sub: any) => sub.quiz_id)
@@ -870,7 +870,7 @@ export const getPublicQuizzes = async (req: Request, res: Response) => {
     // If student, filter out completed quizzes but include in-progress ones with status
     let filteredQuizzes = availableQuizzes;
     let allSubmissions: any[] = [];
-    if (req.user.role === "student") {
+    if (!req.user.permissions?.has("QUIZZES_EDIT")) {
       console.log("Filtering completed quizzes for student", req.user.id);
       // Get all submissions for this student (completed and in-progress)
       allSubmissions = await QuizSubmission.findAll({
@@ -897,7 +897,7 @@ export const getPublicQuizzes = async (req: Request, res: Response) => {
     // Add computed fields
     const quizzesWithStats = filteredQuizzes.map((quiz) => {
       const inProgressQuizIds =
-        req.user.role === "student"
+        !req.user.permissions?.has("QUIZZES_EDIT")
           ? allSubmissions
               .filter((sub: any) => sub.status === "in_progress")
               .map((sub: any) => sub.quiz_id)
@@ -1236,7 +1236,7 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("QUIZZES_VIEW_RESULTS_OWN")) {
       return res.status(403).json({
         success: false,
         message: "Only students can view quiz results",
@@ -1400,7 +1400,7 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
   try {
     const { quiz_id, status = "in_progress", started_at } = req.body;
 
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("QUIZZES_ATTEMPT")) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -1519,7 +1519,7 @@ export const getQuizSubmissions = async (req: Request, res: Response) => {
   try {
     const { quiz_id, status } = req.query;
 
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("QUIZZES_VIEW_RESULTS_OWN")) {
       return res.status(403).json({
         success: false,
         message: "Only students can view their quiz submissions",
@@ -1580,8 +1580,7 @@ export const updateQuizSubmission = async (req: Request, res: Response) => {
     // Check authorization
     if (
       submission.student_id !== req.user.id &&
-      req.user.role !== "instructor" &&
-      req.user.role !== "admin"
+      !req.user.permissions?.has("QUIZZES_GRADE")
     ) {
       await transaction.rollback();
       return res.status(403).json({
@@ -1595,10 +1594,7 @@ export const updateQuizSubmission = async (req: Request, res: Response) => {
       submission.time_taken = time_taken;
     }
 
-    if (
-      status &&
-      (req.user.role === "instructor" || req.user.role === "admin")
-    ) {
+    if (status && req.user.permissions?.has("QUIZZES_GRADE")) {
       submission.status = status;
       if (status === "completed") {
         submission.completed_at = new Date();

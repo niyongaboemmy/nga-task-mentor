@@ -16,6 +16,9 @@ import ReportCardAssessment from "./ReportCardAssessment.model";
 import ManualAssessment from "./ManualAssessment.model";
 import ManualAssessmentScore from "./ManualAssessmentScore.model";
 import DatabaseQueryLog from "./DatabaseQueryLog.model";
+import Role from "./Role.model";
+import Permission from "./Permission.model";
+import RolePermission from "./RolePermission.model";
 
 // Set up associations after all models are imported
 const setupAssociations = () => {
@@ -214,6 +217,13 @@ const setupAssociations = () => {
     foreignKey: "user_id",
     as: "databaseQueryLogs",
   });
+
+  // ----------------------
+  // Role / Permission Associations
+  // Note: Role<->Permission (via RolePermission) and Role<->User are already
+  // declared via decorators in Role.model.ts/Permission.model.ts/User.model.ts
+  // — nothing further needed here.
+  // ----------------------
 };
 
 // Export as named exports for compatibility
@@ -236,6 +246,9 @@ export {
   ManualAssessment,
   ManualAssessmentScore,
   DatabaseQueryLog,
+  Role,
+  Permission,
+  RolePermission,
   setupAssociations,
 };
 
@@ -258,5 +271,8 @@ export default {
   ManualAssessment,
   ManualAssessmentScore,
   DatabaseQueryLog,
+  Role,
+  Permission,
+  RolePermission,
   setupAssociations,
 };

@@ -6,9 +6,20 @@ import axios from "axios";
 import { getMisToken, handleMisError } from "../utils/misUtils";
 import { Sequelize, Op } from "sequelize";
 import { User } from "../models/User.model";
+import { Role } from "../models/Role.model";
+import { Permission } from "../models/Permission.model";
 import { uploadProfilePicture } from "../middleware/upload";
 import fileServer from "../utils/fileServer";
 import { generateUniqueFilename, sanitizeKeepExtension } from "../utils/uploadFilename";
+
+// True if the given role_id points at one of the 3 seeded system roles
+// (admin/instructor/student). Used to decide whether an SSO login is
+// allowed to silently re-map a user's role_id from MIS data, vs. leaving a
+// manually-assigned custom role alone.
+async function isSystemRoleId(roleId: number): Promise<boolean> {
+  const role = await Role.findByPk(roleId);
+  return role?.is_system ?? false;
+}
 
 // User login - forwards to NGA Central MIS
 // Security: Protected by rate limiter and input validation at route level (see routes/auth.routes.ts)
@@ -290,6 +301,12 @@ export const verifyOtp = async (req: Request, res: Response) => {
     const mappedRole = mapMisRoleToLocal(roles);
     console.log("🎯 Final mapped role:", mappedRole);
 
+    // Keep the local RBAC role_id in sync with the deprecated `role` string
+    // whenever we (re)map it from MIS — otherwise a brand-new user would get
+    // role_id: null (zero permissions) and an existing user whose MIS role
+    // changes would silently lose permission parity with their new role.
+    const mappedRoleRecord = await Role.findOne({ where: { name: mappedRole } });
+
     // Sync user with local database
     let localUser = await User.findOne({
       where: { mis_user_id: misUser.user_id },
@@ -304,6 +321,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
         email: misUser.email,
         password: "MIS_AUTH", // Placeholder password since auth is handled by MIS
         role: mappedRole,
+        role_id: mappedRoleRecord?.id ?? null,
         mis_user_id: misUser.user_id,
       });
       console.log("✅ Created user with role:", localUser.role);
@@ -319,9 +337,23 @@ export const verifyOtp = async (req: Request, res: Response) => {
       localUser.last_name = misProfile.last_name;
       localUser.email = misUser.email;
       localUser.role = mappedRole;
+      // Only follow the MIS-driven remap if the user's role_id currently
+      // points at one of the 3 system roles (or is unset) — an admin who
+      // manually assigned a custom local role should not be silently
+      // overwritten back to a system role on the user's next login.
+      if (!localUser.role_id || (await isSystemRoleId(localUser.role_id))) {
+        localUser.role_id = mappedRoleRecord?.id ?? localUser.role_id;
+      }
       await localUser.save();
       console.log("✅ Updated user role to:", localUser.role);
     }
+
+    const effectiveRole = localUser.role_id
+      ? await Role.findByPk(localUser.role_id, { include: [Permission] })
+      : null;
+    const roleId = localUser.role_id ?? null;
+    const roleName = effectiveRole?.name ?? null;
+    const localPermissions = (effectiveRole?.permissions ?? []).map((p) => p.key);
 
     // Find active term ID
     let activeTermId: number | undefined;
@@ -362,6 +394,9 @@ export const verifyOtp = async (req: Request, res: Response) => {
         last_name: localUser.last_name,
         email: localUser.email,
         role: localUser.role,
+        roleId,
+        roleName,
+        localPermissions,
         mis_user_id: localUser.mis_user_id,
         profile_image: localUser.profile_image,
       },
@@ -574,6 +609,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
     };
 
     const mappedRole = mapMisRoleToLocal(roles);
+    const mappedRoleRecord = await Role.findOne({ where: { name: mappedRole } });
 
     // Sync user with local database
     console.log("🔍 Looking up user by MIS user_id:", misUser.user_id);
@@ -627,6 +663,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
           email: misUser.email,
           password: "SSO_USER_" + crypto.randomBytes(8).toString("hex"),
           role: mappedRole,
+          role_id: mappedRoleRecord?.id ?? null,
           mis_user_id: misUser.user_id,
         });
 
@@ -657,10 +694,22 @@ export const ssoCallback = async (req: Request, res: Response) => {
       localUser.last_name = misProfile?.last_name || localUser.last_name;
       localUser.email = misUser.email;
       localUser.role = mappedRole;
+      // See verifyOtp() for why this only follows the MIS remap when the
+      // user isn't currently on a manually-assigned custom role.
+      if (!localUser.role_id || (await isSystemRoleId(localUser.role_id))) {
+        localUser.role_id = mappedRoleRecord?.id ?? localUser.role_id;
+      }
       await localUser.save();
 
       console.log("✅ User updated successfully");
     }
+
+    const effectiveRole = localUser.role_id
+      ? await Role.findByPk(localUser.role_id, { include: [Permission] })
+      : null;
+    const roleId = localUser.role_id ?? null;
+    const roleName = effectiveRole?.name ?? null;
+    const localPermissions = (effectiveRole?.permissions ?? []).map((p) => p.key);
 
     // Find active term ID for token
     let activeTermId: number | undefined;
@@ -702,6 +751,9 @@ export const ssoCallback = async (req: Request, res: Response) => {
         last_name: localUser.last_name,
         email: localUser.email,
         role: localUser.role,
+        roleId,
+        roleName,
+        localPermissions,
         mis_user_id: localUser.mis_user_id,
         profile_image: localUser.profile_image,
         preferred_theme: preferred_theme,
@@ -965,11 +1017,19 @@ export const getMe = async (req: Request, res: Response) => {
 
     const user = await User.findByPk(startUser.id, {
       attributes: { exclude: ["password"] },
+      include: [{ model: Role, include: [Permission] }],
     });
 
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
+
+    // Local RBAC role/permissions — distinct from the MIS's own `roles`/
+    // `permissions` fields below, which are that external system's catalog
+    // and are passed straight through unchanged for MIS-linked UI.
+    const roleId = user.role_id ?? null;
+    const roleName = user.roleRecord?.name ?? null;
+    const localPermissions = (user.roleRecord?.permissions ?? []).map((p) => p.key);
 
     // Get MIS token (checks cookie then header)
     const misToken = getMisToken(req);
@@ -985,6 +1045,9 @@ export const getMe = async (req: Request, res: Response) => {
             last_name: user.last_name,
             email: user.email,
             role: user.role,
+            roleId,
+            roleName,
+            localPermissions,
             mis_user_id: user.mis_user_id,
             profile_image: user.profile_image,
           },
@@ -1025,6 +1088,9 @@ export const getMe = async (req: Request, res: Response) => {
             last_name: user.last_name,
             email: user.email,
             role: user.role,
+            roleId,
+            roleName,
+            localPermissions,
             mis_user_id: user.mis_user_id,
             profile_image: user.profile_image,
             preferred_theme: misData.user?.preferred_theme || null,
@@ -1057,6 +1123,9 @@ export const getMe = async (req: Request, res: Response) => {
             last_name: user.last_name,
             email: user.email,
             role: user.role,
+            roleId,
+            roleName,
+            localPermissions,
             mis_user_id: user.mis_user_id,
             profile_image: user.profile_image,
             preferred_theme: null,

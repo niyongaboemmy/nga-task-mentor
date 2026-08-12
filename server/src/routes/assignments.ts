@@ -12,7 +12,7 @@ import {
   submitAssignment,
   gradeUnsubmittedStudent,
 } from "../controllers/assignment.controller";
-import { protect, authorize, isCourseInstructor } from "../middleware/auth";
+import { protect, authorizePermission, isCourseInstructor } from "../middleware/auth";
 import { timezoneMiddleware } from "../utils/dateUtils";
 import { uploadAssignmentAttachment } from "../middleware/assignmentUpload";
 import { uploadSubmission } from "../middleware/submissionUpload";
@@ -25,15 +25,14 @@ const router = Router();
 router.use(protect);
 
 // Get enrolled assignments for students
-router.get("/enrolled", authorize("student"), getEnrolledAssignments);
-router.get("/", getAssignments);
-router.get("/:id", getAssignment);
+router.get("/enrolled", authorizePermission("ASSIGNMENTS_VIEW"), getEnrolledAssignments);
+router.get("/", authorizePermission("ASSIGNMENTS_VIEW"), getAssignments);
+router.get("/:id", authorizePermission("ASSIGNMENTS_VIEW"), getAssignment);
 
-// Instructor and admin routes - these should be for general assignment operations
 // Instructor and admin routes - these should be for general assignment operations
 router.post(
   "/",
-  authorize("instructor", "admin"),
+  authorizePermission("ASSIGNMENTS_CREATE"),
   uploadAssignmentAttachment.any(),
   timezoneMiddleware(["due_date"]),
   createAssignment,
@@ -43,14 +42,14 @@ router.post(
 router
   .route("/:id")
   .put(
-    authorize("instructor", "admin"),
+    authorizePermission("ASSIGNMENTS_EDIT"),
     isCourseInstructor,
     uploadAssignmentAttachment.any(),
     timezoneMiddleware(["due_date"]),
     updateAssignment,
   )
   .delete(
-    authorize("instructor", "admin"),
+    authorizePermission("ASSIGNMENTS_DELETE"),
     isCourseInstructor,
     deleteAssignment,
   );
@@ -58,7 +57,7 @@ router
 // Publish assignment (legacy route - keeping for backward compatibility)
 router.put(
   "/:id/publish",
-  authorize("instructor", "admin"),
+  authorizePermission("ASSIGNMENTS_EDIT"),
   isCourseInstructor,
   publishAssignment,
 );
@@ -66,7 +65,7 @@ router.put(
 // Update assignment status
 router.patch(
   "/:id/status",
-  authorize("instructor", "admin"),
+  authorizePermission("ASSIGNMENTS_EDIT"),
   isCourseInstructor,
   updateAssignmentStatus,
 );
@@ -74,22 +73,22 @@ router.patch(
 router.post(
   "/:id/submit",
   uploadSubmission.single("file_submission"),
-  authorize("student"),
+  authorizePermission("SUBMISSIONS_CREATE"),
   submitAssignment,
 );
 
-// Get submissions for an assignment - Students see only their own, Instructors see all
+// Get submissions for an assignment - Students see only their own (controller-scoped),
+// instructors/admins see all (ASSIGNMENTS_VIEW_SUBMISSIONS)
 router.get(
   "/:id/submissions",
-  protect,
-  // authorize("instructor", "admin"), // Students can view their own submissions
+  authorizePermission("ASSIGNMENTS_VIEW", "ASSIGNMENTS_VIEW_SUBMISSIONS"),
   getAssignmentSubmissions,
 );
 
 // Grade a student who has not submitted (instructor/admin only)
 router.post(
   "/:assignmentId/grade-student",
-  authorize("instructor", "admin"),
+  authorizePermission("SUBMISSIONS_GRADE"),
   gradeUnsubmittedStudent,
 );
 

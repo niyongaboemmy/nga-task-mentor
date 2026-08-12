@@ -7,7 +7,7 @@ import {
   getScores,
   upsertScores,
 } from "../controllers/manualAssessment.controller";
-import { protect, authorize } from "../middleware/auth";
+import { protect, authorizePermission } from "../middleware/auth";
 import { validate } from "../middleware/validation.middleware";
 import {
   createManualAssessmentSchema,
@@ -21,39 +21,39 @@ router.use(protect);
 
 router.post(
   "/",
-  authorize("instructor", "admin"),
+  authorizePermission("MANUAL_ASSESSMENTS_CREATE"),
   validate(createManualAssessmentSchema),
   createManualAssessment,
 );
 
 router.get(
   "/",
-  authorize("instructor", "admin"),
+  authorizePermission("MANUAL_ASSESSMENTS_VIEW"),
   listManualAssessments,
 );
 
 router.patch(
   "/:id",
-  authorize("instructor", "admin"),
+  authorizePermission("MANUAL_ASSESSMENTS_EDIT"),
   validate(updateManualAssessmentSchema),
   updateManualAssessment,
 );
 
 router.delete(
   "/:id",
-  authorize("instructor", "admin"),
+  authorizePermission("MANUAL_ASSESSMENTS_DELETE"),
   deleteManualAssessment,
 );
 
 router.get(
   "/:id/scores",
-  authorize("instructor", "admin"),
+  authorizePermission("MANUAL_ASSESSMENTS_VIEW"),
   getScores,
 );
 
 router.post(
   "/:id/scores",
-  authorize("instructor", "admin"),
+  authorizePermission("MANUAL_ASSESSMENTS_EDIT"),
   validate(upsertScoresSchema),
   upsertScores,
 );

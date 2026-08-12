@@ -71,7 +71,7 @@ export const startQuizAttempt = async (req: Request, res: Response) => {
   try {
     const { quizId } = req.params;
 
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("QUIZZES_ATTEMPT")) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -203,7 +203,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     const { submissionId, questionId } = req.params;
     const { answer_data, time_taken } = req.body;
 
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("QUIZZES_ATTEMPT")) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -380,7 +380,7 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
     const { submissionId } = req.params;
     const { answers } = req.body; // Array of { question_id, answer_data }
 
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("QUIZZES_ATTEMPT")) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -529,7 +529,7 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
   try {
     const { submissionId } = req.params;
 
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("QUIZZES_ATTEMPT")) {
       return res.status(403).json({
         success: false,
         message: "Only students can view their attempts",
@@ -687,7 +687,7 @@ export const getStudentQuizHistory = async (req: Request, res: Response) => {
     const studentId = req.user.id;
 
     // Check authorization - only students can access their own results
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("QUIZZES_VIEW_RESULTS_OWN")) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to view this student's quiz history",

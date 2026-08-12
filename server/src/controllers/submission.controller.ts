@@ -76,8 +76,7 @@ export const getSubmission = async (req: Request, res: Response) => {
     // Check if user owns the submission or is instructor/admin
     if (
       submission.student_id !== userId &&
-      (req as any).user.role !== "instructor" &&
-      (req as any).user.role !== "admin"
+      !(req as any).user.permissions?.has("SUBMISSIONS_VIEW_ALL")
     ) {
       return res.status(403).json({
         success: false,
@@ -210,8 +209,7 @@ export const updateSubmission = async (req: Request, res: Response) => {
     // Check if user owns the submission or is instructor/admin
     if (
       submission.student_id !== userId &&
-      (req as any).user.role !== "instructor" &&
-      (req as any).user.role !== "admin"
+      !(req as any).user.permissions?.has("SUBMISSIONS_VIEW_ALL")
     ) {
       return res.status(403).json({
         success: false,
@@ -282,8 +280,7 @@ export const deleteSubmission = async (req: Request, res: Response) => {
     // Check if user owns the submission or is instructor/admin
     if (
       submission.student_id !== userId &&
-      (req as any).user.role !== "instructor" &&
-      (req as any).user.role !== "admin"
+      !(req as any).user.permissions?.has("SUBMISSIONS_VIEW_ALL")
     ) {
       return res.status(403).json({
         success: false,
@@ -331,8 +328,7 @@ export const downloadFile = async (req: Request, res: Response) => {
     // Check if user owns the submission or is instructor/admin
     if (
       submission.student_id !== userId &&
-      (req as any).user.role !== "instructor" &&
-      (req as any).user.role !== "admin"
+      !(req as any).user.permissions?.has("SUBMISSIONS_VIEW_ALL")
     ) {
       return res.status(403).json({
         success: false,
@@ -433,11 +429,7 @@ export const gradeSubmission = async (req: Request, res: Response) => {
         .json({ success: false, message: "Submission not found" });
     }
 
-    // Check if user is instructor or admin
-    if (
-      (req as any).user.role !== "instructor" &&
-      (req as any).user.role !== "admin"
-    ) {
+    if (!(req as any).user.permissions?.has("SUBMISSIONS_GRADE")) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to grade submissions",
@@ -517,7 +509,7 @@ export const addComment = async (req: Request, res: Response) => {
   try {
     const { content } = req.body;
     const userId = (req as any).user.id;
-    const userRole = (req as any).user.role;
+    const userPermissions: Set<string> = (req as any).user.permissions ?? new Set();
 
     if (!content || !content.trim()) {
       return res
@@ -533,11 +525,10 @@ export const addComment = async (req: Request, res: Response) => {
         .json({ success: false, message: "Submission not found" });
     }
 
-    // Check if user is student who owns submission or is instructor/admin
+    // Check if user is student who owns submission or holds the view-all permission
     if (
       submission.student_id !== userId &&
-      userRole !== "instructor" &&
-      userRole !== "admin"
+      !userPermissions.has("SUBMISSIONS_VIEW_ALL")
     ) {
       return res.status(403).json({
         success: false,
@@ -561,7 +552,7 @@ export const addComment = async (req: Request, res: Response) => {
       authorId: userId,
       content,
       createdAt: new Date().toISOString(),
-      isInstructor: userRole !== "student",
+      isInstructor: userPermissions.has("SUBMISSIONS_VIEW_ALL"),
     };
 
     // Update submission

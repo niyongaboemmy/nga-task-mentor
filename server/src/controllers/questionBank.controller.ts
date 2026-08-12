@@ -337,7 +337,7 @@ export const updateCourseQuestion = async (req: Request, res: Response) => {
     }
 
     // Check authorization: only creator or admin can update
-    if (req.user.role !== "admin" && question.created_by !== req.user.id) {
+    if (!req.user.permissions?.has("QUESTION_BANK_MANAGE_ANY") && question.created_by !== req.user.id) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -390,7 +390,7 @@ export const deleteCourseQuestion = async (req: Request, res: Response) => {
     }
 
     // Check authorization
-    if (req.user.role !== "admin" && question.created_by !== req.user.id) {
+    if (!req.user.permissions?.has("QUESTION_BANK_MANAGE_ANY") && question.created_by !== req.user.id) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,

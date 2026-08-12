@@ -30,7 +30,16 @@ interface User {
   email: string;
   role: string;
   roles: Array<{ id: number; name: string }>;
+  /** External NGA Central MIS's own permission catalog — unrelated to the
+   * local RBAC system below; kept for MIS-linked UI (e.g. systems launcher). */
   permissions: string[];
+  /** Local RBAC role id/name and its resolved permission keys, sourced from
+   * this app's own roles/permissions tables (see server `Role`/`Permission`
+   * models). Deliberately named distinctly from `permissions` above to avoid
+   * confusing the two catalogs. */
+  roleId?: number | null;
+  roleName?: string | null;
+  localPermissions: string[];
   profile_image?: string;
   department?: string;
   user_type?: string;
@@ -145,6 +154,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
             name: r.name,
           })),
           permissions: responseData.permissions || [],
+          roleId: (responseData.user as any)?.roleId ?? null,
+          roleName: (responseData.user as any)?.roleName ?? null,
+          localPermissions: (responseData.user as any)?.localPermissions || [],
           profile_image: responseData.user?.profile_image,
           department: undefined,
           user_type:
@@ -275,6 +287,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           name: r.name,
         })),
         permissions: permissions || [],
+        roleId: localUser?.roleId ?? null,
+        roleName: localUser?.roleName ?? null,
+        localPermissions: localUser?.localPermissions || [],
         profile_image: localUser?.profile_image,
         user_type: misProfile?.user_type || localUser?.role,
         mis_user_id: localUser?.mis_user_id,

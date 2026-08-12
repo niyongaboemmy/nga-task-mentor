@@ -4,7 +4,7 @@ import { toast } from "react-toastify";
 import CodeMirror from "@uiw/react-codemirror";
 import { sql } from "@codemirror/lang-sql";
 import { Sparkles, AlertTriangle } from "lucide-react";
-import { useAuth } from "../contexts/AuthContext";
+import { usePermissions } from "../hooks/usePermissions";
 import {
   confirmDbAccess,
   getTables,
@@ -78,7 +78,7 @@ const formatBytes = (bytes: number | null): string => {
 };
 
 const DatabaseManagementPage: React.FC = () => {
-  const { user } = useAuth();
+  const { can } = usePermissions();
 
   const [unlocked, setUnlocked] = useState(false);
   const [tokenExpiry, setTokenExpiry] = useState<number | null>(null);
@@ -454,7 +454,7 @@ const DatabaseManagementPage: React.FC = () => {
 
   // ── Guard rails ───────────────────────────────────────────────────────
 
-  if (user?.role !== "admin") {
+  if (!can("DATABASE_ADMIN_ACCESS")) {
     return <Navigate to="/dashboard" replace />;
   }
 

@@ -784,7 +784,7 @@ export const getAdminGradingSummary = async (req: Request, res: Response) => {
 // Get active proctoring sessions count for instructor dashboard
 export const getActiveProctoringCount = async (req: Request, res: Response) => {
   try {
-    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+    if (!req.user.permissions?.has("DASHBOARD_VIEW_INSTRUCTOR")) {
       return res.status(403).json({
         success: false,
         message:
@@ -796,8 +796,8 @@ export const getActiveProctoringCount = async (req: Request, res: Response) => {
     const activeSessions = await ProctoringSession.count({
       where: {
         status: "active",
-        // Only show sessions for quizzes created by this instructor (or all for admin)
-        ...(req.user.role !== "admin" && {
+        // Only show sessions for quizzes created by this instructor (or all for admin-level access)
+        ...(!req.user.permissions?.has("QUIZZES_MANAGE_ANY") && {
           "$quiz.created_by$": req.user.id,
         }),
       },

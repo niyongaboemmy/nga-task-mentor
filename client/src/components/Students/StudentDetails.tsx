@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import api from "../../utils/axiosConfig";
-import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import { getProfileImageUrl } from "../../utils/imageUrl";
 import type { UserFullData } from "../../types/user.types";
 
@@ -82,7 +82,7 @@ const StudentDetails: React.FC = () => {
     );
   }
 
-  const { user } = useAuth();
+  const { can } = usePermissions();
   const [student, setStudent] = useState<UserFullData | null>(null);
   const [courses, setCourses] = useState<UserCourse[]>([]);
   const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
@@ -1032,7 +1032,7 @@ const StudentDetails: React.FC = () => {
           )}
 
           {activeTab === "assign" &&
-            (user?.role === "instructor" || user?.role === "admin") && (
+            can("GRADING_MANUAL_ASSESS") && (
               <div className="space-y-6">
                 {/* Stats Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

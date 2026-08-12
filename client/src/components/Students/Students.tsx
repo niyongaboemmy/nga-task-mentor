@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import { useSelector, useDispatch } from "react-redux";
 import type { RootState, AppDispatch } from "../../store";
 import { fetchCourses } from "../../store/slices/courseSlice";
@@ -23,6 +24,11 @@ interface UserSearchInterface {
 
 const Students: React.FC = () => {
   const { user } = useAuth();
+  const { can } = usePermissions();
+  // Instructors (who see USERS_VIEW_ALL but not the admin-only USERS_CREATE)
+  // must pick which of their own courses to scope the roster to; admins
+  // browse across all courses without needing to pick one.
+  const isInstructorLike = can("USERS_VIEW_ALL") && !can("USERS_CREATE");
   const dispatch = useDispatch<AppDispatch>();
   const { courses } = useSelector(
     (state: RootState) => state.course || { courses: [] },
@@ -41,11 +47,11 @@ const Students: React.FC = () => {
 
   // Fetch courses for instructors on mount (only if not already loaded)
   useEffect(() => {
-    if (user?.role === "instructor" && courses.length === 0) {
+    if (isInstructorLike && courses.length === 0) {
       setCoursesLoading(true);
       dispatch(fetchCourses()).finally(() => setCoursesLoading(false));
     }
-  }, [user?.role, courses.length, dispatch]);
+  }, [isInstructorLike, courses.length, dispatch]);
 
   // Select first course by default when courses are loaded
   useEffect(() => {
@@ -57,7 +63,7 @@ const Students: React.FC = () => {
   // Fetch students when selectedCourse or searchTerm changes
   useEffect(() => {
     // Don't fetch if no course selected (except for non-instructors)
-    if (user?.role === "instructor" && !selectedCourse) {
+    if (isInstructorLike && !selectedCourse) {
       return;
     }
 
@@ -234,7 +240,7 @@ const Students: React.FC = () => {
         </div>
 
         {/* Course Filter for Instructors */}
-        {user?.role === "instructor" && (
+        {isInstructorLike && (
           <div className="w-full lg:w-64">
             <select
               value={selectedCourse}

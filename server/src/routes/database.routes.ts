@@ -12,62 +12,62 @@ import {
   getServerStatus,
   generateSqlWithAI,
 } from "../controllers/database.controller";
-import { protect, authorize, requireDbStepUp } from "../middleware/auth";
+import { protect, authorizePermission, requireDbStepUp } from "../middleware/auth";
 
 const router = Router();
 
 router.use(protect);
 
-router.get("/tables", authorize("admin"), requireDbStepUp, listTables);
+router.get("/tables", authorizePermission("DATABASE_ADMIN_ACCESS"), requireDbStepUp, listTables);
 router.get(
   "/tables/:table/structure",
-  authorize("admin"),
+  authorizePermission("DATABASE_ADMIN_ACCESS"),
   requireDbStepUp,
   getTableStructure,
 );
 router.get(
   "/tables/:table/data",
-  authorize("admin"),
+  authorizePermission("DATABASE_ADMIN_ACCESS"),
   requireDbStepUp,
   getTableData,
 );
 router.post(
   "/tables/:table/rows",
-  authorize("admin"),
+  authorizePermission("DATABASE_ADMIN_ACCESS"),
   requireDbStepUp,
   insertRow,
 );
 router.put(
   "/tables/:table/rows",
-  authorize("admin"),
+  authorizePermission("DATABASE_ADMIN_ACCESS"),
   requireDbStepUp,
   updateRow,
 );
 router.delete(
   "/tables/:table/rows",
-  authorize("admin"),
+  authorizePermission("DATABASE_ADMIN_ACCESS"),
   requireDbStepUp,
   deleteRow,
 );
 router.get(
   "/tables/:table/export",
-  authorize("admin"),
+  authorizePermission("DATABASE_ADMIN_ACCESS"),
   requireDbStepUp,
   exportTable,
 );
-router.post("/query", authorize("admin"), requireDbStepUp, runQuery);
+router.post("/query", authorizePermission("DATABASE_ADMIN_ACCESS"), requireDbStepUp, runQuery);
 router.post(
   "/query/ai-generate",
-  authorize("admin"),
+  authorizePermission("DATABASE_ADMIN_ACCESS"),
   requireDbStepUp,
   generateSqlWithAI,
 );
 router.get(
   "/query/history",
-  authorize("admin"),
+  authorizePermission("DATABASE_ADMIN_ACCESS"),
   requireDbStepUp,
   getQueryHistory,
 );
-router.get("/status", authorize("admin"), requireDbStepUp, getServerStatus);
+router.get("/status", authorizePermission("DATABASE_ADMIN_ACCESS"), requireDbStepUp, getServerStatus);
 
 export default router;

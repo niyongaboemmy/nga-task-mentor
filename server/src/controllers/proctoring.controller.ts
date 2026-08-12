@@ -40,7 +40,10 @@ export const getProctoringSettings = async (req: Request, res: Response) => {
     }
 
     // Check authorization - instructors and students have access to proctoring settings
-    if (req.user.role !== "instructor" && req.user.role !== "student") {
+    if (
+      !req.user.permissions?.has("PROCTORING_MANAGE_SETTINGS") &&
+      !req.user.permissions?.has("PROCTORING_START_SESSION")
+    ) {
       return res.status(403).json({
         success: false,
         message:
@@ -115,7 +118,7 @@ export const updateProctoringSettings = async (req: Request, res: Response) => {
     }
 
     // Check authorization - instructors have full access to proctoring
-    if (req.user.role !== "instructor") {
+    if (!req.user.permissions?.has("PROCTORING_MANAGE_SETTINGS")) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -183,7 +186,7 @@ export const startProctoringSession = async (req: Request, res: Response) => {
     const { quizId } = req.params;
     const { browser_info, system_info, ip_address, location_data } = req.body;
 
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("PROCTORING_START_SESSION")) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -360,8 +363,7 @@ export const updateProctoringSession = async (req: Request, res: Response) => {
     // Check authorization
     if (
       session.student_id !== req.user.id &&
-      req.user.role !== "instructor" &&
-      req.user.role !== "admin"
+      !req.user.permissions?.has("PROCTORING_VIEW_SESSIONS")
     ) {
       await transaction.rollback();
       return res.status(403).json({
@@ -477,8 +479,7 @@ export const logProctoringEvent = async (req: Request, res: Response) => {
     // Check if session belongs to current user or user is instructor/admin
     if (
       session.student_id !== req.user.id &&
-      req.user.role !== "instructor" &&
-      req.user.role !== "admin"
+      !req.user.permissions?.has("PROCTORING_VIEW_SESSIONS")
     ) {
       return res.status(403).json({
         success: false,
@@ -578,7 +579,9 @@ export const getSessionEvents = async (req: Request, res: Response) => {
     }
 
     // Check if user is authorized (instructor who created the quiz or admin)
-    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+    if (
+      !req.user.permissions?.has("PROCTORING_VIEW_SESSIONS")
+    ) {
       return res.status(403).json({
         success: false,
         message: "Only instructors can view session events",
@@ -663,7 +666,9 @@ export const logWarningEvent = async (req: Request, res: Response) => {
     }
 
     // Only instructors and admins can log warning events
-    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+    if (
+      !req.user.permissions?.has("PROCTORING_VIEW_SESSIONS")
+    ) {
       return res.status(403).json({
         success: false,
         message: "Only instructors can send warnings to students",
@@ -748,8 +753,7 @@ export const getProctoringSessions = async (req: Request, res: Response) => {
 
     // Check authorization - allow instructors and admins
     if (
-      req.user.role !== "admin" &&
-      req.user.role !== "instructor" &&
+      !req.user.permissions?.has("PROCTORING_VIEW_ANALYTICS") &&
       req.user.id !== quiz.created_by
     ) {
       return res.status(403).json({
@@ -860,8 +864,7 @@ export const getProctoringSession = async (req: Request, res: Response) => {
     // Check authorization
     if (
       session.student_id !== req.user.id &&
-      req.user.role !== "instructor" &&
-      req.user.role !== "admin"
+      !req.user.permissions?.has("PROCTORING_VIEW_SESSIONS")
     ) {
       return res.status(403).json({
         success: false,
@@ -914,7 +917,7 @@ export const getProctoringSession = async (req: Request, res: Response) => {
 // @access  Private (student)
 export const getMyProctoringSessions = async (req: Request, res: Response) => {
   try {
-    if (req.user.role !== "student") {
+    if (!req.user.permissions?.has("PROCTORING_START_SESSION")) {
       return res.status(403).json({
         success: false,
         message: "Only students can view their proctoring sessions",
@@ -981,7 +984,9 @@ export const joinLiveStream = async (req: Request, res: Response) => {
   try {
     const { sessionToken } = req.params;
 
-    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+    if (
+      !req.user.permissions?.has("PROCTORING_JOIN_LIVE_STREAM")
+    ) {
       return res.status(403).json({
         success: false,
         message: "Only instructors can join live streams",
@@ -1008,8 +1013,7 @@ export const joinLiveStream = async (req: Request, res: Response) => {
 
     // Check if instructor has access to this quiz
     if (
-      req.user.role !== "admin" &&
-      req.user.role !== "instructor" &&
+      !req.user.permissions?.has("PROCTORING_JOIN_LIVE_STREAM") &&
       req.user.id !== session.quiz?.created_by
     ) {
       return res.status(403).json({
@@ -1134,7 +1138,9 @@ export const leaveLiveStream = async (req: Request, res: Response) => {
 // @access  Private (instructor)
 export const getActiveStreams = async (req: Request, res: Response) => {
   try {
-    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+    if (
+      !req.user.permissions?.has("PROCTORING_JOIN_LIVE_STREAM")
+    ) {
       return res.status(403).json({
         success: false,
         message: "Only instructors can view active streams",
@@ -1263,7 +1269,7 @@ export const endProctoringSession = async (req: Request, res: Response) => {
     }
 
     // Check authorization - instructors and admins can end sessions
-    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+    if (!req.user.permissions?.has("PROCTORING_VIEW_SESSIONS")) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -1361,7 +1367,9 @@ export const getProctoringAnalytics = async (req: Request, res: Response) => {
     const { quizId } = req.params;
     const { timeRange = "all" } = req.query as { timeRange?: string };
 
-    if (req.user.role !== "instructor" && req.user.role !== "admin") {
+    if (
+      !req.user.permissions?.has("PROCTORING_VIEW_ANALYTICS")
+    ) {
       return res.status(403).json({
         success: false,
         message: "Only instructors and admins can view proctoring analytics",
