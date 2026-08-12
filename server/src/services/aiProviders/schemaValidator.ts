@@ -1,0 +1,35 @@
+import { JSONSchema } from "./types";
+
+/**
+ * Lightweight runtime shape check for providers that only guarantee valid JSON
+ * (json_object mode), not schema-matching JSON (no constrained decoding). Checks
+ * required keys and basic type match — not a full JSON-Schema validator.
+ * Ported from nga_central_mis/backend/src/services/aiProviders.
+ */
+export function matchesSchema(value: any, schema: JSONSchema): boolean {
+  switch (schema.type) {
+    case "object": {
+      if (typeof value !== "object" || value === null || Array.isArray(value)) return false;
+      for (const key of schema.required || []) {
+        if (!(key in value)) return false;
+      }
+      if (schema.properties) {
+        for (const [key, propSchema] of Object.entries(schema.properties)) {
+          if (key in value && !matchesSchema(value[key], propSchema)) return false;
+        }
+      }
+      return true;
+    }
+    case "array":
+      if (!Array.isArray(value)) return false;
+      return schema.items ? value.every((v) => matchesSchema(v, schema.items!)) : true;
+    case "string":
+      return typeof value === "string";
+    case "number":
+      return typeof value === "number";
+    case "boolean":
+      return typeof value === "boolean";
+    default:
+      return true;
+  }
+}

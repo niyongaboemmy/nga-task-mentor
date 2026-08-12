@@ -1,0 +1,54 @@
+import { AIProvider } from "./types";
+import { geminiProvider } from "./geminiProvider";
+import { groqProvider } from "./groqProvider";
+import { glmProvider } from "./glmProvider";
+import { openaiProvider } from "./openaiProvider";
+
+// Ported from nga_central_mis/backend/src/services/aiProviders/registry.ts
+const ALL_PROVIDERS: Record<string, AIProvider> = {
+  gemini: geminiProvider,
+  groq: groqProvider,
+  glm: glmProvider,
+  openai: openaiProvider,
+};
+
+const DEFAULT_ORDER = "gemini,groq,glm";
+
+/**
+ * Providers to try, in order. Defaults to AI_PROVIDER_ORDER (comma-separated env var,
+ * falling back to DEFAULT_ORDER) — pass `overrideOrder` only when a specific feature has
+ * a genuine reason to prefer a different provider first, which still falls through to the
+ * rest of the configured providers rather than being limited to just the override.
+ */
+export function orderedProviders(overrideOrder?: string[]): AIProvider[] {
+  const names = (overrideOrder ?? (process.env.AI_PROVIDER_ORDER || DEFAULT_ORDER).split(","))
+    .map((s) => s.trim())
+    .filter(Boolean);
+  return names.map((name) => ALL_PROVIDERS[name]).filter((p): p is AIProvider => !!p);
+}
+
+export function isAnyProviderConfigured(): boolean {
+  return orderedProviders().some((p) => p.isConfigured());
+}
+
+export function getProviderStatus(): Record<string, boolean> {
+  return Object.fromEntries(
+    Object.entries(ALL_PROVIDERS).map(([name, p]) => [name, p.isConfigured()]),
+  );
+}
+
+// --- Cooldown / circuit breaker ---------------------------------------------------
+// A provider that just returned a quota/rate-limit error is skipped for COOLDOWN_MS
+// rather than retried every request — daily/per-minute quotas do reset, so this is a
+// temporary skip, not a permanent disable. In-memory only.
+const COOLDOWN_MS = 5 * 60 * 1000;
+const cooldownUntil = new Map<string, number>();
+
+export function isCoolingDown(providerName: string): boolean {
+  const until = cooldownUntil.get(providerName);
+  return !!until && until > Date.now();
+}
+
+export function markCoolingDown(providerName: string, ms: number = COOLDOWN_MS): void {
+  cooldownUntil.set(providerName, Date.now() + ms);
+}
