@@ -36,7 +36,7 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
   const renderPreview = () => {
     if (!code.trim()) {
       return (
-        <div className="flex items-center justify-center h-full text-gray-500">
+        <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
           <div className="text-center">
             <div className="text-4xl mb-4">📝</div>
             <p>Enter some code to see the preview</p>
@@ -116,7 +116,7 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
 
       default:
         return (
-          <div className="flex items-center justify-center h-full text-gray-500">
+          <div className="flex items-center justify-center h-full text-gray-500 dark:text-gray-400">
             <div className="text-center">
               <div className="text-4xl mb-4">💻</div>
               <p>Preview not available for {language}</p>
@@ -146,7 +146,7 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
             {/* Address Bar */}
             <div className="flex-1 max-w-md mx-4">
               <div className="bg-white dark:bg-gray-600 rounded-md px-3 py-1 flex items-center gap-2 text-sm">
-                <div className="w-4 h-4 text-gray-400">🔒</div>
+                <div className="w-4 h-4 text-gray-400 dark:text-gray-500">🔒</div>
                 <span className="text-text-secondary-light dark:text-text-secondary-dark truncate">
                   https://preview.{language}.local
                 </span>
