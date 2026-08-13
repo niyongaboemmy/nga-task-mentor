@@ -169,7 +169,7 @@ const RolesPermissionsPage: React.FC = () => {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
+          <div className="p-2.5 rounded-xl bg-blue-50 dark:bg-blue-900/20 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400">
             <ShieldCheck className="w-6 h-6" />
           </div>
           <div>
@@ -196,11 +196,7 @@ const RolesPermissionsPage: React.FC = () => {
               <li key={role.id}>
                 <button
                   onClick={() => setSelectedRoleId(role.id)}
-                  className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors flex items-center justify-between group ${
-                    selectedRoleId === role.id
-                      ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
-                      : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-800"
-                  }`}
+                  className={`w-full text-left px-3 py-2.5 rounded-xl text-sm transition-colors flex items-center justify-between group ${ selectedRoleId === role.id ? "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400" : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-800" }`}
                 >
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="truncate font-medium capitalize">{role.name}</span>
@@ -218,7 +214,7 @@ const RolesPermissionsPage: React.FC = () => {
                         e.stopPropagation();
                         handleDeleteRole(role);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-gray-400 hover:text-red-600 transition-all"
+                      className="opacity-0 group-hover:opacity-100 p-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/40 text-gray-400 dark:text-gray-500 hover:text-red-600 transition-all"
                       aria-label={`Delete ${role.name}`}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -246,7 +242,7 @@ const RolesPermissionsPage: React.FC = () => {
                   value={roleName}
                   onChange={(e) => setRoleName(e.target.value)}
                   disabled={selectedRole.is_system || !canManage}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm disabled:opacity-60"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:bg-gray-800 text-sm disabled:opacity-60"
                 />
               </div>
               <div className="flex-1">
@@ -257,7 +253,7 @@ const RolesPermissionsPage: React.FC = () => {
                   value={roleDescription}
                   onChange={(e) => setRoleDescription(e.target.value)}
                   disabled={!canManage}
-                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm disabled:opacity-60"
+                  className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:bg-gray-800 text-sm disabled:opacity-60"
                 />
               </div>
               {canManage && (
@@ -280,9 +276,9 @@ const RolesPermissionsPage: React.FC = () => {
                   >
                     <button
                       onClick={() => toggleCategory(category)}
-                      className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800/50 dark:bg-gray-800/60 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
                     >
-                      <span className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-200">
+                      <span className="flex items-center gap-2 text-sm font-semibold text-gray-700 dark:text-gray-300 dark:text-gray-200">
                         {expanded ? (
                           <ChevronDown className="w-4 h-4" />
                         ) : (
@@ -306,7 +302,7 @@ const RolesPermissionsPage: React.FC = () => {
                               checked={selectedPermissionKeys.has(perm.key)}
                               onChange={() => togglePermission(perm.key)}
                               disabled={!canManage}
-                              className="mt-1 rounded border-gray-300 dark:border-gray-600 text-blue-600 focus:ring-blue-500"
+                              className="mt-1 rounded border-gray-300 dark:border-gray-600 text-blue-600 dark:text-blue-400 focus:ring-blue-500"
                             />
                             <span>
                               <span className="block font-medium text-text-primary-light dark:text-text-primary-dark">
@@ -344,7 +340,7 @@ const RolesPermissionsPage: React.FC = () => {
               value={newRoleName}
               onChange={(e) => setNewRoleName(e.target.value)}
               autoFocus
-              className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
+              className="w-full px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 dark:bg-gray-800 text-sm"
               placeholder="e.g. Senior Instructor"
             />
           </div>

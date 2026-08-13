@@ -108,7 +108,7 @@ const Profile: React.FC = () => {
     <div className="flex justify-between items-center text-sm group">
       <span className="text-text-secondary-light dark:text-text-secondary-dark/70">{label}</span>
       <div className="flex items-center gap-2">
-        <span className="font-medium text-gray-900 dark:text-gray-200 text-right">
+        <span className="font-medium text-gray-900 dark:text-white dark:text-gray-200 text-right">
           {value || (
             <span className="text-gray-300 dark:text-gray-600 italic">
               Not set
@@ -150,7 +150,7 @@ const Profile: React.FC = () => {
       {/* Header */}
       <motion.div
         variants={itemVariants}
-        className="bg-white dark:bg-gray-900 rounded-[1.6rem] border border-gray-200 dark:border-gray-800 overflow-hidden"
+        className="bg-white dark:bg-gray-900 rounded-[1.6rem] border border-gray-200 dark:border-gray-700 dark:border-gray-800 overflow-hidden"
       >
         <div className="h-24 bg-gradient-to-r from-blue-600 to-blue-600 relative">
           <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20" />
@@ -160,7 +160,7 @@ const Profile: React.FC = () => {
             {/* Profile Picture & Upload */}
             <div className="relative group">
               <div className="p-1.5 bg-white dark:bg-gray-900 rounded-[1.6rem] inline-block">
-                <div className="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-[1.4rem] overflow-hidden relative">
+                <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 dark:bg-gray-800 rounded-[1.4rem] overflow-hidden relative">
                   <ProfilePictureUpload
                     onUploadSuccess={handleProfilePictureUpdate}
                   />
@@ -230,11 +230,7 @@ const Profile: React.FC = () => {
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${
-                  message.type === "success"
-                    ? "bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300"
-                    : "bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300"
-                }`}
+                className={`px-4 py-2 rounded-lg text-sm font-medium ${ message.type === "success" ? "bg-green-50 text-green-700 dark:text-green-400 border border-green-200 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300" : "bg-red-50 text-red-700 dark:text-red-400 border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300" }`}
               >
                 {message.text}
               </motion.div>
@@ -263,10 +259,10 @@ const Profile: React.FC = () => {
           />
           <div className="pt-2 border-t border-gray-50 dark:border-gray-800/50">
             <div className="flex items-start gap-2 text-sm">
-              <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
+              <MapPin size={16} className="text-gray-400 dark:text-gray-500 mt-0.5 shrink-0" />
               <span className="text-text-secondary-light dark:text-text-secondary-dark">
                 {user.address || (
-                  <span className="text-gray-400 italic">
+                  <span className="text-gray-400 dark:text-gray-500 italic">
                     No address provided
                   </span>
                 )}
@@ -291,7 +287,7 @@ const Profile: React.FC = () => {
 
           {user.assigned_programs && user.assigned_programs.length > 0 && (
             <div className="mt-4">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider block mb-2">
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2">
                 Assigned Programs
               </span>
               <div className="flex flex-wrap gap-2">
