@@ -47,7 +47,7 @@ export const CodingProgressIndicator: React.FC<
 
   return (
     <div className="mt-6">
-      <div className="flex items-center justify-between text-sm text-gray-600 dark:text-gray-400 mb-2">
+      <div className="flex items-center justify-between text-sm text-text-secondary-light dark:text-text-secondary-dark mb-2">
         <span>Setup Progress</span>
         <span>{progress}% Complete</span>
       </div>

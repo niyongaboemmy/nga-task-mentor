@@ -174,8 +174,8 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
           <div className="flex items-center gap-3">
             <span className="text-2xl">🧪</span>
             <div>
-              <h3 className="font-bold text-gray-900 dark:text-white">Test Cases</h3>
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <h3 className="font-bold text-text-primary-light dark:text-text-primary-dark">Test Cases</h3>
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                 Define inputs and expected outputs · Total weight: {totalWeight} pts
               </p>
             </div>
@@ -193,7 +193,7 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
                 className={`bg-white dark:bg-gray-800 rounded-xl px-3 py-1.5 border border-${s.color}-200 dark:border-${s.color}-700 text-center min-w-[56px]`}
               >
                 <div className={`text-[10px] text-${s.color}-500 uppercase font-bold`}>{s.label}</div>
-                <div className={`text-lg font-black text-${s.color}-600 dark:text-${s.color}-400`}>{s.value}</div>
+                <div className={`text-lg font-bold text-${s.color}-600 dark:text-${s.color}-400`}>{s.value}</div>
               </div>
             ))}
 
@@ -233,7 +233,7 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
                 Starter code: {passedCount}/{previewResults.length} tests passed
               </span>
               {failedCount > 0 && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
+                <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                   — Check failed tests below and fix expected outputs or starter code
                 </span>
               )}
@@ -373,13 +373,13 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
 
           {/* Add Manual Test Case Form */}
           <div className="bg-gray-50 dark:bg-gray-900/50 rounded-xl p-4 border border-gray-200 dark:border-gray-700">
-            <h5 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
+            <h5 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-3 flex items-center gap-2">
               <Plus size={16} /> Add Custom Test Case
             </h5>
             <div className="space-y-3">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">
+                  <label className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark/70 mb-1 block">
                     Input Data (stdin)
                   </label>
                   <textarea
@@ -390,7 +390,7 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">
+                  <label className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark/70 mb-1 block">
                     Expected Output (exact match)
                   </label>
                   <textarea
@@ -403,7 +403,7 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
               </div>
 
               <div>
-                <label className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-1 block">
+                <label className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark/70 mb-1 block">
                   Explanation (shown to students after completing the quiz)
                 </label>
                 <input
@@ -417,7 +417,7 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
 
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-4 flex-wrap">
-                  <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 cursor-pointer">
+                  <label className="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark cursor-pointer">
                     <input
                       type="checkbox"
                       className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 border-gray-300"
@@ -430,7 +430,7 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
                       <span className="flex items-center gap-1"><Eye size={13} /> Visible to students</span>
                     )}
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                  <label className="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Points:
                     <input
                       type="number"
@@ -461,8 +461,8 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
       {testCases.length === 0 && !isWebLang && (
         <div className="text-center py-16 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-2xl">
           <div className="text-5xl mb-3">🧪</div>
-          <h3 className="font-bold text-gray-900 dark:text-white mb-1">No Test Cases Yet</h3>
-          <p className="text-gray-500 dark:text-gray-400 text-sm mb-5">
+          <h3 className="font-bold text-text-primary-light dark:text-text-primary-dark mb-1">No Test Cases Yet</h3>
+          <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-sm mb-5">
             Use the AI generator above, the language builder, or add manually below.
           </p>
           <button

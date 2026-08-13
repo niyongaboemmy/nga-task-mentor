@@ -71,7 +71,7 @@ const Login: React.FC = () => {
                 <h2 className="text-3xl font-extrabold bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-700 dark:from-blue-400 dark:to-blue-400">
                   Welcome to TaskMentor
                 </h2>
-                <p className="mt-2 text-gray-600 dark:text-gray-400 text-sm">
+                <p className="mt-2 text-text-secondary-light dark:text-text-secondary-dark text-sm">
                   Student Practical Work Management System
                 </p>
               </div>
@@ -127,7 +127,7 @@ const Login: React.FC = () => {
             </div>
 
             <div className="bg-gray-50/80 dark:bg-gray-800/50 px-6 py-4 text-center border-t border-gray-100 dark:border-gray-800">
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                 No account or need password help?{" "}
                 <a
                   href="https://ngamis.isengesho.com"

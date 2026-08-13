@@ -252,7 +252,7 @@ const StudentQuizzesPage: React.FC = () => {
       case "F":
         return "text-red-600 dark:text-red-400 bg-red-100 dark:bg-red-900/30";
       default:
-        return "text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-800";
+        return "text-text-secondary-light dark:text-text-secondary-dark bg-gray-100 dark:bg-gray-800";
     }
   };
 
@@ -308,7 +308,7 @@ const StudentQuizzesPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                 <div className="flex items-center gap-1">
                   <Clock className="h-3 w-3" />
                   <span>{formatTime(result.time_taken)}</span>
@@ -344,7 +344,7 @@ const StudentQuizzesPage: React.FC = () => {
               >
                 {Math.round(result.percentage)}%
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                 {result.final_score}/{result.max_score}
               </div>
             </div>
@@ -402,7 +402,7 @@ const StudentQuizzesPage: React.FC = () => {
       <div className="min-h-screen bg-gray-100 dark:bg-black flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark">
             Loading your quiz results...
           </p>
         </div>
@@ -420,7 +420,7 @@ const StudentQuizzesPage: React.FC = () => {
               <h1 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                 My Quiz Results
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1">
                 Track your progress and review your quiz performance
               </p>
             </div>
@@ -468,7 +468,7 @@ const StudentQuizzesPage: React.FC = () => {
           <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                   Completed
                 </p>
                 <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">
@@ -482,7 +482,7 @@ const StudentQuizzesPage: React.FC = () => {
           <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-orange-100/50 dark:hover:shadow-orange-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                   Available
                 </p>
                 <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
@@ -496,7 +496,7 @@ const StudentQuizzesPage: React.FC = () => {
           <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-purple-100/50 dark:hover:shadow-purple-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                   Average Score
                 </p>
                 <p
@@ -514,7 +514,7 @@ const StudentQuizzesPage: React.FC = () => {
           <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-yellow-100/50 dark:hover:shadow-yellow-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                   Highest Score
                 </p>
                 <p
@@ -532,7 +532,7 @@ const StudentQuizzesPage: React.FC = () => {
           <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                   Total Taken
                 </p>
                 <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
@@ -550,7 +550,7 @@ const StudentQuizzesPage: React.FC = () => {
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {/* Status Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Status
                 </label>
                 <select
@@ -567,7 +567,7 @@ const StudentQuizzesPage: React.FC = () => {
 
               {/* Course Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Course
                 </label>
                 <select
@@ -586,7 +586,7 @@ const StudentQuizzesPage: React.FC = () => {
 
               {/* Date Range Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Date Range
                 </label>
                 <select
@@ -604,7 +604,7 @@ const StudentQuizzesPage: React.FC = () => {
 
               {/* Score Range Filter */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Score Range
                 </label>
                 <select
@@ -622,7 +622,7 @@ const StudentQuizzesPage: React.FC = () => {
 
               {/* Sort By */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Sort By
                 </label>
                 <select
@@ -642,7 +642,7 @@ const StudentQuizzesPage: React.FC = () => {
             <div className="flex justify-end mt-4">
               <button
                 onClick={clearFilters}
-                className="px-4 py-2 text-xs text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors hover:scale-105"
+                className="px-4 py-2 text-xs text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-800 dark:hover:text-gray-200 transition-colors hover:scale-105"
               >
                 Clear Filters
               </button>
@@ -653,7 +653,7 @@ const StudentQuizzesPage: React.FC = () => {
         {/* Results */}
         <div className="mb-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-gray-600 dark:text-gray-400">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
               {filteredResults.length} quiz result
               {filteredResults.length !== 1 ? "s" : ""} found
             </p>
@@ -705,7 +705,7 @@ const StudentQuizzesPage: React.FC = () => {
                             </span>
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500 dark:text-gray-400">
+                          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                             <div className="flex items-center gap-1">
                               <Clock className="h-3 w-3" />
                               <span>
@@ -775,7 +775,7 @@ const StudentQuizzesPage: React.FC = () => {
             <h3 className="text-lg font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
               No quizzes available
             </h3>
-            <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-6">
               {filters.search ||
               filters.status !== "all" ||
               filters.course !== "all" ||

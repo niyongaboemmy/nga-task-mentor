@@ -725,17 +725,17 @@ export const WebTemplateGallery: React.FC<WebTemplateGalleryProps> = ({
           >
             <div className="flex items-center gap-2 mb-1">
               <span className="text-sm">{CAT_EMOJI[t.category]}</span>
-              <span className="text-xs font-mono font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-1.5 py-0.5 rounded">
+              <span className="text-xs font-mono font-bold bg-gray-100 dark:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark px-1.5 py-0.5 rounded">
                 {t.tag}
               </span>
               {selectedId === t.id && (
                 <CheckCircle size={12} className="ml-auto text-blue-500" />
               )}
             </div>
-            <p className="font-semibold text-xs text-gray-900 dark:text-white">
+            <p className="font-semibold text-xs text-text-primary-light dark:text-text-primary-dark">
               {t.title}
             </p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5 leading-tight">
+            <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5 leading-tight">
               {t.description}
             </p>
             <span

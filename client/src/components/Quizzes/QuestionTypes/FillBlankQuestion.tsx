@@ -123,7 +123,7 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
                     : "border-red-500 text-red-700 bg-red-50/50"
                   : currentAnswerState
                     ? "border-blue-500 text-blue-700 dark:text-blue-400"
-                    : "border-gray-400 text-gray-800 dark:text-gray-200"
+                    : "border-gray-400 text-text-primary-light dark:text-text-primary-dark"
             }`}
           >
             {isRichText ? (
@@ -175,7 +175,7 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
         <RichTextDisplay
           key={index}
           content={part}
-          className="!inline text-gray-900 dark:text-gray-100 bg-transparent [&_p]:!inline [&_p]:!m-0 [&_div]:!inline"
+          className="!inline text-text-primary-light dark:text-text-primary-dark bg-transparent [&_p]:!inline [&_p]:!m-0 [&_div]:!inline"
         />
       );
     });
@@ -197,7 +197,7 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
 
         {/* Progress indicator */}
         <div className="flex items-center justify-center mb-4">
-          <div className="text-sm text-gray-600 dark:text-gray-400">
+          <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
             Blanks completed:{" "}
             {
               Object.values(blankAnswers).filter(
@@ -222,14 +222,14 @@ export const FillBlankQuestion: React.FC<QuestionComponentProps> = ({
         {/* Acceptable answers preview (for instructors) */}
         {showCorrectAnswer && questionData.acceptable_answers && (
           <div className="space-y-2">
-            <div className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
               Acceptable answers:
             </div>
             {questionData.acceptable_answers.map(
               (blank: any, index: number) => (
                 <div
                   key={index}
-                  className="text-sm text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800 p-2 rounded-2xl"
+                  className="text-sm text-text-secondary-light dark:text-text-secondary-dark bg-gray-50 dark:bg-gray-800 p-2 rounded-2xl"
                 >
                   <span className="font-medium">Blank {index + 1}:</span>{" "}
                   {blank.answers.join(", ")}

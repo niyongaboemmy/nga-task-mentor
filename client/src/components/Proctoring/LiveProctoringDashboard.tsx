@@ -1630,7 +1630,7 @@ const LiveProctoringDashboard: React.FC = () => {
                     Live Proctoring Dashboard
                   </h1>
                   <div className="flex items-center gap-3 mt-0.5">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                       Real-time student monitoring system
                     </p>
                     <span className={`flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border ${
@@ -1810,7 +1810,7 @@ const LiveProctoringDashboard: React.FC = () => {
                 <h3 className="text-xl font-semibold text-gray-800 mb-2 dark:text-gray-200">
                   No students found for this quiz
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400">
+                <p className="text-text-secondary-light dark:text-text-secondary-dark">
                   {selectedQuiz
                     ? "No connected students for the selected quiz."
                     : "Students will appear here when they start their quiz sessions"}

@@ -119,7 +119,7 @@ const OtpInput: React.FC<OtpInputProps> = ({
               }
               ${
                 otpArray[index] !== " "
-                  ? "text-gray-900 dark:text-white border-blue-500/50 bg-blue-50/10"
+                  ? "text-text-primary-light dark:text-text-primary-dark border-blue-500/50 bg-blue-50/10"
                   : ""
               }
             `}

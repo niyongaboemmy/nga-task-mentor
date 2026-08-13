@@ -1815,7 +1815,7 @@ const QuizTakingPage: React.FC = () => {
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
         <div className="text-center">
           <AlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
             Quiz Not Found
           </h2>
           <p className="text-gray-600 dark:text-gray-200 mb-6">
@@ -1856,7 +1856,7 @@ const QuizTakingPage: React.FC = () => {
                 />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
               Audio Volume Check
             </h3>
             <p className="text-gray-600 dark:text-gray-200 mb-4 text-sm">
@@ -2014,7 +2014,7 @@ const QuizTakingPage: React.FC = () => {
             </div>
           </div>
 
-          <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4">
             Fullscreen Required
           </h2>
 
@@ -2156,7 +2156,7 @@ const QuizTakingPage: React.FC = () => {
           )}
 
           <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-3">
+            <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-3">
               Quiz Instructions
             </h2>
             <p className="text-gray-600 dark:text-gray-200">
@@ -2168,7 +2168,7 @@ const QuizTakingPage: React.FC = () => {
             <div className="mx-auto w-16 h-16 bg-gradient-to-br from-blue-400/20 to-blue-500/20 rounded-2xl flex items-center justify-center mb-4 transform -rotate-3 hover:rotate-0 transition-transform duration-500 animate-pulse">
               {currentInstruction.icon}
             </div>
-            <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+            <h3 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
               {currentInstruction.title}
             </h3>
             <p className="text-gray-600 dark:text-gray-200 leading-relaxed">
@@ -2271,7 +2271,7 @@ const QuizTakingPage: React.FC = () => {
                   />
                 </svg>
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                 Fullscreen Required
               </h3>
               <p className="text-gray-600 dark:text-gray-200 mb-6 text-sm">
@@ -2394,7 +2394,7 @@ const QuizTakingPage: React.FC = () => {
                   <BookOpen className="h-6 w-6 text-blue-600" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  <h1 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
                     {quiz.title}
                   </h1>
                   <p className="text-sm text-gray-600 dark:text-gray-200">
@@ -2500,7 +2500,7 @@ const QuizTakingPage: React.FC = () => {
 
             {/* Problem Statement */}
             <div>
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+              <h3 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-3">
                 Problem Statement
               </h3>
               <div className="text-gray-700 dark:text-gray-200 leading-relaxed">
@@ -2577,7 +2577,7 @@ const QuizTakingPage: React.FC = () => {
             {/* Answer Input */}
             <div>
               {!isCodingFullscreen && (
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-3">
+                <h3 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-3">
                   Your Answer
                 </h3>
               )}
@@ -2687,7 +2687,7 @@ const QuizTakingPage: React.FC = () => {
           <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-md w-full p-6">
             <div className="text-center">
               <AlertCircle className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                 Ready to Submit?
               </h3>
               <p className="text-gray-600 dark:text-gray-200 mb-6 text-sm">
@@ -2800,10 +2800,10 @@ const QuizTakingPage: React.FC = () => {
             <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/10 dark:bg-blue-500/20 rounded-full blur-3xl"></div>
 
             <div className="relative z-10 mb-8">
-              <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-3 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200">
+              <h2 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark mb-3 animate-in fade-in slide-in-from-bottom-2 duration-500 delay-200">
                 Quiz Submitted!
               </h2>
-              <p className="text-gray-600 dark:text-gray-400 text-lg font-medium animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark text-lg font-medium animate-in fade-in slide-in-from-bottom-2 duration-500 delay-300">
                 {gradeSummary.quiz_title}
               </p>
             </div>
@@ -2849,14 +2849,14 @@ const QuizTakingPage: React.FC = () => {
                       />
                     </svg>
                     <div className="absolute flex flex-col items-center justify-center">
-                      <span className="text-4xl font-black text-gray-900 dark:text-white">
+                      <span className="text-4xl font-bold text-text-primary-light dark:text-text-primary-dark">
                         {Math.round(gradeSummary.percentage)}%
                       </span>
                     </div>
                   </div>
 
                   <div className="flex flex-col gap-3 items-center justify-center">
-                    <div className="text-xl font-bold text-gray-800 dark:text-gray-200">
+                    <div className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
                       Grade:{" "}
                       <span
                         className={
@@ -2904,18 +2904,18 @@ const QuizTakingPage: React.FC = () => {
 
               <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-500">
                 <div className="bg-white dark:bg-gray-800/80 rounded-2xl p-5 border border-gray-100 dark:border-gray-700/50 shadow-sm">
-                  <div className="text-3xl font-black text-blue-600 dark:text-blue-400 mb-1">
+                  <div className="text-3xl font-bold text-blue-600 dark:text-blue-400 mb-1">
                     {gradeSummary.final_score}
                   </div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/70">
                     Points Earned
                   </div>
                 </div>
                 <div className="bg-white dark:bg-gray-800/80 rounded-2xl p-5 border border-gray-100 dark:border-gray-700/50 shadow-sm">
-                  <div className="text-3xl font-black text-gray-800 dark:text-gray-200 mb-1">
+                  <div className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark mb-1">
                     {gradeSummary.max_score}
                   </div>
-                  <div className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  <div className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/70">
                     Total Points
                   </div>
                 </div>
@@ -2925,7 +2925,7 @@ const QuizTakingPage: React.FC = () => {
             <div className="text-center animate-in fade-in duration-500 delay-700 relative z-10">
               <div className="flex items-center justify-center gap-3 mb-3">
                 <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                   Redirecting to detailed results...
                 </p>
               </div>
@@ -2945,7 +2945,7 @@ const QuizTakingPage: React.FC = () => {
               <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertCircle className="w-10 h-10 text-white" />
               </div>
-              <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                 Quiz Terminated
               </h2>
               <p className="text-gray-600 dark:text-gray-200 mb-4">

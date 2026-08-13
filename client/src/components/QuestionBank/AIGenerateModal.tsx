@@ -251,7 +251,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
           >
             {/* File Upload Zone */}
             <div>
-              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
+              <label className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2 block">
                 Upload Document <span className="text-red-500">*</span>
               </label>
               <div
@@ -276,20 +276,20 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
                     <div className="w-12 h-12 rounded-full bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
                       <Check className="w-6 h-6 text-violet-600" />
                     </div>
-                    <p className="font-medium text-gray-800 dark:text-gray-200 text-sm">
+                    <p className="font-medium text-text-primary-light dark:text-text-primary-dark text-sm">
                       {file.name}
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                       {formatBytes(file.size)} — click to change
                     </p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <Upload className="w-8 h-8 text-gray-400" />
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                       Drag & drop or click to upload
                     </p>
-                    <p className="text-xs text-gray-400 dark:text-gray-500">
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
                       Supports PDF and DOCX (max 20 MB)
                     </p>
                   </div>
@@ -308,7 +308,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
 
             {/* Question Types */}
             <div>
-              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
+              <label className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2 block">
                 Question Types{" "}
                 <span className="text-gray-400 font-normal">
                   ({selectedTypes.length} selected)
@@ -325,7 +325,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
                       className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-2xl text-xs font-medium border transition-all duration-150 ${
                         active
                           ? "bg-violet-600 text-white border-violet-600"
-                          : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-violet-400"
+                          : "bg-white dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark border-gray-200 dark:border-gray-700 hover:border-violet-400"
                       }`}
                     >
                       <span>{qt.icon}</span> {qt.label}
@@ -348,13 +348,13 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
             {/* Count & Difficulty Row */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
+                <label className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2 block">
                   Questions per type
                 </label>
                 <select
                   value={countPerType}
                   onChange={(e) => setCountPerType(Number(e.target.value))}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark text-sm focus:outline-none focus:ring-2 focus:ring-violet-500"
                 >
                   {COUNT_OPTIONS.map((n) => (
                     <option key={n} value={n}>
@@ -365,7 +365,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
               </div>
 
               <div>
-                <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
+                <label className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2 block">
                   Difficulty
                 </label>
                 <div className="flex gap-2">
@@ -377,7 +377,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
                       className={`flex-1 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                         difficulty === d.value
                           ? d.activeClass
-                          : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700"
+                          : "bg-white dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark border-gray-200 dark:border-gray-700"
                       }`}
                     >
                       {d.label}
@@ -389,7 +389,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
 
             {/* Additional Context */}
             <div>
-              <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1 block">
+              <label className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1 block">
                 Additional instructions{" "}
                 <span className="text-gray-400 font-normal">(optional)</span>
               </label>
@@ -398,13 +398,13 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
                 onChange={(e) => setAdditionalContext(e.target.value)}
                 placeholder="e.g. Focus on Chapter 3, target secondary school level, emphasise application questions..."
                 rows={2}
-                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-800 dark:text-gray-200 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder:text-gray-400"
+                className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark text-sm resize-none focus:outline-none focus:ring-2 focus:ring-violet-500 placeholder:text-gray-400"
               />
             </div>
 
             {/* Generate Button */}
             <div className="flex items-center justify-between pt-2 border-t border-gray-100 dark:border-gray-700">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                 {selectedTypes.length > 0
                   ? `Will generate ~${totalExpected} question${totalExpected !== 1 ? "s" : ""}`
                   : "Select at least one question type"}
@@ -437,16 +437,16 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
               <Loader2 className="absolute -bottom-1 -right-1 w-7 h-7 text-violet-600 animate-spin" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                 AI is reading your document...
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                 Crafting {totalExpected} question
                 {totalExpected !== 1 ? "s" : ""} from your content. This usually
                 takes 15–60 seconds.
               </p>
             </div>
-            <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-gray-500 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2">
+            <div className="flex items-center gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark/60 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2">
               <FileText className="w-3.5 h-3.5" />
               {file?.name}
             </div>
@@ -486,11 +486,11 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
             <div className="flex items-center justify-between">
               <button
                 onClick={() => setStage("setup")}
-                className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
+                className="flex items-center gap-1.5 text-sm text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-200 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" /> Back to settings
               </button>
-              <p className="text-xs text-gray-400 dark:text-gray-500">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
                 Review and remove any questions before saving
               </p>
             </div>
@@ -517,10 +517,10 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
               <Check className="w-10 h-10 text-green-600" />
             </div>
             <div>
-              <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-200">
+              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                 Questions saved!
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                 Your question bank has been updated.
               </p>
             </div>

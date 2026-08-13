@@ -109,7 +109,7 @@ export const EditQuizPage: React.FC = () => {
           <div className="animate-fade-in">
             <button
               onClick={() => navigate(`/quizzes/${quizId}`)}
-              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+              className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-full shadow-sm hover:shadow-md transition-all duration-200 text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white"
             >
               <svg
                 className="w-4 h-4"
@@ -149,10 +149,10 @@ export const EditQuizPage: React.FC = () => {
                     </svg>
                   </div>
                   <div>
-                    <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                       Quiz Settings
                     </h1>
-                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       Configure quiz details and preferences
                     </p>
                   </div>
@@ -165,7 +165,7 @@ export const EditQuizPage: React.FC = () => {
                   className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${
                     activeTab === "quiz"
                       ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                      : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                      : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300"
                   }`}
                 >
                   <svg
@@ -188,7 +188,7 @@ export const EditQuizPage: React.FC = () => {
                   className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${
                     activeTab === "proctoring"
                       ? "border-blue-500 text-blue-600 dark:text-blue-400"
-                      : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
+                      : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300"
                   }`}
                 >
                   <svg
@@ -292,7 +292,7 @@ export const EditQuizPage: React.FC = () => {
                   <option value="published">Published</option>
                   <option value="archived">Archived</option>
                 </select>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                   Published quizzes are visible to students. Draft quizzes are
                   only visible to instructors.
                 </p>
@@ -503,7 +503,7 @@ export const EditQuizPage: React.FC = () => {
                       </label>
                     </div>
 
-                    <div className="text-xs text-gray-500 dark:text-gray-400/60 ml-6">
+                    <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70/60 ml-6">
                       {formData.require_manual_grading
                         ? "Students will see 'Pending' until instructor reviews and grades the quiz manually."
                         : formData.enable_automatic_grading
@@ -537,7 +537,7 @@ export const EditQuizPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate(`/quizzes/${quizId}`)}
-                  className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200"
+                  className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200"
                 >
                   Cancel
                 </button>

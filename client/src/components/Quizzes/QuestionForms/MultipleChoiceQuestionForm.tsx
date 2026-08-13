@@ -18,7 +18,7 @@ export const MultipleChoiceQuestionForm: React.FC<
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+        <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-3">
           Options
         </label>
         <div className="space-y-3">
@@ -56,7 +56,7 @@ export const MultipleChoiceQuestionForm: React.FC<
                   });
                 }}
                 placeholder={`Option ${index + 1}`}
-                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
+                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
               />
 
               <RichOptionEditor

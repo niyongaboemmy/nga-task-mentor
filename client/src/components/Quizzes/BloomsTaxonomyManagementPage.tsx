@@ -137,10 +137,10 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
       <div className="mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
               Bloom's Taxonomy Levels
             </h1>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
               Manage the cognitive taxonomy levels used to classify quiz
               questions.
             </p>
@@ -154,8 +154,8 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
         </div>
 
         {/* Quick reference */}
-        <div className="mt-4 p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm text-gray-600 dark:text-gray-400">
-          <span className="font-semibold text-gray-800 dark:text-gray-200">
+        <div className="mt-4 p-4 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+          <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
             Standard Bloom's Levels:
           </span>
           &nbsp; Remembering → Understanding → Applying → Analyzing → Evaluating
@@ -204,10 +204,10 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
                         `L${level.level_order}`}
                     </span>
                     <div>
-                      <h3 className="font-semibold text-gray-900 dark:text-white text-base">
+                      <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark text-base">
                         {level.name}
                       </h3>
-                      <span className="text-xs text-gray-400 dark:text-gray-500">
+                      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
                         Order {level.level_order}
                       </span>
                     </div>
@@ -249,7 +249,7 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
 
                 {/* Description */}
                 {level.description && (
-                  <p className="mt-3 text-sm text-gray-500 dark:text-gray-400 leading-relaxed">
+                  <p className="mt-3 text-sm text-text-secondary-light dark:text-text-secondary-dark/70 leading-relaxed">
                     {level.description}
                   </p>
                 )}
@@ -271,7 +271,7 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
                     </button>
                     <button
                       onClick={() => setDeleteConfirmId(null)}
-                      className="px-3 py-1.5 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-xs rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50"
+                      className="px-3 py-1.5 bg-white dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark text-xs rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50"
                     >
                       Cancel
                     </button>
@@ -292,7 +292,7 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
           <div className="w-full max-w-md bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden">
             {/* Modal header */}
             <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                 {editingId ? "Edit Level" : "New Bloom's Taxonomy Level"}
               </h2>
               <button
@@ -317,7 +317,7 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
             <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
               {/* Name */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1.5">
                   Level Name *
                 </label>
                 <input
@@ -328,13 +328,13 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
                   }
                   placeholder="e.g. Remembering"
                   required
-                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               {/* Order */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1.5">
                   Level Order
                 </label>
                 <input
@@ -347,16 +347,16 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
                       level_order: parseInt(e.target.value) || 1,
                     }))
                   }
-                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60 mt-1">
                   Lower numbers appear first in dropdowns.
                 </p>
               </div>
 
               {/* Description */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1.5">
                   Description (optional)
                 </label>
                 <textarea
@@ -366,7 +366,7 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
                   }
                   rows={3}
                   placeholder="Brief description of this cognitive level…"
-                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
                 />
               </div>
 
@@ -375,7 +375,7 @@ const BloomsTaxonomyManagementPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={closeModal}
-                  className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
                   Cancel
                 </button>

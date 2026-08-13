@@ -431,10 +431,10 @@ const RuleSelector: React.FC<{
             onClick={() => onSelect(rt.id)}
             className="w-full text-left px-3 py-2 rounded-lg hover:bg-white dark:hover:bg-gray-700 transition-colors group"
           >
-            <p className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+            <p className="text-xs font-semibold text-text-primary-light dark:text-text-primary-dark">
               {rt.label}
             </p>
-            <p className="text-[10px] text-gray-500 dark:text-gray-400 mt-0.5">
+            <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">
               {rt.description}
             </p>
           </button>
@@ -478,7 +478,7 @@ const RuleCard: React.FC<{
         <span className="w-5 h-5 flex-shrink-0 flex items-center justify-center bg-blue-600 text-white text-[9px] font-bold rounded-full">
           {index + 1}
         </span>
-        <span className="font-semibold text-xs text-gray-800 dark:text-gray-200">
+        <span className="font-semibold text-xs text-text-primary-light dark:text-text-primary-dark">
           {ruleType.label}
         </span>
         {isComplete && <Check size={12} className="text-green-500 ml-1" />}
@@ -786,10 +786,10 @@ export const WebTestCaseBuilder: React.FC<WebTestCaseBuilderProps> = ({
       {/* Header bar */}
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+          <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
             Validation Rules
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
             {rules.length === 0
               ? "Add rules to define what the student's code must do"
               : `${completedCount}/${rules.length} rule${rules.length !== 1 ? "s" : ""} defined`}
@@ -830,7 +830,7 @@ export const WebTestCaseBuilder: React.FC<WebTestCaseBuilderProps> = ({
         !showSelector && (
           <div className="text-center py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
             <p className="text-3xl mb-2">🧩</p>
-            <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+            <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
               No validation rules yet
             </p>
             <p className="text-xs text-gray-400 dark:text-gray-600 mt-1">

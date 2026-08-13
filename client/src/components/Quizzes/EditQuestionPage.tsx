@@ -322,7 +322,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto"></div>
-          <span className="block mt-4 text-gray-600 dark:text-gray-300 text-lg">
+          <span className="block mt-4 text-text-secondary-light dark:text-text-secondary-dark text-lg">
             Loading question...
           </span>
         </div>
@@ -334,7 +334,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
     return (
       <div className="flex items-center justify-center min-h-screen bg-gray-50 dark:bg-gray-900">
         <div className="text-center bg-white dark:bg-gray-800 rounded-2xl shadow-lg p-8 max-w-md mx-4">
-          <div className="text-gray-600 dark:text-gray-300 mb-6 text-lg">
+          <div className="text-text-secondary-light dark:text-text-secondary-dark mb-6 text-lg">
             Question not found.
           </div>
           <button
@@ -353,10 +353,10 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
       <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 md:p-10">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
               Edit Question
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
               Modify your quiz question step-by-step.
             </p>
           </div>
@@ -400,7 +400,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                 <span
                   className={`text-xs font-semibold ${
                     currentStep >= step.num
-                      ? "text-gray-900 dark:text-white"
+                      ? "text-text-primary-light dark:text-text-primary-dark"
                       : "text-gray-400"
                   }`}
                 >
@@ -417,10 +417,10 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               {/* Question Type (Read-only) */}
               <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-3">
                   Question Type
                 </label>
-                <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-100 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 font-medium">
+                <div className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl bg-gray-100 dark:bg-gray-700/50 text-text-secondary-light dark:text-text-secondary-dark font-medium">
                   {formData.question_type?.replace("_", " ").toUpperCase() ||
                     "Unknown"}
                 </div>
@@ -431,7 +431,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
 
               {/* Question Text */}
               <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                   Question Prompt *
                 </label>
                 <p className="text-xs text-gray-500 mb-4">
@@ -450,7 +450,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* Points */}
                 <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                     Points Awarded
                   </label>
                   <input
@@ -471,7 +471,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
 
                 {/* Time Limit */}
                 <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                     Time Limit (seconds) *
                   </label>
                   <input
@@ -496,7 +496,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
 
               {/* Explanation */}
               <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Post-Answer Explanation (optional)
                 </label>
                 <textarea
@@ -519,7 +519,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
           {currentStep === 2 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="bg-white dark:bg-gray-900 rounded-2xl">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                   Configure specific details
                 </h3>
                 <p className="text-sm text-gray-500 mb-6">
@@ -554,13 +554,13 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
           {currentStep === 3 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
               <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-800">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">
+                <h3 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-6">
                   Categorization & Metadata
                 </h3>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       Bloom's Taxonomy Level
                     </label>
                     <select
@@ -585,7 +585,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       Difficulty Level
                     </label>
                     <select
@@ -607,7 +607,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                 </div>
 
                 <div className="mt-4">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                  <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                     Tags
                   </label>
                   <div className="flex gap-2">
@@ -646,7 +646,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                         }
                         setTagInput("");
                       }}
-                      className="px-6 py-3 bg-gray-200 dark:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium rounded-xl hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
+                      className="px-6 py-3 bg-gray-200 dark:bg-gray-600 text-text-primary-light dark:text-text-primary-dark font-medium rounded-xl hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors"
                     >
                       Add
                     </button>
@@ -686,7 +686,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
               type="button"
               onClick={handlePrevStep}
               disabled={currentStep === 1}
-              className="flex items-center gap-2 px-6 py-3 font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors disabled:opacity-0 disabled:pointer-events-none"
+              className="flex items-center gap-2 px-6 py-3 font-medium text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors disabled:opacity-0 disabled:pointer-events-none"
             >
               <ChevronLeft size={18} /> Back
             </button>

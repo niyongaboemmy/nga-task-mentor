@@ -64,7 +64,7 @@ const Profile: React.FC = () => {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 dark:text-gray-400 font-medium">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
             Loading profile...
           </p>
         </div>
@@ -85,7 +85,7 @@ const Profile: React.FC = () => {
       variants={itemVariants}
       className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-5 border border-gray-100 dark:border-gray-800 h-full"
     >
-      <div className="flex items-center gap-2 mb-4 text-gray-900 dark:text-white font-semibold pb-3 border-b border-gray-100 dark:border-gray-800">
+      <div className="flex items-center gap-2 mb-4 text-text-primary-light dark:text-text-primary-dark font-semibold pb-3 border-b border-gray-100 dark:border-gray-800">
         <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
           <Icon size={18} />
         </div>
@@ -106,7 +106,7 @@ const Profile: React.FC = () => {
     copyable?: boolean;
   }) => (
     <div className="flex justify-between items-center text-sm group">
-      <span className="text-gray-500 dark:text-gray-400">{label}</span>
+      <span className="text-text-secondary-light dark:text-text-secondary-dark/70">{label}</span>
       <div className="flex items-center gap-2">
         <span className="font-medium text-gray-900 dark:text-gray-200 text-right">
           {value || (
@@ -211,15 +211,15 @@ const Profile: React.FC = () => {
 
             {/* Name & Role */}
             <div className="flex-1 mb-1">
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                 {user.first_name} {user.last_name}
               </h1>
-              <div className="flex items-center flex-wrap gap-2 text-sm text-gray-500 dark:text-gray-400 mt-1">
+              <div className="flex items-center flex-wrap gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                 <span className="flex items-center gap-1">
                   <Mail size={14} /> {user.email}
                 </span>
                 <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full hidden sm:block" />
-                <span className="capitalize px-3 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-gray-600 dark:text-gray-300 text-xs font-medium border border-gray-200 dark:border-gray-700">
+                <span className="capitalize px-3 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-text-secondary-light dark:text-text-secondary-dark text-xs font-medium border border-gray-200 dark:border-gray-700">
                   {user.role}
                 </span>
               </div>
@@ -264,7 +264,7 @@ const Profile: React.FC = () => {
           <div className="pt-2 border-t border-gray-50 dark:border-gray-800/50">
             <div className="flex items-start gap-2 text-sm">
               <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
-              <span className="text-gray-600 dark:text-gray-300">
+              <span className="text-text-secondary-light dark:text-text-secondary-dark">
                 {user.address || (
                   <span className="text-gray-400 italic">
                     No address provided

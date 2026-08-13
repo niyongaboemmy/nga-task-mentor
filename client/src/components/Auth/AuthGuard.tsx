@@ -14,7 +14,7 @@ const AuthGuard: React.FC = () => {
             <div className="absolute inset-0 rounded-full border-4 border-blue-100 dark:border-blue-900" />
             <div className="absolute inset-0 rounded-full border-4 border-blue-600 border-t-transparent animate-spin" />
           </div>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
             Loading…
           </p>
         </div>

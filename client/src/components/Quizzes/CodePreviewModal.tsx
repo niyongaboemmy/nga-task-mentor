@@ -98,15 +98,15 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
           <div className="flex items-center justify-center h-full bg-gray-50 dark:bg-gray-900">
             <div className="text-center max-w-md p-8">
               <div className="text-6xl mb-6">⚛️</div>
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+              <h3 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4">
                 {language.charAt(0).toUpperCase() + language.slice(1)} Preview
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
                 Framework components require a build environment to render
                 properly. This preview shows your code structure.
               </p>
               <div className="bg-white dark:bg-gray-800 rounded-lg p-4 border text-left">
-                <pre className="text-sm text-gray-800 dark:text-gray-200 overflow-x-auto">
+                <pre className="text-sm text-text-primary-light dark:text-text-primary-dark overflow-x-auto">
                   <code>{code}</code>
                 </pre>
               </div>
@@ -147,7 +147,7 @@ export const CodePreviewModal: React.FC<CodePreviewModalProps> = ({
             <div className="flex-1 max-w-md mx-4">
               <div className="bg-white dark:bg-gray-600 rounded-md px-3 py-1 flex items-center gap-2 text-sm">
                 <div className="w-4 h-4 text-gray-400">🔒</div>
-                <span className="text-gray-600 dark:text-gray-300 truncate">
+                <span className="text-text-secondary-light dark:text-text-secondary-dark truncate">
                   https://preview.{language}.local
                 </span>
               </div>

@@ -422,7 +422,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
                       </div>
                     ))}
                   {submissionCount > 3 && (
-                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gray-300 dark:bg-gray-600 border-2 border-white dark:border-gray-800 flex items-center justify-center text-gray-600 dark:text-gray-300 text-xs font-bold ml-1">
+                    <div className="w-5 h-5 sm:w-6 sm:h-6 rounded-full bg-gray-300 dark:bg-gray-600 border-2 border-white dark:border-gray-800 flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark text-xs font-bold ml-1">
                       +{submissionCount - 3}
                     </div>
                   )}

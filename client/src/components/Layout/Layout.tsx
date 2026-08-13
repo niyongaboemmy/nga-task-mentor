@@ -12,7 +12,7 @@ const Layout: React.FC<{ children: React.ReactNode; fullWidth?: boolean }> = ({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-gray-100 dark:bg-black text-gray-900 dark:text-gray-100">
+    <div className="min-h-screen bg-gray-100 dark:bg-black text-text-primary-light dark:text-text-primary-dark">
       {/* Fixed full-width top bar, matching MIS's Navbar — the sidebar sits
           below it (pt-16 wrapper), not beside it, so the logo/waffle menu
           always span the whole viewport width. */}

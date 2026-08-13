@@ -128,7 +128,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
               <Link
                 to={`/courses/${assignment.course_id}`}
-                className="inline-flex items-center gap-2 md:gap-4 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
+                className="inline-flex items-center gap-2 md:gap-4 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-gray-100 transition-colors"
               >
                 <div>
                   <svg
@@ -254,8 +254,8 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
                   <p
                     className={`text-sm font-medium ${
                       isOverdue
-                        ? "text-gray-900 dark:text-gray-100"
-                        : "text-gray-900 dark:text-gray-100"
+                        ? "text-text-primary-light dark:text-text-primary-dark"
+                        : "text-text-primary-light dark:text-text-primary-dark"
                     }`}
                   >
                     {formatDate(assignment.due_date)}
@@ -286,7 +286,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
                   <p className="text-xs font-medium text-gray-700 dark:text-gray-400 uppercase tracking-wide">
                     Points
                   </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                  <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                     {assignment.max_score} points
                   </p>
                 </div>
@@ -303,7 +303,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
                   <p className="text-xs font-medium text-gray-700 dark:text-gray-400 uppercase tracking-wide">
                     Submission
                   </p>
-                  <p className="text-sm font-medium text-gray-900 dark:text-gray-100 capitalize">
+                  <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark capitalize">
                     {assignment.submission_type}
                   </p>
                 </div>

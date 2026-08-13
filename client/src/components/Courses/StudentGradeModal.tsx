@@ -121,7 +121,7 @@ const StudentGradeModal: React.FC<StudentGradeModalProps> = ({
 
           <div className="px-6 py-6 pb-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
             {/* Assignments Section */}
-            <h4 className="flex items-center text-gray-900 dark:text-white font-bold text-lg mb-4">
+            <h4 className="flex items-center text-text-primary-light dark:text-text-primary-dark font-bold text-lg mb-4">
               <span className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mr-3">
                 <svg
                   className="w-5 h-5"
@@ -151,11 +151,11 @@ const StudentGradeModal: React.FC<StudentGradeModalProps> = ({
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 hover:border-blue-200 dark:hover:border-blue-800 transition-colors"
                   >
                     <div className="flex-1 min-w-0 pr-4">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark truncate">
                         {assignment.title}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                           Max Score: {assignment.max_score}
                         </span>
                         {!assignment.submitted && (
@@ -168,7 +168,7 @@ const StudentGradeModal: React.FC<StudentGradeModalProps> = ({
                     <div className="text-right flex-shrink-0">
                       {assignment.submitted ? (
                         assignment.grade !== null ? (
-                          <span className="text-base font-bold text-gray-900 dark:text-white">
+                          <span className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
                             {assignment.grade}
                           </span>
                         ) : (
@@ -192,7 +192,7 @@ const StudentGradeModal: React.FC<StudentGradeModalProps> = ({
             </div>
 
             {/* Quizzes Section */}
-            <h4 className="flex items-center text-gray-900 dark:text-white font-bold text-lg mb-4">
+            <h4 className="flex items-center text-text-primary-light dark:text-text-primary-dark font-bold text-lg mb-4">
               <span className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 text-blue-600 dark:text-blue-400 flex items-center justify-center mr-3">
                 <svg
                   className="w-5 h-5"
@@ -222,11 +222,11 @@ const StudentGradeModal: React.FC<StudentGradeModalProps> = ({
                     className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 hover:border-blue-200 dark:hover:border-blue-800 transition-colors"
                   >
                     <div className="flex-1 min-w-0 pr-4">
-                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark truncate">
                         {quiz.title}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                           Max Score: {quiz.max_score}
                         </span>
                         {quiz.submitted && (
@@ -242,7 +242,7 @@ const StudentGradeModal: React.FC<StudentGradeModalProps> = ({
                       {quiz.submitted ? (
                         quiz.score !== null ? (
                           <div className="flex flex-col items-end">
-                            <span className="text-base font-bold text-gray-900 dark:text-white">
+                            <span className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
                               {quiz.score}
                             </span>
                             <span className="text-[10px] text-gray-500">

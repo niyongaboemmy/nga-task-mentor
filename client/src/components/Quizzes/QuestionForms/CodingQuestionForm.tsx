@@ -89,7 +89,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                 ? "bg-blue-600 text-white shadow-md scale-105"
                 : idx < currentTabIndex
                   ? "bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800"
-                  : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent"
+                  : "bg-white dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-700 border border-transparent"
             }`}
           >
             {idx < currentTabIndex && activeTab !== tab.key ? (
@@ -153,10 +153,10 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
         <div className="w-16 h-16 bg-white dark:bg-gray-800 shadow-sm border border-blue-100 dark:border-gray-700 rounded-full flex items-center justify-center mx-auto mb-4">
           <span className="text-3xl">💻</span>
         </div>
-        <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2">
+        <h3 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
           Coding Question Configurator
         </h3>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6 max-w-sm mx-auto">
+        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mb-6 max-w-sm mx-auto">
           Set up the language, customize the starter template, define test
           cases, and set execution constraints.
         </p>
@@ -195,10 +195,10 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                   <span className="text-xl">💻</span>
                 </div>
                 <div>
-                  <h2 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">
+                  <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark leading-tight">
                     Workspace Editor
                   </h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                     {codingData.language
                       ? `Configuring ${codingData.language.toUpperCase()}`
                       : "Select a language to begin"}
@@ -226,7 +226,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-5 py-2.5 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
+                  className="px-5 py-2.5 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl font-medium transition-colors border border-transparent hover:border-gray-200 dark:hover:border-gray-700"
                 >
                   Save & Close Editor
                 </button>
@@ -235,7 +235,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                   <span className="text-xs text-gray-500 font-medium tracking-wide">
                     SELECTED TEMPLATE
                   </span>
-                  <span className="text-sm font-semibold text-gray-900 dark:text-gray-100">
+                  <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                     {getSelectedTemplateName()}
                   </span>
                 </div>
@@ -245,7 +245,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                   type="button"
                   onClick={handlePrev}
                   disabled={currentTabIndex === 0}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-medium transition-colors border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed text-gray-700 dark:text-gray-300"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl font-medium transition-colors border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed text-text-secondary-light dark:text-text-secondary-dark"
                 >
                   <ChevronLeft size={16} /> Back
                 </button>

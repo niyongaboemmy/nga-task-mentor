@@ -372,7 +372,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark leading-tight">
                   {question ? "Edit Question" : "Create Question"}
                 </h2>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                   {question
                     ? `ID: ${question.id}`
                     : "Add a new question to the course bank"}
@@ -425,7 +425,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                             ? "text-blue-600 dark:text-blue-400"
                             : isDone
                             ? "text-blue-500 dark:text-blue-500"
-                            : "text-gray-400 dark:text-gray-500"
+                            : "text-text-secondary-light dark:text-text-secondary-dark/60"
                         }`}
                       >
                         {tab.label}
@@ -466,9 +466,9 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                           <span className="text-[11px] font-mono text-blue-600 dark:text-blue-400 px-1.5 py-0.5 bg-blue-100/50 dark:bg-blue-900/50 rounded-md">
                             {courseData.code}
                           </span>
-                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                          <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/70">
                             Class Group:{" "}
-                            <span className="font-semibold text-gray-700 dark:text-gray-300">
+                            <span className="font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                               {courseData.class_group_id || "Not assigned"}
                             </span>
                           </span>
@@ -480,7 +480,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                         <span className="text-[10px] uppercase tracking-wider text-gray-400 font-bold block">
                           Academic Term
                         </span>
-                        <span className="text-xs font-semibold text-gray-600 dark:text-gray-300">
+                        <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                           ID: {courseData.academic_term_id}
                         </span>
                       </div>
@@ -504,7 +504,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                   {/* Type Selection */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       <Cpu className="w-3.5 h-3.5 inline mr-1" /> Question Type
                     </label>
                     <select
@@ -524,7 +524,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
                   {/* Difficulty */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       <BarChart2 className="w-3.5 h-3.5 inline mr-1" />{" "}
                       Difficulty Level
                     </label>
@@ -542,7 +542,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                           className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-medium transition-all duration-200 ${
                             formData.difficulty_level === d.value
                               ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/40 dark:border-blue-800 dark:text-blue-400 ring-1 ring-blue-100 dark:ring-blue-900"
-                              : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-700"
+                              : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:border-gray-300 dark:hover:border-gray-700"
                           }`}
                         >
                           <span className={`w-2 h-2 rounded-full ${d.dot}`} />
@@ -554,7 +554,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
                   {/* Time Limit */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       <Clock className="w-3.5 h-3.5 inline mr-1" /> Time Limit
                       (secs)
                     </label>
@@ -603,7 +603,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Bloom's Taxonomy */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-3">
                       <Brain className="w-3.5 h-3.5 inline mr-1" /> Bloom's
                       Taxonomy Level
                     </label>
@@ -621,7 +621,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                           className={`flex items-center justify-between px-4 py-3 rounded-xl border text-sm transition-all duration-200 ${
                             formData.blooms_taxonomy_level_id === bl.id
                               ? "bg-violet-50 border-violet-200 text-violet-700 dark:bg-violet-900/30 dark:border-violet-800 dark:text-violet-400 ring-1 ring-violet-100 dark:ring-violet-900"
-                              : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-violet-200 dark:hover:border-violet-900"
+                              : "bg-white dark:bg-gray-900 border-gray-200 dark:border-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:border-violet-200 dark:hover:border-violet-900"
                           }`}
                         >
                           <span className="font-medium">{bl.name}</span>
@@ -654,7 +654,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                     <div className="space-y-4">
                       {/* Scheme Of Work Entry */}
                       <div>
-                        <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                        <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-3">
                           <Brain className="w-3.5 h-3.5 inline mr-1" /> Scheme
                           of Work Topic
                         </label>
@@ -699,7 +699,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                                       formData.scheme_of_work_entry_id ===
                                       se.entry_id
                                         ? "bg-blue-50 border-blue-200 text-blue-700 dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-400 ring-1 ring-blue-100 dark:ring-blue-900"
-                                        : "bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 text-gray-600 dark:text-gray-400 hover:border-blue-200 dark:hover:border-blue-900 hover:bg-blue-50/30 dark:hover:bg-blue-900/10"
+                                        : "bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:border-blue-200 dark:hover:border-blue-900 hover:bg-blue-50/30 dark:hover:bg-blue-900/10"
                                     }`}
                                   >
                                     <div
@@ -786,7 +786,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
                   {/* Tags */}
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-3">
                       <Tag className="w-3.5 h-3.5 inline mr-1" /> Categorization
                       Tags
                     </label>
@@ -850,7 +850,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
                 {/* Attachments Placeholder */}
                 <div>
-                  <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center gap-1.5">
+                  <label className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2 flex items-center gap-1.5">
                     <Paperclip className="w-3.5 h-3.5" /> Attachments
                   </label>
                   <div className="p-8 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-3xl flex flex-col items-center justify-center text-gray-400">
@@ -867,7 +867,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
           {/* Footer */}
           <div className="flex-shrink-0 px-6 py-4 border-t border-border-light dark:border-border-dark/30 bg-surface-light dark:bg-surface-dark/30 flex items-center justify-between gap-4">
             <div className="hidden sm:block flex-shrink-0">
-              <p className="text-xs text-gray-500 dark:text-gray-400">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                 * Required fields. All changes will be saved to the course bank.
               </p>
             </div>

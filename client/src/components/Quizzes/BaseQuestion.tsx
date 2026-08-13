@@ -63,7 +63,7 @@ export const BaseQuestion: React.FC<BaseQuestionProps> = ({
                 </span>
               )}
             </div>
-            <h3 className="text-base sm:text-lg font-semibold text-gray-900 dark:text-gray-100 leading-snug break-words">
+            <h3 className="text-base sm:text-lg font-semibold text-text-primary-light dark:text-text-primary-dark leading-snug break-words">
               <RichTextDisplay content={questionText} />
             </h3>
           </div>

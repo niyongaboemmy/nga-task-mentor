@@ -262,7 +262,7 @@ const Dashboard: React.FC = () => {
             ))}
           </div>
           <div className="absolute inset-0 flex items-center justify-center mt-8">
-            <div className="text-sm text-gray-500 dark:text-gray-400 animate-pulse">
+            <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 animate-pulse">
               Loading dashboard...
             </div>
           </div>
@@ -275,7 +275,7 @@ const Dashboard: React.FC = () => {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
         <div className="text-center">
-          <div className="text-gray-500 dark:text-gray-400">
+          <div className="text-text-secondary-light dark:text-text-secondary-dark/70">
             Unable to load dashboard data
           </div>
         </div>

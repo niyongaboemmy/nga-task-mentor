@@ -116,12 +116,12 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
         </div>
 
         <div className="text-center">
-          <p className="text-base font-bold text-gray-900 dark:text-white">
+          <p className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
             {isDragging
               ? "Drop files here"
               : "Click or drag files here to upload"}
           </p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
             {allowedTypes
               ? `Allowed formats: ${allowedTypes}`
               : "All formats supported"}
@@ -169,7 +169,7 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
                   {getFileIcon(file.name)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                  <p className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark truncate">
                     {file.name}
                   </p>
                   <p className="text-[10px] text-gray-500">

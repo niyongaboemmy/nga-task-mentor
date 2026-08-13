@@ -108,7 +108,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                     previewMode === "desktop"
                       ? "bg-blue-600 text-white shadow-sm"
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-800"
                   }`}
                 >
                   <Monitor className="h-4 w-4" />
@@ -119,7 +119,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                   className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-sm font-medium transition-all ${
                     previewMode === "mobile"
                       ? "bg-blue-600 text-white shadow-sm"
-                      : "text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-800"
                   }`}
                 >
                   <Smartphone className="h-4 w-4" />
@@ -139,7 +139,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                   <ChevronLeft className="h-4 w-4" />
                   Prev
                 </button>
-                <span className="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 whitespace-nowrap">
                   {currentIndex + 1} / {allQuestions.length}
                 </span>
                 <button
@@ -168,7 +168,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
         {/* Question Thumbnails */}
         {showAllQuestions && allQuestions.length > 1 && (
           <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-gray-900 dark:text-gray-100 mb-3">
+            <h4 className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark mb-3">
               All Questions
             </h4>
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
@@ -179,7 +179,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
                   className={`aspect-square rounded-lg border-2 text-xs font-medium transition-all ${
                     index === currentIndex
                       ? "border-blue-500 bg-blue-50 dark:bg-blue-900 text-blue-700 dark:text-blue-300"
-                      : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:border-gray-300 dark:hover:border-gray-600"
+                      : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-text-secondary-light dark:text-text-secondary-dark hover:border-gray-300 dark:hover:border-gray-600"
                   }`}
                 >
                   {index + 1}
@@ -199,10 +199,10 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
           {previewMode === "mobile" && (
             <div className="bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-600/40 px-4 py-3 mb-2">
               <div className="flex items-center justify-between">
-                <div className="text-lg font-medium text-gray-900 dark:text-gray-100">
+                <div className="text-lg font-medium text-text-primary-light dark:text-text-primary-dark">
                   Question {questionNumber}
                 </div>
-                <div className="text-sm text-gray-500 dark:text-gray-400">
+                <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                   {question.points} pts
                 </div>
               </div>
@@ -225,11 +225,11 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
           {previewMode === "mobile" && (
             <div className="bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700/50 px-4 py-3 mt-2">
               <div className="flex items-center justify-between">
-                <button className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-400 rounded-2xl text-sm font-medium">
+                <button className="px-4 py-2 bg-gray-200 dark:bg-gray-600 text-text-secondary-light dark:text-text-secondary-dark rounded-2xl text-sm font-medium">
                   Previous
                 </button>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm text-gray-500 dark:text-gray-400">
+                  <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                     {questionNumber} of {allQuestions.length || 1}
                   </span>
                 </div>
@@ -244,43 +244,43 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
         {/* Question Details */}
         <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-4">
           <div className="flex items-center justify-between mb-3">
-            <h4 className="font-medium text-gray-900 dark:text-gray-100 flex items-center gap-2">
+            <h4 className="font-medium text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
               <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
               Question Details
             </h4>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
-              <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
+              <div className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs uppercase tracking-wide">
                 Type
               </div>
-              <div className="font-medium text-gray-900 dark:text-gray-100 mt-1 text-xs sm:text-sm">
+              <div className="font-medium text-text-primary-light dark:text-text-primary-dark mt-1 text-xs sm:text-sm">
                 <span>
                   {getQuestionTypeDisplay(currentType || "single_choice")}
                 </span>
               </div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
-              <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
+              <div className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs uppercase tracking-wide">
                 Points
               </div>
-              <div className="font-medium text-gray-900 dark:text-gray-100 mt-1">
+              <div className="font-medium text-text-primary-light dark:text-text-primary-dark mt-1">
                 {question.points}
               </div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
-              <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
+              <div className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs uppercase tracking-wide">
                 Required
               </div>
-              <div className="font-medium text-gray-900 dark:text-gray-100 mt-1">
+              <div className="font-medium text-text-primary-light dark:text-text-primary-dark mt-1">
                 {question.is_required ? "Yes" : "No"}
               </div>
             </div>
             <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
-              <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide">
+              <div className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs uppercase tracking-wide">
                 Time Limit
               </div>
-              <div className="font-medium text-gray-900 dark:text-gray-100 mt-1">
+              <div className="font-medium text-text-primary-light dark:text-text-primary-dark mt-1">
                 {currentTimeLimit ? `${currentTimeLimit}s` : "None"}
               </div>
             </div>
@@ -289,10 +289,10 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
           {/* Additional Info */}
           {question.explanation && (
             <div className="mt-4 bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
-              <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-1">
+              <div className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs uppercase tracking-wide mb-1">
                 Explanation
               </div>
-              <div className="text-sm text-gray-900 dark:text-gray-100">
+              <div className="text-sm text-text-primary-light dark:text-text-primary-dark">
                 <RichTextDisplay content={question.explanation} />
               </div>
             </div>
@@ -305,7 +305,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
             <div className="mt-4 space-y-3">
               <div className="flex items-center gap-2">
                 <div className="w-2 h-2 bg-violet-500 rounded-full" />
-                <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide">
+                <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wide">
                   Metadata
                 </span>
               </div>
@@ -348,7 +348,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
               {/* Tags */}
               {currentTags && currentTags.length > 0 && (
                 <div className="bg-white dark:bg-gray-800 rounded-2xl p-3 px-4 border border-gray-200 dark:border-gray-700/20">
-                  <div className="text-gray-500 dark:text-gray-400 text-xs uppercase tracking-wide mb-2">
+                  <div className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs uppercase tracking-wide mb-2">
                     Tags
                   </div>
                   <div className="flex flex-wrap gap-2">

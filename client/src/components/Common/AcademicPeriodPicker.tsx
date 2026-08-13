@@ -91,7 +91,7 @@ const AcademicPeriodPicker: React.FC<AcademicPeriodPickerProps> = ({
         value={selectedYearId}
         onChange={(e) => handleYearChange(e.target.value)}
         disabled={loadingYears}
-        className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+        className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/30"
       >
         <option value="">Current Term</option>
         {years.map((y) => (
@@ -105,7 +105,7 @@ const AcademicPeriodPicker: React.FC<AcademicPeriodPickerProps> = ({
           value={selectedTermId}
           onChange={(e) => handleTermChange(e.target.value)}
           disabled={loadingTerms}
-          className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-gray-600 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+          className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/30"
         >
           <option value="">Select term...</option>
           {terms.map((t) => (

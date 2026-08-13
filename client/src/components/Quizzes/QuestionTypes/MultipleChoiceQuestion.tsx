@@ -84,7 +84,7 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
               clipRule="evenodd"
             />
           </svg>
-          <span className="text-gray-700 dark:text-gray-300 font-medium">
+          <span className="text-text-secondary-light dark:text-text-secondary-dark font-medium">
             Select{" "}
             {minSelections === questionData.max_selections
               ? `${minSelections} option${minSelections !== 1 ? "s" : ""}`
@@ -188,7 +188,7 @@ export const MultipleChoiceQuestion: React.FC<QuestionComponentProps> = ({
                         ? "text-red-900 dark:text-red-100 font-medium"
                         : isSelected
                           ? "text-blue-900 dark:text-blue-100 font-medium"
-                          : "text-gray-700 dark:text-gray-300"
+                          : "text-text-secondary-light dark:text-text-secondary-dark"
                   }`}
                 />
               </div>

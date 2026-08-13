@@ -227,7 +227,7 @@ const EventsDropdown: React.FC<{
                     <h2 className="text-base font-bold text-gray-800 dark:text-white">
                       Events & Flags
                     </h2>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1.5">
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 flex items-center gap-1.5">
                       {isLoadingEvents ? (
                         <>
                           <svg className="animate-spin w-3 h-3 text-blue-500" fill="none" viewBox="0 0 24 24">
@@ -315,7 +315,7 @@ const EventsDropdown: React.FC<{
                 <div className="text-sm font-bold text-red-600 dark:text-red-400">
                   {events.filter((e) => e.severity === "critical").length}
                 </div>
-                <div className="text-[9px] text-gray-500 dark:text-gray-400">
+                <div className="text-[9px] text-text-secondary-light dark:text-text-secondary-dark/70">
                   Critical
                 </div>
               </div>
@@ -323,7 +323,7 @@ const EventsDropdown: React.FC<{
                 <div className="text-sm font-bold text-orange-600 dark:text-orange-400">
                   {events.filter((e) => e.severity === "high").length}
                 </div>
-                <div className="text-[9px] text-gray-500 dark:text-gray-400">
+                <div className="text-[9px] text-text-secondary-light dark:text-text-secondary-dark/70">
                   High
                 </div>
               </div>
@@ -331,7 +331,7 @@ const EventsDropdown: React.FC<{
                 <div className="text-sm font-bold text-yellow-600 dark:text-yellow-400">
                   {events.filter((e) => e.severity === "medium").length}
                 </div>
-                <div className="text-[9px] text-gray-500 dark:text-gray-400">
+                <div className="text-[9px] text-text-secondary-light dark:text-text-secondary-dark/70">
                   Medium
                 </div>
               </div>
@@ -339,7 +339,7 @@ const EventsDropdown: React.FC<{
                 <div className="text-sm font-bold text-blue-600 dark:text-blue-400">
                   {events.filter((e) => e.severity === "low").length}
                 </div>
-                <div className="text-[9px] text-gray-500 dark:text-gray-400">
+                <div className="text-[9px] text-text-secondary-light dark:text-text-secondary-dark/70">
                   Low
                 </div>
               </div>
@@ -348,14 +348,14 @@ const EventsDropdown: React.FC<{
             {/* Event Types Summary */}
             {Object.keys(eventCounts).length > 0 && (
               <div className="p-3 border-b border-gray-200/40 dark:border-gray-700/40">
-                <div className="text-xs text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-1">
+                <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mb-2 flex items-center gap-1">
                   <AlertCircle className="w-3 h-3" /> Event Types
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {Object.entries(eventCounts).map(([type, count]) => (
                     <span
                       key={type}
-                      className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30"
+                      className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark rounded cursor-pointer hover:bg-blue-100 dark:hover:bg-blue-900/30"
                       onClick={() => setEventTypeFilter(type)}
                     >
                       {type.replace(/_/g, " ")} ({count})
@@ -392,7 +392,7 @@ const EventsDropdown: React.FC<{
                             {event.event_type.replace(/_/g, " ")}
                           </span>
                         </div>
-                        <p className="text-sm text-gray-700 dark:text-gray-300">
+                        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                           {event.description}
                         </p>
                         {event.screenshot_url && (
@@ -425,10 +425,10 @@ const EventsDropdown: React.FC<{
               ) : (
                 <div className="text-center py-8">
                   <Search className="w-12 h-12 text-gray-300 dark:text-gray-600 mx-auto mb-2" />
-                  <p className="text-gray-600 dark:text-gray-400">
+                  <p className="text-text-secondary-light dark:text-text-secondary-dark">
                     No events match your filters
                   </p>
-                  <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
+                  <p className="text-text-secondary-light dark:text-text-secondary-dark/60 text-xs mt-1">
                     Try adjusting your search or filters
                   </p>
                 </div>
@@ -751,7 +751,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
             <span className="text-lg font-bold text-gray-800 dark:text-white">
               {stream.student.first_name} {stream.student.last_name}
             </span>
-            <div className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 flex items-center gap-1">
               <Terminal className="w-3 h-3" />
               {stream.quiz.title}
             </div>
@@ -780,8 +780,8 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 </>
               )}
             </span>
-            <span className="text-xs text-gray-400 dark:text-gray-500">|</span>
-            <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">|</span>
+            <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 flex items-center gap-1">
               <Shield className="w-3 h-3" />
               Risk:{" "}
               <span
@@ -794,8 +794,8 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 {stream.riskScore}
               </span>
             </span>
-            <span className="text-xs text-gray-400 dark:text-gray-500">|</span>
-            <span className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+            <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">|</span>
+            <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 flex items-center gap-1">
               <Flag className="w-3 h-3" />
               Flags:{" "}
               <span
@@ -809,7 +809,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
             {/* Exam Status Indicator */}
             {stream.examStatus && stream.examStatus !== "active" && (
               <>
-                <span className="text-xs text-gray-400 dark:text-gray-500">
+                <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
                   |
                 </span>
                 <span
@@ -871,7 +871,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                     <h3 className="font-bold text-gray-800 dark:text-white text-sm">
                       Student Info
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 flex items-center gap-1">
                       <Terminal className="w-3 h-3" />
                       Session Data
                     </p>
@@ -879,7 +879,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 </div>
                 <div className="space-y-1.5 text-sm">
                   <div className="flex justify-between items-center py-2 px-3 bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-800/30 rounded-lg border border-gray-200/50 dark:border-gray-700/30">
-                    <span className="text-gray-500 dark:text-gray-400 text-xs">
+                    <span className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs">
                       Name
                     </span>
                     <span className="font-semibold text-gray-800 dark:text-white text-xs truncate max-w-[110px]">
@@ -887,7 +887,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                     </span>
                   </div>
                   <div className="flex justify-between items-center py-2 px-3 bg-gradient-to-r from-gray-50 to-gray-100/50 dark:from-gray-800/50 dark:to-gray-800/30 rounded-lg border border-gray-200/50 dark:border-gray-700/30">
-                    <span className="text-gray-500 dark:text-gray-400 text-xs">
+                    <span className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs">
                       Quiz
                     </span>
                     <span className="font-semibold text-gray-800 dark:text-white text-xs truncate max-w-[110px]">
@@ -909,7 +909,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                     <h3 className="font-bold text-gray-800 dark:text-white text-sm">
                       Risk Assessment
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 flex items-center gap-1">
                       <Cpu className="w-3 h-3" />
                       Real-time Monitor
                     </p>
@@ -924,7 +924,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                     >
                       {stream.riskScore}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                    <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                       Risk Score
                     </div>
                     <div
@@ -940,7 +940,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                     <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                       {stream.flagsCount}
                     </div>
-                    <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                    <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                       Flags
                     </div>
                     <div className="mt-1.5 flex justify-center gap-0.5">
@@ -1079,14 +1079,14 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 </button>
                 <button
                   onClick={() => setMatrixRain(!matrixRain)}
-                  className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-xs font-semibold transition-all duration-200 active:scale-95 hover:shadow-lg ${matrixRain ? "bg-gradient-to-b from-green-500 to-green-600 text-white shadow-green-500/40" : "bg-gradient-to-b from-gray-100 to-gray-200/50 dark:from-gray-800 dark:to-gray-700 border border-gray-200/60 dark:border-gray-600/40 text-gray-700 dark:text-gray-300 hover:shadow-gray-500/20"}`}
+                  className={`flex flex-col items-center gap-1 px-2 py-2.5 rounded-lg text-xs font-semibold transition-all duration-200 active:scale-95 hover:shadow-lg ${matrixRain ? "bg-gradient-to-b from-green-500 to-green-600 text-white shadow-green-500/40" : "bg-gradient-to-b from-gray-100 to-gray-200/50 dark:from-gray-800 dark:to-gray-700 border border-gray-200/60 dark:border-gray-600/40 text-text-secondary-light dark:text-text-secondary-dark hover:shadow-gray-500/20"}`}
                 >
                   <Zap className="w-4 h-4" />
                   Matrix
                 </button>
                 <button
                   onClick={fetchSessionData}
-                  className="col-span-3 flex items-center justify-center gap-2 px-2 py-2 bg-gradient-to-b from-gray-100 to-gray-200/50 dark:from-gray-800/60 dark:to-gray-700/40 hover:from-gray-200 hover:to-gray-300/50 dark:hover:from-gray-700/60 dark:hover:to-gray-600/50 border border-gray-200/60 dark:border-gray-600/40 rounded-lg text-gray-700 dark:text-gray-300 text-xs font-semibold transition-all duration-200 active:scale-95"
+                  className="col-span-3 flex items-center justify-center gap-2 px-2 py-2 bg-gradient-to-b from-gray-100 to-gray-200/50 dark:from-gray-800/60 dark:to-gray-700/40 hover:from-gray-200 hover:to-gray-300/50 dark:hover:from-gray-700/60 dark:hover:to-gray-600/50 border border-gray-200/60 dark:border-gray-600/40 rounded-lg text-text-secondary-light dark:text-text-secondary-dark text-xs font-semibold transition-all duration-200 active:scale-95"
                 >
                   <RefreshCw className="w-4 h-4" />
                   Refresh Data
@@ -1398,7 +1398,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
               <div className="flex gap-2 justify-end mt-4">
                 <button
                   onClick={() => setShowWarningModal(false)}
-                  className="px-4 py-2 border border-gray-300/60 dark:border-gray-600/50 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium"
+                  className="px-4 py-2 border border-gray-300/60 dark:border-gray-600/50 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium"
                 >
                   Cancel
                 </button>
@@ -1440,7 +1440,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
               <div className="flex gap-2 justify-end mt-4">
                 <button
                   onClick={() => setShowNoteModal(false)}
-                  className="px-4 py-2 border border-gray-300/60 dark:border-gray-600/50 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium"
+                  className="px-4 py-2 border border-gray-300/60 dark:border-gray-600/50 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium"
                 >
                   Cancel
                 </button>
@@ -1473,7 +1473,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 </p>
               </div>
               <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Reason for termination:
                 </label>
                 <textarea
@@ -1491,7 +1491,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
               <div className="flex gap-2 justify-center">
                 <button
                   onClick={() => setShowEndQuizModal(false)}
-                  className="px-5 py-2 border border-gray-300/60 dark:border-gray-600/50 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium"
+                  className="px-5 py-2 border border-gray-300/60 dark:border-gray-600/50 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium"
                 >
                   Cancel
                 </button>
@@ -1525,7 +1525,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
               <div className="flex gap-2 justify-center">
                 <button
                   onClick={() => setShowRestartQuizModal(false)}
-                  className="px-5 py-2 border border-gray-300/60 dark:border-gray-600/50 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium"
+                  className="px-5 py-2 border border-gray-300/60 dark:border-gray-600/50 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-sm font-medium"
                 >
                   Cancel
                 </button>

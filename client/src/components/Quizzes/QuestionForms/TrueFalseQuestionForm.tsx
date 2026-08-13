@@ -13,7 +13,7 @@ export const TrueFalseQuestionForm: React.FC<TrueFalseQuestionFormProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+        <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-3">
           Correct Answer
         </label>
         <div className="flex gap-6">
@@ -30,7 +30,7 @@ export const TrueFalseQuestionForm: React.FC<TrueFalseQuestionFormProps> = ({
               }
               className="mr-3 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
             />
-            <span className="text-gray-900 dark:text-white font-medium">
+            <span className="text-text-primary-light dark:text-text-primary-dark font-medium">
               True
             </span>
           </label>
@@ -47,7 +47,7 @@ export const TrueFalseQuestionForm: React.FC<TrueFalseQuestionFormProps> = ({
               }
               className="mr-3 w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 focus:ring-blue-500 dark:focus:ring-blue-600 dark:ring-offset-gray-800 focus:ring-2 dark:bg-gray-700 dark:border-gray-600"
             />
-            <span className="text-gray-900 dark:text-white font-medium">
+            <span className="text-text-primary-light dark:text-text-primary-dark font-medium">
               False
             </span>
           </label>

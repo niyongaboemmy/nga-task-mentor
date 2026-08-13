@@ -274,7 +274,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
       {/* Problem Statement */}
       <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="font-bold text-xl text-gray-900 dark:text-gray-100 flex items-center gap-3">
+          <h3 className="font-bold text-xl text-text-primary-light dark:text-text-primary-dark flex items-center gap-3">
             <Zap className="w-6 h-6 text-yellow-500 fill-yellow-500/20" />
             Algorithm Challenge
           </h3>
@@ -302,7 +302,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
           </div>
         </div>
 
-        <div className="text-gray-700 dark:text-gray-300 leading-relaxed text-lg mb-8">
+        <div className="text-text-secondary-light dark:text-text-secondary-dark leading-relaxed text-lg mb-8">
           <RichTextDisplay content={question.question_text || ""} />
         </div>
 
@@ -315,7 +315,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
               <p className="text-[10px] uppercase font-bold tracking-widest text-blue-600/60 dark:text-blue-400/60">
                 Input Format
               </p>
-              <code className="text-sm font-mono font-bold text-gray-800 dark:text-gray-200">
+              <code className="text-sm font-mono font-bold text-text-primary-light dark:text-text-primary-dark">
                 {algorithmicData.input_format || "Any integer n"}
               </code>
             </div>
@@ -328,7 +328,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
               <p className="text-[10px] uppercase font-bold tracking-widest text-purple-600/60 dark:text-purple-400/60">
                 Output Format
               </p>
-              <code className="text-sm font-mono font-bold text-gray-800 dark:text-gray-200">
+              <code className="text-sm font-mono font-bold text-text-primary-light dark:text-text-primary-dark">
                 {algorithmicData.output_format || "Factorial of n"}
               </code>
             </div>
@@ -409,7 +409,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
 
             {/* State Visualization */}
             <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
-              <h3 className="font-bold text-sm text-gray-700 dark:text-gray-300 mb-4 uppercase tracking-wider flex items-center gap-2">
+              <h3 className="font-bold text-sm text-text-secondary-light dark:text-text-secondary-dark mb-4 uppercase tracking-wider flex items-center gap-2">
                 <RotateCcw className="w-4 h-4 text-blue-500" />
                 State Trace
               </h3>
@@ -423,7 +423,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
                       <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400">
                         {key}
                       </span>
-                      <span className="font-mono text-sm text-gray-900 dark:text-gray-100">
+                      <span className="font-mono text-sm text-text-primary-light dark:text-text-primary-dark">
                         {renderStateValue(value)}
                       </span>
                     </div>
@@ -464,7 +464,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
             <button
               onClick={handleReset}
               disabled={disabled || isPlaying || submitted}
-              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-2 border-gray-200 dark:border-gray-700 rounded-2xl font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all active:scale-95 disabled:opacity-50"
+              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark border-2 border-gray-200 dark:border-gray-700 rounded-2xl font-bold hover:bg-gray-50 dark:hover:bg-gray-700 transition-all active:scale-95 disabled:opacity-50"
             >
               <RotateCcw className="w-5 h-5" />
               Reset Trace
@@ -477,11 +477,11 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
         <div className="space-y-6 animate-fadeIn">
           {/* Prediction Interface */}
           <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
-            <h3 className="font-bold text-xl mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-3">
+            <h3 className="font-bold text-xl mb-4 text-text-primary-light dark:text-text-primary-dark flex items-center gap-3">
               <Brain className="w-6 h-6 text-purple-500" />
               Variable Prediction
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-8 leading-relaxed">
               Based on the algorithm logic above, predict the exact state of
               each variable at every stage of execution. Match the expected
               types carefully.
@@ -505,7 +505,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
                   <div className="grid grid-cols-2 gap-3">
                     {Object.keys(step.state).map((key) => (
                       <div key={key} className="space-y-1">
-                        <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                        <label className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">
                           {key}
                         </label>
                         <input
@@ -541,7 +541,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
                             ) : (
                               <>
                                 <XCircle className="w-3 h-3 text-red-600" />
-                                <span className="text-gray-600 dark:text-gray-400">
+                                <span className="text-text-secondary-light dark:text-text-secondary-dark">
                                   Correct: {renderStateValue(step.state[key])}
                                 </span>
                               </>
@@ -600,7 +600,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
                   )}
                 </div>
                 <div>
-                  <h3 className="font-bold text-2xl mb-1 text-gray-900 dark:text-gray-100">
+                  <h3 className="font-bold text-2xl mb-1 text-text-primary-light dark:text-text-primary-dark">
                     Simulation {showCorrectAnswer ? "Accuracy" : "Completed"}:{" "}
                     {showCorrectAnswer ? `${score.toFixed(0)}%` : "Steps Saved"}
                   </h3>
@@ -621,7 +621,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
       {/* Test Cases */}
       {algorithmicData.test_cases && algorithmicData.test_cases.length > 0 && (
         <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
-          <h3 className="font-bold text-xl mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <h3 className="font-bold text-xl mb-4 text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
             <Tag className="w-6 h-6 text-blue-500" />
             Validation Suite
           </h3>
@@ -644,7 +644,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">Input:</span>
-                    <code className="text-xs font-mono font-bold text-gray-900 dark:text-gray-100 truncate max-w-[150px]">
+                    <code className="text-xs font-mono font-bold text-text-primary-light dark:text-text-primary-dark truncate max-w-[150px]">
                       {testCase.input}
                     </code>
                   </div>
@@ -689,7 +689,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
                       <p className="text-[9px] uppercase font-bold text-gray-500 mb-1">
                         {key}
                       </p>
-                      <p className="font-mono text-[11px] font-bold text-gray-900 dark:text-gray-100">
+                      <p className="font-mono text-[11px] font-bold text-text-primary-light dark:text-text-primary-dark">
                         {renderStateValue(value)}
                       </p>
                     </div>

@@ -132,7 +132,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
               <button
                 type="button"
                 onClick={() => setShowPreview(false)}
-                className="px-3 py-1 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
+                className="px-3 py-1 text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-800 dark:hover:text-gray-200 transition-colors"
               >
                 Cancel
               </button>
@@ -156,7 +156,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                   <span className="bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 px-3 py-1 rounded-full text-sm font-medium">
                     Test Case {index + 1}
                   </span>
-                  <div className="flex items-center gap-3 text-xs text-gray-600 dark:text-gray-400">
+                  <div className="flex items-center gap-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                     <span>Points: {testCase.points}</span>
                     {testCase.is_hidden && (
                       <span className="bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 px-2 py-1 rounded">
@@ -167,7 +167,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">
+                    <label className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1 block">
                       Input
                     </label>
                     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded p-2 font-mono text-sm">
@@ -175,7 +175,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1 block">
+                    <label className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1 block">
                       Expected Output
                     </label>
                     <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-600 rounded p-2 font-mono text-sm">

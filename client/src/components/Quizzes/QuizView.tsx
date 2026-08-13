@@ -95,18 +95,18 @@ const QuizHeader: React.FC<{
                     <div className="animate-fade-in">
                       <button
                         onClick={() => navigate(`/courses/${quiz.course_id}`)}
-                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-full transition-all duration-200 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white"
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-full transition-all duration-200 text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white"
                       >
                         <ArrowLeft className="w-4 h-4" />
                         <div className="truncate">Back</div>
                       </button>
                     </div>
-                    <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="text-xl md:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                       {quiz.title}
                     </h1>
                   </div>
 
-                  <p className="text-gray-600 dark:text-gray-300 text-sm leading-relaxed mb-3">
+                  <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm leading-relaxed mb-3">
                     {quiz.description}
                   </p>
                   {/* Status Badges */}
@@ -351,7 +351,7 @@ const QuizEditForm: React.FC<{
   <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800/50 rounded-3xl p-4 md:p-6">
     <div className="space-y-3">
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
           Quiz Title
         </label>
         <input
@@ -362,7 +362,7 @@ const QuizEditForm: React.FC<{
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
           Description
         </label>
         <textarea
@@ -373,7 +373,7 @@ const QuizEditForm: React.FC<{
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+        <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
           Instructions
         </label>
         <textarea
@@ -385,7 +385,7 @@ const QuizEditForm: React.FC<{
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+          <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
             Status
           </label>
           <select
@@ -408,7 +408,7 @@ const QuizEditForm: React.FC<{
           />
           <label
             htmlFor="is_public"
-            className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+            className="ml-2 text-sm text-text-secondary-light dark:text-text-secondary-dark"
           >
             Public access
           </label>
@@ -509,7 +509,7 @@ const QuestionCard: React.FC<{
             <span className="text-xs font-medium text-gray-500 bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded-xl">
               Q{index + 1}
             </span>
-            <span className="text-xs text-gray-600 dark:text-gray-400 flex items-center gap-1">
+            <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark flex items-center gap-1">
               <span className="text-base">
                 {getTypeIcon(question.questionBank?.question_type || "unknown")}
               </span>
@@ -529,13 +529,13 @@ const QuestionCard: React.FC<{
               })()}
             </span>
           </div>
-          <h3 className="text-base font-medium text-gray-900 dark:text-white mb-2 leading-tight">
+          <h3 className="text-base font-medium text-text-primary-light dark:text-text-primary-dark mb-2 leading-tight">
             <RichTextDisplay
               content={question.questionBank?.question_text || ""}
             />
           </h3>
           {question.questionBank?.explanation && (
-            <div className="text-xs text-gray-600 dark:text-gray-400 bg-gray-50 dark:bg-gray-800/30 p-3 rounded-2xl border border-gray-100 dark:border-gray-600/30">
+            <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark bg-gray-50 dark:bg-gray-800/30 p-3 rounded-2xl border border-gray-100 dark:border-gray-600/30">
               <RichTextDisplay
                 content={question.questionBank?.explanation || ""}
               />
@@ -600,10 +600,10 @@ const EmptyQuestionsState: React.FC<{
     <div className="w-16 h-16 mx-auto mb-4 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center">
       <BookOpen className="w-8 h-8 text-blue-500 dark:text-blue-400" />
     </div>
-    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+    <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
       No questions yet
     </h3>
-    <p className="text-sm text-gray-600 dark:text-gray-400 mb-6 max-w-md mx-auto">
+    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-6 max-w-md mx-auto">
       Start building your quiz with engaging questions to create an amazing
       learning experience
     </p>
@@ -921,10 +921,10 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                     <BookOpen className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+                    <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                       Questions
                     </h2>
-                    <p className="text-xs text-gray-600 dark:text-gray-400">
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                       {questions.length} items • {currentQuiz.total_points || 0}{" "}
                       pts
                     </p>
@@ -1066,15 +1066,15 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                 <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                <h3 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
                   Reset All Submissions
                 </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                   This action cannot be undone
                 </p>
               </div>
             </div>
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-6">
               This will permanently delete <strong>all student submissions</strong> and all proctoring data for <strong>{currentQuiz?.title}</strong>.
             </p>
             <div className="flex gap-3">

@@ -23,7 +23,7 @@ const ProctoringMonitor: React.FC<ProctoringMonitorProps> = ({
             <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
               <Monitor className="w-4 h-4 text-white" />
             </div>
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
               Live Proctoring Monitor
             </h2>
           </div>

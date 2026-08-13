@@ -123,7 +123,7 @@ export const SingleChoiceQuestion: React.FC<QuestionComponentProps> = ({
                         ? "text-red-900 dark:text-red-100 font-medium"
                         : isSelected
                           ? "text-blue-900 dark:text-blue-100 font-medium"
-                          : "text-gray-700 dark:text-gray-300"
+                          : "text-text-secondary-light dark:text-text-secondary-dark"
                   }`}
                 />
               </div>

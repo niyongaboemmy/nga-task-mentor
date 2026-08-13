@@ -95,10 +95,10 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
               </div>
             ) : (
               <div className="relative h-12 w-12 sm:h-14 sm:w-14 bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center border border-gray-200 dark:border-gray-600 group-hover:border-gray-300 dark:group-hover:border-gray-500 transition-colors">
-                <span className="text-gray-600 dark:text-gray-400 font-semibold text-lg">
+                <span className="text-text-secondary-light dark:text-text-secondary-dark font-semibold text-lg">
                   {submission.student?.first_name?.[0] || "?"}
                 </span>
-                <span className="text-gray-600 dark:text-gray-400 font-semibold text-lg ml-0.5">
+                <span className="text-text-secondary-light dark:text-text-secondary-dark font-semibold text-lg ml-0.5">
                   {submission.student?.last_name?.[0] || ""}
                 </span>
                 {submission.grade && (
@@ -126,12 +126,12 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
           <div className="flex-1 min-w-0">
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
               <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-gray-900 dark:text-white text-base sm:text-base group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
+                <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark text-base sm:text-base group-hover:text-gray-700 dark:group-hover:text-gray-200 transition-colors">
                   {submission.student
                     ? `${submission.student.first_name} ${submission.student.last_name}`
                     : "Unknown Student"}
                 </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark truncate">
                   {submission.student?.email || "No email available"}
                 </p>
                 {submission.submittedByUser && (
@@ -147,7 +147,7 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
               </div>
 
               {/* Submission Meta */}
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-4 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                 <div className="flex items-center gap-1.5">
                   <svg
                     className="w-3.5 h-3.5"
@@ -220,7 +220,7 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
           {onViewDetails && !isPlaceholder && (
             <button
               onClick={onViewDetails}
-              className="inline-flex items-center px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
+              className="inline-flex items-center px-4 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors border border-gray-200 dark:border-gray-600 hover:border-gray-300 dark:hover:border-gray-500"
             >
               <svg
                 className="h-4 w-4 mr-2"

@@ -355,7 +355,7 @@ const QuizResultsPage: React.FC = () => {
         <div className="text-center">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-8 border border-white/20 dark:border-gray-700/30">
             <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
-            <p className="text-gray-600 dark:text-gray-400 text-lg font-medium">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark text-lg font-medium">
               Loading your quiz results...
             </p>
             <div className="mt-4 flex justify-center space-x-1">
@@ -378,7 +378,7 @@ const QuizResultsPage: React.FC = () => {
             <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
               Could Not Load Results
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">{fetchError}</p>
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">{fetchError}</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={fetchResults}
@@ -389,7 +389,7 @@ const QuizResultsPage: React.FC = () => {
               </button>
               <Link
                 to="/my-quizzes"
-                className="inline-flex items-center justify-center px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+                className="inline-flex items-center justify-center px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-text-secondary-light dark:text-text-secondary-dark rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Quizzes
@@ -410,7 +410,7 @@ const QuizResultsPage: React.FC = () => {
             <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
               Quiz Not Found
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
               Unable to load quiz data. Please check the quiz ID and try again.
             </p>
             <Link
@@ -435,7 +435,7 @@ const QuizResultsPage: React.FC = () => {
             <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
               Results Not Available
             </h2>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
               Quiz results could not be calculated. This may be due to missing submission data.
             </p>
             <Link
@@ -515,7 +515,7 @@ const QuizResultsPage: React.FC = () => {
                   <h1 className="text-2xl md:text-3xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2 tracking-tight">
                     Performance Analysis
                   </h1>
-                  <p className="text-gray-500 dark:text-gray-400 font-medium">
+                  <p className="text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                     Detailed breakdown of your objective assessment results
                   </p>
                 </div>
@@ -577,7 +577,7 @@ const QuizResultsPage: React.FC = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">Question Review</h2>
-                <p className="text-gray-600 dark:text-gray-400 text-sm">Review your answers and learn from the experience</p>
+                <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm">Review your answers and learn from the experience</p>
               </div>
             </div>
 
@@ -641,12 +641,12 @@ const QuizResultsPage: React.FC = () => {
                       : color === "red"
                       ? "bg-red-500 text-white border-red-500 shadow-sm"
                       : "bg-amber-500 text-white border-amber-500 shadow-sm"
-                    : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                    : "bg-white dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
                 }`}
               >
                 {label}
                 <span className={`ml-1.5 text-xs font-bold px-1.5 py-0.5 rounded-full ${
-                  filterTab === key ? "bg-white/25" : "bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400"
+                  filterTab === key ? "bg-white/25" : "bg-gray-100 dark:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark/70"
                 }`}>
                   {count}
                 </span>
@@ -706,7 +706,7 @@ const QuizResultsPage: React.FC = () => {
                         </span>
 
                         {/* Points badge */}
-                        <div className="px-3 py-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                        <div className="px-3 py-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-full border border-gray-200 dark:border-gray-700 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark flex items-center gap-1.5">
                           <Target className="w-3.5 h-3.5 text-blue-500" />
                           {attempt.points_earned != null ? (
                             <span>{attempt.points_earned} / {attempt.max_points || 0} pts</span>
@@ -717,7 +717,7 @@ const QuizResultsPage: React.FC = () => {
 
                         {/* Question text preview */}
                         {!isExpanded && (
-                          <span className="text-sm text-gray-600 dark:text-gray-400 truncate max-w-xs hidden sm:block">
+                          <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark truncate max-w-xs hidden sm:block">
                             {attempt.question_text?.replace(/<[^>]+>/g, "").slice(0, 80)}
                             {(attempt.question_text?.length ?? 0) > 80 ? "…" : ""}
                           </span>
@@ -745,7 +745,7 @@ const QuizResultsPage: React.FC = () => {
                               <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
                                 <span className="text-xs">📝</span>
                               </div>
-                              <span className="text-gray-800 dark:text-gray-200 font-bold uppercase tracking-wider text-xs">
+                              <span className="text-text-primary-light dark:text-text-primary-dark font-bold uppercase tracking-wider text-xs">
                                 Your Answer
                               </span>
                             </div>
@@ -846,7 +846,7 @@ const QuizResultsPage: React.FC = () => {
               </Link>
               <button
                 onClick={() => window.print()}
-                className="inline-flex items-center px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300 hover:scale-105 hover:border-gray-400 dark:hover:border-gray-500"
+                className="inline-flex items-center px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-text-secondary-light dark:text-text-secondary-dark rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300 hover:scale-105 hover:border-gray-400 dark:hover:border-gray-500"
               >
                 <Target className="h-5 w-5 mr-2" />
                 Print Results

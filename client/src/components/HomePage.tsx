@@ -108,13 +108,13 @@ const HomePage: React.FC = () => {
       <section className="bg-white dark:bg-gray-900/80">
         <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-20">
           <div className="text-center max-w-4xl mx-auto">
-            <h1 className="text-5xl md:text-6xl font-bold text-gray-900 dark:text-white mb-6 leading-tight">
+            <h1 className="text-5xl md:text-6xl font-bold text-text-primary-light dark:text-text-primary-dark mb-6 leading-tight">
               TaskMentor
               <span className="text-blue-600 dark:text-blue-400 block">
                 Management System
               </span>
             </h1>
-            <p className="text-xl text-gray-600 dark:text-gray-300 mb-8 leading-relaxed max-w-3xl mx-auto">
+            <p className="text-xl text-text-secondary-light dark:text-text-secondary-dark mb-8 leading-relaxed max-w-3xl mx-auto">
               Streamline academic workflow with our comprehensive platform
               designed for modern educational institutions. Manage courses,
               assignments, and student progress with ease.
@@ -128,7 +128,7 @@ const HomePage: React.FC = () => {
               </Link>
               <Link
                 to="/login"
-                className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 px-8 py-3 rounded-full text-base font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
+                className="border border-gray-300 dark:border-gray-600 text-text-secondary-light dark:text-text-secondary-dark px-8 py-3 rounded-full text-base font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200"
               >
                 Sign In to Dashboard
               </Link>
@@ -141,10 +141,10 @@ const HomePage: React.FC = () => {
       <section className="py-20 bg-gray-50 dark:bg-gray-900/50">
         <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+            <h2 className="text-3xl md:text-4xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4">
               Everything you need to manage
             </h2>
-            <p className="text-xl text-gray-600 dark:text-gray-300 max-w-2xl mx-auto">
+            <p className="text-xl text-text-secondary-light dark:text-text-secondary-dark max-w-2xl mx-auto">
               Powerful features designed to simplify academic administration and
               enhance learning outcomes.
             </p>
@@ -157,10 +157,10 @@ const HomePage: React.FC = () => {
                 className={`${feature.bgColor} ${feature.borderColor} border rounded-2xl p-8 hover:shadow-lg transition-all duration-300 transform hover:-translate-y-1`}
               >
                 <div className={`${feature.color} mb-4`}>{feature.icon}</div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-3">
+                <h3 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
                   {feature.title}
                 </h3>
-                <p className="text-gray-600 dark:text-gray-300 leading-relaxed">
+                <p className="text-text-secondary-light dark:text-text-secondary-dark leading-relaxed">
                   {feature.description}
                 </p>
               </div>
@@ -174,10 +174,10 @@ const HomePage: React.FC = () => {
         <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl p-12">
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 dark:text-white mb-4">
+              <h2 className="text-3xl md:text-4xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4">
                 Trusted by educators worldwide
               </h2>
-              <p className="text-xl text-gray-600 dark:text-gray-300">
+              <p className="text-xl text-text-secondary-light dark:text-text-secondary-dark">
                 Join thousands of institutions already using TaskMentor
               </p>
             </div>
@@ -187,7 +187,7 @@ const HomePage: React.FC = () => {
                 <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                   500+
                 </div>
-                <div className="text-gray-600 dark:text-gray-300 text-lg">
+                <div className="text-text-secondary-light dark:text-text-secondary-dark text-lg">
                   Educational Institutions
                 </div>
               </div>
@@ -195,7 +195,7 @@ const HomePage: React.FC = () => {
                 <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                   50K+
                 </div>
-                <div className="text-gray-600 dark:text-gray-300 text-lg">
+                <div className="text-text-secondary-light dark:text-text-secondary-dark text-lg">
                   Active Students
                 </div>
               </div>
@@ -203,7 +203,7 @@ const HomePage: React.FC = () => {
                 <div className="text-4xl font-bold text-blue-600 dark:text-blue-400 mb-2">
                   98%
                 </div>
-                <div className="text-gray-600 dark:text-gray-300 text-lg">
+                <div className="text-text-secondary-light dark:text-text-secondary-dark text-lg">
                   User Satisfaction
                 </div>
               </div>
@@ -251,7 +251,7 @@ const HomePage: React.FC = () => {
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
               <Logo size="medium" />
             </div>
-            <div className="text-gray-600 dark:text-gray-400 text-sm">
+            <div className="text-text-secondary-light dark:text-text-secondary-dark text-sm">
               2025 TaskMentor. All rights
               reserved.
             </div>

@@ -81,7 +81,7 @@ const TimezoneChecker: React.FC<TimezoneCheckerProps> = ({ children }) => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
         <div className="text-center">
           <Clock className="h-20 w-20 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600 dark:text-gray-400 text-lg">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark text-lg">
             Checking system time...
           </p>
         </div>
@@ -112,10 +112,10 @@ const TimezoneChecker: React.FC<TimezoneCheckerProps> = ({ children }) => {
               <div className="flex items-start gap-3 mb-4">
                 <Clock className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
                 <div>
-                  <h3 className="font-semibold text-gray-900 dark:text-white mb-2">
+                  <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                     Kigali Timezone Required
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
+                  <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm">
                     This application requires your device to be set to Kigali
                     timezone (UTC+2, Central Africa Time) for accurate
                     assignment deadlines and proper functionality.
@@ -140,17 +140,17 @@ const TimezoneChecker: React.FC<TimezoneCheckerProps> = ({ children }) => {
               </div>
 
               <div className="space-y-4">
-                <h4 className="font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+                <h4 className="font-semibold text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
                   <Settings className="h-4 w-4" />
                   How to Fix This:
                 </h4>
 
                 {/* macOS Instructions */}
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                  <h5 className="font-medium text-gray-900 dark:text-white mb-3">
+                  <h5 className="font-medium text-text-primary-light dark:text-text-primary-dark mb-3">
                     For macOS (MacBook/iMac):
                   </h5>
-                  <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     <li>Click the Apple menu () in the top-left corner</li>
                     <li>
                       Select "System Settings" (or "System Preferences" on older
@@ -177,10 +177,10 @@ const TimezoneChecker: React.FC<TimezoneCheckerProps> = ({ children }) => {
 
                 {/* Windows Instructions */}
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                  <h5 className="font-medium text-gray-900 dark:text-white mb-3">
+                  <h5 className="font-medium text-text-primary-light dark:text-text-primary-dark mb-3">
                     For Windows:
                   </h5>
-                  <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     <li>Click the Start button and search for "Settings"</li>
                     <li>Click "Time & Language"</li>
                     <li>Click "Date & time" in the sidebar</li>
@@ -196,10 +196,10 @@ const TimezoneChecker: React.FC<TimezoneCheckerProps> = ({ children }) => {
 
                 {/* Mobile Instructions */}
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
-                  <h5 className="font-medium text-gray-900 dark:text-white mb-3">
+                  <h5 className="font-medium text-text-primary-light dark:text-text-primary-dark mb-3">
                     For Mobile Devices (iOS/Android):
                   </h5>
-                  <ol className="list-decimal list-inside space-y-2 text-sm text-gray-700 dark:text-gray-300">
+                  <ol className="list-decimal list-inside space-y-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     <li>Open Settings</li>
                     <li>Search for "Time" or "Date & Time"</li>
                     <li>

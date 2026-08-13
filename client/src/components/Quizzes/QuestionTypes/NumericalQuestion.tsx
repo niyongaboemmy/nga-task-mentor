@@ -101,7 +101,7 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
         <div className="space-y-4">
           {/* Number input */}
           <div>
-            <label className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+            <label className="text-sm sm:text-base font-semibold text-text-primary-light dark:text-text-primary-dark mb-3 flex items-center gap-2">
               <svg
                 className="w-5 h-5 text-blue-600"
                 fill="currentColor"
@@ -122,7 +122,7 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
                 onChange={(e) => handleAnswerChange(e.target.value)}
                 disabled={disabled}
                 placeholder="Enter a number..."
-                className={`w-full px-4 sm:px-6 py-4 sm:py-5 text-xl sm:text-2xl font-bold border-2 rounded-2xl focus:outline-none focus:ring-4 transition-all duration-300 transform bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm ${
+                className={`w-full px-4 sm:px-6 py-4 sm:py-5 text-xl sm:text-2xl font-bold border-2 rounded-2xl focus:outline-none focus:ring-4 transition-all duration-300 transform bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark shadow-sm ${
                   disabled
                     ? "bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-60"
                     : showCorrectAnswer
@@ -178,7 +178,7 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
               className="animate-slideInLeft"
               style={{ animationDelay: "100ms" }}
             >
-              <label className="text-sm sm:text-base font-semibold text-gray-800 dark:text-gray-200 mb-3 flex items-center gap-2">
+              <label className="text-sm sm:text-base font-semibold text-text-primary-light dark:text-text-primary-dark mb-3 flex items-center gap-2">
                 <svg
                   className="w-5 h-5 text-blue-600"
                   fill="currentColor"
@@ -196,7 +196,7 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
                 value={selectedUnit}
                 onChange={(e) => handleUnitChange(e.target.value)}
                 disabled={disabled}
-                className={`w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-medium border-2 rounded-xl focus:outline-none focus:ring-4 transition-all duration-300 appearance-none bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 ${
+                className={`w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-medium border-2 rounded-xl focus:outline-none focus:ring-4 transition-all duration-300 appearance-none bg-white dark:bg-gray-900 text-text-primary-light dark:text-text-primary-dark ${
                   disabled
                     ? "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-60"
                     : "border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-200 hover:border-blue-400 cursor-pointer"

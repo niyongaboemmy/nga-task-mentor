@@ -106,7 +106,7 @@ const PillToggle: React.FC<{
     className={`inline-flex items-center gap-1.5 px-3 py-1.5 h-max rounded-2xl text-xs font-medium border transition-all duration-200 ${
       active
         ? activeClass
-        : "bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300"
+        : "bg-white dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark border-gray-200 dark:border-gray-700 hover:border-gray-300"
     }`}
   >
     {children}
@@ -311,9 +311,9 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                     <span className="text-[11px] font-mono text-blue-600 dark:text-blue-400 px-1.5 py-0.5 bg-blue-100/50 dark:bg-blue-900/50 rounded-md">
                       {courseData.code}
                     </span>
-                    <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                    <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/70">
                       Group:{" "}
-                      <span className="font-semibold text-gray-700 dark:text-gray-300">
+                      <span className="font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                         {courseData.class_group_id || "N/A"}
                       </span>
                     </span>
@@ -383,7 +383,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
           <div className="p-5 bg-surface-light dark:bg-surface-dark/30 border-b border-border-light dark:border-border-dark/30 space-y-5">
             {/* Keyword Search */}
             <div>
-              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+              <label className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wide mb-2 flex items-center gap-1">
                 <Search className="w-3 h-3" /> Keyword Search
               </label>
               <div className="relative">
@@ -404,7 +404,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Question Types */}
               <div>
-                <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                <label className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wide mb-2 flex items-center gap-1">
                   <Cpu className="w-3 h-3" /> Types
                 </label>
                 <div className="flex flex-wrap gap-1.5 h-[110px] overflow-y-auto pr-2 scrollbar-thin">
@@ -428,7 +428,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
               {/* Bloom's & Difficulty */}
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <label className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wide mb-2 flex items-center gap-1">
                     <BarChart2 className="w-3 h-3" /> Difficulty
                   </label>
                   <div className="flex flex-wrap gap-2">
@@ -455,7 +455,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
 
                 {bloomsLevels.length > 0 && (
                   <div>
-                    <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                    <label className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wide mb-2 flex items-center gap-1">
                       <Brain className="w-3 h-3" /> Bloom's Level
                     </label>
                     <div className="flex flex-wrap gap-1.5">
@@ -485,7 +485,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
               {/* Scheme of Work Filter */}
               <div className="space-y-4">
                 <div>
-                  <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+                  <label className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wide mb-2 flex items-center gap-1">
                     <Brain className="w-3 h-3" /> Scheme of Work Topics
                   </label>
                   {isLoadingScheme ? (
@@ -540,7 +540,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
 
             {/* Tags */}
             <div>
-              <label className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-2 flex items-center gap-1">
+              <label className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wide mb-2 flex items-center gap-1">
                 <Tag className="w-3 h-3" /> Tags Filter
               </label>
               <div className="flex gap-2 mb-2">
@@ -606,7 +606,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
               <h3 className="text-lg font-medium text-text-primary-light dark:text-text-primary-dark mb-1">
                 No questions found
               </h3>
-              <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 max-w-sm mx-auto">
                 We couldn't find any questions matching your current filters.
                 Try adjusting your search criteria or adding a new question.
               </p>
@@ -661,7 +661,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1.5">
-                          <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 dark:text-gray-300 truncate">
+                          <span className="inline-flex items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark truncate">
                             {typeIcon}{" "}
                             {question.question_type.replace(/_/g, " ")}
                           </span>
@@ -763,7 +763,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="px-6 py-4 border-t border-border-light dark:border-border-dark/30 flex items-center justify-between bg-surface-light dark:bg-surface-dark/30">
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
               Showing{" "}
               <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
                 {(page - 1) * limit + 1}
@@ -782,17 +782,17 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
               <button
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page === 1}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                className="p-2 rounded-lg border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark/70 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300 px-2">
+              <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark px-2">
                 Page {page} of {totalPages}
               </span>
               <button
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 disabled={page === totalPages}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-700 text-gray-500 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
+                className="p-2 rounded-lg border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark/70 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

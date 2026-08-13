@@ -133,7 +133,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
 
         {/* Row 1: title + STATUS badge + type tag */}
         <div className="flex flex-wrap items-center gap-2 mb-1.5">
-          <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+          <h4 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
             {quiz.title}
           </h4>
 
@@ -151,7 +151,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
         </div>
 
         {/* Row 2: stats + divider + VISIBILITY toggle */}
-        <div className="flex flex-wrap items-center gap-3 text-[11px] text-gray-500 dark:text-gray-400">
+        <div className="flex flex-wrap items-center gap-3 text-[11px] text-text-secondary-light dark:text-text-secondary-dark/70">
           <span className="flex items-center gap-1">
             <HelpCircle className="w-3 h-3" />
             {quiz.total_questions ?? 0} questions
@@ -197,7 +197,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
                   {!isTogglingPublic && (
                     quiz.is_public
                       ? <Globe className="w-3.5 h-3.5 text-blue-500" />
-                      : <Lock className="w-3.5 h-3.5 text-gray-400 dark:text-gray-500" />
+                      : <Lock className="w-3.5 h-3.5 text-text-secondary-light dark:text-text-secondary-dark/60" />
                   )}
 
                   {/* Switch track — larger size */}
@@ -224,7 +224,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
                   <span className={`text-xs font-semibold transition-colors w-11 ${
                     quiz.is_public
                       ? "text-blue-600 dark:text-blue-400"
-                      : "text-gray-500 dark:text-gray-400"
+                      : "text-text-secondary-light dark:text-text-secondary-dark/70"
                   }`}>
                     {isTogglingPublic ? "Saving…" : quiz.is_public ? "Public" : "Private"}
                   </span>

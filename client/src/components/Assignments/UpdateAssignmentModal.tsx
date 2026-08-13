@@ -234,7 +234,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
               <div className="gap-6">
                 {/* Title */}
                 <div className="mb-2">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                     Assignment Title
                   </label>
                   <input
@@ -261,7 +261,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                 {/* Metadata */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                       Due Date & Time
                     </label>
                     <input
@@ -285,7 +285,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                       Max Score
                     </label>
                     <input
@@ -310,7 +310,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                       Submission Type
                     </label>
                     <select
@@ -327,7 +327,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                     Status
                   </label>
                   <select
@@ -346,7 +346,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
 
               {formData.submission_type !== "text" && (
                 <div className="mt-4">
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                     Allowed File Types (comma-separated)
                   </label>
                   <input
@@ -371,7 +371,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
           className="bg-surface-light dark:bg-surface-dark/50/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
         >
           <div className="flex justify-between items-center mb-4">
-            <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+            <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
               Attachments
             </label>
           </div>
@@ -400,7 +400,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                     </svg>
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                    <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                       {att.name}
                     </p>
                     <p className="text-xs text-gray-500">
@@ -432,7 +432,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
 
             {/* New Files */}
             <div className="space-y-4">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                 New Attachments
               </label>
               <FileDropzone
@@ -479,7 +479,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
         >
           <div className="flex items-center justify-between">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                 Grading Rubric
               </label>
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">

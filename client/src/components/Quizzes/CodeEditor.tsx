@@ -124,7 +124,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
                 {language}
               </span>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                 {lineCount} {lineCount === 1 ? "line" : "lines"} •{" "}
                 {value.length} characters
               </div>
@@ -138,7 +138,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
                 className="p-2 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors group"
                 title="Preview code in browser"
               >
-                <Eye className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-gray-800 dark:group-hover:text-white" />
+                <Eye className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark group-hover:text-gray-800 dark:group-hover:text-white" />
               </button>
             )}
             {!disabled && (
@@ -147,7 +147,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
                 className="p-2 hover:bg-gray-300 dark:hover:bg-gray-600 rounded-lg transition-colors group"
                 title="Reset to initial code"
               >
-                <RotateCcw className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-gray-800 dark:group-hover:text-white" />
+                <RotateCcw className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark group-hover:text-gray-800 dark:group-hover:text-white" />
               </button>
             )}
             <button
@@ -158,7 +158,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               {copied ? (
                 <Check className="w-4 h-4 text-green-600 dark:text-green-400" />
               ) : (
-                <Copy className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-gray-800 dark:group-hover:text-white" />
+                <Copy className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark group-hover:text-gray-800 dark:group-hover:text-white" />
               )}
             </button>
             <button
@@ -167,9 +167,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
             >
               {isFullscreen ? (
-                <Minimize2 className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-gray-800 dark:group-hover:text-white" />
+                <Minimize2 className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark group-hover:text-gray-800 dark:group-hover:text-white" />
               ) : (
-                <Maximize2 className="w-4 h-4 text-gray-600 dark:text-gray-300 group-hover:text-gray-800 dark:group-hover:text-white" />
+                <Maximize2 className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark group-hover:text-gray-800 dark:group-hover:text-white" />
               )}
             </button>
           </div>
@@ -179,7 +179,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         <div className="relative flex">
           {/* Line Numbers */}
           <div className="bg-gray-50 dark:bg-gray-900 px-3 py-4 border-r border-gray-300 dark:border-gray-600 select-none">
-            <div className="font-mono text-xs text-gray-500 dark:text-gray-400 text-right leading-6">
+            <div className="font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark/70 text-right leading-6">
               {Array.from({ length: lineCount }, (_, i) => (
                 <div key={i + 1}>{i + 1}</div>
               ))}
@@ -195,7 +195,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
               onKeyDown={handleKeyDown}
               disabled={disabled}
               placeholder={placeholder}
-              className={`w-full p-4 font-mono text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-0 focus:ring-0 focus:outline-none resize-none leading-6 ${
+              className={`w-full p-4 font-mono text-sm bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark border-0 focus:ring-0 focus:outline-none resize-none leading-6 ${
                 disabled ? "cursor-not-allowed opacity-60" : ""
               }`}
               style={{
@@ -209,7 +209,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
         {/* Editor Footer */}
         <div className="bg-gray-50 dark:bg-gray-900 px-4 py-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-xs">
-          <div className="flex items-center gap-4 text-gray-600 dark:text-gray-400">
+          <div className="flex items-center gap-4 text-text-secondary-light dark:text-text-secondary-dark">
             <span>💡 Press Tab for indentation</span>
             <span>•</span>
             <span>Ctrl+C to copy</span>

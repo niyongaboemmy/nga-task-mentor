@@ -290,10 +290,10 @@ export default function BulkExportReportCards() {
             <FileText className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
           </div>
           <div>
-            <h2 className="text-lg font-black text-gray-900 dark:text-white">
+            <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
               Report Cards Center
             </h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
               Preview analytics and download report cards by class, term, or year.
             </p>
           </div>
@@ -307,7 +307,7 @@ export default function BulkExportReportCards() {
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
               mode === "course"
                 ? "bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                : "text-gray-500 dark:text-gray-400"
+                : "text-text-secondary-light dark:text-text-secondary-dark/70"
             }`}
           >
             By Class
@@ -318,7 +318,7 @@ export default function BulkExportReportCards() {
             className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
               mode === "period"
                 ? "bg-white dark:bg-gray-900 text-indigo-600 dark:text-indigo-400 shadow-sm"
-                : "text-gray-500 dark:text-gray-400"
+                : "text-text-secondary-light dark:text-text-secondary-dark/70"
             }`}
           >
             By Term / Year
@@ -332,7 +332,7 @@ export default function BulkExportReportCards() {
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {/* Course / Class selector */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider mb-1.5">
               Class / Course
             </label>
             {coursesLoading ? (
@@ -347,7 +347,7 @@ export default function BulkExportReportCards() {
                 }
                 disabled={isExporting}
                 className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700
-                  bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm
+                  bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark text-sm
                   focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                   disabled:opacity-50"
               >
@@ -363,7 +363,7 @@ export default function BulkExportReportCards() {
 
           {/* Term */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider mb-1.5">
               Term <span className="text-gray-400 normal-case font-normal">(optional)</span>
             </label>
             <input
@@ -373,7 +373,7 @@ export default function BulkExportReportCards() {
               placeholder="e.g. Term 1"
               disabled={isExporting}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700
-                bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm
+                bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark text-sm
                 placeholder-gray-400
                 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                 disabled:opacity-50"
@@ -382,7 +382,7 @@ export default function BulkExportReportCards() {
 
           {/* Academic Year */}
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider mb-1.5">
               Academic Year <span className="text-gray-400 normal-case font-normal">(optional)</span>
             </label>
             <input
@@ -392,7 +392,7 @@ export default function BulkExportReportCards() {
               placeholder="e.g. 2025-2026"
               disabled={isExporting}
               className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700
-                bg-white dark:bg-gray-800 text-gray-900 dark:text-white text-sm
+                bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark text-sm
                 placeholder-gray-400
                 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent
                 disabled:opacity-50"
@@ -401,7 +401,7 @@ export default function BulkExportReportCards() {
         </div>
         ) : (
           <div>
-            <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider mb-1.5">
               Academic Year &amp; Term
             </label>
             <AcademicPeriodPicker onChange={setPeriod} />
@@ -418,7 +418,7 @@ export default function BulkExportReportCards() {
           <div className="rounded-2xl border border-gray-100 dark:border-gray-800 p-5">
             <div className="flex items-center gap-2 mb-4">
               <BarChart3 className="w-4 h-4 text-indigo-500" />
-              <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+              <h3 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
                 Summary — {period.termName}, {period.yearName}
               </h3>
             </div>
@@ -431,11 +431,11 @@ export default function BulkExportReportCards() {
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                   <div className="rounded-xl bg-gray-50 dark:bg-gray-800/50 p-3">
                     <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Report Cards</p>
-                    <p className="text-xl font-black text-gray-900 dark:text-white">{summary.total_report_cards}</p>
+                    <p className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">{summary.total_report_cards}</p>
                   </div>
                   <div className="rounded-xl bg-gray-50 dark:bg-gray-800/50 p-3">
                     <p className="text-[10px] uppercase tracking-wider text-gray-400 font-semibold">Overall Avg</p>
-                    <p className="text-xl font-black text-gray-900 dark:text-white">
+                    <p className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
                       {summary.overall_average != null ? `${summary.overall_average}%` : "—"}
                     </p>
                   </div>
@@ -444,7 +444,7 @@ export default function BulkExportReportCards() {
                       <p className={`text-[10px] uppercase tracking-wider font-semibold ${STATUS_META[s].color}`}>
                         {STATUS_META[s].label}
                       </p>
-                      <p className={`text-xl font-black ${STATUS_META[s].color}`}>{summary.status_counts[s]}</p>
+                      <p className={`text-xl font-bold ${STATUS_META[s].color}`}>{summary.status_counts[s]}</p>
                     </div>
                   ))}
                 </div>
@@ -457,7 +457,7 @@ export default function BulkExportReportCards() {
                     {(["CW", "HW", "MD", "EOT"] as const).map((cat) => (
                       <div key={cat} className="rounded-lg bg-gray-50 dark:bg-gray-800/50 px-3 py-2 text-center">
                         <p className="text-[10px] text-gray-400 font-semibold">{cat}</p>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">
+                        <p className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
                           {summary.category_averages[cat] != null ? summary.category_averages[cat] : "—"}
                         </p>
                       </div>
@@ -473,7 +473,7 @@ export default function BulkExportReportCards() {
                     <div className="space-y-1.5">
                       {summary.subject_averages.map((s) => (
                         <div key={s.subject_id} className="flex items-center gap-3">
-                          <span className="text-xs text-gray-600 dark:text-gray-300 w-40 truncate">{s.subject_name}</span>
+                          <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark w-40 truncate">{s.subject_name}</span>
                           <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
                             <div
                               className="h-full bg-indigo-500 rounded-full"
@@ -516,7 +516,7 @@ export default function BulkExportReportCards() {
                 ) : (
                   <Users className="w-4 h-4 text-indigo-500" />
                 )}
-                <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                   {studentsLoading
                     ? "Loading students…"
                     : mode === "course"
@@ -563,7 +563,7 @@ export default function BulkExportReportCards() {
         {/* ── Progress bar ── */}
         {rows.length > 0 && (doneCount > 0 || isExporting) && (
           <div>
-            <div className="flex items-center justify-between text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5">
+            <div className="flex items-center justify-between text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 mb-1.5">
               <span>
                 {doneCount} of {rows.length} exported
               </span>
@@ -614,16 +614,16 @@ export default function BulkExportReportCards() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800/50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider">
                     Student
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider">
                     ID
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider">
                     {/* Preview action column */}
                   </th>
                 </tr>
@@ -643,12 +643,12 @@ export default function BulkExportReportCards() {
                         <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
                           {row.student.first_name.charAt(0)}
                         </div>
-                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                        <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                           {row.student.first_name} {row.student.last_name}
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                    <td className="px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                       #{row.student.id}
                     </td>
                     <td className="px-4 py-3 text-right">
@@ -683,7 +683,7 @@ export default function BulkExportReportCards() {
         {!hasSelection && (
           <div className="flex flex-col items-center py-12 text-center">
             <BookOpen className="w-10 h-10 text-gray-200 dark:text-gray-700 mb-3" />
-            <p className="text-sm font-medium text-gray-400 dark:text-gray-500">
+            <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/60">
               {mode === "course"
                 ? "Select a class above to load students and start exporting."
                 : "Select an academic year and term above to load report cards and start exporting."}

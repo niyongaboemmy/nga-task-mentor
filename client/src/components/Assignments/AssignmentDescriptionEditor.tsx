@@ -52,7 +52,7 @@ const AssignmentDescriptionEditor: React.FC<
             className="assignment-description line-clamp-6 opacity-80 group-hover:opacity-100 transition-opacity dark:text-white"
           />
         ) : (
-          <div className="flex flex-col items-center justify-center py-4 text-gray-400 dark:text-gray-500">
+          <div className="flex flex-col items-center justify-center py-4 text-text-secondary-light dark:text-text-secondary-dark/60">
             <Edit3 className="w-8 h-8 mb-2 opacity-20" />
             <p className="text-sm italic">{placeholder}</p>
           </div>
@@ -71,10 +71,10 @@ const AssignmentDescriptionEditor: React.FC<
               {/* Modal Header */}
               <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                  <h3 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
                     {description ? "Edit Description" : "Add Description"}
                   </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                     Use the toolbar to format your content, add images, or
                     tables.
                   </p>

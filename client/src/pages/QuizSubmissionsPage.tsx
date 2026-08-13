@@ -279,7 +279,7 @@ const QuizSubmissionsPage: React.FC = () => {
       case "expired":
         return "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border-red-200 dark:border-red-800";
       default:
-        return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700";
+        return "bg-gray-50 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark border-gray-200 dark:border-gray-700";
     }
   };
 
@@ -305,7 +305,7 @@ const QuizSubmissionsPage: React.FC = () => {
       case "pending":
         return "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300";
       default:
-        return "bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300";
+        return "bg-gray-50 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark";
     }
   };
 
@@ -367,7 +367,7 @@ const QuizSubmissionsPage: React.FC = () => {
             <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-400 border-t-blue-500 mx-auto"></div>
             <Sparkles className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-6 h-6 text-blue-500 animate-pulse" />
           </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 animate-pulse font-medium">
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark animate-pulse font-medium">
             Loading magical submissions...
           </p>
         </div>
@@ -383,10 +383,10 @@ const QuizSubmissionsPage: React.FC = () => {
             <Heart className="h-16 w-16 text-red-400 mx-auto animate-bounce" />
             <AlertCircle className="absolute -top-2 -right-2 h-8 w-8 text-red-500 animate-pulse" />
           </div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+          <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
             Oops! Something went wrong
           </h2>
-          <p className="text-xs text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-6 leading-relaxed">
             {error}
           </p>
           <button
@@ -409,7 +409,7 @@ const QuizSubmissionsPage: React.FC = () => {
           <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
             <button
               onClick={() => navigate(`/quizzes/${quizId}`)}
-              className="inline-flex items-center gap-2 px-3 py-2 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-full shadow-sm hover:shadow-md transition-all duration-200 text-gray-700 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white backdrop-blur-sm"
+              className="inline-flex items-center gap-2 px-3 py-2 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-full shadow-sm hover:shadow-md transition-all duration-200 text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white backdrop-blur-sm"
             >
               <ArrowLeft className="w-3 h-3" />
               <span className="text-xs font-medium">Back</span>
@@ -444,16 +444,16 @@ const QuizSubmissionsPage: React.FC = () => {
                     <Sparkles className="absolute -top-1 -right-1 w-3 h-3 text-blue-500 animate-ping" />
                   </div>
                   <div>
-                    <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 dark:text-white">
+                    <h1 className="text-lg sm:text-xl lg:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                       Quiz Submissions
                     </h1>
-                    <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400">
+                    <p className="text-xs sm:text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       ✨ Magical results overview
                     </p>
                   </div>
                 </div>
                 {quiz && (
-                  <p className="text-sm sm:text-base text-gray-700 dark:text-gray-300 font-medium">
+                  <p className="text-sm sm:text-base text-text-secondary-light dark:text-text-secondary-dark font-medium">
                     {quiz.title}
                   </p>
                 )}
@@ -566,7 +566,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   className={`p-2 px-3 rounded-xl transition-all duration-200 ${
                     viewMode === "cards"
                       ? "bg-blue-500 text-white shadow-lg"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      : "bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-700"
                   }`}
                 >
                   <FileText className="w-3 h-3" />
@@ -576,7 +576,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   className={`p-2 px-3 rounded-xl transition-all duration-200 ${
                     viewMode === "table"
                       ? "bg-blue-500 text-white shadow-lg"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700"
+                      : "bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-700"
                   }`}
                 >
                   <BarChart3 className="w-3 h-3" />
@@ -596,10 +596,10 @@ const QuizSubmissionsPage: React.FC = () => {
                 </div>
                 <Heart className="absolute -top-2 -right-2 w-6 h-6 text-red-400 animate-bounce" />
               </div>
-              <h3 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-base sm:text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                 No submissions found
               </h3>
-              <p className="text-xs sm:text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+              <p className="text-xs sm:text-sm text-text-secondary-light dark:text-text-secondary-dark leading-relaxed">
                 {searchTerm || statusFilter !== "all" || gradeFilter !== "all"
                   ? "Try adjusting your magical filters ✨"
                   : "No students have submitted this quiz yet 💫"}
@@ -625,10 +625,10 @@ const QuizSubmissionsPage: React.FC = () => {
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white truncate">
+                        <h3 className="text-sm sm:text-base font-bold text-text-primary-light dark:text-text-primary-dark truncate">
                           {submission.student_name || "Unknown Student"}
                         </h3>
-                        <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+                        <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark truncate">
                           {submission.student_email}
                         </p>
                       </div>
@@ -647,7 +647,7 @@ const QuizSubmissionsPage: React.FC = () => {
                         {getGradeIcon(submission.grade_status)}
                         {submission.grade_status.replace("_", " ")}
                       </span>
-                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300">
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark">
                         <Target className="w-3 h-3" />#
                         {submission.attempt_number}
                       </span>
@@ -656,21 +656,21 @@ const QuizSubmissionsPage: React.FC = () => {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                       <div className="flex items-center gap-2">
                         <Calendar className="w-3 h-3 text-gray-400" />
-                        <span className="text-gray-600 dark:text-gray-400">
+                        <span className="text-text-secondary-light dark:text-text-secondary-dark">
                           {formatDate(submission.completed_at)}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-2">
                         <Clock className="w-3 h-3 text-gray-400" />
-                        <span className="text-gray-600 dark:text-gray-400">
+                        <span className="text-text-secondary-light dark:text-text-secondary-dark">
                           {formatTime(submission.time_taken)}
                         </span>
                       </div>
 
                       <div className="flex items-center gap-2">
                         <Target className="w-3 h-3 text-gray-400" />
-                        <span className="text-gray-600 dark:text-gray-400">
+                        <span className="text-text-secondary-light dark:text-text-secondary-dark">
                           {submission.total_score}/{submission.max_score}
                         </span>
                       </div>
@@ -737,25 +737,25 @@ const QuizSubmissionsPage: React.FC = () => {
                 <table className="w-full">
                   <thead className="bg-gray-50/50 dark:bg-gray-800/50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                         Student
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                         Status
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                         Grade
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                         Score
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                         Time
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                         Submitted
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 dark:text-gray-400">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                         Actions
                       </th>
                     </tr>
@@ -772,10 +772,10 @@ const QuizSubmissionsPage: React.FC = () => {
                               <User className="w-4 h-4 text-white" />
                             </div>
                             <div>
-                              <div className="text-sm font-medium text-gray-900 dark:text-white">
+                              <div className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                                 {submission.student_name || "Unknown"}
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                              <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                                 {submission.student_email}
                               </div>
                             </div>
@@ -805,10 +805,10 @@ const QuizSubmissionsPage: React.FC = () => {
                             {getGradeLetter(pct(submission))})
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        <td className="px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                           {formatTime(submission.time_taken)}
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-600 dark:text-gray-400">
+                        <td className="px-4 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                           {formatDate(submission.completed_at)}
                         </td>
                         <td className="px-4 py-3">
@@ -883,10 +883,10 @@ const QuizSubmissionsPage: React.FC = () => {
                   <ClipboardList className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                  <h3 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
                     Record Manual Marks
                   </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                     Step {manualStep} of 3 —{" "}
                     {manualStep === 1
                       ? "Select student"
@@ -934,7 +934,7 @@ const QuizSubmissionsPage: React.FC = () => {
                       placeholder="Search students..."
                       value={manualStudentSearch}
                       onChange={(e) => setManualStudentSearch(e.target.value)}
-                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
+                      className="w-full pl-8 pr-3 py-2 text-sm border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark"
                     />
                   </div>
                   {loadingManualData ? (
@@ -968,10 +968,10 @@ const QuizSubmissionsPage: React.FC = () => {
                               <User className="w-4 h-4 text-white" />
                             </div>
                             <div className="min-w-0">
-                              <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                              <div className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark truncate">
                                 {s.name}
                               </div>
-                              <div className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                              <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 truncate">
                                 {s.email}
                               </div>
                             </div>
@@ -991,7 +991,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center gap-2">
                     <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      <div className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark truncate">
                         {manualStudent?.name}
                       </div>
                       <div className="text-xs text-gray-500 truncate">
@@ -1021,7 +1021,7 @@ const QuizSubmissionsPage: React.FC = () => {
                               {idx + 1}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm text-gray-800 dark:text-gray-200 line-clamp-2">
+                              <p className="text-sm text-text-primary-light dark:text-text-primary-dark line-clamp-2">
                                 {text}
                               </p>
                               <p className="text-xs text-gray-400 mt-0.5">
@@ -1044,7 +1044,7 @@ const QuizSubmissionsPage: React.FC = () => {
                                   [q.id]: v,
                                 }));
                               }}
-                              className="w-20 px-2 py-1.5 text-sm text-center border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-gray-900 dark:text-white flex-shrink-0"
+                              className="w-20 px-2 py-1.5 text-sm text-center border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark flex-shrink-0"
                             />
                           </div>
                         );
@@ -1052,7 +1052,7 @@ const QuizSubmissionsPage: React.FC = () => {
                     </div>
                   )}
                   <div className="mt-3 p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl flex items-center justify-between">
-                    <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                    <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                       Total
                     </span>
                     <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
@@ -1073,7 +1073,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   <div className="mb-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center gap-2">
                     <User className="w-4 h-4 text-blue-600 flex-shrink-0" />
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                      <div className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark truncate">
                         {manualStudent?.name}
                       </div>
                       <div className="text-xs text-gray-500 truncate">
@@ -1113,7 +1113,7 @@ const QuizSubmissionsPage: React.FC = () => {
                               <td className="px-3 py-2 text-xs text-gray-400">
                                 {idx + 1}
                               </td>
-                              <td className="px-3 py-2 text-xs text-gray-700 dark:text-gray-300 max-w-[180px] truncate">
+                              <td className="px-3 py-2 text-xs text-text-secondary-light dark:text-text-secondary-dark max-w-[180px] truncate">
                                 {text}
                               </td>
                               <td className="px-3 py-2 text-xs text-gray-500 text-right">
@@ -1140,7 +1140,7 @@ const QuizSubmissionsPage: React.FC = () => {
                     const pct = max > 0 ? Math.round((total / max) * 100) : 0;
                     return (
                       <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                        <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                           Final Score
                         </span>
                         <span className="text-sm font-bold text-blue-700 dark:text-blue-300">
@@ -1200,17 +1200,17 @@ const QuizSubmissionsPage: React.FC = () => {
                 <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-gray-900 dark:text-white">
+                <h3 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
                   {confirmDelete.type === "all"
                     ? "Reset All Submissions"
                     : "Delete Submission"}
                 </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                   This action cannot be undone
                 </p>
               </div>
             </div>
-            <p className="text-sm text-gray-700 dark:text-gray-300 mb-6">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-6">
               {confirmDelete.type === "all"
                 ? `This will permanently delete all ${submissions.length} submission(s) and all proctoring data for this quiz.`
                 : `This will permanently delete ${confirmDelete.studentName}'s submission and their proctoring data.`}

@@ -173,7 +173,7 @@ const ProctoringMonitorComponent: React.FC<ProctoringMonitorComponentProps> = ({
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-sm font-medium text-gray-900 dark:text-white">
+            <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
               Proctoring Active
             </span>
           </div>
@@ -194,7 +194,7 @@ const ProctoringMonitorComponent: React.FC<ProctoringMonitorComponentProps> = ({
           <div className="flex items-center gap-1">
             {getStatusIcon(status.cameraLevel, settings.min_camera_level)}
             <Camera className="w-3 h-3" />
-            <span className="text-gray-600 dark:text-gray-400">Camera</span>
+            <span className="text-text-secondary-light dark:text-text-secondary-dark">Camera</span>
           </div>
           <div className="flex items-center gap-1">
             {getStatusIcon(
@@ -202,7 +202,7 @@ const ProctoringMonitorComponent: React.FC<ProctoringMonitorComponentProps> = ({
               settings.min_microphone_level
             )}
             <Mic className="w-3 h-3" />
-            <span className="text-gray-600 dark:text-gray-400">Mic</span>
+            <span className="text-text-secondary-light dark:text-text-secondary-dark">Mic</span>
           </div>
           <div className="flex items-center gap-1">
             {settings.require_fullscreen ? (
@@ -215,7 +215,7 @@ const ProctoringMonitorComponent: React.FC<ProctoringMonitorComponentProps> = ({
               <div className="w-2 h-2 bg-gray-400 rounded-full"></div>
             )}
             <Monitor className="w-3 h-3" />
-            <span className="text-gray-600 dark:text-gray-400">Screen</span>
+            <span className="text-text-secondary-light dark:text-text-secondary-dark">Screen</span>
           </div>
           <div className="flex items-center gap-1">
             {status.faceDetected ? (
@@ -224,7 +224,7 @@ const ProctoringMonitorComponent: React.FC<ProctoringMonitorComponentProps> = ({
               <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
             )}
             <Eye className="w-3 h-3" />
-            <span className="text-gray-600 dark:text-gray-400">Face</span>
+            <span className="text-text-secondary-light dark:text-text-secondary-dark">Face</span>
           </div>
         </div>
 
@@ -248,7 +248,7 @@ const ProctoringMonitorComponent: React.FC<ProctoringMonitorComponentProps> = ({
         {/* Recent Violations */}
         {showDetails && violations.length > 0 && (
           <div className="mt-3 border-t border-gray-200 dark:border-gray-700 pt-3">
-            <div className="text-xs font-medium text-gray-900 dark:text-white mb-2">
+            <div className="text-xs font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
               Recent Alerts ({violations.length})
             </div>
             <div className="space-y-1 max-h-32 overflow-y-auto">

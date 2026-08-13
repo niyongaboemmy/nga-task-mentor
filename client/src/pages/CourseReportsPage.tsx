@@ -352,7 +352,7 @@ const CourseReportsPage: React.FC = () => {
   if (!data) {
     return (
       <div className="p-8 text-center bg-gray-50 dark:bg-gray-900 min-h-screen">
-        <h2 className="text-2xl font-bold text-gray-700 dark:text-gray-300">
+        <h2 className="text-2xl font-bold text-text-secondary-light dark:text-text-secondary-dark">
           No grade data available
         </h2>
         <Link
@@ -401,12 +401,12 @@ const CourseReportsPage: React.FC = () => {
               <GraduationCap className="w-8 h-8" />
             </div>
             <div>
-              <h1 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
+              <h1 className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
                 {course ? `${course.title}` : "Course Reports"}
               </h1>
-              <p className="text-gray-500 dark:text-gray-400 mt-1 font-medium flex items-center gap-2">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark/70 mt-1 font-medium flex items-center gap-2">
                 {course ? (
-                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-black uppercase tracking-wider">
+                  <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-xs font-bold uppercase tracking-wider">
                     {course.code}
                   </span>
                 ) : (
@@ -427,14 +427,14 @@ const CourseReportsPage: React.FC = () => {
             <AcademicPeriodPicker onChange={setViewPeriod} />
             <button
               onClick={fetchGrades}
-              className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-black text-xs uppercase tracking-wider text-gray-600 dark:text-gray-300"
+              className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Refresh Data</span>
             </button>
             <button
               onClick={handleExportCSV}
-              className="px-6 py-3 bg-blue-600 text-white rounded-3xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 font-black text-xs uppercase tracking-wider hover:scale-105 active:scale-95"
+              className="px-6 py-3 bg-blue-600 text-white rounded-3xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 font-bold text-xs uppercase tracking-wider hover:scale-105 active:scale-95"
             >
               <Download className="w-4 h-4" />
               <span>Export CSV</span>
@@ -461,12 +461,12 @@ const CourseReportsPage: React.FC = () => {
                   <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
 
                   <div className="relative z-10">
-                    <p className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                    <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2 mb-4">
                       <Award className="w-4 h-4" />
                       Total Grade
                     </p>
                     <div className="flex items-baseline gap-2">
-                      <p className="text-5xl font-black text-gray-900 dark:text-white tabular-nums">
+                      <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
                         {student.summary.total_percentage}%
                       </p>
                     </div>
@@ -497,12 +497,12 @@ const CourseReportsPage: React.FC = () => {
                 >
                   <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
                   <div className="relative z-10">
-                    <p className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+                    <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2 mb-4">
                       <Zap className="w-4 h-4" />
                       Points Earned
                     </p>
                     <div className="flex items-baseline gap-2">
-                      <p className="text-4xl font-black text-gray-900 dark:text-white tabular-nums">
+                      <p className="text-4xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
                         {student.summary.total_points_earned}
                       </p>
                       <span className="text-xl font-bold text-gray-400 dark:text-gray-600 uppercase tracking-tighter">
@@ -511,7 +511,7 @@ const CourseReportsPage: React.FC = () => {
                     </div>
                     <p className="text-xs font-medium text-gray-400 mt-4 leading-relaxed">
                       You have accummulated{" "}
-                      <span className="text-gray-900 dark:text-white font-bold">
+                      <span className="text-text-primary-light dark:text-text-primary-dark font-bold">
                         {student.summary.total_points_earned} points
                       </span>{" "}
                       across all assignments and quizzes.
@@ -528,7 +528,7 @@ const CourseReportsPage: React.FC = () => {
                   />
                   <div className="relative z-10">
                     <p
-                      className={`text-xs font-black uppercase tracking-widest flex items-center gap-2 mb-4 ${student.summary.total_percentage >= 60 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
+                      className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 mb-4 ${student.summary.total_percentage >= 60 ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"}`}
                     >
                       {student.summary.total_percentage >= 60 ? (
                         <CheckCircle2 className="w-4 h-4" />
@@ -540,7 +540,7 @@ const CourseReportsPage: React.FC = () => {
 
                     <div className="flex items-center gap-3">
                       <span
-                        className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-black uppercase tracking-wider ${
+                        className={`inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold uppercase tracking-wider ${
                           student.summary.total_percentage >= 60
                             ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
                             : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
@@ -571,13 +571,13 @@ const CourseReportsPage: React.FC = () => {
                   className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
                 >
                   <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/30 dark:bg-black/20 backdrop-blur-sm">
-                    <h3 className="font-black text-xl flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+                    <h3 className="font-bold text-xl flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
                       <span className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center shadow-lg shadow-blue-500/10">
                         <BarChart3 className="w-5 h-5" />
                       </span>
                       Assignments
                     </h3>
-                    <span className="text-xs font-black uppercase tracking-widest bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-4 py-1.5 rounded-xl">
+                    <span className="text-xs font-bold uppercase tracking-widest bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 px-4 py-1.5 rounded-xl">
                       Avg: {student.summary.assignment_percentage}%
                     </span>
                   </div>
@@ -589,7 +589,7 @@ const CourseReportsPage: React.FC = () => {
                           className="flex items-center justify-between p-5 bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-blue-500/30 hover:shadow-lg hover:shadow-blue-500/5 transition-all duration-300 group"
                         >
                           <div className="flex-1 min-w-0 pr-6">
-                            <p className="font-bold text-gray-900 dark:text-white truncate text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            <p className="font-bold text-text-primary-light dark:text-text-primary-dark truncate text-base group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                               {assignment.title}
                             </p>
                             <div className="flex items-center gap-3 mt-2">
@@ -597,7 +597,7 @@ const CourseReportsPage: React.FC = () => {
                                 Max Score: {assignment.max_score}
                               </span>
                               {!assignment.submitted && (
-                                <span className="text-[10px] font-black uppercase tracking-widest text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-lg">
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-red-500 bg-red-50 dark:bg-red-900/20 px-2 py-1 rounded-lg">
                                   Missing
                                 </span>
                               )}
@@ -607,7 +607,7 @@ const CourseReportsPage: React.FC = () => {
                             {assignment.submitted ? (
                               assignment.grade !== null ? (
                                 <div className="flex flex-col items-end">
-                                  <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">
+                                  <span className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
                                     {assignment.grade}
                                   </span>
                                   {assignment.max_score && (
@@ -627,7 +627,7 @@ const CourseReportsPage: React.FC = () => {
                                 </span>
                               )
                             ) : (
-                              <span className="text-2xl font-black text-gray-200 dark:text-gray-700">
+                              <span className="text-2xl font-bold text-gray-200 dark:text-gray-700">
                                 -
                               </span>
                             )}
@@ -653,13 +653,13 @@ const CourseReportsPage: React.FC = () => {
                   className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
                 >
                   <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/30 dark:bg-black/20 backdrop-blur-sm">
-                    <h3 className="font-black text-xl flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+                    <h3 className="font-bold text-xl flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
                       <span className="w-10 h-10 rounded-2xl bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 flex items-center justify-center shadow-lg shadow-purple-500/10">
                         <Zap className="w-5 h-5" />
                       </span>
                       Quizzes
                     </h3>
-                    <span className="text-xs font-black uppercase tracking-widest bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-4 py-1.5 rounded-xl">
+                    <span className="text-xs font-bold uppercase tracking-widest bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 px-4 py-1.5 rounded-xl">
                       Avg: {student.summary.quiz_percentage}%
                     </span>
                   </div>
@@ -671,7 +671,7 @@ const CourseReportsPage: React.FC = () => {
                           className="flex items-center justify-between p-5 bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-purple-500/30 hover:shadow-lg hover:shadow-purple-500/5 transition-all duration-300 group"
                         >
                           <div className="flex-1 min-w-0 pr-6">
-                            <p className="font-bold text-gray-900 dark:text-white truncate text-base group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
+                            <p className="font-bold text-text-primary-light dark:text-text-primary-dark truncate text-base group-hover:text-purple-600 dark:group-hover:text-purple-400 transition-colors">
                               {quiz.title}
                             </p>
                             <div className="flex items-center gap-3 mt-2">
@@ -680,7 +680,7 @@ const CourseReportsPage: React.FC = () => {
                               </span>
                               {quiz.submitted && (
                                 <span
-                                  className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-lg ${
+                                  className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-lg ${
                                     quiz.passed
                                       ? "bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400"
                                       : "bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400"
@@ -695,7 +695,7 @@ const CourseReportsPage: React.FC = () => {
                             {quiz.submitted ? (
                               quiz.score !== null ? (
                                 <div className="flex flex-col items-end">
-                                  <span className="text-2xl font-black text-gray-900 dark:text-white tabular-nums">
+                                  <span className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
                                     {quiz.score}
                                   </span>
                                   <span className="text-[10px] font-bold text-gray-400">
@@ -708,7 +708,7 @@ const CourseReportsPage: React.FC = () => {
                                 </span>
                               )
                             ) : (
-                              <span className="text-2xl font-black text-gray-200 dark:text-gray-700">
+                              <span className="text-2xl font-bold text-gray-200 dark:text-gray-700">
                                 -
                               </span>
                             )}
@@ -748,11 +748,11 @@ const CourseReportsPage: React.FC = () => {
               className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
               {/* <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
-              <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
                 <BarChart3 className="w-4 h-4 text-blue-500" />
                 Average Grade
               </p>
-              <p className="text-5xl font-black text-gray-900 dark:text-white mb-4">
+              <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4">
                 {Math.round(averageGrade)}
                 <span className="text-2xl text-gray-400">%</span>
               </p>
@@ -775,14 +775,14 @@ const CourseReportsPage: React.FC = () => {
               className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
               {/* <div className="absolute right-0 top-0 w-32 h-32 bg-green-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
-              <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
                 <CheckCircle2 className="w-4 h-4 text-green-500" />
                 Passing
               </p>
-              <p className="text-5xl font-black text-gray-900 dark:text-white mb-2">
+              <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                 {passingCount}
               </p>
-              <span className="inline-flex items-center px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-xs font-black uppercase tracking-wider">
+              <span className="inline-flex items-center px-3 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded-lg text-xs font-bold uppercase tracking-wider">
                 {Math.round((passingCount / (data.students.length || 1)) * 100)}
                 % of class
               </span>
@@ -793,14 +793,14 @@ const CourseReportsPage: React.FC = () => {
               className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
               {/* <div className="absolute right-0 top-0 w-32 h-32 bg-red-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
-              <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-red-500" />
                 Needs Attention
               </p>
-              <p className="text-5xl font-black text-gray-900 dark:text-white mb-2">
+              <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                 {failingCount}
               </p>
-              <span className="inline-flex items-center px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-xs font-black uppercase tracking-wider">
+              <span className="inline-flex items-center px-3 py-1 bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300 rounded-lg text-xs font-bold uppercase tracking-wider">
                 Student{failingCount !== 1 ? "s" : ""} &lt; 60%
               </span>
             </motion.div>
@@ -810,14 +810,14 @@ const CourseReportsPage: React.FC = () => {
               className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
               {/* <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
-              <p className="text-gray-500 dark:text-gray-400 text-xs font-black uppercase tracking-widest mb-4 flex items-center gap-2">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Users className="w-4 h-4 text-purple-500" />
                 Total Students
               </p>
-              <p className="text-5xl font-black text-gray-900 dark:text-white mb-2">
+              <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                 {data.students.length}
               </p>
-              <span className="inline-flex items-center px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-black uppercase tracking-wider">
+              <span className="inline-flex items-center px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-lg text-xs font-bold uppercase tracking-wider">
                 Currently Enrolled
               </span>
             </motion.div>
@@ -832,7 +832,7 @@ const CourseReportsPage: React.FC = () => {
               variants={itemVariants}
               className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none"
             >
-              <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+              <h3 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest mb-6 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-blue-500" />
                 Grade Distribution
               </h3>
@@ -845,7 +845,7 @@ const CourseReportsPage: React.FC = () => {
               variants={itemVariants}
               className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none"
             >
-              <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-6 flex items-center gap-2">
+              <h3 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest mb-6 flex items-center gap-2">
                 <Award className="w-4 h-4 text-yellow-500" />
                 Performance Ratio
               </h3>
@@ -878,10 +878,10 @@ const CourseReportsPage: React.FC = () => {
                 <button
                   key={type}
                   onClick={() => setFilterType(type as any)}
-                  className={`px-6 py-2 rounded-[1.5rem] text-xs font-black uppercase tracking-wider transition-all duration-300 ${
+                  className={`px-6 py-2 rounded-[1.5rem] text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
                     filterType === type
-                      ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-md shadow-gray-200/50 dark:shadow-black/30 transform scale-105"
-                      : "text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                      ? "bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark shadow-md shadow-gray-200/50 dark:shadow-black/30 transform scale-105"
+                      : "text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-200"
                   }`}
                 >
                   {type.charAt(0).toUpperCase() + type.slice(1)}
@@ -901,13 +901,13 @@ const CourseReportsPage: React.FC = () => {
                   <tr>
                     <th
                       scope="col"
-                      className="px-8 py-5 text-left text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] sticky left-0 z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800"
+                      className="px-8 py-5 text-left text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] sticky left-0 z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800"
                     >
                       Student
                     </th>
                     <th
                       scope="col"
-                      className="px-8 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] sticky left-[120px] md:left-[240px] z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 border-b shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)]"
+                      className="px-8 py-5 text-center text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] sticky left-[120px] md:left-[240px] z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 border-b shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)]"
                     >
                       Total Grade
                     </th>
@@ -915,11 +915,11 @@ const CourseReportsPage: React.FC = () => {
                       <th
                         key={`h-a-${assignment.id}`}
                         scope="col"
-                        className="px-6 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
+                        className="px-6 py-5 text-center text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
                       >
                         <div className="flex flex-col items-center gap-1">
                           <span
-                            className="text-gray-700 dark:text-gray-300 truncate max-w-[120px]"
+                            className="text-text-secondary-light dark:text-text-secondary-dark truncate max-w-[120px]"
                             title={assignment.title}
                           >
                             {assignment.title}
@@ -934,11 +934,11 @@ const CourseReportsPage: React.FC = () => {
                       <th
                         key={`h-q-${quiz.id}`}
                         scope="col"
-                        className="px-6 py-5 text-center text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
+                        className="px-6 py-5 text-center text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
                       >
                         <div className="flex flex-col items-center gap-1">
                           <span
-                            className="text-gray-700 dark:text-gray-300 truncate max-w-[120px]"
+                            className="text-text-secondary-light dark:text-text-secondary-dark truncate max-w-[120px]"
                             title={quiz.title}
                           >
                             {quiz.title}
@@ -968,16 +968,16 @@ const CourseReportsPage: React.FC = () => {
                                 alt=""
                               />
                             ) : (
-                              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-black shadow-lg shadow-blue-500/20 text-sm">
+                              <div className="h-10 w-10 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-blue-500/20 text-sm">
                                 {student.student.name.charAt(0)}
                               </div>
                             )}
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                            <div className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                               {student.student.name}
                             </div>
-                            <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                            <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                               {student.student.email}
                             </div>
                           </div>
@@ -985,7 +985,7 @@ const CourseReportsPage: React.FC = () => {
                       </td>
                       <td className="px-8 py-5 whitespace-nowrap text-center sticky left-[120px] md:left-[240px] z-10 bg-white dark:bg-gray-800 group-hover:bg-blue-50/50 dark:group-hover:bg-blue-900/10 transition-colors border-r border-gray-100 dark:border-gray-800 shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)]">
                         <div
-                          className={`text-xl font-black ${
+                          className={`text-xl font-bold ${
                             student.summary.total_percentage >= 80
                               ? "text-green-500"
                               : student.summary.total_percentage >= 60
@@ -1013,16 +1013,16 @@ const CourseReportsPage: React.FC = () => {
                           >
                             {grade?.submitted ? (
                               grade.grade !== null ? (
-                                <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-sm font-bold bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 group-hover:bg-white dark:group-hover:bg-gray-600 group-hover:shadow-sm transition-all">
+                                <span className="inline-flex items-center px-3 py-1.5 rounded-xl text-sm font-bold bg-gray-50 dark:bg-gray-700/50 text-text-secondary-light dark:text-text-secondary-dark group-hover:bg-white dark:group-hover:bg-gray-600 group-hover:shadow-sm transition-all">
                                   {grade.grade}
                                 </span>
                               ) : (
-                                <span className="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400">
+                                <span className="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400">
                                   Pending
                                 </span>
                               )
                             ) : (
-                              <span className="text-gray-200 dark:text-gray-700 font-black text-lg">
+                              <span className="text-gray-200 dark:text-gray-700 font-bold text-lg">
                                 -
                               </span>
                             )}
@@ -1054,12 +1054,12 @@ const CourseReportsPage: React.FC = () => {
                                   </span>
                                 </div>
                               ) : (
-                                <span className="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400">
+                                <span className="inline-flex items-center px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-yellow-50 text-yellow-600 dark:bg-yellow-900/20 dark:text-yellow-400">
                                   Pending
                                 </span>
                               )
                             ) : (
-                              <span className="text-gray-200 dark:text-gray-700 font-black text-lg">
+                              <span className="text-gray-200 dark:text-gray-700 font-bold text-lg">
                                 -
                               </span>
                             )}
@@ -1076,7 +1076,7 @@ const CourseReportsPage: React.FC = () => {
                 <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center text-gray-300">
                   <Search className="w-8 h-8" />
                 </div>
-                <p className="text-gray-500 dark:text-gray-400 font-medium">
+                <p className="text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                   No students found based on your filters.
                 </p>
               </div>

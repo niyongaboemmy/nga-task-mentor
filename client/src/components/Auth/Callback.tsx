@@ -205,12 +205,12 @@ const Callback: React.FC = () => {
                 </div>
 
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                     {stage === "retrying"
                       ? `Retrying… (${retryCount}/${maxRetries})`
                       : "Completing your sign-in"}
                   </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                     {stage === "retrying"
                       ? "Connection issue detected — retrying automatically."
                       : "Establishing your secure session with NGA MIS…"}
@@ -230,7 +230,7 @@ const Callback: React.FC = () => {
                                 : "bg-gray-200 dark:bg-gray-700"
                             }`}
                           />
-                          <span className="text-[10px] text-gray-400 dark:text-gray-500 whitespace-nowrap">
+                          <span className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark/60 whitespace-nowrap">
                             {label}
                           </span>
                         </div>
@@ -275,10 +275,10 @@ const Callback: React.FC = () => {
                     </svg>
                   </div>
                 </motion.div>
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                   {welcomeName ? `Welcome, ${welcomeName}!` : "Signed in successfully!"}
                 </h2>
-                <p className="text-sm text-gray-500 dark:text-gray-400">
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                   Taking you to your dashboard…
                 </p>
                 <div className="pt-1">
@@ -322,7 +322,7 @@ const Callback: React.FC = () => {
                 </div>
 
                 <div className="text-center">
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-1">
+                  <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">
                     {errorKind === "expired"
                       ? "Sign-in link expired"
                       : errorKind === "missing"
@@ -333,7 +333,7 @@ const Callback: React.FC = () => {
                             ? "Authentication configuration error"
                             : "Sign-in failed"}
                   </h2>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                     {errorMessage}
                   </p>
                 </div>
@@ -365,7 +365,7 @@ const Callback: React.FC = () => {
                   {errorKind === "network" && (
                     <button
                       onClick={() => window.location.reload()}
-                      className="w-full py-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-2xl font-medium transition-all duration-150"
+                      className="w-full py-3 bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-2xl font-medium transition-all duration-150"
                     >
                       Retry
                     </button>

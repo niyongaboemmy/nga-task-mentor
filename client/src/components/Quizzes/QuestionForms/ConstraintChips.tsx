@@ -167,7 +167,7 @@ export const ConstraintChips: React.FC<ConstraintChipsProps> = ({
                   type="button"
                   onClick={() => appendConstraint(chip)}
                   disabled={currentText.includes(chip)}
-                  className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="flex items-center gap-1.5 text-[10px] px-2 py-1 rounded-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-500 dark:hover:text-blue-400 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <Plus size={10} /> {chip}
                 </button>

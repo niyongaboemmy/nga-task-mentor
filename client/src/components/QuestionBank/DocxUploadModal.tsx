@@ -231,7 +231,7 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
                   >
                     <Check className="w-8 h-8" />
                   </div>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                  <p className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">
                     {file.name}
                   </p>
                   <p className="text-sm text-gray-500">
@@ -244,7 +244,7 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
                   <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 text-gray-400 rounded-2xl flex items-center justify-center mb-4">
                     <Upload className="w-8 h-8" />
                   </div>
-                  <p className="text-lg font-semibold text-gray-900 dark:text-white mb-1">
+                  <p className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">
                     Choose a Word or Excel File
                   </p>
                   <p className="text-sm text-gray-500">
@@ -257,7 +257,7 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
             <div className="flex items-center justify-end gap-3 mt-4">
               <button
                 onClick={onClose}
-                className="px-6 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
+                className="px-6 py-2.5 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-800 rounded-xl transition-colors"
               >
                 Cancel
               </button>

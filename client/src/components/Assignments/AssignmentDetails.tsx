@@ -403,7 +403,7 @@ const AssignmentDetails = () => {
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                 Loading Assignment
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1">
                 Please wait while we fetch the assignment details...
               </p>
             </div>
@@ -421,7 +421,7 @@ const AssignmentDetails = () => {
           <div className="flex flex-col items-center gap-6 text-center">
             <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
               <svg
-                className="w-10 h-10 text-gray-500 dark:text-gray-400"
+                className="w-10 h-10 text-text-secondary-light dark:text-text-secondary-dark/70"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -438,7 +438,7 @@ const AssignmentDetails = () => {
               <h3 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                 Assignment Not Found
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
                 The assignment you're looking for doesn't exist or has been
                 removed.
               </p>
@@ -487,7 +487,7 @@ const AssignmentDetails = () => {
           {/* Attachments Section */}
           {assignment?.attachments && assignment.attachments.length > 0 && (
             <div className="px-6 pb-6 pt-2">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-3">
+              <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
                 Attachments
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 gap-3">
@@ -521,10 +521,10 @@ const AssignmentDetails = () => {
                       </svg>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 dark:text-gray-100 truncate">
+                      <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark truncate">
                         {file.name}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                         {file.size ? (file.size / 1024 / 1024).toFixed(2) : 0}{" "}
                         MB
                       </p>
@@ -545,7 +545,7 @@ const AssignmentDetails = () => {
                 className={`py-3 px-6 border-b-2 rounded-t-2xl font-medium text-sm flex items-center gap-2 transition-colors ${
                   activeTab === "submissions"
                     ? "border-blue-500 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10"
-                    : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                    : "border-transparent text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-gray-100"
                 }`}
               >
                 <svg
@@ -562,7 +562,7 @@ const AssignmentDetails = () => {
                   />
                 </svg>
                 <span>Submissions</span>
-                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
+                <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark">
                   {submissions.length}
                 </span>
               </button>
@@ -571,7 +571,7 @@ const AssignmentDetails = () => {
                 className={`py-3 px-6 border-b-2 rounded-t-2xl font-medium text-sm flex items-center gap-2 transition-colors ${
                   activeTab === "details"
                     ? "border-blue-500 text-blue-600 bg-blue-50/50 dark:bg-blue-900/10"
-                    : "border-transparent text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100"
+                    : "border-transparent text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-gray-100"
                 }`}
               >
                 <svg
@@ -695,7 +695,7 @@ const AssignmentDetails = () => {
                                     {criterion.criteria}
                                   </h4>
                                   {criterion.description && (
-                                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed max-w-2xl">
+                                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 leading-relaxed max-w-2xl">
                                       {criterion.description}
                                     </p>
                                   )}

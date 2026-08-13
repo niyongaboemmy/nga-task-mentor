@@ -179,7 +179,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                 </div>
               )}
               <div>
-                <h2 className="text-2xl font-black tracking-tight">
+                <h2 className="text-2xl font-bold tracking-tight">
                   {submission.student.first_name}'s Submission
                 </h2>
                 <div className="flex items-center gap-2 mt-1 opacity-70">
@@ -220,7 +220,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
               <div className="md:col-span-2 bg-white dark:bg-gray-900 rounded-[2rem] p-8 border border-gray-100 dark:border-gray-800 shadow-gray-200/50 dark:shadow-none flex items-center gap-6">
                 <div className="h-24 w-24 rounded-full border-[6px] border-blue-500/20 flex items-center justify-center relative">
                   <div className="absolute inset-0 rounded-full border-[6px] border-blue-600 border-t-transparent animate-[spin_3s_linear_infinite]" />
-                  <span className="text-2xl font-black text-text-primary-light dark:text-text-primary-dark">
+                  <span className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                     {submission.grade
                       ? Math.round(
                           (parseFloat(submission.grade.split("/")[0]) /
@@ -232,11 +232,11 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   </span>
                 </div>
                 <div className="flex-1 space-y-1">
-                  <p className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">
+                  <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">
                     Final Assessment
                   </p>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-black text-text-primary-light dark:text-text-primary-dark">
+                    <span className="text-4xl font-bold text-text-primary-light dark:text-text-primary-dark">
                       {submission.grade || "Ungraded"}
                     </span>
                     {submission.grade && (
@@ -254,7 +254,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                 <div className="w-12 h-12 rounded-2xl bg-current/20 flex items-center justify-center">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
-                <h5 className="text-lg font-black uppercase tracking-tight">
+                <h5 className="text-lg font-bold uppercase tracking-tight">
                   {submission.status}
                 </h5>
                 <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">
@@ -313,8 +313,8 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                                     {criterion.criteria}
                                   </span>
                                 </div>
-                                <span className="text-xs font-black text-gray-500">
-                                  <span className="text-blue-600 dark:text-blue-400 text-sm font-black mr-1">
+                                <span className="text-xs font-bold text-gray-500">
+                                  <span className="text-blue-600 dark:text-blue-400 text-sm font-bold mr-1">
                                     {scoreValue}
                                   </span>
                                   / {criterion.max_score}
@@ -349,7 +349,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
             {/* Content Display: Files & Text */}
             <div className="space-y-6">
               <div className="flex items-center gap-4">
-                <h6 className="text-[10px] font-black text-gray-400 dark:text-gray-600 uppercase tracking-[0.3em]">
+                <h6 className="text-[10px] font-bold text-gray-400 dark:text-gray-600 uppercase tracking-[0.3em]">
                   Submission Materials
                 </h6>
                 <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
@@ -361,7 +361,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   <div
                     className={`bg-white dark:bg-gray-900/50 ${submission.text_submission ? "rounded-t-3xl" : "rounded-3xl"} border border-gray-100 dark:border-gray-900 p-6 space-y-4`}
                   >
-                    <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-gray-400">
+                    <h4 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-gray-400">
                       <Download className="w-3 h-3" /> Sent Files
                     </h4>
                     <div className="space-y-3">
@@ -433,7 +433,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                       (fileSubmissions.length > 0 ? " rounded-b-3xl" : " rounded-3xl")
                     }
                   >
-                    <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400">
+                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
                       Written Response
                     </h4>
                     <div className="prose prose-sm dark:prose-invert max-w-none">
@@ -450,7 +450,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                       (submission.file_submissions ? " rounded-t-3xl" : "")
                     }
                   >
-                    <h4 className="text-xs font-black uppercase tracking-widest flex items-center gap-2 text-blue-100">
+                    <h4 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-blue-100">
                       <Star className="w-3 h-3" /> Instructor Notes
                     </h4>
                     <p className="text-sm font-medium leading-relaxed opacity-90 italic">
@@ -466,7 +466,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
               <div className="relative pt-12">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center">
                   <div className="h-12 w-px bg-gradient-to-t from-gray-200 to-transparent dark:from-gray-800" />
-                  <div className="px-4 py-1.5 bg-surface-light dark:bg-surface-dark rounded-full text-[9px] font-black uppercase tracking-widest text-gray-500">
+                  <div className="px-4 py-1.5 bg-surface-light dark:bg-surface-dark rounded-full text-[9px] font-bold uppercase tracking-widest text-gray-500">
                     Grading Console
                   </div>
                 </div>
@@ -482,7 +482,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
             {/* Real-time Threaded Comments */}
             <div className="space-y-6 pt-12">
               <div className="flex items-center gap-4">
-                <h6 className="text-sm font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-[0.2em]">
+                <h6 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-[0.2em]">
                   Conversation Thread
                 </h6>
                 <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-800" />
@@ -507,7 +507,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                           className={`max-w-[80%] space-y-1 ${comment.isInstructor ? "items-end text-right" : "items-start text-left"}`}
                         >
                           <span
-                            className={`text-[10px] font-black uppercase tracking-widest block mb-1 ${comment.isInstructor ? "text-blue-500" : "text-gray-400"}`}
+                            className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${comment.isInstructor ? "text-blue-500" : "text-gray-400"}`}
                           >
                             {comment.isInstructor ? "Instructor" : "Student"} •{" "}
                             {new Date(comment.createdAt).toLocaleDateString()}
@@ -549,12 +549,12 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
 
         {/* Action Footer */}
         <div className="px-12 py-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.2em] text-gray-400">
+          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400">
             <Info className="w-3 h-3" /> Encrypted Session
           </div>
           <button
             onClick={onClose}
-            className="px-8 py-3 bg-surface-light dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-all"
+            className="px-8 py-3 bg-surface-light dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-all"
           >
             Exit Console
           </button>

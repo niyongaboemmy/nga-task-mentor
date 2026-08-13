@@ -410,7 +410,7 @@ function renderAnswer(
       const tol = answer?.tolerance ?? qd?.tolerance;
       return (
         <div className="text-sm">
-          <span className="font-semibold text-gray-800 dark:text-gray-200">
+          <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">
             {num}
             {units ? ` ${units}` : ""}
           </span>
@@ -586,7 +586,7 @@ const SubmissionDetailPage: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-4 border-blue-400 border-t-blue-600 mx-auto mb-4" />
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
             Loading submission…
           </p>
         </div>
@@ -599,7 +599,7 @@ const SubmissionDetailPage: React.FC = () => {
       <div className="min-h-screen flex items-center justify-center p-4">
         <div className="text-center max-w-sm">
           <AlertTriangle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-          <h2 className="text-base font-bold text-gray-900 dark:text-white mb-2">
+          <h2 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
             Could not load submission
           </h2>
           <p className="text-sm text-gray-500 mb-4">{fetchError}</p>
@@ -633,7 +633,7 @@ const SubmissionDetailPage: React.FC = () => {
       {/* Back */}
       <button
         onClick={() => navigate(`/quizzes/${quizId}/submissions`)}
-        className="inline-flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-6"
+        className="inline-flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Submissions
@@ -647,13 +647,13 @@ const SubmissionDetailPage: React.FC = () => {
               <User className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h1 className="text-lg font-bold text-gray-900 dark:text-white">
+              <h1 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                 {detail.student_name || "Unknown Student"}
               </h1>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                 {detail.student_email}
               </p>
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mt-1">
+              <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mt-1">
                 {detail.quiz_title}
               </p>
             </div>
@@ -672,7 +672,7 @@ const SubmissionDetailPage: React.FC = () => {
             >
               {percentage}%
             </span>
-            <span className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+            <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">
               {detail.current_score ?? 0}/{detail.max_score ?? 0} pts
             </span>
             <span
@@ -684,7 +684,7 @@ const SubmissionDetailPage: React.FC = () => {
         </div>
 
         {/* Meta row */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-gray-100 dark:border-gray-800 text-xs text-gray-500 dark:text-gray-400">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-gray-100 dark:border-gray-800 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
           <div className="flex items-center gap-2">
             <Calendar className="w-3.5 h-3.5" />
             <span>
@@ -737,7 +737,7 @@ const SubmissionDetailPage: React.FC = () => {
 
       {/* Questions header */}
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+        <h2 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
           Questions ({questions.length})
         </h2>
         <button
@@ -781,7 +781,7 @@ const SubmissionDetailPage: React.FC = () => {
                     >
                       {typeMeta.label}
                     </span>
-                    <span className="text-sm text-gray-800 dark:text-gray-200 font-medium truncate">
+                    <span className="text-sm text-text-primary-light dark:text-text-primary-dark font-medium truncate">
                       {q.question_text
                         ?.replace(/<[^>]*>/g, "")
                         .substring(0, 100) || "—"}
@@ -812,7 +812,7 @@ const SubmissionDetailPage: React.FC = () => {
                     <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
                       Question
                     </p>
-                    <div className="text-sm text-gray-800 dark:text-gray-200">
+                    <div className="text-sm text-text-primary-light dark:text-text-primary-dark">
                       <RichTextDisplay
                         content={q.question_text || "—"}
                         className="prose prose-sm dark:prose-invert max-w-none"
@@ -875,7 +875,7 @@ const SubmissionDetailPage: React.FC = () => {
                       <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
                         Explanation
                       </p>
-                      <div className="text-xs text-gray-600 dark:text-gray-400 bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-800">
+                      <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-800">
                         <RichTextDisplay
                           content={q.explanation}
                           className="prose prose-xs dark:prose-invert max-w-none"

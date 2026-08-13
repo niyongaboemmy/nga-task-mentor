@@ -90,7 +90,7 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
                   ? "text-green-900 dark:text-green-100"
                   : selectedAnswer === true
                     ? "text-green-900 dark:text-green-100"
-                    : "text-gray-700 dark:text-gray-300"
+                    : "text-text-secondary-light dark:text-text-secondary-dark"
               }`}
             >
               True
@@ -160,7 +160,7 @@ export const TrueFalseQuestion: React.FC<QuestionComponentProps> = ({
                   ? "text-green-900 dark:text-green-100"
                   : selectedAnswer === false
                     ? "text-red-900 dark:text-red-100"
-                    : "text-gray-700 dark:text-gray-300"
+                    : "text-text-secondary-light dark:text-text-secondary-dark"
               }`}
             >
               False

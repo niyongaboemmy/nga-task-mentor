@@ -181,7 +181,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
               />
             </svg>
             <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-black text-gray-900 dark:text-white">
+              <span className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                 {Math.round(
                   ((parseFloat(score) || 0) /
                     (Number(assignment.max_score) || 1)) *
@@ -193,12 +193,12 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           </div>
 
           <div className="flex-1 space-y-1">
-            <h4 className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2">
+            <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2">
               <Award className="w-3 h-3" />
               Comprehensive Grade
             </h4>
             <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-black text-gray-900 dark:text-white tabular-nums">
+              <span className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
                 {score || 0}
               </span>
               <span className="text-xl font-bold text-gray-400 dark:text-gray-600 uppercase tracking-tighter">
@@ -243,7 +243,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
               </div>
             </div>
           </div>
-          <div className="mt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-blue-100/50">
+          <div className="mt-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-blue-100/50">
             <CheckCircle2 className="w-3 h-3" />
             Real-time Calibration Active
           </div>
@@ -254,7 +254,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
       {rubric && rubric.length > 0 && (
         <div className="space-y-6">
           <div className="flex items-center gap-4">
-            <h6 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-[0.2em]">
+            <h6 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-[0.2em]">
               Criterion Breakdown
             </h6>
             <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-800" />
@@ -274,12 +274,12 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
                     <div className="flex-1 space-y-2">
                       <div className="flex items-center gap-3">
                         <span
-                          className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black transition-colors bg-gray-100 dark:bg-gray-800 text-gray-400`}
+                          className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-bold transition-colors bg-gray-100 dark:bg-gray-800 text-gray-400`}
                         >
                           {index + 1}
                         </span>
                         <div>
-                          <h6 className="text-base font-bold text-gray-900 dark:text-white">
+                          <h6 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
                             {criterion.criteria}
                           </h6>
                           <div className="flex items-center gap-2 mt-0.5">
@@ -291,13 +291,13 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
                                 />
                               ))}
                             </div>
-                            <span className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
                               Current Level
                             </span>
                           </div>
                         </div>
                       </div>
-                      <p className="text-sm text-gray-500 dark:text-gray-400 leading-relaxed max-w-2xl ml-12">
+                      <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 leading-relaxed max-w-2xl ml-12">
                         {criterion.description ||
                           "No specific instructions provided for this criterion."}
                       </p>
@@ -315,7 +315,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
                                 e.stopPropagation();
                                 handleRubricScoreChange(index, val);
                               }}
-                              className={`px-3 py-2 rounded-xl text-xs font-black transition-all ${
+                              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                                 currentScore === val
                                   ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm ring-1 ring-gray-200 dark:ring-gray-600"
                                   : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
@@ -340,9 +340,9 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
                             )
                           }
                           onClick={(e) => e.stopPropagation()}
-                          className="w-24 px-4 py-3 bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-2xl text-lg font-black text-center text-blue-600 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
+                          className="w-24 px-4 py-3 bg-white dark:bg-gray-900/50 border border-gray-200 dark:border-gray-700 rounded-2xl text-lg font-bold text-center text-blue-600 focus:ring-4 focus:ring-blue-500/10 transition-all outline-none"
                         />
-                        <span className="absolute -top-3 -right-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[9px] font-black px-2 py-1 rounded-full border border-gray-200 dark:border-gray-700 transition-transform group-hover:scale-110">
+                        <span className="absolute -top-3 -right-3 bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-[9px] font-bold px-2 py-1 rounded-full border border-gray-200 dark:border-gray-700 transition-transform group-hover:scale-110">
                           MAX {criterion.max_score}
                         </span>
                       </div>
@@ -358,7 +358,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
       {/* Manual Grade & Overall Feedback */}
       <div className="space-y-6">
         <div className="flex items-center gap-4">
-          <h6 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-[0.2em]">
+          <h6 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-[0.2em]">
             Overall Assessment
           </h6>
           <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-800" />
@@ -367,14 +367,14 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="md:col-span-1 space-y-3">
             <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-[2rem] border border-blue-100/50 dark:border-blue-900/30">
-              <label className="block text-[10px] font-black text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-widest">
+              <label className="block text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-widest">
                 Override Grade
               </label>
               <input
                 type="number"
                 value={score}
                 onChange={(e) => setScore(e.target.value)}
-                className="w-full bg-transparent text-3xl font-black text-gray-900 dark:text-white focus:outline-none tabular-nums"
+                className="w-full bg-transparent text-3xl font-bold text-text-primary-light dark:text-text-primary-dark focus:outline-none tabular-nums"
               />
               <div className="mt-1 h-1 w-8 bg-blue-600 rounded-full" />
             </div>
@@ -388,7 +388,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
             <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-6 focus-within:ring-4 focus-within:ring-blue-500/5 transition-all">
               <div className="flex items-center gap-2 mb-4 text-gray-400">
                 <MessageSquare className="w-4 h-4" />
-                <span className="text-[10px] font-black uppercase tracking-widest">
+                <span className="text-[10px] font-bold uppercase tracking-widest">
                   Private Feedback
                 </span>
               </div>
@@ -406,7 +406,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="group relative overflow-hidden px-10 py-5 bg-blue-600 dark:bg-blue-700 text-white rounded-[2rem] font-black text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
+            className="group relative overflow-hidden px-10 py-5 bg-blue-600 dark:bg-blue-700 text-white rounded-[2rem] font-bold text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             <div className="relative flex items-center gap-3">
               {isSubmitting ? (
@@ -422,7 +422,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
               whileHover={{ x: 0 }}
               transition={{ type: "spring", stiffness: 100, damping: 20 }}
             />
-            {/* <span className="absolute inset-0 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity font-black uppercase tracking-[0.2em] text-sm pointer-events-none z-10">
+            {/* <span className="absolute inset-0 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity font-bold uppercase tracking-[0.2em] text-sm pointer-events-none z-10">
               Ship Grade
             </span> */}
           </button>

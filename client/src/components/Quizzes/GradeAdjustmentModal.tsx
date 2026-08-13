@@ -214,7 +214,7 @@ const GradeAdjustmentModal: React.FC<Props> = ({
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
         <div className="bg-white dark:bg-gray-900 rounded-2xl p-10 flex flex-col items-center gap-4 shadow-2xl">
           <Loader2 className="w-10 h-10 text-blue-500 animate-spin" />
-          <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark font-medium">
             Loading submission...
           </p>
         </div>
@@ -235,10 +235,10 @@ const GradeAdjustmentModal: React.FC<Props> = ({
               <User className="w-5 h-5 text-white" />
             </div>
             <div className="min-w-0">
-              <h2 className="text-base sm:text-lg font-bold text-gray-900 dark:text-white truncate">
+              <h2 className="text-base sm:text-lg font-bold text-text-primary-light dark:text-text-primary-dark truncate">
                 Adjust Marks
               </h2>
-              <p className="text-xs text-gray-600 dark:text-gray-400 truncate">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark truncate">
                 {data.student_name}{" "}
                 {data.student_email && (
                   <span className="opacity-60">· {data.student_email}</span>
@@ -254,17 +254,17 @@ const GradeAdjustmentModal: React.FC<Props> = ({
           <div className="flex items-center gap-3 flex-shrink-0">
             <div className="text-right hidden sm:block">
               <div
-                className={`text-xl font-black ${getGradeColor(newPct)}`}
+                className={`text-xl font-bold ${getGradeColor(newPct)}`}
               >
                 {getGradeLetter(newPct)}
               </div>
-              <div className="text-xs text-gray-500 dark:text-gray-400">
+              <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                 {newTotal.toFixed(1)}/{maxTotal} · {newPct.toFixed(1)}%
               </div>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-colors"
+              className="p-2 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark/70 transition-colors"
             >
               <X className="w-5 h-5" />
             </button>
@@ -306,10 +306,10 @@ const GradeAdjustmentModal: React.FC<Props> = ({
 
                   {/* Text + badge */}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 dark:text-white line-clamp-2">
+                    <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark line-clamp-2">
                       {q.question_text || "—"}
                     </p>
-                    <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-white/70 dark:bg-gray-800/70 text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
+                    <span className="inline-block mt-1 px-2 py-0.5 text-xs rounded-full bg-white/70 dark:bg-gray-800/70 text-text-secondary-light dark:text-text-secondary-dark border border-gray-200 dark:border-gray-700">
                       {QUESTION_TYPE_LABELS[q.question_type] || q.question_type}
                     </span>
                   </div>
@@ -321,7 +321,7 @@ const GradeAdjustmentModal: React.FC<Props> = ({
                         setQuestionGrade(q.question_id, earned - 0.5, q.points)
                       }
                       disabled={earned <= 0}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition-colors"
                     >
                       <Minus className="w-3 h-3" />
                     </button>
@@ -338,14 +338,14 @@ const GradeAdjustmentModal: React.FC<Props> = ({
                           q.points,
                         )
                       }
-                      className="w-14 text-center text-sm font-bold border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-gray-900 dark:text-white"
+                      className="w-14 text-center text-sm font-bold border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-lg py-1 focus:outline-none focus:ring-2 focus:ring-blue-400 text-text-primary-light dark:text-text-primary-dark"
                     />
                     <button
                       onClick={() =>
                         setQuestionGrade(q.question_id, earned + 0.5, q.points)
                       }
                       disabled={earned >= q.points}
-                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition-colors"
+                      className="w-7 h-7 flex items-center justify-center rounded-lg bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-30 transition-colors"
                     >
                       <Plus className="w-3 h-3" />
                     </button>
@@ -380,11 +380,11 @@ const GradeAdjustmentModal: React.FC<Props> = ({
                           ) : (
                             <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
                           )}
-                          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                          <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                             Student's Answer
                           </span>
                         </div>
-                        <pre className="text-xs text-gray-600 dark:text-gray-400 whitespace-pre-wrap break-words font-mono">
+                        <pre className="text-xs text-text-secondary-light dark:text-text-secondary-dark whitespace-pre-wrap break-words font-mono">
                           {formatAnswer(q.student_answer)}
                         </pre>
                       </div>
@@ -420,7 +420,7 @@ const GradeAdjustmentModal: React.FC<Props> = ({
           <div className="rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 p-4">
             <div className="flex items-center gap-2 mb-2">
               <MessageSquare className="w-4 h-4 text-gray-500" />
-              <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <span className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                 Instructor Feedback
               </span>
               <span className="text-xs text-gray-400">(optional)</span>
@@ -430,7 +430,7 @@ const GradeAdjustmentModal: React.FC<Props> = ({
               onChange={(e) => setFeedback(e.target.value)}
               rows={3}
               placeholder="Add feedback for the student..."
-              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none text-gray-900 dark:text-white placeholder-gray-400"
+              className="w-full text-sm border border-gray-200 dark:border-gray-700 dark:bg-gray-800 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none text-text-primary-light dark:text-text-primary-dark placeholder-gray-400"
             />
           </div>
         </div>
@@ -443,10 +443,10 @@ const GradeAdjustmentModal: React.FC<Props> = ({
             <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2">
               <BookOpen className="w-4 h-4 text-gray-400" />
               <div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 leading-none">
+                <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 leading-none">
                   Original
                 </div>
-                <div className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                <div className="text-sm font-bold text-text-secondary-light dark:text-text-secondary-dark">
                   {oldTotal}/{maxTotal}
                 </div>
               </div>
@@ -459,7 +459,7 @@ const GradeAdjustmentModal: React.FC<Props> = ({
                   ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300"
                   : delta < 0
                   ? "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
-                  : "bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400"
+                  : "bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark/70"
               }`}
             >
               {delta > 0 ? (
@@ -475,7 +475,7 @@ const GradeAdjustmentModal: React.FC<Props> = ({
             <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2">
               <Award className="w-4 h-4 text-blue-500" />
               <div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 leading-none">
+                <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 leading-none">
                   New Score
                 </div>
                 <div
@@ -490,11 +490,11 @@ const GradeAdjustmentModal: React.FC<Props> = ({
             <div className="flex items-center gap-2 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2">
               <Sparkles className="w-4 h-4 text-amber-500" />
               <div>
-                <div className="text-xs text-gray-500 dark:text-gray-400 leading-none">
+                <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 leading-none">
                   Grade
                 </div>
                 <div
-                  className={`text-sm font-black ${getGradeColor(newPct)}`}
+                  className={`text-sm font-bold ${getGradeColor(newPct)}`}
                 >
                   {getGradeLetter(newPct)}
                 </div>
@@ -507,14 +507,14 @@ const GradeAdjustmentModal: React.FC<Props> = ({
             <button
               onClick={onClose}
               disabled={saving}
-              className="px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-50"
+              className="px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               onClick={resetToOriginal}
               disabled={saving || !hasChanges}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 transition-colors disabled:opacity-30"
+              className="flex items-center gap-2 px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark transition-colors disabled:opacity-30"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Reset

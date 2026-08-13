@@ -447,7 +447,7 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
         onClick={() => setIsMinimized(false)}
       >
         <div className="flex flex-col items-center gap-1">
-          <Camera className="w-4 h-4 text-gray-600 dark:text-gray-400" />
+          <Camera className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark" />
           {warnings.length > 0 && (
             <div className="w-2 h-2 bg-red-500 rounded-full"></div>
           )}
@@ -473,8 +473,8 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
         onMouseDown={handleMouseDown}
       >
         <div className="flex items-center gap-2">
-          <Camera className="w-4 h-4 text-gray-600 dark:text-gray-400" />
-          <span className="text-xs font-medium text-gray-900 dark:text-white">
+          <Camera className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark" />
+          <span className="text-xs font-medium text-text-primary-light dark:text-text-primary-dark">
             Camera Monitor
           </span>
         </div>
@@ -539,7 +539,7 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
               )}`}
             >
               {getWarningIcon(warning)}
-              <span className="flex-1 text-gray-800 dark:text-gray-200">
+              <span className="flex-1 text-text-primary-light dark:text-text-primary-dark">
                 {warning}
               </span>
             </div>
@@ -558,7 +558,7 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
                   : "bg-gray-400"
               }`}
             ></div>
-            <span className="text-gray-600 dark:text-gray-400 transition-all duration-300">
+            <span className="text-text-secondary-light dark:text-text-secondary-dark transition-all duration-300">
               {smoothDetectionStatus.isDetecting ? "Monitoring" : "Paused"}
             </span>
           </div>

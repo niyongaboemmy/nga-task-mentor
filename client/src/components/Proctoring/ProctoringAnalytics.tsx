@@ -81,7 +81,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-3">
         <div className="w-10 h-10 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-sm text-gray-500 dark:text-gray-400">Loading analytics…</p>
+        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">Loading analytics…</p>
       </div>
     );
   }
@@ -90,7 +90,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
     return (
       <div className="flex flex-col items-center justify-center py-20 gap-2">
         <span className="text-4xl">📊</span>
-        <p className="text-base font-semibold text-gray-700 dark:text-gray-300">No analytics data available</p>
+        <p className="text-base font-semibold text-text-secondary-light dark:text-text-secondary-dark">No analytics data available</p>
         <p className="text-sm text-gray-400">Data will appear once sessions have been recorded.</p>
       </div>
     );
@@ -112,14 +112,14 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Proctoring Analytics</h2>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">Monitor and analyze proctoring session data</p>
+          <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">Proctoring Analytics</h2>
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">Monitor and analyze proctoring session data</p>
         </div>
         <div className="flex items-center gap-2">
           <select
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value as any)}
-            className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
+            className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-text-secondary-light dark:text-text-secondary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
           >
             <option value="all">All Time</option>
             <option value="month">Last Month</option>
@@ -180,7 +180,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
             <div className={`w-9 h-9 ${card.iconBg} rounded-xl flex items-center justify-center text-lg mb-3`}>
               {card.icon}
             </div>
-            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">{card.label}</p>
+            <p className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark/70 mb-0.5">{card.label}</p>
             <p className={`text-2xl font-bold ${card.text}`}>{card.value}</p>
           </div>
         ))}
@@ -199,8 +199,8 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
               return (
                 <div key={key}>
                   <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">{label}</span>
-                    <span className="text-xs font-bold text-gray-800 dark:text-gray-200">
+                    <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">{label}</span>
+                    <span className="text-xs font-bold text-text-primary-light dark:text-text-primary-dark">
                       {count} <span className="font-normal text-gray-400">({Math.round(pct)}%)</span>
                     </span>
                   </div>
@@ -228,10 +228,10 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
                   <span className="text-base flex-shrink-0">{icon}</span>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 capitalize truncate">
+                      <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark capitalize truncate">
                         {v.type.replace(/_/g, " ")}
                       </span>
-                      <span className="text-xs text-gray-500 dark:text-gray-400 ml-2 flex-shrink-0">
+                      <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 ml-2 flex-shrink-0">
                         {v.count.toLocaleString()} · {pct.toFixed(0)}%
                       </span>
                     </div>
@@ -258,12 +258,12 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
           <table className="w-full text-sm">
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-800/60">
-                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">#</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Student</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Risk Score</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Violations</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Status</th>
-                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Start Time</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">#</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">Student</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">Risk Score</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">Violations</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">Status</th>
+                <th className="text-left px-5 py-3 text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">Start Time</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
@@ -278,7 +278,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
                         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
                           {initials}
                         </div>
-                        <span className="text-sm font-medium text-gray-800 dark:text-gray-200">{s.student_name}</span>
+                        <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">{s.student_name}</span>
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
@@ -289,7 +289,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
                       </div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <span className={`text-sm font-semibold ${s.violations > 200 ? "text-rose-600 dark:text-rose-400" : s.violations > 100 ? "text-orange-600 dark:text-orange-400" : "text-gray-700 dark:text-gray-300"}`}>
+                      <span className={`text-sm font-semibold ${s.violations > 200 ? "text-rose-600 dark:text-rose-400" : s.violations > 100 ? "text-orange-600 dark:text-orange-400" : "text-text-secondary-light dark:text-text-secondary-dark"}`}>
                         {s.violations.toLocaleString()}
                       </span>
                     </td>
@@ -305,7 +305,7 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
                         {s.status}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                    <td className="px-5 py-3.5 text-xs text-text-secondary-light dark:text-text-secondary-dark/70 whitespace-nowrap">
                       {new Date(s.start_time).toLocaleString()}
                     </td>
                   </tr>

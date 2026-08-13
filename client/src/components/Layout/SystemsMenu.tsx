@@ -127,10 +127,10 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                   <LayoutGrid className="w-6 h-6 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white leading-tight mb-1">
+                  <h3 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark leading-tight mb-1">
                     Apps
                   </h3>
-                  <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                     NGA Central MIS Ecosystem
                   </p>
                 </div>
@@ -154,7 +154,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 autoFocus
-                className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                className="w-full pl-11 pr-4 py-3.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/50 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all text-sm text-text-primary-light dark:text-text-primary-dark placeholder-gray-400 dark:placeholder-gray-500"
               />
             </div>
           </div>
@@ -182,7 +182,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                       <ArrowRight className="w-2.5 h-2.5" />
                     </div>
                   </div>
-                  <span className="text-[13px] font-bold text-gray-700 dark:text-gray-300 group-hover:text-orange-600 dark:group-hover:text-orange-400 truncate w-full px-1">
+                  <span className="text-[13px] font-bold text-text-secondary-light dark:text-text-secondary-dark group-hover:text-orange-600 dark:group-hover:text-orange-400 truncate w-full px-1">
                     Back to MIS
                   </span>
                   <div className="mt-1 flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -220,7 +220,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                       <ArrowRight className="w-2.5 h-2.5" />
                     </div>
                   </div>
-                  <span className="text-[13px] font-bold text-gray-700 dark:text-gray-300 group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate w-full px-1">
+                  <span className="text-[13px] font-bold text-text-secondary-light dark:text-text-secondary-dark group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate w-full px-1">
                     {system.name}
                   </span>
                   <div className="mt-1 flex items-center justify-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
@@ -241,7 +241,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                   <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center mx-auto mb-4">
                     <Search className="w-8 h-8 text-gray-300 dark:text-gray-600" />
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                     No systems found matching "{searchQuery}"
                   </p>
                 </div>

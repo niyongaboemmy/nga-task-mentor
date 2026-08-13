@@ -47,7 +47,7 @@ function StatusBadge({ status }: { status: ReportCardStatus | null }) {
   if (!status) {
     return (
       <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium
-        bg-gray-100 dark:bg-gray-800/80 text-gray-400 dark:text-gray-500 border border-gray-200 dark:border-gray-700/60">
+        bg-gray-100 dark:bg-gray-800/80 text-text-secondary-light dark:text-text-secondary-dark/60 border border-gray-200 dark:border-gray-700/60">
         <span className="w-1.5 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
         Not started
       </span>
@@ -89,11 +89,11 @@ function ProgressSummary({
   return (
     <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-2">
+        <h3 className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark flex items-center gap-2">
           <TrendingUp className="w-4 h-4 text-gray-400" />
           Class Progress — {total} student{total !== 1 ? "s" : ""}
         </h3>
-        <span className={`text-xs font-bold ${counts.approved === total && total > 0 ? "text-emerald-500" : "text-gray-400 dark:text-gray-500"}`}>
+        <span className={`text-xs font-bold ${counts.approved === total && total > 0 ? "text-emerald-500" : "text-text-secondary-light dark:text-text-secondary-dark/60"}`}>
           {counts.approved}/{total} approved
         </span>
       </div>
@@ -117,7 +117,7 @@ function ProgressSummary({
       {/* Legend */}
       <div className="flex flex-wrap gap-3">
         {bars.map((b) => (
-          <span key={b.label} className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+          <span key={b.label} className="flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
             <span className={`w-2 h-2 rounded-full flex-shrink-0 ${b.color}`} />
             {b.label}: <strong className={`${b.textColor} font-semibold`}>{b.count}</strong>
           </span>
@@ -228,8 +228,8 @@ function StudentDesktopRow({
           {student.name.charAt(0).toUpperCase()}
         </div>
         <div className="min-w-0">
-          <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">{student.name}</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500">
+          <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">{student.name}</p>
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
             {subjectsMapped > 0 || hasAttrs
               ? `${subjectsMapped} subject${subjectsMapped !== 1 ? "s" : ""} mapped${hasAttrs ? " · attrs ✓" : ""}`
               : status ? "No subjects mapped yet" : "Not started"}
@@ -254,7 +254,7 @@ function StudentDesktopRow({
           <>
             <div className="flex items-center gap-1">
               <BookOpen className="w-3 h-3 text-gray-400" />
-              <span className="text-xs font-medium text-gray-600 dark:text-gray-300">{subjectsMapped}</span>
+              <span className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">{subjectsMapped}</span>
             </div>
             {hasAttrs && <CheckCircle2 className="w-3 h-3 text-emerald-400" />}
           </>
@@ -278,7 +278,7 @@ function StudentDesktopRow({
           <button
             onClick={onPreview}
             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
-              bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300
+              bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark
               hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             title="Preview report card"
           >
@@ -389,8 +389,8 @@ function StudentMobileCard({
           {student.name.charAt(0).toUpperCase()}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-900 dark:text-white text-sm truncate">{student.name}</p>
-          <p className="text-xs text-gray-400 dark:text-gray-500 mt-0.5">
+          <p className="font-semibold text-text-primary-light dark:text-text-primary-dark text-sm truncate">{student.name}</p>
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60 mt-0.5">
             {subjectsMapped > 0 ? `${subjectsMapped} subject${subjectsMapped !== 1 ? "s" : ""} mapped` : "No subjects yet"}
             {hasAttrs ? " · Attributes ✓" : ""}
           </p>
@@ -418,7 +418,7 @@ function StudentMobileCard({
           <button
             onClick={onPreview}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-              bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300
+              bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark
               hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
             <Eye className="w-3.5 h-3.5" />
@@ -597,7 +597,7 @@ export default function CourseReportCardsPanel({
       {/* ── Term / year filter ── */}
       <div className="flex flex-wrap items-end gap-3">
         <div className="flex-1 min-w-[140px]">
-          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+          <label className="block text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 mb-1.5 uppercase tracking-wide">
             Term
           </label>
           <input
@@ -606,13 +606,13 @@ export default function CourseReportCardsPanel({
             onChange={(e) => setTerm(e.target.value)}
             placeholder="e.g. Term 3"
             className="w-full px-3 py-2.5 rounded-xl text-sm border border-gray-200 dark:border-gray-700
-              bg-white dark:bg-gray-900 text-gray-900 dark:text-white
+              bg-white dark:bg-gray-900 text-text-primary-light dark:text-text-primary-dark
               focus:outline-none focus:ring-2 focus:ring-indigo-400/40 focus:border-indigo-400
               transition-all"
           />
         </div>
         <div className="flex-1 min-w-[140px]">
-          <label className="block text-xs font-semibold text-gray-500 dark:text-gray-400 mb-1.5 uppercase tracking-wide">
+          <label className="block text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 mb-1.5 uppercase tracking-wide">
             Academic Year
           </label>
           <input
@@ -621,7 +621,7 @@ export default function CourseReportCardsPanel({
             onChange={(e) => setYear(e.target.value)}
             placeholder="e.g. 2025-2026"
             className="w-full px-3 py-2.5 rounded-xl text-sm border border-gray-200 dark:border-gray-700
-              bg-white dark:bg-gray-900 text-gray-900 dark:text-white
+              bg-white dark:bg-gray-900 text-text-primary-light dark:text-text-primary-dark
               focus:outline-none focus:ring-2 focus:ring-indigo-400/40 focus:border-indigo-400
               transition-all"
           />
@@ -658,7 +658,7 @@ export default function CourseReportCardsPanel({
       {students.length === 0 ? (
         <div className="text-center py-14 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
           <Users className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-          <p className="text-sm text-gray-400 dark:text-gray-500 font-medium">No students enrolled in this course.</p>
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/60 font-medium">No students enrolled in this course.</p>
         </div>
       ) : (
         <>

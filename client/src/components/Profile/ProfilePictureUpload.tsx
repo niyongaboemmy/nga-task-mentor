@@ -209,7 +209,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
                     />
                   </svg>
                 </div>
-                <span className="text-xs font-semibold text-gray-600 dark:text-gray-400">
+                <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                   Add Photo
                 </span>
                 <span className="text-xs text-gray-500 mt-0.5">
@@ -392,7 +392,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
 
             {isUploading && uploadProgress > 0 && (
               <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm font-semibold text-gray-600 dark:text-gray-400">
+                <div className="flex items-center justify-between text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                   <span className="truncate">Uploading...</span>
                   <span>{uploadProgress}%</span>
                 </div>

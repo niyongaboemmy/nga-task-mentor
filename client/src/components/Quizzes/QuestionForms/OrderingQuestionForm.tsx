@@ -15,7 +15,7 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+        <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-3">
           Items to Order
         </label>
         <div className="space-y-3">
@@ -36,7 +36,7 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
                   });
                 }}
                 placeholder={`Item ${index + 1}`}
-                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-colors duration-200"
+                className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-colors duration-200"
                 required
               />
               <RichOptionEditor
@@ -65,7 +65,7 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
                 }}
                 placeholder="Order"
                 min="1"
-                className="w-20 px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-colors duration-200 text-center"
+                className="w-20 px-3 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-colors duration-200 text-center"
                 required
               />
               {data.items.length > 2 && (
@@ -111,7 +111,7 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
         </div>
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+        <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-3">
           Partial Credit
         </label>
         <div className="flex items-center">
@@ -129,7 +129,7 @@ export const OrderingQuestionForm: React.FC<OrderingQuestionFormProps> = ({
           />
           <label
             htmlFor="allow_partial_credit"
-            className="ml-3 text-sm text-gray-700 dark:text-gray-300"
+            className="ml-3 text-sm text-text-secondary-light dark:text-text-secondary-dark"
           >
             Allow partial credit for partially correct ordering
           </label>

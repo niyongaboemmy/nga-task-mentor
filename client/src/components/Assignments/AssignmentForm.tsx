@@ -54,7 +54,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+          <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
             Edit Assignment
           </h2>
           <button
@@ -81,7 +81,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
           <div>
             <label
               htmlFor="title"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
             >
               Title
             </label>
@@ -99,7 +99,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
           <div>
             <label
               htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
             >
               Description
             </label>
@@ -118,7 +118,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
             <div>
               <label
                 htmlFor="due_date"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
               >
                 Due Date
               </label>
@@ -136,7 +136,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
             <div>
               <label
                 htmlFor="max_score"
-                className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
               >
                 Max Score
               </label>
@@ -157,7 +157,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
           <div>
             <label
               htmlFor="submission_type"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
             >
               Submission Type
             </label>
@@ -176,7 +176,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
 
           {/* Attachments Section */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
               Attachments
             </label>
 
@@ -238,7 +238,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 dark:hover:bg-gray-700 dark:bg-gray-800 hover:bg-gray-100 dark:border-gray-600 dark:hover:border-gray-500">
                   <div className="flex flex-col items-center justify-center pt-5 pb-6">
                     <svg
-                      className="w-8 h-8 mb-4 text-gray-500 dark:text-gray-400"
+                      className="w-8 h-8 mb-4 text-text-secondary-light dark:text-text-secondary-dark/70"
                       aria-hidden="true"
                       xmlns="http://www.w3.org/2000/svg"
                       fill="none"
@@ -252,10 +252,10 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
                         d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"
                       />
                     </svg>
-                    <p className="mb-2 text-sm text-gray-500 dark:text-gray-400">
+                    <p className="mb-2 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                       <span className="font-semibold">Click to upload</span>
                     </p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                       PDF, DOC, Images (MAX. 10MB)
                     </p>
                   </div>
@@ -281,10 +281,10 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
                     >
                       <div className="flex items-center space-x-2 truncate">
                         <span className="text-xl">📄</span>
-                        <span className="text-sm text-gray-900 dark:text-white truncate">
+                        <span className="text-sm text-text-primary-light dark:text-text-primary-dark truncate">
                           {file.name}
                         </span>
-                        <span className="text-xs text-gray-500 dark:text-gray-400">
+                        <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                           ({(file.size / 1024 / 1024).toFixed(2)} MB)
                         </span>
                       </div>
@@ -317,7 +317,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
           <div>
             <label
               htmlFor="allowed_file_types"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
             >
               Allowed File Types (comma-separated)
             </label>
@@ -336,10 +336,10 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
           <div className="space-y-4 py-4 border-t border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div>
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                   Grading Rubric
                 </label>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                   Define the criteria for grading this assignment
                 </p>
               </div>
@@ -473,7 +473,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
           <div>
             <label
               htmlFor="status"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
             >
               Status
             </label>
@@ -493,7 +493,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Cancel
             </button>

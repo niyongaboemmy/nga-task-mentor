@@ -115,7 +115,7 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
             <div className="flex items-center gap-3">
               <div className="h-10 w-10 bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
                 <svg
-                  className="w-5 h-5 text-gray-600 dark:text-gray-400"
+                  className="w-5 h-5 text-text-secondary-light dark:text-text-secondary-dark"
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -132,7 +132,7 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
                 <p className="text-sm font-medium text-gray-700 dark:text-gray-400">
                   Pending
                 </p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-gray-100">
+                <p className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                   {pendingCount}
                 </p>
               </div>
@@ -320,7 +320,7 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
           <div className="flex items-center gap-4">
             <div className="h-12 w-12 bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center flex-shrink-0">
               <svg
-                className="w-6 h-6 text-gray-500 dark:text-gray-400"
+                className="w-6 h-6 text-text-secondary-light dark:text-text-secondary-dark/70"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -334,10 +334,10 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
               </svg>
             </div>
             <div>
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+              <h3 className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
                 Assignment Closed
               </h3>
-              <p className="text-sm text-gray-600 dark:text-gray-400 mt-0.5">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-0.5">
                 This assignment has been completed and is no longer accepting submissions.
               </p>
             </div>
@@ -365,10 +365,10 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
               </svg>
             </div>
             <div className="max-w-md">
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                 Ready to Submit?
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
                 Be the first to submit your assignment and set the standard for
                 your classmates!
               </p>
@@ -400,10 +400,10 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
       {canManageAssignment && submissions.length > 0 ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
               All Submissions ({submissions.length})
             </h3>
-            <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+            <div className="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
               <svg
                 className="w-4 h-4"
                 fill="none"
@@ -459,7 +459,7 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
           <div className="flex flex-col items-center gap-6 text-center max-w-md mx-auto">
             <div className="w-20 h-20 bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
               <svg
-                className="w-10 h-10 text-gray-500 dark:text-gray-400"
+                className="w-10 h-10 text-text-secondary-light dark:text-text-secondary-dark/70"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -473,10 +473,10 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
               </svg>
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                 No Submissions Yet
               </h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
                 Student submissions will appear here once they submit their
                 assignments.
               </p>

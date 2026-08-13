@@ -44,7 +44,7 @@ const DocxPreviewList: React.FC<DocxPreviewListProps> = ({
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="px-4 py-1.5 text-xs font-medium text-gray-600 dark:text-gray-400 hover:bg-white dark:hover:bg-gray-800 rounded-lg transition-colors border border-gray-200 dark:border-gray-700"
+            className="px-4 py-1.5 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark hover:bg-white dark:hover:bg-gray-800 rounded-lg transition-colors border border-gray-200 dark:border-gray-700"
           >
             Change File
           </button>
@@ -65,7 +65,7 @@ const DocxPreviewList: React.FC<DocxPreviewListProps> = ({
                 <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xs font-bold font-mono">
                   {idx + 1}
                 </span>
-                <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 text-[10px] uppercase font-bold tracking-wider">
+                <span className="px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark text-[10px] uppercase font-bold tracking-wider">
                   {q.question_type.replace("_", " ")}
                 </span>
                 {q.difficulty_level && (

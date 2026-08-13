@@ -303,7 +303,7 @@ const QuizProctoringContainer: React.FC<QuizProctoringContainerProps> = ({
             <div
               className={`w-3 h-3 rounded-full ${socketConnected ? "bg-green-500" : "bg-yellow-500"}`}
             />
-            <p className="text-sm text-gray-700 dark:text-gray-300">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
               {socketConnected
                 ? "Connected to proctoring server"
                 : "Connecting to proctoring server..."}
@@ -331,10 +331,10 @@ const QuizProctoringContainer: React.FC<QuizProctoringContainerProps> = ({
                 />
               </svg>
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+            <h3 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4">
               Fullscreen Required
             </h3>
-            <p className="text-gray-700 dark:text-gray-300 mb-6">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
               This quiz requires fullscreen mode. Please enter fullscreen to
               continue.
             </p>

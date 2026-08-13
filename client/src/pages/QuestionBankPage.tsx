@@ -47,13 +47,13 @@ const QuestionBankPage: React.FC = () => {
           <div className="flex items-center gap-4">
             <button
               onClick={() => navigate(`/courses/${courseId}`)}
-              className="p-2.5 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-gray-600 dark:text-gray-400 transition-all hover:scale-105 active:scale-95"
+              className="p-2.5 rounded-2xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark transition-all hover:scale-105 active:scale-95"
             >
               <ArrowLeft className="w-5 h-5" />
             </button>
 
             <div>
-              <div className="flex items-center gap-2 text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">
+              <div className="flex items-center gap-2 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark/70 mb-1">
                 <span
                   className="hover:text-blue-600 cursor-pointer transition-colors"
                   onClick={() => navigate("/courses")}
@@ -68,11 +68,11 @@ const QuestionBankPage: React.FC = () => {
                   {course?.code || `Course ${courseId}`}
                 </span>
                 <ChevronRight className="w-3 h-3" />
-                <span className="text-gray-900 dark:text-white">
+                <span className="text-text-primary-light dark:text-text-primary-dark">
                   Question Bank
                 </span>
               </div>
-              <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white flex items-center gap-2 truncate">
+              <h1 className="text-xl md:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark flex items-center gap-2 truncate">
                 <Library className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                 <span className="truncate">Question Bank</span>
                 {course && (
@@ -95,7 +95,7 @@ const QuestionBankPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate(`/courses/${courseId}`)}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/40 rounded-2xl text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/40 rounded-2xl text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
             >
               <LayoutDashboard className="w-4 h-4" />
               Course Dashboard

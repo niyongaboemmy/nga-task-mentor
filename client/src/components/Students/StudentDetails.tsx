@@ -300,11 +300,11 @@ const StudentDetails: React.FC = () => {
             </div>
 
             <div className="flex-1 min-w-0">
-              <h1 className="text-3xl lg:text-4xl font-bold text-gray-900 dark:text-white mb-2">
+              <h1 className="text-3xl lg:text-4xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                 {student.profile?.first_name || student.user?.first_name}{" "}
                 {student.profile?.last_name || student.user?.last_name}
               </h1>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 dark:text-gray-300">
+              <div className="flex flex-wrap items-center gap-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 <div className="flex items-center gap-2 bg-white/50 dark:bg-gray-800/50 px-3 py-1.5 rounded-full">
                   <svg
                     className="w-4 h-4"
@@ -334,7 +334,7 @@ const StudentDetails: React.FC = () => {
                 <div className="text-3xl font-bold text-blue-600 dark:text-blue-400">
                   {courses.length}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
                   Total Courses
                 </div>
               </div>
@@ -342,7 +342,7 @@ const StudentDetails: React.FC = () => {
                 <div className="text-3xl font-bold text-green-600 dark:text-green-400">
                   {courses.length}
                 </div>
-                <div className="text-xs text-gray-600 dark:text-gray-400 mt-1">
+                <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-1">
                   Active
                 </div>
               </div>
@@ -352,7 +352,7 @@ const StudentDetails: React.FC = () => {
           <div className="mt-6">
             <Link
               to="/students"
-              className="inline-flex items-center px-6 py-2.5 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg border border-white/20 dark:border-gray-700/50"
+              className="inline-flex items-center px-6 py-2.5 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark rounded-full font-medium transition-all duration-200 shadow-md hover:shadow-lg border border-white/20 dark:border-gray-700/50"
             >
               <svg
                 className="w-4 h-4 mr-2"
@@ -382,7 +382,7 @@ const StudentDetails: React.FC = () => {
               className={`${
                 activeTab === "courses"
                   ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20"
-                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
+                  : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
               } flex items-center gap-2 whitespace-nowrap py-4 px-6 border-b-2 font-semibold text-sm transition-all duration-200`}
             >
               <svg
@@ -408,7 +408,7 @@ const StudentDetails: React.FC = () => {
               className={`${
                 activeTab === "assignments"
                   ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20"
-                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
+                  : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
               } flex items-center gap-2 whitespace-nowrap py-4 px-6 border-b-2 font-semibold text-sm transition-all duration-200`}
             >
               <svg
@@ -434,7 +434,7 @@ const StudentDetails: React.FC = () => {
               className={`${
                 activeTab === "quizzes"
                   ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20"
-                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
+                  : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
               } flex items-center gap-2 whitespace-nowrap py-4 px-6 border-b-2 font-semibold text-sm transition-all duration-200`}
             >
               <svg
@@ -460,7 +460,7 @@ const StudentDetails: React.FC = () => {
               className={`${
                 activeTab === "marks"
                   ? "border-blue-500 text-blue-600 dark:text-blue-400 bg-blue-50/50 dark:bg-blue-900/20"
-                  : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
+                  : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-50/50 dark:hover:bg-gray-800/20"
               } flex items-center gap-2 whitespace-nowrap py-4 px-6 border-b-2 font-semibold text-sm transition-all duration-200`}
             >
               <svg
@@ -622,7 +622,7 @@ const StudentDetails: React.FC = () => {
               {/* Course-wise Performance */}
               <div className="bg-white/60 dark:bg-gray-800/20 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 overflow-hidden">
                 <div className="p-5 border-b border-gray-200/50 dark:border-gray-700/50">
-                  <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                  <h3 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                     Course Performance
                   </h3>
                 </div>
@@ -648,28 +648,28 @@ const StudentDetails: React.FC = () => {
                       >
                         <div className="flex items-center justify-between">
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                            <h4 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
                               {course.subject_name}
                             </h4>
-                            <p className="text-xs text-gray-500 dark:text-gray-400/60">
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70/60">
                               {course.subject_code}
                             </p>
                           </div>
                           <div className="flex items-center gap-4 flex-shrink-0">
                             <div className="text-center">
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                                 Assignments
                               </p>
-                              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                              <p className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
                                 {submittedAssignments.length}/
                                 {courseAssignments.length}
                               </p>
                             </div>
                             <div className="text-center">
-                              <p className="text-xs text-gray-500 dark:text-gray-400">
+                              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                                 Quizzes
                               </p>
-                              <p className="text-sm font-bold text-gray-900 dark:text-white">
+                              <p className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
                                 {attemptedQuizzes.length}/{courseQuizzes.length}
                               </p>
                             </div>
@@ -715,10 +715,10 @@ const StudentDetails: React.FC = () => {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between mb-2">
                             <div className="flex-1">
-                              <h3 className="text-sm font-bold text-gray-900 dark:text-white group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
+                              <h3 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors duration-200">
                                 {course.subject_name}
                               </h3>
-                              <p className="text-xs text-gray-600 dark:text-gray-400 mt-0.5 line-clamp-2">
+                              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-0.5 line-clamp-2">
                                 {course.subject_description}
                               </p>
                             </div>
@@ -729,7 +729,7 @@ const StudentDetails: React.FC = () => {
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-6 text-sm text-gray-500 dark:text-gray-400">
+                          <div className="flex items-center gap-6 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                             <div className="flex items-center gap-1.5">
                               <svg
                                 className="w-4 h-4"
@@ -787,10 +787,10 @@ const StudentDetails: React.FC = () => {
                       />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  <h3 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                     No courses enrolled
                   </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 max-w-sm mx-auto">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark max-w-sm mx-auto">
                     This student is not enrolled in any courses yet.
                   </p>
                 </div>
@@ -840,10 +840,10 @@ const StudentDetails: React.FC = () => {
                             </svg>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-base font-semibold text-gray-900 dark:text-white truncate">
+                            <h4 className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
                               {assignment.title}
                             </h4>
-                            <p className="text-xs text-gray-500 dark:text-gray-400/60 truncate">
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70/60 truncate">
                               {assignment.subject?.subject_name ||
                                 "Unknown Course"}
                             </p>
@@ -867,7 +867,7 @@ const StudentDetails: React.FC = () => {
                                 / {assignment.max_score}
                               </span>
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                               {submission ? (
                                 <>
                                   {new Date(
@@ -901,10 +901,10 @@ const StudentDetails: React.FC = () => {
                       />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  <h3 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                     No assignments found
                   </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                     No assignments are available for the enrolled courses.
                   </p>
                 </div>
@@ -954,10 +954,10 @@ const StudentDetails: React.FC = () => {
                             </svg>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                            <h4 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
                               {quiz.title}
                             </h4>
-                            <p className="text-xs text-gray-500 dark:text-gray-400/60 truncate">
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70/60 truncate">
                               {quiz.subject?.subject_name || "Unknown Course"}
                             </p>
                           </div>
@@ -988,7 +988,7 @@ const StudentDetails: React.FC = () => {
                                 >
                                   {submission.passed ? "Passed" : "Failed"}
                                 </span>
-                                <span className="text-xs text-gray-500 dark:text-gray-400">
+                                <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                                   Attempt {submission.attempt_number}
                                 </span>
                               </>
@@ -1020,10 +1020,10 @@ const StudentDetails: React.FC = () => {
                       />
                     </svg>
                   </div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+                  <h3 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                     No quizzes found
                   </h3>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                     No quizzes are available for the enrolled courses.
                   </p>
                 </div>
@@ -1135,7 +1135,7 @@ const StudentDetails: React.FC = () => {
                       <input
                         type="text"
                         placeholder="Search by course title, code, or instructor..."
-                        className="block w-full pl-11 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
+                        className="block w-full pl-11 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-xl bg-white dark:bg-gray-900 text-text-primary-light dark:text-text-primary-dark placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 shadow-sm"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                       />
@@ -1194,10 +1194,10 @@ const StudentDetails: React.FC = () => {
                             d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                        <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                           No courses found
                         </h3>
-                        <p className="text-sm text-gray-500 dark:text-gray-400">
+                        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                           {searchTerm
                             ? `No courses match "${searchTerm}"`
                             : "No available courses to assign"}
@@ -1247,7 +1247,7 @@ const StudentDetails: React.FC = () => {
                                           course.subject_id,
                                         )
                                           ? "text-white"
-                                          : "text-gray-400 dark:text-gray-500 group-hover:text-blue-500"
+                                          : "text-text-secondary-light dark:text-text-secondary-dark/60 group-hover:text-blue-500"
                                       }`}
                                       fill="none"
                                       stroke="currentColor"
@@ -1266,7 +1266,7 @@ const StudentDetails: React.FC = () => {
 
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start justify-between mb-2">
-                                  <h4 className="text-base font-bold text-gray-900 dark:text-white line-clamp-1 flex-1 pr-2">
+                                  <h4 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark line-clamp-1 flex-1 pr-2">
                                     {course.subject_name}
                                   </h4>
                                   <span
@@ -1276,11 +1276,11 @@ const StudentDetails: React.FC = () => {
                                   </span>
                                 </div>
 
-                                <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+                                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark line-clamp-2 mb-3">
                                   {course.subject_description}
                                 </p>
 
-                                <div className="flex items-center flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
+                                <div className="flex items-center flex-wrap gap-3 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                                   <div className="flex items-center gap-1.5 bg-gray-100 dark:bg-gray-700/50 px-2 py-1 rounded-lg">
                                     <svg
                                       className="w-3.5 h-3.5"
@@ -1337,10 +1337,10 @@ const StudentDetails: React.FC = () => {
                             </svg>
                           </div>
                           <div>
-                            <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                            <h4 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                               Ready to Assign
                             </h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                               {selectedCourses.length} course
                               {selectedCourses.length !== 1 ? "s" : ""} selected
                               for{" "}
@@ -1351,7 +1351,7 @@ const StudentDetails: React.FC = () => {
                         </div>
                         <button
                           onClick={() => setSelectedCourses([])}
-                          className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium transition-colors"
+                          className="text-sm text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white font-medium transition-colors"
                         >
                           Clear All
                         </button>
@@ -1366,7 +1366,7 @@ const StudentDetails: React.FC = () => {
                               key={c + 1}
                               className="inline-flex items-center gap-2 bg-white dark:bg-gray-800 px-3 py-2 rounded-lg border border-blue-200 dark:border-blue-800 shadow-sm"
                             >
-                              <span className="text-sm font-medium text-gray-900 dark:text-white">
+                              <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                                 {course.subject_code}
                               </span>
                               <button

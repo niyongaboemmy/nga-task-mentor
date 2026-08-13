@@ -86,7 +86,7 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
           rows={4}
         />
         {blankCount > 0 && (
-          <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1">
             Detected {blankCount} blank{blankCount !== 1 ? "s" : ""} in the text
           </p>
         )}
@@ -94,7 +94,7 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
 
       {blankCount > 0 && (
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+          <h4 className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
             Acceptable Answers for Each Blank
           </h4>
 
@@ -104,10 +104,10 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
               className="border border-gray-200 dark:border-gray-800 rounded-2xl p-4 bg-gray-50 dark:bg-gray-800/50"
             >
               <div className="flex items-center justify-between mb-3">
-                <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <h5 className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                   Blank {blank.blank_index + 1}
                 </h5>
-                <label className="flex items-center text-sm text-gray-600 dark:text-gray-400">
+                <label className="flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   <input
                     type="checkbox"
                     checked={blank.case_sensitive || false}
@@ -124,7 +124,7 @@ export const FillBlankQuestionForm: React.FC<FillBlankQuestionFormProps> = ({
               </div>
 
               <div className="space-y-2">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wide">
                   Acceptable Answers (one per line, press Enter to add more)
                 </label>
                 <textarea

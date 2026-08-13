@@ -132,11 +132,11 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                   {isPendingManualGrade ? "Submitted" : quizResults.passed ? "Passed" : "Completed"}
                 </span>
                 <span className="text-gray-400 dark:text-gray-600">•</span>
-                <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
                   {quizResults.quiz_title}
                 </span>
               </div>
-              <h1 className="text-2xl md:text-3xl font-extrabold text-gray-900 dark:text-white">
+              <h1 className="text-2xl md:text-3xl font-extrabold text-text-primary-light dark:text-text-primary-dark">
                 Quiz Evaluation
               </h1>
             </div>
@@ -158,16 +158,16 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                 <>
                   <div className="text-right">
                     <div
-                      className={`text-3xl font-black ${getScoreColor(quizResults.percentage)}`}
+                      className={`text-3xl font-bold ${getScoreColor(quizResults.percentage)}`}
                     >
                       {Math.round(quizResults.percentage)}%
                     </div>
-                    <div className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                    <div className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
                       Overall Score
                     </div>
                   </div>
                   <div
-                    className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-black shadow-lg shadow-current/10 ${
+                    className={`w-16 h-16 rounded-2xl flex items-center justify-center text-2xl font-bold shadow-lg shadow-current/10 ${
                       quizResults.percentage >= 90
                         ? "bg-green-100 text-green-700 dark:bg-green-900/30"
                         : quizResults.percentage >= 80
@@ -231,7 +231,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Score
                 </div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                <div className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                   {quizResults.final_score} / {quizResults.max_score}
                 </div>
               </div>
@@ -258,7 +258,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
               <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                 Time Taken
               </div>
-              <div className="text-lg font-bold text-gray-900 dark:text-white">
+              <div className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                 {formatTime(quizResults.time_taken || 0)}
               </div>
             </div>
@@ -286,7 +286,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Pass Status
                 </div>
-                <div className="text-lg font-bold text-gray-900 dark:text-white">
+                <div className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                   {quizResults.passed ? "Successful" : "Below Target"}
                 </div>
               </div>
@@ -297,7 +297,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
         {/* Question Review */}
         <div className="mb-6">
           <div className="flex items-center justify-between gap-4 mb-6">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
               Question Review
             </h2>
             {!isPendingManualGrade && (
@@ -515,7 +515,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
         <div className="flex flex-col sm:flex-row justify-center gap-3 pt-6 border-t border-gray-200 dark:border-gray-800">
           <button
             onClick={() => navigate("/dashboard")}
-            className="px-6 py-3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 font-bold text-sm flex items-center justify-center gap-2"
+            className="px-6 py-3 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200 font-bold text-sm flex items-center justify-center gap-2"
           >
             <svg
               className="w-4 h-4"

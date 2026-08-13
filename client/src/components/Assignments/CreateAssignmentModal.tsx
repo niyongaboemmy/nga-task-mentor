@@ -223,7 +223,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
             <div className="flex-1 min-w-0">
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                  <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                     Assignment Title
                   </label>
                   <input
@@ -249,7 +249,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                       Course
                     </label>
                     <select
@@ -279,7 +279,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                       Due Date & Time
                     </label>
                     <input
@@ -305,7 +305,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                       Max Score
                     </label>
                     <input
@@ -329,7 +329,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                       Submission Type
                     </label>
                     <select
@@ -346,7 +346,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
 
                   {formData.submission_type !== "text" && (
                     <div className="md:col-span-2">
-                      <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                         Allowed File Types (comma-separated)
                       </label>
                       <input
@@ -393,7 +393,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
         >
           <div className="flex items-center justify-between">
             <div>
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+              <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                 Grading Rubric
               </label>
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
@@ -505,7 +505,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                   <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                     No rubric criteria yet. Click "Add Criterion" to start.
                   </p>
-                  <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 uppercase tracking-wider">
+                  <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark/60 mt-1 uppercase tracking-wider">
                     Optional but recommended
                   </p>
                 </motion.div>
@@ -536,7 +536,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
           transition={{ delay: 0.3 }}
           className="space-y-4"
         >
-          <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
             Attachments
           </label>
           <FileDropzone

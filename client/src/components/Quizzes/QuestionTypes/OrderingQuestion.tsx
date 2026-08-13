@@ -184,7 +184,7 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
       {/* Ordering Interface */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-4 transition-all duration-200">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-sm text-gray-700 dark:text-gray-300">
+          <h3 className="font-semibold text-sm text-text-secondary-light dark:text-text-secondary-dark">
             {showCorrectAnswer ? "Correct Solution" : "Arrange in Order"}
           </h3>
         </div>
@@ -271,7 +271,7 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
                     <button
                       onClick={() => moveItem(index, "up")}
                       disabled={disabled || index === 0}
-                      className="p-1 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                      className="p-1 text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 rounded disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
                       title="Move up"
                     >
                       <ArrowUp className="w-4 h-4" />
@@ -344,10 +344,10 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
               </div>
             )}
             <div>
-              <h3 className="font-bold text-xl mb-1 text-gray-900 dark:text-gray-100">
+              <h3 className="font-bold text-xl mb-1 text-text-primary-light dark:text-text-primary-dark">
                 {isCorrectOrder() ? "Perfect Order!" : "Not Quite Right"}
               </h3>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 {isCorrectOrder()
                   ? "All items are in the correct sequence! Excellent work."
                   : "Review the items marked with ✗ to see where they should go."}
@@ -373,7 +373,7 @@ export const OrderingQuestion: React.FC<QuestionComponentProps> = ({
                 <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 flex items-center justify-center text-sm font-bold flex-shrink-0">
                   {index + 1}
                 </div>
-                <div className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100">
+                <div className="flex-1 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                   <RichTextDisplay content={item.text || ""} />
                 </div>
                 <CheckCircle className="w-5 h-5 text-blue-500 dark:text-blue-400 flex-shrink-0" />

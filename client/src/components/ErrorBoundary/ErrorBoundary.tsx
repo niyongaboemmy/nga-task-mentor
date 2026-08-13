@@ -50,10 +50,10 @@ class ErrorBoundary extends Component<Props, State> {
                 </svg>
               </div>
               <div>
-                <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+                <h3 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                   Something went wrong
                 </h3>
-                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
                   We're sorry, but something unexpected happened. Please try refreshing the page.
                 </p>
                 <button

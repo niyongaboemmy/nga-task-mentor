@@ -222,11 +222,11 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
     <div className="space-y-6">
       {/* Question Prompt */}
       <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
-        <h3 className="font-bold text-xl mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+        <h3 className="font-bold text-xl mb-4 text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
           <CheckCircle className="w-6 h-6 text-blue-500 fill-blue-500/10" />
           Interactive Mapping
         </h3>
-        <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-lg mb-6">
+        <div className="text-text-primary-light dark:text-text-primary-dark leading-relaxed text-lg mb-6">
           <RichTextDisplay content={question.question_text || ""} />
         </div>
         <div className="p-4 bg-blue-50/50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 rounded-2xl flex items-center gap-4">
@@ -237,7 +237,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
             <p className="text-[10px] uppercase font-bold tracking-widest text-blue-600/60 dark:text-blue-400/60">
               Instructions
             </p>
-            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
               Drag items from the repository to their correct anchors on the
               schematic.
             </p>
@@ -249,7 +249,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
         {/* Available Items */}
         <div className="bg-gray-50/50 dark:bg-gray-800/20 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
           <div className="mb-4">
-            <h3 className="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+            <h3 className="font-bold text-sm text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-[0.2em] flex items-center gap-2">
               <div>
                 <Box className="w-4 h-4 text-orange-500" />
               </div>
@@ -305,7 +305,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
                     : ""
                 }`}
               >
-                <div className="flex items-center justify-between mb-3 text-sm font-bold text-gray-600 dark:text-gray-400">
+                <div className="flex items-center justify-between mb-3 text-sm font-bold text-text-secondary-light dark:text-text-secondary-dark">
                   <span>{zone.label}</span>
                   {showFeedback && (
                     <>
@@ -378,7 +378,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
               <h3 className="font-semibold text-lg mb-1">
                 {isCorrect ? "Correct!" : "Not Quite Right"}
               </h3>
-              <p className="text-sm text-gray-700 dark:text-gray-300">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                 {isCorrect
                   ? "All items are placed correctly."
                   : "Some items are in the wrong zones. Review the highlighted areas."}

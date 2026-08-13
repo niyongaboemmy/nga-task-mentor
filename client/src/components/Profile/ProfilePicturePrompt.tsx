@@ -104,7 +104,7 @@ const ProfilePicturePrompt: React.FC<ProfilePicturePromptProps> = ({
               className={`flex-1 px-4 py-3 text-sm font-medium rounded-full transition-all duration-200 hover:scale-105 focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 ${
                 isUploading
                   ? "text-gray-400 bg-gray-100 dark:bg-gray-700 cursor-not-allowed opacity-50"
-                  : "text-gray-600 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
+                  : "text-text-secondary-light dark:text-text-secondary-dark bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
               }`}
             >
               Skip for now
@@ -113,7 +113,7 @@ const ProfilePicturePrompt: React.FC<ProfilePicturePromptProps> = ({
 
           {/* Footer text */}
           <div className="mt-4 p-3 bg-gradient-to-r from-blue-50 to-blue-50 dark:from-gray-700 dark:to-gray-600 rounded-xl">
-            <p className="text-xs text-gray-600 dark:text-gray-400 text-center leading-relaxed">
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark text-center leading-relaxed">
               💡 You can always add or change your profile picture later in your
               profile settings. No pressure, take your time!
             </p>

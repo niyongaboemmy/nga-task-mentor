@@ -173,12 +173,12 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
               )}
             </div>
             <div>
-              <h4 className="font-semibold text-gray-900 dark:text-white text-lg">
+              <h4 className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">
                 {submission.student
                   ? `${submission.student.first_name} ${submission.student.last_name}`
                   : "Unknown Student"}
               </h4>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                 {submission.student?.email || "No email available"}
               </p>
             </div>
@@ -208,10 +208,10 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
                 d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            <span className="text-gray-600 dark:text-gray-400">
+            <span className="text-text-secondary-light dark:text-text-secondary-dark">
               Submitted:{" "}
             </span>
-            <span className="font-medium text-gray-900 dark:text-white">
+            <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
               {formatDate(submission.submitted_at)}
             </span>
           </div>
@@ -230,8 +230,8 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
                   d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                 />
               </svg>
-              <span className="text-gray-600 dark:text-gray-400">Score: </span>
-              <span className="font-medium text-gray-900 dark:text-white">
+              <span className="text-text-secondary-light dark:text-text-secondary-dark">Score: </span>
+              <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
                 {submission.grade}/{assignment.max_score} points
               </span>
             </div>
@@ -281,7 +281,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
                     d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                   />
                 </svg>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                   Files ({fileSubmissions.length})
                 </span>
               </div>
@@ -334,10 +334,10 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
                       </svg>
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-900 dark:text-white">
+                      <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                         {file.originalname || file.filename}
                       </p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                         {(file.size / 1024).toFixed(2)} KB • {file.mimetype}
                       </p>
                     </div>
@@ -421,7 +421,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
                           Remove Submission
                         </span>
                       </div>
-                      <p className="text-sm text-gray-600 dark:text-gray-300">
+                      <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                         Are you sure you want to remove your submission? This
                         action cannot be undone.
                       </p>
@@ -437,7 +437,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
                         </button>
                         <button
                           onClick={() => toast.dismiss()}
-                          className="px-3 py-1.5 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300 text-sm font-medium rounded-full transition-colors"
+                          className="px-3 py-1.5 bg-gray-300 hover:bg-gray-400 dark:bg-gray-600 dark:hover:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark text-sm font-medium rounded-full transition-colors"
                         >
                           Cancel
                         </button>

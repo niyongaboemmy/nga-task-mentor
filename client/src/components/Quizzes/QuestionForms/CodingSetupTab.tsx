@@ -278,7 +278,7 @@ const ZipUploadSection: React.FC<{
         <span className="flex items-center justify-center w-6 h-6 bg-purple-600 text-white text-xs font-bold rounded-full">
           📦
         </span>
-        <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+        <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
           Upload Codebase ZIP
         </h3>
       </div>
@@ -326,7 +326,7 @@ const ZipUploadSection: React.FC<{
               />
             </div>
             <div className="text-center">
-              <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                 Drop a .zip file here or click to browse
               </p>
               <p className="text-xs text-gray-400 mt-1">
@@ -372,7 +372,7 @@ const ZipUploadSection: React.FC<{
                 className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800"
               >
                 <FileCode2 size={13} className="text-gray-400 flex-shrink-0" />
-                <span className="text-xs font-mono text-gray-700 dark:text-gray-300 flex-1">
+                <span className="text-xs font-mono text-text-secondary-light dark:text-text-secondary-dark flex-1">
                   {f.name}
                 </span>
                 <span className="text-[10px] text-gray-400">
@@ -479,7 +479,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
           <span className="flex items-center justify-center w-6 h-6 bg-blue-600 text-white text-xs font-bold rounded-full">
             1
           </span>
-          <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+          <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
             Project Structure
           </h3>
         </div>
@@ -502,7 +502,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
                 {tpl.icon}
               </span>
               <div className="min-w-0">
-                <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">
+                <p className="font-semibold text-sm text-text-primary-light dark:text-text-primary-dark">
                   {tpl.label}
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5 leading-tight">
@@ -521,7 +521,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
             <span className="flex items-center justify-center w-6 h-6 bg-blue-600 text-white text-xs font-bold rounded-full">
               2
             </span>
-            <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+            <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
               Language
             </h3>
           </div>
@@ -561,7 +561,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
                 className={`px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                   codingData.language === lang
                     ? "bg-blue-600 border-blue-600 text-white"
-                    : "border-gray-300 dark:border-gray-600 text-gray-600 dark:text-gray-400 hover:border-blue-400 hover:text-blue-600"
+                    : "border-gray-300 dark:border-gray-600 text-text-secondary-light dark:text-text-secondary-dark hover:border-blue-400 hover:text-blue-600"
                 }`}
               >
                 {LANG_LABELS[lang] ?? lang}
@@ -579,7 +579,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
               <span className="flex items-center justify-center w-6 h-6 bg-blue-600 text-white text-xs font-bold rounded-full">
                 3
               </span>
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+              <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                 Starter Code
               </h3>
             </div>
@@ -629,7 +629,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
               <span className="flex items-center justify-center w-6 h-6 bg-blue-600 text-white text-xs font-bold rounded-full">
                 2
               </span>
-              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+              <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                 Project Files
               </h3>
             </div>
@@ -672,7 +672,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
                       size={14}
                       className={`text-gray-400 transition-transform ${expandedFile === file.name ? "rotate-90" : ""}`}
                     />
-                    <span className="text-xs font-mono font-semibold text-gray-700 dark:text-gray-300">
+                    <span className="text-xs font-mono font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                       {file.name}
                     </span>
                     {file.is_entry_point && (

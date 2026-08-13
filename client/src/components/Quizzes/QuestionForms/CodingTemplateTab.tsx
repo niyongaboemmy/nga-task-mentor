@@ -50,11 +50,11 @@ export const CodingTemplateTab: React.FC<CodingTemplateTabProps> = ({
       <div className="bg-white dark:bg-gray-800 rounded-xl p-5 border border-gray-200 dark:border-gray-700">
         <div className="flex items-center gap-3 mb-4">
           <span className="text-xl">📋</span>
-          <h3 className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+          <h3 className="text-lg font-semibold text-text-secondary-light dark:text-text-secondary-dark">
             Choose a Template
           </h3>
         </div>
-        <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
+        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-4">
           Start with a common coding problem template for {codingData.language}.
         </p>
 
@@ -96,7 +96,7 @@ export const CodingTemplateTab: React.FC<CodingTemplateTabProps> = ({
               >
                 <div className="flex items-start justify-between mb-2">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs font-mono font-bold bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 px-2 py-0.5 rounded">
+                    <span className="text-xs font-mono font-bold bg-gray-100 dark:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark px-2 py-0.5 rounded">
                       {template.tag}
                     </span>
                     {selectedTemplate === template.id && (
@@ -115,16 +115,16 @@ export const CodingTemplateTab: React.FC<CodingTemplateTabProps> = ({
                         className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
                         title="Preview code"
                       >
-                        <Eye className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                        <Eye className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark/70" />
                       </button>
                     )}
                   </div>
                 </div>
 
-                <h4 className="font-semibold text-gray-900 dark:text-white mb-1">
+                <h4 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">
                   {template.name}
                 </h4>
-                <p className="text-sm text-gray-500 dark:text-gray-400 flex-1">
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 flex-1">
                   {template.description}
                 </p>
 

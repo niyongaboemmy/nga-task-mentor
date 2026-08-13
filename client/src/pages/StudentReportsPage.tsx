@@ -177,7 +177,7 @@ const StudentReportsPage: React.FC = () => {
             <div className="absolute inset-0 rounded-full border-4 border-blue-100 dark:border-blue-900/30" />
             <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
           </div>
-          <p className="text-gray-500 dark:text-gray-400 font-semibold text-sm">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark/70 font-semibold text-sm">
             Loading your academic profile…
           </p>
         </div>
@@ -196,8 +196,8 @@ const StudentReportsPage: React.FC = () => {
           <GraduationCap className="w-10 h-10 text-blue-500 dark:text-blue-400" />
         </div>
         <div>
-          <h2 className="text-2xl font-black text-gray-900 dark:text-white tracking-tight">No Reports Yet</h2>
-          <p className="mt-2 text-gray-500 dark:text-gray-400 max-w-sm leading-relaxed">
+          <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">No Reports Yet</h2>
+          <p className="mt-2 text-text-secondary-light dark:text-text-secondary-dark/70 max-w-sm leading-relaxed">
             You're not enrolled in any courses yet, or no grades have been recorded. Check back after your instructor publishes results.
           </p>
         </div>
@@ -229,11 +229,11 @@ const StudentReportsPage: React.FC = () => {
             <LayoutDashboard className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
               Academic Performance
             </h1>
-            <p className="mt-0.5 text-gray-500 dark:text-gray-400 text-sm font-medium flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-[10px] font-black uppercase tracking-wider">
+            <p className="mt-0.5 text-text-secondary-light dark:text-text-secondary-dark/70 text-sm font-medium flex items-center gap-2">
+              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-[10px] font-bold uppercase tracking-wider">
                 Student Report
               </span>
               <span className="hidden sm:inline">Comprehensive overview of your grades.</span>
@@ -242,7 +242,7 @@ const StudentReportsPage: React.FC = () => {
         </div>
         <button
           onClick={fetchReports}
-          className="px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-gray-600 dark:text-gray-300 self-start sm:self-auto active:scale-95"
+          className="px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark self-start sm:self-auto active:scale-95"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Refresh</span>
@@ -259,21 +259,21 @@ const StudentReportsPage: React.FC = () => {
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
 
           <div className="relative z-10">
-            <p className="text-xs font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+            <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2 mb-4">
               <Award className="w-4 h-4" />
               Overview
             </p>
             <div className="flex items-baseline gap-2 mb-2">
-              <p className="text-5xl font-black text-gray-900 dark:text-white tabular-nums">
+              <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
                 {overallGPA}%
               </p>
             </div>
-            <p className="text-gray-500 dark:text-gray-400 font-medium text-sm">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark/70 font-medium text-sm">
               Overall Average Grade
             </p>
 
             <div
-              className={`mt-6 inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-black uppercase tracking-wider ${overallGPA >= 50 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"}`}
+              className={`mt-6 inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${overallGPA >= 50 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"}`}
             >
               <CheckCircle className="w-3 h-3" />
               <span>
@@ -287,12 +287,12 @@ const StudentReportsPage: React.FC = () => {
         <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-green-500/10 transition-colors duration-700" />
           <div className="relative z-10">
-            <p className="text-xs font-black text-green-600 dark:text-green-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+            <p className="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-widest flex items-center gap-2 mb-4">
               <Zap className="w-4 h-4" />
               Progress
             </p>
             <div className="flex items-baseline gap-2 mb-6">
-              <p className="text-5xl font-black text-gray-900 dark:text-white tabular-nums">
+              <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
                 {completionRate}%
               </p>
             </div>
@@ -313,12 +313,12 @@ const StudentReportsPage: React.FC = () => {
         <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-purple-500/10 transition-colors duration-700" />
           <div className="relative z-10">
-            <p className="text-xs font-black text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+            <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2 mb-4">
               <BookOpen className="w-4 h-4" />
               Courses
             </p>
             <div className="flex items-baseline gap-2 mb-6">
-              <p className="text-5xl font-black text-gray-900 dark:text-white tabular-nums">
+              <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
                 {reports.length}
               </p>
             </div>
@@ -327,13 +327,13 @@ const StudentReportsPage: React.FC = () => {
               {reports.slice(0, 3).map((r) => (
                 <span
                   key={r.courseId}
-                  className="text-[10px] font-black px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-600 dark:text-gray-300 uppercase tracking-wider"
+                  className="text-[10px] font-bold px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider"
                 >
                   {r.code}
                 </span>
               ))}
               {reports.length > 3 && (
-                <span className="text-[10px] font-black px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 uppercase tracking-wider">
+                <span className="text-[10px] font-bold px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 uppercase tracking-wider">
                   +{reports.length - 3}
                 </span>
               )}
@@ -359,7 +359,7 @@ const StudentReportsPage: React.FC = () => {
             <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
               <TrendingUp className="w-5 h-5" />
             </div>
-            <h3 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight">
+            <h3 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
               Performance Overview
             </h3>
           </div>
@@ -378,7 +378,7 @@ const StudentReportsPage: React.FC = () => {
               <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 flex-shrink-0">
                 <Filter className="w-5 h-5" />
               </div>
-              <h3 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white tracking-tight">
+              <h3 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
                 Status Breakdown
               </h3>
             </div>
@@ -390,7 +390,7 @@ const StudentReportsPage: React.FC = () => {
                     <CheckCircle className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="block text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">
+                    <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                       Passing
                     </span>
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
@@ -398,7 +398,7 @@ const StudentReportsPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                <span className="text-2xl font-black text-green-600 dark:text-green-400">
+                <span className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {reports.filter((r) => r.percentage >= 50).length}
                 </span>
               </div>
@@ -409,7 +409,7 @@ const StudentReportsPage: React.FC = () => {
                     <Zap className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="block text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">
+                    <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                       Needs Attention
                     </span>
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
@@ -417,7 +417,7 @@ const StudentReportsPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                <span className="text-2xl font-black text-red-600 dark:text-red-400">
+                <span className="text-2xl font-bold text-red-600 dark:text-red-400">
                   {
                     reports.filter((r) => r.percentage < 50 && r.percentage > 0)
                       .length
@@ -427,11 +427,11 @@ const StudentReportsPage: React.FC = () => {
 
               <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-700 group hover:scale-[1.02] transition-transform">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-2xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-gray-500 dark:text-gray-400">
+                  <div className="w-10 h-10 rounded-2xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark/70">
                     <BookOpen className="w-5 h-5" />
                   </div>
                   <div>
-                    <span className="block text-sm font-black text-gray-900 dark:text-white uppercase tracking-wider">
+                    <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                       No Grade
                     </span>
                     <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
@@ -439,7 +439,7 @@ const StudentReportsPage: React.FC = () => {
                     </span>
                   </div>
                 </div>
-                <span className="text-2xl font-black text-gray-600 dark:text-gray-400">
+                <span className="text-2xl font-bold text-text-secondary-light dark:text-text-secondary-dark">
                   {reports.filter((r) => r.percentage === 0).length}
                 </span>
               </div>
@@ -450,7 +450,7 @@ const StudentReportsPage: React.FC = () => {
 
       {/* Detailed Course Cards Grid */}
       <div className="pt-2">
-        <h3 className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white mb-5 flex items-center gap-3">
+        <h3 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-5 flex items-center gap-3">
           <GraduationCap className="w-7 h-7 text-blue-600 dark:text-blue-400 flex-shrink-0" />
           Subject Details
         </h3>
@@ -466,10 +466,10 @@ const StudentReportsPage: React.FC = () => {
             >
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <span className="text-[10px] font-black uppercase tracking-widest text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg mb-3 inline-block">
+                  <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg mb-3 inline-block">
                     {report.code}
                   </span>
-                  <h4 className="text-xl font-bold text-gray-900 dark:text-white line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                  <h4 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                     {report.courseName}
                   </h4>
                 </div>
@@ -478,7 +478,7 @@ const StudentReportsPage: React.FC = () => {
                     report.percentage >= 50 ? "text-green-500" : "text-red-500"
                   }`}
                 >
-                  <span className="text-3xl font-black tracking-tight">
+                  <span className="text-3xl font-bold tracking-tight">
                     {report.percentage}%
                   </span>
                 </div>
@@ -488,7 +488,7 @@ const StudentReportsPage: React.FC = () => {
                 <div>
                   <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
                     <span className="text-gray-400">Assignments</span>
-                    <span className="text-gray-900 dark:text-white">
+                    <span className="text-text-primary-light dark:text-text-primary-dark">
                       {report.assignmentsCompleted}/{report.totalAssignments}
                     </span>
                   </div>
@@ -511,7 +511,7 @@ const StudentReportsPage: React.FC = () => {
                 <div>
                   <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
                     <span className="text-gray-400">Quizzes</span>
-                    <span className="text-gray-900 dark:text-white">
+                    <span className="text-text-primary-light dark:text-text-primary-dark">
                       {report.quizzesCompleted}/{report.totalQuizzes}
                     </span>
                   </div>
@@ -533,7 +533,7 @@ const StudentReportsPage: React.FC = () => {
 
               <Link
                 to={`/courses/${report.courseId}/reports`}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 font-bold uppercase tracking-wider text-xs rounded-full hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-blue-500/20"
+                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 text-text-secondary-light dark:text-text-secondary-dark font-bold uppercase tracking-wider text-xs rounded-full hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-blue-500/20"
               >
                 <span>View Full Report</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />

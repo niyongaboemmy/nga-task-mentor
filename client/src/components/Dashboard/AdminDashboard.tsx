@@ -74,7 +74,7 @@ const activityIcon: Record<RecentActivity["type"], React.ReactNode> = {
 const activityIconClasses: Record<RecentActivity["type"], string> = {
   submission: "bg-violet-100 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400",
   assignment: "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
-  course: "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400",
+  course: "bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark",
 };
 
 const AdminDashboard: React.FC<{

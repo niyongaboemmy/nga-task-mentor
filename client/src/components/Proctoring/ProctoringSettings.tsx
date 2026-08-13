@@ -166,7 +166,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
           <CardTitle className="text-xl text-text-primary-light dark:text-text-primary-dark">
             Proctoring Settings
           </CardTitle>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm">
             Configure online proctoring features for this quiz to ensure
             academic integrity.
           </p>
@@ -188,7 +188,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     }
                     className="mr-2"
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Enable online proctoring for this quiz
                   </span>
                 </label>
@@ -229,7 +229,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
                   disabled={!settings.enabled}
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                   Sessions with risk scores above this threshold will be flagged
                 </p>
               </div>
@@ -317,7 +317,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Require identity verification
                 </span>
               </label>
@@ -335,7 +335,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Require environment scan
                 </span>
               </label>
@@ -361,7 +361,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Video monitoring
                 </span>
               </label>
@@ -379,7 +379,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Audio monitoring
                 </span>
               </label>
@@ -397,7 +397,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Screen recording
                 </span>
               </label>
@@ -415,7 +415,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Suspicious behavior detection
                 </span>
               </label>
@@ -440,7 +440,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     className="mr-2"
                     disabled={!settings.enabled}
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Require fullscreen mode
                   </span>
                 </label>
@@ -466,7 +466,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
                     disabled={!settings.enabled}
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                     Minimum camera activity required
                   </p>
                 </div>
@@ -489,7 +489,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
                     disabled={!settings.enabled}
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                     Minimum microphone activity required
                   </p>
                 </div>
@@ -512,7 +512,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
                     disabled={!settings.enabled}
                   />
-                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                     Minimum speaker volume required
                   </p>
                 </div>
@@ -533,7 +533,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     className="mr-2"
                     disabled={!settings.enabled}
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Enable face detection
                   </span>
                 </label>
@@ -551,7 +551,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     className="mr-2"
                     disabled={!settings.enabled}
                   />
-                  <span className="text-sm text-gray-700 dark:text-gray-300">
+                  <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Enable object detection (mobile phones, etc.)
                   </span>
                 </label>
@@ -576,7 +576,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
                   disabled={!settings.enabled}
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                   Sensitivity for detecting unauthorized objects (higher = more
                   sensitive)
                 </p>
@@ -600,7 +600,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Lockdown browser mode
                 </span>
               </label>
@@ -615,7 +615,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Prevent tab switching
                 </span>
               </label>
@@ -633,7 +633,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Prevent window minimization
                 </span>
               </label>
@@ -648,7 +648,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Prevent copy/paste
                 </span>
               </label>
@@ -663,7 +663,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Prevent right-click
                 </span>
               </label>
@@ -678,7 +678,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Allow multiple faces
                 </span>
               </label>
@@ -704,7 +704,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Auto-terminate sessions with high risk scores
                 </span>
               </label>
@@ -722,7 +722,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Require proctor approval for flagged sessions
                 </span>
               </label>
@@ -745,7 +745,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="mr-2"
                   disabled={!settings.enabled}
                 />
-                <span className="text-sm text-gray-700 dark:text-gray-300">
+                <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Alert instructors on violations
                 </span>
               </label>
@@ -764,7 +764,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
                   disabled={!settings.enabled}
                 />
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                   Comma-separated list of email addresses to receive alerts
                 </p>
               </div>

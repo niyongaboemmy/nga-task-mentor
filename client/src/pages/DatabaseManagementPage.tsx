@@ -462,10 +462,10 @@ const DatabaseManagementPage: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
         <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
-          <h1 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
+          <h1 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-1">
             Confirm Admin Access
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mb-5">
             Re-enter your password to continue to Database Management.
           </p>
           <form onSubmit={handleGateSubmit} className="space-y-4">
@@ -475,7 +475,7 @@ const DatabaseManagementPage: React.FC = () => {
               autoFocus
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
-              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {gateError && (
               <p className="text-sm text-red-600 dark:text-red-400">{gateError}</p>
@@ -502,15 +502,15 @@ const DatabaseManagementPage: React.FC = () => {
       {/* Top bar */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+          <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
             Database Management
           </h1>
-          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+          <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
             Browse, edit, and query the application database directly.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs font-mono px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+          <span className="text-xs font-mono px-3 py-1.5 rounded-full bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark">
             Session expires in {mm}:{ss}
           </span>
           <button
@@ -525,7 +525,7 @@ const DatabaseManagementPage: React.FC = () => {
           </button>
           <button
             onClick={handleLock}
-            className="px-4 py-1.5 rounded-full text-xs font-medium border border-gray-300 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="px-4 py-1.5 rounded-full text-xs font-medium border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             Lock
           </button>
@@ -541,7 +541,7 @@ const DatabaseManagementPage: React.FC = () => {
             className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
               topTab === t
                 ? "border-blue-600 text-blue-600 dark:text-blue-400"
-                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-200"
             }`}
           >
             {t === "table" ? "Tables" : t === "query" ? "SQL Query" : "Query History"}
@@ -558,7 +558,7 @@ const DatabaseManagementPage: React.FC = () => {
               value={tableSearch}
               onChange={(e) => setTableSearch(e.target.value)}
               placeholder="Search tables…"
-              className="w-full px-3 py-2 mb-3 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 mb-3 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {tablesLoading ? (
               <TableListSkeleton />
@@ -571,11 +571,11 @@ const DatabaseManagementPage: React.FC = () => {
                       className={`w-full text-left px-3 py-2 rounded-xl text-sm flex items-center justify-between transition-colors ${
                         selectedTable === t.tableName
                           ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300"
-                          : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                          : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-800"
                       }`}
                     >
                       <span className="truncate font-mono text-xs">{t.tableName}</span>
-                      <span className="text-[10px] text-gray-400 dark:text-gray-500 ml-2 shrink-0 text-right">
+                      <span className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark/60 ml-2 shrink-0 text-right">
                         <span className="block">{t.approxRowCount ?? 0} rows</span>
                         <span className="block">{formatBytes(t.sizeBytes)}</span>
                       </span>
@@ -583,7 +583,7 @@ const DatabaseManagementPage: React.FC = () => {
                   </li>
                 ))}
                 {filteredTables.length === 0 && (
-                  <li className="text-sm text-gray-400 dark:text-gray-500 px-3 py-4 text-center">
+                  <li className="text-sm text-text-secondary-light dark:text-text-secondary-dark/60 px-3 py-4 text-center">
                     No tables found.
                   </li>
                 )}
@@ -600,7 +600,7 @@ const DatabaseManagementPage: React.FC = () => {
             ) : (
               <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
-                  <h2 className="font-mono font-bold text-gray-900 dark:text-white">
+                  <h2 className="font-mono font-bold text-text-primary-light dark:text-text-primary-dark">
                     {selectedTable}
                   </h2>
                   <div className="flex gap-1">
@@ -611,7 +611,7 @@ const DatabaseManagementPage: React.FC = () => {
                         className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
                           tableTab === t
                             ? "bg-blue-600 text-white"
-                            : "text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+                            : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-800"
                         }`}
                       >
                         {t}
@@ -632,7 +632,7 @@ const DatabaseManagementPage: React.FC = () => {
                             setPage(1);
                           }}
                           placeholder="Search rows…"
-                          className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                          className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
                         />
                         {writeMode && (
                           <button
@@ -656,14 +656,14 @@ const DatabaseManagementPage: React.FC = () => {
                                   <th
                                     key={col}
                                     onClick={() => handleSort(col)}
-                                    className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 cursor-pointer whitespace-nowrap"
+                                    className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark cursor-pointer whitespace-nowrap"
                                   >
                                     {col}
                                     {sortBy === col && (sortDir === "ASC" ? " ▲" : " ▼")}
                                   </th>
                                 ))}
                                 {writeMode && (
-                                  <th className="px-3 py-2 text-right font-semibold text-gray-600 dark:text-gray-300">
+                                  <th className="px-3 py-2 text-right font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                     Actions
                                   </th>
                                 )}
@@ -678,7 +678,7 @@ const DatabaseManagementPage: React.FC = () => {
                                   {columnNames.map((col) => (
                                     <td
                                       key={col}
-                                      className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap max-w-xs truncate"
+                                      className="px-3 py-2 text-text-secondary-light dark:text-text-secondary-dark whitespace-nowrap max-w-xs truncate"
                                     >
                                       {editingRow === row ? (
                                         <input
@@ -738,7 +738,7 @@ const DatabaseManagementPage: React.FC = () => {
                                 <tr>
                                   <td
                                     colSpan={columnNames.length + 1}
-                                    className="px-3 py-8 text-center text-gray-400 dark:text-gray-500"
+                                    className="px-3 py-8 text-center text-text-secondary-light dark:text-text-secondary-dark/60"
                                   >
                                     No rows found.
                                   </td>
@@ -751,7 +751,7 @@ const DatabaseManagementPage: React.FC = () => {
                       )}
 
                       {/* Pagination */}
-                      <div className="mt-4 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400">
+                      <div className="mt-4 flex items-center justify-between text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                         <span>
                           {rowsTotal} row{rowsTotal !== 1 ? "s" : ""} · page {page}
                         </span>
@@ -782,29 +782,29 @@ const DatabaseManagementPage: React.FC = () => {
                       ) : structure ? (
                         <div className="space-y-6">
                           <div>
-                            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            <h3 className="text-sm font-bold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                               Columns
                             </h3>
                             <div className="overflow-x-auto">
                               <table className="min-w-full text-sm">
                                 <thead>
                                   <tr className="border-b border-gray-200 dark:border-gray-800">
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Name
                                     </th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Type
                                     </th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Nullable
                                     </th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Key
                                     </th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Default
                                     </th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Extra
                                     </th>
                                   </tr>
@@ -815,23 +815,23 @@ const DatabaseManagementPage: React.FC = () => {
                                       key={c.name}
                                       className="border-b border-gray-100 dark:border-gray-800"
                                     >
-                                      <td className="px-3 py-2 font-mono text-xs text-gray-800 dark:text-gray-200">
+                                      <td className="px-3 py-2 font-mono text-xs text-text-primary-light dark:text-text-primary-dark">
                                         {c.name}
                                       </td>
-                                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                                      <td className="px-3 py-2 text-text-secondary-light dark:text-text-secondary-dark">
                                         {c.type}
                                         {c.maxLength ? `(${c.maxLength})` : ""}
                                       </td>
-                                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                                      <td className="px-3 py-2 text-text-secondary-light dark:text-text-secondary-dark">
                                         {c.nullable}
                                       </td>
-                                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                                      <td className="px-3 py-2 text-text-secondary-light dark:text-text-secondary-dark">
                                         {c.key}
                                       </td>
-                                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                                      <td className="px-3 py-2 text-text-secondary-light dark:text-text-secondary-dark">
                                         {c.default ?? "—"}
                                       </td>
-                                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                                      <td className="px-3 py-2 text-text-secondary-light dark:text-text-secondary-dark">
                                         {c.extra}
                                       </td>
                                     </tr>
@@ -841,23 +841,23 @@ const DatabaseManagementPage: React.FC = () => {
                             </div>
                           </div>
                           <div>
-                            <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 mb-2">
+                            <h3 className="text-sm font-bold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                               Indexes
                             </h3>
                             <div className="overflow-x-auto">
                               <table className="min-w-full text-sm">
                                 <thead>
                                   <tr className="border-b border-gray-200 dark:border-gray-800">
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Index
                                     </th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Column
                                     </th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Unique
                                     </th>
-                                    <th className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300">
+                                    <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Seq
                                     </th>
                                   </tr>
@@ -868,16 +868,16 @@ const DatabaseManagementPage: React.FC = () => {
                                       key={`${idx.indexName}-${i}`}
                                       className="border-b border-gray-100 dark:border-gray-800"
                                     >
-                                      <td className="px-3 py-2 font-mono text-xs text-gray-800 dark:text-gray-200">
+                                      <td className="px-3 py-2 font-mono text-xs text-text-primary-light dark:text-text-primary-dark">
                                         {idx.indexName}
                                       </td>
-                                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                                      <td className="px-3 py-2 text-text-secondary-light dark:text-text-secondary-dark">
                                         {idx.columnName}
                                       </td>
-                                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                                      <td className="px-3 py-2 text-text-secondary-light dark:text-text-secondary-dark">
                                         {idx.nonUnique === 0 ? "Yes" : "No"}
                                       </td>
-                                      <td className="px-3 py-2 text-gray-600 dark:text-gray-400">
+                                      <td className="px-3 py-2 text-text-secondary-light dark:text-text-secondary-dark">
                                         {idx.seqInIndex}
                                       </td>
                                     </tr>
@@ -917,7 +917,7 @@ const DatabaseManagementPage: React.FC = () => {
       {topTab === "query" && (
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm p-5">
           <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
-            <span className="text-xs font-semibold text-gray-500 dark:text-gray-400">
+            <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70">
               Query editor
             </span>
             <button
@@ -944,10 +944,10 @@ const DatabaseManagementPage: React.FC = () => {
                     : 'Describe the query, e.g. "list the 10 students with the highest average grade this term"'
                 }
                 rows={2}
-                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-text-primary-light dark:text-text-primary-dark resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <div className="flex items-center justify-between">
-                <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/70">
                   Drafts a query for you to review — it never runs automatically.
                 </span>
                 <button
@@ -982,7 +982,7 @@ const DatabaseManagementPage: React.FC = () => {
             />
           </div>
           <div className="flex items-center justify-between mb-4">
-            <p className="text-xs text-gray-400 dark:text-gray-500">
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
               {writeMode
                 ? "Write mode is ON — write statements will run after confirmation."
                 : "Write mode is OFF — only read statements (SELECT/SHOW/DESCRIBE/EXPLAIN) may run."}
@@ -1010,7 +1010,7 @@ const DatabaseManagementPage: React.FC = () => {
 
           {!queryRunning && queryResult && (
             <div>
-              <div className="flex items-center justify-between mb-3 text-xs text-gray-500 dark:text-gray-400">
+              <div className="flex items-center justify-between mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                 <span>
                   {queryResult.statementType} · {queryResult.rowCount ?? 0} row(s) ·{" "}
                   {queryResult.executionMs}ms
@@ -1025,7 +1025,7 @@ const DatabaseManagementPage: React.FC = () => {
                         {Object.keys(queryResult.rows[0]).map((col) => (
                           <th
                             key={col}
-                            className="px-3 py-2 text-left font-semibold text-gray-600 dark:text-gray-300 whitespace-nowrap"
+                            className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark whitespace-nowrap"
                           >
                             {col}
                           </th>
@@ -1041,7 +1041,7 @@ const DatabaseManagementPage: React.FC = () => {
                           {Object.keys(queryResult.rows[0]).map((col) => (
                             <td
                               key={col}
-                              className="px-3 py-2 text-gray-700 dark:text-gray-300 whitespace-nowrap max-w-xs truncate"
+                              className="px-3 py-2 text-text-secondary-light dark:text-text-secondary-dark whitespace-nowrap max-w-xs truncate"
                             >
                               {String(row[col] ?? "")}
                             </td>
@@ -1070,19 +1070,19 @@ const DatabaseManagementPage: React.FC = () => {
               <table className="min-w-full text-sm">
                 <thead className="sticky top-0 bg-white dark:bg-gray-900 z-10">
                   <tr className="border-b border-gray-200 dark:border-gray-800">
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">
+                    <th className="px-4 py-3 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                       User
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">
+                    <th className="px-4 py-3 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                       Query
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">
+                    <th className="px-4 py-3 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                       When
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">
+                    <th className="px-4 py-3 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                       Duration
                     </th>
-                    <th className="px-4 py-3 text-left font-semibold text-gray-600 dark:text-gray-300">
+                    <th className="px-4 py-3 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                       Status
                     </th>
                   </tr>
@@ -1094,18 +1094,18 @@ const DatabaseManagementPage: React.FC = () => {
                       onClick={() => loadHistoryQuery(entry)}
                       className="border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800/50 cursor-pointer"
                     >
-                      <td className="px-4 py-3 text-gray-700 dark:text-gray-300 whitespace-nowrap">
+                      <td className="px-4 py-3 text-text-secondary-light dark:text-text-secondary-dark whitespace-nowrap">
                         {entry.user
                           ? `${entry.user.first_name} ${entry.user.last_name}`
                           : `#${entry.userId}`}
                       </td>
-                      <td className="px-4 py-3 font-mono text-xs text-gray-600 dark:text-gray-400 max-w-md truncate">
+                      <td className="px-4 py-3 font-mono text-xs text-text-secondary-light dark:text-text-secondary-dark max-w-md truncate">
                         {entry.queryText}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      <td className="px-4 py-3 text-text-secondary-light dark:text-text-secondary-dark/70 whitespace-nowrap">
                         {new Date(entry.createdAt).toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                      <td className="px-4 py-3 text-text-secondary-light dark:text-text-secondary-dark/70 whitespace-nowrap">
                         {entry.executionMs ?? "—"}ms
                       </td>
                       <td className="px-4 py-3">
@@ -1125,7 +1125,7 @@ const DatabaseManagementPage: React.FC = () => {
                     <tr>
                       <td
                         colSpan={5}
-                        className="px-4 py-8 text-center text-gray-400 dark:text-gray-500"
+                        className="px-4 py-8 text-center text-text-secondary-light dark:text-text-secondary-dark/60"
                       >
                         No query history yet.
                       </td>
@@ -1136,7 +1136,7 @@ const DatabaseManagementPage: React.FC = () => {
             </div>
             </div>
           )}
-          <div className="px-4 py-3 flex items-center justify-between text-xs text-gray-500 dark:text-gray-400 border-t border-gray-100 dark:border-gray-800">
+          <div className="px-4 py-3 flex items-center justify-between text-xs text-text-secondary-light dark:text-text-secondary-dark/70 border-t border-gray-100 dark:border-gray-800">
             <span>{historyTotal} total</span>
             <div className="flex gap-2">
               <button
@@ -1166,7 +1166,7 @@ const DatabaseManagementPage: React.FC = () => {
         >
           <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden">
             <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800">
-              <h2 className="text-lg font-bold text-gray-900 dark:text-white">
+              <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                 Add row to {selectedTable}
               </h2>
             </div>
@@ -1178,7 +1178,7 @@ const DatabaseManagementPage: React.FC = () => {
                 .filter((c) => c.extra !== "auto_increment")
                 .map((c) => (
                   <div key={c.name}>
-                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
                       {c.name}{" "}
                       <span className="text-gray-400">
                         ({c.type}
@@ -1191,7 +1191,7 @@ const DatabaseManagementPage: React.FC = () => {
                       onChange={(e) =>
                         setNewRowValues((p) => ({ ...p, [c.name]: e.target.value }))
                       }
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-gray-900 dark:text-white rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 ))}
@@ -1199,7 +1199,7 @@ const DatabaseManagementPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddRow(false)}
-                  className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   Cancel
                 </button>
@@ -1223,16 +1223,16 @@ const DatabaseManagementPage: React.FC = () => {
           onClick={(e) => e.target === e.currentTarget && setDeleteTarget(null)}
         >
           <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-6">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
               Delete row?
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mb-5">
               This action cannot be undone.
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>
@@ -1257,16 +1257,16 @@ const DatabaseManagementPage: React.FC = () => {
           }
         >
           <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-6">
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+            <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
               Confirm {pendingConfirmType} statement
             </h2>
-            <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mb-5">
               This query will modify the database. Are you sure you want to run it?
             </p>
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setPendingConfirmType(null)}
-                className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>

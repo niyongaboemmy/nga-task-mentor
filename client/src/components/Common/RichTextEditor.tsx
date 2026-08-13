@@ -326,7 +326,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         ${
           isActive
             ? "bg-blue-100/80 text-blue-700 dark:bg-blue-500/30 dark:text-blue-300 shadow-sm"
-            : "text-gray-600 dark:text-gray-300 hover:bg-gray-200/80 dark:hover:bg-gray-700/80 hover:text-gray-900 dark:hover:text-white"
+            : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200/80 dark:hover:bg-gray-700/80 hover:text-gray-900 dark:hover:text-white"
         } ${disabled ? "opacity-30 cursor-not-allowed" : ""} ${className}`}
     >
       {children}
@@ -671,7 +671,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                 {editor.isActive("table") && (
                   <div className="p-5 flex flex-col gap-6">
                     <div>
-                      <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-3 flex items-center gap-2">
+                      <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/70 mb-3 flex items-center gap-2">
                         <TableIcon className="w-4 h-4" /> Table Properties
                       </h3>
 
@@ -683,7 +683,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                           className="flex flex-col items-center justify-center p-3 rounded-xl bg-gray-50 hover:bg-white dark:bg-gray-800/50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition duration-200"
                         >
                           <BetweenVerticalEnd className="w-5 h-5 mb-1 rotate-180 text-blue-500" />
-                          <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
+                          <span className="text-[10px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
                             Add Col Before
                           </span>
                         </button>
@@ -694,7 +694,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                           className="flex flex-col items-center justify-center p-3 rounded-xl bg-gray-50 hover:bg-white dark:bg-gray-800/50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition duration-200"
                         >
                           <BetweenVerticalEnd className="w-5 h-5 mb-1 text-blue-500" />
-                          <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
+                          <span className="text-[10px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
                             Add Col After
                           </span>
                         </button>
@@ -705,7 +705,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                           className="flex flex-col items-center justify-center p-3 rounded-xl bg-gray-50 hover:bg-white dark:bg-gray-800/50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition duration-200"
                         >
                           <BetweenHorizontalEnd className="w-5 h-5 mb-1 rotate-180 text-blue-500" />
-                          <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
+                          <span className="text-[10px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
                             Add Row Before
                           </span>
                         </button>
@@ -716,7 +716,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                           className="flex flex-col items-center justify-center p-3 rounded-xl bg-gray-50 hover:bg-white dark:bg-gray-800/50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition duration-200"
                         >
                           <BetweenHorizontalEnd className="w-5 h-5 mb-1 text-blue-500" />
-                          <span className="text-[10px] font-medium text-gray-600 dark:text-gray-300">
+                          <span className="text-[10px] font-medium text-text-secondary-light dark:text-text-secondary-dark">
                             Add Row After
                           </span>
                         </button>
@@ -747,7 +747,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     <hr className="border-gray-200 dark:border-gray-800" />
 
                     <div>
-                      <h4 className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-3">
+                      <h4 className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 mb-3">
                         Styling
                       </h4>
                       <label className="flex items-center gap-3 p-3 rounded-xl bg-gray-50 hover:bg-white dark:bg-gray-800/50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 cursor-pointer transition relative group">
@@ -809,10 +809,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
 
                 {editor.isActive("image") && (
                   <div className="p-5 flex flex-col gap-4">
-                    <h3 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-2 flex items-center gap-2">
+                    <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/70 mb-2 flex items-center gap-2">
                       <ImageIcon className="w-4 h-4" /> Image Properties
                     </h3>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
+                    <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 leading-relaxed bg-blue-50 dark:bg-blue-900/20 p-3 rounded-xl border border-blue-100 dark:border-blue-800">
                       Select an image in your document. You can drag the green
                       handles on the corners of the image to resize it freely.
                     </p>
@@ -841,7 +841,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         </div>
 
         {/* Status Bar */}
-        <div className="bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 px-6 py-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-tight text-gray-400 dark:text-gray-500">
+        <div className="bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 px-6 py-1.5 flex items-center justify-between text-[10px] font-bold uppercase tracking-tight text-text-secondary-light dark:text-text-secondary-dark/60">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-1.5">
               <div

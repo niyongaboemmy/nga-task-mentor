@@ -66,10 +66,10 @@ export const CreateQuizPage: React.FC = () => {
     return (
       <div className="pb-4">
         <div className="mb-4">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">
+          <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
             Configure Proctoring Settings
           </h2>
-          <p className="text-gray-600 dark:text-gray-400 text-sm">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm">
             Set up online proctoring features for your quiz to ensure academic
             integrity.
           </p>
@@ -99,7 +99,7 @@ export const CreateQuizPage: React.FC = () => {
   return (
     <div className="pb-4">
       <div className="mb-2">
-        <nav className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mb-2">
+        <nav className="flex items-center space-x-2 text-sm text-text-secondary-light dark:text-text-secondary-dark mb-2">
           <button
             onClick={() => navigate(`/courses/${courseId}`)}
             className="hover:text-blue-600 dark:hover:text-blue-400"
@@ -107,11 +107,11 @@ export const CreateQuizPage: React.FC = () => {
             Course
           </button>
           <span>/</span>
-          <span className="text-gray-900 dark:text-white font-medium">
+          <span className="text-text-primary-light dark:text-text-primary-dark font-medium">
             Create Quiz
           </span>
         </nav>
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+        <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
           Create New Quiz
         </h1>
       </div>
@@ -122,7 +122,7 @@ export const CreateQuizPage: React.FC = () => {
           <div>
             <label
               htmlFor="title"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
             >
               Quiz Title *
             </label>
@@ -141,7 +141,7 @@ export const CreateQuizPage: React.FC = () => {
           <div>
             <label
               htmlFor="description"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
             >
               Description *
             </label>
@@ -160,7 +160,7 @@ export const CreateQuizPage: React.FC = () => {
           <div>
             <label
               htmlFor="type"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
             >
               Quiz Type
             </label>
@@ -180,7 +180,7 @@ export const CreateQuizPage: React.FC = () => {
           <div>
             <label
               htmlFor="instructions"
-              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+              className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
             >
               Instructions (Optional)
             </label>
@@ -196,7 +196,7 @@ export const CreateQuizPage: React.FC = () => {
 
           {/* Settings */}
           <div className="space-y-4">
-            <h3 className="text-base font-medium text-gray-900 dark:text-white">
+            <h3 className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">
               Quiz Settings
             </h3>
 
@@ -205,7 +205,7 @@ export const CreateQuizPage: React.FC = () => {
               <div className="w-full">
                 <label
                   htmlFor="time_limit"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
                 >
                   Time Limit (minutes)
                 </label>
@@ -230,7 +230,7 @@ export const CreateQuizPage: React.FC = () => {
               <div className="w-full">
                 <label
                   htmlFor="max_attempts"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
                 >
                   Maximum Attempts
                 </label>
@@ -255,7 +255,7 @@ export const CreateQuizPage: React.FC = () => {
               <div className="w-full">
                 <label
                   htmlFor="passing_score"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1"
+                  className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1"
                 >
                   Passing Score (%)
                 </label>
@@ -292,7 +292,7 @@ export const CreateQuizPage: React.FC = () => {
                 />
                 <label
                   htmlFor="show_results_immediately"
-                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  className="ml-2 text-sm text-text-secondary-light dark:text-text-secondary-dark"
                 >
                   Show results immediately after completion
                 </label>
@@ -310,7 +310,7 @@ export const CreateQuizPage: React.FC = () => {
                 />
                 <label
                   htmlFor="randomize_questions"
-                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  className="ml-2 text-sm text-text-secondary-light dark:text-text-secondary-dark"
                 >
                   Randomize question order
                 </label>
@@ -328,7 +328,7 @@ export const CreateQuizPage: React.FC = () => {
                 />
                 <label
                   htmlFor="show_correct_answers"
-                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                  className="ml-2 text-sm text-text-secondary-light dark:text-text-secondary-dark"
                 >
                   Show correct answers after completion
                 </label>
@@ -338,7 +338,7 @@ export const CreateQuizPage: React.FC = () => {
 
           {/* Proctoring Settings */}
           <div className="space-y-3">
-            <h3 className="text-base font-medium text-gray-900 dark:text-white">
+            <h3 className="text-base font-medium text-text-primary-light dark:text-text-primary-dark">
               Proctoring Settings
             </h3>
 
@@ -347,7 +347,7 @@ export const CreateQuizPage: React.FC = () => {
                 <CardTitle className="text-base dark:text-white">
                   Online Proctoring
                 </CardTitle>
-                <p className="text-xs text-gray-600 dark:text-gray-400">
+                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                   Enable automated monitoring to ensure academic integrity
                   during quiz taking.
                 </p>
@@ -363,14 +363,14 @@ export const CreateQuizPage: React.FC = () => {
                   />
                   <label
                     htmlFor="enable_proctoring"
-                    className="ml-2 text-sm text-gray-700 dark:text-gray-300"
+                    className="ml-2 text-sm text-text-secondary-light dark:text-text-secondary-dark"
                   >
                     Enable online proctoring for this quiz
                   </label>
                 </div>
 
                 {enableProctoring && (
-                  <div className="ml-6 space-y-2 text-xs text-gray-600 dark:text-gray-400">
+                  <div className="ml-6 space-y-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                     <p>• Real-time video and audio monitoring</p>
                     <p>• Automated detection of suspicious behavior</p>
                     <p>• Browser lockdown and security restrictions</p>
@@ -387,7 +387,7 @@ export const CreateQuizPage: React.FC = () => {
             <button
               type="button"
               onClick={() => navigate(`/courses/${courseId}`)}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-500 text-sm"
             >
               Cancel
             </button>

@@ -17,7 +17,7 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
   return (
     <div className="space-y-6">
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+        <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-3">
           Text with Dropdowns (use ___ for dropdowns)
         </label>
         <input
@@ -30,11 +30,11 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
             })
           }
           placeholder="Enter text with ___ for dropdowns"
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
+          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
         />
       </div>
       <div>
-        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
+        <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-3">
           Dropdown Options
         </label>
         <div className="space-y-4">
@@ -44,7 +44,7 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
               className="p-4 border border-gray-200 dark:border-gray-600 rounded-2xl bg-gray-50 dark:bg-gray-800/50"
             >
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
+                <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                   Dropdown {index + 1}
                 </span>
                 {dropdownOptions.length > 1 && (
@@ -85,7 +85,7 @@ export const DropdownQuestionForm: React.FC<DropdownQuestionFormProps> = ({
                         });
                       }}
                       placeholder={`Option ${optionIndex + 1}`}
-                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
+                      className="flex-1 px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark placeholder-gray-500 dark:placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
                     />
                     {dropdown.options.length > 2 && (
                       <button

@@ -135,7 +135,7 @@ const AcademicPeriodSwitcher: React.FC<AcademicPeriodSwitcherProps> = ({
         aria-haspopup="true"
         className={
           variant === "pill"
-            ? "flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-gray-700 dark:text-gray-300 hover:text-blue-700 dark:hover:text-blue-400 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700/40 hover:border-blue-200 dark:hover:border-blue-800/50 transition-all duration-200"
+            ? "flex items-center gap-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-800/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-text-secondary-light dark:text-text-secondary-dark hover:text-blue-700 dark:hover:text-blue-400 rounded-full text-xs font-medium border border-gray-200 dark:border-gray-700/40 hover:border-blue-200 dark:hover:border-blue-800/50 transition-all duration-200"
             : "w-full flex items-center justify-between gap-2 p-4 bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 rounded-2xl border border-blue-100 dark:border-blue-800/50"
         }
         title="Switch academic year / term"
@@ -160,10 +160,10 @@ const AcademicPeriodSwitcher: React.FC<AcademicPeriodSwitcherProps> = ({
             role="menu"
           >
             <div className="px-4 py-3 border-b border-gray-100 dark:border-gray-700/60">
-              <p className="text-sm font-semibold text-gray-900 dark:text-white">
+              <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                 Academic year & term
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">
                 Data across the app will refresh for the period you pick.
               </p>
             </div>
@@ -188,7 +188,7 @@ const AcademicPeriodSwitcher: React.FC<AcademicPeriodSwitcherProps> = ({
                         className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 transition-colors duration-150 ${
                           isActive
                             ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium"
-                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                            : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-700/50"
                         }`}
                         role="menuitem"
                       >
@@ -232,7 +232,7 @@ const AcademicPeriodSwitcher: React.FC<AcademicPeriodSwitcherProps> = ({
                         className={`w-full text-left px-3 py-2 text-sm flex items-center justify-between gap-2 transition-colors duration-150 disabled:opacity-60 disabled:cursor-wait ${
                           isSelected
                             ? "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 font-medium"
-                            : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50"
+                            : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-700/50"
                         }`}
                         role="menuitem"
                       >

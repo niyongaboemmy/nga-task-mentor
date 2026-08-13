@@ -171,7 +171,7 @@ const CourseDetails: React.FC = () => {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center space-y-4">
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-500 dark:text-gray-400 font-medium">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
             Loading course details...
           </p>
         </div>
@@ -247,7 +247,7 @@ const CourseDetails: React.FC = () => {
             </div>
             <div className="flex flex-row items-center justify-between gap-3 w-full">
               <div className="text-sm">
-                <h1 className="text-xl md:text-2xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-xl md:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                   {course.title}
                 </h1>
                 <p className="text-gray-600 mt-1 dark:text-gray-400">
@@ -310,10 +310,10 @@ const CourseDetails: React.FC = () => {
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
                 Assignments
               </p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+              <p className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {course.statistics?.assignments?.total || 0}
               </p>
             </div>
@@ -340,10 +340,10 @@ const CourseDetails: React.FC = () => {
               </div>
             </div>
             <div className="ml-4">
-              <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
                 Quizzes
               </p>
-              <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+              <p className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                 {course.statistics?.quizzes?.total || 0}
               </p>
             </div>
@@ -371,10 +371,10 @@ const CourseDetails: React.FC = () => {
                 </div>
               </div>
               <div className="ml-4">
-                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+                <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
                   Students
                 </p>
-                <p className="text-2xl font-semibold text-gray-900 dark:text-white">
+                <p className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                   {course.enrolledStudents?.length || 0}
                 </p>
               </div>
@@ -432,7 +432,7 @@ const CourseDetails: React.FC = () => {
                   className={`${
                     activeTab === tab.id
                       ? "border-blue-500 text-blue-600 dark:text-blue-500"
-                      : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
+                      : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
                   } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors`}
                 >
                   <svg
@@ -456,7 +456,7 @@ const CourseDetails: React.FC = () => {
             {canViewQuestionBank && (
               <Link
                 to={`/courses/${courseId}/question-bank`}
-                className="border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors"
+                className="border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors"
               >
                 <Library className="h-4 w-4" />
                 Question Bank
@@ -473,7 +473,7 @@ const CourseDetails: React.FC = () => {
                 className={`${
                   activeTab === "report-cards"
                     ? "border-violet-500 text-violet-600 dark:text-violet-400"
-                    : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
+                    : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
                 } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors`}
               >
                 <ClipboardList className="h-4 w-4" />
@@ -501,13 +501,13 @@ const CourseDetails: React.FC = () => {
                   </h4>
                   <dl className="space-y-3">
                     <div className="flex gap-2">
-                      <dt className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                      <dt className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                         Course Code:
                       </dt>
                       <dd className="text-sm font-semibold">{course.code}</dd>
                     </div>
                     <div className="flex gap-2">
-                      <dt className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                      <dt className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                         Credits:
                       </dt>
                       <dd className="text-sm font-semibold">
@@ -515,7 +515,7 @@ const CourseDetails: React.FC = () => {
                       </dd>
                     </div>
                     <div className="flex gap-2">
-                      <dt className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                      <dt className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                         Enrollment:
                       </dt>
                       <dd className="text-sm font-semibold">
@@ -630,7 +630,7 @@ const StudentsList: React.FC<{
       <div className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-2 flex-1">
           <Users className="w-5 h-5 text-gray-400" />
-          <h3 className="text-base font-bold text-gray-900 dark:text-white">
+          <h3 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
             Enrolled Students
           </h3>
           <span className="ml-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold rounded-full">
@@ -646,7 +646,7 @@ const StudentsList: React.FC<{
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search by name or email..."
-            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
+            className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-text-primary-light dark:text-text-primary-dark placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-400 transition-all"
           />
         </div>
 
@@ -654,7 +654,7 @@ const StudentsList: React.FC<{
         <div className="relative">
           <button
             onClick={() => setShowSort((v) => !v)}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-all"
           >
             <SlidersHorizontal className="w-4 h-4" />
             Sort: {sortKey === "name" ? "Name" : "Email"}
@@ -668,7 +668,7 @@ const StudentsList: React.FC<{
                   className={`w-full text-left px-4 py-2.5 text-sm transition-colors capitalize ${
                     sortKey === key
                       ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-semibold"
-                      : "text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800"
+                      : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-800"
                   }`}
                 >
                   {key}
@@ -681,7 +681,7 @@ const StudentsList: React.FC<{
 
       {/* Count hint when filtered */}
       {search && (
-        <p className="text-xs text-gray-400 dark:text-gray-500">
+        <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
           Showing {filtered.length} of {students.length} students
         </p>
       )}
@@ -692,10 +692,10 @@ const StudentsList: React.FC<{
           {/* Table header */}
           <div className={`grid ${isInstructorOrAdmin ? "grid-cols-[auto_1fr_1fr_auto_auto]" : "grid-cols-[auto_1fr_1fr_auto]"} items-center gap-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800`}>
             <span className="w-8" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">Name</span>
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 hidden sm:block">Email</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">Name</span>
+            <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60 hidden sm:block">Email</span>
             {isInstructorOrAdmin && (
-              <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500 hidden sm:block">Report Card</span>
+              <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60 hidden sm:block">Report Card</span>
             )}
             <span className="w-5" />
           </div>
@@ -722,14 +722,14 @@ const StudentsList: React.FC<{
                     {initials}
                   </div>
                   <Link to={`/students/${id}`} className="min-w-0">
-                    <p className="text-sm font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
+                    <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {fullName}
                     </p>
                     <p className="text-xs text-gray-400 truncate sm:hidden">{email}</p>
                   </Link>
                   <div className="hidden sm:flex items-center gap-1.5 min-w-0">
                     <Mail className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
-                    <span className="text-sm text-gray-500 dark:text-gray-400 truncate">{email}</span>
+                    <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 truncate">{email}</span>
                   </div>
                   {isInstructorOrAdmin && (
                     <Link
@@ -752,7 +752,7 @@ const StudentsList: React.FC<{
       ) : (
         <div className="text-center py-16 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
           <Users className="w-10 h-10 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
-          <p className="text-sm font-medium text-gray-400 dark:text-gray-500">
+          <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/60">
             {search ? "No students match your search." : "No students enrolled in this course."}
           </p>
           {search && (

@@ -344,7 +344,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                 {(assignment.submission_type === "text" ||
                   assignment.submission_type === "both") && (
                   <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                    <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       Your Submission
                     </label>
                     <textarea
@@ -363,7 +363,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                 {(assignment.submission_type === "file" ||
                   assignment.submission_type === "both") && (
                   <div className="space-y-4">
-                    <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
+                    <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                       File Submission
                     </label>
                     <FileDropzone
@@ -387,7 +387,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                 <div className="flex items-center gap-3">
                   <button
                     onClick={onClose}
-                    className="px-5 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
+                    className="px-5 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-700 rounded-full transition-colors"
                   >
                     Cancel
                   </button>

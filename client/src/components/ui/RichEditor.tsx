@@ -50,7 +50,7 @@ const RichEditor: React.FC<RichEditorProps> = ({
   return (
     <div className={`rich-editor-wrapper ${className}`}>
       {label && (
-        <label className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 block">
+        <label className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2 block">
           {label}
         </label>
       )}
@@ -72,10 +72,10 @@ const RichEditor: React.FC<RichEditorProps> = ({
         {value ? (
           <RichTextDisplay
             content={value}
-            className="line-clamp-4 text-gray-700 dark:text-gray-300"
+            className="line-clamp-4 text-text-secondary-light dark:text-text-secondary-dark"
           />
         ) : (
-          <p className="text-sm text-gray-400 dark:text-gray-500 italic">
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/60 italic">
             {placeholder}
           </p>
         )}
@@ -90,7 +90,7 @@ const RichEditor: React.FC<RichEditorProps> = ({
         closeOnBackdropClick={false}
         title={
           <div className="flex items-center gap-2">
-            <span className="text-gray-900 dark:text-white">
+            <span className="text-text-primary-light dark:text-text-primary-dark">
               {label || "Rich Text Editor"}
             </span>
             <span className="px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-bold uppercase tracking-wider">
@@ -120,7 +120,7 @@ const RichEditor: React.FC<RichEditorProps> = ({
           <div className="flex items-center justify-end gap-3 px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-950 flex-shrink-0">
             <button
               onClick={handleDiscard}
-              className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white flex items-center gap-2 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
+              className="px-4 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white flex items-center gap-2 transition-colors rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800"
             >
               <X className="w-4 h-4" /> Discard
             </button>

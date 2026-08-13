@@ -800,7 +800,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
               <h3 className="text-2xl font-bold text-red-600 dark:text-red-400 mb-4">
                 WARNING
               </h3>
-              <p className="text-gray-700 dark:text-gray-300 mb-6 text-lg">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6 text-lg">
                 {warningMessage}
               </p>
               <button
@@ -836,7 +836,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
             <h3 className="text-2xl font-bold text-yellow-600 dark:text-yellow-400 mb-4">
               Exam Paused
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-6">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
               Your exam has been paused by the instructor. Please wait until it
               resumes.
             </p>
@@ -1035,7 +1035,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
           <CardTitle className="text-xl font-bold text-center text-text-primary-light dark:text-text-primary-dark">
             Proctoring Setup
           </CardTitle>
-          <p className="text-center text-gray-600 dark:text-gray-400 text-sm">
+          <p className="text-center text-text-secondary-light dark:text-text-secondary-dark text-sm">
             Complete the setup process to begin your proctored quiz
           </p>
         </CardHeader>
@@ -1058,7 +1058,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
                         ? "bg-green-500 text-white"
                         : index === currentStep
                           ? "bg-blue-500 text-white"
-                          : "bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-400"
+                          : "bg-gray-200 dark:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark"
                     }`}
                   >
                     {step.completed ? "✓" : index + 1}
@@ -1084,7 +1084,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
             <h3 className="text-lg font-semibold mb-2 text-text-primary-light dark:text-text-primary-dark">
               {steps[currentStep]?.title}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-3 text-sm">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-3 text-sm">
               {steps[currentStep]?.description}
             </p>
             {steps[currentStep]?.component}
@@ -1202,7 +1202,7 @@ const CameraPermissionStep: React.FC<{
             <div className="flex flex-col sm:flex-row gap-3 justify-center pt-2">
               <button
                 onClick={requestPermissions}
-                className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 Try Again
               </button>
@@ -1216,7 +1216,7 @@ const CameraPermissionStep: React.FC<{
           </div>
         ) : (
           <>
-            <p className="text-gray-600 dark:text-gray-400 mb-4">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-4">
               We need access to your camera and microphone to monitor the testing
               environment and ensure academic integrity.
             </p>
@@ -1232,7 +1232,7 @@ const CameraPermissionStep: React.FC<{
                 </Button>
                 <button
                   onClick={onNoCameraMode}
-                  className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  className="px-4 py-2 text-sm border border-gray-300 dark:border-gray-600 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
                 >
                   I don't have a camera
                 </button>
@@ -1603,7 +1603,7 @@ const IdentityVerificationStep: React.FC<{
           <div className="mt-4 p-3 bg-gray-50 dark:bg-blue-900/30 rounded-lg border dark:border-blue-700 text-sm">
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">
+                <span className="text-text-secondary-light dark:text-text-secondary-dark">
                   Faces Detected:
                 </span>
                 <span
@@ -1619,7 +1619,7 @@ const IdentityVerificationStep: React.FC<{
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">
+                <span className="text-text-secondary-light dark:text-text-secondary-dark">
                   Confidence:
                 </span>
                 <span
@@ -1643,7 +1643,7 @@ const IdentityVerificationStep: React.FC<{
                     : "bg-gray-400"
                 }`}
               ></div>
-              <span className="text-xs text-gray-600 dark:text-gray-400">
+              <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {detectionStatus.isDetecting
                   ? "Detecting faces..."
                   : "Detection paused"}
@@ -2091,7 +2091,7 @@ const FaceVerificationStep: React.FC<{
             </h4>
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">
+                <span className="text-text-secondary-light dark:text-text-secondary-dark">
                   Faces Detected:
                 </span>
                 <span
@@ -2107,7 +2107,7 @@ const FaceVerificationStep: React.FC<{
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-gray-600 dark:text-gray-400">
+                <span className="text-text-secondary-light dark:text-text-secondary-dark">
                   Confidence:
                 </span>
                 <span
@@ -2125,7 +2125,7 @@ const FaceVerificationStep: React.FC<{
             </div>
 
             {/* Detection Rules */}
-            <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
+            <div className="mt-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">
               {/* <p className="font-medium mb-1">Detection Rules:</p> */}
               <ul className="space-y-1 text-left grid grid-cols-3 gap-2">
                 <li
@@ -2190,7 +2190,7 @@ const FaceVerificationStep: React.FC<{
                     : "bg-gray-400"
                 }`}
               ></div>
-              <span className="text-xs text-gray-600 dark:text-gray-400">
+              <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                 {detectionStatus.isDetecting
                   ? "Detecting..."
                   : "Detection paused"}
@@ -2267,7 +2267,7 @@ const NoCameraSkipNotice: React.FC<{ stepName: string }> = ({ stepName }) => (
       </svg>
     </div>
     <p className="text-amber-800 dark:text-amber-300 font-semibold">{stepName} Skipped</p>
-    <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs">
+    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 max-w-xs">
       This step requires a camera. Since no camera was detected on your device, it has been automatically skipped.
     </p>
   </div>
@@ -2295,7 +2295,7 @@ const ConfirmationStep: React.FC<{
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4">
           <h5 className="font-medium mb-2">Browser Information</h5>
-          <div className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
+          <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark space-y-1">
             <p>Platform: {browserInfo.platform}</p>
             <p>
               Screen: {browserInfo.screenWidth}x{browserInfo.screenHeight}

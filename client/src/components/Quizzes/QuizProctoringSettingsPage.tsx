@@ -72,7 +72,7 @@ export const QuizProctoringSettingsPage: React.FC<
       <div className="">
         <div className="space-y-4">
           {/* Breadcrumb Navigation */}
-          <nav className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 animate-fade-in">
+          <nav className="flex items-center space-x-2 text-sm text-text-secondary-light dark:text-text-secondary-dark animate-fade-in">
             <button
               onClick={() => navigate(`/courses/${quiz.course_id}`)}
               className="hover:text-blue-600 dark:hover:text-blue-400 transition-colors duration-200 hover:scale-105 transform"
@@ -87,7 +87,7 @@ export const QuizProctoringSettingsPage: React.FC<
               Quiz
             </button>
             <span className="text-gray-400">/</span>
-            <span className="text-gray-900 dark:text-white font-medium">
+            <span className="text-text-primary-light dark:text-text-primary-dark font-medium">
               Settings
             </span>
           </nav>
@@ -110,10 +110,10 @@ export const QuizProctoringSettingsPage: React.FC<
                   <Shield className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+                  <h1 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
                     Proctoring Settings
                   </h1>
-                  <p className="text-xs text-gray-600 dark:text-gray-400">
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
                     Configure security for "{quiz.title}"
                   </p>
                 </div>

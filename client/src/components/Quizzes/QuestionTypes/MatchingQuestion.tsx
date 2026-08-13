@@ -134,7 +134,7 @@ export const MatchingQuestion: React.FC<QuestionComponentProps> = ({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Left Column */}
         <div>
-          <h3 className="font-semibold text-sm mb-3 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+          <h3 className="font-semibold text-sm mb-3 text-text-secondary-light dark:text-text-secondary-dark flex items-center gap-2">
             <span className="w-6 h-6 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-bold">
               A
             </span>
@@ -184,7 +184,7 @@ export const MatchingQuestion: React.FC<QuestionComponentProps> = ({
 
                     {isMatched && (
                       <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <div className="flex items-center gap-2 text-xs text-gray-600 dark:text-gray-400">
+                        <div className="flex items-center gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                           <Link2 className="w-3 h-3" />
                           <span className="italic">
                             {getRightContent(matches[item.id])}
@@ -215,7 +215,7 @@ export const MatchingQuestion: React.FC<QuestionComponentProps> = ({
 
         {/* Right Column */}
         <div>
-          <h3 className="font-semibold text-sm mb-3 text-gray-700 dark:text-gray-300 flex items-center gap-2">
+          <h3 className="font-semibold text-sm mb-3 text-text-secondary-light dark:text-text-secondary-dark flex items-center gap-2">
             <span className="w-6 h-6 rounded-full bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 flex items-center justify-center text-xs font-bold">
               B
             </span>
@@ -306,7 +306,7 @@ export const MatchingQuestion: React.FC<QuestionComponentProps> = ({
       {/* Progress Indicator */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <span className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-widest">
+          <span className="text-sm font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-widest">
             Matching Progress
           </span>
           <span className="text-sm font-bold text-blue-600 dark:text-blue-400">
@@ -342,7 +342,7 @@ export const MatchingQuestion: React.FC<QuestionComponentProps> = ({
                   key={leftItem.id}
                   className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-blue-200 dark:border-blue-700 shadow-sm flex items-center justify-between gap-4"
                 >
-                  <div className="text-sm font-bold text-gray-900 dark:text-gray-100 flex-1">
+                  <div className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark flex-1">
                     <RichTextDisplay content={leftItem.text || ""} />
                   </div>
                   <div className="flex items-center gap-2 text-blue-500">
@@ -350,7 +350,7 @@ export const MatchingQuestion: React.FC<QuestionComponentProps> = ({
                     <Link2 className="w-4 h-4" />
                     <div className="h-px w-4 bg-blue-300 dark:bg-blue-700" />
                   </div>
-                  <div className="text-sm text-gray-600 dark:text-gray-300 flex-1 text-right italic font-medium">
+                  <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark flex-1 text-right italic font-medium">
                     <RichTextDisplay content={rightItem?.text || ""} />
                   </div>
                 </div>

@@ -68,7 +68,7 @@ export const TestCaseItem: React.FC<TestCaseItemProps> = ({
       {/* Input/Output Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
             Input Data
           </label>
           <textarea
@@ -83,14 +83,14 @@ export const TestCaseItem: React.FC<TestCaseItemProps> = ({
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm resize-none"
           />
           {language === "html" && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
               💡 Use keywords from the HTML Keywords Guide above (e.g.,
               semantic-html, contains:h1, accessibility-basics)
             </div>
           )}
         </div>
         <div className="space-y-2">
-          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+          <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
             Expected Output
           </label>
           <textarea
@@ -107,7 +107,7 @@ export const TestCaseItem: React.FC<TestCaseItemProps> = ({
             className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm resize-none"
           />
           {language === "html" && (
-            <div className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+            <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
               💡 For HTML validation, use: "HTML validation passed"
             </div>
           )}
@@ -125,13 +125,13 @@ export const TestCaseItem: React.FC<TestCaseItemProps> = ({
             }
             className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
           />
-          <span className="text-gray-700 dark:text-gray-300">
+          <span className="text-text-secondary-light dark:text-text-secondary-dark">
             🔒 Hidden from students
           </span>
         </label>
 
         <div className="flex items-center gap-2">
-          <label className="text-xs text-gray-600 dark:text-gray-400">
+          <label className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Points:
           </label>
           <input
@@ -146,7 +146,7 @@ export const TestCaseItem: React.FC<TestCaseItemProps> = ({
         </div>
 
         <div className="flex items-center gap-2">
-          <label className="text-xs text-gray-600 dark:text-gray-400">
+          <label className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
             Time Limit (ms):
           </label>
           <input

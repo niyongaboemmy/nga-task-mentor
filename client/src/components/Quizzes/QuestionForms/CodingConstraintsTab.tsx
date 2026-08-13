@@ -20,7 +20,7 @@ export const CodingConstraintsTab: React.FC<CodingConstraintsTabProps> = ({
     <div className="bg-white dark:bg-gray-800 rounded-2xl p-5 border border-gray-200 dark:border-gray-700">
       <div className="flex items-center gap-2 mb-3">
         <span className="text-xl">📋</span>
-        <label className="font-semibold text-gray-700 dark:text-gray-300 text-sm">
+        <label className="font-semibold text-text-secondary-light dark:text-text-secondary-dark text-sm">
           Guidelines & Instructions (Optional)
         </label>
       </div>
@@ -48,7 +48,7 @@ export const CodingConstraintsTab: React.FC<CodingConstraintsTabProps> = ({
 
     {/* Optional Advanced Limits */}
     <details className="group bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 open:pb-5">
-      <summary className="cursor-pointer font-semibold text-sm text-gray-700 dark:text-gray-300 p-5 select-none hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-2xl list-none flex justify-between items-center group-open:rounded-b-none group-open:bg-gray-50 dark:group-open:bg-gray-700/50 transition-colors">
+      <summary className="cursor-pointer font-semibold text-sm text-text-secondary-light dark:text-text-secondary-dark p-5 select-none hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-2xl list-none flex justify-between items-center group-open:rounded-b-none group-open:bg-gray-50 dark:group-open:bg-gray-700/50 transition-colors">
         <div className="flex items-center gap-2">
           <span className="text-lg">⚙️</span>
           Advanced Execution Limits (Optional)
@@ -60,7 +60,7 @@ export const CodingConstraintsTab: React.FC<CodingConstraintsTabProps> = ({
 
       <div className="px-5 pt-4 border-t border-gray-100 dark:border-gray-700 grid grid-cols-1 sm:grid-cols-2 gap-6">
         <div>
-          <label className="block font-semibold text-gray-700 dark:text-gray-300 text-sm mb-2">
+          <label className="block font-semibold text-text-secondary-light dark:text-text-secondary-dark text-sm mb-2">
             Time Limit (s)
           </label>
           <input
@@ -81,7 +81,7 @@ export const CodingConstraintsTab: React.FC<CodingConstraintsTabProps> = ({
         </div>
 
         <div>
-          <label className="block font-semibold text-gray-700 dark:text-gray-300 text-sm mb-2">
+          <label className="block font-semibold text-text-secondary-light dark:text-text-secondary-dark text-sm mb-2">
             Memory Limit (KB)
           </label>
           <input

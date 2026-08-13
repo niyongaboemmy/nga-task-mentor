@@ -482,10 +482,10 @@ const MathFormulaModal: React.FC<MathFormulaModalProps> = ({
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 dark:border-gray-700 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/40 dark:to-purple-950/40">
             <div>
-              <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <h2 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
                 <span className="text-xl">Σ</span> Formula Builder
               </h2>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">
                 Click a symbol to insert it, then click{" "}
                 <strong>Insert Formula</strong> to add it to your document.
               </p>
@@ -510,7 +510,7 @@ const MathFormulaModal: React.FC<MathFormulaModalProps> = ({
                     className={`px-3 py-1.5 text-xs font-semibold rounded-lg whitespace-nowrap transition-all ${
                       activeCategory === i
                         ? "bg-blue-600 text-white shadow-sm"
-                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-800"
+                        : "text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-800"
                     }`}
                   >
                     {cat.label}
@@ -527,10 +527,10 @@ const MathFormulaModal: React.FC<MathFormulaModalProps> = ({
                     title={sym.label}
                     className="flex flex-col items-center gap-0.5 p-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 hover:border-blue-400 dark:hover:border-blue-500 hover:bg-blue-50 dark:hover:bg-blue-950/30 transition-all text-center group cursor-pointer"
                   >
-                    <span className="text-base font-bold text-gray-800 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 leading-tight">
+                    <span className="text-base font-bold text-text-primary-light dark:text-text-primary-dark group-hover:text-blue-600 dark:group-hover:text-blue-400 leading-tight">
                       {sym.preview}
                     </span>
-                    <span className="text-[9px] text-gray-400 dark:text-gray-500 truncate max-w-full leading-tight">
+                    <span className="text-[9px] text-text-secondary-light dark:text-text-secondary-dark/60 truncate max-w-full leading-tight">
                       {sym.label}
                     </span>
                   </button>
@@ -541,7 +541,7 @@ const MathFormulaModal: React.FC<MathFormulaModalProps> = ({
             {/* MathLive interactive field */}
             <div className="px-4 py-3">
               <div className="flex items-center justify-between mb-2">
-                <label className="text-xs font-semibold text-gray-600 dark:text-gray-400 uppercase tracking-wide flex items-center gap-1.5">
+                <label className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wide flex items-center gap-1.5">
                   <ChevronRight className="w-3 h-3" /> Formula Editor
                 </label>
                 <div className="flex items-center gap-2">
@@ -575,7 +575,7 @@ const MathFormulaModal: React.FC<MathFormulaModalProps> = ({
               <div className="border-2 border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-white dark:bg-gray-950 hover:border-blue-400 dark:hover:border-blue-500 transition-colors focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20">
                 <div ref={containerRef} className="min-h-[52px]" />
               </div>
-              <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
+              <p className="mt-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
                 Click inside to open the visual keyboard at the bottom of the
                 screen.
               </p>
@@ -584,7 +584,7 @@ const MathFormulaModal: React.FC<MathFormulaModalProps> = ({
 
           {/* Footer */}
           <div className="flex items-center justify-between px-4 py-3 border-t border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-            <div className="text-xs text-gray-400 dark:text-gray-500 font-mono bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded max-w-[240px] truncate">
+            <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60 font-mono bg-gray-50 dark:bg-gray-800 px-2 py-1 rounded max-w-[240px] truncate">
               {currentLatex || (
                 <span className="italic opacity-60">no formula yet…</span>
               )}
@@ -592,7 +592,7 @@ const MathFormulaModal: React.FC<MathFormulaModalProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={onClose}
-                className="px-4 py-2 text-sm font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="px-4 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 Cancel
               </button>

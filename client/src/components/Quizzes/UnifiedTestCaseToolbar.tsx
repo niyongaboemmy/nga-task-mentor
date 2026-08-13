@@ -168,10 +168,10 @@ export const UnifiedTestCaseToolbar: React.FC<UnifiedTestCaseToolbarProps> = ({
       <div className="flex items-center gap-3 mb-4">
         <span className="text-2xl">{emoji}</span>
         <div>
-          <h4 className="font-bold text-gray-900 dark:text-white text-sm">
+          <h4 className="font-bold text-text-primary-light dark:text-text-primary-dark text-sm">
             {label} Test Case Tools
           </h4>
-          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">
             Interactive tools to create structured test cases with validation
           </p>
         </div>
@@ -191,10 +191,10 @@ export const UnifiedTestCaseToolbar: React.FC<UnifiedTestCaseToolbarProps> = ({
               <Wrench size={16} style={{ color: accentColor }} />
             </span>
             <div>
-              <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">
+              <p className="font-semibold text-sm text-text-primary-light dark:text-text-primary-dark">
                 Test Case Builder
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">
                 Visual builder with input/output examples
               </p>
             </div>
@@ -214,10 +214,10 @@ export const UnifiedTestCaseToolbar: React.FC<UnifiedTestCaseToolbarProps> = ({
               <BookOpen size={16} style={{ color: accentColor }} />
             </span>
             <div>
-              <p className="font-semibold text-sm text-gray-800 dark:text-gray-200">
+              <p className="font-semibold text-sm text-text-primary-light dark:text-text-primary-dark">
                 Validation Guide
               </p>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">
                 All validation keywords with examples
               </p>
             </div>

@@ -265,7 +265,7 @@ const AssignmentStatusToggle: React.FC<AssignmentStatusToggleProps> = ({
                   ${
                     option.value === currentStatus
                       ? `${option.bgColor} ${option.color} font-medium`
-                      : `text-gray-700 dark:text-gray-300 ${option.hoverColor}`
+                      : `text-text-secondary-light dark:text-text-secondary-dark ${option.hoverColor}`
                   }
                   ${
                     option.value === currentStatus

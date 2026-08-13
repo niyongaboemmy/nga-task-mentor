@@ -276,18 +276,18 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
     <div className="space-y-6">
       {/* Problem Statement */}
       <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
-        <h3 className="font-bold text-xl mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+        <h3 className="font-bold text-xl mb-4 text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
           <Brain className="w-6 h-6 text-purple-500 fill-purple-500/10" />
           Logical Goal
         </h3>
-        <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-lg mb-6">
+        <div className="text-text-primary-light dark:text-text-primary-dark leading-relaxed text-lg mb-6">
           <RichTextDisplay content={question.question_text || ""} />
         </div>
         <div className="p-4 bg-gray-50/50 dark:bg-gray-800/30 border border-gray-100 dark:border-gray-800 rounded-2xl flex items-center gap-3">
           <div className="p-2 bg-white dark:bg-gray-700 rounded-lg shadow-sm">
             <Tag className="w-4 h-4 text-blue-500" />
           </div>
-          <span className="text-sm font-bold text-gray-600 dark:text-gray-400">
+          <span className="text-sm font-bold text-text-secondary-light dark:text-text-secondary-dark">
             Expression Format:{" "}
             <span className="font-mono text-blue-600 dark:text-blue-400">
               {logicalData.expression_format}
@@ -300,7 +300,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
         {/* Variable Editor */}
         <div className="bg-gray-50/50 dark:bg-gray-800/20 border-2 border-gray-100 dark:border-gray-800 p-8 rounded-3xl shadow-sm">
           <div className="flex items-center justify-between mb-8">
-            <h3 className="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+            <h3 className="font-bold text-sm text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-[0.2em] flex items-center gap-2">
               <Plus className="w-4 h-4 text-blue-500" />
               Environment
             </h3>
@@ -321,13 +321,13 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
                 className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between group h-16 ${
                   variable.value
                     ? "border-green-400 bg-white dark:bg-gray-800 text-green-700 dark:text-green-300 shadow-md shadow-green-500/10"
-                    : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-400 dark:text-gray-500 hover:border-blue-200 dark:hover:border-blue-900/40 shadow-sm"
+                    : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark/60 hover:border-blue-200 dark:hover:border-blue-900/40 shadow-sm"
                 }`}
                 onClick={() => toggleVariable(variable.name)}
               >
                 <div className="flex items-center gap-3">
                   <div
-                    className={`w-8 h-8 rounded-xl flex items-center justify-center font-mono font-black text-sm border-2 ${
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center font-mono font-bold text-sm border-2 ${
                       variable.value
                         ? "bg-green-100 dark:bg-green-900/40 border-green-200 dark:border-green-800 text-green-700 dark:text-green-300"
                         : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-700 text-gray-400"
@@ -356,7 +356,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
         {/* Expression Builder */}
         <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm h-full flex flex-col">
           <div className="flex items-center justify-between mb-6">
-            <h3 className="font-bold text-sm text-gray-500 dark:text-gray-400 uppercase tracking-[0.2em] flex items-center gap-2">
+            <h3 className="font-bold text-sm text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-[0.2em] flex items-center gap-2">
               <Brain className="w-4 h-4 text-purple-500" />
               Expression Workbench
             </h3>
@@ -388,7 +388,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
                           : "bg-orange-50 dark:bg-orange-900/30 border-orange-200 dark:border-orange-800 text-orange-700 dark:text-orange-300"
                     }`}
                   >
-                    <span className="font-mono text-xs font-black uppercase">
+                    <span className="font-mono text-xs font-bold uppercase">
                       {node.value}
                     </span>
                     {!disabled && (
@@ -411,7 +411,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
                   key={variable.name}
                   onClick={() => addToExpression("variable", variable.name)}
                   disabled={disabled}
-                  className="px-5 py-2.5 bg-blue-600 text-white rounded-xl shadow-md shadow-blue-500/20 font-mono font-black text-sm hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
+                  className="px-5 py-2.5 bg-blue-600 text-white rounded-xl shadow-md shadow-blue-500/20 font-mono font-bold text-sm hover:bg-blue-700 transition-all active:scale-95 disabled:opacity-50"
                 >
                   {variable.name}
                 </button>
@@ -420,28 +420,28 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
               <button
                 onClick={() => addToExpression("not", "NOT")}
                 disabled={disabled}
-                className="px-5 py-2.5 bg-orange-500 text-white rounded-xl shadow-md shadow-orange-500/20 font-mono font-black text-sm hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50"
+                className="px-5 py-2.5 bg-orange-500 text-white rounded-xl shadow-md shadow-orange-500/20 font-mono font-bold text-sm hover:bg-orange-600 transition-all active:scale-95 disabled:opacity-50"
               >
                 NOT
               </button>
               <button
                 onClick={() => addToExpression("operator", "AND")}
                 disabled={disabled}
-                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-500/20 font-mono font-black text-sm hover:bg-purple-700 transition-all active:scale-95 disabled:opacity-50"
+                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-500/20 font-mono font-bold text-sm hover:bg-purple-700 transition-all active:scale-95 disabled:opacity-50"
               >
                 AND
               </button>
               <button
                 onClick={() => addToExpression("operator", "OR")}
                 disabled={disabled}
-                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-500/20 font-mono font-black text-sm hover:bg-purple-700 transition-all active:scale-95 disabled:opacity-50"
+                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-500/20 font-mono font-bold text-sm hover:bg-purple-700 transition-all active:scale-95 disabled:opacity-50"
               >
                 OR
               </button>
               <button
                 onClick={() => addToExpression("operator", "XOR")}
                 disabled={disabled}
-                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-500/20 font-mono font-black text-sm hover:bg-purple-700 transition-all active:scale-95 disabled:opacity-50"
+                className="px-5 py-2.5 bg-purple-600 text-white rounded-xl shadow-md shadow-purple-500/20 font-mono font-bold text-sm hover:bg-purple-700 transition-all active:scale-95 disabled:opacity-50"
               >
                 XOR
               </button>
@@ -464,10 +464,10 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
       >
         <div className="flex items-center justify-between">
           <div className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-gray-500 dark:text-gray-400">
+            <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-text-secondary-light dark:text-text-secondary-dark/70">
               Real-time Evaluation
             </span>
-            <h4 className="font-bold text-gray-700 dark:text-gray-300">
+            <h4 className="font-bold text-text-secondary-light dark:text-text-secondary-dark">
               Operational Logic
             </h4>
           </div>
@@ -477,7 +477,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
             </div>
           ) : result !== null ? (
             <div
-              className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-lg transition-all shadow-md ${
+              className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-bold text-lg transition-all shadow-md ${
                 result
                   ? "bg-green-500 text-white shadow-green-500/20"
                   : "bg-red-500 text-white shadow-red-500/20"
@@ -537,7 +537,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
       {/* Dynamic Truth Table */}
       {variables.length > 0 && variables.length <= 4 && (
         <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm overflow-hidden">
-          <h3 className="font-bold text-xl mb-6 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+          <h3 className="font-bold text-xl mb-6 text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
             <Tag className="w-6 h-6 text-blue-500 fill-blue-500/10" />
             Logic Truth Table
           </h3>
@@ -548,12 +548,12 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
                   {variables.map((variable) => (
                     <th
                       key={variable.name}
-                      className="px-6 py-4 font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest text-[10px] border-r border-gray-100 dark:border-gray-800"
+                      className="px-6 py-4 font-bold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-widest text-[10px] border-r border-gray-100 dark:border-gray-800"
                     >
                       {variable.name}
                     </th>
                   ))}
-                  <th className="px-6 py-4 font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest text-[10px]">
+                  <th className="px-6 py-4 font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest text-[10px]">
                     Output
                   </th>
                 </tr>
@@ -591,7 +591,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
                         {testVars.map((variable) => (
                           <td
                             key={variable.name}
-                            className="px-6 py-4 font-mono text-center font-bold text-gray-700 dark:text-gray-300 border-r border-gray-50 dark:border-gray-800"
+                            className="px-6 py-4 font-mono text-center font-bold text-text-secondary-light dark:text-text-secondary-dark border-r border-gray-50 dark:border-gray-800"
                           >
                             <span
                               className={`px-2 py-0.5 rounded text-[10px] ${
@@ -604,7 +604,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
                             </span>
                           </td>
                         ))}
-                        <td className="px-6 py-4 font-mono text-center font-black text-blue-600 dark:text-blue-400">
+                        <td className="px-6 py-4 font-mono text-center font-bold text-blue-600 dark:text-blue-400">
                           <span
                             className={`px-3 py-1 rounded-lg text-xs ${
                               outputError
@@ -643,7 +643,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
             Validated Logical String
           </h3>
           <div className="bg-white dark:bg-gray-900/50 rounded-2xl p-6 border-2 border-blue-100 dark:border-blue-800 shadow-inner">
-            <code className="text-lg font-mono text-blue-800 dark:text-blue-200 font-black">
+            <code className="text-lg font-mono text-blue-800 dark:text-blue-200 font-bold">
               {logicalData.correct_expression}
             </code>
           </div>

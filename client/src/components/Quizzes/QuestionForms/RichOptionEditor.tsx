@@ -50,7 +50,7 @@ export const RichOptionEditor: React.FC<RichOptionEditorProps> = ({
           <div className="flex justify-end gap-3 mt-6">
             <button
               onClick={() => setIsOpen(false)}
-              className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
+              className="px-6 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-all"
             >
               Cancel
             </button>

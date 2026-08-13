@@ -24,7 +24,7 @@ const PauseOverlay: React.FC<PauseOverlayProps> = ({
         </div>
 
         {/* Title */}
-        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-4">
+        <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4">
           Exam Paused
         </h2>
 
@@ -39,7 +39,7 @@ const PauseOverlay: React.FC<PauseOverlayProps> = ({
         </div>
 
         {/* Instructions */}
-        <p className="text-gray-600 dark:text-gray-400 text-sm mb-6">
+        <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm mb-6">
           Please wait until the instructor resumes your exam. You cannot answer
           questions while the exam is paused.
         </p>

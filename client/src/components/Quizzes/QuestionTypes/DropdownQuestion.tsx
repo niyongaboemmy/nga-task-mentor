@@ -206,11 +206,11 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
     <div className="space-y-6">
       {/* Question Prompt */}
       <div className="bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 rounded-3xl p-8 shadow-sm">
-        <h3 className="font-bold text-xl mb-4 text-gray-900 dark:text-gray-100 flex items-center gap-2">
+        <h3 className="font-bold text-xl mb-4 text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
           <CheckCircle className="w-6 h-6 text-blue-500" />
           Complete the Statement
         </h3>
-        <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-lg">
+        <div className="text-text-primary-light dark:text-text-primary-dark leading-relaxed text-lg">
           {segments.map((segment, index) => {
             if (segment.type === "text") {
               return (
@@ -247,7 +247,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                       disabled={disabled || submitted}
                       className={`appearance-none w-full px-4 py-2 pr-10 border-2 rounded-lg text-sm font-medium transition-all ${
                         disabled || submitted
-                          ? "cursor-not-allowed bg-gray-50 dark:bg-gray-800/50 text-gray-500 dark:text-gray-400"
+                          ? "cursor-not-allowed bg-gray-50 dark:bg-gray-800/50 text-text-secondary-light dark:text-text-secondary-dark/70"
                           : "cursor-pointer bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-500"
                       } ${
                         status === true && showCorrectAnswer
@@ -256,7 +256,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                             ? "border-red-400 bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-300"
                             : selectedValue
                               ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-300"
-                              : "border-gray-300 dark:border-gray-600 text-gray-900 dark:text-gray-100"
+                              : "border-gray-300 dark:border-gray-600 text-text-primary-light dark:text-text-primary-dark"
                       } focus:outline-none focus:ring-2 focus:ring-blue-500`}
                     >
                       <option value="" disabled>
@@ -351,7 +351,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
               </div>
             )}
             <div className="flex-1">
-              <h3 className="font-bold text-xl mb-1 text-gray-900 dark:text-gray-100">
+              <h3 className="font-bold text-xl mb-1 text-text-primary-light dark:text-text-primary-dark">
                 {showCorrectAnswer
                   ? allCorrect
                     ? "Perfect Score!"
@@ -359,7 +359,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                   : "Answer Saved"}
               </h3>
               {showCorrectAnswer && (
-                <p className="text-sm text-gray-700 dark:text-gray-300 mb-2">
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Score:{" "}
                   <span className="font-bold text-blue-600 dark:text-blue-400">
                     {score.toFixed(0)}%
@@ -381,14 +381,14 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                         <div className="flex items-start gap-3">
                           <XCircle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-0.5" />
                           <div className="text-sm">
-                            <div className="font-bold text-gray-900 dark:text-gray-100">
+                            <div className="font-bold text-text-primary-light dark:text-text-primary-dark">
                               Your answer:{" "}
                               <span className="text-red-700 dark:text-red-400">
                                 {selections[option.dropdown_index] || "(empty)"}
                               </span>
                             </div>
                             {showCorrectAnswer && (
-                              <div className="text-gray-700 dark:text-gray-300 mt-1 flex items-center gap-2">
+                              <div className="text-text-secondary-light dark:text-text-secondary-dark mt-1 flex items-center gap-2">
                                 <span className="font-bold">
                                   Correct answer:
                                 </span>
@@ -415,7 +415,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
             <CheckCircle className="w-6 h-6" />
             Correct Sequence
           </h3>
-          <div className="text-gray-800 dark:text-gray-200 leading-relaxed text-lg">
+          <div className="text-text-primary-light dark:text-text-primary-dark leading-relaxed text-lg">
             {segments.map((segment, index) => {
               if (segment.type === "text") {
                 return (
