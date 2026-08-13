@@ -101,18 +101,18 @@ const Courses: React.FC = () => {
       {/* Header */}
       <motion.div
         variants={itemVariants}
-        className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 px-4 md:px-6 py-4 md:py-5"
+        className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 px-4 md:px-6 py-4 md:py-5"
       >
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center">
+            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
               <BookOpen className="w-6 h-6 md:w-7 md:h-7" />
             </div>
             <div>
-              <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+              <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                 Courses
               </h1>
-              <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+              <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm mt-1">
                 {!isCourseManager
                   ? "Your enrolled courses"
                   : filter === "all"
@@ -125,7 +125,7 @@ const Courses: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2 md:gap-3">
-            <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+            <span className="px-3 py-1 rounded-full text-xs font-medium bg-surface-light dark:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark">
               {courses.length} course{courses.length === 1 ? "" : "s"}
             </span>
           </div>
@@ -135,7 +135,7 @@ const Courses: React.FC = () => {
         <div className="relative mt-4">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg
-              className="h-5 w-5 text-gray-400"
+              className="h-5 w-5 text-text-secondary-light dark:text-text-secondary-dark/60"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -153,7 +153,7 @@ const Courses: React.FC = () => {
             placeholder="Search courses by title, code, or description..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full font-normal pl-10 pr-3 py-2.5 text-sm rounded-2xl leading-5 bg-gray-50 dark:bg-gray-800/40 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:text-white"
+            className="block w-full font-normal pl-10 pr-3 py-2.5 text-sm rounded-2xl leading-5 bg-surface-light dark:bg-surface-dark/50 placeholder-text-secondary-light dark:placeholder-text-secondary-dark/60 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-text-primary-light dark:text-text-primary-dark border border-transparent"
           />
         </div>
       </motion.div>
@@ -161,9 +161,9 @@ const Courses: React.FC = () => {
       {/* Courses List */}
       <motion.div variants={itemVariants} className="space-y-2 md:space-y-2.5">
         {filteredCourses.length === 0 ? (
-          <div className="text-center py-12 bg-white/60 dark:bg-gray-900/60 border border-dashed border-gray-300/70 dark:border-gray-700/70 rounded-[1.6rem]">
+          <div className="text-center py-12 bg-card-light dark:bg-card-dark/30 border border-dashed border-border-light dark:border-border-dark/50 rounded-3xl">
             <svg
-              className="mx-auto h-14 w-14 text-gray-400 dark:text-gray-600"
+              className="mx-auto h-14 w-14 text-text-secondary-light dark:text-text-secondary-dark/50"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -175,12 +175,12 @@ const Courses: React.FC = () => {
                 d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
             </svg>
-            <h3 className="mt-3 text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 className="mt-3 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
               {courses.length === 0
                 ? "No courses found"
                 : "No courses match your search"}
             </h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 max-w-md mx-auto">
+            <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark/70 max-w-md mx-auto">
               {courses.length === 0
                 ? !isCourseManager
                   ? "You're not enrolled in any courses yet."

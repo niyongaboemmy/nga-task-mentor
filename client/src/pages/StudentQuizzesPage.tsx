@@ -284,7 +284,7 @@ const StudentQuizzesPage: React.FC = () => {
 
   const QuizResultItem: React.FC<{ result: QuizResult }> = ({ result }) => {
     return (
-      <div className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-200/60 dark:border-gray-800 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 hover:-translate-y-0.5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="group bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 hover:-translate-y-0.5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           {/* Left side - Quiz info */}
           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
@@ -296,7 +296,7 @@ const StudentQuizzesPage: React.FC = () => {
 
             <div className="flex-1 min-w-0">
               <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
-                <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
                   {result.quiz_title}
                 </h3>
                 <span
@@ -399,7 +399,7 @@ const StudentQuizzesPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 dark:bg-black flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-400">
@@ -417,7 +417,7 @@ const StudentQuizzesPage: React.FC = () => {
         <div className="mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white">
+              <h1 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                 My Quiz Results
               </h1>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -433,13 +433,13 @@ const StudentQuizzesPage: React.FC = () => {
                   placeholder="Search quizzes..."
                   value={filters.search}
                   onChange={(e) => updateFilter("search", e.target.value)}
-                  className="pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent w-full text-sm"
+                  className="pl-10 pr-4 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-full text-sm"
                 />
               </div>
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="inline-flex items-center px-4 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                className="inline-flex items-center px-4 py-2 bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 hover:shadow-md"
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Filters
@@ -465,7 +465,7 @@ const StudentQuizzesPage: React.FC = () => {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 transition-all duration-300 hover:-translate-y-1">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -479,7 +479,7 @@ const StudentQuizzesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:shadow-orange-100/50 dark:hover:shadow-orange-900/25 transition-all duration-300 hover:-translate-y-1">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-orange-100/50 dark:hover:shadow-orange-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -493,7 +493,7 @@ const StudentQuizzesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:shadow-purple-100/50 dark:hover:shadow-purple-900/25 transition-all duration-300 hover:-translate-y-1">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-purple-100/50 dark:hover:shadow-purple-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -511,7 +511,7 @@ const StudentQuizzesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:shadow-yellow-100/50 dark:hover:shadow-yellow-900/25 transition-all duration-300 hover:-translate-y-1">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-yellow-100/50 dark:hover:shadow-yellow-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -529,7 +529,7 @@ const StudentQuizzesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-200 dark:border-gray-800 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 transition-all duration-300 hover:-translate-y-1">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -546,7 +546,7 @@ const StudentQuizzesPage: React.FC = () => {
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 p-4 mb-6 animate-in slide-in-from-top duration-300">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-4 mb-6 animate-in slide-in-from-top duration-300">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {/* Status Filter */}
               <div>
@@ -556,7 +556,7 @@ const StudentQuizzesPage: React.FC = () => {
                 <select
                   value={filters.status}
                   onChange={(e) => updateFilter("status", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
                 >
                   <option value="all">All Status</option>
                   <option value="completed">Completed</option>
@@ -573,7 +573,7 @@ const StudentQuizzesPage: React.FC = () => {
                 <select
                   value={filters.course}
                   onChange={(e) => updateFilter("course", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
                 >
                   <option value="all">All Courses</option>
                   {courses.map((course) => (
@@ -592,7 +592,7 @@ const StudentQuizzesPage: React.FC = () => {
                 <select
                   value={filters.dateRange}
                   onChange={(e) => updateFilter("dateRange", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
                 >
                   <option value="all">All Time</option>
                   <option value="today">Today</option>
@@ -610,7 +610,7 @@ const StudentQuizzesPage: React.FC = () => {
                 <select
                   value={filters.scoreRange}
                   onChange={(e) => updateFilter("scoreRange", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
                 >
                   <option value="all">All Scores</option>
                   <option value="excellent">Excellent (90%+)</option>
@@ -628,7 +628,7 @@ const StudentQuizzesPage: React.FC = () => {
                 <select
                   value={filters.sortBy}
                   onChange={(e) => updateFilter("sortBy", e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                  className="w-full px-3 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
                 >
                   <option value="submitted_at">Date Taken</option>
                   <option value="quiz_title">Quiz Title</option>
@@ -677,7 +677,7 @@ const StudentQuizzesPage: React.FC = () => {
           {/* Available Quizzes */}
           {availableQuizzes.length > 0 && (
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4 flex items-center gap-2">
                 <BookOpen className="h-5 w-5 text-orange-500" />
                 Available Quizzes
               </h2>
@@ -685,7 +685,7 @@ const StudentQuizzesPage: React.FC = () => {
                 {availableQuizzes.map((quiz) => (
                   <div
                     key={quiz.id}
-                    className="group bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 hover:border-orange-300 dark:hover:border-orange-700 transition-all hover:shadow-lg hover:shadow-orange-100/50 dark:hover:shadow-orange-900/25 hover:-translate-y-0.5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-2 duration-500"
+                    className="group bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-orange-300 dark:hover:border-orange-700 transition-all hover:shadow-lg hover:shadow-orange-100/50 dark:hover:shadow-orange-900/25 hover:-translate-y-0.5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-2 duration-500"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                       <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
@@ -697,7 +697,7 @@ const StudentQuizzesPage: React.FC = () => {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 mb-1">
-                            <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                            <h3 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
                               {quiz.title}
                             </h3>
                             <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 self-start sm:self-auto">
@@ -750,7 +750,7 @@ const StudentQuizzesPage: React.FC = () => {
           {/* Completed Quiz Results */}
           {paginatedResults.length > 0 && (
             <div>
-              <h2 className="text-lg sm:text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <h2 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4 flex items-center gap-2">
                 <CheckCircle className="h-5 w-5 text-emerald-500" />
                 Completed Quizzes
               </h2>
@@ -772,7 +772,7 @@ const StudentQuizzesPage: React.FC = () => {
             <div className="mx-auto h-24 w-24 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl flex items-center justify-center mb-4 animate-bounce">
               <Search className="h-12 w-12 text-blue-400" />
             </div>
-            <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+            <h3 className="text-lg font-medium text-text-primary-light dark:text-text-primary-dark mb-2">
               No quizzes available
             </h3>
             <p className="text-sm text-gray-600 dark:text-gray-400 mb-6">
@@ -812,7 +812,7 @@ const StudentQuizzesPage: React.FC = () => {
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-2 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
+              className="p-2 rounded-2xl bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
@@ -827,7 +827,7 @@ const StudentQuizzesPage: React.FC = () => {
                     className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
                       currentPage === page
                         ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                        : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        : "bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     {page}
@@ -850,7 +850,7 @@ const StudentQuizzesPage: React.FC = () => {
                     className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
                       currentPage === pageNum
                         ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                        : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800"
+                        : "bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     {pageNum}
@@ -862,7 +862,7 @@ const StudentQuizzesPage: React.FC = () => {
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-2 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
+              className="p-2 rounded-2xl bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

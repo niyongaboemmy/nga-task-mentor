@@ -57,7 +57,7 @@ const UpdateAssignmentPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-black flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -65,7 +65,7 @@ const UpdateAssignmentPage: React.FC = () => {
 
   if (error || !assignment) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-black flex items-center justify-center">
         <div className="text-center">
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
             Error
@@ -85,7 +85,7 @@ const UpdateAssignmentPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-black py-8">
       <div className="max-w-5xl mx-auto">
         <UpdateAssignmentModal
           assignment={assignment}

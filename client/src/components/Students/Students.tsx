@@ -178,19 +178,21 @@ const Students: React.FC = () => {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       {/* Header */}
-      <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow-sm border border-white/20 dark:border-gray-900/50 p-4 px-5">
+      <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-4 px-5">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">Students Enrolled</h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1 text-sm">
+            <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+              Students Enrolled
+            </h1>
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mt-1 text-sm">
               Manage and view all students enrolled in the system (
               {filteredAndSortedStudents.length} total)
             </p>
           </div>
           <div className="flex items-center space-x-3">
-            <span className="text-sm text-gray-500 dark:text-gray-400">
+            <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
               {filteredAndSortedStudents.length} of {students.length} students
             </span>
           </div>
@@ -207,10 +209,10 @@ const Students: React.FC = () => {
               placeholder="Search by name or email..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full px-4 py-2.5 pl-10 bg-white/50 border border-gray-200 dark:border-gray-800 dark:bg-gray-900 rounded-xl focus:outline-none text-sm focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full px-4 py-2.5 pl-10 bg-surface-light dark:bg-surface-dark/50 border border-transparent rounded-xl focus:outline-none text-sm text-text-primary-light dark:text-text-primary-dark focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
             />
             <svg
-              className="absolute left-3 top-3 h-5 w-5 text-gray-400"
+              className="absolute left-3 top-3 h-5 w-5 text-text-secondary-light dark:text-text-secondary-dark/60"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -230,7 +232,7 @@ const Students: React.FC = () => {
           <select
             value={roleFilter}
             onChange={(e) => setRoleFilter(e.target.value)}
-            className="w-full px-4 py-2.5 bg-white/50 border border-gray-200 text-sm rounded-xl focus:outline-none dark:border-gray-800 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+            className="w-full px-4 py-2.5 bg-surface-light dark:bg-surface-dark/50 border border-transparent text-sm rounded-xl focus:outline-none text-text-primary-light dark:text-text-primary-dark focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
           >
             <option value="all">All Roles</option>
             <option value="student">Students</option>
@@ -245,7 +247,7 @@ const Students: React.FC = () => {
             <select
               value={selectedCourse}
               onChange={(e) => setSelectedCourse(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white/50 border border-gray-200 text-sm rounded-xl focus:outline-none dark:border-gray-800 dark:bg-gray-900 focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
+              className="w-full px-4 py-2.5 bg-surface-light dark:bg-surface-dark/50 border border-transparent text-sm rounded-xl focus:outline-none text-text-primary-light dark:text-text-primary-dark focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all duration-200"
             >
               <option value="">Select Course...</option>
               {courses.map((course, c) => (
@@ -260,14 +262,14 @@ const Students: React.FC = () => {
         {/* Reset Filters */}
         <button
           onClick={resetFilters}
-          className="px-4 py-2.5 bg-white dark:bg-gray-900 dark:text-white hover:bg-gray-200 text-gray-700 text-sm rounded-xl transition-colors duration-200"
+          className="px-4 py-2.5 bg-surface-light dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark hover:bg-gray-200 dark:hover:bg-gray-700 text-sm rounded-xl transition-colors duration-200"
         >
           Reset
         </button>
       </div>
 
       {/* Students Table/List */}
-      <div className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-xl rounded-2xl shadow border border-white/20 dark:border-gray-900/50 overflow-hidden">
+      <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
@@ -275,7 +277,7 @@ const Students: React.FC = () => {
         ) : paginatedStudents.length === 0 ? (
           <div className="text-center py-12">
             <svg
-              className="mx-auto h-12 w-12 text-gray-400 dark:text-gray-600"
+              className="mx-auto h-12 w-12 text-text-secondary-light dark:text-text-secondary-dark/50"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -287,12 +289,12 @@ const Students: React.FC = () => {
                 d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
               />
             </svg>
-            <h3 className="mt-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+            <h3 className="mt-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
               {searchTerm || roleFilter !== "all"
                 ? "No students found"
                 : "No students registered"}
             </h3>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
               {searchTerm || roleFilter !== "all"
                 ? "Try adjusting your search or filters."
                 : "Students will appear here once they register."}
@@ -301,10 +303,10 @@ const Students: React.FC = () => {
         ) : (
           <>
             {/* Table Header */}
-            <div className="px-6 py-4 bg-gray-50/50 border-b border-gray-200 dark:bg-gray-900 dark:border-gray-900">
-              <div className="grid grid-cols-12 gap-4 text-sm font-medium text-gray-500">
+            <div className="px-6 py-4 bg-surface-light dark:bg-surface-dark/50 border-b border-border-light dark:border-border-dark/30">
+              <div className="grid grid-cols-12 gap-4 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                 <div
-                  className="col-span-7 cursor-pointer hover:text-gray-700"
+                  className="col-span-7 cursor-pointer hover:text-text-primary-light dark:hover:text-text-primary-dark"
                   onClick={() => handleSort("first_name")}
                 >
                   <div className="flex items-center space-x-1">
@@ -314,19 +316,8 @@ const Students: React.FC = () => {
                     )}
                   </div>
                 </div>
-                {/* <div
-                  className="col-span-4 cursor-pointer hover:text-gray-700"
-                  onClick={() => handleSort("last_name")}
-                >
-                  <div className="flex items-center space-x-1">
-                    <span>Last Name</span>
-                    {sortField === "last_name" && (
-                      <span>{sortDirection === "asc" ? "↑" : "↓"}</span>
-                    )}
-                  </div>
-                </div> */}
                 <div
-                  className="col-span-4 cursor-pointer hover:text-gray-700"
+                  className="col-span-4 cursor-pointer hover:text-text-primary-light dark:hover:text-text-primary-dark"
                   onClick={() => handleSort("email")}
                 >
                   <div className="flex items-center space-x-1">
@@ -337,7 +328,7 @@ const Students: React.FC = () => {
                   </div>
                 </div>
                 <div
-                  className="col-span-1 cursor-pointer hover:text-gray-700"
+                  className="col-span-1 cursor-pointer hover:text-text-primary-light dark:hover:text-text-primary-dark"
                   onClick={() => handleSort("createdAt")}
                 >
                   <div className="flex items-center space-x-1">
@@ -351,18 +342,18 @@ const Students: React.FC = () => {
             </div>
 
             {/* Student List */}
-            <div className="divide-y divide-gray-200 dark:divide-gray-900">
+            <div className="divide-y divide-border-light dark:divide-border-dark/30">
               {paginatedStudents.map((student, s) => (
                 <Link
                   key={s + 1}
                   to={`/students/${student?.user_id || student?.user_id}`}
-                  className="block px-6 py-3 hover:bg-gray-50/50 dark:hover:bg-gray-900 transition-colors duration-200 group"
+                  className="block px-6 py-3 hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors duration-200 group"
                 >
                   <div className="grid grid-cols-12 gap-4 items-center">
                     <div className="col-span-7">
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0">
-                          <div className="w-8 h-8 bg-gradient-to-br from-blue-400 dark:from-blue-600 to-blue-500 dark:to-blue-800 rounded-full flex items-center justify-center">
+                          <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
                             <span className="text-white font-bold text-sm">
                               {student?.first_name?.[0] ||
                                 student?.first_name?.[0] ||
@@ -374,29 +365,23 @@ const Students: React.FC = () => {
                           </div>
                         </div>
                         <div>
-                          <h3 className="text-sm font-medium text-gray-900 dark:text-white group-hover:text-blue-600 transition-colors">
+                          <h3 className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                             {student?.first_name || student?.first_name}{" "}
                             {student?.last_name || student?.last_name}
                           </h3>
-                          <p className="text-xs text-gray-500 dark:text-gray-500 capitalize">
+                          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 capitalize">
                             {"Student"}
                           </p>
                         </div>
                       </div>
                     </div>
-                    {/* <div className="col-span-4">
-                      <p className="text-sm text-gray-900 dark:text-gray-500">
-                        {student.last_name}
-                      </p>
-                    </div> */}
                     <div className="col-span-4">
-                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                      <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark truncate">
                         {student.username}
                       </p>
                     </div>
                     <div className="col-span-1">
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        {/* {new Date(student.createdAt).toLocaleDateString()} */}
+                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                         ID: {student?.user_id}
                       </p>
                     </div>
@@ -407,8 +392,8 @@ const Students: React.FC = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-200 dark:bg-gray-900 dark:border-gray-900 flex items-center justify-between">
-                <div className="text-sm text-gray-700 dark:text-gray-300">
+              <div className="px-6 py-4 bg-surface-light dark:bg-surface-dark/50 border-t border-border-light dark:border-border-dark/30 flex items-center justify-between">
+                <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   Showing {startIndex + 1} to{" "}
                   {Math.min(
                     startIndex + itemsPerPage,
@@ -422,11 +407,11 @@ const Students: React.FC = () => {
                       setCurrentPage((prev) => Math.max(prev - 1, 1))
                     }
                     disabled={currentPage === 1}
-                    className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 dark:bg-gray-900 dark:border-gray-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1 text-sm bg-white dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark border border-border-light dark:border-border-dark/50 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Previous
                   </button>
-                  <span className="text-sm text-gray-700">
+                  <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Page {currentPage} of {totalPages}
                   </span>
                   <button
@@ -434,7 +419,7 @@ const Students: React.FC = () => {
                       setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                     }
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1 text-sm bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1 text-sm bg-white dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark border border-border-light dark:border-border-dark/50 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Next
                   </button>

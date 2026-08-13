@@ -14,7 +14,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
 }) => {
   return (
     <div
-      className={`bg-white/80 backdrop-blur-xl rounded-3xl border border-gray-200/70 dark:bg-gray-900/60 dark:border-gray-800/50 hover:border-gray-300/80 dark:hover:border-gray-700/80 transition-all duration-200 group-hover:scale-[1.01] cursor-pointer ${
+      className={`bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 transition-colors cursor-pointer ${
         compact ? "p-4" : "p-5"
       }`}
       onClick={onClick}
@@ -22,20 +22,20 @@ const CourseCard: React.FC<CourseCardProps> = ({
       {/* Header row with course code icon and status */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <div className="h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-xl flex items-center justify-center flex-shrink-0">
-            <span className="text-white font-bold text-base">
+          <div className="h-10 w-10 bg-blue-100 dark:bg-blue-900/20 rounded-xl flex items-center justify-center flex-shrink-0">
+            <span className="text-blue-600 dark:text-blue-400 font-bold text-base">
               {(course.code || "??").substring(0, 2)}
             </span>
           </div>
           <div className="flex-1 min-w-0">
             <h3
-              className={`font-semibold text-gray-900 dark:text-white truncate group-hover:text-blue-600 dark:group-hover:text-white group-hover:underline transition-colors mb-1 ${
+              className={`font-semibold text-text-primary-light dark:text-text-primary-dark truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors mb-1 ${
                 compact ? "text-base" : "text-base"
               }`}
             >
               {course.title}
             </h3>
-            <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 truncate">
               {course.code} • {course.credits || 0} Credits
             </p>
           </div>
@@ -44,7 +44,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
 
       {/* Description - only show in non-compact mode */}
       {!compact && course.description && (
-        <p className="text-sm text-gray-600 dark:text-gray-400 line-clamp-2 mb-3">
+        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 line-clamp-2 mb-3">
           {course.description}
         </p>
       )}

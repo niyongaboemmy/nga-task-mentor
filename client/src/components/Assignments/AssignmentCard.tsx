@@ -235,7 +235,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
 
   return (
     <div
-      className={`bg-white dark:bg-gray-900/60 rounded-3xl border border-gray-200/70 dark:border-gray-800/0 hover:border-gray-300/80 dark:hover:border-gray-700/80 transition-all duration-200 ${
+      className={`bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 transition-colors ${
         compact ? "p-3 sm:p-4 md:p-5" : "p-4 sm:p-5 md:p-6"
       }`}
     >
@@ -245,7 +245,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-2 sm:gap-3 mb-1 sm:mb-1">
             <div className="flex-1 min-w-0">
               <h3
-                className={`font-semibold text-gray-900 dark:text-white truncate pr-2 mb-1 sm:mb-2 ${
+                className={`font-semibold text-text-primary-light dark:text-text-primary-dark truncate pr-2 mb-1 sm:mb-2 ${
                   compact ? "text-sm sm:text-base" : "text-base sm:text-lg"
                 }`}
               >
@@ -301,7 +301,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
           </div>
 
           {/* Enhanced info row with responsive layout */}
-          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-gray-500 dark:text-gray-400 mb-3 sm:mb-4">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mb-3 sm:mb-4">
             <div className="flex items-center gap-1 sm:gap-1.5 min-w-0">
               <Calendar className="h-3 w-3 flex-shrink-0" />
               <span
@@ -388,7 +388,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
           {/* Responsive submissions preview */}
           {showSubmissions && submissionCount > 0 && (
             <div className="flex items-center justify-between text-xs px-1 sm:px-0">
-              <span className="text-gray-500 dark:text-gray-400 truncate">
+              <span className="text-text-secondary-light dark:text-text-secondary-dark/70 truncate">
                 {submissionCount} submission{submissionCount !== 1 ? "s" : ""}
               </span>
               {assignment.submissions && assignment.submissions.length > 0 && (

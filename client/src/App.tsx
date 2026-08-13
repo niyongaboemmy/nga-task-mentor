@@ -13,7 +13,7 @@ function AppContent() {
   return (
     <ErrorBoundary>
       <Router basename="/">
-        <div className="min-h-screen bg-gray-100 dark:bg-gray-950 text-text-primary-light dark:text-text-primary-dark">
+        <div className="min-h-screen bg-gray-100 dark:bg-black text-text-primary-light dark:text-text-primary-dark">
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<AuthGuard />} />

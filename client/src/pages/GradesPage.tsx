@@ -43,15 +43,15 @@ function StatCard({
   iconBg: string;
 }) {
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 p-6 flex flex-col gap-4">
-      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${iconBg}`}>
+    <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col gap-4">
+      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${iconBg}`}>
         {icon}
       </div>
       <div>
-        <p className="text-sm text-gray-500">{label}</p>
-        <p className="text-3xl font-bold text-gray-900 mt-1">
+        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">{label}</p>
+        <p className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mt-1">
           {value}
-          {sub && <span className="text-sm font-normal text-gray-400 ml-1">{sub}</span>}
+          {sub && <span className="text-sm font-normal text-text-secondary-light dark:text-text-secondary-dark/60 ml-1">{sub}</span>}
         </p>
       </div>
     </div>
@@ -72,7 +72,7 @@ function RecordedChip({
   return (
     <button
       onClick={onClick}
-      className="text-blue-600 hover:text-blue-700 font-medium text-sm transition-colors"
+      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm transition-colors"
     >
       {recorded} / {total}
     </button>
@@ -255,39 +255,39 @@ export default function GradesPage() {
   return (
     <div className="space-y-6">
       {/* Page title */}
-      <h1 className="text-2xl font-bold text-gray-900">Grades</h1>
+      <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">Grades</h1>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          icon={<ClipboardList className="w-6 h-6 text-blue-500" />}
-          iconBg="bg-blue-50"
+          icon={<ClipboardList className="w-6 h-6 text-blue-600 dark:text-blue-400" />}
+          iconBg="bg-blue-100 dark:bg-blue-900/20"
           label="Assessments tracking"
           value={stats.assessmentsTracking}
           sub="/ subject"
         />
         <StatCard
-          icon={<School className="w-6 h-6 text-purple-500" />}
-          iconBg="bg-purple-50"
+          icon={<School className="w-6 h-6 text-violet-600 dark:text-violet-400" />}
+          iconBg="bg-violet-100 dark:bg-violet-900/20"
           label="Classes without assessments"
           value={stats.classesWithoutAssessments}
         />
         <StatCard
-          icon={<Users className="w-6 h-6 text-green-500" />}
-          iconBg="bg-green-50"
+          icon={<Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />}
+          iconBg="bg-emerald-100 dark:bg-emerald-900/20"
           label="Subjects without assessments"
           value={stats.subjectsWithoutAssessments}
         />
         <StatCard
-          icon={<BookOpen className="w-6 h-6 text-rose-500" />}
-          iconBg="bg-rose-50"
+          icon={<BookOpen className="w-6 h-6 text-red-600 dark:text-red-400" />}
+          iconBg="bg-red-100 dark:bg-red-900/20"
           label="Total given assessments"
           value={stats.totalAssessments}
         />
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200">
+      <div className="border-b border-border-light dark:border-border-dark/50">
         <nav className="flex gap-6">
           {TABS.map((tab) => (
             <button
@@ -295,8 +295,8 @@ export default function GradesPage() {
               onClick={() => setActiveTab(tab)}
               className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark"
               }`}
             >
               {tab}
@@ -311,25 +311,25 @@ export default function GradesPage() {
           {/* Table header toolbar */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <span className="font-semibold text-gray-900 text-lg">All Assessments</span>
-              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-gray-100 text-gray-600 text-xs font-bold">
+              <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">All Assessments</span>
+              <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-surface-light dark:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark text-xs font-bold">
                 {filtered.length}
               </span>
             </div>
             <div className="flex items-center gap-3">
               <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark/60" />
                 <input
                   type="text"
                   placeholder="Search"
                   value={search}
                   onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  className="pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-56 bg-gray-50"
+                  className="pl-9 pr-4 py-2 rounded-xl border border-transparent text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-56 bg-surface-light dark:bg-surface-dark/50"
                 />
               </div>
               <button
                 onClick={() => { setEditTarget(null); setModalOpen(true); }}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Assessment
@@ -344,42 +344,42 @@ export default function GradesPage() {
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-20 text-center">
-              <AlertCircle className="w-10 h-10 text-gray-300" />
-              <p className="text-gray-500 text-sm">
+              <AlertCircle className="w-10 h-10 text-text-secondary-light dark:text-text-secondary-dark/40" />
+              <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-sm">
                 {search ? "No assessments match your search." : "No assessments yet. Click \"+  Add Assessment\" to create one."}
               </p>
             </div>
           ) : (
-            <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
-              <table className="min-w-full divide-y divide-gray-100">
+            <div className="rounded-3xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden bg-card-light dark:bg-card-dark/30">
+              <table className="min-w-full divide-y divide-border-light dark:divide-border-dark/30">
                 <thead>
-                  <tr className="bg-gray-50">
+                  <tr className="bg-surface-light dark:bg-surface-dark/50">
                     {["Date", "Subject", "Type", "Maximum", "Recorded Results", "Actions"].map((h) => (
                       <th
                         key={h}
-                        className="px-5 py-3.5 text-xs font-semibold text-gray-500 uppercase tracking-wider text-left"
+                        className="px-5 py-3.5 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider text-left"
                       >
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-border-light dark:divide-border-dark/20">
                   {paginated.map((a) => {
                     const course   = courseMap.get(a.course_id);
                     const typeLabel = ManualAssessmentApiService.getTypeLabel(a);
                     const enrolled = enrolledCounts.get(a.course_id) ?? "—";
                     const recorded = a.recorded_count ?? 0;
                     return (
-                      <tr key={a.id} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-5 py-4 text-sm text-gray-700 whitespace-nowrap">
+                      <tr key={a.id} className="hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors">
+                        <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark whitespace-nowrap">
                           {a.assessment_date ?? "—"}
                         </td>
-                        <td className="px-5 py-4 text-sm font-medium text-gray-900">
+                        <td className="px-5 py-4 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                           {course?.title ?? `Course #${a.course_id}`}
                         </td>
-                        <td className="px-5 py-4 text-sm text-gray-700">{typeLabel}</td>
-                        <td className="px-5 py-4 text-sm text-gray-700">{a.max_score}</td>
+                        <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">{typeLabel}</td>
+                        <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">{a.max_score}</td>
                         <td className="px-5 py-4 text-sm">
                           {typeof enrolled === "number" ? (
                             <RecordedChip
@@ -388,21 +388,21 @@ export default function GradesPage() {
                               onClick={() => goToMarks(a)}
                             />
                           ) : (
-                            <span className="text-gray-400 text-sm">—</span>
+                            <span className="text-text-secondary-light dark:text-text-secondary-dark/50 text-sm">—</span>
                           )}
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2">
                             <button
                               onClick={() => { setEditTarget(a); setModalOpen(true); }}
-                              className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
+                              className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
                               title="Edit"
                             >
                               <Pencil className="w-4 h-4" />
                             </button>
                             <button
                               onClick={() => handleDelete(a)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                               title="Delete"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -416,32 +416,32 @@ export default function GradesPage() {
               </table>
 
               {/* Pagination */}
-              <div className="flex items-center justify-between px-5 py-3.5 border-t border-gray-100 bg-gray-50/50">
-                <div className="flex items-center gap-2 text-sm text-gray-500">
+              <div className="flex items-center justify-between px-5 py-3.5 border-t border-border-light dark:border-border-dark/30 bg-surface-light dark:bg-surface-dark/50">
+                <div className="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   <span>Rows per page</span>
                   <select
                     value={rowsPerPage}
                     onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(1); }}
-                    className="border border-gray-200 rounded-lg px-2 py-1 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    className="border border-border-light dark:border-border-dark/50 rounded-lg px-2 py-1 text-sm bg-white dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                   >
                     {ROWS_PER_PAGE_OPTIONS.map((n) => (
                       <option key={n} value={n}>{n}</option>
                     ))}
                   </select>
                 </div>
-                <div className="flex items-center gap-1 text-sm text-gray-500">
+                <div className="flex items-center gap-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
                   <span>Page {page} of {totalPages}</span>
                   <div className="flex items-center gap-0.5 ml-3">
-                    <button onClick={() => handlePageChange(1)} disabled={page === 1} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 transition-colors">
+                    <button onClick={() => handlePageChange(1)} disabled={page === 1} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                       <ChevronsLeft className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handlePageChange(page - 1)} disabled={page === 1} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 transition-colors">
+                    <button onClick={() => handlePageChange(page - 1)} disabled={page === 1} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                       <ChevronLeft className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handlePageChange(page + 1)} disabled={page === totalPages} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 transition-colors">
+                    <button onClick={() => handlePageChange(page + 1)} disabled={page === totalPages} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                       <ChevronRight className="w-4 h-4" />
                     </button>
-                    <button onClick={() => handlePageChange(totalPages)} disabled={page === totalPages} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 transition-colors">
+                    <button onClick={() => handlePageChange(totalPages)} disabled={page === totalPages} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
                       <ChevronsRight className="w-4 h-4" />
                     </button>
                   </div>
@@ -454,13 +454,13 @@ export default function GradesPage() {
 
       {/* Tab: Comments / Observations (placeholders) */}
       {activeTab === "Comments" && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center">
-          <p className="text-gray-400 text-sm">Comments will appear here.</p>
+        <div className="rounded-3xl border border-white dark:border-border-dark/30 bg-card-light dark:bg-card-dark/30 shadow-sm p-12 text-center">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark/60 text-sm">Comments will appear here.</p>
         </div>
       )}
       {activeTab === "Observations" && (
-        <div className="rounded-2xl border border-gray-100 bg-white p-12 text-center">
-          <p className="text-gray-400 text-sm">Observations will appear here.</p>
+        <div className="rounded-3xl border border-white dark:border-border-dark/30 bg-card-light dark:bg-card-dark/30 shadow-sm p-12 text-center">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark/60 text-sm">Observations will appear here.</p>
         </div>
       )}
 

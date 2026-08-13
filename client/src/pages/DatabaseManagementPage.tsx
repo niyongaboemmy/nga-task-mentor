@@ -460,7 +460,7 @@ const DatabaseManagementPage: React.FC = () => {
 
   if (!unlocked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-950 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-black p-4">
         <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
           <h1 className="text-lg font-bold text-gray-900 dark:text-white mb-1">
             Confirm Admin Access
@@ -498,7 +498,7 @@ const DatabaseManagementPage: React.FC = () => {
   const ss = String(secondsLeft % 60).padStart(2, "0");
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-black p-4 md:p-8">
       {/* Top bar */}
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>

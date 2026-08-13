@@ -227,17 +227,17 @@ const QuizListPage: React.FC = () => {
 
   if (loading.quizzes) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-100 dark:bg-black flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <p className="text-gray-600 dark:text-gray-400">Loading quizzes...</p>
+          <p className="text-text-secondary-light dark:text-text-secondary-dark">Loading quizzes...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-gray-100 dark:bg-black">
       <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         {/* Header */}
         <div className="mb-8">
@@ -245,16 +245,16 @@ const QuizListPage: React.FC = () => {
             <div className="flex items-center gap-4">
               <Link
                 to={`/courses/${courseId}`}
-                className="inline-flex items-center px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-200"
+                className="inline-flex items-center px-3 py-2 border border-border-light dark:border-border-dark/50 rounded-xl text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark transition-all duration-200"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Course
               </Link>
               <div>
-                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
+                <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
                   Course Quizzes
                 </h1>
-                <p className="text-gray-600 dark:text-gray-400 mt-1">
+                <p className="text-text-secondary-light dark:text-text-secondary-dark mt-1">
                   Manage and organize all quizzes for this course
                 </p>
               </div>
@@ -273,13 +273,13 @@ const QuizListPage: React.FC = () => {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300">
+            <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-6 border border-white dark:border-border-dark/30">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Total Quizzes
                   </p>
-                  <p className="text-3xl font-bold text-gray-900 dark:text-white">
+                  <p className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
                     {quizzes.length}
                   </p>
                 </div>
@@ -287,10 +287,10 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300">
+            <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-6 border border-white dark:border-border-dark/30">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Published
                   </p>
                   <p className="text-3xl font-bold text-green-600 dark:text-green-400">
@@ -301,10 +301,10 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300">
+            <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-6 border border-white dark:border-border-dark/30">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Drafts
                   </p>
                   <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
@@ -315,10 +315,10 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-white dark:bg-gray-800 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 hover:shadow-lg transition-all duration-300">
+            <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-6 border border-white dark:border-border-dark/30">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Completed
                   </p>
                   <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
@@ -331,18 +331,18 @@ const QuizListPage: React.FC = () => {
           </div>
 
           {/* Search and Filters */}
-          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 mb-6">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 mb-6">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
               <div className="flex-1">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-text-secondary-light dark:text-text-secondary-dark/60" />
                   <input
                     type="text"
                     placeholder="Search quizzes..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                    className="w-full pl-10 pr-4 py-3 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark"
                   />
                 </div>
               </div>
@@ -352,7 +352,7 @@ const QuizListPage: React.FC = () => {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="px-4 py-3 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark"
                 >
                   <option value="all">All Status</option>
                   <option value="published">Published</option>
@@ -363,7 +363,7 @@ const QuizListPage: React.FC = () => {
                 <select
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="px-4 py-3 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark"
                 >
                   <option value="all">All Types</option>
                   <option value="Assessment">Assessment</option>
@@ -375,7 +375,7 @@ const QuizListPage: React.FC = () => {
                 <select
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                  className="px-4 py-3 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark"
                 >
                   <option value="created_at">Date Created</option>
                   <option value="title">Title</option>
@@ -387,7 +387,7 @@ const QuizListPage: React.FC = () => {
                   onClick={() =>
                     setSortOrder(sortOrder === "asc" ? "desc" : "asc")
                   }
-                  className="p-3 border border-gray-300 dark:border-gray-600 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  className="p-3 border border-border-light dark:border-border-dark/50 rounded-xl hover:bg-surface-light dark:hover:bg-surface-dark transition-colors"
                 >
                   {sortOrder === "asc" ? (
                     <SortAsc className="h-5 w-5" />
@@ -396,7 +396,7 @@ const QuizListPage: React.FC = () => {
                   )}
                 </button>
 
-                <div className="flex border border-gray-300 dark:border-gray-600 rounded-xl">
+                <div className="flex border border-border-light dark:border-border-dark/50 rounded-xl">
                   <button
                     onClick={() => setViewMode("list")}
                     className={`p-3 rounded-l-xl transition-colors ${
@@ -443,7 +443,7 @@ const QuizListPage: React.FC = () => {
               <div key={status} className="space-y-4">
                 <div className="flex items-center gap-3">
                   <span className="text-2xl">{getStatusIcon(status)}</span>
-                  <h2 className="text-2xl font-bold text-gray-900 dark:text-white capitalize">
+                  <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark capitalize">
                     {status} Quizzes ({quizzes.length})
                   </h2>
                 </div>
@@ -467,14 +467,14 @@ const QuizListPage: React.FC = () => {
                     {quizzes.map((quiz) => (
                       <div
                         key={quiz.id}
-                        className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 hover:shadow-lg transition-all hover:-translate-y-1"
+                        className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 transition-colors p-6"
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
-                            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
+                            <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                               {quiz.title}
                             </h3>
-                            <p className="text-gray-600 dark:text-gray-400 text-sm mb-3 line-clamp-2">
+                            <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm mb-3 line-clamp-2">
                               {quiz.description}
                             </p>
 
@@ -494,7 +494,7 @@ const QuizListPage: React.FC = () => {
                               )}
                             </div>
 
-                            <div className="flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+                            <div className="flex items-center gap-4 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                               <span>{quiz.total_questions || 0} questions</span>
                               <span>{quiz.total_points || 0} points</span>
                               {quiz.time_limit && (
@@ -560,7 +560,7 @@ const QuizListPage: React.FC = () => {
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
+              className="p-3 rounded-2xl bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -578,7 +578,7 @@ const QuizListPage: React.FC = () => {
                     className={`px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
                       currentPage === pageNum
                         ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
-                        : "bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700"
+                        : "bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700"
                     }`}
                   >
                     {pageNum}
@@ -590,7 +590,7 @@ const QuizListPage: React.FC = () => {
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
+              className="p-3 rounded-2xl bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -603,12 +603,12 @@ const QuizListPage: React.FC = () => {
             <div className="mx-auto h-24 w-24 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl flex items-center justify-center mb-6">
               <Search className="h-12 w-12 text-blue-400" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+            <h3 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
               {searchTerm || statusFilter !== "all" || typeFilter !== "all"
                 ? "No quizzes match your filters"
                 : "No quizzes yet"}
             </h3>
-            <p className="text-gray-600 dark:text-gray-400 mb-8 max-w-md mx-auto">
+            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-8 max-w-md mx-auto">
               {searchTerm || statusFilter !== "all" || typeFilter !== "all"
                 ? "Try adjusting your search terms or filters to find what you're looking for."
                 : "Create your first quiz to start assessing student learning and progress."}

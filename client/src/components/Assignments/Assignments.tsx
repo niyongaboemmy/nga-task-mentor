@@ -213,19 +213,19 @@ const Assignments: React.FC<AssignmentsProps> = ({
     <>
       <div className="space-y-5">
         {/* Header */}
-        <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 px-5 py-4">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 px-5 py-4">
           <div className="flex flex-col gap-4">
             {compact && (
               <div className="flex items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-600 text-white flex items-center justify-center">
+                  <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
                     <ClipboardList className="w-6 h-6 md:w-7 md:h-7" />
                   </div>
                   <div>
-                    <h1 className="text-2xl md:text-3xl font-black tracking-tight text-gray-900 dark:text-white">
+                    <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                       Assignments
                     </h1>
-                    <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                    <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm mt-1">
                       {currentCourseId
                         ? "Manage and review assignments for this course"
                         : isStudentView
@@ -236,7 +236,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                 </div>
 
                 <div className="hidden md:flex items-center gap-2">
-                  <span className="px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-widest bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300">
+                  <span className="px-3 py-1 rounded-full text-xs font-medium bg-surface-light dark:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark">
                     {assignments.length} item
                     {assignments.length === 1 ? "" : "s"}
                   </span>
@@ -249,7 +249,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
               <div className="w-full relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <svg
-                    className="h-5 w-5 text-gray-400"
+                    className="h-5 w-5 text-text-secondary-light dark:text-text-secondary-dark/60"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
@@ -267,7 +267,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                   placeholder="Search assignments by title or course..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full font-normal pl-10 pr-3 py-2.5 text-sm rounded-2xl leading-5 bg-gray-50 dark:bg-gray-800/40 placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 dark:border-gray-600 dark:text-white"
+                  className="block w-full font-normal pl-10 pr-3 py-2.5 text-sm rounded-2xl leading-5 bg-surface-light dark:bg-surface-dark/50 placeholder-text-secondary-light dark:placeholder-text-secondary-dark/60 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-text-primary-light dark:text-text-primary-dark border border-transparent"
                 />
               </div>
 
@@ -277,7 +277,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                   onClick={handleRefresh}
                   disabled={isRefreshing || isLoading}
                   title="Refresh assignments"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
                   <span className="hidden sm:inline">Refresh</span>
@@ -286,13 +286,13 @@ const Assignments: React.FC<AssignmentsProps> = ({
                 {/* Filter */}
                 {assignments && assignments.length > 0 && (
                   <div className="flex items-center gap-2">
-                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                    <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       Filter:
                     </span>
                     <select
                       value={filter}
                       onChange={(e) => setFilter(e.target.value as any)}
-                      className="text-sm rounded-2xl px-3 py-2.5 bg-gray-50 dark:bg-gray-900 dark:border-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="text-sm rounded-2xl px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-transparent dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">All Status</option>
                       <option value="published">Published</option>
@@ -374,7 +374,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
               className="text-center py-12 pt-0"
             >
               <svg
-                className="mx-auto h-12 w-12 text-gray-400"
+                className="mx-auto h-12 w-12 text-text-secondary-light dark:text-text-secondary-dark/50"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -386,14 +386,14 @@ const Assignments: React.FC<AssignmentsProps> = ({
                   d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                 />
               </svg>
-              <h3 className="mt-2 text-base font-medium">
+              <h3 className="mt-2 text-base font-medium text-text-primary-light dark:text-text-primary-dark">
                 {isStudentView
                   ? "No assignments available"
                   : filter === "all"
                     ? "No assignments yet"
                     : `No ${filter} assignments`}
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                 {isStudentView
                   ? "You need to be enrolled in courses to see assignments."
                   : filter === "all"
