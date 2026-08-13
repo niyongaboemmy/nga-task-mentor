@@ -401,7 +401,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                   className={`text-xs font-semibold ${
                     currentStep >= step.num
                       ? "text-text-primary-light dark:text-text-primary-dark"
-                      : "text-gray-400"
+                      : "text-gray-400 dark:text-gray-500"
                   }`}
                 >
                   {step.label}
@@ -424,7 +424,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                   {formData.question_type?.replace("_", " ").toUpperCase() ||
                     "Unknown"}
                 </div>
-                <p className="text-xs text-gray-500 mt-2">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                   Question type cannot be changed after creation.
                 </p>
               </div>
@@ -434,7 +434,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                 <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                   Question Prompt *
                 </label>
-                <p className="text-xs text-gray-500 mb-4">
+                <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
                   Edit the main text or instructions for the student.
                 </p>
                 <RichEditor
@@ -488,7 +488,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                     required
                     className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
-                  <p className="text-xs text-gray-500 mt-2">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 mt-2">
                     Between 10s and 3600s (1hr)
                   </p>
                 </div>
@@ -522,7 +522,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                 <h3 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
                   Configure specific details
                 </h3>
-                <p className="text-sm text-gray-500 mb-6">
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                   Set up the correct answers, choices, or workspace editors for
                   your {(formData.question_type || "").replace("_", " ")}{" "}
                   question.

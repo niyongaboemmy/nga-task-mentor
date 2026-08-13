@@ -59,7 +59,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+            className="text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
           >
             <svg
               className="w-6 h-6"
@@ -184,7 +184,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
             {editFormData.attachments &&
               editFormData.attachments.length > 0 && (
                 <div className="mb-4 space-y-2">
-                  <p className="text-xs text-gray-500 uppercase font-semibold">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">
                     Existing Files
                   </p>
                   {editFormData.attachments.map((file, index) => (
@@ -271,7 +271,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
               {/* New Files List */}
               {newFiles.length > 0 && (
                 <div className="space-y-2">
-                  <p className="text-xs text-gray-500 uppercase font-semibold">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 uppercase font-semibold">
                     New Files to Upload
                   </p>
                   {newFiles.map((file, index) => (
@@ -453,7 +453,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
                             target: { name: "rubric", value: newRubric },
                           } as any);
                         }}
-                        className="p-1.5 text-gray-400 hover:text-red-500 rounded-lg"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -462,7 +462,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
                 ))
               ) : (
                 <div className="text-center py-6 border-2 border-dashed border-gray-100 dark:border-gray-700 rounded-2xl">
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
                     No grading criteria defined.
                   </p>
                 </div>

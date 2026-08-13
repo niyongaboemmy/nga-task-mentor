@@ -137,7 +137,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
               </div>
               <button
                 onClick={onClose}
-                className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all duration-200 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                className="p-2.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-all duration-200 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-200"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -146,7 +146,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
             {/* Search Bar */}
             <div className="relative group mb-6">
               <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
-                <Search className="w-4 h-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                <Search className="w-4 h-4 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 transition-colors" />
               </div>
               <input
                 type="text"

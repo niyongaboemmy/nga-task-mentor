@@ -291,7 +291,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
                                 />
                               ))}
                             </div>
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-tighter">
+                            <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tighter">
                               Current Level
                             </span>
                           </div>
@@ -318,7 +318,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
                               className={`px-3 py-2 rounded-xl text-xs font-bold transition-all ${
                                 currentScore === val
                                   ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-blue-400 shadow-sm ring-1 ring-gray-200 dark:ring-gray-600"
-                                  : "text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+                                  : "text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-200"
                               }`}
                             >
                               {val}
@@ -378,7 +378,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
               />
               <div className="mt-1 h-1 w-8 bg-blue-600 rounded-full" />
             </div>
-            <p className="text-[10px] text-gray-400 px-4 italic leading-tight">
+            <p className="text-[10px] text-gray-400 dark:text-gray-500 px-4 italic leading-tight">
               Setting a manual score will ignore auto-calculations from the
               rubric.
             </p>
@@ -386,7 +386,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
 
           <div className="md:col-span-3">
             <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-6 focus-within:ring-4 focus-within:ring-blue-500/5 transition-all">
-              <div className="flex items-center gap-2 mb-4 text-gray-400">
+              <div className="flex items-center gap-2 mb-4 text-gray-400 dark:text-gray-500">
                 <MessageSquare className="w-4 h-4" />
                 <span className="text-[10px] font-bold uppercase tracking-widest">
                   Private Feedback
