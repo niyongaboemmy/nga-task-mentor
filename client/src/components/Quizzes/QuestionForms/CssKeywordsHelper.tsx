@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 
 export const CssKeywordsHelper: React.FC = () => {
   return (
-    <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-3xl p-6">
+    <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border-2 border-purple-200 dark:border-purple-700 rounded-2xl p-6">
       <div className="flex items-start gap-4">
         <div className="text-3xl">🎨</div>
         <div className="flex-1">

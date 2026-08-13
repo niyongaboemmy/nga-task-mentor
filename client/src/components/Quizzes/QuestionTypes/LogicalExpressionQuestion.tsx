@@ -275,7 +275,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
   return (
     <div className="space-y-6">
       {/* Problem Statement */}
-      <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
+      <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-2xl p-8 shadow-sm">
         <h3 className="font-bold text-xl mb-4 text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
           <Brain className="w-6 h-6 text-purple-500 fill-purple-500/10" />
           Logical Goal
@@ -298,7 +298,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Variable Editor */}
-        <div className="bg-gray-50/50 dark:bg-gray-800/20 border-2 border-gray-100 dark:border-gray-800 p-8 rounded-3xl shadow-sm">
+        <div className="bg-gray-50/50 dark:bg-gray-800/20 border-2 border-gray-100 dark:border-gray-800 p-8 rounded-2xl shadow-sm">
           <div className="flex items-center justify-between mb-8">
             <h3 className="font-bold text-sm text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-[0.2em] flex items-center gap-2">
               <Plus className="w-4 h-4 text-blue-500" />
@@ -354,7 +354,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
         </div>
 
         {/* Expression Builder */}
-        <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm h-full flex flex-col">
+        <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-2xl p-8 shadow-sm h-full flex flex-col">
           <div className="flex items-center justify-between mb-6">
             <h3 className="font-bold text-sm text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-[0.2em] flex items-center gap-2">
               <Brain className="w-4 h-4 text-purple-500" />
@@ -452,7 +452,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Result Display */}
       <div
-        className={`p-8 rounded-3xl border-2 shadow-sm transition-all duration-500 ${
+        className={`p-8 rounded-2xl border-2 shadow-sm transition-all duration-500 ${
           error
             ? "border-red-200 bg-red-50/50 dark:bg-red-900/10 dark:border-red-900/30"
             : result === null
@@ -536,7 +536,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Dynamic Truth Table */}
       {variables.length > 0 && variables.length <= 4 && (
-        <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm overflow-hidden">
+        <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-2xl p-8 shadow-sm overflow-hidden">
           <h3 className="font-bold text-xl mb-6 text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
             <Tag className="w-6 h-6 text-blue-500 fill-blue-500/10" />
             Logic Truth Table
@@ -637,7 +637,7 @@ export const LogicalExpressionQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Correct Answer Display */}
       {showCorrectAnswer && logicalData.correct_expression && (
-        <div className="bg-blue-50/50 dark:bg-blue-900/10 border-2 border-blue-200 dark:border-blue-800 rounded-3xl p-8 shadow-sm animate-fadeIn">
+        <div className="bg-blue-50/50 dark:bg-blue-900/10 border-2 border-blue-200 dark:border-blue-800 rounded-2xl p-8 shadow-sm animate-fadeIn">
           <h3 className="font-bold text-xl mb-4 text-blue-900 dark:text-blue-300 flex items-center gap-2">
             <Check className="w-6 h-6" />
             Validated Logical String

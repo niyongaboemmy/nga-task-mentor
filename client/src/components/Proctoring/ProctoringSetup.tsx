@@ -780,7 +780,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
       {/* Warning Modal - Displayed when instructor sends a warning */}
       {showWarning && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-red-900/50 backdrop-blur-sm">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 max-w-lg w-full mx-4 shadow-2xl transform animate-pulse">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 max-w-lg w-full mx-4 shadow-2xl transform animate-pulse">
             <div className="text-center">
               <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
                 <svg
@@ -817,7 +817,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
       {/* Exam Paused Overlay */}
       {isExamPaused && (
         <div className="fixed inset-0 z-40 bg-yellow-900/80 backdrop-blur-sm flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl text-center">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl text-center">
             <div className="w-20 h-20 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg
                 className="w-10 h-10 text-yellow-600"
@@ -1030,7 +1030,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         </div>
       )}
 
-      <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50 rounded-3xl">
+      <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50 rounded-2xl">
         <CardHeader className="pb-4">
           <CardTitle className="text-xl font-bold text-center text-text-primary-light dark:text-text-primary-dark">
             Proctoring Setup

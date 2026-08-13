@@ -106,7 +106,7 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
           </motion.button>
 
           {isUserMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-900 rounded-3xl shadow-lg border border-border-light dark:border-gray-700/30 py-2 animate-fade-in z-40">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white dark:bg-gray-900 rounded-2xl shadow-lg border border-border-light dark:border-gray-700/30 py-2 animate-fade-in z-40">
               <Link
                 to="/profile"
                 onClick={() => setIsUserMenuOpen(false)}

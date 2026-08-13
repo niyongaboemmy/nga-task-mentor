@@ -178,7 +178,7 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
     <div className="space-y-6">
       {/* Top Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-5 flex items-center">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-5 flex items-center">
           <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 mr-4">
             <LayoutDashboard className="w-6 h-6" />
           </div>
@@ -192,7 +192,7 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-5 flex items-center">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-5 flex items-center">
           <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 mr-4">
             <Target className="w-6 h-6" />
           </div>
@@ -206,7 +206,7 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
           </div>
         </div>
 
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-5 flex items-center">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-5 flex items-center">
           <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 mr-4">
             <Activity className="w-6 h-6" />
           </div>
@@ -224,7 +224,7 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
       {/* Charts */}
       {questions.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col">
             <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-6">
               Distribution by Type
             </h3>
@@ -233,7 +233,7 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             </div>
           </div>
 
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col">
             <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-6">
               Difficulty Level Spread
             </h3>
@@ -242,7 +242,7 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             </div>
           </div>
 
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col lg:col-span-2">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col lg:col-span-2">
             <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-6">
               Bloom's Taxonomy Classification
             </h3>
@@ -251,7 +251,7 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             </div>
           </div>
 
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col lg:col-span-2">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col lg:col-span-2">
             <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-6">
               Scheme of Work Coverage
             </h3>
@@ -278,7 +278,7 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center p-12 text-center bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 border-dashed">
+        <div className="flex flex-col items-center justify-center p-12 text-center bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 border-dashed">
           <div className="w-16 h-16 bg-surface-light dark:bg-surface-dark rounded-full flex items-center justify-center mb-4">
             <Activity className="w-8 h-8 text-gray-400" />
           </div>

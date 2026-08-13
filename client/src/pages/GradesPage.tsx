@@ -43,7 +43,7 @@ function StatCard({
   iconBg: string;
 }) {
   return (
-    <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col gap-4">
+    <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col gap-4">
       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${iconBg}`}>
         {icon}
       </div>

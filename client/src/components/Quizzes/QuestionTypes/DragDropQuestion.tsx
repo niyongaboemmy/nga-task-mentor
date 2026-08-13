@@ -221,7 +221,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
   return (
     <div className="space-y-6">
       {/* Question Prompt */}
-      <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
+      <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-2xl p-8 shadow-sm">
         <h3 className="font-bold text-xl mb-4 text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
           <CheckCircle className="w-6 h-6 text-blue-500 fill-blue-500/10" />
           Interactive Mapping
@@ -247,7 +247,7 @@ export const DragDropQuestion: React.FC<QuestionComponentProps> = ({
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Available Items */}
-        <div className="bg-gray-50/50 dark:bg-gray-800/20 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
+        <div className="bg-gray-50/50 dark:bg-gray-800/20 border-2 border-gray-100 dark:border-gray-800 rounded-2xl p-8 shadow-sm">
           <div className="mb-4">
             <h3 className="font-bold text-sm text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-[0.2em] flex items-center gap-2">
               <div>

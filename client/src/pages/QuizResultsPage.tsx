@@ -357,7 +357,7 @@ const QuizResultsPage: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-8 border border-white/20 dark:border-gray-700/30">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 border border-white/20 dark:border-gray-700/30">
             <Loader2 className="h-12 w-12 animate-spin text-blue-600 mx-auto mb-4" />
             <p className="text-text-secondary-light dark:text-text-secondary-dark text-lg font-medium">
               Loading your quiz results...
@@ -377,7 +377,7 @@ const QuizResultsPage: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center max-w-md">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-8 border border-red-200 dark:border-red-700/30">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 border border-red-200 dark:border-red-700/30">
             <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
               Could Not Load Results
@@ -407,9 +407,9 @@ const QuizResultsPage: React.FC = () => {
 
   if (!quiz) {
     return (
-      <div className="min-h-screen rounded-3xl bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20 flex items-center justify-center">
+      <div className="min-h-screen rounded-2xl bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-blue-900/20 dark:to-indigo-900/20 flex items-center justify-center">
         <div className="text-center">
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-8 border border-white/20 dark:border-gray-700/30 max-w-md">
+          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl p-8 border border-white/20 dark:border-gray-700/30 max-w-md">
             <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
               Quiz Not Found
@@ -434,7 +434,7 @@ const QuizResultsPage: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
-          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl p-8 border border-white/20 dark:border-gray-700/20 max-w-md">
+          <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl p-8 border border-white/20 dark:border-gray-700/20 max-w-md">
             <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
             <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
               Results Not Available
@@ -480,7 +480,7 @@ const QuizResultsPage: React.FC = () => {
             </Link>
           </div>
 
-          <div className="relative overflow-hidden bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-[2.5rem] p-8 md:p-12 animate-in slide-in-from-bottom-8 duration-700 delay-100 border-4 shadow-sm border-white/20 dark:border-gray-800/50">
+          <div className="relative overflow-hidden bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-2xl p-8 md:p-12 animate-in slide-in-from-bottom-8 duration-700 delay-100 border-4 shadow-sm border-white/20 dark:border-gray-800/50">
             <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${getGradeTheme(result.grade).primary} opacity-10 blur-3xl -mr-32 -mt-32`}></div>
             <div className={`absolute bottom-0 left-0 w-64 h-64 bg-gradient-to-tr ${getGradeTheme(result.grade).primary} opacity-10 blur-3xl -ml-32 -mb-32`}></div>
 
@@ -530,7 +530,7 @@ const QuizResultsPage: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* Score */}
-                  <div className="bg-white/50 dark:bg-gray-800/30 border border-white/20 dark:border-gray-700/50 rounded-3xl p-6 flex items-center gap-5 hover:bg-white/80 dark:hover:bg-gray-800/50 transition-all duration-300 group">
+                  <div className="bg-white/50 dark:bg-gray-800/30 border border-white/20 dark:border-gray-700/50 rounded-2xl p-6 flex items-center gap-5 hover:bg-white/80 dark:hover:bg-gray-800/50 transition-all duration-300 group">
                     <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-900/30 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform">
                       <Target className="w-7 h-7" />
                     </div>
@@ -544,7 +544,7 @@ const QuizResultsPage: React.FC = () => {
                   </div>
 
                   {/* Time */}
-                  <div className="bg-white/50 dark:bg-gray-800/30 border border-white/20 dark:border-gray-700/50 rounded-3xl p-6 flex items-center gap-5 hover:bg-white/80 dark:hover:bg-gray-800/50 transition-all duration-300 group">
+                  <div className="bg-white/50 dark:bg-gray-800/30 border border-white/20 dark:border-gray-700/50 rounded-2xl p-6 flex items-center gap-5 hover:bg-white/80 dark:hover:bg-gray-800/50 transition-all duration-300 group">
                     <div className="w-14 h-14 bg-blue-100 dark:bg-blue-900/30 rounded-2xl flex items-center justify-center text-blue-600 dark:text-blue-400 group-hover:scale-110 transition-transform">
                       <Clock className="w-7 h-7" />
                     </div>
@@ -576,7 +576,7 @@ const QuizResultsPage: React.FC = () => {
         </div>
 
         {/* Question Review Section */}
-        <div className="bg-white/50 dark:bg-gray-900/50 rounded-[2rem] p-8 mt-8 animate-in slide-in-from-bottom duration-500 delay-1200 border-4 border-white dark:border-gray-800/30">
+        <div className="bg-white/50 dark:bg-gray-900/50 rounded-2xl p-8 mt-8 animate-in slide-in-from-bottom duration-500 delay-1200 border-4 border-white dark:border-gray-800/30">
           {/* Section Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
@@ -690,7 +690,7 @@ const QuizResultsPage: React.FC = () => {
                 return (
                   <div
                     key={attempt.question_id}
-                    className={`border-2 rounded-3xl transition-all duration-300 hover:shadow-lg ${style.border} bg-gradient-to-br ${style.bg}`}
+                    className={`border-2 rounded-2xl transition-all duration-300 hover:shadow-lg ${style.border} bg-gradient-to-br ${style.bg}`}
                   >
                     {/* Collapsible Header */}
                     <button
@@ -758,7 +758,7 @@ const QuizResultsPage: React.FC = () => {
                                 Your Answer
                               </span>
                             </div>
-                            <div className="flex-1 p-5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-3xl shadow-sm">
+                            <div className="flex-1 p-5 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm border border-gray-200 dark:border-gray-700 rounded-2xl shadow-sm">
                               <QuestionRenderer
                                 question={questionObj as any}
                                 answer={attempt.user_answer}
@@ -781,7 +781,7 @@ const QuizResultsPage: React.FC = () => {
                                     Correct Solution
                                   </span>
                                 </div>
-                                <div className="flex-1 p-5 bg-emerald-50/30 dark:bg-emerald-900/10 backdrop-blur-sm border border-emerald-200 dark:border-emerald-800/50 rounded-3xl shadow-sm">
+                                <div className="flex-1 p-5 bg-emerald-50/30 dark:bg-emerald-900/10 backdrop-blur-sm border border-emerald-200 dark:border-emerald-800/50 rounded-2xl shadow-sm">
                                   <QuestionRenderer
                                     question={questionObj as any}
                                     answer={attempt.correct_answer}
@@ -805,7 +805,7 @@ const QuizResultsPage: React.FC = () => {
                                     Awaiting Review
                                   </span>
                                 </div>
-                                <div className="flex-1 p-5 bg-amber-50/30 dark:bg-amber-900/10 backdrop-blur-sm border border-amber-200 dark:border-amber-800/50 rounded-3xl shadow-sm flex items-center justify-center">
+                                <div className="flex-1 p-5 bg-amber-50/30 dark:bg-amber-900/10 backdrop-blur-sm border border-amber-200 dark:border-amber-800/50 rounded-2xl shadow-sm flex items-center justify-center">
                                   <div className="text-center text-amber-700 dark:text-amber-400">
                                     <Clock className="w-10 h-10 mx-auto mb-2 opacity-60" />
                                     <p className="text-sm font-semibold">This answer is being reviewed by your instructor.</p>
@@ -841,7 +841,7 @@ const QuizResultsPage: React.FC = () => {
 
         {/* Actions */}
         <div className="mt-12 text-center animate-in slide-in-from-bottom duration-500 delay-1000">
-          <div className="bg-white dark:bg-card-dark/30 backdrop-blur-sm rounded-3xl p-6 border border-orange-200 dark:border-orange-700/30 max-w-md mx-auto">
+          <div className="bg-white dark:bg-card-dark/30 backdrop-blur-sm rounded-2xl p-6 border border-orange-200 dark:border-orange-700/30 max-w-md mx-auto">
             <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">
               What would you like to do next?
             </h3>

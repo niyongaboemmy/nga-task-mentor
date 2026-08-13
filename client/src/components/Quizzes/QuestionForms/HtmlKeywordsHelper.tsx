@@ -3,7 +3,7 @@ import { toast } from "react-toastify";
 
 export const HtmlKeywordsHelper: React.FC = () => {
   return (
-    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-200 dark:border-emerald-700 rounded-3xl p-6">
+    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border-2 border-emerald-200 dark:border-emerald-700 rounded-2xl p-6">
       <div className="flex items-start gap-4">
         <div className="text-3xl">🏷️</div>
         <div className="flex-1">

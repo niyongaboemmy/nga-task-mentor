@@ -379,7 +379,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
 
   return (
     <div className="pb-8 max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
-      <div className="bg-white dark:bg-gray-900 rounded-3xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 md:p-10">
+      <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-800 p-6 md:p-10">
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">

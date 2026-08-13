@@ -192,7 +192,7 @@ const StudentReportsPage: React.FC = () => {
         animate={{ opacity: 1, y: 0 }}
         className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center px-4"
       >
-        <div className="w-20 h-20 rounded-[2rem] bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center shadow-xl shadow-blue-100 dark:shadow-none border border-blue-200/50 dark:border-blue-800/40">
+        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center shadow-xl shadow-blue-100 dark:shadow-none border border-blue-200/50 dark:border-blue-800/40">
           <GraduationCap className="w-10 h-10 text-blue-500 dark:text-blue-400" />
         </div>
         <div>
@@ -225,7 +225,7 @@ const StudentReportsPage: React.FC = () => {
         className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
       >
         <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-[1.25rem] bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-xl shadow-blue-500/25 flex-shrink-0">
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-xl shadow-blue-500/25 flex-shrink-0">
             <LayoutDashboard className="w-7 h-7" />
           </div>
           <div>
@@ -255,7 +255,7 @@ const StudentReportsPage: React.FC = () => {
         className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
       >
         {/* Overall Grade Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
 
           <div className="relative z-10">
@@ -284,7 +284,7 @@ const StudentReportsPage: React.FC = () => {
         </div>
 
         {/* Completion Rate Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-green-500/10 transition-colors duration-700" />
           <div className="relative z-10">
             <p className="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -310,7 +310,7 @@ const StudentReportsPage: React.FC = () => {
         </div>
 
         {/* Course Count Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-purple-500/10 transition-colors duration-700" />
           <div className="relative z-10">
             <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2 mb-4">
@@ -353,7 +353,7 @@ const StudentReportsPage: React.FC = () => {
         {/* Left Column: Grade Distribution Chart */}
         <motion.div
           variants={itemVariants}
-          className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-[1.6rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8"
+          className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8"
         >
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
@@ -372,7 +372,7 @@ const StudentReportsPage: React.FC = () => {
         <div className="space-y-6">
           <motion.div
             variants={itemVariants}
-            className="bg-white dark:bg-gray-900 rounded-[1.6rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8"
+            className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8"
           >
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 flex-shrink-0">
@@ -384,7 +384,7 @@ const StudentReportsPage: React.FC = () => {
             </div>
 
             <div className="space-y-4">
-              <div className="flex justify-between items-center p-4 bg-green-50 dark:bg-green-900/10 rounded-3xl border border-green-100 dark:border-green-900/20 group hover:scale-[1.02] transition-transform">
+              <div className="flex justify-between items-center p-4 bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-100 dark:border-green-900/20 group hover:scale-[1.02] transition-transform">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
                     <CheckCircle className="w-5 h-5" />
@@ -403,7 +403,7 @@ const StudentReportsPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-4 bg-red-50 dark:bg-red-900/10 rounded-3xl border border-red-100 dark:border-red-900/20 group hover:scale-[1.02] transition-transform">
+              <div className="flex justify-between items-center p-4 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/20 group hover:scale-[1.02] transition-transform">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
                     <Zap className="w-5 h-5" />
@@ -425,7 +425,7 @@ const StudentReportsPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-3xl border border-gray-100 dark:border-gray-700 group hover:scale-[1.02] transition-transform">
+              <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700 group hover:scale-[1.02] transition-transform">
                 <div className="flex items-center gap-4">
                   <div className="w-10 h-10 rounded-2xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark/70">
                     <BookOpen className="w-5 h-5" />
@@ -462,7 +462,7 @@ const StudentReportsPage: React.FC = () => {
             <motion.div
               key={report.courseId}
               variants={itemVariants}
-              className="group bg-white dark:bg-gray-900 rounded-[1.5rem] sm:rounded-[2rem] shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8 hover:-translate-y-1 transition-all duration-300"
+              className="group bg-white dark:bg-gray-900 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8 hover:-translate-y-1 transition-all duration-300"
             >
               <div className="flex justify-between items-start mb-6">
                 <div>

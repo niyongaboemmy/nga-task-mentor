@@ -343,7 +343,7 @@ const CourseReportsPage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen bg-gray-50 dark:bg-gray-900/50 rounded-3xl">
+      <div className="flex justify-center items-center h-screen bg-gray-50 dark:bg-gray-900/50 rounded-2xl">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-600"></div>
       </div>
     );
@@ -397,7 +397,7 @@ const CourseReportsPage: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 rounded-[1.5rem] bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white shadow-2xl shadow-blue-500/30 transform rotate-3">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center text-white shadow-2xl shadow-blue-500/30 transform rotate-3">
               <GraduationCap className="w-8 h-8" />
             </div>
             <div>
@@ -427,14 +427,14 @@ const CourseReportsPage: React.FC = () => {
             <AcademicPeriodPicker onChange={setViewPeriod} />
             <button
               onClick={fetchGrades}
-              className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-3xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark"
+              className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Refresh Data</span>
             </button>
             <button
               onClick={handleExportCSV}
-              className="px-6 py-3 bg-blue-600 text-white rounded-3xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 font-bold text-xs uppercase tracking-wider hover:scale-105 active:scale-95"
+              className="px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 font-bold text-xs uppercase tracking-wider hover:scale-105 active:scale-95"
             >
               <Download className="w-4 h-4" />
               <span>Export CSV</span>
@@ -456,7 +456,7 @@ const CourseReportsPage: React.FC = () => {
               >
                 <motion.div
                   variants={itemVariants}
-                  className="bg-white dark:bg-gray-900 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group"
+                  className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group"
                 >
                   <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
 
@@ -493,7 +493,7 @@ const CourseReportsPage: React.FC = () => {
 
                 <motion.div
                   variants={itemVariants}
-                  className="bg-white dark:bg-gray-900 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden"
+                  className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden"
                 >
                   <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16" />
                   <div className="relative z-10">
@@ -521,7 +521,7 @@ const CourseReportsPage: React.FC = () => {
 
                 <motion.div
                   variants={itemVariants}
-                  className="bg-white dark:bg-gray-900 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden"
+                  className="bg-white dark:bg-gray-900 rounded-2xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden"
                 >
                   <div
                     className={`absolute top-0 right-0 w-64 h-64 rounded-full blur-3xl -mr-16 -mt-16 ${student.summary.total_percentage >= 60 ? "bg-green-500/5" : "bg-red-500/5"}`}
@@ -568,7 +568,7 @@ const CourseReportsPage: React.FC = () => {
                 {/* Assignments Section */}
                 <motion.div
                   variants={itemVariants}
-                  className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
+                  className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
                 >
                   <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/30 dark:bg-black/20 backdrop-blur-sm">
                     <h3 className="font-bold text-xl flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
@@ -650,7 +650,7 @@ const CourseReportsPage: React.FC = () => {
                 {/* Quizzes Section */}
                 <motion.div
                   variants={itemVariants}
-                  className="bg-white dark:bg-gray-900 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
+                  className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
                 >
                   <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center bg-gray-50/30 dark:bg-black/20 backdrop-blur-sm">
                     <h3 className="font-bold text-xl flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
@@ -745,7 +745,7 @@ const CourseReportsPage: React.FC = () => {
           >
             <motion.div
               variants={itemVariants}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
               {/* <div className="absolute right-0 top-0 w-32 h-32 bg-blue-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
               <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -772,7 +772,7 @@ const CourseReportsPage: React.FC = () => {
 
             <motion.div
               variants={itemVariants}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
               {/* <div className="absolute right-0 top-0 w-32 h-32 bg-green-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
               <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -790,7 +790,7 @@ const CourseReportsPage: React.FC = () => {
 
             <motion.div
               variants={itemVariants}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
               {/* <div className="absolute right-0 top-0 w-32 h-32 bg-red-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
               <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -807,7 +807,7 @@ const CourseReportsPage: React.FC = () => {
 
             <motion.div
               variants={itemVariants}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
+              className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group hover:-translate-y-1 transition-transform duration-300"
             >
               {/* <div className="absolute right-0 top-0 w-32 h-32 bg-purple-500/10 rounded-bl-[100px] -mr-8 -mt-8 transition-transform group-hover:scale-110 duration-500"></div> */}
               <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-xs font-bold uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -830,7 +830,7 @@ const CourseReportsPage: React.FC = () => {
           >
             <motion.div
               variants={itemVariants}
-              className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none"
+              className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none"
             >
               <h3 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest mb-6 flex items-center gap-2">
                 <TrendingUp className="w-4 h-4 text-blue-500" />
@@ -843,7 +843,7 @@ const CourseReportsPage: React.FC = () => {
 
             <motion.div
               variants={itemVariants}
-              className="bg-white dark:bg-gray-800 p-8 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none"
+              className="bg-white dark:bg-gray-800 p-8 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none"
             >
               <h3 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-widest mb-6 flex items-center gap-2">
                 <Award className="w-4 h-4 text-yellow-500" />
@@ -858,7 +858,7 @@ const CourseReportsPage: React.FC = () => {
           {/* Filters & Controls */}
           <motion.div
             variants={itemVariants}
-            className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-3xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none mb-8 gap-4"
+            className="flex flex-col md:flex-row justify-between items-center bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none mb-8 gap-4"
           >
             <div className="relative w-full md:w-96 group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-blue-500">
@@ -873,12 +873,12 @@ const CourseReportsPage: React.FC = () => {
               />
             </div>
 
-            <div className="flex bg-gray-100 dark:bg-gray-900 p-1.5 rounded-3xl">
+            <div className="flex bg-gray-100 dark:bg-gray-900 p-1.5 rounded-2xl">
               {["all", "passing", "failing"].map((type) => (
                 <button
                   key={type}
                   onClick={() => setFilterType(type as any)}
-                  className={`px-6 py-2 rounded-[1.5rem] text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
+                  className={`px-6 py-2 rounded-2xl text-xs font-bold uppercase tracking-wider transition-all duration-300 ${
                     filterType === type
                       ? "bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark shadow-md shadow-gray-200/50 dark:shadow-black/30 transform scale-105"
                       : "text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-200"
@@ -893,7 +893,7 @@ const CourseReportsPage: React.FC = () => {
           {/* Data Table */}
           <motion.div
             variants={itemVariants}
-            className="bg-white dark:bg-gray-800 rounded-3xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
+            className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
           >
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-100 dark:divide-gray-800">

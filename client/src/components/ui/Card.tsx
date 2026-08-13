@@ -24,7 +24,7 @@ export const Card: React.FC<CardProps> = ({ children, className = "" }) => {
   return (
     <div
       className={`bg-card-light dark:bg-card-dark ${
-        className ? "" : "rounded-3xl"
+        className ? "" : "rounded-2xl"
       } ${className}`}
     >
       {children}

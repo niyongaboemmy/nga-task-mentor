@@ -98,7 +98,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
     >
       <div className="space-y-3">
         {/* Preview Controls */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-gray-50 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl p-2">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 bg-gray-50 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl p-2">
           <div className="flex flex-wrap items-center gap-2 flex-1">
             {/* Device Preview Toggle */}
             <div className="flex items-center gap-2">

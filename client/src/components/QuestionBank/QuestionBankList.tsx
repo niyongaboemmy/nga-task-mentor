@@ -295,7 +295,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
 
   return (
     <>
-      <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden ">
+      <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden ">
         {/* Header & Controls */}
         <div className="p-5 border-b border-gray-200/60 dark:border-gray-800 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">

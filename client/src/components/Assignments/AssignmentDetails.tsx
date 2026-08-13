@@ -393,7 +393,7 @@ const AssignmentDetails = () => {
   if (isLoading) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-8">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-8">
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
               <div className="w-16 h-16 border-4 border-gray-200 dark:border-gray-700 rounded-full animate-pulse"></div>
@@ -417,7 +417,7 @@ const AssignmentDetails = () => {
   if (!assignment) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-8 max-w-md w-full mx-4">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-8 max-w-md w-full mx-4">
           <div className="flex flex-col items-center gap-6 text-center">
             <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
               <svg
@@ -472,7 +472,7 @@ const AssignmentDetails = () => {
     <div className="min-h-screen">
       <div className="space-y-4 pb-10">
         {/* Clean Header */}
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
           <AssignmentHeader
             assignment={{
               ...assignment,
@@ -503,7 +503,7 @@ const AssignmentDetails = () => {
                         : `${baseUrl}${file.url.startsWith("/") ? "" : "/"}${file.url}`;
                       setPreviewFile({ url: fullUrl, name: file.name });
                     }}
-                    className="flex items-center p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-none rounded-3xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
+                    className="flex items-center p-3 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-none rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors text-left group"
                   >
                     <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 mr-3 group-hover:scale-110 transition-transform">
                       <svg
@@ -537,7 +537,7 @@ const AssignmentDetails = () => {
         </div>
 
         {/* Clean Tab Navigation */}
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
           <div className="border-b mt-1 border-gray-200 dark:border-gray-800">
             <nav className="flex space-x-1 px-6">
               <button

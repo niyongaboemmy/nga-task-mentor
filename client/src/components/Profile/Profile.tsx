@@ -83,7 +83,7 @@ const Profile: React.FC = () => {
   }) => (
     <motion.div
       variants={itemVariants}
-      className="bg-white dark:bg-gray-900 rounded-[1.6rem] p-5 border border-gray-100 dark:border-gray-800 h-full"
+      className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 h-full"
     >
       <div className="flex items-center gap-2 mb-4 text-text-primary-light dark:text-text-primary-dark font-semibold pb-3 border-b border-gray-100 dark:border-gray-800">
         <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
@@ -150,7 +150,7 @@ const Profile: React.FC = () => {
       {/* Header */}
       <motion.div
         variants={itemVariants}
-        className="bg-white dark:bg-gray-900 rounded-[1.6rem] border border-gray-200 dark:border-gray-800 overflow-hidden"
+        className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden"
       >
         <div className="h-24 bg-gradient-to-r from-blue-600 to-blue-600 relative">
           <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20" />
@@ -159,8 +159,8 @@ const Profile: React.FC = () => {
           <div className="flex flex-col sm:flex-row gap-5 items-end -mt-10">
             {/* Profile Picture & Upload */}
             <div className="relative group">
-              <div className="p-1.5 bg-white dark:bg-gray-900 rounded-[1.6rem] inline-block">
-                <div className="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-[1.4rem] overflow-hidden relative">
+              <div className="p-1.5 bg-white dark:bg-gray-900 rounded-2xl inline-block">
+                <div className="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-2xl overflow-hidden relative">
                   <ProfilePictureUpload
                     onUploadSuccess={handleProfilePictureUpdate}
                   />

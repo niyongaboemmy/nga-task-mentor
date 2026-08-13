@@ -37,12 +37,12 @@ const ProfilePicturePrompt: React.FC<ProfilePicturePromptProps> = ({
       } z-50 p-4 animate-in fade-in duration-300`}
     >
       <div
-        className={`bg-white dark:bg-gray-900 rounded-3xl max-w-md w-full shadow-2xl border border-gray-100 dark:border-gray-800 transform animate-in max-h-[99vh] overflow-y-auto ${
+        className={`bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full shadow-2xl border border-gray-100 dark:border-gray-800 transform animate-in max-h-[99vh] overflow-y-auto ${
           isUploading ? "zoom-in-95" : "zoom-in-95"
         } duration-300`}
       >
         {/* Header with gradient background */}
-        <div className="bg-gradient-to-br from-blue-700 via-blue-500 to-blue-700 dark:from-blue-800 dark:via-blue-600 dark:to-blue-900 rounded-t-3xl p-6 text-center relative overflow-hidden">
+        <div className="bg-gradient-to-br from-blue-700 via-blue-500 to-blue-700 dark:from-blue-800 dark:via-blue-600 dark:to-blue-900 rounded-t-2xl p-6 text-center relative overflow-hidden">
           {/* Animated background elements */}
           <div className="absolute inset-0 bg-white opacity-10"></div>
           <div

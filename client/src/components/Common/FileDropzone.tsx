@@ -90,7 +90,7 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`relative border-2 border-dashed rounded-3xl p-8 transition-all cursor-pointer flex flex-col items-center justify-center gap-4 group ${
+        className={`relative border-2 border-dashed rounded-2xl p-8 transition-all cursor-pointer flex flex-col items-center justify-center gap-4 group ${
           isDragging
             ? "border-blue-500 bg-blue-50/50 dark:bg-blue-900/20 scale-[1.01]"
             : "border-gray-200 dark:border-gray-700 hover:border-blue-400 dark:hover:border-blue-800 hover:bg-gray-50 dark:hover:bg-gray-800/50"
@@ -129,7 +129,7 @@ const FileDropzone: React.FC<FileDropzoneProps> = ({
         </div>
 
         {/* Floating background elements for polish */}
-        <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-3xl">
+        <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
           <motion.div
             animate={{
               y: isDragging ? [0, -10, 0] : 0,

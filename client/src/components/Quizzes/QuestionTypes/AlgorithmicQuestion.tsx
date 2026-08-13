@@ -272,7 +272,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
   return (
     <div className="space-y-6">
       {/* Problem Statement */}
-      <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
+      <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-2xl p-8 shadow-sm">
         <div className="flex items-center justify-between mb-6">
           <h3 className="font-bold text-xl text-text-primary-light dark:text-text-primary-dark flex items-center gap-3">
             <Zap className="w-6 h-6 text-yellow-500 fill-yellow-500/20" />
@@ -338,7 +338,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Code Display */}
       {algorithmicData.algorithm_code && (
-        <div className="bg-gray-900 dark:bg-black rounded-3xl overflow-hidden border-2 border-gray-800 shadow-xl">
+        <div className="bg-gray-900 dark:bg-black rounded-2xl overflow-hidden border-2 border-gray-800 shadow-xl">
           <div className="px-6 py-3 bg-gray-800/50 dark:bg-gray-900/50 border-b border-gray-800 flex items-center justify-between">
             <div className="flex gap-1.5">
               <div className="w-3 h-3 rounded-full bg-red-500/80" />
@@ -434,7 +434,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
           </div>
 
           {/* Simulation Controls */}
-          <div className="flex flex-wrap gap-4 p-6 bg-gray-50/50 dark:bg-gray-800/20 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-3xl">
+          <div className="flex flex-wrap gap-4 p-6 bg-gray-50/50 dark:bg-gray-800/20 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl">
             <button
               onClick={handleStepForward}
               disabled={
@@ -476,7 +476,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
       {mode === "predict" && (
         <div className="space-y-6 animate-fadeIn">
           {/* Prediction Interface */}
-          <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
+          <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-2xl p-8 shadow-sm">
             <h3 className="font-bold text-xl mb-4 text-text-primary-light dark:text-text-primary-dark flex items-center gap-3">
               <Brain className="w-6 h-6 text-purple-500" />
               Variable Prediction
@@ -579,7 +579,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
             </button>
           ) : (
             <div
-              className={`p-8 rounded-3xl border-2 shadow-sm animate-fadeIn ${
+              className={`p-8 rounded-2xl border-2 shadow-sm animate-fadeIn ${
                 score >= 70
                   ? "border-green-100 bg-green-50/50 dark:bg-green-900/10 dark:border-green-900/30"
                   : "border-yellow-100 bg-yellow-50/50 dark:bg-yellow-900/10 dark:border-yellow-900/30"
@@ -620,7 +620,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Test Cases */}
       {algorithmicData.test_cases && algorithmicData.test_cases.length > 0 && (
-        <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-3xl p-8 shadow-sm">
+        <div className="bg-white dark:bg-gray-900 border-2 border-gray-100 dark:border-gray-800 rounded-2xl p-8 shadow-sm">
           <h3 className="font-bold text-xl mb-4 text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
             <Tag className="w-6 h-6 text-blue-500" />
             Validation Suite
@@ -663,7 +663,7 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Review Mode: Complete Algorithm Trace */}
       {showCorrectAnswer && (
-        <div className="bg-blue-50/50 dark:bg-blue-900/10 border-2 border-blue-200 dark:border-blue-800 rounded-3xl p-8 shadow-sm">
+        <div className="bg-blue-50/50 dark:bg-blue-900/10 border-2 border-blue-200 dark:border-blue-800 rounded-2xl p-8 shadow-sm">
           <h3 className="font-bold text-xl mb-6 text-blue-900 dark:text-blue-100 flex items-center gap-2">
             <CheckCircle className="w-6 h-6" />
             Verified Trace Path

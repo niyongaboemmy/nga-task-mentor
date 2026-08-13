@@ -130,7 +130,7 @@ export const EditQuizPage: React.FC = () => {
 
           {/* Header */}
           <div className="animate-bounce-in">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl card-hover p-6 pb-4">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl card-hover p-6 pb-4">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-700 rounded-2xl flex items-center justify-center animate-float">
@@ -213,7 +213,7 @@ export const EditQuizPage: React.FC = () => {
           {activeTab === "quiz" ? (
             <form
               onSubmit={handleSubmit}
-              className="space-y-8 bg-white p-4 md:p-6 rounded-3xl dark:bg-gray-900"
+              className="space-y-8 bg-white p-4 md:p-6 rounded-2xl dark:bg-gray-900"
             >
               {/* Title */}
               <div>

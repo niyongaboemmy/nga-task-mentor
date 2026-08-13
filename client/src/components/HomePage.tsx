@@ -172,7 +172,7 @@ const HomePage: React.FC = () => {
       {/* Stats Section */}
       <section className="py-20 bg-white dark:bg-gray-950">
         <div className="max-w-8xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-3xl p-12">
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-2xl p-12">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4">
                 Trusted by educators worldwide

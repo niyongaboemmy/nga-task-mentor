@@ -31,7 +31,7 @@ const StudentGradeModal: React.FC<StudentGradeModalProps> = ({
           &#8203;
         </span>
 
-        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-3xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full w-full">
+        <div className="inline-block align-bottom bg-white dark:bg-gray-800 rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-2xl sm:w-full w-full">
           {/* Header */}
           <div className="bg-gradient-to-r from-blue-600 to-blue-600 px-6 py-4">
             <div className="flex items-center justify-between">

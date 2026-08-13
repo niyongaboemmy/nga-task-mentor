@@ -216,7 +216,7 @@ const StudentDetails: React.FC = () => {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="relative overflow-hidden bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-4 md:p-8">
+        <div className="relative overflow-hidden bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-4 md:p-8">
           <div className="animate-pulse">
             <div className="flex flex-col lg:flex-row items-start lg:items-center gap-8">
               <div className="flex-shrink-0">
@@ -256,7 +256,7 @@ const StudentDetails: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 md:p-8">
+      <div className="relative overflow-hidden bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 md:p-8">
         <div className="relative z-10">
           <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
             <div className="flex-shrink-0">
@@ -770,7 +770,7 @@ const StudentDetails: React.FC = () => {
                 ))
               ) : (
                 <div className="col-span-full text-center py-16">
-                  <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                  <div className="w-20 h-20 bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <svg
                       className="w-10 h-10 text-blue-400 dark:text-blue-500"
                       fill="none"
@@ -884,7 +884,7 @@ const StudentDetails: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                  <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <svg
                       className="w-10 h-10 text-gray-400 dark:text-gray-500"
                       fill="none"
@@ -1003,7 +1003,7 @@ const StudentDetails: React.FC = () => {
                 </div>
               ) : (
                 <div className="text-center py-16">
-                  <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-3xl flex items-center justify-center mx-auto mb-4">
+                  <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-4">
                     <svg
                       className="w-10 h-10 text-gray-400 dark:text-gray-500"
                       fill="none"

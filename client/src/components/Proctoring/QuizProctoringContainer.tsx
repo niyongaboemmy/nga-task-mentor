@@ -315,7 +315,7 @@ const QuizProctoringContainer: React.FC<QuizProctoringContainerProps> = ({
       {/* Fullscreen Required Overlay */}
       {proctoringSettings?.require_fullscreen && !isFullscreenMode && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40 flex items-center justify-center">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl text-center">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl p-8 max-w-md w-full mx-4 shadow-2xl text-center">
             <div className="w-20 h-20 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center mx-auto mb-6">
               <svg
                 className="w-10 h-10 text-yellow-600"

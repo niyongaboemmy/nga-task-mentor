@@ -66,7 +66,7 @@ const AssignmentDescriptionEditor: React.FC<
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-gray-900 w-full max-w-[90rem] max-h-[90vh] rounded-3xl overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700"
+              className="bg-white dark:bg-gray-900 w-full max-w-[90rem] max-h-[90vh] rounded-2xl overflow-hidden flex flex-col border border-gray-200 dark:border-gray-700"
             >
               {/* Modal Header */}
               <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50">

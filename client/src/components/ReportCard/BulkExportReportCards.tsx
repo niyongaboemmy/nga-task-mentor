@@ -282,7 +282,7 @@ export default function BulkExportReportCards() {
   const hasSelection = mode === "course" ? selectedCourseId !== "" : period !== null;
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
+    <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-sm overflow-hidden">
       {/* Header */}
       <div className="px-6 py-5 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3">

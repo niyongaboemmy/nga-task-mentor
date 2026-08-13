@@ -234,7 +234,7 @@ const CourseDetails: React.FC = () => {
       {/* Header */}
       <motion.div
         variants={itemVariants}
-        className="bg-white/90 dark:bg-gray-900/80 dark:text-white backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 p-3 md:p-4"
+        className="bg-white/90 dark:bg-gray-900/80 dark:text-white backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/60 p-3 md:p-4"
       >
         <div className="flex items-center justify-between">
           <div className="flex gap-3 md:gap-4 w-full">
@@ -290,7 +290,7 @@ const CourseDetails: React.FC = () => {
         variants={itemVariants}
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6"
       >
-        <div className="bg-white/90 backdrop-blur-xl rounded-[1.4rem] border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 p-2 px-4">
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 p-2 px-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="h-8 w-8 bg-blue-500 rounded-xl flex items-center justify-center">
@@ -320,7 +320,7 @@ const CourseDetails: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white/90 backdrop-blur-xl rounded-[1.4rem] border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 p-2 px-4">
+        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 p-2 px-4">
           <div className="flex items-center">
             <div className="flex-shrink-0">
               <div className="h-8 w-8 bg-purple-500 rounded-xl flex items-center justify-center">
@@ -351,7 +351,7 @@ const CourseDetails: React.FC = () => {
         </div>
 
         {isInstructorOrAdmin && (
-          <div className="bg-white/90 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 p-2 px-4">
+          <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 p-2 px-4">
             <div className="flex items-center">
               <div className="flex-shrink-0">
                 <div className="h-8 w-8 bg-green-500 rounded-lg flex items-center justify-center">
@@ -386,7 +386,7 @@ const CourseDetails: React.FC = () => {
       {/* Tabs */}
       <motion.div
         variants={itemVariants}
-        className="bg-white/90 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70"
+        className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70"
       >
         <div className="border-b border-gray-200 dark:border-gray-800">
           <nav className="-mb-px flex space-x-0 px-8">

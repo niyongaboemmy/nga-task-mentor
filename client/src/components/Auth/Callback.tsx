@@ -176,7 +176,7 @@ const Callback: React.FC = () => {
         transition={{ duration: 0.4 }}
         className="max-w-md w-full"
       >
-        <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-800 overflow-hidden p-8">
+        <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-gray-800 overflow-hidden p-8">
           {/* Logo */}
           <div className="flex justify-center mb-6">
             <img

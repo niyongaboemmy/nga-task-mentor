@@ -101,7 +101,7 @@ const Courses: React.FC = () => {
       {/* Header */}
       <motion.div
         variants={itemVariants}
-        className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 px-4 md:px-6 py-4 md:py-5"
+        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 px-4 md:px-6 py-4 md:py-5"
       >
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -161,7 +161,7 @@ const Courses: React.FC = () => {
       {/* Courses List */}
       <motion.div variants={itemVariants} className="space-y-2 md:space-y-2.5">
         {filteredCourses.length === 0 ? (
-          <div className="text-center py-12 bg-card-light dark:bg-card-dark/30 border border-dashed border-border-light dark:border-border-dark/50 rounded-3xl">
+          <div className="text-center py-12 bg-card-light dark:bg-card-dark/30 border border-dashed border-border-light dark:border-border-dark/50 rounded-2xl">
             <svg
               className="mx-auto h-14 w-14 text-text-secondary-light dark:text-text-secondary-dark/50"
               fill="none"

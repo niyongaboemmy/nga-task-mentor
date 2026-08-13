@@ -1845,7 +1845,7 @@ const QuizTakingPage: React.FC = () => {
   if (showVolumeCheck) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-md w-full p-6 shadow-2xl">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full p-6 shadow-2xl">
           <div className="text-center">
             <div className="w-16 h-16 bg-gradient-to-br from-blue-400/20 to-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
               <svg
@@ -2001,7 +2001,7 @@ const QuizTakingPage: React.FC = () => {
   if (showFullscreenPrompt) {
     return (
       <div className="fixed inset-0 bg-white dark:bg-gray-900 flex items-center justify-center p-4 z-50">
-        <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 max-w-2xl w-full p-8 text-center shadow-2xl">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 max-w-2xl w-full p-8 text-center shadow-2xl">
           <div className="w-20 h-20 bg-gradient-to-br from-blue-400/20 to-blue-500/20 rounded-full flex items-center justify-center mx-auto mb-6">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
               <svg
@@ -2129,7 +2129,7 @@ const QuizTakingPage: React.FC = () => {
 
     return (
       <div className="flex items-center justify-center p-4 mt-12 h-max">
-        <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-200 dark:border-gray-800 max-w-4xl w-full p-8 transform transition-all duration-300">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 max-w-4xl w-full p-8 transform transition-all duration-300">
           {/* Error Display */}
           {error && (
             <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl">
@@ -2689,7 +2689,7 @@ const QuizTakingPage: React.FC = () => {
       {/* Submit Confirmation Modal */}
       {showConfirmSubmit && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-3xl max-w-md w-full p-6">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full p-6">
             <div className="text-center">
               <AlertCircle className="h-12 w-12 text-blue-600 mx-auto mb-4" />
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
@@ -2799,7 +2799,7 @@ const QuizTakingPage: React.FC = () => {
       {/* Grade Summary Modal */}
       {showGradeSummary && gradeSummary && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-50 p-4 animate-in fade-in duration-300">
-          <div className="bg-white dark:bg-gray-900 rounded-[2rem] max-w-lg w-full p-8 text-center shadow-2xl border border-white/20 dark:border-gray-800 relative overflow-hidden">
+          <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-lg w-full p-8 text-center shadow-2xl border border-white/20 dark:border-gray-800 relative overflow-hidden">
             {/* Background effects */}
             <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 dark:bg-blue-500/20 rounded-full blur-3xl"></div>
             <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-blue-500/10 dark:bg-blue-500/20 rounded-full blur-3xl"></div>
@@ -2814,7 +2814,7 @@ const QuizTakingPage: React.FC = () => {
             </div>
 
             <div className="space-y-6 mb-8 relative z-10">
-              <div className="bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-800/80 dark:to-blue-900/20 rounded-3xl p-8 border border-blue-100 dark:border-blue-800/50 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500 delay-400">
+              <div className="bg-gradient-to-br from-slate-50 to-blue-50 dark:from-gray-800/80 dark:to-blue-900/20 rounded-2xl p-8 border border-blue-100 dark:border-blue-800/50 backdrop-blur-sm animate-in fade-in slide-in-from-bottom-4 duration-500 delay-400">
                 <div className="text-center relative">
                   {/* Circular Progress Design */}
                   <div className="relative inline-flex items-center justify-center mb-6">
@@ -2951,7 +2951,7 @@ const QuizTakingPage: React.FC = () => {
       {/* Quiz Terminated Modal */}
       {showQuizTerminated && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl max-w-lg w-full p-8 text-center shadow-2xl border border-red-300 dark:border-red-800">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl max-w-lg w-full p-8 text-center shadow-2xl border border-red-300 dark:border-red-800">
             <div className="mb-6">
               <div className="w-20 h-20 bg-gradient-to-r from-red-500 to-red-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <AlertCircle className="w-10 h-10 text-white" />

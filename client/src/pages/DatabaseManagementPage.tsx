@@ -461,7 +461,7 @@ const DatabaseManagementPage: React.FC = () => {
   if (!unlocked) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-800/50 dark:bg-black p-4">
-        <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
+        <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-100 dark:border-gray-800 p-6">
           <h1 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-1">
             Confirm Admin Access
           </h1>
@@ -1140,7 +1140,7 @@ const DatabaseManagementPage: React.FC = () => {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
           onClick={(e) => e.target === e.currentTarget && setShowAddRow(false)}
         >
-          <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden">
+          <div className="w-full max-w-lg bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden">
             <div className="px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800">
               <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                 Add row to {selectedTable}
@@ -1198,7 +1198,7 @@ const DatabaseManagementPage: React.FC = () => {
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
           onClick={(e) => e.target === e.currentTarget && setDeleteTarget(null)}
         >
-          <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-6">
+          <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6">
             <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
               Delete row?
             </h2>
@@ -1232,7 +1232,7 @@ const DatabaseManagementPage: React.FC = () => {
             e.target === e.currentTarget && setPendingConfirmType(null)
           }
         >
-          <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-3xl shadow-2xl p-6">
+          <div className="w-full max-w-sm bg-white dark:bg-gray-900 rounded-2xl shadow-2xl p-6">
             <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
               Confirm {pendingConfirmType} statement
             </h2>

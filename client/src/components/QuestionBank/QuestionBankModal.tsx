@@ -356,7 +356,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           ref={modalRef}
-          className="relative z-10 w-full max-w-7xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/30 flex flex-col overflow-hidden"
+          className="relative z-10 w-full max-w-7xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/30 flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800/50">
@@ -579,7 +579,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
             {activeTab === "content" ? (
               <div className="animate-in slide-in-from-right-2 duration-300">
-                <div className="bg-surface-light dark:bg-surface-dark/30 rounded-3xl border border-border-light dark:border-border-dark/30 p-6">
+                <div className="bg-surface-light dark:bg-surface-dark/30 rounded-2xl border border-border-light dark:border-border-dark/30 p-6">
                   <div className="flex items-center gap-2 mb-6">
                     <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
                       <CheckCircle2 className="w-4 h-4" />
@@ -853,7 +853,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                   <label className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2 flex items-center gap-1.5">
                     <Paperclip className="w-3.5 h-3.5" /> Attachments
                   </label>
-                  <div className="p-8 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-3xl flex flex-col items-center justify-center text-gray-400">
+                  <div className="p-8 border-2 border-dashed border-gray-200 dark:border-gray-800 rounded-2xl flex flex-col items-center justify-center text-gray-400">
                     <Paperclip className="w-8 h-8 mb-2 opacity-50" />
                     <p className="text-sm">
                       Attachment uploading is coming soon

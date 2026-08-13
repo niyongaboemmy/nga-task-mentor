@@ -143,7 +143,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
     <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
       {/* Grade Header / Dial */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 flex items-center gap-6 p-8 bg-white dark:bg-gray-900 rounded-[1.6rem] border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none relative overflow-hidden group">
+        <div className="lg:col-span-2 flex items-center gap-6 p-8 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
 
           <div className="relative w-32 h-32 flex-shrink-0">
@@ -208,7 +208,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-[1.6rem] p-8 text-white flex flex-col justify-between shadow-xl shadow-blue-500/20 relative overflow-hidden">
+        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl p-8 text-white flex flex-col justify-between shadow-xl shadow-blue-500/20 relative overflow-hidden">
           <Zap className="absolute top-4 right-4 w-24 h-24 text-white/10" />
           <div className="relative">
             <h5 className="text-lg font-bold mb-1 italic opacity-90">
@@ -268,7 +268,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
                 <motion.div
                   key={index + 1}
                   // onClick={() => setActiveCriterion(index)}
-                  className={`relative p-6 rounded-3xl border transition-all cursor-pointer group bg-white dark:bg-gray-900/50 border-gray-100 dark:border-gray-900 hover:border-gray-200 dark:hover:border-gray-800`}
+                  className={`relative p-6 rounded-2xl border transition-all cursor-pointer group bg-white dark:bg-gray-900/50 border-gray-100 dark:border-gray-900 hover:border-gray-200 dark:hover:border-gray-800`}
                 >
                   <div className="flex flex-col md:flex-row md:items-center gap-6">
                     <div className="flex-1 space-y-2">
@@ -366,7 +366,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="md:col-span-1 space-y-3">
-            <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-3xl border border-blue-100/50 dark:border-blue-900/30">
+            <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-900/30">
               <label className="block text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-widest">
                 Override Grade
               </label>
@@ -385,7 +385,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           </div>
 
           <div className="md:col-span-3">
-            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-6 focus-within:ring-4 focus-within:ring-blue-500/5 transition-all">
+            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-6 focus-within:ring-4 focus-within:ring-blue-500/5 transition-all">
               <div className="flex items-center gap-2 mb-4 text-gray-400 dark:text-gray-500">
                 <MessageSquare className="w-4 h-4" />
                 <span className="text-[10px] font-bold uppercase tracking-widest">
@@ -406,7 +406,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="group relative overflow-hidden px-10 py-5 bg-blue-600 dark:bg-blue-700 text-white rounded-3xl font-bold text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
+            className="group relative overflow-hidden px-10 py-5 bg-blue-600 dark:bg-blue-700 text-white rounded-2xl font-bold text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             <div className="relative flex items-center gap-3">
               {isSubmitting ? (

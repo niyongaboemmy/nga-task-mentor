@@ -477,7 +477,7 @@ export const QuestionBankSelectorModal: React.FC<
     <div className="fixed inset-0 z-[9998] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
       <div
         ref={modalRef}
-        className="relative z-10 w-full max-w-7xl h-[95vh] bg-white dark:bg-gray-950 rounded-3xl shadow-2xl border border-gray-200/80 dark:border-gray-800/50 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300"
+        className="relative z-10 w-full max-w-7xl h-[95vh] bg-white dark:bg-gray-950 rounded-2xl shadow-2xl border border-gray-200/80 dark:border-gray-800/50 flex flex-col overflow-hidden animate-in zoom-in-95 duration-300"
       >
         {/* ── Header ────────────────────────────────────────────────── */}
         <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800/50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm">
@@ -972,7 +972,7 @@ export const QuestionBankSelectorModal: React.FC<
             <div className="flex-1 overflow-y-auto">
               {!hasSearched && !isSearching && (
                 <div className="flex flex-col items-center justify-center h-full text-center px-8">
-                  <div className="w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-100 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/30 flex items-center justify-center mb-5 shadow-inner">
+                  <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-100 to-blue-100 dark:from-blue-900/30 dark:to-blue-900/30 flex items-center justify-center mb-5 shadow-inner">
                     <FlaskConical className="w-10 h-10 text-blue-500 dark:text-blue-400" />
                   </div>
                   <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">

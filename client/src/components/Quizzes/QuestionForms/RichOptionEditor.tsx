@@ -39,7 +39,7 @@ export const RichOptionEditor: React.FC<RichOptionEditorProps> = ({
         showCloseButton={false}
       >
         <div className="flex flex-col h-[calc(100vh-200px)]">
-          <div className="flex-1 overflow-hidden border rounded-3xl border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
+          <div className="flex-1 overflow-hidden border rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950">
             <TiptapEditor
               content={tempValue}
               onChange={setTempValue}

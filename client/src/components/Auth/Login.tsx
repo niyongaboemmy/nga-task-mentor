@@ -56,7 +56,7 @@ const Login: React.FC = () => {
             )}
           </AnimatePresence>
 
-          <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-800 overflow-hidden">
+          <div className="bg-white/70 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/20 dark:border-gray-800 overflow-hidden">
             <div className="p-6 sm:p-8">
               {/* Header */}
               <div className="text-center mb-8">

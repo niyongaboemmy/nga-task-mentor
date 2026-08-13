@@ -435,7 +435,7 @@ const QuizSubmissionsPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl sm:rounded-3xl p-4 sm:p-6 animate-in slide-in-from-bottom duration-500">
+          <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl p-4 sm:p-6 animate-in slide-in-from-bottom duration-500">
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 sm:gap-6">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">

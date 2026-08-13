@@ -169,7 +169,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
 
   return (
     <motion.div
-      className="max-w-7xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden"
+      className="max-w-7xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -603,7 +603,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-center py-10 bg-gray-50/50 dark:bg-gray-800/30 rounded-3xl border-2 border-dashed border-gray-200 dark:border-gray-700"
+                  className="text-center py-10 bg-gray-50/50 dark:bg-gray-800/30 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-700"
                 >
                   <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm border border-gray-100 dark:border-gray-700">
                     <Plus className="w-6 h-6 text-gray-400" />

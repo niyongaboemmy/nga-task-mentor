@@ -168,7 +168,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
 
   return (
     <motion.div
-      className="max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-3xl shadow-2xl overflow-hidden"
+      className="max-w-4xl mx-auto bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -497,7 +497,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  className="text-center py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl"
+                  className="text-center py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-2xl"
                 >
                   <div className="w-10 h-10 bg-surface-light dark:bg-surface-dark/50/50 rounded-full flex items-center justify-center mx-auto mb-2 text-gray-400">
                     <Info className="w-5 h-5" />

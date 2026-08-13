@@ -235,7 +235,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
 
   return (
     <div
-      className={`bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 transition-colors ${
+      className={`bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 transition-colors ${
         compact ? "p-3 sm:p-4 md:p-5" : "p-4 sm:p-5 md:p-6"
       }`}
     >

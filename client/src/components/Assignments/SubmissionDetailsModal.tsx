@@ -155,7 +155,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
       <motion.div
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-5xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-[1.6rem] shadow-2xl overflow-hidden dark:border dark:border-gray-800 flex flex-col"
+        className="w-full max-w-5xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden dark:border dark:border-gray-800 flex flex-col"
       >
         {/* Premium Header */}
         <div className="px-8 py-6 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 dark:from-black dark:via-gray-900 dark:to-black text-white relative">
@@ -217,7 +217,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
           <div className="w-full space-y-6">
             {/* Grade Highlight & Status */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 bg-white dark:bg-gray-900 rounded-[2rem] p-8 border border-gray-100 dark:border-gray-800 shadow-gray-200/50 dark:shadow-none flex items-center gap-6">
+              <div className="md:col-span-2 bg-white dark:bg-gray-900 rounded-2xl p-8 border border-gray-100 dark:border-gray-800 shadow-gray-200/50 dark:shadow-none flex items-center gap-6">
                 <div className="h-24 w-24 rounded-full border-[6px] border-blue-500/20 flex items-center justify-center relative">
                   <div className="absolute inset-0 rounded-full border-[6px] border-blue-600 border-t-transparent animate-[spin_3s_linear_infinite]" />
                   <span className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
@@ -249,7 +249,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
               </div>
 
               <div
-                className={`rounded-[2rem] p-8 flex flex-col justify-center items-center text-center gap-2 border ${getSubmissionStatusColor(submission.status)}`}
+                className={`rounded-2xl p-8 flex flex-col justify-center items-center text-center gap-2 border ${getSubmissionStatusColor(submission.status)}`}
               >
                 <div className="w-12 h-12 rounded-2xl bg-current/20 flex items-center justify-center">
                   <CheckCircle2 className="w-6 h-6" />
@@ -265,7 +265,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
 
             {/* Rubric Breakdown for Student */}
             {submission.grade && rubric.length > 0 && (
-              <div className="bg-white dark:bg-gray-900 rounded-[1.6rem] border border-gray-100 dark:border-gray-800 overflow-hidden shadow-gray-200/30">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden shadow-gray-200/30">
                 <button
                   onClick={() => setShowBreakdown(!showBreakdown)}
                   className="w-full px-8 py-6 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
@@ -359,7 +359,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                 {/* File List */}
                 {fileSubmissions && fileSubmissions.length > 0 && (
                   <div
-                    className={`bg-white dark:bg-gray-900/50 ${submission.text_submission ? "rounded-t-3xl" : "rounded-3xl"} border border-gray-100 dark:border-gray-900 p-6 space-y-4`}
+                    className={`bg-white dark:bg-gray-900/50 ${submission.text_submission ? "rounded-t-2xl" : "rounded-2xl"} border border-gray-100 dark:border-gray-900 p-6 space-y-4`}
                   >
                     <h4 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-gray-400 dark:text-gray-500">
                       <Download className="w-3 h-3" /> Sent Files
@@ -430,7 +430,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   <div
                     className={
                       `bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-900 p-5 space-y-4` +
-                      (fileSubmissions.length > 0 ? " rounded-b-3xl" : " rounded-3xl")
+                      (fileSubmissions.length > 0 ? " rounded-b-2xl" : " rounded-2xl")
                     }
                   >
                     <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
@@ -446,8 +446,8 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                 {submission.feedback && (
                   <div
                     className={
-                      `bg-blue-600 rounded-3xl p-6 text-white space-y-4 shadow-blue-600/20` +
-                      (submission.file_submissions ? " rounded-t-3xl" : "")
+                      `bg-blue-600 rounded-2xl p-6 text-white space-y-4 shadow-blue-600/20` +
+                      (submission.file_submissions ? " rounded-t-2xl" : "")
                     }
                   >
                     <h4 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-blue-100">
@@ -488,7 +488,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                 <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-800" />
               </div>
 
-              <div className="bg-white dark:bg-gray-900 rounded-3xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
+              <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
                 <div className="max-h-[400px] overflow-y-auto px-6 py-4 space-y-6">
                   {localComments.length === 0 ? (
                     <div className="flex flex-col items-center justify-center py-12 text-center space-y-3 opacity-30">
@@ -527,7 +527,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   )}
                 </div>
 
-                <div className="p-4 bg-surface-light dark:bg-surface-dark/50/50 rounded-[1.6rem] mt-4 flex items-center gap-4 border border-gray-200 dark:border-gray-700">
+                <div className="p-4 bg-surface-light dark:bg-surface-dark/50/50 rounded-2xl mt-4 flex items-center gap-4 border border-gray-200 dark:border-gray-700">
                   <textarea
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}

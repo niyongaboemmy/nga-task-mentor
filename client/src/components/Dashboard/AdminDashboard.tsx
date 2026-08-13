@@ -223,7 +223,7 @@ const AdminDashboard: React.FC<{
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6">
+        <div className="lg:col-span-2 bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6">
           <div className="flex justify-between items-center mb-6">
             <div>
               <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -247,7 +247,7 @@ const AdminDashboard: React.FC<{
           </div>
         </div>
 
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col">
           <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-1">
             Grade Distribution
           </h3>
@@ -269,7 +269,7 @@ const AdminDashboard: React.FC<{
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
+        <div className="lg:col-span-2 bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
           <div className="p-6 border-b border-border-light dark:border-border-dark/30">
             <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
               Course Summary

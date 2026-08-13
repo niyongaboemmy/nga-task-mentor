@@ -1336,7 +1336,7 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
         {!isStarted && (
           <div className="absolute inset-0 z-[100] bg-[#1e1e1e]/90 backdrop-blur-md flex flex-col items-center justify-start p-8 pt-14 text-center animate-in fade-in duration-500">
             <div className="max-w-md w-full">
-              <div className="w-20 h-20 bg-blue-500/10 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-blue-500/20 shadow-[0_0_40px_-10px_rgba(59,130,246,0.3)]">
+              <div className="w-20 h-20 bg-blue-500/10 rounded-2xl flex items-center justify-center mx-auto mb-6 border border-blue-500/20 shadow-[0_0_40px_-10px_rgba(59,130,246,0.3)]">
                 <Terminal size={40} className="text-blue-500" />
               </div>
               <h2 className="text-3xl font-extrabold text-white mb-3">

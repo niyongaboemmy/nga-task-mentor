@@ -162,7 +162,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
         </div>
       )}
       <Card className="">
-        <CardHeader className="pb-4 px-4 rounded-t-3xl">
+        <CardHeader className="pb-4 px-4 rounded-t-2xl">
           <CardTitle className="text-xl text-text-primary-light dark:text-text-primary-dark">
             Proctoring Settings
           </CardTitle>

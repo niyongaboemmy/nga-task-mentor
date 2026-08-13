@@ -180,7 +180,7 @@ const Students: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 py-4 px-5">
+      <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 py-4 px-5">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
@@ -269,7 +269,7 @@ const Students: React.FC = () => {
       </div>
 
       {/* Students Table/List */}
-      <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
+      <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
         {loading ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>

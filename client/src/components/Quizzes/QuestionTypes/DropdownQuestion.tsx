@@ -205,7 +205,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
   return (
     <div className="space-y-6">
       {/* Question Prompt */}
-      <div className="bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 rounded-3xl p-8 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 border-2 border-gray-100 dark:border-gray-700 rounded-2xl p-8 shadow-sm">
         <h3 className="font-bold text-xl mb-4 text-text-primary-light dark:text-text-primary-dark flex items-center gap-2">
           <CheckCircle className="w-6 h-6 text-blue-500" />
           Complete the Statement
@@ -410,7 +410,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
 
       {/* Correct Answer Display (Review Mode) */}
       {showCorrectAnswer && !submitted && (
-        <div className="bg-blue-50 dark:bg-blue-900/10 border-2 border-blue-200 dark:border-blue-800 rounded-3xl p-8 shadow-sm animate-fadeIn">
+        <div className="bg-blue-50 dark:bg-blue-900/10 border-2 border-blue-200 dark:border-blue-800 rounded-2xl p-8 shadow-sm animate-fadeIn">
           <h3 className="font-bold text-xl mb-4 text-blue-900 dark:text-blue-300 flex items-center gap-2">
             <CheckCircle className="w-6 h-6" />
             Correct Sequence

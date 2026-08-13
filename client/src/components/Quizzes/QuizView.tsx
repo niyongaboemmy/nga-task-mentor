@@ -83,7 +83,7 @@ const QuizHeader: React.FC<{
   if (editing) return null;
 
   return (
-    <div className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50 rounded-3xl p-4 md:p-6 transition-all duration-300">
+    <div className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50 rounded-2xl p-4 md:p-6 transition-all duration-300">
       <div className="flex flex-col lg:flex-row gap-4 lg:gap-6">
         {/* Left Column - Quiz Info */}
         <div className="flex-1 space-y-4">
@@ -348,7 +348,7 @@ const QuizEditForm: React.FC<{
   onSave: () => void;
   onCancel: () => void;
 }> = ({ editForm, onChange, onSave, onCancel }) => (
-  <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800/50 rounded-3xl p-4 md:p-6">
+  <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-gray-800/50 rounded-2xl p-4 md:p-6">
     <div className="space-y-3">
       <div>
         <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
@@ -913,7 +913,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
           )}
 
           {/* Questions Section */}
-          <div className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl rounded-3xl border border-gray-200/80 dark:border-gray-800/50 card-hover">
+          <div className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/50 card-hover">
             <div className="p-4 md:p-6">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 gap-4">
                 <div className="flex items-center gap-3">

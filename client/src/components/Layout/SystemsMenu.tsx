@@ -117,7 +117,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
           animate={{ opacity: 1, scale: 1, y: 0, x: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: -20, x: -20 }}
           transition={{ type: "spring", damping: 25, stiffness: 300 }}
-          className="absolute left-0 mt-3 w-[400px] md:w-[550px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-[1.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/20 dark:border-gray-700/50 overflow-hidden z-[100]"
+          className="absolute left-0 mt-3 w-[400px] md:w-[550px] bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl rounded-2xl shadow-[0_20px_50px_rgba(0,0,0,0.2)] dark:shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/20 dark:border-gray-700/50 overflow-hidden z-[100]"
         >
           {/* Header Section */}
           <div className="p-6 pb-0">
@@ -172,10 +172,10 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                   onClick={() =>
                     window.open("https://nga.ac.rw/mis/", "_blank")
                   }
-                  className="group relative flex flex-col items-center p-3 pt-6 rounded-[1.5rem] hover:bg-orange-50 dark:hover:bg-orange-600/10 transition-all duration-300 text-center"
+                  className="group relative flex flex-col items-center p-3 pt-6 rounded-2xl hover:bg-orange-50 dark:hover:bg-orange-600/10 transition-all duration-300 text-center"
                 >
                   <div className="relative mb-3">
-                    <div className="w-16 h-16 rounded-[1.25rem] bg-white dark:bg-gray-800 shadow-[0_8px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.3)] group-hover:shadow-[0_12px_30px_rgba(249,115,22,0.15)] dark:group-hover:shadow-[0_12px_30px_rgba(249,115,22,0.2)] group-hover:-trangray-y-1 group-hover:scale-105 flex items-center justify-center border border-gray-100 dark:border-gray-700/50 group-hover:border-orange-200 dark:group-hover:border-orange-500/30 transition-all duration-300 overflow-hidden">
+                    <div className="w-16 h-16 rounded-xl bg-white dark:bg-gray-800 shadow-[0_8px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.3)] group-hover:shadow-[0_12px_30px_rgba(249,115,22,0.15)] dark:group-hover:shadow-[0_12px_30px_rgba(249,115,22,0.2)] group-hover:-trangray-y-1 group-hover:scale-105 flex items-center justify-center border border-gray-100 dark:border-gray-700/50 group-hover:border-orange-200 dark:group-hover:border-orange-500/30 transition-all duration-300 overflow-hidden">
                       <LayoutGrid className="w-8 h-8 text-orange-500 opacity-80" />
                     </div>
                     <div className="absolute -top-1 -right-1 bg-orange-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-lg">
@@ -201,10 +201,10 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
                   onClick={() => handleSystemClick(system)}
-                  className="group relative flex flex-col items-center p-3 pt-6 rounded-[1.5rem] hover:bg-blue-50 dark:hover:bg-blue-600/10 transition-all duration-300 text-center"
+                  className="group relative flex flex-col items-center p-3 pt-6 rounded-2xl hover:bg-blue-50 dark:hover:bg-blue-600/10 transition-all duration-300 text-center"
                 >
                   <div className="relative mb-3">
-                    <div className="w-16 h-16 rounded-[1.25rem] bg-white dark:bg-gray-800 shadow-[0_8px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.3)] group-hover:shadow-[0_12px_30px_rgba(37,99,235,0.15)] dark:group-hover:shadow-[0_12px_30px_rgba(37,99,235,0.2)] group-hover:-trangray-y-1 group-hover:scale-105 flex items-center justify-center border border-gray-100 dark:border-gray-700/50 group-hover:border-blue-200 dark:group-hover:border-blue-500/30 transition-all duration-300 overflow-hidden">
+                    <div className="w-16 h-16 rounded-xl bg-white dark:bg-gray-800 shadow-[0_8px_20px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_30px_rgba(0,0,0,0.3)] group-hover:shadow-[0_12px_30px_rgba(37,99,235,0.15)] dark:group-hover:shadow-[0_12px_30px_rgba(37,99,235,0.2)] group-hover:-trangray-y-1 group-hover:scale-105 flex items-center justify-center border border-gray-100 dark:border-gray-700/50 group-hover:border-blue-200 dark:group-hover:border-blue-500/30 transition-all duration-300 overflow-hidden">
                       {system.icon_url ? (
                         <img
                           src={system.icon_url}

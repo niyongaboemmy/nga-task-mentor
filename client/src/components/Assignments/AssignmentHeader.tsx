@@ -209,7 +209,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
             {/* Due Date */}
             <div
-              className={`bg-gray-50 dark:bg-gray-800/40 rounded-3xl p-4 border ${
+              className={`bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-4 border ${
                 isOverdue
                   ? "border-gray-100 dark:border-gray-600/10"
                   : "border-gray-100 dark:border-gray-700/10"
@@ -265,7 +265,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
             </div>
 
             {/* Points */}
-            <div className="bg-gray-50 dark:bg-gray-800/40 rounded-3xl p-4 border border-gray-100 dark:border-gray-700/20">
+            <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-4 border border-gray-100 dark:border-gray-700/20">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 bg-white dark:bg-gray-800 rounded-xl flex items-center justify-center">
                   <svg
@@ -294,7 +294,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
             </div>
 
             {/* Submission Type */}
-            <div className="bg-gray-50 dark:bg-gray-800/40 rounded-3xl p-4 border border-gray-100 dark:border-gray-700/20">
+            <div className="bg-gray-50 dark:bg-gray-800/40 rounded-2xl p-4 border border-gray-100 dark:border-gray-700/20">
               <div className="flex items-center gap-3">
                 <div className="h-10 w-10 bg-white dark:bg-gray-800 text-blue-500 dark:text-blue-500 rounded-xl flex items-center justify-center border border-gray-100 dark:border-gray-800">
                   {submissionTypeInfo.icon}
@@ -312,7 +312,7 @@ const AssignmentHeader: React.FC<AssignmentHeaderProps> = ({
           </div>
 
           {/* Description */}
-          <div className="bg-white dark:bg-gray-800/30 rounded-3xl p-6 border border-gray-200 dark:border-gray-800/50">
+          <div className="bg-white dark:bg-gray-800/30 rounded-2xl p-6 border border-gray-200 dark:border-gray-800/50">
             <div className="prose prose-sm sm:prose-base max-w-none dark:prose-invert">
               <RichTextDisplay
                 content={assignment.description}

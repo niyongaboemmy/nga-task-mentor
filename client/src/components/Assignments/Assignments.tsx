@@ -213,7 +213,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
     <>
       <div className="space-y-5">
         {/* Header */}
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 px-5 py-4">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 px-5 py-4">
           <div className="flex flex-col gap-4">
             {compact && (
               <div className="flex items-center justify-between gap-4">

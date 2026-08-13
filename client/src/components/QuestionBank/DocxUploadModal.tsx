@@ -207,7 +207,7 @@ const DocxUploadModal: React.FC<DocxUploadModalProps> = ({
 
             <div
               onClick={() => fileInputRef.current?.click()}
-              className={`cursor-pointer border-2 border-dashed rounded-3xl p-12 flex flex-col items-center justify-center transition-all duration-300 ${
+              className={`cursor-pointer border-2 border-dashed rounded-2xl p-12 flex flex-col items-center justify-center transition-all duration-300 ${
                 file
                   ? "border-green-400 bg-green-50/30 dark:bg-green-900/10"
                   : "border-gray-200 dark:border-gray-800 hover:border-blue-400 hover:bg-blue-50/30 dark:hover:bg-blue-900/10"

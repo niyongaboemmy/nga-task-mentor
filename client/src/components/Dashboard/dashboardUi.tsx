@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 
 // Shared MIS-parity building blocks for the Instructor/Student/Admin
 // dashboards — mirrors nga_central_mis/frontend's TeacherDashboard.tsx
-// stat-card recipe (bg-card-light dark:bg-card-dark/30 rounded-3xl
+// stat-card recipe (bg-card-light dark:bg-card-dark/30 rounded-2xl
 // shadow-sm border, tinted icon badge) instead of TaskMentor's previous
 // bespoke gradient/glow styling.
 
@@ -50,7 +50,7 @@ export const StatCard: React.FC<{
   const inner = (
     <motion.div
       variants={dashboardItemVariants}
-      className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 h-full"
+      className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 h-full"
     >
       <div className="flex items-center">
         <div className={`p-2 rounded-2xl ${STAT_COLORS[color]}`}>{icon}</div>
@@ -86,7 +86,7 @@ export const SectionCard: React.FC<{
 }> = ({ icon, iconColor, title, subtitle, action, children }) => (
   <motion.div
     variants={dashboardItemVariants}
-    className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6"
+    className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6"
   >
     <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
       <div className="flex items-center gap-3">
