@@ -175,9 +175,9 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
       transition={{ duration: 0.3 }}
     >
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+      <div className="bg-surface-light dark:bg-surface-dark/50 border-b border-border-light dark:border-border-dark/30 px-6 py-4">
         <motion.h1
-          className="text-2xl font-semibold text-gray-900 dark:text-white mb-1"
+          className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-1"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
@@ -185,7 +185,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
           Update Assignment
         </motion.h1>
         <motion.p
-          className="text-sm text-gray-600 dark:text-gray-400"
+          className="text-sm text-text-secondary-light dark:text-text-secondary-dark"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
@@ -368,7 +368,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.15 }}
-          className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
+          className="bg-surface-light dark:bg-surface-dark/50/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700"
         >
           <div className="flex justify-between items-center mb-4">
             <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
@@ -449,7 +449,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
             </div>
 
             {existingAttachments.length === 0 && newFiles.length === 0 && (
-              <div className="text-center py-8 text-gray-500 dark:text-gray-400 text-sm border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
+              <div className="text-center py-8 text-text-secondary-light dark:text-text-secondary-dark/70 text-sm border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-xl">
                 No attachments
               </div>
             )}
@@ -482,7 +482,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Grading Rubric
               </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                 Define the criteria for grading this assignment
               </p>
               {errors.rubric && (
@@ -525,11 +525,11 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                     exit={{ opacity: 0, height: 0, scale: 0.95 }}
                     className="overflow-hidden"
                   >
-                    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 space-y-4 mb-4">
+                    <div className="bg-surface-light dark:bg-surface-dark/50/50 rounded-2xl p-6 border border-gray-200 dark:border-gray-700 space-y-4 mb-4">
                       <div className="flex items-start gap-4">
                         <div className="flex-1 grid grid-cols-1 md:grid-cols-4 gap-4">
                           <div className="md:col-span-3">
-                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase">
+                            <label className="block text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark/70 mb-1 uppercase">
                               Criterion Name
                             </label>
                             <input
@@ -548,7 +548,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-bold text-gray-500 dark:text-gray-400 mb-1 uppercase">
+                            <label className="block text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark/70 mb-1 uppercase">
                               Max Pts
                             </label>
                             <input
@@ -608,7 +608,7 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({
                   <div className="w-12 h-12 bg-white dark:bg-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-3 shadow-sm border border-gray-100 dark:border-gray-700">
                     <Plus className="w-6 h-6 text-gray-400" />
                   </div>
-                  <p className="text-gray-500 dark:text-gray-400 text-sm">
+                  <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-sm">
                     No criteria added. Click "Add Criterion" to build your
                     rubric.
                   </p>

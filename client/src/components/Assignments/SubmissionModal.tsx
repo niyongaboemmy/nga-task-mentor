@@ -189,12 +189,12 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
             <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div>
-                  <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark">
                     {existingSubmission
                       ? "Update Submission"
                       : "Submit Assignment"}
                   </h2>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1">
                     {assignment.title}
                   </p>
                 </div>
@@ -286,7 +286,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                   >
                     <div className="flex items-center gap-3">
                       <Award className="w-5 h-5 text-indigo-500" />
-                      <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                      <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                         Grading Rubric ({parsedRubric.length} Criteria)
                       </span>
                     </div>
@@ -315,11 +315,11 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                                 <div className="flex gap-2">
                                   <Target className="w-4 h-4 text-gray-400 mt-0.5" />
                                   <div>
-                                    <p className="text-sm font-bold text-gray-900 dark:text-white">
+                                    <p className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
                                       {criterion.criteria}
                                     </p>
                                     {criterion.description && (
-                                      <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                                         {criterion.description}
                                       </p>
                                     )}
@@ -353,7 +353,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                       placeholder="Enter your submission here..."
                       className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-900 dark:text-white resize-y transition-colors min-h-[200px]"
                     />
-                    <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                    <div className="mt-2 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                       {submissionText.length}/2000 characters
                     </div>
                   </div>
@@ -380,7 +380,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
             </div>
 
             {/* Footer */}
-            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
+            <div className="px-6 py-4 border-t border-gray-200 dark:border-gray-700 bg-surface-light dark:bg-surface-dark/50">
               <div className="flex items-center justify-between">
                 <div></div>
 

@@ -220,7 +220,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
               <div className="md:col-span-2 bg-white dark:bg-gray-900 rounded-[2rem] p-8 border border-gray-100 dark:border-gray-800 shadow-gray-200/50 dark:shadow-none flex items-center gap-6">
                 <div className="h-24 w-24 rounded-full border-[6px] border-blue-500/20 flex items-center justify-center relative">
                   <div className="absolute inset-0 rounded-full border-[6px] border-blue-600 border-t-transparent animate-[spin_3s_linear_infinite]" />
-                  <span className="text-2xl font-black text-gray-900 dark:text-white">
+                  <span className="text-2xl font-black text-text-primary-light dark:text-text-primary-dark">
                     {submission.grade
                       ? Math.round(
                           (parseFloat(submission.grade.split("/")[0]) /
@@ -236,7 +236,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                     Final Assessment
                   </p>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-black text-gray-900 dark:text-white">
+                    <span className="text-4xl font-black text-text-primary-light dark:text-text-primary-dark">
                       {submission.grade || "Ungraded"}
                     </span>
                     {submission.grade && (
@@ -275,7 +275,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                       <Award className="w-6 h-6" />
                     </div>
                     <div className="text-left">
-                      <h4 className="text-lg font-bold text-gray-900 dark:text-white">
+                      <h4 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                         Grade Breakdown
                       </h4>
                       <p className="text-xs text-gray-500 font-medium">
@@ -309,7 +309,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                               <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                   <div className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
-                                  <span className="text-sm font-bold text-gray-900 dark:text-white">
+                                  <span className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
                                     {criterion.criteria}
                                   </span>
                                 </div>
@@ -320,7 +320,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                                   / {criterion.max_score}
                                 </span>
                               </div>
-                              <div className="h-2 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
+                              <div className="h-2 w-full bg-surface-light dark:bg-surface-dark rounded-full overflow-hidden">
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: `${ratio * 100}%` }}
@@ -332,7 +332,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                                 />
                               </div>
                               {criterion.description && (
-                                <p className="text-[11px] text-gray-500 dark:text-gray-400 ml-5 italic leading-relaxed">
+                                <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/70 ml-5 italic leading-relaxed">
                                   {criterion.description}
                                 </p>
                               )}
@@ -466,7 +466,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
               <div className="relative pt-12">
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center">
                   <div className="h-12 w-px bg-gradient-to-t from-gray-200 to-transparent dark:from-gray-800" />
-                  <div className="px-4 py-1.5 bg-gray-100 dark:bg-gray-800 rounded-full text-[9px] font-black uppercase tracking-widest text-gray-500">
+                  <div className="px-4 py-1.5 bg-surface-light dark:bg-surface-dark rounded-full text-[9px] font-black uppercase tracking-widest text-gray-500">
                     Grading Console
                   </div>
                 </div>
@@ -482,7 +482,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
             {/* Real-time Threaded Comments */}
             <div className="space-y-6 pt-12">
               <div className="flex items-center gap-4">
-                <h6 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-[0.2em]">
+                <h6 className="text-sm font-black text-text-primary-light dark:text-text-primary-dark uppercase tracking-[0.2em]">
                   Conversation Thread
                 </h6>
                 <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-800" />
@@ -516,7 +516,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                             className={`px-5 py-3 rounded-2xl text-sm font-medium leading-relaxed ${
                               comment.isInstructor
                                 ? "bg-blue-600 text-white rounded-tr-none shadow-blue-500/20"
-                                : "bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-tl-none"
+                                : "bg-surface-light dark:bg-surface-dark text-gray-700 dark:text-gray-200 rounded-tl-none"
                             }`}
                           >
                             {comment.content}
@@ -527,7 +527,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   )}
                 </div>
 
-                <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-[1.6rem] mt-4 flex items-center gap-4 border border-gray-200 dark:border-gray-700">
+                <div className="p-4 bg-surface-light dark:bg-surface-dark/50/50 rounded-[1.6rem] mt-4 flex items-center gap-4 border border-gray-200 dark:border-gray-700">
                   <textarea
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
@@ -554,7 +554,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
           </div>
           <button
             onClick={onClose}
-            className="px-8 py-3 bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-white rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-all"
+            className="px-8 py-3 bg-surface-light dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark rounded-2xl font-black text-[10px] uppercase tracking-widest hover:bg-gray-200 transition-all"
           >
             Exit Console
           </button>

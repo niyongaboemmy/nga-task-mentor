@@ -174,9 +174,9 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
       transition={{ duration: 0.3 }}
     >
       {/* Header */}
-      <div className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-6 py-4">
+      <div className="bg-surface-light dark:bg-surface-dark/50 border-b border-border-light dark:border-border-dark/30 px-6 py-4">
         <motion.h1
-          className="text-2xl font-semibold text-gray-900 dark:text-white mb-1"
+          className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-1"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: 0.1 }}
@@ -184,7 +184,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
           Create New Assignment
         </motion.h1>
         <motion.p
-          className="text-sm text-gray-600 dark:text-gray-400"
+          className="text-sm text-text-secondary-light dark:text-text-secondary-dark"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.2 }}
@@ -396,7 +396,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
               <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300">
                 Grading Rubric
               </label>
-              <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
                 Define the criteria for grading this assignment
               </p>
               {errors.rubric && (
@@ -433,7 +433,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                     exit={{ opacity: 0, height: 0, scale: 0.95 }}
                     className="overflow-hidden"
                   >
-                    <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700/50 mb-3 group hover:border-blue-200 dark:hover:border-blue-800/50 transition-all">
+                    <div className="p-4 bg-surface-light dark:bg-surface-dark/50/50 rounded-2xl border border-gray-100 dark:border-gray-700/50 mb-3 group hover:border-blue-200 dark:hover:border-blue-800/50 transition-all">
                       <div className="flex items-start gap-3">
                         <div className="flex-1 space-y-3">
                           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
@@ -499,10 +499,10 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                   animate={{ opacity: 1 }}
                   className="text-center py-8 border-2 border-dashed border-gray-200 dark:border-gray-700 rounded-3xl"
                 >
-                  <div className="w-10 h-10 bg-gray-50 dark:bg-gray-800/50 rounded-full flex items-center justify-center mx-auto mb-2 text-gray-400">
+                  <div className="w-10 h-10 bg-surface-light dark:bg-surface-dark/50/50 rounded-full flex items-center justify-center mx-auto mb-2 text-gray-400">
                     <Info className="w-5 h-5" />
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                     No rubric criteria yet. Click "Add Criterion" to start.
                   </p>
                   <p className="text-[10px] text-gray-400 dark:text-gray-500 mt-1 uppercase tracking-wider">
@@ -514,7 +514,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
 
             {formData.rubric && formData.rubric.length > 0 && (
               <div className="flex justify-end pr-4">
-                <p className="text-sm font-semibold text-gray-900 dark:text-white">
+                <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                   Rubric Total:{" "}
                   <span className="text-blue-600 dark:text-blue-400">
                     {formData.rubric.reduce(
