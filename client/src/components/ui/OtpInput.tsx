@@ -115,7 +115,7 @@ const OtpInput: React.FC<OtpInputProps> = ({
               ${
                 activeInput === index
                   ? "border-blue-500 bg-white dark:bg-gray-800 shadow-[0_0_0_4px_rgba(59,130,246,0.1)] scale-105 z-10"
-                  : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-gray-400"
+                  : "border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-gray-400 dark:text-gray-500"
               }
               ${
                 otpArray[index] !== " "

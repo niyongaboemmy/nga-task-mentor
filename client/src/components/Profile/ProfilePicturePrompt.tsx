@@ -103,7 +103,7 @@ const ProfilePicturePrompt: React.FC<ProfilePicturePromptProps> = ({
               disabled={isUploading}
               className={`flex-1 px-4 py-3 text-sm font-medium rounded-full transition-all duration-200 hover:scale-105 focus:ring-2 focus:ring-gray-300 dark:focus:ring-gray-600 ${
                 isUploading
-                  ? "text-gray-400 bg-gray-100 dark:bg-gray-700 cursor-not-allowed opacity-50"
+                  ? "text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-700 cursor-not-allowed opacity-50"
                   : "text-text-secondary-light dark:text-text-secondary-dark bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600"
               }`}
             >

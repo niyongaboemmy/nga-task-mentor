@@ -213,7 +213,7 @@ export const LogicalExpressionQuestionForm: React.FC<
                       truth_table: newTruthTable,
                     });
                   }}
-                  className="rounded border-gray-300"
+                  className="rounded border-gray-300 dark:border-gray-600"
                 />
               </div>
               {data.truth_table && data.truth_table.length > 1 && (

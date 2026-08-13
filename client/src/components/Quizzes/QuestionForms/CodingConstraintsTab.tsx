@@ -24,7 +24,7 @@ export const CodingConstraintsTab: React.FC<CodingConstraintsTabProps> = ({
           Guidelines & Instructions (Optional)
         </label>
       </div>
-      <p className="text-xs text-gray-500 mb-4">
+      <p className="text-xs text-gray-500 dark:text-gray-400 mb-4">
         Click on the chips below to quickly append common requirements, or type
         your own instructions.
       </p>
@@ -53,7 +53,7 @@ export const CodingConstraintsTab: React.FC<CodingConstraintsTabProps> = ({
           <span className="text-lg">⚙️</span>
           Advanced Execution Limits (Optional)
         </div>
-        <span className="text-gray-400 group-open:rotate-180 transition-transform">
+        <span className="text-gray-400 dark:text-gray-500 group-open:rotate-180 transition-transform">
           ▼
         </span>
       </summary>
@@ -77,7 +77,7 @@ export const CodingConstraintsTab: React.FC<CodingConstraintsTabProps> = ({
             max="30"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono text-sm"
           />
-          <p className="mt-1.5 text-xs text-gray-400">Default: 2s · Max: 30s</p>
+          <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">Default: 2s · Max: 30s</p>
         </div>
 
         <div>
@@ -97,7 +97,7 @@ export const CodingConstraintsTab: React.FC<CodingConstraintsTabProps> = ({
             min="1000"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono text-sm"
           />
-          <p className="mt-1.5 text-xs text-gray-400">
+          <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
             Default: 256 MB (256 000 KB)
           </p>
         </div>

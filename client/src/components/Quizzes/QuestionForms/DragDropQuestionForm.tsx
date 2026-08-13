@@ -42,7 +42,7 @@ export const DragDropQuestionForm: React.FC<DragDropQuestionFormProps> = ({
             >
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
                     X Position
                   </label>
                   <input
@@ -63,7 +63,7 @@ export const DragDropQuestionForm: React.FC<DragDropQuestionFormProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
                     Y Position
                   </label>
                   <input
@@ -84,7 +84,7 @@ export const DragDropQuestionForm: React.FC<DragDropQuestionFormProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
                     Width
                   </label>
                   <input
@@ -105,7 +105,7 @@ export const DragDropQuestionForm: React.FC<DragDropQuestionFormProps> = ({
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
                     Height
                   </label>
                   <input
@@ -126,7 +126,7 @@ export const DragDropQuestionForm: React.FC<DragDropQuestionFormProps> = ({
                   />
                 </div>
                 <div className="md:col-span-2">
-                  <label className="block text-xs text-gray-600 mb-1">
+                  <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
                     Label (Optional)
                   </label>
                   <input
@@ -147,7 +147,7 @@ export const DragDropQuestionForm: React.FC<DragDropQuestionFormProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs text-gray-600 mb-1">
+                <label className="block text-xs text-gray-600 dark:text-gray-400 mb-1">
                   Correct Items (comma-separated IDs)
                 </label>
                 <input

@@ -171,7 +171,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
             : "Open Workspace Editor"}
         </button>
         {codingData.language && (
-          <div className="mt-4 flex items-center justify-center gap-4 text-xs font-medium text-gray-500">
+          <div className="mt-4 flex items-center justify-center gap-4 text-xs font-medium text-gray-500 dark:text-gray-400">
             <span className="flex items-center gap-1">
               <Check size={14} className="text-green-500" />{" "}
               {codingData.language}
@@ -232,7 +232,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                 </button>
                 <div className="h-6 w-px bg-gray-200 dark:bg-gray-700 hidden sm:block"></div>
                 <div className="hidden sm:flex flex-col">
-                  <span className="text-xs text-gray-500 font-medium tracking-wide">
+                  <span className="text-xs text-gray-500 dark:text-gray-400 font-medium tracking-wide">
                     SELECTED TEMPLATE
                   </span>
                   <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">

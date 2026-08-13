@@ -84,7 +84,7 @@ const AssignmentDescriptionEditor: React.FC<
                   onClick={handleCancel}
                   className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                 >
-                  <X className="w-6 h-6 text-gray-400" />
+                  <X className="w-6 h-6 text-gray-400 dark:text-gray-500" />
                 </button>
               </div>
 
