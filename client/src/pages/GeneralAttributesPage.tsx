@@ -202,8 +202,7 @@ export default function GeneralAttributesPage() {
           <button
             onClick={handleMarkAllComplete}
             disabled={markingComplete}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-              bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-colors whitespace-nowrap"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-colors whitespace-nowrap"
           >
             {markingComplete ? (
               <Loader2 className="w-4 h-4 animate-spin" />

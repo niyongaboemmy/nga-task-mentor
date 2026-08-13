@@ -172,8 +172,7 @@ function QuickAssignPopover({
       animate={{ opacity: 1, scale: 1, y: 0 }}
       exit={{ opacity: 0, scale: 0.92, y: -4 }}
       transition={{ duration: 0.15 }}
-      className="absolute left-0 top-full mt-1.5 z-50 w-52
-        bg-[#0D1525] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+      className="absolute left-0 top-full mt-1.5 z-50 w-52 bg-[#0D1525] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
     >
       <div className="px-3 py-2.5 border-b border-white/[0.06]">
         <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Assign to category</p>
@@ -186,8 +185,7 @@ function QuickAssignPopover({
             <button
               key={cat}
               onClick={() => { onAssign(cat); onClose(); }}
-              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm
-                hover:bg-white/[0.06] transition-colors text-left group"
+              className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm hover:bg-white/[0.06] transition-colors text-left group"
             >
               <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${meta.dot}`} />
               <span className="flex-1 text-slate-300 group-hover:text-white font-medium">{meta.label}</span>
@@ -233,18 +231,7 @@ function DraggableCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`
-        relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium
-        select-none transition-all duration-150 group
-        ${isOverlay
-          ? "bg-white text-slate-900 border-violet-400 shadow-2xl shadow-violet-500/40 scale-105 rotate-1"
-          : isDragging
-          ? "opacity-20 bg-white/[0.04] border-white/[0.06]"
-          : readOnly
-          ? "bg-white/[0.04] border-white/[0.07] cursor-default"
-          : "bg-white/[0.06] border-white/[0.1] hover:bg-white/[0.1] hover:border-white/[0.18] hover:shadow-md hover:shadow-black/30 cursor-grab active:cursor-grabbing"
-        }
-      `}
+      className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium select-none transition-all duration-150 group ${isOverlay ? "bg-white text-slate-900 border-violet-400 shadow-2xl shadow-violet-500/40 scale-105 rotate-1" : isDragging ? "opacity-20 bg-white/[0.04] border-white/[0.06]" : readOnly ? "bg-white/[0.04] border-white/[0.07] cursor-default" : "bg-white/[0.06] border-white/[0.1] hover:bg-white/[0.1] hover:border-white/[0.18] hover:shadow-md hover:shadow-black/30 cursor-grab active:cursor-grabbing" }`}
       {...attributes}
       {...listeners}
     >
@@ -264,13 +251,7 @@ function DraggableCard({
         {item.title}
       </span>
 
-      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${
-        isManual
-          ? isOverlay ? "bg-violet-100 text-violet-700" : "bg-violet-900/60 text-violet-300"
-          : item.assessment_type === "quiz"
-          ? isOverlay ? "bg-blue-100 text-blue-700" : "bg-blue-900/60 text-blue-300"
-          : isOverlay ? "bg-cyan-100 text-cyan-700" : "bg-cyan-900/60 text-cyan-300"
-      }`}>
+      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${ isManual ? isOverlay ? "bg-violet-100 text-violet-700" : "bg-violet-900/60 text-violet-300" : item.assessment_type === "quiz" ? isOverlay ? "bg-blue-100 text-blue-700" : "bg-blue-900/60 text-blue-300" : isOverlay ? "bg-cyan-100 text-cyan-700" : "bg-cyan-900/60 text-cyan-300" }`}>
         {isManual ? "Manual" : item.assessment_type === "quiz" ? "Quiz" : "Assign"}
       </span>
 
@@ -283,8 +264,7 @@ function DraggableCard({
           {onEnterScores && (
             <button
               onClick={(e) => { e.stopPropagation(); onEnterScores(item); }}
-              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-violet-600/50
-                flex items-center justify-center transition-all duration-150"
+              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-violet-600/50 flex items-center justify-center transition-all duration-150"
               title="Enter student scores"
             >
               <ListChecks className="w-3 h-3 text-slate-300" />
@@ -293,8 +273,7 @@ function DraggableCard({
           {onEdit && (
             <button
               onClick={(e) => { e.stopPropagation(); onEdit(item); }}
-              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-blue-600/50
-                flex items-center justify-center transition-all duration-150"
+              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-blue-600/50 flex items-center justify-center transition-all duration-150"
               title="Edit assessment"
             >
               <Pencil className="w-3 h-3 text-slate-300" />
@@ -303,8 +282,7 @@ function DraggableCard({
           {onDelete && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(item); }}
-              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-red-600/50
-                flex items-center justify-center transition-all duration-150"
+              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-red-600/50 flex items-center justify-center transition-all duration-150"
               title="Delete assessment"
             >
               <Trash2 className="w-3 h-3 text-slate-300" />
@@ -318,9 +296,7 @@ function DraggableCard({
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onQuickAssign(item); }}
-          className="flex-shrink-0 w-5 h-5 rounded-md bg-white/[0.08] hover:bg-blue-600/50
-            flex items-center justify-center opacity-0 group-hover:opacity-100
-            transition-all duration-150 touch-action-auto"
+          className="flex-shrink-0 w-5 h-5 rounded-md bg-white/[0.08] hover:bg-blue-600/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-150 touch-action-auto"
           aria-label={`Quick assign ${item.title}`}
           title="Quick assign to category"
         >
@@ -333,9 +309,7 @@ function DraggableCard({
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onQuickAssign(item); }}
-          className="flex-shrink-0 w-5 h-5 rounded-md bg-white/[0.08] hover:bg-violet-600/50
-            flex items-center justify-center opacity-0 group-hover:opacity-100
-            transition-all duration-150 touch-action-auto"
+          className="flex-shrink-0 w-5 h-5 rounded-md bg-white/[0.08] hover:bg-violet-600/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-150 touch-action-auto"
           aria-label={`Quick assign ${item.title}`}
           title="Quick assign to category"
         >
@@ -379,8 +353,7 @@ function DroppedItem({
       )}
       <button
         onClick={() => onRemove(item.dndId)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full
-          hover:bg-red-500/20 text-slate-600 hover:text-red-400"
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full hover:bg-red-500/20 text-slate-600 hover:text-red-400"
         aria-label={`Remove ${item.title}`}
       >
         <X className="w-3 h-3" />
@@ -436,9 +409,7 @@ function CategoryDropZone({
 
       {/* Drop area */}
       <div
-        className={`flex-1 p-3 min-h-[120px] flex flex-col gap-2 transition-colors duration-150 ${
-          isOver ? "bg-white/[0.03]" : ""
-        }`}
+        className={`flex-1 p-3 min-h-[120px] flex flex-col gap-2 transition-colors duration-150 ${ isOver ? "bg-white/[0.03]" : "" }`}
       >
         {items.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2.5 py-6">
@@ -744,8 +715,7 @@ export default function ReportCardBuilder({
                   </motion.span>
                 )}
                 {readOnly ? (
-                  <span className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-                    bg-emerald-950/50 border border-emerald-800/50 text-emerald-300">
+                  <span className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-950/50 border border-emerald-800/50 text-emerald-300">
                     <CheckCircle2 className="w-4 h-4" />
                     Approved — view only
                   </span>
@@ -754,11 +724,7 @@ export default function ReportCardBuilder({
                     onClick={handleSave}
                     disabled={isSaving || totalMapped === 0}
                     data-testid="save-button"
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
-                      bg-blue-600 hover:bg-blue-500 text-white
-                      disabled:opacity-40 disabled:cursor-not-allowed
-                      shadow-lg shadow-blue-900/50
-                      transition-all duration-200 active:scale-95"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-blue-900/50 transition-all duration-200 active:scale-95"
                   >
                     {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     {isSaving ? "Saving…" : "Save Mappings"}
@@ -780,9 +746,7 @@ export default function ReportCardBuilder({
             <button
               onClick={() => setSubjectOpen((o) => !o)}
               data-testid="subject-selector"
-              className="w-full sm:w-80 flex items-center justify-between gap-2 px-4 py-2.5
-                bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm font-medium
-                hover:bg-white/[0.08] hover:border-white/[0.16] transition-all"
+              className="w-full sm:w-80 flex items-center justify-between gap-2 px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm font-medium hover:bg-white/[0.08] hover:border-white/[0.16] transition-all"
             >
               <span className="truncate text-slate-200">
                 {selectedSubject ? selectedSubject.name : "Select a subject"}
@@ -799,18 +763,13 @@ export default function ReportCardBuilder({
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -6 }}
                   transition={{ duration: 0.15 }}
-                  className="absolute top-full mt-1.5 left-0 z-50 w-full sm:w-80
-                    bg-[#0D1525] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
+                  className="absolute top-full mt-1.5 left-0 z-50 w-full sm:w-80 bg-[#0D1525] border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
                 >
                   {subjects.map((s) => (
                     <button
                       key={s.id}
                       onClick={() => { setSelectedSubjectId(s.id); setSubjectOpen(false); }}
-                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors
-                        ${selectedSubjectId === s.id
-                          ? "bg-blue-600/30 text-white font-semibold"
-                          : "text-slate-400 hover:bg-white/[0.05] hover:text-white"
-                        }`}
+                      className={`w-full text-left px-4 py-2.5 text-sm transition-colors ${selectedSubjectId === s.id ? "bg-blue-600/30 text-white font-semibold" : "text-slate-400 hover:bg-white/[0.05] hover:text-white" }`}
                     >
                       {s.name}
                     </button>
@@ -856,8 +815,7 @@ export default function ReportCardBuilder({
               </div>
 
               <div
-                className="p-3 flex flex-col gap-2 flex-1 overflow-y-auto
-                  scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/[0.08]"
+                className="p-3 flex flex-col gap-2 flex-1 overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/[0.08]"
                 data-testid="available-items"
               >
                 {/* Quizzes & assignments */}
@@ -897,9 +855,7 @@ export default function ReportCardBuilder({
                     {!readOnly && selectedSubject && (
                       <button
                         onClick={openCreateModal}
-                        className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg
-                          bg-violet-900/40 border border-violet-700/40 text-violet-300
-                          hover:bg-violet-800/50 transition-all font-medium"
+                        className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-violet-900/40 border border-violet-700/40 text-violet-300 hover:bg-violet-800/50 transition-all font-medium"
                       >
                         <Plus className="w-3 h-3" />
                         Add Entry

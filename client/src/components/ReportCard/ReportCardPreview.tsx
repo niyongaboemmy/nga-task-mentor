@@ -925,8 +925,7 @@ export default function ReportCardPreview({
               <button
                 onClick={handleBrowserPrint}
                 disabled={!data}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600
-                  text-white text-xs font-medium transition-colors disabled:opacity-40"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium transition-colors disabled:opacity-40"
               >
                 <Printer className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">Print</span>
@@ -935,9 +934,7 @@ export default function ReportCardPreview({
               <button
                 onClick={handleDownloadPdf}
                 disabled={!data || downloading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
-                  bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-40
-                  shadow-sm shadow-indigo-500/20"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-40 shadow-sm shadow-indigo-500/20"
               >
                 {downloading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />

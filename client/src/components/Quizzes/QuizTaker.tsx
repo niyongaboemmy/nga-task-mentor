@@ -372,8 +372,8 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-        <span className="ml-3 text-gray-600">Loading quiz...</span>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-500"></div>
+        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading quiz...</span>
       </div>
     );
   }
@@ -382,7 +382,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="text-red-600 mb-4">{error}</div>
+          <div className="text-red-600 dark:text-red-400 mb-4">{error}</div>
           <button
             onClick={() =>
               navigate(
@@ -402,7 +402,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="text-gray-600 mb-4">
+          <div className="text-gray-600 dark:text-gray-400 mb-4">
             This quiz has no questions yet.
           </div>
           <button
@@ -422,23 +422,19 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
   return (
     <div
-      className={`min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 ${
-        isFullscreen ? "fixed inset-0 z-50 overflow-auto" : ""
-      }`}
+      className={`min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 dark:from-black dark:to-black ${ isFullscreen ? "fixed inset-0 z-50 overflow-auto" : "" }`}
     >
       {/* Header */}
       <div
-        className={`bg-white border-b border-gray-200 px-4 sm:px-6 py-4 shadow-sm ${
-          isFullscreen ? "hidden" : ""
-        }`}
+        className={`bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4 shadow-sm ${ isFullscreen ? "hidden" : "" }`}
       >
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between">
             <div className="flex-1 min-w-0">
-              <h1 className="text-lg sm:text-xl font-semibold text-gray-900 truncate">
+              <h1 className="text-lg sm:text-xl font-semibold text-gray-900 dark:text-white truncate">
                 {quiz.title}
               </h1>
-              <div className="text-gray-600 text-sm truncate">
+              <div className="text-gray-600 dark:text-gray-400 text-sm truncate">
                 <RichTextDisplay
                   content={quiz.description || ""}
                   className="inline prose-p:my-0"
@@ -449,7 +445,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
               {/* Proctoring Monitor Button */}
               <button
                 onClick={() => setShowProctoringMonitor(true)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-100 text-blue-600 hover:bg-blue-200 transition-all"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 hover:bg-blue-200 transition-all"
                 title="Open Proctoring Monitor"
               >
                 <Monitor className="w-4 h-4" />
@@ -459,7 +455,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
               {/* Fullscreen Toggle */}
               <button
                 onClick={toggleFullscreen}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 text-gray-600 hover:bg-gray-200 transition-all"
+                className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 transition-all"
                 title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
               >
                 {isFullscreen ? (
@@ -492,10 +488,10 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
               {/* Question Counter */}
               <div className="text-right">
-                <div className="text-sm font-medium text-gray-900">
+                <div className="text-sm font-medium text-gray-900 dark:text-white">
                   {currentQuestionIndex + 1} of {totalQuestions}
                 </div>
-                <div className="text-xs text-gray-500">
+                <div className="text-xs text-gray-500 dark:text-gray-400">
                   {answeredQuestions} answered
                 </div>
               </div>
@@ -522,27 +518,25 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
       {/* Enhanced Progress Bar */}
       <div
-        className={`bg-white border-b border-gray-200 px-4 sm:px-6 py-3 shadow-sm ${
-          isFullscreen ? "hidden" : ""
-        }`}
+        className={`bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-3 shadow-sm ${ isFullscreen ? "hidden" : "" }`}
       >
         <div className="max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-4">
-              <span className="text-sm font-medium text-gray-700">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">
                 Progress
               </span>
               <div className="flex items-center gap-2 text-xs">
                 <div className="flex items-center gap-1">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span className="text-gray-600">
+                  <div className="w-2 h-2 bg-green-500 dark:bg-green-600 rounded-full"></div>
+                  <span className="text-gray-600 dark:text-gray-400">
                     {answeredQuestions} answered
                   </span>
                 </div>
                 {flaggedQuestions.size > 0 && (
                   <div className="flex items-center gap-1">
                     <Flag className="w-3 h-3 text-orange-500" />
-                    <span className="text-gray-600">
+                    <span className="text-gray-600 dark:text-gray-400">
                       {flaggedQuestions.size} flagged
                     </span>
                   </div>
@@ -551,7 +545,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
             </div>
             <button
               onClick={() => setShowQuestionNavigation(!showQuestionNavigation)}
-              className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+              className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 font-medium flex items-center gap-1"
             >
               {showQuestionNavigation ? (
                 <EyeOff className="w-4 h-4" />
@@ -561,7 +555,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
               {showQuestionNavigation ? "Hide" : "Show"} Questions
             </button>
           </div>
-          <div className="w-full bg-gray-200 rounded-full h-3 shadow-inner">
+          <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-3 shadow-inner">
             <div
               className="bg-gradient-to-r from-blue-500 to-blue-600 h-3 rounded-full transition-all duration-500 shadow-sm"
               style={{ width: `${progress}%` }}
@@ -572,9 +566,9 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
       {/* Question Navigation Panel */}
       {showQuestionNavigation && !isFullscreen && (
-        <div className="bg-white border-b border-gray-200 px-4 sm:px-6 py-4">
+        <div className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4">
           <div className="max-w-4xl mx-auto">
-            <h3 className="text-sm font-medium text-gray-700 mb-3">
+            <h3 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3">
               Question Navigation
             </h3>
             <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-2">
@@ -584,17 +578,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                   <button
                     key={question.id}
                     onClick={() => handleQuestionNavigation(index)}
-                    className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center text-xs font-medium transition-all relative ${
-                      index === currentQuestionIndex
-                        ? "border-blue-500 bg-blue-50 text-blue-700 ring-2 ring-blue-200"
-                        : status === "submitted"
-                          ? "border-purple-500 bg-purple-50 text-purple-700 hover:bg-purple-100"
-                          : status === "answered"
-                            ? "border-green-500 bg-green-50 text-green-700 hover:bg-green-100"
-                            : status === "flagged"
-                              ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100"
-                              : "border-gray-300 bg-white text-gray-600 hover:border-gray-400 hover:bg-gray-50"
-                    }`}
+                    className={`aspect-square rounded-lg border-2 flex flex-col items-center justify-center text-xs font-medium transition-all relative ${ index === currentQuestionIndex ? "border-blue-500 bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 ring-2 ring-blue-200" : status === "submitted" ? "border-purple-500 bg-purple-50 text-purple-700 hover:bg-purple-100" : status === "answered" ? "border-green-500 bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400 hover:bg-green-100" : status === "flagged" ? "border-orange-500 bg-orange-50 text-orange-700 hover:bg-orange-100" : "border-gray-300 bg-white dark:bg-gray-900 text-gray-600 dark:text-gray-400 hover:border-gray-400 hover:bg-gray-50" }`}
                   >
                     {index + 1}
                     {status === "flagged" && (
@@ -610,37 +594,27 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
       {/* Quiz Content */}
       <div
-        className={`max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 ${
-          isFullscreen
-            ? "max-w-none px-8 py-8 min-h-screen flex items-center justify-center"
-            : ""
-        }`}
+        className={`max-w-4xl mx-auto px-4 sm:px-6 py-6 sm:py-8 ${ isFullscreen ? "max-w-none px-8 py-8 min-h-screen flex items-center justify-center" : "" }`}
       >
         {currentQuestion && (
           <div
-            className={`bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden ${
-              isFullscreen ? "max-w-5xl w-full" : ""
-            }`}
+            className={`bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden ${ isFullscreen ? "max-w-5xl w-full" : "" }`}
           >
             {/* Question Header */}
-            <div className="bg-gray-50 px-4 sm:px-6 py-4 border-b border-gray-200">
+            <div className="bg-gray-50 dark:bg-gray-800/50 px-4 sm:px-6 py-4 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-medium">
                     Question {currentQuestionIndex + 1}
                   </div>
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-gray-600 dark:text-gray-400">
                     {currentQuestion.points} point
                     {currentQuestion.points !== 1 ? "s" : ""}
                   </span>
                 </div>
                 <button
                   onClick={() => toggleFlagQuestion(currentQuestion.id)}
-                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
-                    flaggedQuestions.has(currentQuestion.id)
-                      ? "bg-orange-100 text-orange-700 border border-orange-300"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${ flaggedQuestions.has(currentQuestion.id) ? "bg-orange-100 text-orange-700 border border-orange-300" : "bg-gray-100 text-gray-600 dark:text-gray-400 hover:bg-gray-200" }`}
                 >
                   <Flag className="w-4 h-4" />
                   {flaggedQuestions.has(currentQuestion.id)
@@ -655,12 +629,12 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
               <div className="grid grid-cols-3 gap-6">
                 {/* Column 1: Question Details */}
                 <div className="space-y-4">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
                       Question
                     </h3>
                     <div className="prose prose-sm max-w-none">
-                      <div className="text-gray-800 leading-relaxed">
+                      <div className="text-gray-800 dark:text-gray-200 leading-relaxed">
                         <RichTextDisplay
                           content={
                             currentQuestion.question_text ||
@@ -698,8 +672,8 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
                 {/* Column 2: Answer Input */}
                 <div className="space-y-4">
-                  <div className="bg-blue-50 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
                       Your Answer
                     </h3>
                     <QuizQuestion
@@ -718,8 +692,8 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
                 {/* Column 3: Tests and Submit */}
                 <div className="space-y-4">
-                  <div className="bg-green-50 rounded-lg p-4">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  <div className="bg-green-50 dark:bg-green-900/20 rounded-lg p-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
                       Actions
                     </h3>
 
@@ -729,7 +703,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                       typeof currentQuestion.question_data === "object" &&
                       "test_cases" in currentQuestion.question_data && (
                         <div className="mb-4">
-                          <h4 className="text-sm font-medium text-gray-700 mb-2">
+                          <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                             Test Cases
                           </h4>
                           <div className="space-y-2 max-h-40 overflow-y-auto">
@@ -739,12 +713,12 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                               (testCase: any, index: number) => (
                                 <div
                                   key={index}
-                                  className="bg-white p-2 rounded border text-xs"
+                                  className="bg-white dark:bg-gray-900 p-2 rounded border text-xs"
                                 >
                                   <div className="font-medium">
                                     Input: {testCase.input}
                                   </div>
-                                  <div className="text-gray-600">
+                                  <div className="text-gray-600 dark:text-gray-400">
                                     Expected: {testCase.expected_output}
                                   </div>
                                 </div>
@@ -757,7 +731,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                     {/* Quiz submitted indicator */}
                     {quizSubmitted && (
                       <div className="mb-4">
-                        <div className="px-4 py-2 bg-green-100 text-green-700 rounded-lg text-sm font-medium text-center">
+                        <div className="px-4 py-2 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 rounded-lg text-sm font-medium text-center">
                           ✓ Quiz Submitted
                         </div>
                       </div>
@@ -786,24 +760,20 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                           {(testResults.length > 0 || testError) && (
                             <div className="mt-3 space-y-2">
                               {testError && (
-                                <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-sm text-red-700">
+                                <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-3 text-sm text-red-700 dark:text-red-400">
                                   {testError}
                                 </div>
                               )}
                               {testResults.length > 0 && (
                                 <>
-                                  <div className="text-xs font-medium text-gray-600 mb-1">
+                                  <div className="text-xs font-medium text-gray-600 dark:text-gray-400 mb-1">
                                     {testResults.filter(r => r.passed).length}/{testResults.length} tests passed
                                   </div>
                                   <div className="space-y-1 max-h-48 overflow-y-auto">
                                     {testResults.map((result, idx) => (
                                       <div
                                         key={idx}
-                                        className={`flex items-start justify-between p-2 rounded border text-xs ${
-                                          result.passed
-                                            ? "bg-green-50 border-green-200 text-green-700"
-                                            : "bg-red-50 border-red-200 text-red-700"
-                                        }`}
+                                        className={`flex items-start justify-between p-2 rounded border text-xs ${ result.passed ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 dark:border-red-800 text-red-700" }`}
                                       >
                                         <span className="font-medium shrink-0">
                                           {result.passed ? "✓" : "✗"} Test {idx + 1}
@@ -829,7 +799,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                         <button
                           onClick={handleConfirmSubmit}
                           disabled={loading}
-                          className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                          className="w-full px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
                         >
                           {loading ? "Submitting..." : "Submit Quiz"}
                         </button>
@@ -844,14 +814,12 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
         {/* Enhanced Navigation */}
         <div
-          className={`flex flex-col sm:flex-row items-center justify-between mt-8 bg-white rounded-xl border border-gray-200 p-4 sm:p-6 shadow-sm gap-4 ${
-            isFullscreen ? "max-w-5xl w-full mx-auto" : ""
-          }`}
+          className={`flex flex-col sm:flex-row items-center justify-between mt-8 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sm:p-6 shadow-sm gap-4 ${ isFullscreen ? "max-w-5xl w-full mx-auto" : "" }`}
         >
           <button
             onClick={handlePrevious}
             disabled={currentQuestionIndex === 0 || loading}
-            className="flex items-center gap-2 px-4 sm:px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 w-full sm:w-auto"
+            className="flex items-center gap-2 px-4 sm:px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 w-full sm:w-auto"
           >
             <ChevronLeft className="w-4 h-4" />
             <span className="hidden sm:inline">Previous</span>
@@ -862,11 +830,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
             {currentQuestion && !quizSubmitted && (
               <button
                 onClick={() => toggleFlagQuestion(currentQuestion.id)}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                  flaggedQuestions.has(currentQuestion.id)
-                    ? "bg-orange-100 text-orange-700 border border-orange-300"
-                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                }`}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${ flaggedQuestions.has(currentQuestion.id) ? "bg-orange-100 text-orange-700 border border-orange-300" : "bg-gray-100 text-gray-600 dark:text-gray-400 hover:bg-gray-200" }`}
               >
                 <Flag className="w-4 h-4" />
                 {flaggedQuestions.has(currentQuestion.id) ? "Unflag" : "Flag"}
@@ -895,13 +859,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
                   currentQuestionIndex === quiz.questions.length - 1 ||
                   loading
                 }
-                className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r text-white rounded-lg hover:shadow-xl font-medium w-full sm:w-auto transition-all duration-200 shadow-lg ${
-                  currentQuestion?.question_type &&
-                  requiresExplicitSave(currentQuestion.question_type) &&
-                  !locallyAnsweredQuestions.has(currentQuestion.id)
-                    ? "from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700"
-                    : "from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                }`}
+                className={`flex items-center justify-center gap-2 px-4 sm:px-6 py-3 bg-gradient-to-r text-white rounded-lg hover:shadow-xl font-medium w-full sm:w-auto transition-all duration-200 shadow-lg ${ currentQuestion?.question_type && requiresExplicitSave(currentQuestion.question_type) && !locallyAnsweredQuestions.has(currentQuestion.id) ? "from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700" : "from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:opacity-50 disabled:cursor-not-allowed" }`}
               >
                 <span className="hidden sm:inline">
                   {currentQuestion?.question_type &&
@@ -919,17 +877,15 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
         {/* Quiz Instructions */}
         {quiz.instructions && (
           <div
-            className={`mt-6 bg-blue-50 border border-blue-200 rounded-xl p-4 sm:p-6 ${
-              isFullscreen ? "max-w-5xl w-full mx-auto" : ""
-            }`}
+            className={`mt-6 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 rounded-xl p-4 sm:p-6 ${ isFullscreen ? "max-w-5xl w-full mx-auto" : "" }`}
           >
             <div className="flex items-start gap-3">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
+              <div className="w-2 h-2 bg-blue-500 dark:bg-blue-600 rounded-full mt-2 flex-shrink-0"></div>
               <div>
-                <h3 className="font-medium text-blue-900 mb-2">
+                <h3 className="font-medium text-blue-900 dark:text-blue-200 mb-2">
                   Quiz Instructions
                 </h3>
-                <div className="text-blue-800 text-sm leading-relaxed">
+                <div className="text-blue-800 dark:text-blue-300 text-sm leading-relaxed">
                   <RichTextDisplay content={quiz.instructions || ""} />
                 </div>
               </div>
@@ -941,15 +897,15 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
       {/* Submit Confirmation Modal */}
       {showSubmitConfirm && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-md w-full p-6 shadow-2xl">
             <div className="text-center">
-              <div className="mx-auto h-12 w-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
-                <CheckCircle className="h-6 w-6 text-green-600" />
+              <div className="mx-auto h-12 w-12 bg-green-100 dark:bg-green-900/30 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="h-6 w-6 text-green-600 dark:text-green-400" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Ready to Submit?
               </h3>
-              <p className="text-gray-600 mb-6 text-sm">
+              <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
                 You have answered {answeredQuestions} out of {totalQuestions}{" "}
                 questions.
                 {flaggedQuestions.size > 0 &&
@@ -962,14 +918,14 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
               <div className="flex gap-3 justify-center">
                 <button
                   onClick={() => setShowSubmitConfirm(false)}
-                  className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all duration-200"
+                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 transition-all duration-200"
                 >
                   Continue Quiz
                 </button>
                 <button
                   onClick={confirmSubmit}
                   disabled={loading}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                  className="px-4 py-2 bg-green-600 dark:bg-green-700 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
                 >
                   {loading ? "Submitting..." : "Submit Quiz"}
                 </button>
@@ -982,15 +938,15 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
       {/* Save Warning Modal */}
       {showSaveWarning && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-md w-full p-6 shadow-2xl">
+          <div className="bg-white dark:bg-gray-900 rounded-xl max-w-md w-full p-6 shadow-2xl">
             <div className="text-center">
               <div className="mx-auto h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center mb-4">
                 <AlertTriangle className="h-6 w-6 text-orange-600" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">
                 Save Required
               </h3>
-              <p className="text-gray-600 mb-6 text-sm">
+              <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm">
                 This question requires you to save your answer before
                 proceeding.
                 <br />

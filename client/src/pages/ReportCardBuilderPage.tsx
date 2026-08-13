@@ -87,12 +87,10 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 }) {
         return (
           <div key={step.id} className="flex items-center">
             <div
-              className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all
-              ${active ? "bg-white/[0.08] border border-white/[0.14]" : "opacity-40"}`}
+              className={`flex items-center gap-2 px-3 py-2 rounded-xl transition-all ${active ? "bg-white/[0.08] border border-white/[0.14]" : "opacity-40"}`}
             >
               <div
-                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0
-                ${done ? "bg-emerald-600 text-white" : active ? "bg-blue-600 text-white" : "bg-white/[0.1] text-slate-500"}`}
+                className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 ${done ? "bg-emerald-600 text-white" : active ? "bg-blue-600 text-white" : "bg-white/[0.1] text-slate-500"}`}
               >
                 {done ? <CheckCircle2 className="w-3.5 h-3.5" /> : step.id}
               </div>
@@ -540,9 +538,7 @@ export default function ReportCardBuilderPage() {
                     <button
                       onClick={() => changeStatus("saved")}
                       disabled={statusChanging}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-                        bg-blue-600 hover:bg-blue-500 text-white
-                        disabled:opacity-40 transition-all shadow-lg shadow-blue-900/40"
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 transition-all shadow-lg shadow-blue-900/40"
                     >
                       {statusChanging ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -558,9 +554,7 @@ export default function ReportCardBuilderPage() {
                     <button
                       onClick={() => changeStatus("draft")}
                       disabled={statusChanging}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium
-                        bg-white/[0.06] border border-white/[0.1] text-slate-300
-                        hover:bg-white/[0.1] disabled:opacity-40 transition-all"
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-white/[0.06] border border-white/[0.1] text-slate-300 hover:bg-white/[0.1] disabled:opacity-40 transition-all"
                     >
                       {statusChanging ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -576,9 +570,7 @@ export default function ReportCardBuilderPage() {
                     <button
                       onClick={() => changeStatus("approved")}
                       disabled={statusChanging}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold
-                        bg-emerald-600 hover:bg-emerald-500 text-white
-                        disabled:opacity-40 transition-all shadow-lg shadow-emerald-900/40"
+                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 transition-all shadow-lg shadow-emerald-900/40"
                     >
                       {statusChanging ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -594,9 +586,7 @@ export default function ReportCardBuilderPage() {
                     <button
                       onClick={() => changeStatus("saved")}
                       disabled={statusChanging}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium
-                        bg-amber-950/50 border border-amber-800/50 text-amber-300
-                        hover:bg-amber-900/50 disabled:opacity-40 transition-all"
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-amber-950/50 border border-amber-800/50 text-amber-300 hover:bg-amber-900/50 disabled:opacity-40 transition-all"
                     >
                       {statusChanging ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />

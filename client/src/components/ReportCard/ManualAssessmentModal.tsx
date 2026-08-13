@@ -114,10 +114,7 @@ function CreatePanel({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Science Practical Exam, Mid-Term Paper"
-            className="w-full px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.1]
-              text-white placeholder-slate-600 text-sm
-              focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/50
-              transition-all"
+            className="w-full px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/50 transition-all"
           />
         </div>
 
@@ -132,10 +129,7 @@ function CreatePanel({
             min={1}
             step={1}
             placeholder="e.g. 50"
-            className="w-full px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.1]
-              text-white placeholder-slate-600 text-sm
-              focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/50
-              transition-all"
+            className="w-full px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/50 transition-all"
           />
           <p className="text-[11px] text-slate-600">
             Each student's score will be entered as a value out of this maximum.
@@ -146,19 +140,14 @@ function CreatePanel({
       <div className="flex items-center gap-2.5 pt-1">
         <button
           onClick={onClose}
-          className="flex-1 py-2.5 rounded-xl text-sm font-medium
-            bg-white/[0.04] border border-white/[0.08] text-slate-400
-            hover:bg-white/[0.08] transition-all"
+          className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08] transition-all"
         >
           Cancel
         </button>
         <button
           onClick={handleSubmit}
           disabled={saving}
-          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold
-            bg-blue-600 hover:bg-blue-500 text-white
-            disabled:opacity-40 disabled:cursor-not-allowed
-            shadow-lg shadow-blue-900/40 transition-all active:scale-95"
+          className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-blue-900/40 transition-all active:scale-95"
         >
           {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
           {saving ? "Saving…" : isEdit ? "Update" : "Create & Enter Scores"}
@@ -278,8 +267,7 @@ function ScoresPanel({
       </div>
 
       {/* Student score list */}
-      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2
-        scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/[0.08]">
+      <div className="flex-1 overflow-y-auto px-4 py-3 space-y-2 scrollbar-thin scrollbar-track-transparent scrollbar-thumb-white/[0.08]">
         {loading ? (
           <div className="flex items-center justify-center py-12">
             <Loader2 className="w-6 h-6 animate-spin text-blue-500" />
@@ -316,15 +304,7 @@ function ScoresPanel({
                     max={maxScore}
                     step="any"
                     placeholder="—"
-                    className={`w-20 px-3 py-1.5 rounded-lg text-sm text-right font-mono
-                      bg-white/[0.05] border transition-all
-                      focus:outline-none focus:ring-2 focus:ring-blue-500/40
-                      ${!isValid
-                        ? "border-red-500/50 focus:ring-red-500/40 text-red-400"
-                        : val !== ""
-                        ? "border-emerald-600/40 text-emerald-300"
-                        : "border-white/[0.1] text-slate-300"
-                      }`}
+                    className={`w-20 px-3 py-1.5 rounded-lg text-sm text-right font-mono bg-white/[0.05] border transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${!isValid ? "border-red-500/50 focus:ring-red-500/40 text-red-400" : val !== "" ? "border-emerald-600/40 text-emerald-300" : "border-white/[0.1] text-slate-300" }`}
                   />
                   <span className="text-xs text-slate-600 w-10 text-right">/ {maxScore}</span>
                   {val !== "" && isValid && (
@@ -342,19 +322,14 @@ function ScoresPanel({
         <div className="flex items-center gap-2.5">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-sm font-medium
-              bg-white/[0.04] border border-white/[0.08] text-slate-400
-              hover:bg-white/[0.08] transition-all"
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08] transition-all"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={saving || loading}
-            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold
-              bg-blue-600 hover:bg-blue-500 text-white
-              disabled:opacity-40 disabled:cursor-not-allowed
-              shadow-lg shadow-blue-900/40 transition-all active:scale-95"
+            className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-blue-900/40 transition-all active:scale-95"
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
             {saving ? "Saving…" : `Save ${filledCount > 0 ? filledCount : ""} Scores`}
@@ -439,9 +414,7 @@ export default function ManualAssessmentModal({
             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
             <div
-              className="relative w-full max-w-md bg-[#0D1525] border border-white/[0.1] rounded-2xl
-                shadow-2xl shadow-black/60 overflow-hidden pointer-events-auto
-                flex flex-col max-h-[90vh]"
+              className="relative w-full max-w-md bg-[#0D1525] border border-white/[0.1] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden pointer-events-auto flex flex-col max-h-[90vh]"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top bar */}
@@ -454,8 +427,7 @@ export default function ManualAssessmentModal({
                 </span>
                 <button
                   onClick={handleClose}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center
-                    text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
                   aria-label="Close"
                 >
                   <X className="w-4 h-4" />

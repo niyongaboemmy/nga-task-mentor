@@ -170,13 +170,7 @@ function MobileStudentCard({
   return (
     <div
       data-testid={`student-card-${student.id}`}
-      className={`rounded-2xl border overflow-hidden transition-all duration-200 ${
-        state.saved
-          ? "border-emerald-500/30 bg-emerald-500/5"
-          : open
-          ? "border-indigo-400/30 bg-white/5"
-          : "border-white/10 bg-white/5 hover:border-white/20"
-      }`}
+      className={`rounded-2xl border overflow-hidden transition-all duration-200 ${ state.saved ? "border-emerald-500/30 bg-emerald-500/5" : open ? "border-indigo-400/30 bg-white/5" : "border-white/10 bg-white/5 hover:border-white/20" }`}
     >
       {/* Card header — always visible */}
       <button
@@ -273,18 +267,12 @@ function MobileStudentCard({
                   {GENERAL_ATTRIBUTES.map((attr) => (
                     <div
                       key={attr}
-                      className={`rounded-xl p-2.5 border transition-colors ${
-                        state.attributes[attr]
-                          ? "border-indigo-400/20 bg-indigo-500/10"
-                          : "border-white/8 bg-white/3"
-                      }`}
+                      className={`rounded-xl p-2.5 border transition-colors ${ state.attributes[attr] ? "border-indigo-400/20 bg-indigo-500/10" : "border-white/8 bg-white/3" }`}
                     >
                       <p className="text-[11px] font-semibold text-white/60 mb-1.5 flex items-center justify-between">
                         <span>{attr}</span>
                         {state.attributes[attr] && (
-                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${
-                            RATING_COLORS[state.attributes[attr]!]
-                          }`}>
+                          <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded-full ${ RATING_COLORS[state.attributes[attr]!] }`}>
                             {state.attributes[attr] === "Very good" ? "VG" : state.attributes[attr]!.slice(0, 1)}
                           </span>
                         )}
@@ -318,10 +306,7 @@ function MobileStudentCard({
                   onChange={(e) => onCommentChange(student.id, e.target.value)}
                   placeholder="Write a comment about this student…"
                   rows={3}
-                  className="w-full text-sm bg-white/5 border border-white/10 rounded-xl px-3 py-2.5
-                    text-white/80 placeholder-white/25 resize-none
-                    focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400/50
-                    transition-all scrollbar-thin"
+                  className="w-full text-sm bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white/80 placeholder-white/25 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400/50 transition-all scrollbar-thin"
                   aria-label={`Comment for ${student.name}`}
                 />
               </div>
@@ -338,12 +323,7 @@ function MobileStudentCard({
               <button
                 onClick={() => onSave(student)}
                 disabled={state.saving || state.saved}
-                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm
-                  border transition-all duration-200 active:scale-[0.98]
-                  ${state.saved
-                    ? "bg-emerald-500/10 border-emerald-400/30 text-emerald-300 cursor-default"
-                    : "bg-indigo-600/20 border-indigo-400/30 text-indigo-300 hover:bg-indigo-600/35 disabled:opacity-40 disabled:cursor-not-allowed"
-                  }`}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm border transition-all duration-200 active:scale-[0.98] ${state.saved ? "bg-emerald-500/10 border-emerald-400/30 text-emerald-300 cursor-default" : "bg-indigo-600/20 border-indigo-400/30 text-indigo-300 hover:bg-indigo-600/35 disabled:opacity-40 disabled:cursor-not-allowed" }`}
               >
                 {state.saving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -438,10 +418,7 @@ function StudentTableRow({
           onChange={(e) => onCommentChange(student.id, e.target.value)}
           placeholder="Teacher's comment…"
           rows={2}
-          className="w-full text-xs bg-white/5 border border-white/10 rounded-lg px-2.5 py-2
-            text-white/80 placeholder-white/25 resize-none
-            focus:outline-none focus:border-indigo-400/60 focus:bg-white/8
-            transition-colors scrollbar-thin"
+          className="w-full text-xs bg-white/5 border border-white/10 rounded-lg px-2.5 py-2 text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-indigo-400/60 focus:bg-white/8 transition-colors scrollbar-thin"
           aria-label={`Comment for ${student.name}`}
         />
         {state.error && (
@@ -607,11 +584,7 @@ export default function GeneralAttributesForm({
             onClick={handleSaveAll}
             disabled={isSavingAll || allSaved}
             data-testid="save-all-button"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm
-              bg-gradient-to-r from-indigo-500 to-purple-600 text-white
-              hover:from-indigo-400 hover:to-purple-500
-              disabled:opacity-40 disabled:cursor-not-allowed
-              shadow-lg shadow-indigo-500/30 transition-all duration-200 active:scale-95"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-400 hover:to-purple-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/30 transition-all duration-200 active:scale-95"
           >
             {isSavingAll ? (
               <Loader2 className="w-4 h-4 animate-spin" />

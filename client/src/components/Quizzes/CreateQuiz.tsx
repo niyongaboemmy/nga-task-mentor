@@ -82,10 +82,10 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
     return (
       <div className="max-w-4xl mx-auto">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
             Configure Proctoring Settings
           </h2>
-          <p className="text-gray-600">
+          <p className="text-gray-600 dark:text-gray-400">
             Set up online proctoring features for your quiz to ensure academic
             integrity.
           </p>
@@ -111,7 +111,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
                 navigate(`/courses/${courseId}`);
               }
             }}
-            className="text-blue-600 hover:text-blue-800 underline"
+            className="text-blue-600 dark:text-blue-400 hover:text-blue-800 underline"
           >
             Skip proctoring setup for now
           </button>
@@ -121,12 +121,12 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
   }
 
   return (
-    <div className="max-w-2xl mx-auto bg-white rounded-lg shadow-lg p-6">
+    <div className="max-w-2xl mx-auto bg-white dark:bg-gray-900 rounded-lg shadow-lg p-6">
       <div className="mb-6">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">
+        <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
           Create New Quiz
         </h2>
-        <p className="text-gray-600">Set up a new quiz for your course</p>
+        <p className="text-gray-600 dark:text-gray-400">Set up a new quiz for your course</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -134,7 +134,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
         <div>
           <label
             htmlFor="title"
-            className="block text-sm font-medium text-gray-700 mb-2"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
           >
             Quiz Title *
           </label>
@@ -144,7 +144,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
             value={formData.title}
             onChange={(e) => handleChange("title", e.target.value)}
             placeholder="Enter quiz title..."
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           />
         </div>
@@ -153,7 +153,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
         <div>
           <label
             htmlFor="description"
-            className="block text-sm font-medium text-gray-700 mb-2"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
           >
             Description *
           </label>
@@ -163,7 +163,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
             onChange={(e) => handleChange("description", e.target.value)}
             placeholder="Enter quiz description..."
             rows={4}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             required
           />
         </div>
@@ -172,7 +172,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
         <div>
           <label
             htmlFor="type"
-            className="block text-sm font-medium text-gray-700 mb-2"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
           >
             Quiz Type
           </label>
@@ -180,7 +180,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
             id="type"
             value={formData.type}
             onChange={(e) => handleChange("type", e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           >
             <option value="Assessment">Assessment</option>
             <option value="Homework">Homework</option>
@@ -193,7 +193,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
         <div>
           <label
             htmlFor="instructions"
-            className="block text-sm font-medium text-gray-700 mb-2"
+            className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
           >
             Instructions (Optional)
           </label>
@@ -203,19 +203,19 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
             onChange={(e) => handleChange("instructions", e.target.value)}
             placeholder="Enter quiz instructions..."
             rows={3}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           />
         </div>
 
         {/* Settings */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">Quiz Settings</h3>
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">Quiz Settings</h3>
 
           {/* Time Limit */}
           <div>
             <label
               htmlFor="time_limit"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
               Time Limit (minutes)
             </label>
@@ -232,7 +232,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
               placeholder="No limit"
               min="1"
               max="480"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
@@ -240,7 +240,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
           <div>
             <label
               htmlFor="max_attempts"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
               Maximum Attempts
             </label>
@@ -257,7 +257,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
               placeholder="Unlimited"
               min="1"
               max="50"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
@@ -265,7 +265,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
           <div>
             <label
               htmlFor="passing_score"
-              className="block text-sm font-medium text-gray-700 mb-2"
+              className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2"
             >
               Passing Score (%)
             </label>
@@ -283,7 +283,7 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
               min="0"
               max="100"
               step="0.1"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
 
@@ -297,11 +297,11 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
                 onChange={(e) =>
                   handleChange("show_results_immediately", e.target.checked)
                 }
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
               />
               <label
                 htmlFor="show_results_immediately"
-                className="ml-2 text-sm text-gray-700"
+                className="ml-2 text-sm text-gray-700 dark:text-gray-300"
               >
                 Show results immediately after completion
               </label>
@@ -315,11 +315,11 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
                 onChange={(e) =>
                   handleChange("randomize_questions", e.target.checked)
                 }
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
               />
               <label
                 htmlFor="randomize_questions"
-                className="ml-2 text-sm text-gray-700"
+                className="ml-2 text-sm text-gray-700 dark:text-gray-300"
               >
                 Randomize question order
               </label>
@@ -333,19 +333,19 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
                 onChange={(e) =>
                   handleChange("show_correct_answers", e.target.checked)
                 }
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
               />
               <label
                 htmlFor="show_correct_answers"
-                className="ml-2 text-sm text-gray-700"
+                className="ml-2 text-sm text-gray-700 dark:text-gray-300"
               >
                 Show correct answers after completion
               </label>
             </div>
 
             {/* Grading Options */}
-            <div className="space-y-3 border-t border-gray-200 pt-4">
-              <h4 className="text-sm font-medium text-gray-900">
+            <div className="space-y-3 border-t border-gray-200 dark:border-gray-700 pt-4">
+              <h4 className="text-sm font-medium text-gray-900 dark:text-white">
                 Grading Options
               </h4>
 
@@ -357,11 +357,11 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
                   onChange={(e) =>
                     handleChange("enable_automatic_grading", e.target.checked)
                   }
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
                 />
                 <label
                   htmlFor="enable_automatic_grading"
-                  className="ml-2 text-sm text-gray-700"
+                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                 >
                   Show grades to students immediately after quiz completion
                 </label>
@@ -375,18 +375,18 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
                   onChange={(e) =>
                     handleChange("require_manual_grading", e.target.checked)
                   }
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
                 />
                 <label
                   htmlFor="require_manual_grading"
-                  className="ml-2 text-sm text-gray-700"
+                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                 >
                   Require instructor manual grading (grades hidden until
                   reviewed)
                 </label>
               </div>
 
-              <div className="text-xs text-gray-500 ml-6">
+              <div className="text-xs text-gray-500 dark:text-gray-400 ml-6">
                 {formData.require_manual_grading
                   ? "Students will see 'Pending' until instructor reviews and grades the quiz manually."
                   : formData.enable_automatic_grading
@@ -401,9 +401,9 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
                 id="is_public"
                 checked={formData.is_public || false}
                 onChange={(e) => handleChange("is_public", e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                className="h-4 w-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
               />
-              <label htmlFor="is_public" className="ml-2 text-sm text-gray-700">
+              <label htmlFor="is_public" className="ml-2 text-sm text-gray-700 dark:text-gray-300">
                 Make this quiz publicly accessible
               </label>
             </div>
@@ -412,16 +412,16 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
 
         {/* Proctoring Settings */}
         <div className="space-y-4">
-          <h3 className="text-lg font-medium text-gray-900">
+          <h3 className="text-lg font-medium text-gray-900 dark:text-white">
             Proctoring Settings
           </h3>
 
           <Card>
             <CardHeader>
-              <h4 className="text-md font-medium text-gray-900">
+              <h4 className="text-md font-medium text-gray-900 dark:text-white">
                 Online Proctoring
               </h4>
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
                 Enable automated monitoring to ensure academic integrity during
                 quiz taking.
               </p>
@@ -433,18 +433,18 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
                   id="enable_proctoring"
                   checked={enableProctoring}
                   onChange={(e) => setEnableProctoring(e.target.checked)}
-                  className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-blue-600 dark:text-blue-400 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded"
                 />
                 <label
                   htmlFor="enable_proctoring"
-                  className="ml-2 text-sm text-gray-700"
+                  className="ml-2 text-sm text-gray-700 dark:text-gray-300"
                 >
                   Enable online proctoring for this quiz
                 </label>
               </div>
 
               {enableProctoring && (
-                <div className="ml-6 space-y-3 text-sm text-gray-600">
+                <div className="ml-6 space-y-3 text-sm text-gray-600 dark:text-gray-400">
                   <p>• Real-time video and audio monitoring</p>
                   <p>• Automated detection of suspicious behavior</p>
                   <p>• Browser lockdown and security restrictions</p>
@@ -457,12 +457,12 @@ export const CreateQuiz: React.FC<CreateQuizProps> = ({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
+        <div className="flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
           {onCancel && (
             <button
               type="button"
               onClick={onCancel}
-              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
+              className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-gray-500"
             >
               Cancel
             </button>
