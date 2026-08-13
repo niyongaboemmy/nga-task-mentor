@@ -97,7 +97,7 @@ function CreatePanel({
         <h2 className="text-lg font-bold text-white">
           {isEdit ? "Edit Assessment" : "New Manual Assessment"}
         </h2>
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-500 dark:text-slate-400">
           {isEdit
             ? "Update the title or max score for this manual entry."
             : "Create a physical-paper assessment entry that applies to all students in this subject."}
@@ -106,7 +106,7 @@ function CreatePanel({
 
       <div className="space-y-4">
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <label className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
             Assessment Title
           </label>
           <input
@@ -119,7 +119,7 @@ function CreatePanel({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+          <label className="text-xs font-semibold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
             Maximum Score (marks)
           </label>
           <input
@@ -131,7 +131,7 @@ function CreatePanel({
             placeholder="e.g. 50"
             className="w-full px-4 py-2.5 rounded-xl bg-white/[0.05] border border-white/[0.1] text-white placeholder-slate-600 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/50 transition-all"
           />
-          <p className="text-[11px] text-slate-600">
+          <p className="text-[11px] text-slate-600 dark:text-slate-400">
             Each student's score will be entered as a value out of this maximum.
           </p>
         </div>
@@ -140,7 +140,7 @@ function CreatePanel({
       <div className="flex items-center gap-2.5 pt-1">
         <button
           onClick={onClose}
-          className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08] transition-all"
+          className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-slate-400 dark:text-slate-500 hover:bg-white/[0.08] transition-all"
         >
           Cancel
         </button>
@@ -245,7 +245,7 @@ function ScoresPanel({
       <div className="px-5 pt-5 pb-4 border-b border-white/[0.06] flex-shrink-0">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-slate-300 transition-colors mb-3"
+          className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-300 transition-colors mb-3"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back
@@ -253,8 +253,8 @@ function ScoresPanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 className="text-base font-bold text-white">{assessment.title}</h2>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Max score: <span className="text-slate-300 font-semibold">{assessment.max_score}</span>
+            <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+              Max score: <span className="text-slate-300 dark:text-slate-600 font-semibold">{assessment.max_score}</span>
               {" · "}
               <span className="text-emerald-400">{filledCount}</span> of {students.length} filled
             </p>
@@ -274,8 +274,8 @@ function ScoresPanel({
           </div>
         ) : students.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 gap-3">
-            <AlertCircle className="w-8 h-8 text-slate-600" />
-            <p className="text-xs text-slate-600">No students found in this course.</p>
+            <AlertCircle className="w-8 h-8 text-slate-600 dark:text-slate-400" />
+            <p className="text-xs text-slate-600 dark:text-slate-400">No students found in this course.</p>
           </div>
         ) : (
           students.map((student) => {
@@ -289,8 +289,8 @@ function ScoresPanel({
                 className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]"
               >
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm text-slate-200 font-medium truncate">{student.name}</p>
-                  <p className="text-[11px] text-slate-600">ID #{student.student_id}</p>
+                  <p className="text-sm text-slate-200 dark:text-slate-700 font-medium truncate">{student.name}</p>
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400">ID #{student.student_id}</p>
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
@@ -306,7 +306,7 @@ function ScoresPanel({
                     placeholder="—"
                     className={`w-20 px-3 py-1.5 rounded-lg text-sm text-right font-mono bg-white/[0.05] border transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${!isValid ? "border-red-500/50 focus:ring-red-500/40 text-red-400" : val !== "" ? "border-emerald-600/40 text-emerald-300" : "border-white/[0.1] text-slate-300" }`}
                   />
-                  <span className="text-xs text-slate-600 w-10 text-right">/ {maxScore}</span>
+                  <span className="text-xs text-slate-600 dark:text-slate-400 w-10 text-right">/ {maxScore}</span>
                   {val !== "" && isValid && (
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
                   )}
@@ -322,7 +322,7 @@ function ScoresPanel({
         <div className="flex items-center gap-2.5">
           <button
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-slate-400 hover:bg-white/[0.08] transition-all"
+            className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-white/[0.04] border border-white/[0.08] text-slate-400 dark:text-slate-500 hover:bg-white/[0.08] transition-all"
           >
             Cancel
           </button>
@@ -427,7 +427,7 @@ export default function ManualAssessmentModal({
                 </span>
                 <button
                   onClick={handleClose}
-                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 hover:text-white hover:bg-white/[0.08] transition-all"
+                  className="w-7 h-7 rounded-lg flex items-center justify-center text-slate-500 dark:text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all"
                   aria-label="Close"
                 >
                   <X className="w-4 h-4" />

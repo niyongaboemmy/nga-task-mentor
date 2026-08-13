@@ -175,8 +175,8 @@ function QuickAssignPopover({
       className="absolute left-0 top-full mt-1.5 z-50 w-52 bg-[#0D1525] backdrop-blur-xl border border-white/[0.08] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden"
     >
       <div className="px-3 py-2.5 border-b border-white/[0.06]">
-        <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">Assign to category</p>
-        <p className="text-xs text-slate-300 truncate mt-0.5">{item.title}</p>
+        <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Assign to category</p>
+        <p className="text-xs text-slate-300 dark:text-slate-600 truncate mt-0.5">{item.title}</p>
       </div>
       <div className="p-1.5 space-y-0.5">
         {CATEGORY_ORDER.map((cat) => {
@@ -188,7 +188,7 @@ function QuickAssignPopover({
               className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm hover:bg-white/[0.06] transition-colors text-left group"
             >
               <span className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${meta.dot}`} />
-              <span className="flex-1 text-slate-300 group-hover:text-white font-medium">{meta.label}</span>
+              <span className="flex-1 text-slate-300 dark:text-slate-600 group-hover:text-white font-medium">{meta.label}</span>
               <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${meta.badge}`}>
                 {meta.weight}%
               </span>
@@ -231,7 +231,7 @@ function DraggableCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium select-none transition-all duration-150 group ${isOverlay ? "bg-white text-slate-900 border-violet-400 shadow-2xl shadow-violet-500/40 scale-105 rotate-1" : isDragging ? "opacity-20 bg-white/[0.04] border-white/[0.06]" : readOnly ? "bg-white/[0.04] border-white/[0.07] cursor-default" : "bg-white/[0.06] border-white/[0.1] hover:bg-white/[0.1] hover:border-white/[0.18] hover:shadow-md hover:shadow-black/30 cursor-grab active:cursor-grabbing" }`}
+      className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium select-none transition-all duration-150 group ${isOverlay ? "bg-white text-slate-900 dark:text-white border-violet-400 shadow-2xl shadow-violet-500/40 scale-105 rotate-1" : isDragging ? "opacity-20 bg-white/[0.04] border-white/[0.06]" : readOnly ? "bg-white/[0.04] border-white/[0.07] cursor-default" : "bg-white/[0.06] border-white/[0.1] hover:bg-white/[0.1] hover:border-white/[0.18] hover:shadow-md hover:shadow-black/30 cursor-grab active:cursor-grabbing" }`}
       {...attributes}
       {...listeners}
     >
@@ -267,7 +267,7 @@ function DraggableCard({
               className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-violet-600/50 flex items-center justify-center transition-all duration-150"
               title="Enter student scores"
             >
-              <ListChecks className="w-3 h-3 text-slate-300" />
+              <ListChecks className="w-3 h-3 text-slate-300 dark:text-slate-600" />
             </button>
           )}
           {onEdit && (
@@ -276,7 +276,7 @@ function DraggableCard({
               className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-blue-600/50 flex items-center justify-center transition-all duration-150"
               title="Edit assessment"
             >
-              <Pencil className="w-3 h-3 text-slate-300" />
+              <Pencil className="w-3 h-3 text-slate-300 dark:text-slate-600" />
             </button>
           )}
           {onDelete && (
@@ -285,7 +285,7 @@ function DraggableCard({
               className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-red-600/50 flex items-center justify-center transition-all duration-150"
               title="Delete assessment"
             >
-              <Trash2 className="w-3 h-3 text-slate-300" />
+              <Trash2 className="w-3 h-3 text-slate-300 dark:text-slate-600" />
             </button>
           )}
         </div>
@@ -300,7 +300,7 @@ function DraggableCard({
           aria-label={`Quick assign ${item.title}`}
           title="Quick assign to category"
         >
-          <Plus className="w-3 h-3 text-slate-300" />
+          <Plus className="w-3 h-3 text-slate-300 dark:text-slate-600" />
         </button>
       )}
 
@@ -313,7 +313,7 @@ function DraggableCard({
           aria-label={`Quick assign ${item.title}`}
           title="Quick assign to category"
         >
-          <Plus className="w-3 h-3 text-slate-300" />
+          <Plus className="w-3 h-3 text-slate-300 dark:text-slate-600" />
         </button>
       )}
     </div>
@@ -345,7 +345,7 @@ function DroppedItem({
       ) : (
         <ClipboardList className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
       )}
-      <span className="text-slate-200 truncate flex-1 text-xs font-medium">{item.title}</span>
+      <span className="text-slate-200 dark:text-slate-700 truncate flex-1 text-xs font-medium">{item.title}</span>
       {isManual && (
         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-900/60 text-violet-300 font-semibold flex-shrink-0">
           Manual
@@ -353,7 +353,7 @@ function DroppedItem({
       )}
       <button
         onClick={() => onRemove(item.dndId)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full hover:bg-red-500/20 text-slate-600 hover:text-red-400"
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full hover:bg-red-500/20 text-slate-600 dark:text-slate-400 hover:text-red-400"
         aria-label={`Remove ${item.title}`}
       >
         <X className="w-3 h-3" />
@@ -400,7 +400,7 @@ function CategoryDropZone({
             key={items.length}
             initial={{ scale: 0.7, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
-            className="text-xs text-slate-500 tabular-nums"
+            className="text-xs text-slate-500 dark:text-slate-400 tabular-nums"
           >
             {items.length} item{items.length !== 1 ? "s" : ""}
           </motion.span>
@@ -414,9 +414,9 @@ function CategoryDropZone({
         {items.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2.5 py-6">
             <div className={`w-9 h-9 rounded-xl border-2 border-dashed ${meta.border} flex items-center justify-center`}>
-              <Plus className="w-4 h-4 text-slate-700" />
+              <Plus className="w-4 h-4 text-slate-700 dark:text-slate-300" />
             </div>
-            <p className="text-slate-700 text-xs text-center select-none">
+            <p className="text-slate-700 dark:text-slate-300 text-xs text-center select-none">
               {isOver ? "Release to drop" : "Drag or assign here"}
             </p>
           </div>
@@ -441,10 +441,10 @@ function WeightSummary({ dropped }: { dropped: Record<AssessmentCategory, Assess
   );
 
   return (
-    <div className="flex items-center gap-3 text-xs text-slate-500 flex-wrap">
+    <div className="flex items-center gap-3 text-xs text-slate-500 dark:text-slate-400 flex-wrap">
       <span className="flex items-center gap-1.5">
-        <Zap className="w-3 h-3 text-slate-600" />
-        <span className="text-slate-500">Weight:</span>
+        <Zap className="w-3 h-3 text-slate-600 dark:text-slate-400" />
+        <span className="text-slate-500 dark:text-slate-400">Weight:</span>
       </span>
       {CATEGORY_ORDER.map((cat) => (
         <span
@@ -700,7 +700,7 @@ export default function ReportCardBuilder({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-lg font-bold text-white tracking-tight">Report Card Builder</h1>
-                <p className="text-xs text-slate-500 mt-0.5">{term} · {academicYear} · Student #{studentId}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{term} · {academicYear} · Student #{studentId}</p>
               </div>
 
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -748,11 +748,11 @@ export default function ReportCardBuilder({
               data-testid="subject-selector"
               className="w-full sm:w-80 flex items-center justify-between gap-2 px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] rounded-xl text-white text-sm font-medium hover:bg-white/[0.08] hover:border-white/[0.16] transition-all"
             >
-              <span className="truncate text-slate-200">
+              <span className="truncate text-slate-200 dark:text-slate-700">
                 {selectedSubject ? selectedSubject.name : "Select a subject"}
               </span>
               <ChevronDown
-                className={`w-4 h-4 text-slate-500 flex-shrink-0 transition-transform duration-200 ${subjectOpen ? "rotate-180" : ""}`}
+                className={`w-4 h-4 text-slate-500 dark:text-slate-400 flex-shrink-0 transition-transform duration-200 ${subjectOpen ? "rotate-180" : ""}`}
               />
             </button>
 
@@ -781,7 +781,7 @@ export default function ReportCardBuilder({
 
           {/* ── Touch hint ── */}
           {!readOnly && (
-            <p className="mb-4 text-[11px] text-slate-700 flex items-center gap-1.5 sm:hidden">
+            <p className="mb-4 text-[11px] text-slate-700 dark:text-slate-300 flex items-center gap-1.5 sm:hidden">
               <GripVertical className="w-3 h-3" />
               Press &amp; hold to drag, or tap <Plus className="w-3 h-3 inline mx-0.5" /> to quick-assign
             </p>
@@ -793,11 +793,11 @@ export default function ReportCardBuilder({
             <div className="bg-[#0A1020] border border-white/[0.07] rounded-2xl overflow-hidden flex flex-col">
               <div className="px-4 py-3 border-b border-white/[0.06] flex items-center justify-between flex-shrink-0">
                 <h2 className="text-sm font-semibold text-white">Available Assessments</h2>
-                <span className="text-xs text-slate-600 tabular-nums">{availableItems.length} item{availableItems.length !== 1 ? "s" : ""}</span>
+                <span className="text-xs text-slate-600 dark:text-slate-400 tabular-nums">{availableItems.length} item{availableItems.length !== 1 ? "s" : ""}</span>
               </div>
 
               {/* Legend */}
-              <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-4 text-[11px] text-slate-600 flex-shrink-0 flex-wrap">
+              <div className="px-4 py-2.5 border-b border-white/[0.04] flex items-center gap-4 text-[11px] text-slate-600 dark:text-slate-400 flex-shrink-0 flex-wrap">
                 <span className="flex items-center gap-1.5">
                   <BookOpen className="w-3 h-3 text-blue-500" /> Quiz
                 </span>
@@ -808,7 +808,7 @@ export default function ReportCardBuilder({
                   <PencilRuler className="w-3 h-3 text-violet-500" /> Manual
                 </span>
                 {!readOnly && (
-                  <span className="ml-auto flex items-center gap-1 text-slate-700">
+                  <span className="ml-auto flex items-center gap-1 text-slate-700 dark:text-slate-300">
                     <GripVertical className="w-3 h-3" /> Drag
                   </span>
                 )}
@@ -848,7 +848,7 @@ export default function ReportCardBuilder({
                   <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-1.5">
                       <PencilRuler className="w-3 h-3 text-violet-500" />
-                      <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
+                      <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Manual Entries
                       </span>
                     </div>
@@ -865,7 +865,7 @@ export default function ReportCardBuilder({
 
                   {availableManuals.length === 0 && !readOnly ? (
                     <div className="px-3 py-4 rounded-xl border border-dashed border-violet-900/50 text-center">
-                      <p className="text-xs text-slate-700 leading-relaxed">
+                      <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
                         No manual entries yet.{" "}
                         {selectedSubject && (
                           <button
@@ -909,13 +909,13 @@ export default function ReportCardBuilder({
                     <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-950/50 border border-emerald-900/50 flex items-center justify-center">
                       <CheckCircle2 className="w-6 h-6 text-emerald-600" />
                     </div>
-                    <p className="text-slate-600 text-xs">All assessments have been categorised</p>
+                    <p className="text-slate-600 dark:text-slate-400 text-xs">All assessments have been categorised</p>
                   </div>
                 )}
 
                 {allSubjectItems.length === 0 && !selectedSubject && (
                   <div className="py-12 text-center">
-                    <p className="text-slate-600 text-xs">Select a subject to see assessments</p>
+                    <p className="text-slate-600 dark:text-slate-400 text-xs">Select a subject to see assessments</p>
                   </div>
                 )}
               </div>

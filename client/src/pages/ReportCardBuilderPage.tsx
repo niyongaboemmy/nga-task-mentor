@@ -98,13 +98,13 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 }) {
                 <p className="text-xs font-semibold text-white leading-tight">
                   {step.label}
                 </p>
-                <p className="text-[10px] text-slate-500 leading-tight">
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">
                   {step.desc}
                 </p>
               </div>
             </div>
             {idx < STEPS.length - 1 && (
-              <ChevronRight className="w-4 h-4 text-slate-700 mx-0.5 flex-shrink-0" />
+              <ChevronRight className="w-4 h-4 text-slate-700 dark:text-slate-300 mx-0.5 flex-shrink-0" />
             )}
           </div>
         );
@@ -150,7 +150,7 @@ function SubjectContextPanel({
       {/* Other subjects already in the card */}
       {otherSubjectIds.length > 0 && (
         <div className="space-y-1.5">
-          <p className="text-[11px] text-slate-600 uppercase tracking-wider font-medium">
+          <p className="text-[11px] text-slate-600 dark:text-slate-400 uppercase tracking-wider font-medium">
             Already mapped by others
           </p>
           {otherSubjectIds.map((sid) => (
@@ -159,7 +159,7 @@ function SubjectContextPanel({
               className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/[0.03] border border-white/[0.06]"
             >
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
-              <span className="text-xs text-slate-300">
+              <span className="text-xs text-slate-300 dark:text-slate-600">
                 {subjectIdToName.get(sid) ?? `Subject #${sid}`}
               </span>
             </div>
@@ -168,7 +168,7 @@ function SubjectContextPanel({
       )}
 
       {otherSubjectIds.length === 0 && (
-        <p className="text-xs text-slate-600 px-1 leading-relaxed">
+        <p className="text-xs text-slate-600 dark:text-slate-400 px-1 leading-relaxed">
           You are the first instructor to contribute to this report card. Others
           can add their subjects after you save.
         </p>
@@ -441,7 +441,7 @@ export default function ReportCardBuilderPage() {
       <div className="min-h-screen bg-[#060A12] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
-          <p className="text-sm text-slate-400">Loading course assessments…</p>
+          <p className="text-sm text-slate-400 dark:text-slate-500">Loading course assessments…</p>
         </div>
       </div>
     );
@@ -454,7 +454,7 @@ export default function ReportCardBuilderPage() {
           <div className="w-14 h-14 rounded-2xl bg-red-950/50 border border-red-800/50 flex items-center justify-center">
             <AlertCircle className="w-7 h-7 text-red-500" />
           </div>
-          <p className="text-sm text-slate-400">
+          <p className="text-sm text-slate-400 dark:text-slate-500">
             {error ??
               "Missing student ID. Navigate here from the Students tab inside a course."}
           </p>
@@ -494,8 +494,8 @@ export default function ReportCardBuilderPage() {
               <span className="hidden sm:inline truncate max-w-[160px]">{subject.name}</span>
               <span className="sm:hidden">Back</span>
             </button>
-            <span className="text-slate-700 flex-shrink-0">/</span>
-            <span className="text-sm text-slate-500 truncate">Report Card Builder</span>
+            <span className="text-slate-700 dark:text-slate-300 flex-shrink-0">/</span>
+            <span className="text-sm text-slate-500 dark:text-slate-400 truncate">Report Card Builder</span>
           </div>
 
           {/* Step indicator */}
@@ -509,13 +509,13 @@ export default function ReportCardBuilderPage() {
           <div className="flex flex-wrap items-start justify-between gap-4 bg-[#0A1020] border border-white/[0.07] rounded-2xl px-5 py-4 sm:py-5">
             {/* Student info */}
             <div>
-              <p className="text-[11px] text-slate-600 uppercase tracking-widest font-medium mb-1">
+              <p className="text-[11px] text-slate-600 dark:text-slate-400 uppercase tracking-widest font-medium mb-1">
                 Building report card for
               </p>
               <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight">
                 {studentName || `Student #${studentId}`}
               </h1>
-              <p className="text-sm text-slate-500 mt-1">
+              <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
                 {term} · {academicYear}
               </p>
             </div>
@@ -554,7 +554,7 @@ export default function ReportCardBuilderPage() {
                     <button
                       onClick={() => changeStatus("draft")}
                       disabled={statusChanging}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-white/[0.06] border border-white/[0.1] text-slate-300 hover:bg-white/[0.1] disabled:opacity-40 transition-all"
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-medium bg-white/[0.06] border border-white/[0.1] text-slate-300 dark:text-slate-600 hover:bg-white/[0.1] disabled:opacity-40 transition-all"
                     >
                       {statusChanging ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -648,12 +648,12 @@ export default function ReportCardBuilderPage() {
                   exit={{ opacity: 0 }}
                   className="bg-[#0A1020] border border-white/[0.07] rounded-2xl p-4 space-y-2.5"
                 >
-                  <p className="text-[11px] text-slate-600 font-semibold uppercase tracking-widest">
+                  <p className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold uppercase tracking-widest">
                     Next step
                   </p>
                   {rcStatus === "draft" && (
                     <>
-                      <p className="text-sm text-slate-400 leading-relaxed">
+                      <p className="text-sm text-slate-400 dark:text-slate-500 leading-relaxed">
                         Once all instructors have mapped their subjects, fill
                         attendance and behavior attributes.
                       </p>
@@ -668,7 +668,7 @@ export default function ReportCardBuilderPage() {
                     </>
                   )}
                   {rcStatus === "saved" && (
-                    <p className="text-sm text-slate-400 leading-relaxed">
+                    <p className="text-sm text-slate-400 dark:text-slate-500 leading-relaxed">
                       {canApproveReportCard
                         ? "This card is ready for your review. Click Approve above to publish it to the student."
                         : "Waiting for admin approval. Once approved, the student can view and download the report card."}
