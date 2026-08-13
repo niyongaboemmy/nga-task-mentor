@@ -448,7 +448,7 @@ const QuizSubmissionsPage: React.FC = () => {
                       Quiz Submissions
                     </h1>
                     <p className="text-xs sm:text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                      ✨ Magical results overview
+                      Results overview
                     </p>
                   </div>
                 </div>
@@ -601,8 +601,8 @@ const QuizSubmissionsPage: React.FC = () => {
               </h3>
               <p className="text-xs sm:text-sm text-text-secondary-light dark:text-text-secondary-dark leading-relaxed">
                 {searchTerm || statusFilter !== "all" || gradeFilter !== "all"
-                  ? "Try adjusting your magical filters ✨"
-                  : "No students have submitted this quiz yet 💫"}
+                  ? "Try adjusting your filters"
+                  : "No students have submitted this quiz yet"}
               </p>
             </div>
           ) : viewMode === "cards" ? (

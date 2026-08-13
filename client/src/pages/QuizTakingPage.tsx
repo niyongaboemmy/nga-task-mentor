@@ -15,6 +15,8 @@ import {
   Target,
   Zap,
   Check,
+  Trophy,
+  Dumbbell,
 } from "lucide-react";
 import QuestionTimer from "../components/ui/QuestionTimer";
 import { toast } from "react-toastify";
@@ -1002,7 +1004,11 @@ const QuizTakingPage: React.FC = () => {
         "fixed top-4 right-4 bg-red-600 text-white px-6 py-3 rounded-lg shadow-2xl z-50 font-bold border-2 border-red-400 animate-pulse";
       notification.innerHTML = `
         <div class="flex items-center gap-2">
-          <span class="text-2xl">🔊</span>
+          <svg class="w-6 h-6 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 4.702a.705.705 0 0 0-1.203-.498L6.413 7.587A1.4 1.4 0 0 1 5.416 8H3a1 1 0 0 0-1 1v6a1 1 0 0 0 1 1h2.416a1.4 1.4 0 0 1 .997.413l3.383 3.384A.705.705 0 0 0 11 19.298z"/>
+            <path d="M16 9a5 5 0 0 1 0 6"/>
+            <path d="M19.364 18.364a9 9 0 0 0 0-12.728"/>
+          </svg>
           <div>
             <div class="text-lg font-bold">BROWSER FORCED TO MAXIMUM VOLUME</div>
             <div class="text-sm opacity-90">Volume: ${(volume * 100).toFixed(
@@ -2210,7 +2216,6 @@ const QuizTakingPage: React.FC = () => {
                 disabled={!!error}
                 className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-600 text-white rounded-full hover:from-blue-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
-                <span className="mr-2">🚀</span>
                 Start Quiz
                 <ArrowRight className="h-4 w-4 ml-2" />
               </button>
@@ -2887,15 +2892,21 @@ const QuizTakingPage: React.FC = () => {
                     {gradeSummary.passed !== undefined &&
                       gradeSummary.passed !== null && (
                         <div
-                          className={`inline-flex items-center px-6 py-2 rounded-full text-base font-bold shadow-sm ${
+                          className={`inline-flex items-center gap-2 px-6 py-2 rounded-full text-base font-bold shadow-sm ${
                             gradeSummary.passed
                               ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800"
                               : "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300 border border-red-200 dark:border-red-800"
                           }`}
                         >
-                          {gradeSummary.passed
-                            ? "🏆 Passed"
-                            : "💪 Needs Review"}
+                          {gradeSummary.passed ? (
+                            <>
+                              <Trophy className="w-4 h-4" /> Passed
+                            </>
+                          ) : (
+                            <>
+                              <Dumbbell className="w-4 h-4" /> Needs Review
+                            </>
+                          )}
                         </div>
                       )}
                   </div>

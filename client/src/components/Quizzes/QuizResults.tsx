@@ -8,6 +8,10 @@ import {
   Home,
   BookOpen,
   ClipboardList,
+  MessageCircle,
+  GraduationCap,
+  Sparkles,
+  Rocket,
 } from "lucide-react";
 import type { RootState, AppDispatch } from "../../store";
 import { fetchQuizResults } from "../../store/slices/quizSlice";
@@ -489,7 +493,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
           <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
             <div className="flex items-center gap-3 mb-6">
               <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-lg">💬</span>
+                <MessageCircle className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-gray-900">
@@ -502,7 +506,7 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
             </div>
             <div className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-2xl">
               <div className="flex items-start gap-3">
-                <span className="text-2xl">👨‍🏫</span>
+                <GraduationCap className="w-6 h-6 text-purple-600 shrink-0 mt-0.5" />
                 <p className="text-purple-800 leading-relaxed italic">
                   "{quizResults.feedback}"
                 </p>
@@ -556,14 +560,14 @@ export const QuizResults: React.FC<QuizResultsProps> = ({ submissionId }) => {
         {/* Encouraging Footer */}
         <div className="text-center mt-8 p-6 bg-gradient-to-r from-yellow-50 to-orange-50 rounded-2xl border border-yellow-200">
           <div className="flex items-center justify-center gap-2 mb-2">
-            <span className="text-2xl">🌟</span>
+            <Sparkles className="w-6 h-6 text-yellow-500" />
             <span className="text-lg font-semibold text-yellow-800">
               Keep Learning!
             </span>
           </div>
-          <p className="text-yellow-700">
+          <p className="text-yellow-700 inline-flex items-center gap-1.5 justify-center flex-wrap">
             Every quiz is a step forward in your learning journey. You've got
-            this! 🚀
+            this! <Rocket className="w-4 h-4 inline shrink-0" />
           </p>
         </div>
       </div>
