@@ -265,7 +265,7 @@ function StudentDesktopRow({
       <div className="flex items-center gap-1.5 flex-wrap justify-end">
         <Link
           to={`${builderBase}?studentId=${student.id}&name=${encodeURIComponent(student.name)}${term && year ? `&term=${encodeURIComponent(term)}&year=${encodeURIComponent(year)}` : ""}`}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium
             bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300
             hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-colors"
           title="Open Report Card Builder"
@@ -277,7 +277,7 @@ function StudentDesktopRow({
         {rcId && (
           <button
             onClick={onPreview}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium
               bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark
               hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
             title="Preview report card"
@@ -290,7 +290,7 @@ function StudentDesktopRow({
           <button
             onClick={onMarkComplete}
             disabled={isMarkingComplete}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium
               bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300
               hover:bg-blue-200 dark:hover:bg-blue-800/50 disabled:opacity-50 transition-colors"
             title="Mark as complete"
@@ -304,7 +304,7 @@ function StudentDesktopRow({
           <button
             onClick={onApprove}
             disabled={isApproving}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium
               bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300
               hover:bg-emerald-200 dark:hover:bg-emerald-800/50 disabled:opacity-50 transition-colors"
             title="Approve"
@@ -318,7 +318,7 @@ function StudentDesktopRow({
           <button
             onClick={() => onRevert("saved")}
             disabled={isReverting}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium
               bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300
               hover:bg-orange-200 dark:hover:bg-orange-800/50 disabled:opacity-50 transition-colors"
             title="Revert to Saved"
@@ -406,7 +406,7 @@ function StudentMobileCard({
       <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-gray-100 dark:border-gray-800/60">
         <Link
           to={`${builderBase}?studentId=${student.id}&name=${encodeURIComponent(student.name)}${term && year ? `&term=${encodeURIComponent(term)}&year=${encodeURIComponent(year)}` : ""}`}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
             bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300
             hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-colors"
         >
@@ -417,7 +417,7 @@ function StudentMobileCard({
         {rcId && (
           <button
             onClick={onPreview}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
               bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark
               hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
           >
@@ -430,7 +430,7 @@ function StudentMobileCard({
           <button
             onClick={onMarkComplete}
             disabled={isMarkingComplete}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
               bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300
               hover:bg-blue-200 dark:hover:bg-blue-800/50 disabled:opacity-50 transition-colors"
           >
@@ -443,7 +443,7 @@ function StudentMobileCard({
           <button
             onClick={onApprove}
             disabled={isApproving}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
               bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300
               hover:bg-emerald-200 dark:hover:bg-emerald-800/50 disabled:opacity-50 transition-colors"
           >
@@ -456,7 +456,7 @@ function StudentMobileCard({
           <button
             onClick={() => onRevert("saved")}
             disabled={isReverting}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
               bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300
               hover:bg-orange-200 dark:hover:bg-orange-800/50 disabled:opacity-50 transition-colors"
           >

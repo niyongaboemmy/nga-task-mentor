@@ -62,8 +62,11 @@ export class CourseApiService {
   // Get course quizzes
   static async getCourseQuizzes(
     courseId: number,
+    academicTermId?: number,
   ): Promise<{ success: boolean; count: number; data: Quiz[] }> {
-    const response = await axios.get(`/courses/${courseId}/quizzes`);
+    const response = await axios.get(`/courses/${courseId}/quizzes`, {
+      params: academicTermId ? { academic_term_id: academicTermId } : undefined,
+    });
     return response.data;
   }
 

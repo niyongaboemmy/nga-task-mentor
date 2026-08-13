@@ -38,6 +38,7 @@ import {
 } from "../services/manualAssessmentApi";
 import type { StudentEntry } from "../components/ReportCard/ManualAssessmentModal";
 import { useAuth } from "../contexts/AuthContext";
+import { getAcademicTerms, getAcademicYears } from "../services/authService";
 import { usePermissions } from "../hooks/usePermissions";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -226,10 +227,39 @@ export default function ReportCardBuilderPage() {
       setLoading(true);
       setError(null);
       try {
+        // The builder is reachable for historical (non-current) terms via
+        // AcademicPeriodPicker-driven navigation, which only carries term/
+        // year NAME strings through the URL — but the quizzes/assignments
+        // endpoints scope by academic_term_id, defaulting to the caller's
+        // session-wide CURRENT term when the id isn't supplied. Without
+        // resolving the real id here, opening the builder for a past term
+        // would silently show the current term's quizzes/assignments
+        // instead. Resolve it by matching the term/year names against the
+        // MIS academic-period catalog (same calls AcademicPeriodPicker uses).
+        let academicTermId: number | undefined;
+        try {
+          const yearName = searchParams.get("year") ?? authUser?.currentAcademicYear?.name ?? "";
+          const termName = searchParams.get("term") ?? authUser?.currentAcademicTerm?.name ?? "";
+          if (yearName && termName) {
+            const years = await getAcademicYears();
+            const matchedYear = years.find((y) => y.name === yearName);
+            if (matchedYear) {
+              const terms = await getAcademicTerms(matchedYear.academic_year_id);
+              academicTermId = terms.find((t) => t.name === termName)?.academic_term_id;
+            }
+          }
+        } catch (resolveErr) {
+          console.error("Could not resolve academic_term_id for report card builder:", resolveErr);
+        }
+
         const [courseRes, quizzesRes, assignmentsRes, studentsRes, manualsRes] = await Promise.all([
           CourseApiService.getCourse(id),
-          CourseApiService.getCourseQuizzes(id),
-          axiosConfig.get(`/courses/${id}/assignments`).then((r) => r.data),
+          CourseApiService.getCourseQuizzes(id, academicTermId),
+          axiosConfig
+            .get(`/courses/${id}/assignments`, {
+              params: academicTermId ? { academic_term_id: academicTermId } : undefined,
+            })
+            .then((r) => r.data),
           CourseApiService.getCourseStudents(id).catch(() => ({ data: [] })),
           ManualAssessmentApiService.list({
             course_id: id,
