@@ -17,28 +17,59 @@ import {
 export const getSubmissions = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
+    const canViewAll = (req as any).user.permissions?.has("SUBMISSIONS_VIEW_ALL");
     const academicTermId = await resolveAcademicTermId(req);
 
+    const { course_id, assignment_id, student_id, status } = req.query;
+
+    // Students (and anyone without SUBMISSIONS_VIEW_ALL) only ever see
+    // their own submissions. Instructors/admins with SUBMISSIONS_VIEW_ALL
+    // can list across students, optionally narrowed by the query filters.
+    const submissionWhere: Record<string, unknown> = canViewAll
+      ? {}
+      : { student_id: userId };
+
+    if (canViewAll && student_id) {
+      submissionWhere.student_id = student_id;
+    }
+    if (canViewAll && assignment_id) {
+      submissionWhere.assignment_id = assignment_id;
+    }
+    if (canViewAll && status) {
+      submissionWhere.status = status;
+    }
+
+    const assignmentWhere: Record<string | symbol, unknown> = {};
+    if (canViewAll && course_id) {
+      assignmentWhere.course_id = course_id;
+    }
+    if (academicTermId) {
+      // Scope to the resolved term, but keep legacy assignments that
+      // predate academic_term_id tracking (null) so nothing vanishes.
+      assignmentWhere[Op.or] = [
+        { academic_term_id: academicTermId },
+        { academic_term_id: null },
+      ];
+    }
+
     const submissions = await Submission.findAll({
-      where: {
-        student_id: userId,
-      },
+      where: submissionWhere,
       include: [
         {
           model: Assignment,
           attributes: ["id", "title", "course_id"],
-          // Scope to the resolved term, but keep legacy assignments that
-          // predate academic_term_id tracking (null) so nothing vanishes.
-          where: academicTermId
-            ? {
-                [Op.or]: [
-                  { academic_term_id: academicTermId },
-                  { academic_term_id: null },
-                ],
-              }
-            : undefined,
-          required: !!academicTermId,
+          where: Object.keys(assignmentWhere).length ? assignmentWhere : undefined,
+          required: !!academicTermId || (canViewAll && !!course_id),
         },
+        ...(canViewAll
+          ? [
+              {
+                model: User,
+                as: "student",
+                attributes: ["id", "first_name", "last_name", "email"],
+              },
+            ]
+          : []),
       ],
     });
 
