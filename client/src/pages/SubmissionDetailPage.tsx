@@ -72,7 +72,7 @@ function getQuestionStyle(isCorrect: boolean | null) {
     return {
       border: "border-emerald-200 dark:border-emerald-800",
       bg: "bg-emerald-50/50 dark:bg-emerald-900/10",
-      label: "✅ Correct",
+      label: "Correct",
       labelColor: "text-emerald-700 dark:text-emerald-400",
       dot: "bg-emerald-500",
     };
@@ -80,14 +80,14 @@ function getQuestionStyle(isCorrect: boolean | null) {
     return {
       border: "border-red-200 dark:border-red-800",
       bg: "bg-red-50/50 dark:bg-red-900/10",
-      label: "❌ Incorrect",
+      label: "Incorrect",
       labelColor: "text-red-700 dark:text-red-400",
       dot: "bg-red-500",
     };
   return {
     border: "border-gray-200 dark:border-gray-700",
     bg: "bg-gray-50/50 dark:bg-gray-800/10",
-    label: "⏳ Pending Review",
+    label: "Pending Review",
     labelColor: "text-amber-600 dark:text-amber-400",
     dot: "bg-amber-400",
   };
@@ -239,7 +239,15 @@ function renderAnswer(
             : "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300"
         }`}
       >
-        {val ? "✓ True" : "✗ False"}
+        {val ? (
+          <>
+            <CheckCircle className="w-3.5 h-3.5" /> True
+          </>
+        ) : (
+          <>
+            <XCircle className="w-3.5 h-3.5" /> False
+          </>
+        )}
       </span>
     );
   }

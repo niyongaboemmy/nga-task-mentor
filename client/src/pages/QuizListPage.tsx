@@ -21,6 +21,7 @@ import {
   List,
   SortAsc,
   SortDesc,
+  Circle,
 } from "lucide-react";
 
 const QuizListPage: React.FC = () => {
@@ -212,16 +213,16 @@ const QuizListPage: React.FC = () => {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIconColor = (status: string) => {
     switch (status) {
       case "published":
-        return "🟢";
+        return "text-green-500";
       case "draft":
-        return "🟡";
+        return "text-yellow-500";
       case "completed":
-        return "🔵";
+        return "text-blue-500";
       default:
-        return "⚪";
+        return "text-gray-400";
     }
   };
 
@@ -297,7 +298,7 @@ const QuizListPage: React.FC = () => {
                     {groupedQuizzes.published.length}
                   </p>
                 </div>
-                <div className="text-2xl">🟢</div>
+                <Circle className="h-8 w-8 fill-current text-green-500" />
               </div>
             </div>
 
@@ -311,7 +312,7 @@ const QuizListPage: React.FC = () => {
                     {groupedQuizzes.draft.length}
                   </p>
                 </div>
-                <div className="text-2xl">🟡</div>
+                <Circle className="h-8 w-8 fill-current text-yellow-500" />
               </div>
             </div>
 
@@ -325,7 +326,7 @@ const QuizListPage: React.FC = () => {
                     {groupedQuizzes.completed.length}
                   </p>
                 </div>
-                <div className="text-2xl">🔵</div>
+                <Circle className="h-8 w-8 fill-current text-blue-500" />
               </div>
             </div>
           </div>
@@ -442,7 +443,9 @@ const QuizListPage: React.FC = () => {
             return (
               <div key={status} className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-2xl">{getStatusIcon(status)}</span>
+                  <Circle
+                    className={`h-4 w-4 fill-current ${getStatusIconColor(status)}`}
+                  />
                   <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark capitalize">
                     {status} Quizzes ({quizzes.length})
                   </h2>

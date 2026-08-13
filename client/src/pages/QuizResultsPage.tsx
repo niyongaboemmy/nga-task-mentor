@@ -13,6 +13,7 @@ import {
   XCircle,
   Clock,
   Filter,
+  FileText,
 } from "lucide-react";
 import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
 import RichTextDisplay from "../components/Common/RichTextDisplay";
@@ -106,7 +107,8 @@ function getQuestionStyle(isCorrect: boolean | null) {
       bg: "from-emerald-50/50 to-teal-50/50 dark:from-emerald-900/5 dark:to-teal-900/5",
       numberBg: "bg-emerald-500",
       badgeClass: "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-800 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700",
-      label: "✅ Correct",
+      icon: CheckCircle,
+      label: "Correct",
     };
   }
   if (isCorrect === false) {
@@ -115,7 +117,8 @@ function getQuestionStyle(isCorrect: boolean | null) {
       bg: "from-red-50/50 to-pink-50/50 dark:from-red-900/5 dark:to-pink-900/5",
       numberBg: "bg-red-500",
       badgeClass: "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-300 border-red-200 dark:border-red-700",
-      label: "❌ Incorrect",
+      icon: XCircle,
+      label: "Incorrect",
     };
   }
   return {
@@ -123,7 +126,8 @@ function getQuestionStyle(isCorrect: boolean | null) {
     bg: "from-gray-50/50 to-slate-50/50 dark:from-gray-900/5 dark:to-slate-900/5",
     numberBg: "bg-gray-400 dark:bg-gray-600",
     badgeClass: "bg-amber-100 dark:bg-amber-900/30 text-amber-800 dark:text-amber-300 border-amber-200 dark:border-amber-700",
-    label: "⏳ Pending Review",
+    icon: Clock,
+    label: "Pending Review",
   };
 }
 
@@ -488,7 +492,11 @@ const QuizResultsPage: React.FC = () => {
                   <div className="relative w-56 h-56 rounded-full flex items-center justify-center border-[12px] border-white/10 dark:border-gray-800/50 p-2 shadow-inner">
                     <div className={`w-full h-full rounded-full bg-gradient-to-br ${getGradeTheme(result.grade).primary} flex flex-col items-center justify-center text-white shadow-xl`}>
                       <span className="text-8xl font-bold tracking-tighter animate-in slide-in-from-bottom-4 duration-500 delay-500">
-                        {result.grading_settings?.show_grades ? result.grade : "⏳"}
+                        {result.grading_settings?.show_grades ? (
+                          result.grade
+                        ) : (
+                          <Clock className="w-20 h-20" />
+                        )}
                       </span>
                       {result.grading_settings?.show_grades && (
                         <span className="text-xl font-bold opacity-90 -mt-2">
@@ -573,7 +581,7 @@ const QuizResultsPage: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-blue-500 rounded-full flex items-center justify-center">
-                <span className="text-white text-lg">📝</span>
+                <FileText className="w-5 h-5 text-white" />
               </div>
               <div>
                 <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">Question Review</h2>
@@ -696,7 +704,8 @@ const QuizResultsPage: React.FC = () => {
                         </div>
 
                         {/* Status badge */}
-                        <span className={`px-3 py-1 text-xs font-bold rounded-full border ${style.badgeClass}`}>
+                        <span className={`inline-flex items-center gap-1 px-3 py-1 text-xs font-bold rounded-full border ${style.badgeClass}`}>
+                          <style.icon className="w-3.5 h-3.5" />
                           {style.label}
                         </span>
 
@@ -743,7 +752,7 @@ const QuizResultsPage: React.FC = () => {
                           <div className="flex flex-col h-full">
                             <div className="flex items-center gap-2 mb-3 px-1">
                               <div className="w-6 h-6 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center">
-                                <span className="text-xs">📝</span>
+                                <FileText className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                               </div>
                               <span className="text-text-primary-light dark:text-text-primary-dark font-bold uppercase tracking-wider text-xs">
                                 Your Answer
@@ -766,7 +775,7 @@ const QuizResultsPage: React.FC = () => {
                               <div className="flex flex-col h-full animate-in fade-in slide-in-from-right-4 duration-500">
                                 <div className="flex items-center gap-2 mb-3 px-1">
                                   <div className="w-6 h-6 bg-emerald-100 dark:bg-emerald-900/30 rounded-full flex items-center justify-center">
-                                    <span className="text-xs">🎯</span>
+                                    <Target className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
                                   </div>
                                   <span className="text-emerald-800 dark:text-emerald-300 font-bold uppercase tracking-wider text-xs">
                                     Correct Solution
@@ -790,7 +799,7 @@ const QuizResultsPage: React.FC = () => {
                               <div className="flex flex-col h-full">
                                 <div className="flex items-center gap-2 mb-3 px-1">
                                   <div className="w-6 h-6 bg-amber-100 dark:bg-amber-900/30 rounded-full flex items-center justify-center">
-                                    <span className="text-xs">⏳</span>
+                                    <Clock className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
                                   </div>
                                   <span className="text-amber-800 dark:text-amber-300 font-bold uppercase tracking-wider text-xs">
                                     Awaiting Review
