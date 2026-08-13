@@ -361,7 +361,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
                     },
                   } as any);
                 }}
-                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/30 rounded-lg hover:bg-blue-100 transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 dark:bg-blue-900/30 rounded-full hover:bg-blue-100 transition-colors"
               >
                 <div className="flex flex-row items-center justify-center gap-2">
                   <div>
@@ -453,7 +453,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
                             target: { name: "rubric", value: newRubric },
                           } as any);
                         }}
-                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 rounded-lg"
+                        className="p-1.5 text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 rounded-full"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
@@ -493,13 +493,13 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-6 py-3 border border-gray-300 dark:border-gray-600 rounded-full text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Cancel
             </button>
             <button
               type="submit"
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-full focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
             >
               Save Changes
             </button>

@@ -874,7 +874,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <button
                 onClick={onClose}
-                className="flex-1 sm:flex-none px-6 py-3 rounded-2xl bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark/50 text-text-secondary-light dark:text-text-secondary-dark font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                className="flex-1 sm:flex-none px-6 py-3 rounded-full bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark/50 text-text-secondary-light dark:text-text-secondary-dark font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
               >
                 Cancel
               </button>
@@ -882,7 +882,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
               {!isFirstTab && (
                 <button
                   onClick={goPrev}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-3 rounded-2xl bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark/50 text-text-secondary-light dark:text-text-secondary-dark font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-3 rounded-full bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark/50 text-text-secondary-light dark:text-text-secondary-dark font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Previous
@@ -892,7 +892,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
               {!isLastTab ? (
                 <button
                   onClick={goNext}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-3 rounded-2xl bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 font-semibold text-sm hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-3 rounded-full bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-400 font-semibold text-sm hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-all"
                 >
                   Next
                   <ChevronRight className="w-4 h-4" />
@@ -901,7 +901,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 <button
                   onClick={handleSave}
                   disabled={isSubmitting}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-blue-200 dark:shadow-none transition-all disabled:opacity-50"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-8 py-3 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold text-sm shadow-lg shadow-blue-200 dark:shadow-none transition-all disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>

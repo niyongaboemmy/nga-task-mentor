@@ -563,7 +563,7 @@ const QuizSubmissionsPage: React.FC = () => {
               <div className="flex gap-1">
                 <button
                   onClick={() => setViewMode("cards")}
-                  className={`p-2 px-3 rounded-xl transition-all duration-200 ${
+                  className={`p-2 px-3 rounded-full transition-all duration-200 ${
                     viewMode === "cards"
                       ? "bg-blue-500 text-white shadow-lg"
                       : "bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -573,7 +573,7 @@ const QuizSubmissionsPage: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setViewMode("table")}
-                  className={`p-2 px-3 rounded-xl transition-all duration-200 ${
+                  className={`p-2 px-3 rounded-full transition-all duration-200 ${
                     viewMode === "table"
                       ? "bg-blue-500 text-white shadow-lg"
                       : "bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-700"
@@ -898,7 +898,7 @@ const QuizSubmissionsPage: React.FC = () => {
               </div>
               <button
                 onClick={resetManualModal}
-                className="p-1 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                className="p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               >
                 <X className="w-4 h-4 text-gray-500" />
               </button>
@@ -1161,7 +1161,7 @@ const QuizSubmissionsPage: React.FC = () => {
                     ? resetManualModal
                     : () => setManualStep((s) => (s - 1) as 1 | 2 | 3)
                 }
-                className="flex-1 px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="flex-1 px-6 py-3 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 {manualStep === 1 ? "Cancel" : "Back"}
               </button>
@@ -1218,7 +1218,7 @@ const QuizSubmissionsPage: React.FC = () => {
             <div className="flex gap-3">
               <button
                 onClick={() => setConfirmDelete(null)}
-                className="flex-1 px-4 py-2 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                className="flex-1 px-6 py-3 text-sm font-medium border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
               >
                 Cancel
               </button>
@@ -1231,7 +1231,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   }
                 }}
                 disabled={resettingAll || deletingId != null}
-                className="flex-1 px-4 py-2 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-xl transition-colors disabled:opacity-50"
+                className="flex-1 px-6 py-3 text-sm font-medium bg-red-600 hover:bg-red-700 text-white rounded-full transition-colors disabled:opacity-50"
               >
                 {resettingAll || deletingId != null ? "Deleting..." : "Delete"}
               </button>
