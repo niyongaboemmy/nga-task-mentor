@@ -182,7 +182,7 @@ function renderAnswer(
 
   if (answer === null || answer === undefined) {
     return (
-      <span className="italic text-gray-400 text-sm">No answer submitted</span>
+      <span className="italic text-gray-400 dark:text-gray-500 text-sm">No answer submitted</span>
     );
   }
 
@@ -198,7 +198,7 @@ function renderAnswer(
     if (typeof answer === "string")
       return <span className="text-sm font-medium">{answer}</span>;
     return (
-      <span className="italic text-gray-400 text-sm">No answer recorded</span>
+      <span className="italic text-gray-400 dark:text-gray-500 text-sm">No answer recorded</span>
     );
   }
 
@@ -222,7 +222,7 @@ function renderAnswer(
       );
     }
     return (
-      <span className="italic text-gray-400 text-sm">No options selected</span>
+      <span className="italic text-gray-400 dark:text-gray-500 text-sm">No options selected</span>
     );
   }
 
@@ -230,7 +230,7 @@ function renderAnswer(
   if (questionType === "true_false") {
     const val = extractBool(answer);
     if (val === null)
-      return <span className="italic text-gray-400 text-sm">No answer</span>;
+      return <span className="italic text-gray-400 dark:text-gray-500 text-sm">No answer</span>;
     return (
       <span
         className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-semibold ${
@@ -263,7 +263,7 @@ function renderAnswer(
     );
     if (entries.length === 0)
       return (
-        <span className="italic text-gray-400 text-sm">
+        <span className="italic text-gray-400 dark:text-gray-500 text-sm">
           No matches recorded
         </span>
       );
@@ -274,7 +274,7 @@ function renderAnswer(
             <span className="bg-blue-50 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded font-medium min-w-0 max-w-[45%] truncate">
               {leftMap[leftId] ?? leftId}
             </span>
-            <span className="text-gray-400 flex-shrink-0">→</span>
+            <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">→</span>
             <span className="bg-purple-50 dark:bg-purple-900/30 text-purple-800 dark:text-purple-200 px-2 py-0.5 rounded font-medium min-w-0 max-w-[45%] truncate">
               {rightMap[String(rightId)] ?? String(rightId)}
             </span>
@@ -315,7 +315,7 @@ function renderAnswer(
                   : String(b.answer ?? "");
             return (
               <div key={i} className="flex items-center gap-2 text-sm">
-                <span className="text-xs font-semibold text-gray-400 w-16 flex-shrink-0">
+                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 w-16 flex-shrink-0">
                   Blank {((b.blank_index ?? i) as number) + 1}:
                 </span>
                 <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-800 dark:text-amber-200 rounded font-medium">
@@ -358,7 +358,7 @@ function renderAnswer(
                   : (rawOpt?.text ?? rawOpt?.value ?? String(rawOpt ?? ""));
             return (
               <div key={i} className="flex items-center gap-2 text-sm">
-                <span className="text-xs font-semibold text-gray-400 w-20 flex-shrink-0">
+                <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 w-20 flex-shrink-0">
                   Dropdown {(s.dropdown_index ?? i) + 1}:
                 </span>
                 <span className="px-2 py-0.5 bg-lime-50 dark:bg-lime-900/30 text-lime-800 dark:text-lime-200 rounded font-medium">
@@ -415,7 +415,7 @@ function renderAnswer(
             {units ? ` ${units}` : ""}
           </span>
           {tol != null && tol > 0 && (
-            <span className="ml-2 text-xs text-gray-400">(± {tol})</span>
+            <span className="ml-2 text-xs text-gray-400 dark:text-gray-500">(± {tol})</span>
           )}
         </div>
       );
@@ -437,7 +437,7 @@ function renderAnswer(
     }
     if (questionType === "coding") {
       return (
-        <span className="italic text-gray-400 text-sm">
+        <span className="italic text-gray-400 dark:text-gray-500 text-sm">
           Graded by test cases
         </span>
       );
@@ -459,7 +459,7 @@ function renderAnswer(
     const entries = Object.entries(placements);
     if (entries.length === 0)
       return (
-        <span className="italic text-gray-400 text-sm">No items placed</span>
+        <span className="italic text-gray-400 dark:text-gray-500 text-sm">No items placed</span>
       );
     return (
       <div className="space-y-1.5">
@@ -468,7 +468,7 @@ function renderAnswer(
             <span className="bg-indigo-50 dark:bg-indigo-900/30 text-indigo-800 dark:text-indigo-200 px-2 py-0.5 rounded font-medium min-w-0 max-w-[45%] truncate">
               {zoneMap[zoneId] ?? zoneId}
             </span>
-            <span className="text-gray-400 flex-shrink-0">←</span>
+            <span className="text-gray-400 dark:text-gray-500 flex-shrink-0">←</span>
             <span className="bg-violet-50 dark:bg-violet-900/30 text-violet-800 dark:text-violet-200 px-2 py-0.5 rounded font-medium min-w-0 max-w-[45%] truncate">
               {itemMap[String(itemId)] ?? String(itemId)}
             </span>
@@ -527,7 +527,7 @@ function renderAnswer(
   }
 
   // ── Last resort — never show raw [object Object] ───────────────────────────
-  return <span className="text-sm italic text-gray-500">Answer recorded</span>;
+  return <span className="text-sm italic text-gray-500 dark:text-gray-400">Answer recorded</span>;
 }
 
 const SubmissionDetailPage: React.FC = () => {
@@ -602,7 +602,7 @@ const SubmissionDetailPage: React.FC = () => {
           <h2 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
             Could not load submission
           </h2>
-          <p className="text-sm text-gray-500 mb-4">{fetchError}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">{fetchError}</p>
           <div className="flex gap-2 justify-center">
             <button
               onClick={fetchDetail}
@@ -612,7 +612,7 @@ const SubmissionDetailPage: React.FC = () => {
             </button>
             <button
               onClick={() => navigate(`/quizzes/${quizId}/submissions`)}
-              className="px-4 py-2 border border-gray-300 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
+              className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800"
             >
               Back
             </button>
@@ -719,19 +719,19 @@ const SubmissionDetailPage: React.FC = () => {
           <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
             {correctCount}
           </div>
-          <div className="text-xs text-gray-500 mt-0.5">Correct</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Correct</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-red-200 dark:border-red-800 p-4 text-center">
           <div className="text-2xl font-bold text-red-600 dark:text-red-400">
             {incorrectCount}
           </div>
-          <div className="text-xs text-gray-500 mt-0.5">Incorrect</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Incorrect</div>
         </div>
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-amber-200 dark:border-amber-800 p-4 text-center">
           <div className="text-2xl font-bold text-amber-600 dark:text-amber-400">
             {pendingCount}
           </div>
-          <div className="text-xs text-gray-500 mt-0.5">Pending</div>
+          <div className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">Pending</div>
         </div>
       </div>
 
@@ -755,7 +755,7 @@ const SubmissionDetailPage: React.FC = () => {
           const isExpanded = expandedQuestions.has(idx);
           const typeMeta = QUESTION_TYPE_META[q.question_type] ?? {
             label: q.question_type,
-            color: "bg-gray-100 text-gray-600",
+            color: "bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400",
           };
 
           return (
@@ -771,7 +771,7 @@ const SubmissionDetailPage: React.FC = () => {
                 <span
                   className={`w-2 h-2 rounded-full flex-shrink-0 ${style.dot}`}
                 />
-                <span className="text-xs font-bold text-gray-400 w-6 flex-shrink-0">
+                <span className="text-xs font-bold text-gray-400 dark:text-gray-500 w-6 flex-shrink-0">
                   Q{idx + 1}
                 </span>
                 <div className="flex-1 min-w-0">
@@ -792,14 +792,14 @@ const SubmissionDetailPage: React.FC = () => {
                   <span className={`text-xs font-semibold ${style.labelColor}`}>
                     {style.label}
                   </span>
-                  <span className="text-xs text-gray-500">
+                  <span className="text-xs text-gray-500 dark:text-gray-400">
                     {q.points_earned != null ? q.points_earned : "—"}/{q.points}{" "}
                     pts
                   </span>
                   {isExpanded ? (
-                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                    <ChevronUp className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                   ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                    <ChevronDown className="w-4 h-4 text-gray-400 dark:text-gray-500" />
                   )}
                 </div>
               </button>
@@ -809,7 +809,7 @@ const SubmissionDetailPage: React.FC = () => {
                 <div className="px-4 pb-4 pt-1 space-y-4 border-t border-black/5 dark:border-white/5">
                   {/* Full question text */}
                   <div>
-                    <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                    <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">
                       Question
                     </p>
                     <div className="text-sm text-text-primary-light dark:text-text-primary-dark">
@@ -823,7 +823,7 @@ const SubmissionDetailPage: React.FC = () => {
                   <div className="grid sm:grid-cols-2 gap-4">
                     {/* Student answer */}
                     <div>
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                      <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">
                         Student's Answer
                       </p>
                       <div
@@ -846,7 +846,7 @@ const SubmissionDetailPage: React.FC = () => {
                     {/* Correct answer */}
                     {q.correct_answer != null && (
                       <div>
-                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                        <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">
                           Correct Answer
                         </p>
                         <div className="rounded-xl p-3 border bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800 text-sm">
@@ -872,7 +872,7 @@ const SubmissionDetailPage: React.FC = () => {
                   {/* Explanation */}
                   {q.explanation && (
                     <div>
-                      <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide mb-1">
+                      <p className="text-[10px] font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wide mb-1">
                         Explanation
                       </p>
                       <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark bg-blue-50 dark:bg-blue-900/20 rounded-xl p-3 border border-blue-100 dark:border-blue-800">

@@ -66,10 +66,10 @@ const StudentDetails: React.FC = () => {
   if (!studentId) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-gray-900">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white">
           Invalid Student ID
         </h3>
-        <p className="mt-2 text-sm text-gray-500">
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           No student ID provided in the URL.
         </p>
         <Link
@@ -239,8 +239,8 @@ const StudentDetails: React.FC = () => {
   if (!student) {
     return (
       <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-gray-900">Student not found</h3>
-        <p className="mt-2 text-sm text-gray-500">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-white">Student not found</h3>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           The student you're looking for doesn't exist.
         </p>
         <Link
@@ -753,7 +753,7 @@ const StudentDetails: React.FC = () => {
 
                         <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
                           <svg
-                            className="w-6 h-6 text-gray-400"
+                            className="w-6 h-6 text-gray-400 dark:text-gray-500"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -825,7 +825,7 @@ const StudentDetails: React.FC = () => {
                               className={`w-4 h-4 ${
                                 submission
                                   ? "text-blue-600 dark:text-blue-400"
-                                  : "text-gray-400"
+                                  : "text-gray-400 dark:text-gray-500"
                               }`}
                               fill="none"
                               stroke="currentColor"
@@ -855,7 +855,7 @@ const StudentDetails: React.FC = () => {
                               className={`text-base font-bold ${
                                 submission
                                   ? "text-blue-600 dark:text-blue-400"
-                                  : "text-gray-400"
+                                  : "text-gray-400 dark:text-gray-500"
                               }`}
                             >
                               {submission
@@ -863,7 +863,7 @@ const StudentDetails: React.FC = () => {
                                   ? `${parseFloat(submission.grade).toFixed(1)}`
                                   : "Grading..."
                                 : "—"}
-                              <span className="text-xs font-medium text-gray-400 ml-0.5">
+                              <span className="text-xs font-medium text-gray-400 dark:text-gray-500 ml-0.5">
                                 / {assignment.max_score}
                               </span>
                             </div>
@@ -888,7 +888,7 @@ const StudentDetails: React.FC = () => {
                 <div className="text-center py-16">
                   <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-3xl flex items-center justify-center mx-auto mb-4">
                     <svg
-                      className="w-10 h-10 text-gray-400"
+                      className="w-10 h-10 text-gray-400 dark:text-gray-500"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -939,7 +939,7 @@ const StudentDetails: React.FC = () => {
                               className={`w-4 h-4 ${
                                 submission
                                   ? "text-purple-600 dark:text-purple-400"
-                                  : "text-gray-400"
+                                  : "text-gray-400 dark:text-gray-500"
                               }`}
                               fill="none"
                               stroke="currentColor"
@@ -970,7 +970,7 @@ const StudentDetails: React.FC = () => {
                                   ? submission.passed
                                     ? "text-green-600 dark:text-green-400"
                                     : "text-red-600 dark:text-red-400"
-                                  : "text-gray-400"
+                                  : "text-gray-400 dark:text-gray-500"
                               }`}
                             >
                               {submission ? `${parseFloat(String(submission.percentage)).toFixed(1)}%` : "0%"}
@@ -1007,7 +1007,7 @@ const StudentDetails: React.FC = () => {
                 <div className="text-center py-16">
                   <div className="w-20 h-20 bg-gray-100 dark:bg-gray-800 rounded-3xl flex items-center justify-center mx-auto mb-4">
                     <svg
-                      className="w-10 h-10 text-gray-400"
+                      className="w-10 h-10 text-gray-400 dark:text-gray-500"
                       fill="none"
                       stroke="currentColor"
                       viewBox="0 0 24 24"
@@ -1119,7 +1119,7 @@ const StudentDetails: React.FC = () => {
                     <div className="relative flex-1 w-full">
                       <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                         <svg
-                          className="h-5 w-5 text-gray-400"
+                          className="h-5 w-5 text-gray-400 dark:text-gray-500"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -1182,7 +1182,7 @@ const StudentDetails: React.FC = () => {
                     {filteredAvailableCourses.length === 0 ? (
                       <div className="text-center py-16 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-200 dark:border-gray-700">
                         <svg
-                          className="mx-auto h-16 w-16 text-gray-400 mb-4"
+                          className="mx-auto h-16 w-16 text-gray-400 dark:text-gray-500 mb-4"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -1374,7 +1374,7 @@ const StudentDetails: React.FC = () => {
                                   e.stopPropagation();
                                   handleCourseSelection(course.subject_id);
                                 }}
-                                className="text-gray-400 hover:text-red-500 transition-colors"
+                                className="text-gray-400 dark:text-gray-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
                               >
                                 <svg
                                   className="w-4 h-4"

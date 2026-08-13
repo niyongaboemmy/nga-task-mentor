@@ -509,7 +509,7 @@ const CourseReportsPage: React.FC = () => {
                         / {student.summary.total_max_points}
                       </span>
                     </div>
-                    <p className="text-xs font-medium text-gray-400 mt-4 leading-relaxed">
+                    <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mt-4 leading-relaxed">
                       You have accummulated{" "}
                       <span className="text-text-primary-light dark:text-text-primary-dark font-bold">
                         {student.summary.total_points_earned} points
@@ -551,7 +551,7 @@ const CourseReportsPage: React.FC = () => {
                           : "FAILING"}
                       </span>
                     </div>
-                    <p className="text-xs font-medium text-gray-400 mt-4 leading-relaxed">
+                    <p className="text-xs font-medium text-gray-400 dark:text-gray-500 mt-4 leading-relaxed">
                       {student.summary.total_percentage >= 60
                         ? "Great job! Keep maintaining your performance."
                         : "Grade is below passing threshold. Review pending tasks."}
@@ -593,7 +593,7 @@ const CourseReportsPage: React.FC = () => {
                               {assignment.title}
                             </p>
                             <div className="flex items-center gap-3 mt-2">
-                              <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                              <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                                 Max Score: {assignment.max_score}
                               </span>
                               {!assignment.submitted && (
@@ -636,10 +636,10 @@ const CourseReportsPage: React.FC = () => {
                       ))
                     ) : (
                       <div className="text-center py-12 flex flex-col items-center gap-4">
-                        <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-300">
+                        <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-300 dark:text-gray-600">
                           <BarChart3 className="w-8 h-8" />
                         </div>
-                        <p className="text-gray-500 font-medium">
+                        <p className="text-gray-500 dark:text-gray-400 font-medium">
                           No assignments found.
                         </p>
                       </div>
@@ -675,7 +675,7 @@ const CourseReportsPage: React.FC = () => {
                               {quiz.title}
                             </p>
                             <div className="flex items-center gap-3 mt-2">
-                              <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                              <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
                                 Max: {quiz.max_score}
                               </span>
                               {quiz.submitted && (
@@ -698,7 +698,7 @@ const CourseReportsPage: React.FC = () => {
                                   <span className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
                                     {quiz.score}
                                   </span>
-                                  <span className="text-[10px] font-bold text-gray-400">
+                                  <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500">
                                     {quiz.percentage}%
                                   </span>
                                 </div>
@@ -717,10 +717,10 @@ const CourseReportsPage: React.FC = () => {
                       ))
                     ) : (
                       <div className="text-center py-12 flex flex-col items-center gap-4">
-                        <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-300">
+                        <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-300 dark:text-gray-600">
                           <Zap className="w-8 h-8" />
                         </div>
-                        <p className="text-gray-500 font-medium">
+                        <p className="text-gray-500 dark:text-gray-400 font-medium">
                           No quizzes found.
                         </p>
                       </div>
@@ -733,7 +733,7 @@ const CourseReportsPage: React.FC = () => {
         })()
       ) : isStudent ? (
         <div className="text-center py-12 bg-gray-50 dark:bg-gray-800/40 rounded-2xl">
-          <p className="text-gray-500">No grade data available yet.</p>
+          <p className="text-gray-500 dark:text-gray-400">No grade data available yet.</p>
         </div>
       ) : (
         <>
@@ -754,7 +754,7 @@ const CourseReportsPage: React.FC = () => {
               </p>
               <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark mb-4">
                 {Math.round(averageGrade)}
-                <span className="text-2xl text-gray-400">%</span>
+                <span className="text-2xl text-gray-400 dark:text-gray-500">%</span>
               </p>
               <div className="w-full bg-gray-100 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
                 <div
@@ -862,7 +862,7 @@ const CourseReportsPage: React.FC = () => {
           >
             <div className="relative w-full md:w-96 group">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors group-focus-within:text-blue-500">
-                <Search className="h-5 w-5 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
+                <Search className="h-5 w-5 text-gray-400 dark:text-gray-500 group-focus-within:text-blue-500 transition-colors" />
               </div>
               <input
                 type="text"
@@ -901,13 +901,13 @@ const CourseReportsPage: React.FC = () => {
                   <tr>
                     <th
                       scope="col"
-                      className="px-8 py-5 text-left text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] sticky left-0 z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800"
+                      className="px-8 py-5 text-left text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] sticky left-0 z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-b border-gray-100 dark:border-gray-800"
                     >
                       Student
                     </th>
                     <th
                       scope="col"
-                      className="px-8 py-5 text-center text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] sticky left-[120px] md:left-[240px] z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 border-b shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)]"
+                      className="px-8 py-5 text-center text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] sticky left-[120px] md:left-[240px] z-10 bg-gray-50/95 dark:bg-gray-900/95 backdrop-blur-xl border-r border-gray-200 dark:border-gray-800 border-b shadow-[4px_0_24px_-4px_rgba(0,0,0,0.05)]"
                     >
                       Total Grade
                     </th>
@@ -915,7 +915,7 @@ const CourseReportsPage: React.FC = () => {
                       <th
                         key={`h-a-${assignment.id}`}
                         scope="col"
-                        className="px-6 py-5 text-center text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
+                        className="px-6 py-5 text-center text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
                       >
                         <div className="flex flex-col items-center gap-1">
                           <span
@@ -924,7 +924,7 @@ const CourseReportsPage: React.FC = () => {
                           >
                             {assignment.title}
                           </span>
-                          <span className="text-[9px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                          <span className="text-[9px] text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                             Assign / {assignment.max_score}
                           </span>
                         </div>
@@ -934,7 +934,7 @@ const CourseReportsPage: React.FC = () => {
                       <th
                         key={`h-q-${quiz.id}`}
                         scope="col"
-                        className="px-6 py-5 text-center text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
+                        className="px-6 py-5 text-center text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
                       >
                         <div className="flex flex-col items-center gap-1">
                           <span
@@ -943,7 +943,7 @@ const CourseReportsPage: React.FC = () => {
                           >
                             {quiz.title}
                           </span>
-                          <span className="text-[9px] text-gray-400 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
+                          <span className="text-[9px] text-gray-400 dark:text-gray-500 bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded">
                             Quiz / {quiz.max_score}
                           </span>
                         </div>
@@ -995,7 +995,7 @@ const CourseReportsPage: React.FC = () => {
                         >
                           {student.summary.total_percentage}%
                         </div>
-                        <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mt-1">
+                        <div className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wide mt-1">
                           {student.summary.total_points_earned} /{" "}
                           {student.summary.total_max_points} pts
                         </div>
@@ -1073,7 +1073,7 @@ const CourseReportsPage: React.FC = () => {
             </div>
             {filteredStudents.length === 0 && (
               <div className="p-12 text-center flex flex-col items-center gap-4">
-                <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center text-gray-300">
+                <div className="w-16 h-16 bg-gray-50 dark:bg-gray-800 rounded-full flex items-center justify-center text-gray-300 dark:text-gray-600">
                   <Search className="w-8 h-8" />
                 </div>
                 <p className="text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">

@@ -303,7 +303,7 @@ const StudentReportsPage: React.FC = () => {
                 style={{ width: `${completionRate}%` }}
               ></div>
             </div>
-            <p className="mt-3 text-xs font-bold text-gray-400 uppercase tracking-wider">
+            <p className="mt-3 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
               Assignments & Quizzes Completed
             </p>
           </div>
@@ -338,7 +338,7 @@ const StudentReportsPage: React.FC = () => {
                 </span>
               )}
             </div>
-            <p className="mt-4 text-xs font-bold text-gray-400 uppercase tracking-wider">
+            <p className="mt-4 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
               Active Enrollments
             </p>
           </div>
@@ -393,7 +393,7 @@ const StudentReportsPage: React.FC = () => {
                     <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                       Passing
                     </span>
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+                    <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       On Track
                     </span>
                   </div>
@@ -412,7 +412,7 @@ const StudentReportsPage: React.FC = () => {
                     <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                       Needs Attention
                     </span>
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+                    <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       Below 50%
                     </span>
                   </div>
@@ -434,7 +434,7 @@ const StudentReportsPage: React.FC = () => {
                     <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                       No Grade
                     </span>
-                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+                    <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
                       Not Started
                     </span>
                   </div>
@@ -487,7 +487,7 @@ const StudentReportsPage: React.FC = () => {
               <div className="space-y-5 mb-8">
                 <div>
                   <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
-                    <span className="text-gray-400">Assignments</span>
+                    <span className="text-gray-400 dark:text-gray-500">Assignments</span>
                     <span className="text-text-primary-light dark:text-text-primary-dark">
                       {report.assignmentsCompleted}/{report.totalAssignments}
                     </span>
@@ -510,7 +510,7 @@ const StudentReportsPage: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
-                    <span className="text-gray-400">Quizzes</span>
+                    <span className="text-gray-400 dark:text-gray-500">Quizzes</span>
                     <span className="text-text-primary-light dark:text-text-primary-dark">
                       {report.quizzesCompleted}/{report.totalQuizzes}
                     </span>
