@@ -386,7 +386,7 @@ const QuizResultsPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
                 onClick={fetchResults}
-                className="inline-flex items-center justify-center px-6 py-3 bg-blue-500 text-white rounded-2xl hover:bg-blue-600 transition-all"
+                className="inline-flex items-center justify-center px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all"
               >
                 <Loader2 className="h-4 w-4 mr-2" />
                 Retry
@@ -419,7 +419,7 @@ const QuizResultsPage: React.FC = () => {
             </p>
             <Link
               to="/my-quizzes"
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-lg"
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-lg"
             >
               <ArrowLeft className="h-5 w-5 mr-2" />
               Back to Quizzes
@@ -444,7 +444,7 @@ const QuizResultsPage: React.FC = () => {
             </p>
             <Link
               to="/my-quizzes"
-              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-2xl hover:from-blue-600 hover:to-blue-700 transition-all duration-300"
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full hover:from-blue-600 hover:to-blue-700 transition-all duration-300"
             >
               <ArrowLeft className="h-5 w-5 mr-2" />
               Back to Quizzes
@@ -848,7 +848,7 @@ const QuizResultsPage: React.FC = () => {
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
                 to="/my-quizzes"
-                className="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-2xl hover:bg-blue-600 transition-all duration-300 hover:scale-105"
+                className="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all duration-300 hover:scale-105"
               >
                 <BookOpen className="h-5 w-5 mr-2" />
                 Take Another Quiz

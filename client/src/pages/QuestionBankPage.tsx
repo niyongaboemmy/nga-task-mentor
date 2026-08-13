@@ -95,7 +95,7 @@ const QuestionBankPage: React.FC = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => navigate(`/courses/${courseId}`)}
-              className="flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/40 rounded-2xl text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+              className="flex items-center gap-2 px-6 py-3 bg-white dark:bg-gray-800/50 border border-gray-200 dark:border-gray-700/40 rounded-full text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
             >
               <LayoutDashboard className="w-4 h-4" />
               Course Dashboard

@@ -439,7 +439,7 @@ const StudentQuizzesPage: React.FC = () => {
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="inline-flex items-center px-4 py-2 bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 rounded-2xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 hover:shadow-md"
+                className="inline-flex items-center px-6 py-3 bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 hover:scale-105 hover:shadow-md"
               >
                 <Filter className="h-4 w-4 mr-2" />
                 Filters
@@ -791,14 +791,14 @@ const StudentQuizzesPage: React.FC = () => {
               filters.scoreRange !== "all") && (
               <button
                 onClick={clearFilters}
-                className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl hover:scale-105 transition-all duration-200 mr-4"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full hover:scale-105 transition-all duration-200 mr-4"
               >
                 Clear Filters
               </button>
             )}
             <Link
               to="/dashboard"
-              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl hover:scale-105 transition-all duration-200"
+              className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full hover:scale-105 transition-all duration-200"
             >
               <BookOpen className="h-4 w-4 mr-2" />
               Go to Dashboard

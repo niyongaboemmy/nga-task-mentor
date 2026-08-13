@@ -1173,7 +1173,7 @@ const QuizSubmissionsPage: React.FC = () => {
                       ? !manualStudent
                       : manualQuestions.length === 0
                   }
-                  className="flex-1 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors disabled:opacity-50"
+                  className="flex-1 px-6 py-3 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors disabled:opacity-50"
                 >
                   Next
                 </button>
@@ -1181,7 +1181,7 @@ const QuizSubmissionsPage: React.FC = () => {
                 <button
                   onClick={handleManualApprove}
                   disabled={initializingManual}
-                  className="flex-1 px-4 py-2 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-colors disabled:opacity-50"
+                  className="flex-1 px-6 py-3 text-sm font-medium bg-blue-600 hover:bg-blue-700 text-white rounded-full transition-colors disabled:opacity-50"
                 >
                   {initializingManual ? "Saving..." : "Approve & Save"}
                 </button>

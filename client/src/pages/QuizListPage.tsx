@@ -246,7 +246,7 @@ const QuizListPage: React.FC = () => {
             <div className="flex items-center gap-4">
               <Link
                 to={`/courses/${courseId}`}
-                className="inline-flex items-center px-3 py-2 border border-border-light dark:border-border-dark/50 rounded-xl text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark transition-all duration-200"
+                className="inline-flex items-center px-6 py-3 border border-border-light dark:border-border-dark/50 rounded-full text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark transition-all duration-200"
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
                 Back to Course
@@ -264,7 +264,7 @@ const QuizListPage: React.FC = () => {
             <div className="flex items-center gap-3">
               <Link
                 to={`/courses/${courseId}/quizzes/create`}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-xl font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Create Quiz
@@ -388,7 +388,7 @@ const QuizListPage: React.FC = () => {
                   onClick={() =>
                     setSortOrder(sortOrder === "asc" ? "desc" : "asc")
                   }
-                  className="p-3 border border-border-light dark:border-border-dark/50 rounded-xl hover:bg-surface-light dark:hover:bg-surface-dark transition-colors"
+                  className="p-3 border border-border-light dark:border-border-dark/50 rounded-full hover:bg-surface-light dark:hover:bg-surface-dark transition-colors"
                 >
                   {sortOrder === "asc" ? (
                     <SortAsc className="h-5 w-5" />
@@ -397,10 +397,10 @@ const QuizListPage: React.FC = () => {
                   )}
                 </button>
 
-                <div className="flex border border-border-light dark:border-border-dark/50 rounded-xl">
+                <div className="flex border border-border-light dark:border-border-dark/50 rounded-full">
                   <button
                     onClick={() => setViewMode("list")}
-                    className={`p-3 rounded-l-xl transition-colors ${
+                    className={`p-3 rounded-l-full transition-colors ${
                       viewMode === "list"
                         ? "bg-blue-500 text-white"
                         : "hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -410,7 +410,7 @@ const QuizListPage: React.FC = () => {
                   </button>
                   <button
                     onClick={() => setViewMode("grid")}
-                    className={`p-3 rounded-r-xl transition-colors ${
+                    className={`p-3 rounded-r-full transition-colors ${
                       viewMode === "grid"
                         ? "bg-blue-500 text-white"
                         : "hover:bg-gray-50 dark:hover:bg-gray-700"
@@ -425,7 +425,7 @@ const QuizListPage: React.FC = () => {
                   typeFilter !== "all") && (
                   <button
                     onClick={clearFilters}
-                    className="px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-xl transition-colors"
+                    className="px-4 py-3 bg-gray-500 hover:bg-gray-600 text-white rounded-full transition-colors"
                   >
                     Clear
                   </button>
@@ -620,7 +620,7 @@ const QuizListPage: React.FC = () => {
             {!searchTerm && statusFilter === "all" && typeFilter === "all" && (
               <Link
                 to={`/courses/${courseId}/quizzes/create`}
-                className="inline-flex items-center px-8 py-4 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-2xl font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
+                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
               >
                 <Plus className="h-5 w-5 mr-2" />
                 Create Your First Quiz

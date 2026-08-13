@@ -74,7 +74,7 @@ const StudentDetails: React.FC = () => {
         </p>
         <Link
           to="/students"
-          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          className="mt-4 inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700"
         >
           Back to Students
         </Link>
@@ -245,7 +245,7 @@ const StudentDetails: React.FC = () => {
         </p>
         <Link
           to="/students"
-          className="mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700"
+          className="mt-4 inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700"
         >
           Back to Students
         </Link>

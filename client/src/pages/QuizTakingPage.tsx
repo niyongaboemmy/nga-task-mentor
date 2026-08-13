@@ -1831,7 +1831,7 @@ const QuizTakingPage: React.FC = () => {
           <Link
             to="/my-quizzes"
             onClick={() => setError(null)}
-            className="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-flex items-center px-6 py-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-colors"
           >
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Quizzes

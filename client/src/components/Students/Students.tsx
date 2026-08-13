@@ -262,7 +262,7 @@ const Students: React.FC = () => {
         {/* Reset Filters */}
         <button
           onClick={resetFilters}
-          className="px-4 py-2.5 bg-surface-light dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark hover:bg-gray-200 dark:hover:bg-gray-700 text-sm rounded-xl transition-colors duration-200"
+          className="px-6 py-3 bg-surface-light dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark hover:bg-gray-200 dark:hover:bg-gray-700 text-sm rounded-full transition-colors duration-200"
         >
           Reset
         </button>

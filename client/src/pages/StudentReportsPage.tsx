@@ -203,7 +203,7 @@ const StudentReportsPage: React.FC = () => {
         </div>
         <button
           onClick={fetchReports}
-          className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 active:scale-95"
+          className="flex items-center gap-2 px-6 py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 active:scale-95"
         >
           <RefreshCw className="w-4 h-4" />
           Refresh
@@ -242,7 +242,7 @@ const StudentReportsPage: React.FC = () => {
         </div>
         <button
           onClick={fetchReports}
-          className="px-5 py-2.5 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark self-start sm:self-auto active:scale-95"
+          className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark self-start sm:self-auto active:scale-95"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Refresh</span>

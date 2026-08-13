@@ -190,7 +190,7 @@ export const QuizList: React.FC<QuizListProps> = ({
             onClick={handleRefresh}
             disabled={isRefreshing || loading.quizzes}
             title="Refresh quizzes"
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 hover:text-gray-700 dark:hover:text-gray-200 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <RefreshCw className={`w-4 h-4 ${isRefreshing || loading.quizzes ? "animate-spin" : ""}`} />
             <span className="hidden sm:inline">Refresh</span>
@@ -198,7 +198,7 @@ export const QuizList: React.FC<QuizListProps> = ({
           {showCreateButton && (
             <Link
               to={`/courses/${courseId}/quizzes/create`}
-              className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
+              className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <svg
                 className="w-4 h-4 mr-2"
@@ -231,7 +231,7 @@ export const QuizList: React.FC<QuizListProps> = ({
             {showViewAllButton && limit && quizzes.length > limit && (
               <Link
                 to={`/courses/${courseId}/quizzes`}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-md"
+                className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 shadow-lg transition-all duration-200 hover:scale-105 hover:shadow-md"
               >
                 <svg
                   className="w-4 h-4 mr-2"
@@ -270,7 +270,7 @@ export const QuizList: React.FC<QuizListProps> = ({
               <button
                 onClick={() => handlePageChange(currentPage - 1)}
                 disabled={currentPage === 1}
-                className="p-2 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
+                className="p-2 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
               >
                 <ChevronLeft className="h-4 w-4" />
               </button>
@@ -282,7 +282,7 @@ export const QuizList: React.FC<QuizListProps> = ({
                     <button
                       key={page}
                       onClick={() => handlePageChange(page)}
-                      className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
+                      className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 hover:scale-105 ${
                         currentPage === page
                           ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
                           : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -305,7 +305,7 @@ export const QuizList: React.FC<QuizListProps> = ({
                     <button
                       key={pageNum}
                       onClick={() => handlePageChange(pageNum)}
-                      className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
+                      className={`px-3 py-2 rounded-full text-sm font-medium transition-all duration-200 hover:scale-105 ${
                         currentPage === pageNum
                           ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
                           : "bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -320,7 +320,7 @@ export const QuizList: React.FC<QuizListProps> = ({
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
                 disabled={currentPage === totalPages}
-                className="p-2 rounded-2xl bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
+                className="p-2 rounded-full bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
               >
                 <ChevronRight className="h-4 w-4" />
               </button>
@@ -353,7 +353,7 @@ export const QuizList: React.FC<QuizListProps> = ({
             <div className="mt-6">
               <Link
                 to={`/courses/${courseId}/quizzes/create`}
-                className="inline-flex items-center px-4 py-2 border border-transparent shadow-sm text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 hover:shadow-xl transition-all duration-200"
+                className="inline-flex items-center px-6 py-3 border border-transparent shadow-sm text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 hover:shadow-xl transition-all duration-200"
               >
                 <svg
                   className="w-4 h-4 mr-2"

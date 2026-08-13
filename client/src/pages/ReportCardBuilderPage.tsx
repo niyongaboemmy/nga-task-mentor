@@ -538,7 +538,7 @@ export default function ReportCardBuilderPage() {
                     <button
                       onClick={() => changeStatus("saved")}
                       disabled={statusChanging}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 transition-all shadow-lg shadow-blue-900/40"
+                      className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 transition-all shadow-lg shadow-blue-900/40"
                     >
                       {statusChanging ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -570,7 +570,7 @@ export default function ReportCardBuilderPage() {
                     <button
                       onClick={() => changeStatus("approved")}
                       disabled={statusChanging}
-                      className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 transition-all shadow-lg shadow-emerald-900/40"
+                      className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-40 transition-all shadow-lg shadow-emerald-900/40"
                     >
                       {statusChanging ? (
                         <Loader2 className="w-3.5 h-3.5 animate-spin" />

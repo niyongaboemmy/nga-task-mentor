@@ -312,7 +312,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                   assignments.length > 0 && (
                     <Link
                       to={`/assignments/create?courseId=${currentCourseId}`}
-                      className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-xl text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:scale-105 active:scale-95"
+                      className="inline-flex items-center px-6 py-3 border border-transparent text-sm font-medium rounded-full text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-200 hover:scale-105 active:scale-95"
                     >
                       <svg
                         className="h-4 w-4 mr-2"

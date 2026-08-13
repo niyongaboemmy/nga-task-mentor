@@ -427,14 +427,14 @@ const CourseReportsPage: React.FC = () => {
             <AcademicPeriodPicker onChange={setViewPeriod} />
             <button
               onClick={fetchGrades}
-              className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark"
+              className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark"
             >
               <RefreshCw className="w-4 h-4" />
               <span>Refresh Data</span>
             </button>
             <button
               onClick={handleExportCSV}
-              className="px-6 py-3 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 font-bold text-xs uppercase tracking-wider hover:scale-105 active:scale-95"
+              className="px-6 py-3 bg-blue-600 text-white rounded-full hover:bg-blue-700 transition-all shadow-lg shadow-blue-500/30 flex items-center gap-2 font-bold text-xs uppercase tracking-wider hover:scale-105 active:scale-95"
             >
               <Download className="w-4 h-4" />
               <span>Export CSV</span>
