@@ -333,10 +333,13 @@ export async function generateReportCardPdf(data: ReportCardPdfData): Promise<Bu
       { header: "Indicator",  width: 195, align: "center" },
     ];
 
+    // Uses asterisks, not the Unicode ★/☆ glyphs — pdfkit's built-in
+    // Helvetica fonts only support WinAnsi encoding, which doesn't include
+    // the star codepoints (they were rendering as literal "&" characters).
     const ratingToIndicator: Record<string, string> = {
-      "Excellent": "★★★★★",
-      "Very good": "★★★★☆",
-      "Good":      "★★★☆☆",
+      "Excellent": "***** ",
+      "Very good": "**** -",
+      "Good":      "*** --",
     };
 
     const attrRows: string[][] = data.attributes.map((a) => [
