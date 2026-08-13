@@ -96,7 +96,7 @@ export const EditQuizPage: React.FC = () => {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-3 text-gray-600">Loading quiz...</span>
+        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading quiz...</span>
       </div>
     );
   }
@@ -409,7 +409,7 @@ export const EditQuizPage: React.FC = () => {
                           e.target.checked,
                         )
                       }
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-xl"
+                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
                     />
                     <label
                       htmlFor="show_results_immediately"
@@ -427,7 +427,7 @@ export const EditQuizPage: React.FC = () => {
                       onChange={(e) =>
                         handleChange("randomize_questions", e.target.checked)
                       }
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-xl"
+                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
                     />
                     <label
                       htmlFor="randomize_questions"
@@ -445,7 +445,7 @@ export const EditQuizPage: React.FC = () => {
                       onChange={(e) =>
                         handleChange("show_correct_answers", e.target.checked)
                       }
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-xl"
+                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
                     />
                     <label
                       htmlFor="show_correct_answers"
@@ -470,7 +470,7 @@ export const EditQuizPage: React.FC = () => {
                             e.target.checked,
                           )
                         }
-                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-xl"
+                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
                       />
                       <label
                         htmlFor="enable_automatic_grading"
@@ -492,7 +492,7 @@ export const EditQuizPage: React.FC = () => {
                             e.target.checked,
                           )
                         }
-                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-xl"
+                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
                       />
                       <label
                         htmlFor="require_manual_grading"
@@ -520,7 +520,7 @@ export const EditQuizPage: React.FC = () => {
                       onChange={(e) =>
                         handleChange("is_public", e.target.checked)
                       }
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 rounded-xl"
+                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
                     />
                     <label
                       htmlFor="is_public"
