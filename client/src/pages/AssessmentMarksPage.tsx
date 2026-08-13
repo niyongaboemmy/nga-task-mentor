@@ -189,10 +189,10 @@ export default function AssessmentMarksPage() {
   if (!assessment) {
     return (
       <div className="text-center py-20">
-        <p className="text-gray-500">Assessment not found.</p>
+        <p className="text-gray-500 dark:text-gray-400">Assessment not found.</p>
         <button
           onClick={() => navigate("/grades")}
-          className="mt-4 text-blue-600 hover:underline text-sm"
+          className="mt-4 text-blue-600 dark:text-blue-400 hover:underline text-sm"
         >
           Back to Grades
         </button>
@@ -207,7 +207,7 @@ export default function AssessmentMarksPage() {
       {/* Back + header */}
       <button
         onClick={() => navigate("/grades")}
-        className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+        className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 transition-colors"
       >
         <ArrowLeft className="w-4 h-4" />
         Back to Grades
@@ -215,14 +215,14 @@ export default function AssessmentMarksPage() {
 
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             {ManualAssessmentApiService.getTypeLabel(assessment)}
           </h1>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
             Class name:{" "}
-            <span className="font-semibold text-gray-700">{courseName}</span>
+            <span className="font-semibold text-gray-700 dark:text-gray-300">{courseName}</span>
           </p>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             {assessment.assessment_date ?? "—"} | {typeLabel}
           </p>
         </div>
@@ -230,23 +230,23 @@ export default function AssessmentMarksPage() {
         {/* Toolbar */}
         <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 dark:text-gray-500" />
             <input
               type="text"
               placeholder="Type / to search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-9 pr-4 py-2 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-52 bg-gray-50"
+              className="pl-9 pr-4 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-52 bg-gray-50 dark:bg-gray-800/50"
             />
           </div>
           <button
             onClick={() => setSortAsc((v) => !v)}
-            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 transition-colors"
           >
             <ArrowUpDown className="w-4 h-4" />
             Sort
           </button>
-          <button className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 text-sm text-gray-600 hover:bg-gray-50 transition-colors">
+          <button className="flex items-center gap-2 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-50 transition-colors">
             <SlidersHorizontal className="w-4 h-4" />
             Filter
           </button>
@@ -255,33 +255,33 @@ export default function AssessmentMarksPage() {
 
       {/* Progress bar */}
       <div className="flex items-center gap-3">
-        <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+        <div className="flex-1 h-1.5 bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
           <div
             className="h-full bg-blue-500 rounded-full transition-all duration-500"
             style={{ width: rows.length ? `${(filledCount / rows.length) * 100}%` : "0%" }}
           />
         </div>
-        <span className="text-sm text-gray-500 tabular-nums">{filledCount} / {rows.length} scored</span>
+        <span className="text-sm text-gray-500 dark:text-gray-400 tabular-nums">{filledCount} / {rows.length} scored</span>
       </div>
 
       {/* Marks table */}
-      <div className="rounded-2xl border border-gray-200 overflow-hidden bg-white">
+      <div className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-900">
         <table className="min-w-full">
           <thead>
             <tr className="border-b border-gray-100">
-              <th className="w-12 px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">#</th>
-              <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Name</th>
-              <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Reg Number</th>
-              <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Score</th>
-              <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Maximum</th>
+              <th className="w-12 px-5 py-4 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">#</th>
+              <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Name</th>
+              <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Reg Number</th>
+              <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Score</th>
+              <th className="px-5 py-4 text-left text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-wider">Maximum</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {displayRows.map((row, idx) => (
               <tr key={row.student_id} className="hover:bg-gray-50/40 transition-colors">
-                <td className="px-5 py-4 text-sm text-gray-400">{idx + 1}</td>
-                <td className="px-5 py-4 text-sm font-medium text-gray-900">{row.name}</td>
-                <td className="px-5 py-4 text-sm text-gray-600">{row.reg_number || "—"}</td>
+                <td className="px-5 py-4 text-sm text-gray-400 dark:text-gray-500">{idx + 1}</td>
+                <td className="px-5 py-4 text-sm font-medium text-gray-900 dark:text-white">{row.name}</td>
+                <td className="px-5 py-4 text-sm text-gray-600 dark:text-gray-400">{row.reg_number || "—"}</td>
                 <td className="px-5 py-4">
                   <div className="flex items-center gap-2">
                     <input
@@ -292,14 +292,14 @@ export default function AssessmentMarksPage() {
                       value={row.score}
                       onChange={(e) => updateScore(row.student_id, e.target.value)}
                       placeholder="—"
-                      className="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-center tabular-nums"
+                      className="w-24 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-center tabular-nums"
                     />
                     {row.score !== "" && (
                       <CheckCircle2 className="w-4 h-4 text-green-500 flex-shrink-0" />
                     )}
                   </div>
                 </td>
-                <td className="px-5 py-4 text-sm text-gray-500">{assessment.max_score}</td>
+                <td className="px-5 py-4 text-sm text-gray-500 dark:text-gray-400">{assessment.max_score}</td>
               </tr>
             ))}
           </tbody>
@@ -307,7 +307,7 @@ export default function AssessmentMarksPage() {
 
         {displayRows.length === 0 && (
           <div className="py-16 text-center">
-            <p className="text-gray-400 text-sm">
+            <p className="text-gray-400 dark:text-gray-500 text-sm">
               {search ? "No students match your search." : "No students enrolled in this course."}
             </p>
           </div>

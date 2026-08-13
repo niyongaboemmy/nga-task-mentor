@@ -58,7 +58,7 @@ export const QuizProctoringPage: React.FC<QuizProctoringPageProps> = () => {
   if (error || !quiz) {
     return (
       <div className="max-w-4xl mx-auto py-8 px-4">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 rounded-lg p-4">
           <p className="text-red-800">{error || "Quiz not found"}</p>
           <Button
             onClick={() => navigate(`/quizzes/${quizId}`)}
@@ -76,7 +76,7 @@ export const QuizProctoringPage: React.FC<QuizProctoringPageProps> = () => {
     <div className="max-w-8xl mx-auto py-8 px-4">
       {/* Header */}
       <div className="mb-8">
-        <nav className="flex items-center space-x-2 text-sm text-gray-600 mb-4">
+        <nav className="flex items-center space-x-2 text-sm text-gray-600 dark:text-gray-400 mb-4">
           <button
             onClick={() => navigate(`/quizzes/${quizId}`)}
             className="hover:text-blue-600"
@@ -84,14 +84,14 @@ export const QuizProctoringPage: React.FC<QuizProctoringPageProps> = () => {
             Quiz
           </button>
           <span>/</span>
-          <span className="text-gray-900 font-medium">Proctoring</span>
+          <span className="text-gray-900 dark:text-white font-medium">Proctoring</span>
         </nav>
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
               Proctoring Dashboard
             </h1>
-            <p className="text-gray-600">
+            <p className="text-gray-600 dark:text-gray-400">
               Monitor and analyze proctoring sessions for "{quiz.title}"
             </p>
           </div>
@@ -113,25 +113,17 @@ export const QuizProctoringPage: React.FC<QuizProctoringPageProps> = () => {
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex border-b border-gray-200 mt-6">
+        <div className="flex border-b border-gray-200 dark:border-gray-700 mt-6">
           <button
             onClick={() => setActiveTab("live")}
-            className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === "live"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
+            className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${ activeTab === "live" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700" }`}
           >
             <Eye className="w-4 h-4" />
             Live Monitoring
           </button>
           <button
             onClick={() => setActiveTab("analytics")}
-            className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${
-              activeTab === "analytics"
-                ? "border-blue-500 text-blue-600"
-                : "border-transparent text-gray-500 hover:text-gray-700"
-            }`}
+            className={`px-6 py-3 font-medium text-sm border-b-2 transition-colors flex items-center gap-2 ${ activeTab === "analytics" ? "border-blue-500 text-blue-600" : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700" }`}
           >
             <BarChart3 className="w-4 h-4" />
             Analytics & Reports
@@ -147,12 +139,12 @@ export const QuizProctoringPage: React.FC<QuizProctoringPageProps> = () => {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center">
-                  <Shield className="w-8 h-8 text-blue-600" />
+                  <Shield className="w-8 h-8 text-blue-600 dark:text-blue-400" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       Proctoring Status
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">
                       {quiz?.is_proctored ? "Enabled" : "Disabled"}
                     </p>
                   </div>
@@ -163,12 +155,12 @@ export const QuizProctoringPage: React.FC<QuizProctoringPageProps> = () => {
             <Card>
               <CardContent className="p-6">
                 <div className="flex items-center">
-                  <Users className="w-8 h-8 text-green-600" />
+                  <Users className="w-8 h-8 text-green-600 dark:text-green-400" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       Active Sessions
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">-</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">-</p>
                   </div>
                 </div>
               </CardContent>
@@ -179,10 +171,10 @@ export const QuizProctoringPage: React.FC<QuizProctoringPageProps> = () => {
                 <div className="flex items-center">
                   <AlertTriangle className="w-8 h-8 text-orange-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       High Risk Sessions
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">-</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">-</p>
                   </div>
                 </div>
               </CardContent>
@@ -193,10 +185,10 @@ export const QuizProctoringPage: React.FC<QuizProctoringPageProps> = () => {
                 <div className="flex items-center">
                   <CheckCircle className="w-8 h-8 text-purple-600" />
                   <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">
+                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
                       Completed Sessions
                     </p>
-                    <p className="text-2xl font-bold text-gray-900">-</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-white">-</p>
                   </div>
                 </div>
               </CardContent>
