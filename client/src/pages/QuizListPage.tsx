@@ -251,7 +251,7 @@ const QuizListPage: React.FC = () => {
                 Back to Course
               </Link>
               <div>
-                <h1 className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
+                <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                   Course Quizzes
                 </h1>
                 <p className="text-text-secondary-light dark:text-text-secondary-dark mt-1">
@@ -279,7 +279,7 @@ const QuizListPage: React.FC = () => {
                   <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Total Quizzes
                   </p>
-                  <p className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
+                  <p className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                     {quizzes.length}
                   </p>
                 </div>
@@ -293,7 +293,7 @@ const QuizListPage: React.FC = () => {
                   <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Published
                   </p>
-                  <p className="text-3xl font-bold text-green-600 dark:text-green-400">
+                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
                     {groupedQuizzes.published.length}
                   </p>
                 </div>
@@ -307,7 +307,7 @@ const QuizListPage: React.FC = () => {
                   <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Drafts
                   </p>
-                  <p className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">
+                  <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                     {groupedQuizzes.draft.length}
                   </p>
                 </div>
@@ -321,7 +321,7 @@ const QuizListPage: React.FC = () => {
                   <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                     Completed
                   </p>
-                  <p className="text-3xl font-bold text-blue-600 dark:text-blue-400">
+                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                     {groupedQuizzes.completed.length}
                   </p>
                 </div>

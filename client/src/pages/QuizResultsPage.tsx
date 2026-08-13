@@ -487,7 +487,7 @@ const QuizResultsPage: React.FC = () => {
                   <div className={`absolute inset-0 bg-gradient-to-br ${getGradeTheme(result.grade).primary} opacity-20 blur-2xl group-hover:opacity-40 transition-opacity duration-500`}></div>
                   <div className="relative w-56 h-56 rounded-full flex items-center justify-center border-[12px] border-white/10 dark:border-gray-800/50 p-2 shadow-inner">
                     <div className={`w-full h-full rounded-full bg-gradient-to-br ${getGradeTheme(result.grade).primary} flex flex-col items-center justify-center text-white shadow-xl`}>
-                      <span className="text-8xl font-black tracking-tighter animate-in slide-in-from-bottom-4 duration-500 delay-500">
+                      <span className="text-8xl font-bold tracking-tighter animate-in slide-in-from-bottom-4 duration-500 delay-500">
                         {result.grading_settings?.show_grades ? result.grade : "⏳"}
                       </span>
                       {result.grading_settings?.show_grades && (
@@ -498,7 +498,7 @@ const QuizResultsPage: React.FC = () => {
                     </div>
                   </div>
                   {result.passed !== null && result.passed !== undefined && (
-                    <div className={`absolute -bottom-4 left-1/2 -translate-x-1/2 px-8 py-2.5 rounded-2xl text-sm font-black uppercase tracking-widest shadow-lg animate-in bounce-in duration-700 delay-1000 ${
+                    <div className={`absolute -bottom-4 left-1/2 -translate-x-1/2 px-8 py-2.5 rounded-2xl text-sm font-bold uppercase tracking-widest shadow-lg animate-in bounce-in duration-700 delay-1000 ${
                       result.passed
                         ? "bg-green-500 dark:bg-green-600 text-white shadow-green-500/30"
                         : "bg-red-500 dark:bg-red-600 text-white shadow-red-500/30"
@@ -512,7 +512,7 @@ const QuizResultsPage: React.FC = () => {
               {/* Stats */}
               <div className="flex-1 space-y-8 w-full">
                 <div className="text-center md:text-left">
-                  <h1 className="text-3xl md:text-4xl font-black text-text-primary-light dark:text-text-primary-dark mb-2 tracking-tight">
+                  <h1 className="text-2xl md:text-3xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2 tracking-tight">
                     Performance Analysis
                   </h1>
                   <p className="text-gray-500 dark:text-gray-400 font-medium">
@@ -527,7 +527,7 @@ const QuizResultsPage: React.FC = () => {
                       <Target className="w-7 h-7" />
                     </div>
                     <div>
-                      <div className="text-2xl font-black text-text-primary-light dark:text-text-primary-dark">
+                      <div className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                         {result.total_score}{" "}
                         <span className="text-sm font-bold text-gray-400">/ {result.max_score}</span>
                       </div>
@@ -541,7 +541,7 @@ const QuizResultsPage: React.FC = () => {
                       <Clock className="w-7 h-7" />
                     </div>
                     <div>
-                      <div className="text-2xl font-black text-text-primary-light dark:text-text-primary-dark">
+                      <div className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                         {formatTime(result.time_taken || submissionData?.time_taken || 0)}
                       </div>
                       <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">Time Invested</div>
@@ -558,8 +558,8 @@ const QuizResultsPage: React.FC = () => {
                     ></div>
                   </div>
                   <div className="flex justify-between mt-2 px-1">
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Efficiency Threshold</span>
-                    <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{Math.round(result.percentage)}% Mastery</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Efficiency Threshold</span>
+                    <span className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">{Math.round(result.percentage)}% Mastery</span>
                   </div>
                 </div>
               </div>
@@ -601,19 +601,19 @@ const QuizResultsPage: React.FC = () => {
           {/* Summary Stats Row */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             <div className="bg-gray-50 dark:bg-gray-800/50 rounded-2xl p-4 text-center border border-gray-100 dark:border-gray-700/50">
-              <div className="text-2xl font-black text-gray-800 dark:text-white">{totalCount}</div>
+              <div className="text-2xl font-bold text-gray-800 dark:text-white">{totalCount}</div>
               <div className="text-xs font-bold text-gray-400 uppercase tracking-wider mt-0.5">Total</div>
             </div>
             <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-2xl p-4 text-center border border-emerald-100 dark:border-emerald-800/30">
-              <div className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{correctCount}</div>
+              <div className="text-2xl font-bold text-emerald-700 dark:text-emerald-400">{correctCount}</div>
               <div className="text-xs font-bold text-emerald-500 uppercase tracking-wider mt-0.5">Correct</div>
             </div>
             <div className="bg-red-50 dark:bg-red-900/20 rounded-2xl p-4 text-center border border-red-100 dark:border-red-800/30">
-              <div className="text-2xl font-black text-red-700 dark:text-red-400">{incorrectCount}</div>
+              <div className="text-2xl font-bold text-red-700 dark:text-red-400">{incorrectCount}</div>
               <div className="text-xs font-bold text-red-400 uppercase tracking-wider mt-0.5">Incorrect</div>
             </div>
             <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-4 text-center border border-amber-100 dark:border-amber-800/30">
-              <div className="text-2xl font-black text-amber-700 dark:text-amber-400">{pendingCount}</div>
+              <div className="text-2xl font-bold text-amber-700 dark:text-amber-400">{pendingCount}</div>
               <div className="text-xs font-bold text-amber-500 uppercase tracking-wider mt-0.5">Pending</div>
             </div>
           </div>
@@ -691,7 +691,7 @@ const QuizResultsPage: React.FC = () => {
                     >
                       <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
                         {/* Question number */}
-                        <div className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm font-black shadow-sm text-white ${style.numberBg}`}>
+                        <div className={`w-9 h-9 shrink-0 rounded-xl flex items-center justify-center text-sm font-bold shadow-sm text-white ${style.numberBg}`}>
                           {originalIndex + 1}
                         </div>
 

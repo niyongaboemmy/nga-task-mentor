@@ -702,7 +702,7 @@ const AssignmentDetails = () => {
                                 </div>
                               </div>
                               <div className="bg-blue-100 dark:bg-blue-900/30 px-3 py-1.5 rounded-xl text-center min-w-[70px]">
-                                <span className="text-xs font-black text-blue-700 dark:text-blue-400">
+                                <span className="text-xs font-bold text-blue-700 dark:text-blue-400">
                                   {criterion.max_score} pts
                                 </span>
                               </div>

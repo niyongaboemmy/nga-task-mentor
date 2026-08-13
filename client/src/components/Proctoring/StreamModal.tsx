@@ -920,7 +920,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                     className={`relative overflow-hidden rounded-lg p-2.5 text-center border ${stream.riskScore >= 80 ? "bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/30 dark:to-red-800/20 border-red-200/60 dark:border-red-800/30" : stream.riskScore >= 60 ? "bg-gradient-to-br from-orange-50 to-orange-100/50 dark:from-orange-900/30 dark:to-orange-800/20 border-orange-200/60 dark:border-orange-800/30" : "bg-gradient-to-br from-green-50 to-green-100/50 dark:from-green-900/30 dark:to-green-800/20 border-green-200/60 dark:border-green-800/30"}`}
                   >
                     <div
-                      className={`text-2xl font-black ${stream.riskScore >= 80 ? "text-red-600 dark:text-red-400" : stream.riskScore >= 60 ? "text-orange-600 dark:text-orange-400" : "text-green-600 dark:text-green-400"}`}
+                      className={`text-2xl font-bold ${stream.riskScore >= 80 ? "text-red-600 dark:text-red-400" : stream.riskScore >= 60 ? "text-orange-600 dark:text-orange-400" : "text-green-600 dark:text-green-400"}`}
                     >
                       {stream.riskScore}
                     </div>
@@ -937,7 +937,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                     </div>
                   </div>
                   <div className="bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-900/30 dark:to-red-800/20 rounded-lg p-2.5 text-center border border-red-200/60 dark:border-red-800/30">
-                    <div className="text-2xl font-black text-red-600 dark:text-red-400">
+                    <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                       {stream.flagsCount}
                     </div>
                     <div className="text-xs text-gray-500 dark:text-gray-400 font-medium">
@@ -1198,7 +1198,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                   {/* Status Badge */}
                   <div className="absolute top-3 right-3 z-30">
                     <div
-                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black backdrop-blur-md shadow-lg transition-all duration-300 ${stream.isLive ? "bg-red-600/95 shadow-red-500/30" : "bg-gray-900/80"}`}
+                      className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold backdrop-blur-md shadow-lg transition-all duration-300 ${stream.isLive ? "bg-red-600/95 shadow-red-500/30" : "bg-gray-900/80"}`}
                     >
                       <div
                         className={`w-2.5 h-2.5 rounded-full ${stream.isLive ? "bg-white animate-pulse" : "bg-gray-400"}`}
@@ -1213,7 +1213,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                   {stream.riskScore >= 60 && (
                     <div className="absolute top-3 left-3 z-30">
                       <div
-                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-black backdrop-blur-md shadow-lg animate-bounce ${stream.riskScore >= 80 ? "bg-red-600/95 shadow-red-500/30" : "bg-orange-500/90 shadow-orange-500/30"}`}
+                        className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-bold backdrop-blur-md shadow-lg animate-bounce ${stream.riskScore >= 80 ? "bg-red-600/95 shadow-red-500/30" : "bg-orange-500/90 shadow-orange-500/30"}`}
                       >
                         <AlertTriangle className="w-4 h-4" />
                         <span className="text-white">
