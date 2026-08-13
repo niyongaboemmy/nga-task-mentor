@@ -757,7 +757,7 @@ export const WebTemplateGallery: React.FC<WebTemplateGalleryProps> = ({
                 <div className="w-2.5 h-2.5 rounded-full bg-[#febc2e]" />
                 <div className="w-2.5 h-2.5 rounded-full bg-[#28c840]" />
               </div>
-              <span className="text-[10px] text-gray-500 flex-1 text-center">
+              <span className="text-[10px] text-gray-500 dark:text-gray-400 flex-1 text-center">
                 {previewTemplate.title}
               </span>
               <button
