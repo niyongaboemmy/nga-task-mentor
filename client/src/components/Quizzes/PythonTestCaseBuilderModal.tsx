@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
+import { getLanguageIcon } from "./languageIcons";
+
+const LangIcon = getLanguageIcon("python");
 
 interface GeneratedPythonTestCase {
   id: string;
@@ -75,7 +78,11 @@ export const PythonTestCaseBuilderModal: React.FC<
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="🐍 Python Test Case Builder"
+      title={
+        <span className="inline-flex items-center gap-2">
+          <LangIcon className="w-5 h-5" /> Python Test Case Builder
+        </span>
+      }
       subtitle="Create comprehensive test cases for Python functions"
       size="xl"
     >

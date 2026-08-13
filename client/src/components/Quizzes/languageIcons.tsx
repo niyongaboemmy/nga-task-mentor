@@ -1,0 +1,50 @@
+import {
+  Braces,
+  FileCode,
+  Coffee,
+  Cpu,
+  Hash,
+  Code2,
+  Palette,
+  Atom,
+  Layers,
+  Triangle,
+  FileType,
+  Server,
+  Gem,
+  Zap,
+  Settings2,
+  Bird,
+  Smartphone,
+  Database,
+  Hexagon,
+  Binary,
+  type LucideIcon,
+} from "lucide-react";
+
+export const LANGUAGE_ICONS: Record<string, LucideIcon> = {
+  javascript: Braces,
+  python: FileCode,
+  java: Coffee,
+  cpp: Cpu,
+  csharp: Hash,
+  html: Code2,
+  css: Palette,
+  react: Atom,
+  vue: Layers,
+  angular: Triangle,
+  typescript: FileType,
+  php: Server,
+  ruby: Gem,
+  go: Zap,
+  rust: Settings2,
+  swift: Bird,
+  kotlin: Smartphone,
+  sql: Database,
+  nodejs: Hexagon,
+  c: Binary,
+};
+
+export function getLanguageIcon(lang: string): LucideIcon {
+  return LANGUAGE_ICONS[lang] ?? Code2;
+}

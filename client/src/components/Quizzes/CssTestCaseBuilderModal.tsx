@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
+import { getLanguageIcon } from "./languageIcons";
+
+const LangIcon = getLanguageIcon("css");
 
 interface GeneratedCssTestCase {
   id: string;
@@ -87,7 +90,11 @@ export const CssTestCaseBuilderModal: React.FC<
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="🎨 CSS Test Case Builder"
+      title={
+        <span className="inline-flex items-center gap-2">
+          <LangIcon className="w-5 h-5" /> CSS Test Case Builder
+        </span>
+      }
       subtitle="Create comprehensive test cases for CSS validation"
       size="xl"
     >

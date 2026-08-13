@@ -27,12 +27,12 @@ import { PhpValidationGuideModal } from "./PhpValidationGuideModal";
 import { AngularTestCaseBuilderModal } from "./AngularTestCaseBuilderModal";
 import { AngularValidationGuideModal } from "./AngularValidationGuideModal";
 import { toast } from "react-toastify";
+import { getLanguageIcon } from "./languageIcons";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyModal = React.ComponentType<any>;
 
 interface LangConfig {
-  emoji: string;
   label: string;
   accentColor: string;
   BuilderModal: AnyModal | null;
@@ -41,91 +41,78 @@ interface LangConfig {
 
 const LANG_CONFIG: Record<string, LangConfig> = {
   javascript: {
-    emoji: "🟨",
     label: "JavaScript",
     accentColor: "#f59e0b",
     BuilderModal: JavaScriptTestCaseBuilderModal,
     GuideModal: JavaScriptValidationGuideModal,
   },
   typescript: {
-    emoji: "🔷",
     label: "TypeScript",
     accentColor: "#3b82f6",
     BuilderModal: TypeScriptTestCaseBuilderModal,
     GuideModal: TypeScriptValidationGuideModal,
   },
   react: {
-    emoji: "⚛️",
     label: "React",
     accentColor: "#06b6d4",
     BuilderModal: ReactTestCaseBuilderModal,
     GuideModal: ReactValidationGuideModal,
   },
   nodejs: {
-    emoji: "🟢",
     label: "Node.js",
     accentColor: "#22c55e",
     BuilderModal: NodeJSTestCaseBuilderModal,
     GuideModal: NodeJSValidationGuideModal,
   },
   css: {
-    emoji: "🎨",
     label: "CSS",
     accentColor: "#8b5cf6",
     BuilderModal: CssTestCaseBuilderModal,
     GuideModal: CssValidationGuideModal,
   },
   html: {
-    emoji: "🏷️",
     label: "HTML",
     accentColor: "#10b981",
     BuilderModal: HtmlTestCaseBuilderModal,
     GuideModal: HtmlValidationGuideModal,
   },
   vue: {
-    emoji: "🟢",
     label: "Vue.js",
     accentColor: "#22c55e",
     BuilderModal: VueTestCaseBuilderModal,
     GuideModal: VueValidationGuideModal,
   },
   python: {
-    emoji: "🐍",
     label: "Python",
     accentColor: "#3b82f6",
     BuilderModal: PythonTestCaseBuilderModal,
     GuideModal: PythonValidationGuideModal,
   },
   java: {
-    emoji: "☕",
     label: "Java",
     accentColor: "#b07219",
     BuilderModal: JavaTestCaseBuilderModal,
     GuideModal: JavaValidationGuideModal,
   },
   c: {
-    emoji: "⚙️",
     label: "C",
     accentColor: "#6366f1",
     BuilderModal: CTestCaseBuilderModal,
     GuideModal: CValidationGuideModal,
   },
   cpp: {
-    emoji: "🔧",
     label: "C++",
     accentColor: "#6366f1",
     BuilderModal: CppTestCaseBuilderModal,
     GuideModal: CppValidationGuideModal,
   },
   php: {
-    emoji: "🐘",
     label: "PHP",
     accentColor: "#8892cf",
     BuilderModal: PhpTestCaseBuilderModal,
     GuideModal: PhpValidationGuideModal,
   },
   angular: {
-    emoji: "🔴",
     label: "Angular",
     accentColor: "#ef4444",
     BuilderModal: AngularTestCaseBuilderModal,
@@ -148,7 +135,8 @@ export const UnifiedTestCaseToolbar: React.FC<UnifiedTestCaseToolbarProps> = ({
   const config = LANG_CONFIG[language];
   if (!config) return null;
 
-  const { emoji, label, accentColor, BuilderModal, GuideModal } = config;
+  const { label, accentColor, BuilderModal, GuideModal } = config;
+  const LangIcon = getLanguageIcon(language);
 
   const handleTestCaseGenerated = (testCase: any) => {
     // eslint-disable-line @typescript-eslint/no-explicit-any
@@ -166,7 +154,7 @@ export const UnifiedTestCaseToolbar: React.FC<UnifiedTestCaseToolbarProps> = ({
       style={{ ...borderStyle, ...accentBg }}
     >
       <div className="flex items-center gap-3 mb-4">
-        <span className="text-2xl">{emoji}</span>
+        <LangIcon className="w-6 h-6" style={{ color: accentColor }} />
         <div>
           <h4 className="font-bold text-text-primary-light dark:text-text-primary-dark text-sm">
             {label} Test Case Tools

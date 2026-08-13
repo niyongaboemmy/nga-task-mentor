@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
+import { getLanguageIcon } from "./languageIcons";
+
+const LangIcon = getLanguageIcon("angular");
 
 interface GeneratedAngularTestCase {
   id: string;
@@ -92,7 +95,11 @@ export const AngularTestCaseBuilderModal: React.FC<
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="🅰️ Angular Test Case Builder"
+      title={
+        <span className="inline-flex items-center gap-2">
+          <LangIcon className="w-5 h-5" /> Angular Test Case Builder
+        </span>
+      }
       subtitle="Create comprehensive test cases for Angular components and services"
       size="xl"
     >

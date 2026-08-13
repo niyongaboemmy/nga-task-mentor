@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
+import { getLanguageIcon } from "./languageIcons";
+
+const LangIcon = getLanguageIcon("php");
 
 interface GeneratedPhpTestCase {
   id: string;
@@ -75,7 +78,11 @@ export const PhpTestCaseBuilderModal: React.FC<
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="🐘 PHP Test Case Builder"
+      title={
+        <span className="inline-flex items-center gap-2">
+          <LangIcon className="w-5 h-5" /> PHP Test Case Builder
+        </span>
+      }
       subtitle="Create comprehensive test cases for PHP functions"
       size="xl"
     >

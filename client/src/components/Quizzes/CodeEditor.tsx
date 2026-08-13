@@ -7,7 +7,11 @@ import {
   Minimize2,
   RotateCcw,
   Eye,
+  Lightbulb,
+  Lock,
+  Keyboard,
 } from "lucide-react";
+import { getLanguageIcon } from "./languageIcons";
 
 interface CodeEditorProps {
   value: string;
@@ -83,30 +87,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   };
 
-  const getLanguageIcon = (lang: string) => {
-    const icons: Record<string, string> = {
-      javascript: "🟨",
-      python: "🐍",
-      java: "☕",
-      cpp: "⚡",
-      csharp: "🔷",
-      html: "🎨",
-      css: "💅",
-      react: "⚛️",
-      vue: "💚",
-      angular: "🅰️",
-      typescript: "🔷",
-      php: "🐘",
-      ruby: "💎",
-      go: "🐹",
-      rust: "🦀",
-      swift: "🍎",
-      kotlin: "🤖",
-      sql: "🗄️",
-    };
-    return icons[lang] || "💻";
-  };
-
   return (
     <div
       className={`${
@@ -119,7 +99,12 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         {/* Editor Header */}
         <div className="bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-800 px-4 py-3 border-b-2 border-gray-300 dark:border-gray-600 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">{getLanguageIcon(language)}</span>
+            {(() => {
+              const LangIcon = getLanguageIcon(language);
+              return (
+                <LangIcon className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              );
+            })()}
             <div>
               <span className="text-sm font-semibold text-gray-700 dark:text-gray-200 uppercase tracking-wide">
                 {language}
@@ -210,13 +195,15 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         {/* Editor Footer */}
         <div className="bg-gray-50 dark:bg-gray-900 px-4 py-2 border-t border-gray-200 dark:border-gray-700 flex items-center justify-between text-xs">
           <div className="flex items-center gap-4 text-text-secondary-light dark:text-text-secondary-dark">
-            <span>💡 Press Tab for indentation</span>
+            <span className="inline-flex items-center gap-1">
+              <Lightbulb className="w-3.5 h-3.5" /> Press Tab for indentation
+            </span>
             <span>•</span>
             <span>Ctrl+C to copy</span>
           </div>
           {disabled && (
-            <span className="text-yellow-600 dark:text-yellow-400 font-medium">
-              🔒 Read-only mode
+            <span className="inline-flex items-center gap-1 text-yellow-600 dark:text-yellow-400 font-medium">
+              <Lock className="w-3.5 h-3.5" /> Read-only mode
             </span>
           )}
         </div>
@@ -226,7 +213,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       {!disabled && (
         <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg">
           <div className="flex items-start gap-2 text-sm text-blue-800 dark:text-blue-200">
-            <span>⌨️</span>
+            <Keyboard className="w-4 h-4 mt-0.5 shrink-0" />
             <div>
               <strong>Keyboard Shortcuts:</strong> Tab (indent) • Shift+Tab
               (outdent) • Ctrl+Z (undo) • Ctrl+Y (redo)

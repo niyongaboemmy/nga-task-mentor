@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
+import { getLanguageIcon } from "./languageIcons";
+
+const LangIcon = getLanguageIcon("javascript");
 
 interface GeneratedJavaScriptTestCase {
   id: string;
@@ -67,7 +70,11 @@ export const JavaScriptTestCaseBuilderModal: React.FC<
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="🛠️ JavaScript Test Case Builder"
+      title={
+        <span className="inline-flex items-center gap-2">
+          <LangIcon className="w-5 h-5" /> JavaScript Test Case Builder
+        </span>
+      }
       subtitle="Create comprehensive test cases for JavaScript functions"
       size="xl"
     >

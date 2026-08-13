@@ -1,6 +1,9 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
+import { getLanguageIcon } from "./languageIcons";
+
+const LangIcon = getLanguageIcon("html");
 
 interface GeneratedHtmlTestCase {
   id: string;
@@ -97,7 +100,11 @@ export const HtmlTestCaseBuilderModal: React.FC<
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="🏷️ HTML Test Case Builder"
+      title={
+        <span className="inline-flex items-center gap-2">
+          <LangIcon className="w-5 h-5" /> HTML Test Case Builder
+        </span>
+      }
       subtitle="Create comprehensive test cases for HTML validation"
       size="xl"
     >
