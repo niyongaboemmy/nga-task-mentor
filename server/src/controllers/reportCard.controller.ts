@@ -12,10 +12,12 @@ import { User } from "../models/User.model";
 import {
   calculateSubjectGrade,
   parseAssignmentGrade,
+  combineAnnualSubjectGrades,
   AssessmentScore,
 } from "../services/reportCardGrader.service";
 import {
   generateReportCardPdf,
+  generateAnnualReportCardPdf,
   saveReportCardPdf,
 } from "../services/reportCardPdf.service";
 import type {
@@ -572,6 +574,116 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
   }
 };
 
+// ─── GET /api/report-cards/annual/:studentId ─────────────────────────────────
+// Read-only, computed-on-demand combination of every term's report card in
+// one academic year — there is no "annual" ReportCard row; this endpoint
+// averages whatever term rows already exist. Students: only approved term
+// cards contribute. Instructors/admins: any status contributes.
+
+export const getAnnualReportCard = async (req: Request, res: Response) => {
+  try {
+    const studentId = parseInt(req.params.studentId, 10);
+    if (isNaN(studentId)) {
+      return res.status(400).json({ success: false, message: "Invalid studentId" });
+    }
+
+    const userPermissions: Set<string> = (req as any).user?.permissions ?? new Set();
+    const canViewAll = userPermissions.has("REPORT_CARDS_VIEW_ALL");
+    const { academic_year, academic_year_id } = req.query as {
+      academic_year?: string;
+      academic_year_id?: string;
+    };
+
+    if (!academic_year) {
+      return res.status(400).json({ success: false, message: "academic_year is required" });
+    }
+
+    const whereClause: any = { student_id: studentId, academic_year };
+    if (!canViewAll) {
+      whereClause.status = "approved";
+    }
+
+    const termReportCards = await ReportCard.findAll({
+      where: whereClause,
+      order: [["term", "ASC"]],
+    });
+
+    // Per-term aggregation, reusing the same logic the single-term endpoints use.
+    const perTerm = await Promise.all(
+      termReportCards.map(async (rc) => {
+        const { grades, attributes } = await aggregateReportCardData(rc);
+        return {
+          term: rc.term,
+          status: rc.status,
+          attendance: {
+            present: rc.attendance_present,
+            absent: rc.attendance_absent,
+            late: rc.attendance_late,
+          },
+          attributes,
+          grades,
+        };
+      }),
+    );
+
+    // Combine per-subject totals across whichever terms contributed.
+    const subjectIds = new Set<number>();
+    for (const t of perTerm) for (const g of t.grades) subjectIds.add(g.subject_id);
+
+    const annualGrades = Array.from(subjectIds).map((subjectId) => {
+      const termTotals = perTerm
+        .filter((t) => t.grades.some((g) => g.subject_id === subjectId))
+        .map((t) => ({
+          term: t.term,
+          total_score: t.grades.find((g) => g.subject_id === subjectId)!.total_score,
+        }));
+      return combineAnnualSubjectGrades(subjectId, termTotals);
+    });
+
+    const subjectNames = await resolveSubjectNames(req, Array.from(subjectIds));
+
+    // Best-effort: determine which terms in this academic year are missing
+    // a report card altogether. Requires a live MIS token to fetch the
+    // canonical term list — degrades gracefully (empty list) without one,
+    // same pattern as resolveSubjectNames.
+    let missingTerms: string[] = [];
+    const token = getMisToken(req);
+    if (token && academic_year_id) {
+      try {
+        const response = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/terms`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            params: { academic_year_id },
+          },
+        );
+        const allTermNames: string[] = (response.data?.data || []).map(
+          (t: any) => t.name,
+        );
+        const foundTermNames = new Set(termReportCards.map((rc) => rc.term));
+        missingTerms = allTermNames.filter((name) => !foundTermNames.has(name));
+      } catch (error) {
+        console.error("getAnnualReportCard: could not resolve term catalog:", error);
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        student_id: studentId,
+        academic_year,
+        annual_grades: annualGrades,
+        subject_names: subjectNames,
+        per_term: perTerm,
+        missing_terms: missingTerms,
+      },
+    });
+  } catch (error) {
+    console.error("getAnnualReportCard error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // ─── POST /api/report-cards/generate-pdf ─────────────────────────────────────
 // Only approved report cards can be downloaded by students.
 // Instructors/admins can generate PDFs at any status.
@@ -649,6 +761,130 @@ export const generatePdf = async (req: Request, res: Response) => {
     res.status(200).send(pdfBuffer);
   } catch (error) {
     console.error("generatePdf error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── POST /api/report-cards/annual/generate-pdf ──────────────────────────────
+// Streams the annual PDF directly — unlike the per-term generatePdf, there's
+// no ReportCard row to attach a pdf_path to (annual is computed on demand,
+// never stored), so this skips the file-server upload entirely.
+
+export const generateAnnualPdf = async (req: Request, res: Response) => {
+  try {
+    const { student_id, academic_year, academic_year_id } = req.body as {
+      student_id: number;
+      academic_year: string;
+      academic_year_id?: number;
+    };
+
+    if (!student_id || !academic_year) {
+      return res
+        .status(400)
+        .json({ success: false, message: "student_id and academic_year are required" });
+    }
+
+    const canViewAll = ((req as any).user?.permissions as Set<string> | undefined)?.has(
+      "REPORT_CARDS_VIEW_ALL",
+    );
+
+    const whereClause: any = { student_id, academic_year };
+    if (!canViewAll) whereClause.status = "approved";
+
+    const termReportCards = await ReportCard.findAll({
+      where: whereClause,
+      order: [["term", "ASC"]],
+    });
+
+    if (termReportCards.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: canViewAll
+          ? "No report cards found for this student/academic year"
+          : "No approved report cards found for this student/academic year",
+      });
+    }
+
+    const student = await User.findByPk(student_id, {
+      attributes: ["id", "first_name", "last_name"],
+    });
+    const studentName = student
+      ? `${student.first_name} ${student.last_name}`
+      : `Student #${student_id}`;
+
+    const perTerm = await Promise.all(
+      termReportCards.map(async (rc) => {
+        const { grades, attributes } = await aggregateReportCardData(rc);
+        return {
+          term: rc.term,
+          attendance: {
+            present: rc.attendance_present,
+            absent: rc.attendance_absent,
+            late: rc.attendance_late,
+          },
+          attributes: attributes.map((a) => ({
+            attribute_name: a.attribute_name,
+            rating: a.rating,
+          })),
+          grades,
+        };
+      }),
+    );
+
+    const subjectIds = new Set<number>();
+    for (const t of perTerm) for (const g of t.grades) subjectIds.add(g.subject_id);
+
+    const annualGrades = Array.from(subjectIds).map((subjectId) => {
+      const termTotals = perTerm
+        .filter((t) => t.grades.some((g) => g.subject_id === subjectId))
+        .map((t) => ({
+          term: t.term,
+          total_score: t.grades.find((g) => g.subject_id === subjectId)!.total_score,
+        }));
+      return combineAnnualSubjectGrades(subjectId, termTotals);
+    });
+
+    const subjectNames = await resolveSubjectNames(req, Array.from(subjectIds));
+
+    let missingTerms: string[] = [];
+    const token = getMisToken(req);
+    if (token && academic_year_id) {
+      try {
+        const response = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/terms`,
+          { headers: { Authorization: `Bearer ${token}` }, params: { academic_year_id } },
+        );
+        const allTermNames: string[] = (response.data?.data || []).map((t: any) => t.name);
+        const foundTermNames = new Set(termReportCards.map((rc) => rc.term));
+        missingTerms = allTermNames.filter((name) => !foundTermNames.has(name));
+      } catch (error) {
+        console.error("generateAnnualPdf: could not resolve term catalog:", error);
+      }
+    }
+
+    const pdfBuffer = await generateAnnualReportCardPdf({
+      student_name: studentName,
+      student_id,
+      academic_year,
+      annual_grades: annualGrades,
+      subject_names: subjectNames,
+      per_term: perTerm.map((t) => ({
+        term: t.term,
+        attendance: t.attendance,
+        attributes: t.attributes,
+      })),
+      missing_terms: missingTerms,
+    });
+
+    const filename = `AnnualReport-${studentName.replace(/\s+/g, "_")}-${academic_year}.pdf`;
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="${filename}"`,
+      "Content-Length": pdfBuffer.length,
+    });
+    res.status(200).send(pdfBuffer);
+  } catch (error) {
+    console.error("generateAnnualPdf error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

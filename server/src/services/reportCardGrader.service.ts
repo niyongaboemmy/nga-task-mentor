@@ -132,6 +132,49 @@ export function scoreToLetterGrade(score: number): { letter: string; remark: str
   return { letter: "F", remark: "Fail" };
 }
 
+export interface AnnualTermContribution {
+  term: string;
+  total_score: number;
+}
+
+export interface AnnualSubjectGrade {
+  subject_id: number;
+  /** Simple average of this subject's total_score across the contributing terms. */
+  annual_score: number;
+  /** Which terms had data for this subject, and their individual totals. */
+  contributing_terms: AnnualTermContribution[];
+}
+
+/**
+ * Combine a subject's per-term totals into an annual (whole-year) score.
+ * Equal-weight average across whichever terms have data — a term simply
+ * absent from `termGrades` (no report card saved yet, or that subject
+ * wasn't mapped in it) is excluded from the average rather than treated
+ * as a zero, so a school mid-way through the year still gets a sensible
+ * annual figure from the terms completed so far.
+ */
+export function combineAnnualSubjectGrades(
+  subject_id: number,
+  termGrades: Array<{ term: string; total_score: number }>,
+): AnnualSubjectGrade {
+  const contributing_terms = termGrades.map((t) => ({
+    term: t.term,
+    total_score: t.total_score,
+  }));
+
+  const annual_score =
+    contributing_terms.length > 0
+      ? parseFloat(
+          (
+            contributing_terms.reduce((sum, t) => sum + t.total_score, 0) /
+            contributing_terms.length
+          ).toFixed(2),
+        )
+      : 0;
+
+  return { subject_id, annual_score, contributing_terms };
+}
+
 /**
  * Parse an assignment grade stored as "score/max_score" string.
  * Returns null when the grade is absent or cannot be parsed.

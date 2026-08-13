@@ -167,6 +167,43 @@ export const STATUS_META: Record<
   },
 };
 
+// ─── Annual (combined-terms) summary ──────────────────────────────────────────
+// Read-only, computed on demand from the term report cards that already
+// exist — there is no stored "annual" record.
+
+export interface AnnualTermContribution {
+  term: string;
+  total_score: number;
+}
+
+export interface AnnualSubjectGrade {
+  subject_id: number;
+  annual_score: number;
+  contributing_terms: AnnualTermContribution[];
+}
+
+export interface AnnualPerTerm {
+  term: string;
+  status: ReportCardStatus;
+  attendance: { present: number; absent: number; late: number };
+  attributes: AttributeItem[];
+  grades: SubjectGrade[];
+}
+
+export interface AnnualReportCardData {
+  student_id: number;
+  academic_year: string;
+  annual_grades: AnnualSubjectGrade[];
+  subject_names?: Record<number, string>;
+  per_term: AnnualPerTerm[];
+  missing_terms: string[];
+}
+
+export interface AnnualReportCardResponse {
+  success: boolean;
+  data: AnnualReportCardData;
+}
+
 // ─── Admin cross-course reporting ─────────────────────────────────────────────
 
 export interface AdminReportCardStudent {
@@ -257,6 +294,25 @@ export class ReportCardApiService {
       { report_card_id: reportCardId },
       { responseType: "blob" },
     );
+    return response.data;
+  }
+
+  static async getAnnualReportCard(
+    studentId: number,
+    params: { academic_year: string; academic_year_id?: number },
+  ): Promise<AnnualReportCardResponse> {
+    const response = await axios.get(`/report-cards/annual/${studentId}`, { params });
+    return response.data;
+  }
+
+  static async generateAnnualPdf(params: {
+    student_id: number;
+    academic_year: string;
+    academic_year_id?: number;
+  }): Promise<Blob> {
+    const response = await axios.post("/report-cards/annual/generate-pdf", params, {
+      responseType: "blob",
+    });
     return response.data;
   }
 

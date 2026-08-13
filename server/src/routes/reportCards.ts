@@ -3,9 +3,11 @@ import {
   saveBuilder,
   saveAttributes,
   getStudentReportCard,
+  getAnnualReportCard,
   getCourseOverview,
   updateStatus,
   generatePdf,
+  generateAnnualPdf,
   listReportCardStudents,
   getAdminSummary,
 } from "../controllers/reportCard.controller";
@@ -84,6 +86,15 @@ router.get(
   getStudentReportCard,
 );
 
+// ── Annual (combined-terms) summary ───────────────────────────────────────────
+// Read-only, computed on demand from the term cards that already exist —
+// there is no "annual" ReportCard row to build/edit directly.
+router.get(
+  "/annual/:studentId",
+  authorizePermission("REPORT_CARDS_VIEW_OWN", "REPORT_CARDS_VIEW_ALL"),
+  getAnnualReportCard,
+);
+
 // ── PDF generation ─────────────────────────────────────────────────────────────
 // Callers without REPORT_CARDS_VIEW_ALL can only generate PDFs for approved cards
 // (enforced in controller).
@@ -92,6 +103,11 @@ router.post(
   authorizePermission("REPORT_CARDS_EXPORT_PDF"),
   validate(generatePdfSchema),
   generatePdf,
+);
+router.post(
+  "/annual/generate-pdf",
+  authorizePermission("REPORT_CARDS_EXPORT_PDF"),
+  generateAnnualPdf,
 );
 
 export default router;

@@ -15,6 +15,7 @@ import {
   ChevronRight,
   Info,
   TrendingUp,
+  GraduationCap,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import {
@@ -24,6 +25,7 @@ import {
   type StudentReportCardStatus,
 } from "../../services/reportCardApi";
 import ReportCardPreview from "./ReportCardPreview";
+import AnnualReportCardPreview from "./AnnualReportCardPreview";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -187,6 +189,7 @@ function StudentDesktopRow({
   revertingId,
   markingCompleteId,
   onPreview,
+  onAnnualView,
   onMarkComplete,
   onApprove,
   onRevert,
@@ -203,6 +206,7 @@ function StudentDesktopRow({
   revertingId: number | null;
   markingCompleteId: number | null;
   onPreview: () => void;
+  onAnnualView: () => void;
   onMarkComplete: () => void;
   onApprove: () => void;
   onRevert: (toStatus: ReportCardStatus) => void;
@@ -286,6 +290,16 @@ function StudentDesktopRow({
           </button>
         )}
 
+        <button
+          onClick={onAnnualView}
+          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium
+            bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300
+            hover:bg-indigo-200 dark:hover:bg-indigo-800/50 transition-colors"
+          title="View annual summary (all terms combined)"
+        >
+          <GraduationCap className="w-3.5 h-3.5" />
+        </button>
+
         {status === "draft" && rcId && (subjectsMapped > 0 || hasAttrs) && (
           <button
             onClick={onMarkComplete}
@@ -348,6 +362,7 @@ function StudentMobileCard({
   revertingId,
   markingCompleteId,
   onPreview,
+  onAnnualView,
   onMarkComplete,
   onApprove,
   onRevert,
@@ -364,6 +379,7 @@ function StudentMobileCard({
   revertingId: number | null;
   markingCompleteId: number | null;
   onPreview: () => void;
+  onAnnualView: () => void;
   onMarkComplete: () => void;
   onApprove: () => void;
   onRevert: (toStatus: ReportCardStatus) => void;
@@ -425,6 +441,16 @@ function StudentMobileCard({
             Preview
           </button>
         )}
+
+        <button
+          onClick={onAnnualView}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
+            bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300
+            hover:bg-indigo-200 dark:hover:bg-indigo-800/50 transition-colors"
+        >
+          <GraduationCap className="w-3.5 h-3.5" />
+          Annual
+        </button>
 
         {status === "draft" && rcId && (subjectsMapped > 0 || hasAttrs) && (
           <button
@@ -492,6 +518,7 @@ export default function CourseReportCardsPanel({
   const [markingCompleteId, setMarkingCompleteId] = useState<number | null>(null);
 
   const [previewStudent, setPreviewStudent] = useState<{ id: number; name: string } | null>(null);
+  const [annualStudent, setAnnualStudent] = useState<{ id: number; name: string } | null>(null);
 
   const fetchOverview = useCallback(async () => {
     if (!term || !year || students.length === 0) return;
@@ -675,6 +702,7 @@ export default function CourseReportCardsPanel({
                     row={row}
                     status={status}
                     onPreview={() => setPreviewStudent({ id: student.id, name: student.name })}
+                    onAnnualView={() => setAnnualStudent({ id: student.id, name: student.name })}
                     onMarkComplete={() => handleMarkComplete(student.id)}
                     onApprove={() => handleApprove(student.id)}
                     onRevert={(toStatus) => handleRevert(student.id, toStatus)}
@@ -708,6 +736,7 @@ export default function CourseReportCardsPanel({
                       row={row}
                       status={status}
                       onPreview={() => setPreviewStudent({ id: student.id, name: student.name })}
+                      onAnnualView={() => setAnnualStudent({ id: student.id, name: student.name })}
                       onMarkComplete={() => handleMarkComplete(student.id)}
                       onApprove={() => handleApprove(student.id)}
                       onRevert={(toStatus) => handleRevert(student.id, toStatus)}
@@ -760,6 +789,17 @@ export default function CourseReportCardsPanel({
           />
         )}
       </AnimatePresence>
+
+      {/* ── Annual summary modal ── */}
+      {annualStudent && (
+        <AnnualReportCardPreview
+          isOpen={!!annualStudent}
+          onClose={() => setAnnualStudent(null)}
+          studentId={annualStudent.id}
+          studentName={annualStudent.name}
+          academicYear={year}
+        />
+      )}
     </div>
   );
 }

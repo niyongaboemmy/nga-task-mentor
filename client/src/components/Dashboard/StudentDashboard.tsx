@@ -15,10 +15,12 @@ import {
   Download,
   Eye,
   Loader2,
+  GraduationCap,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import ReportCardPreview from "../ReportCard/ReportCardPreview";
+import AnnualReportCardPreview from "../ReportCard/AnnualReportCardPreview";
 import { ReportCardApiService } from "../../services/reportCardApi";
 import {
   StatCard,
@@ -60,6 +62,7 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({ data }) =>
 
   // ── Report Card state ──
   const [showPreview, setShowPreview] = useState(false);
+  const [showAnnual, setShowAnnual] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   const currentTerm = user?.currentAcademicTerm?.name as string | undefined;
@@ -385,6 +388,16 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({ data }) =>
               {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
               {downloadingPdf ? "Generating…" : "Download PDF"}
             </button>
+
+            {currentAcademicYear && (
+              <button
+                onClick={() => setShowAnnual(true)}
+                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
+              >
+                <GraduationCap className="w-4 h-4" />
+                Annual Summary
+              </button>
+            )}
           </div>
         </div>
       </SectionCard>
@@ -396,6 +409,17 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({ data }) =>
           term={currentTerm}
           academicYear={currentAcademicYear}
           onClose={() => setShowPreview(false)}
+        />
+      )}
+
+      {showAnnual && user?.id && currentAcademicYear && (
+        <AnnualReportCardPreview
+          isOpen={showAnnual}
+          onClose={() => setShowAnnual(false)}
+          studentId={parseInt(String(user.id), 10)}
+          studentName={`${data.user.first_name} ${data.user.last_name}`}
+          academicYear={currentAcademicYear}
+          academicYearId={(user?.currentAcademicYear as any)?.academic_year_id}
         />
       )}
     </motion.div>

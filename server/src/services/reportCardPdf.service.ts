@@ -9,7 +9,7 @@
 import PDFDocument from "pdfkit";
 import QRCode from "qrcode";
 import fileServer from "../utils/fileServer";
-import type { SubjectGrade } from "./reportCardGrader.service";
+import type { SubjectGrade, AnnualSubjectGrade } from "./reportCardGrader.service";
 import { scoreToLetterGrade } from "./reportCardGrader.service";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -417,6 +417,185 @@ export async function generateReportCardPdf(data: ReportCardPdfData): Promise<Bu
       .text(
         `Generated: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}   |   ID: ${data.uuid}`,
         margin, footerY + 56, { width: contentWidth - qrSize - 10 },
+      );
+
+    doc.end();
+  });
+}
+
+// ─── Annual (combined-terms) PDF generator ───────────────────────────────────
+
+export interface AnnualReportCardPdfData {
+  student_name: string;
+  student_id: number;
+  academic_year: string;
+  annual_grades: AnnualSubjectGrade[];
+  subject_names?: Record<number, string>;
+  per_term: Array<{
+    term: string;
+    attendance: { present: number; absent: number; late: number };
+    attributes: Array<{ attribute_name: string; rating: string }>;
+  }>;
+  missing_terms: string[];
+}
+
+/**
+ * A read-only, computed rollup of every term report card in one academic
+ * year — there is no stored "annual" document to verify against, so this
+ * intentionally has no QR/verification footer (unlike the per-term PDF);
+ * the individual term report cards remain the verifiable source of truth.
+ */
+export async function generateAnnualReportCardPdf(
+  data: AnnualReportCardPdfData,
+): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = new PDFDocument({
+      size: "A4",
+      margin: 40,
+      info: {
+        Title: `Annual Report Card - ${data.student_name} - ${data.academic_year}`,
+        Author: "NGA Task Mentor",
+        Subject: "Student Annual Academic Summary",
+      },
+    });
+
+    const chunks: Buffer[] = [];
+    doc.on("data", (c: Buffer) => chunks.push(c));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    const pageWidth = doc.page.width;
+    const margin = 40;
+    const contentWidth = pageWidth - margin * 2;
+    let y = margin;
+
+    // ── Header band ────────────────────────────────────────────────────────
+    doc.rect(margin, y, contentWidth, 70).fill(COLORS.primary);
+    doc.font(FONTS.bold).fontSize(16).fillColor(COLORS.white)
+      .text("NATIONAL GRAMMAR ACADEMY", margin, y + 10, { width: contentWidth, align: "center", lineBreak: false });
+    doc.font(FONTS.normal).fontSize(9).fillColor("#AAD4FF")
+      .text("P.O. Box 1234, Kigali, Rwanda  |  www.nga.ac.rw", margin, y + 31, { width: contentWidth, align: "center", lineBreak: false });
+    doc.font(FONTS.bold).fontSize(11).fillColor(COLORS.white)
+      .text("ANNUAL ACADEMIC SUMMARY", margin, y + 47, { width: contentWidth, align: "center", lineBreak: false });
+    y += 78;
+
+    // ── Year strip ─────────────────────────────────────────────────────────
+    const terms = data.per_term.map((t) => t.term);
+    doc.rect(margin, y, contentWidth, 20).fill(COLORS.accent);
+    doc.font(FONTS.bold).fontSize(9).fillColor(COLORS.white)
+      .text(
+        `Academic Year: ${data.academic_year}   |   Terms Combined: ${terms.join(", ") || "None"}`,
+        margin, y + 5, { width: contentWidth, align: "center", lineBreak: false },
+      );
+    y += 28;
+
+    // ── Student info ───────────────────────────────────────────────────────
+    doc.font(FONTS.bold).fontSize(8).fillColor(COLORS.muted).text("Student Name:", margin, y, { width: 90, lineBreak: false });
+    doc.font(FONTS.normal).fontSize(8).fillColor(COLORS.text).text(data.student_name, margin + 90, y, { lineBreak: false });
+    y += 16;
+    doc.font(FONTS.bold).fontSize(8).fillColor(COLORS.muted).text("Student ID:", margin, y, { width: 90, lineBreak: false });
+    doc.font(FONTS.normal).fontSize(8).fillColor(COLORS.text).text(String(data.student_id), margin + 90, y, { lineBreak: false });
+    y += 20;
+
+    if (data.missing_terms.length > 0) {
+      doc.font(FONTS.bold).fontSize(8).fillColor(COLORS.fail)
+        .text(
+          `Note: ${data.missing_terms.join(", ")} ${data.missing_terms.length === 1 ? "has" : "have"} no report card yet — the annual average below reflects only the ${terms.length} term(s) completed so far.`,
+          margin, y, { width: contentWidth },
+        );
+      y += 24;
+    }
+
+    doc.moveTo(margin, y).lineTo(margin + contentWidth, y).lineWidth(0.5).stroke(COLORS.border);
+    y += 10;
+
+    // ── Annual grades table (subject x each term + annual) ────────────────
+    doc.font(FONTS.bold).fontSize(10).fillColor(COLORS.primary).text("ANNUAL ACADEMIC PERFORMANCE", margin, y);
+    y += 16;
+
+    const termColWidth = terms.length > 0 ? Math.min(70, 200 / terms.length) : 0;
+    const gradeCols: ColDef[] = [
+      { header: "Subject", width: contentWidth - termColWidth * terms.length - 68 - 40 - 85, align: "left" },
+      ...terms.map((t): ColDef => ({ header: t, width: termColWidth, align: "center" })),
+      { header: "Annual (100)", width: 68, align: "center" },
+      { header: "Grade", width: 40, align: "center" },
+      { header: "Remark", width: 85, align: "center" },
+    ];
+
+    const gradeRows: string[][] = data.annual_grades.map((g) => {
+      const bySubjectTerm = new Map(g.contributing_terms.map((c) => [c.term, c.total_score]));
+      return [
+        data.subject_names?.[g.subject_id] ?? `Subject #${g.subject_id}`,
+        ...terms.map((t) => {
+          const v = bySubjectTerm.get(t);
+          return v !== undefined ? v.toFixed(2) : "—";
+        }),
+        g.annual_score.toFixed(2),
+        percentageToLetter(g.annual_score),
+        percentageToRemark(g.annual_score),
+      ];
+    });
+
+    if (gradeRows.length === 0) {
+      gradeRows.push(["No grades recorded", ...terms.map(() => "—"), "—", "—", "—"]);
+    }
+
+    y = drawTable(doc, gradeCols, gradeRows, margin, y) + 12;
+
+    if (data.annual_grades.length > 0) {
+      const avg = data.annual_grades.reduce((s, g) => s + g.annual_score, 0) / data.annual_grades.length;
+      doc.font(FONTS.bold).fontSize(8).fillColor(COLORS.primary)
+        .text(`Annual Average: ${avg.toFixed(2)} / 100   Grade: ${percentageToLetter(avg)}   Remark: ${percentageToRemark(avg)}`,
+          margin, y, { align: "right", width: contentWidth });
+      y += 18;
+    }
+
+    // ── Per-term attendance breakdown ──────────────────────────────────────
+    doc.font(FONTS.bold).fontSize(10).fillColor(COLORS.primary).text("ATTENDANCE BY TERM", margin, y);
+    y += 16;
+
+    const attTermColWidth = terms.length > 0 ? (contentWidth - 100) / terms.length : contentWidth - 100;
+    const attCols: ColDef[] = [
+      { header: "Status", width: 100, align: "left" },
+      ...terms.map((t): ColDef => ({ header: t, width: attTermColWidth, align: "center" })),
+    ];
+    const attRows: string[][] = [
+      ["Present", ...data.per_term.map((t) => (t.attendance.present ? "Yes" : "—"))],
+      ["Absent",  ...data.per_term.map((t) => (t.attendance.absent  ? "Yes" : "—"))],
+      ["Late",    ...data.per_term.map((t) => (t.attendance.late    ? "Yes" : "—"))],
+    ];
+    y = drawTable(doc, attCols, attRows, margin, y) + 12;
+
+    // ── Per-term behavioral attributes breakdown ───────────────────────────
+    doc.font(FONTS.bold).fontSize(10).fillColor(COLORS.primary).text("BEHAVIORAL ATTRIBUTES BY TERM", margin, y);
+    y += 16;
+
+    const attributeNames = Array.from(
+      new Set(data.per_term.flatMap((t) => t.attributes.map((a) => a.attribute_name))),
+    );
+    const behaviorRows: string[][] = attributeNames.map((name) => [
+      name,
+      ...data.per_term.map((t) => t.attributes.find((a) => a.attribute_name === name)?.rating ?? "—"),
+    ]);
+    if (behaviorRows.length === 0) {
+      behaviorRows.push(["No attributes recorded", ...terms.map(() => "—")]);
+    }
+    y = drawTable(
+      doc,
+      [{ header: "Attribute", width: 100, align: "left" }, ...terms.map((t): ColDef => ({ header: t, width: attTermColWidth, align: "center" }))],
+      behaviorRows,
+      margin,
+      y,
+    ) + 12;
+
+    // ── Footer (no QR — this is a computed summary, not a stored/verifiable
+    //    document; the individual term report cards carry verification) ────
+    const footerY = doc.page.height - margin - 30;
+    doc.moveTo(margin, footerY).lineTo(margin + contentWidth, footerY).lineWidth(0.5).stroke(COLORS.border);
+    doc.font(FONTS.normal).fontSize(7).fillColor(COLORS.muted)
+      .text(
+        `Generated: ${new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "long", year: "numeric" })}   |   Computed summary of ${terms.length} term report card(s) — see individual term documents for verified originals.`,
+        margin, footerY + 8, { width: contentWidth },
       );
 
     doc.end();
