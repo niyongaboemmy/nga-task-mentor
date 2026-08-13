@@ -163,7 +163,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
       )}
       <Card className="">
         <CardHeader className="pb-4 px-4 rounded-t-3xl">
-          <CardTitle className="text-xl text-gray-900 dark:text-white">
+          <CardTitle className="text-xl text-text-primary-light dark:text-text-primary-dark">
             Proctoring Settings
           </CardTitle>
           <p className="text-gray-600 dark:text-gray-400 text-sm">
@@ -176,7 +176,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                   Enable Proctoring
                 </label>
                 <label className="flex items-center">
@@ -195,7 +195,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                   Proctoring Mode
                 </label>
                 <select
@@ -212,7 +212,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                   Risk Threshold (%)
                 </label>
                 <input
@@ -237,7 +237,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
 
             <div className="space-y-3">
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                   Max Flags Allowed
                 </label>
                 <input
@@ -257,7 +257,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                   Recording Retention (days)
                 </label>
                 <input
@@ -277,7 +277,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                   Face Detection Sensitivity (%)
                 </label>
                 <input
@@ -300,7 +300,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
 
           {/* Verification Requirements */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-base font-medium mb-3 text-gray-900 dark:text-white">
+            <h3 className="text-base font-medium mb-3 text-text-primary-light dark:text-text-primary-dark">
               Verification Requirements
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -344,7 +344,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
 
           {/* Monitoring Features */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-base font-medium mb-3 text-gray-900 dark:text-white">
+            <h3 className="text-base font-medium mb-3 text-text-primary-light dark:text-text-primary-dark">
               Monitoring Features
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -424,7 +424,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
 
           {/* Specific Proctoring Rules */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-base font-medium mb-3 text-gray-900 dark:text-white">
+            <h3 className="text-base font-medium mb-3 text-text-primary-light dark:text-text-primary-dark">
               Specific Proctoring Rules
             </h3>
             <div className="space-y-4">
@@ -449,7 +449,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
               {/* Media Level Thresholds */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                  <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                     Min Camera Level (%)
                   </label>
                   <input
@@ -472,7 +472,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                  <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                     Min Microphone Level (%)
                   </label>
                   <input
@@ -495,7 +495,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                  <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                     Min Speaker Level (%)
                   </label>
                   <input
@@ -559,7 +559,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
 
               {/* Object Detection Sensitivity */}
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                   Object Detection Sensitivity (%)
                 </label>
                 <input
@@ -586,7 +586,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
 
           {/* Browser Restrictions */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-base font-medium mb-3 text-gray-900 dark:text-white">
+            <h3 className="text-base font-medium mb-3 text-text-primary-light dark:text-text-primary-dark">
               Browser Restrictions
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -687,7 +687,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
 
           {/* Automated Actions */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-base font-medium mb-3 text-gray-900 dark:text-white">
+            <h3 className="text-base font-medium mb-3 text-text-primary-light dark:text-text-primary-dark">
               Automated Actions
             </h3>
             <div className="space-y-3">
@@ -731,7 +731,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
 
           {/* Alerts and Notifications */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
-            <h3 className="text-base font-medium mb-3 text-gray-900 dark:text-white">
+            <h3 className="text-base font-medium mb-3 text-text-primary-light dark:text-text-primary-dark">
               Alerts & Notifications
             </h3>
             <div className="space-y-3">
@@ -751,7 +751,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
               </label>
 
               <div>
-                <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+                <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                   Additional Alert Emails
                 </label>
                 <input
@@ -774,7 +774,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
           {/* Custom Instructions */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4">
             <div>
-              <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">
+              <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                 Custom Instructions for Students
               </label>
               <textarea

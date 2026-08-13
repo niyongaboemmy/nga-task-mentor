@@ -1032,7 +1032,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
       <Card className="bg-white/80 dark:bg-gray-900/70 backdrop-blur-xl border border-gray-200/80 dark:border-gray-800/50 rounded-3xl">
         <CardHeader className="pb-4">
-          <CardTitle className="text-xl font-bold text-center text-gray-900 dark:text-white">
+          <CardTitle className="text-xl font-bold text-center text-text-primary-light dark:text-text-primary-dark">
             Proctoring Setup
           </CardTitle>
           <p className="text-center text-gray-600 dark:text-gray-400 text-sm">
@@ -1081,7 +1081,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
 
           {/* Current Step Content */}
           <div className="mb-6">
-            <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-white">
+            <h3 className="text-lg font-semibold mb-2 text-text-primary-light dark:text-text-primary-dark">
               {steps[currentStep]?.title}
             </h3>
             <p className="text-gray-600 dark:text-gray-400 mb-3 text-sm">
@@ -2086,7 +2086,7 @@ const FaceVerificationStep: React.FC<{
 
           {/* Detection Status Display */}
           <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-2xl border dark:border-gray-800">
-            <h4 className="font-medium text-gray-900 dark:text-white mb-3">
+            <h4 className="font-medium text-text-primary-light dark:text-text-primary-dark mb-3">
               Face Detection Status
             </h4>
             <div className="grid grid-cols-2 gap-4 text-sm">

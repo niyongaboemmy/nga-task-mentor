@@ -266,13 +266,13 @@ const EventsDropdown: React.FC<{
                     placeholder="Search..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-8 pr-2 py-1.5 text-xs border border-gray-300/60 dark:border-gray-600/50 rounded-lg bg-white dark:bg-gray-800 text-gray-800 dark:text-white"
+                    className="w-full pl-8 pr-2 py-1.5 text-xs border border-transparent rounded-lg bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark"
                   />
                 </div>
                 <select
                   value={severityFilter}
                   onChange={(e) => setSeverityFilter(e.target.value)}
-                  className="text-xs px-2 py-1.5 border border-gray-300/60 dark:border-gray-600/50 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 w-24"
+                  className="text-xs px-2 py-1.5 border border-transparent rounded-lg bg-surface-light dark:bg-surface-dark/50 text-text-secondary-light dark:text-text-secondary-dark w-24"
                 >
                   <option value="all">Severity</option>
                   <option value="critical">Critical</option>
@@ -283,7 +283,7 @@ const EventsDropdown: React.FC<{
                 <select
                   value={eventTypeFilter}
                   onChange={(e) => setEventTypeFilter(e.target.value)}
-                  className="text-xs px-2 py-1.5 border border-gray-300/60 dark:border-gray-600/50 rounded-lg bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 w-24"
+                  className="text-xs px-2 py-1.5 border border-transparent rounded-lg bg-surface-light dark:bg-surface-dark/50 text-text-secondary-light dark:text-text-secondary-dark w-24"
                 >
                   <option value="all">Type</option>
                   {Object.keys(eventCounts).map((type) => (
@@ -1465,7 +1465,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 <div className="w-16 h-16 bg-gradient-to-br from-red-400 to-red-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg shadow-red-500/30">
                   <Skull className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                <h3 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                   End Student Quiz?
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
@@ -1515,7 +1515,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
                 <div className="w-16 h-16 bg-gradient-to-br from-purple-400 to-purple-500 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg shadow-purple-500/30">
                   <RefreshCw className="w-8 h-8 text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                <h3 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                   Restart Student Quiz?
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
