@@ -375,7 +375,7 @@ const QuizResultsPage: React.FC = () => {
         <div className="text-center max-w-md">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-8 border border-red-200 dark:border-red-700/30">
             <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
+            <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
               Could Not Load Results
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">{fetchError}</p>
@@ -407,7 +407,7 @@ const QuizResultsPage: React.FC = () => {
         <div className="text-center">
           <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-3xl p-8 border border-white/20 dark:border-gray-700/30 max-w-md">
             <AlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
+            <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
               Quiz Not Found
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -432,7 +432,7 @@ const QuizResultsPage: React.FC = () => {
         <div className="text-center">
           <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-3xl p-8 border border-white/20 dark:border-gray-700/20 max-w-md">
             <AlertCircle className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-white mb-3">
+            <h2 className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-3">
               Results Not Available
             </h2>
             <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -469,7 +469,7 @@ const QuizResultsPage: React.FC = () => {
           <div className="flex items-center gap-3 mb-8">
             <Link
               to="/my-quizzes"
-              className="inline-flex items-center px-4 py-2.5 text-base text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white bg-white dark:bg-gray-800 rounded-full border border-gray-200 dark:border-gray-700 transition-all duration-200 hover:scale-105"
+              className="inline-flex items-center px-4 py-2.5 text-base text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark bg-white dark:bg-surface-dark rounded-full border border-border-light dark:border-border-dark/50 transition-all duration-200 hover:scale-105"
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Quizzes
@@ -512,7 +512,7 @@ const QuizResultsPage: React.FC = () => {
               {/* Stats */}
               <div className="flex-1 space-y-8 w-full">
                 <div className="text-center md:text-left">
-                  <h1 className="text-3xl md:text-4xl font-black text-gray-900 dark:text-white mb-2 tracking-tight">
+                  <h1 className="text-3xl md:text-4xl font-black text-text-primary-light dark:text-text-primary-dark mb-2 tracking-tight">
                     Performance Analysis
                   </h1>
                   <p className="text-gray-500 dark:text-gray-400 font-medium">
@@ -527,7 +527,7 @@ const QuizResultsPage: React.FC = () => {
                       <Target className="w-7 h-7" />
                     </div>
                     <div>
-                      <div className="text-2xl font-black text-gray-900 dark:text-white">
+                      <div className="text-2xl font-black text-text-primary-light dark:text-text-primary-dark">
                         {result.total_score}{" "}
                         <span className="text-sm font-bold text-gray-400">/ {result.max_score}</span>
                       </div>
@@ -541,7 +541,7 @@ const QuizResultsPage: React.FC = () => {
                       <Clock className="w-7 h-7" />
                     </div>
                     <div>
-                      <div className="text-2xl font-black text-gray-900 dark:text-white">
+                      <div className="text-2xl font-black text-text-primary-light dark:text-text-primary-dark">
                         {formatTime(result.time_taken || submissionData?.time_taken || 0)}
                       </div>
                       <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">Time Invested</div>
@@ -576,7 +576,7 @@ const QuizResultsPage: React.FC = () => {
                 <span className="text-white text-lg">📝</span>
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Question Review</h2>
+                <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">Question Review</h2>
                 <p className="text-gray-600 dark:text-gray-400 text-sm">Review your answers and learn from the experience</p>
               </div>
             </div>
@@ -585,13 +585,13 @@ const QuizResultsPage: React.FC = () => {
             <div className="flex items-center gap-2 shrink-0">
               <button
                 onClick={() => toggleAllQuestions(true)}
-                className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                className="px-3 py-1.5 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark/50 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
               >
                 Expand All
               </button>
               <button
                 onClick={() => toggleAllQuestions(false)}
-                className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-400 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                className="px-3 py-1.5 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark/50 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
               >
                 Collapse All
               </button>
@@ -734,7 +734,7 @@ const QuizResultsPage: React.FC = () => {
                     {isExpanded && (
                       <div className="px-6 pb-8 pt-0 border-t border-gray-100 dark:border-gray-800/50">
                         {/* Question text */}
-                        <div className="text-base font-bold text-gray-900 dark:text-white leading-relaxed mt-5 mb-6">
+                        <div className="text-base font-bold text-text-primary-light dark:text-text-primary-dark leading-relaxed mt-5 mb-6">
                           <RichTextDisplay content={attempt.question_text || ""} />
                         </div>
 
@@ -832,8 +832,8 @@ const QuizResultsPage: React.FC = () => {
 
         {/* Actions */}
         <div className="mt-12 text-center animate-in slide-in-from-bottom duration-500 delay-1000">
-          <div className="bg-white dark:bg-gray-800 backdrop-blur-sm rounded-3xl p-6 border border-orange-200 dark:border-orange-700/30 max-w-md mx-auto">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <div className="bg-white dark:bg-card-dark/30 backdrop-blur-sm rounded-3xl p-6 border border-orange-200 dark:border-orange-700/30 max-w-md mx-auto">
+            <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">
               What would you like to do next?
             </h3>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">

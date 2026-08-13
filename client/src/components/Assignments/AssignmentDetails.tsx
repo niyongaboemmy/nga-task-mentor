@@ -393,14 +393,14 @@ const AssignmentDetails = () => {
   if (isLoading) {
     return (
       <div className="min-h-[80vh] flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-8">
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
               <div className="w-16 h-16 border-4 border-gray-200 dark:border-gray-700 rounded-full animate-pulse"></div>
               <div className="absolute inset-0 w-16 h-16 border-4 border-transparent border-t-gray-600 dark:border-t-gray-400 rounded-full animate-spin"></div>
             </div>
             <div className="text-center">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
                 Loading Assignment
               </h3>
               <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -417,7 +417,7 @@ const AssignmentDetails = () => {
   if (!assignment) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-sm border border-gray-200 dark:border-gray-700 p-8 max-w-md w-full mx-4">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-8 max-w-md w-full mx-4">
           <div className="flex flex-col items-center gap-6 text-center">
             <div className="w-20 h-20 bg-gray-100 dark:bg-gray-700 rounded-2xl flex items-center justify-center">
               <svg
@@ -435,7 +435,7 @@ const AssignmentDetails = () => {
               </svg>
             </div>
             <div>
-              <h3 className="text-xl font-semibold text-gray-900 dark:text-white mb-2">
+              <h3 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
                 Assignment Not Found
               </h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
@@ -472,7 +472,7 @@ const AssignmentDetails = () => {
     <div className="min-h-screen">
       <div className="space-y-4 pb-10">
         {/* Clean Header */}
-        <div className="bg-white dark:bg-gray-900/60 rounded-3xl border border-white dark:border-gray-800/30 overflow-hidden">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
           <AssignmentHeader
             assignment={{
               ...assignment,
@@ -537,7 +537,7 @@ const AssignmentDetails = () => {
         </div>
 
         {/* Clean Tab Navigation */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-sm border border-white dark:border-gray-800 overflow-hidden">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
           <div className="border-b mt-1 border-gray-200 dark:border-gray-800">
             <nav className="flex space-x-1 px-6">
               <button
@@ -649,7 +649,7 @@ const AssignmentDetails = () => {
                   className="space-y-8"
                 >
                   {/* <div className="prose prose-blue dark:prose-invert max-w-none">
-                    <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                    <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">
                       Assignment Description
                     </h3>
 
@@ -670,7 +670,7 @@ const AssignmentDetails = () => {
                           <Award className="w-5 h-5" />
                         </div>
                         <div>
-                          <h3 className="text-lg font-bold text-gray-900 dark:text-white">
+                          <h3 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                             Grading Rubric
                           </h3>
                           <p className="text-xs text-gray-500 font-medium">
@@ -687,11 +687,11 @@ const AssignmentDetails = () => {
                           >
                             <div className="flex items-start justify-between gap-4">
                               <div className="flex items-start gap-3">
-                                <div className="mt-1 w-8 h-8 rounded-lg bg-white dark:bg-gray-800 shadow-sm flex items-center justify-center text-gray-400 group-hover:text-blue-500 transition-colors">
+                                <div className="mt-1 w-8 h-8 rounded-lg bg-white dark:bg-surface-dark shadow-sm flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark/60 group-hover:text-blue-500 transition-colors">
                                   <Target className="w-4 h-4" />
                                 </div>
                                 <div className="space-y-1">
-                                  <h4 className="text-sm font-bold text-gray-900 dark:text-white">
+                                  <h4 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
                                     {criterion.criteria}
                                   </h4>
                                   {criterion.description && (
