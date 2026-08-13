@@ -151,13 +151,13 @@ export const ConstraintChips: React.FC<ConstraintChipsProps> = ({
 
   return (
     <div className="space-y-3 mt-3">
-      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+      <p className="text-[10px] font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
         Quick-add standard constraints
       </p>
       <div className="flex flex-wrap gap-x-4 gap-y-3">
         {categories.map((cat, i) => (
           <div key={i} className="flex flex-col gap-1.5 flex-1 min-w-[200px]">
-            <span className="text-[9px] text-gray-400 font-semibold">
+            <span className="text-[9px] text-gray-400 dark:text-gray-500 font-semibold">
               {cat.label}
             </span>
             <div className="flex flex-wrap gap-1.5">

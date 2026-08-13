@@ -51,13 +51,13 @@ export const QuizList: React.FC<QuizListProps> = ({
   const getStatusColor = (status: string) => {
     switch (status) {
       case "published":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400";
       case "draft":
-        return "bg-yellow-100 text-yellow-800";
+        return "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-400";
       case "completed":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300";
     }
   };
 
@@ -143,15 +143,15 @@ export const QuizList: React.FC<QuizListProps> = ({
   const getTypeColor = (type: string) => {
     switch (type) {
       case "Exam":
-        return "bg-red-100 text-red-800";
+        return "bg-red-100 dark:bg-red-900/30 text-red-800 dark:text-red-400";
       case "Assessment":
-        return "bg-blue-100 text-blue-800";
+        return "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-400";
       case "Homework":
-        return "bg-purple-100 text-purple-800";
+        return "bg-purple-100 dark:bg-purple-900/30 text-purple-800 dark:text-purple-400";
       case "Quiz":
-        return "bg-green-100 text-green-800";
+        return "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-400";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-300";
     }
   };
 
@@ -159,7 +159,7 @@ export const QuizList: React.FC<QuizListProps> = ({
     return (
       <div className="flex items-center justify-center py-12">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-3 text-gray-600">Loading quizzes...</span>
+        <span className="ml-3 text-gray-600 dark:text-gray-400">Loading quizzes...</span>
       </div>
     );
   }
@@ -167,7 +167,7 @@ export const QuizList: React.FC<QuizListProps> = ({
   if (error.quizzes) {
     return (
       <div className="text-center py-12">
-        <div className="text-red-600 mb-4">Failed to load quizzes</div>
+        <div className="text-red-600 dark:text-red-400 mb-4">Failed to load quizzes</div>
         <button
           onClick={() => dispatch(fetchQuizzes(courseId))}
           className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700"

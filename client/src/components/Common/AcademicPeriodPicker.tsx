@@ -86,7 +86,7 @@ const AcademicPeriodPicker: React.FC<AcademicPeriodPickerProps> = ({
 
   return (
     <div className={`flex items-center gap-2 ${className}`}>
-      <Calendar className="w-4 h-4 text-gray-400 shrink-0" />
+      <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
       <select
         value={selectedYearId}
         onChange={(e) => handleYearChange(e.target.value)}
@@ -115,7 +115,7 @@ const AcademicPeriodPicker: React.FC<AcademicPeriodPickerProps> = ({
           ))}
         </select>
       )}
-      {loadingTerms && <Loader2 className="w-4 h-4 animate-spin text-gray-400" />}
+      {loadingTerms && <Loader2 className="w-4 h-4 animate-spin text-gray-400 dark:text-gray-500" />}
     </div>
   );
 };
