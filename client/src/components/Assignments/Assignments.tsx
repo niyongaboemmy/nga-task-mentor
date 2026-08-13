@@ -277,7 +277,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                   onClick={handleRefresh}
                   disabled={isRefreshing || isLoading}
                   title="Refresh assignments"
-                  className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark/50 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-surface-light dark:bg-surface-dark border border-border-light dark:border-border-dark/50 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <RefreshCw className={`w-4 h-4 ${isRefreshing ? "animate-spin" : ""}`} />
                   <span className="hidden sm:inline">Refresh</span>

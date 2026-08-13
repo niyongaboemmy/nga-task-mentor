@@ -1741,10 +1741,10 @@ const LiveProctoringDashboard: React.FC = () => {
               </div>
 
               {/* Status Filters */}
-              <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-200 dark:bg-surface-dark dark:border-border-dark/30">
+              <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-full border border-gray-200 dark:bg-surface-dark dark:border-border-dark/30">
                 <button
                   onClick={() => setStatusFilter("all")}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 ${
                     statusFilter === "all"
                       ? "bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -1754,7 +1754,7 @@ const LiveProctoringDashboard: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setStatusFilter("online")}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center gap-1.5 ${
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 flex items-center gap-1.5 ${
                     statusFilter === "online"
                       ? "bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -1765,7 +1765,7 @@ const LiveProctoringDashboard: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setStatusFilter("offline")}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center gap-1.5 ${
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 flex items-center gap-1.5 ${
                     statusFilter === "offline"
                       ? "bg-white text-gray-600 shadow-sm dark:bg-gray-700 dark:text-gray-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -1776,7 +1776,7 @@ const LiveProctoringDashboard: React.FC = () => {
                 </button>
                 <button
                   onClick={() => setStatusFilter("flagged")}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 flex items-center gap-1.5 ${
+                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 flex items-center gap-1.5 ${
                     statusFilter === "flagged"
                       ? "bg-white text-red-600 shadow-sm dark:bg-gray-700 dark:text-red-400"
                       : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"

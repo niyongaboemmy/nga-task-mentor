@@ -176,7 +176,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
           quiz.status === "published" ? (
             <Link
               to={`/quizzes/${quiz.id}/take`}
-              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-xl text-xs font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg shadow-emerald-500/25"
+              className="inline-flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 hover:from-emerald-600 hover:to-emerald-700 text-white rounded-full text-xs font-semibold transition-all duration-200 hover:scale-105 hover:shadow-lg shadow-emerald-500/25"
             >
               <Zap className="w-3.5 h-3.5" />
               Start Quiz
@@ -191,7 +191,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
                   onClick={() => onTogglePublic(quiz.id, quiz.is_public || false)}
                   disabled={isTogglingPublic}
                   aria-label={quiz.is_public ? "Currently public — click to make private" : "Currently private — click to make public"}
-                  className="flex items-center gap-2 rounded-xl px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 rounded-full px-2 py-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   {/* Current state icon */}
                   {!isTogglingPublic && (
@@ -236,7 +236,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
 
               <Link
                 to={`/quizzes/${quiz.id}`}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/25 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60 rounded-xl text-xs font-medium transition-all duration-200 hover:scale-105"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900/25 dark:hover:bg-blue-900/40 text-blue-600 dark:text-blue-400 border border-blue-200/70 dark:border-blue-800/60 rounded-full text-xs font-medium transition-all duration-200 hover:scale-105"
               >
                 <Eye className="w-3.5 h-3.5" />
                 View
@@ -247,7 +247,7 @@ export const QuizListItem: React.FC<QuizListItemProps> = ({
                   onClick={handleDeleteClick}
                   disabled={isDeleting}
                   title={confirmDelete ? "Click again to confirm delete" : "Delete quiz"}
-                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-medium border transition-all duration-200 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all duration-200 hover:scale-105 disabled:opacity-60 disabled:cursor-not-allowed ${
                     confirmDelete
                       ? "bg-red-500 hover:bg-red-600 text-white border-red-500 scale-105 shadow-md shadow-red-200 dark:shadow-red-900/30"
                       : "bg-red-50 hover:bg-red-100 text-red-600 border-red-200/70 dark:bg-red-900/20 dark:hover:bg-red-900/35 dark:text-red-400 dark:border-red-800/60"

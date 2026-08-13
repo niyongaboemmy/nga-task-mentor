@@ -654,7 +654,7 @@ const StudentsList: React.FC<{
         <div className="relative">
           <button
             onClick={() => setShowSort((v) => !v)}
-            className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full hover:border-gray-300 dark:hover:border-gray-600 transition-all"
           >
             <SlidersHorizontal className="w-4 h-4" />
             Sort: {sortKey === "name" ? "Name" : "Email"}
