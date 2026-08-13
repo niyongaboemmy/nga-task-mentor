@@ -284,7 +284,7 @@ const StudentQuizzesPage: React.FC = () => {
 
   const QuizResultItem: React.FC<{ result: QuizResult }> = ({ result }) => {
     return (
-      <div className="group bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 hover:-translate-y-0.5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
+      <div className="group bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-300 dark:hover:border-blue-700 transition-all hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 hover:-translate-y-0.5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-2 duration-500">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
           {/* Left side - Quiz info */}
           <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">
@@ -465,7 +465,7 @@ const StudentQuizzesPage: React.FC = () => {
 
         {/* Statistics Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 transition-all duration-300 hover:-translate-y-1">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -479,7 +479,7 @@ const StudentQuizzesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-orange-100/50 dark:hover:shadow-orange-900/25 transition-all duration-300 hover:-translate-y-1">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-orange-100/50 dark:hover:shadow-orange-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -493,7 +493,7 @@ const StudentQuizzesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-purple-100/50 dark:hover:shadow-purple-900/25 transition-all duration-300 hover:-translate-y-1">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-purple-100/50 dark:hover:shadow-purple-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -511,7 +511,7 @@ const StudentQuizzesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-yellow-100/50 dark:hover:shadow-yellow-900/25 transition-all duration-300 hover:-translate-y-1">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-yellow-100/50 dark:hover:shadow-yellow-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -529,7 +529,7 @@ const StudentQuizzesPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 transition-all duration-300 hover:-translate-y-1">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-4 border border-white dark:border-border-dark/30 hover:shadow-lg hover:shadow-blue-100/50 dark:hover:shadow-blue-900/25 transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-600 dark:text-gray-400">
@@ -546,7 +546,7 @@ const StudentQuizzesPage: React.FC = () => {
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-4 mb-6 animate-in slide-in-from-top duration-300">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-4 mb-6 animate-in slide-in-from-top duration-300">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
               {/* Status Filter */}
               <div>
@@ -685,7 +685,7 @@ const StudentQuizzesPage: React.FC = () => {
                 {availableQuizzes.map((quiz) => (
                   <div
                     key={quiz.id}
-                    className="group bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-orange-300 dark:hover:border-orange-700 transition-all hover:shadow-lg hover:shadow-orange-100/50 dark:hover:shadow-orange-900/25 hover:-translate-y-0.5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-2 duration-500"
+                    className="group bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 hover:border-orange-300 dark:hover:border-orange-700 transition-all hover:shadow-lg hover:shadow-orange-100/50 dark:hover:shadow-orange-900/25 hover:-translate-y-0.5 p-3 sm:p-4 animate-in fade-in slide-in-from-bottom-2 duration-500"
                   >
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-4">
                       <div className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0">

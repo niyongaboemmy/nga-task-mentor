@@ -273,7 +273,7 @@ const QuizListPage: React.FC = () => {
 
           {/* Stats Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-6 border border-white dark:border-border-dark/30">
+            <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 border border-white dark:border-border-dark/30">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -287,7 +287,7 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-6 border border-white dark:border-border-dark/30">
+            <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 border border-white dark:border-border-dark/30">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -301,7 +301,7 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-6 border border-white dark:border-border-dark/30">
+            <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 border border-white dark:border-border-dark/30">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -315,7 +315,7 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm p-6 border border-white dark:border-border-dark/30">
+            <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 border border-white dark:border-border-dark/30">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
@@ -331,7 +331,7 @@ const QuizListPage: React.FC = () => {
           </div>
 
           {/* Search and Filters */}
-          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 mb-6">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 mb-6">
             <div className="flex flex-col lg:flex-row gap-4">
               {/* Search */}
               <div className="flex-1">
@@ -467,7 +467,7 @@ const QuizListPage: React.FC = () => {
                     {quizzes.map((quiz) => (
                       <div
                         key={quiz.id}
-                        className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 transition-colors p-6"
+                        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 transition-colors p-6"
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">

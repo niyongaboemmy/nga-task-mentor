@@ -246,6 +246,7 @@ export const appRoutes: AppRoute[] = [
     path: "/proctoring/live",
     element: <LiveProctoringDashboard />,
     permissions: ["PROCTORING_JOIN_LIVE_STREAM"],
+    fullWidth: true,
     navItem: { label: "Live Proctoring", icon: Radio, group: "Teaching" },
   },
   {

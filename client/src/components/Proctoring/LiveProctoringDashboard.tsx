@@ -1542,7 +1542,7 @@ const LiveProctoringDashboard: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50 flex items-center justify-center">
+      <div className="fixed inset-0 bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50 dark:from-black dark:via-black dark:to-black flex items-center justify-center">
         <div className="text-center">
           <div className="relative mb-8">
             <div className="w-20 h-20 bg-gradient-to-r from-blue-400 to-blue-500 rounded-2xl flex items-center justify-center mx-auto">
@@ -1562,10 +1562,10 @@ const LiveProctoringDashboard: React.FC = () => {
             </div>
             <div className="absolute -inset-2 bg-gradient-to-r from-blue-400 to-blue-500 rounded-2xl opacity-30 animate-ping"></div>
           </div>
-          <h2 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent mb-3">
+          <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-3">
             Loading Proctoring Dashboard
           </h2>
-          <p className="text-gray-600 font-medium mb-4">
+          <p className="text-text-secondary-light dark:text-text-secondary-dark font-medium mb-4">
             Connecting to live streams...
           </p>
           <div className="flex items-center justify-center gap-2">

@@ -350,7 +350,7 @@ export default function GradesPage() {
               </p>
             </div>
           ) : (
-            <div className="rounded-3xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden bg-card-light dark:bg-card-dark/30">
+            <div className="rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden bg-card-light dark:bg-card-dark/30">
               <table className="min-w-full divide-y divide-border-light dark:divide-border-dark/30">
                 <thead>
                   <tr className="bg-surface-light dark:bg-surface-dark/50">
@@ -454,12 +454,12 @@ export default function GradesPage() {
 
       {/* Tab: Comments / Observations (placeholders) */}
       {activeTab === "Comments" && (
-        <div className="rounded-3xl border border-white dark:border-border-dark/30 bg-card-light dark:bg-card-dark/30 shadow-sm p-12 text-center">
+        <div className="rounded-2xl border border-white dark:border-border-dark/30 bg-card-light dark:bg-card-dark/30 shadow-sm p-12 text-center">
           <p className="text-text-secondary-light dark:text-text-secondary-dark/60 text-sm">Comments will appear here.</p>
         </div>
       )}
       {activeTab === "Observations" && (
-        <div className="rounded-3xl border border-white dark:border-border-dark/30 bg-card-light dark:bg-card-dark/30 shadow-sm p-12 text-center">
+        <div className="rounded-2xl border border-white dark:border-border-dark/30 bg-card-light dark:bg-card-dark/30 shadow-sm p-12 text-center">
           <p className="text-text-secondary-light dark:text-text-secondary-dark/60 text-sm">Observations will appear here.</p>
         </div>
       )}
