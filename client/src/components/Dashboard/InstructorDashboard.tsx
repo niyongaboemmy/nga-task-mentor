@@ -15,8 +15,11 @@ import {
   StatCard,
   SectionCard,
   PillLink,
+  ActivityRow,
+  EmptyState,
   dashboardContainerVariants,
   dashboardItemVariants,
+  type RecentActivity,
 } from "./dashboardUi";
 
 // Interfaces
@@ -26,15 +29,6 @@ interface DashboardStats {
   pendingSubmissions: number;
   completedAssignments: number;
   totalEnrolledStudents?: number;
-}
-
-interface RecentActivity {
-  id: string;
-  type: "assignment" | "submission" | "course" | "quiz";
-  title: string;
-  description: string;
-  timestamp: string;
-  resource_id?: string;
 }
 
 interface InstructorCourse {
@@ -84,28 +78,6 @@ interface InstructorDashboardData {
   };
   activeProctoring?: number;
 }
-
-function getActivityLink(activity: RecentActivity): string {
-  const resourceId = activity.resource_id ?? String(activity.id).split("_").slice(1).join("_");
-  switch (activity.type) {
-    case "assignment":
-    case "submission":
-      return resourceId ? `/assignments/${resourceId}` : "/assignments";
-    case "course":
-      return resourceId ? `/courses/${resourceId}` : "/courses";
-    case "quiz":
-      return resourceId ? `/quizzes/${resourceId}` : "/assignments";
-    default:
-      return "/assignments";
-  }
-}
-
-const activityIconClasses: Record<RecentActivity["type"], string> = {
-  assignment: "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
-  submission: "bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400",
-  quiz: "bg-amber-100 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400",
-  course: "bg-violet-100 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400",
-};
 
 const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({ data }) => {
   const getUrgencyLevel = (dueDate: string) => {
@@ -183,7 +155,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({ data
               <Link
                 key={course.id}
                 to={`/courses/${course.id}`}
-                className="group bg-surface-light dark:bg-surface-dark/50 rounded-2xl p-4 border border-border-light dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 transition-colors block"
+                className="group bg-surface-light dark:bg-surface-dark/50 rounded-2xl p-4 hover:shadow-md transition-all duration-200 block"
               >
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0 pr-3">
@@ -199,7 +171,7 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({ data
                   </div>
                   <ArrowRight className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark/50 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors shrink-0" />
                 </div>
-                <div className="flex items-center gap-4 pt-3 border-t border-border-light dark:border-border-dark/30 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
+                <div className="flex items-center gap-4 pt-3 mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                   {course.assignmentCount > 0 && (
                     <span className="flex items-center gap-1.5">
                       <ListTodo className="w-4 h-4" />
@@ -291,43 +263,15 @@ const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({ data
         {data?.recentActivity && data.recentActivity.length > 0 ? (
           <div className="space-y-1">
             {data.recentActivity.slice(0, 4).map((activity) => (
-              <Link
-                key={activity.id}
-                to={getActivityLink(activity)}
-                className="flex items-start gap-3 p-3 rounded-2xl hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors"
-              >
-                <div className={`shrink-0 w-10 h-10 rounded-2xl flex items-center justify-center ${activityIconClasses[activity.type]}`}>
-                  {activity.type === "assignment" && <ListTodo className="w-5 h-5" />}
-                  {activity.type === "submission" && <CheckCircle className="w-5 h-5" />}
-                  {activity.type === "course" && <BookOpen className="w-5 h-5" />}
-                  {activity.type === "quiz" && <CheckCircle className="w-5 h-5" />}
-                </div>
-                <div className="flex-1 min-w-0 pt-1">
-                  <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark truncate">
-                    {activity.title}
-                  </p>
-                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 line-clamp-1">
-                    {activity.description}
-                  </p>
-                </div>
-                <span className="shrink-0 text-xs text-text-secondary-light dark:text-text-secondary-dark/60 pt-1">
-                  {new Date(activity.timestamp).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-                </span>
-              </Link>
+              <ActivityRow key={activity.id} activity={activity} />
             ))}
           </div>
         ) : (
-          <div className="text-center py-10">
-            <div className="mx-auto h-14 w-14 bg-surface-light dark:bg-surface-dark rounded-full flex items-center justify-center mb-3">
-              <Clock className="w-6 h-6 text-text-secondary-light dark:text-text-secondary-dark/60" />
-            </div>
-            <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-              No recent activity yet
-            </p>
-            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 max-w-sm mx-auto mt-1">
-              Activity will appear here as you interact with courses and assignments.
-            </p>
-          </div>
+          <EmptyState
+            icon={<Clock className="w-6 h-6 text-text-secondary-light dark:text-text-secondary-dark/60" />}
+            title="No recent activity yet"
+            description="Activity will appear here as you interact with courses and assignments."
+          />
         )}
       </SectionCard>
     </motion.div>
