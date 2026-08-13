@@ -150,7 +150,7 @@ const Profile: React.FC = () => {
       {/* Header */}
       <motion.div
         variants={itemVariants}
-        className="bg-white dark:bg-gray-900 rounded-[1.6rem] border border-gray-200 dark:border-gray-700 dark:border-gray-800 overflow-hidden"
+        className="bg-white dark:bg-gray-900 rounded-[1.6rem] border border-gray-200 dark:border-gray-800 overflow-hidden"
       >
         <div className="h-24 bg-gradient-to-r from-blue-600 to-blue-600 relative">
           <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20" />
@@ -160,7 +160,7 @@ const Profile: React.FC = () => {
             {/* Profile Picture & Upload */}
             <div className="relative group">
               <div className="p-1.5 bg-white dark:bg-gray-900 rounded-[1.6rem] inline-block">
-                <div className="w-24 h-24 bg-gray-200 dark:bg-gray-700 dark:bg-gray-800 rounded-[1.4rem] overflow-hidden relative">
+                <div className="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-[1.4rem] overflow-hidden relative">
                   <ProfilePictureUpload
                     onUploadSuccess={handleProfilePictureUpdate}
                   />

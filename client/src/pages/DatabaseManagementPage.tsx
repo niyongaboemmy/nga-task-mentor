@@ -25,7 +25,7 @@ import {
 } from "../services/databaseApi";
 
 const Skeleton: React.FC<{ className?: string }> = ({ className = "" }) => (
-  <div className={`animate-pulse bg-gray-200 dark:bg-gray-700 dark:bg-gray-800 rounded ${className}`} />
+  <div className={`animate-pulse bg-gray-200 dark:bg-gray-800 rounded ${className}`} />
 );
 
 const DataTableSkeleton: React.FC<{ cols?: number; rowsCount?: number }> = ({
@@ -475,7 +475,7 @@ const DatabaseManagementPage: React.FC = () => {
               autoFocus
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
-              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-600 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-4 py-2.5 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {gateError && (
               <p className="text-sm text-red-600 dark:text-red-400">{gateError}</p>
@@ -521,7 +521,7 @@ const DatabaseManagementPage: React.FC = () => {
           </button>
           <button
             onClick={handleLock}
-            className="px-4 py-1.5 rounded-full text-xs font-medium border border-gray-300 dark:border-gray-600 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="px-4 py-1.5 rounded-full text-xs font-medium border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           >
             Lock
           </button>
@@ -529,7 +529,7 @@ const DatabaseManagementPage: React.FC = () => {
       </div>
 
       {/* Top-level tabs */}
-      <div className="mb-6 flex gap-2 border-b border-gray-200 dark:border-gray-700 dark:border-gray-800">
+      <div className="mb-6 flex gap-2 border-b border-gray-200 dark:border-gray-800">
         {(["table", "query", "history"] as TopTab[]).map((t) => (
           <button
             key={t}
@@ -550,7 +550,7 @@ const DatabaseManagementPage: React.FC = () => {
               value={tableSearch}
               onChange={(e) => setTableSearch(e.target.value)}
               placeholder="Search tables…"
-              className="w-full px-3 py-2 mb-3 text-sm border border-gray-300 dark:border-gray-600 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2 mb-3 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             {tablesLoading ? (
               <TableListSkeleton />
@@ -582,7 +582,7 @@ const DatabaseManagementPage: React.FC = () => {
           {/* Right panel: selected table */}
           <div className="md:col-span-3">
             {!selectedTable ? (
-              <div className="flex items-center justify-center h-64 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-gray-400 dark:text-gray-500 dark:text-gray-600 text-sm">
+              <div className="flex items-center justify-center h-64 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 text-gray-400 dark:text-gray-600 text-sm">
                 Select a table to get started.
               </div>
             ) : (
@@ -616,7 +616,7 @@ const DatabaseManagementPage: React.FC = () => {
                             setPage(1);
                           }}
                           placeholder="Search rows…"
-                          className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
+                          className="px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 w-64"
                         />
                         {writeMode && (
                           <button
@@ -635,7 +635,7 @@ const DatabaseManagementPage: React.FC = () => {
                         <div className="max-h-[55vh] overflow-y-auto">
                           <table className="min-w-full text-sm">
                             <thead className="sticky top-0 bg-white dark:bg-gray-900 z-10">
-                              <tr className="border-b border-gray-200 dark:border-gray-700 dark:border-gray-800">
+                              <tr className="border-b border-gray-200 dark:border-gray-800">
                                 {columnNames.map((col) => (
                                   <th
                                     key={col}
@@ -673,7 +673,7 @@ const DatabaseManagementPage: React.FC = () => {
                                               [col]: e.target.value,
                                             }))
                                           }
-                                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 dark:border-gray-700 dark:bg-gray-800 rounded"
+                                          className="w-full px-2 py-1 text-xs border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded"
                                         />
                                       ) : (
                                         String(row[col] ?? "")
@@ -693,7 +693,7 @@ const DatabaseManagementPage: React.FC = () => {
                                           </button>
                                           <button
                                             onClick={cancelEdit}
-                                            className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-600 dark:border-gray-700 rounded"
+                                            className="px-2 py-1 text-xs border border-gray-300 dark:border-gray-700 rounded"
                                           >
                                             Cancel
                                           </button>
@@ -743,14 +743,14 @@ const DatabaseManagementPage: React.FC = () => {
                           <button
                             onClick={() => setPage((p) => Math.max(1, p - 1))}
                             disabled={page <= 1}
-                            className="px-3 py-1 border border-gray-300 dark:border-gray-600 dark:border-gray-700 rounded disabled:opacity-40"
+                            className="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded disabled:opacity-40"
                           >
                             Prev
                           </button>
                           <button
                             onClick={() => setPage((p) => p + 1)}
                             disabled={page * limit >= rowsTotal}
-                            className="px-3 py-1 border border-gray-300 dark:border-gray-600 dark:border-gray-700 rounded disabled:opacity-40"
+                            className="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded disabled:opacity-40"
                           >
                             Next
                           </button>
@@ -772,7 +772,7 @@ const DatabaseManagementPage: React.FC = () => {
                             <div className="overflow-x-auto">
                               <table className="min-w-full text-sm">
                                 <thead>
-                                  <tr className="border-b border-gray-200 dark:border-gray-700 dark:border-gray-800">
+                                  <tr className="border-b border-gray-200 dark:border-gray-800">
                                     <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Name
                                     </th>
@@ -831,7 +831,7 @@ const DatabaseManagementPage: React.FC = () => {
                             <div className="overflow-x-auto">
                               <table className="min-w-full text-sm">
                                 <thead>
-                                  <tr className="border-b border-gray-200 dark:border-gray-700 dark:border-gray-800">
+                                  <tr className="border-b border-gray-200 dark:border-gray-800">
                                     <th className="px-3 py-2 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                                       Index
                                     </th>
@@ -948,7 +948,7 @@ const DatabaseManagementPage: React.FC = () => {
             </div>
           )}
 
-          <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 dark:border-gray-800 mb-4">
+          <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800 mb-4">
             <CodeMirror
               value={sqlQuery}
               height="200px"
@@ -977,7 +977,7 @@ const DatabaseManagementPage: React.FC = () => {
           </div>
 
           {queryError && (
-            <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-400 dark:text-red-300 text-sm">
+            <div className="mb-4 px-4 py-3 rounded-xl bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 text-sm">
               {queryError}
             </div>
           )}
@@ -1001,7 +1001,7 @@ const DatabaseManagementPage: React.FC = () => {
                 <div className="max-h-[45vh] overflow-y-auto">
                   <table className="min-w-full text-sm">
                     <thead className="sticky top-0 bg-white dark:bg-gray-900 z-10">
-                      <tr className="border-b border-gray-200 dark:border-gray-700 dark:border-gray-800">
+                      <tr className="border-b border-gray-200 dark:border-gray-800">
                         {Object.keys(queryResult.rows[0]).map((col) => (
                           <th
                             key={col}
@@ -1049,7 +1049,7 @@ const DatabaseManagementPage: React.FC = () => {
             <div className="max-h-[60vh] overflow-y-auto">
               <table className="min-w-full text-sm">
                 <thead className="sticky top-0 bg-white dark:bg-gray-900 z-10">
-                  <tr className="border-b border-gray-200 dark:border-gray-700 dark:border-gray-800">
+                  <tr className="border-b border-gray-200 dark:border-gray-800">
                     <th className="px-4 py-3 text-left font-semibold text-text-secondary-light dark:text-text-secondary-dark">
                       User
                     </th>
@@ -1118,14 +1118,14 @@ const DatabaseManagementPage: React.FC = () => {
               <button
                 onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
                 disabled={historyPage <= 1}
-                className="px-3 py-1 border border-gray-300 dark:border-gray-600 dark:border-gray-700 rounded disabled:opacity-40"
+                className="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded disabled:opacity-40"
               >
                 Prev
               </button>
               <button
                 onClick={() => setHistoryPage((p) => p + 1)}
                 disabled={historyPage * 25 >= historyTotal}
-                className="px-3 py-1 border border-gray-300 dark:border-gray-600 dark:border-gray-700 rounded disabled:opacity-40"
+                className="px-3 py-1 border border-gray-300 dark:border-gray-700 rounded disabled:opacity-40"
               >
                 Next
               </button>
@@ -1167,7 +1167,7 @@ const DatabaseManagementPage: React.FC = () => {
                       onChange={(e) =>
                         setNewRowValues((p) => ({ ...p, [c.name]: e.target.value }))
                       }
-                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-700 dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
                     />
                   </div>
                 ))}
@@ -1175,7 +1175,7 @@ const DatabaseManagementPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setShowAddRow(false)}
-                  className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-600 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
+                  className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
                 >
                   Cancel
                 </button>
@@ -1208,7 +1208,7 @@ const DatabaseManagementPage: React.FC = () => {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteTarget(null)}
-                className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-600 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>
@@ -1242,7 +1242,7 @@ const DatabaseManagementPage: React.FC = () => {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setPendingConfirmType(null)}
-                className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-600 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
+                className="px-5 py-2.5 text-sm border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Cancel
               </button>
