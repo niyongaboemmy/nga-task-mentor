@@ -1585,10 +1585,10 @@ const LiveProctoringDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50 dark:from-gray-900 dark:via-gray-900 dark:to-gray-900">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50 dark:from-black dark:via-black dark:to-black">
       <div className="w-full py-6 pt-0">
         {/* Header */}
-        <div className="bg-white/90 border-b border-blue-100 dark:bg-gray-900 dark:border-gray-800 p-3 mb-3">
+        <div className="bg-white/90 border-b border-blue-100 dark:bg-card-dark/30 dark:border-border-dark/30 p-3 mb-3">
           <div className="flex justify-between items-center">
             <div className="flex items-center space-x-4">
               <button
@@ -1658,7 +1658,7 @@ const LiveProctoringDashboard: React.FC = () => {
               </button>
               <button
                 onClick={loadActiveStreams}
-                className="px-6 py-3 bg-white/90 hover:bg-white border border-blue-200 hover:border-blue-300 text-gray-700 text-sm font-semibold transition-all duration-300 rounded-full flex items-center gap-2 dark:bg-gray-900 dark:hover:bg-gray-800 dark:border-gray-700 dark:hover:border-gray-600 dark:text-gray-300"
+                className="px-6 py-3 bg-white/90 hover:bg-white border border-blue-200 hover:border-blue-300 text-gray-700 text-sm font-semibold transition-all duration-300 rounded-full flex items-center gap-2 dark:bg-card-dark/30 dark:hover:bg-gray-700 dark:border-border-dark/30 dark:hover:border-gray-600 dark:text-text-secondary-dark"
               >
                 <svg
                   className="w-4 h-4"
@@ -1696,7 +1696,7 @@ const LiveProctoringDashboard: React.FC = () => {
         )}
 
         {/* Live Student Videos Section */}
-        <div className="bg-white/90 border border-blue-200 rounded-2xl p-6 dark:bg-gray-900 dark:border-gray-800 dark:text-gray-300 mx-2">
+        <div className="bg-white/90 border border-blue-200 rounded-2xl p-6 dark:bg-card-dark/30 dark:border-border-dark/30 dark:text-text-secondary-dark mx-2">
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-2">
               <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-blue-500 rounded-lg flex items-center justify-center dark:from-blue-600 dark:to-blue-700">
@@ -1710,7 +1710,7 @@ const LiveProctoringDashboard: React.FC = () => {
                   <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
                   {getFilteredStreams().filter((s) => s.isLive).length} Live
                 </div>
-                <div className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full dark:bg-gray-800/30 dark:text-gray-400">
+                <div className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full dark:bg-surface-dark dark:text-text-secondary-dark">
                   {getFilteredStreams().length} Total
                 </div>
               </div>
@@ -1728,7 +1728,7 @@ const LiveProctoringDashboard: React.FC = () => {
                   placeholder="Search students, emails, or quiz titles..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:focus:ring-blue-500/10"
+                  className="block w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-300 dark:bg-surface-dark/50 dark:border-transparent dark:text-text-primary-dark"
                 />
                 {searchQuery && (
                   <button
@@ -1741,7 +1741,7 @@ const LiveProctoringDashboard: React.FC = () => {
               </div>
 
               {/* Status Filters */}
-              <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-200 dark:bg-gray-800 dark:border-gray-700">
+              <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl border border-gray-200 dark:bg-surface-dark dark:border-border-dark/30">
                 <button
                   onClick={() => setStatusFilter("all")}
                   className={`px-4 py-1.5 text-xs font-semibold rounded-lg transition-all duration-300 ${
@@ -1822,7 +1822,7 @@ const LiveProctoringDashboard: React.FC = () => {
               {getFilteredStreams().map((stream, index) => (
                 <div
                   key={index + 1}
-                  className="group bg-white rounded-2xl hover:bg-blue-50 transition-all duration-300 cursor-pointer overflow-hidden border border-blue-100 dark:bg-gray-900 dark:hover:bg-gray-800 dark:border-gray-700"
+                  className="group bg-white rounded-2xl hover:bg-blue-50 transition-all duration-300 cursor-pointer overflow-hidden border border-blue-100 dark:bg-card-dark/30 dark:hover:bg-gray-700 dark:border-border-dark/30"
                   onClick={() => setSelectedStreamForModal(stream)}
                 >
                   <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden dark:from-gray-800/30 dark:to-gray-700/30">
@@ -1930,7 +1930,7 @@ const LiveProctoringDashboard: React.FC = () => {
 
                     {/* Play overlay on hover */}
                     <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center backdrop-blur-sm dark:bg-gray-900/90">
+                      <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center backdrop-blur-sm dark:bg-card-dark/90">
                         <svg
                           className="w-6 h-6 text-gray-800 ml-1 dark:text-gray-200"
                           fill="currentColor"

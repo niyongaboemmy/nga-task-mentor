@@ -356,7 +356,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
       <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
         <div
           ref={modalRef}
-          className="relative z-10 w-full max-w-7xl max-h-[95vh] bg-white dark:bg-gray-950 rounded-3xl shadow-2xl border border-gray-200/80 dark:border-gray-800/50 flex flex-col overflow-hidden"
+          className="relative z-10 w-full max-w-7xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/30 flex flex-col overflow-hidden"
         >
           {/* Header */}
           <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800/50">
@@ -369,7 +369,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                 )}
               </div>
               <div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white leading-tight">
+                <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark leading-tight">
                   {question ? "Edit Question" : "Create Question"}
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
@@ -381,7 +381,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-xl bg-gray-50 dark:bg-gray-900 hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-500 dark:text-gray-400 transition-all duration-200"
+              className="p-2 rounded-xl bg-surface-light dark:bg-surface-dark hover:bg-gray-100 dark:hover:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark transition-all duration-200"
             >
               <X className="w-5 h-5" />
             </button>
@@ -433,7 +433,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                     </button>
                     {idx < arr.length - 1 && (
                       <div className="flex-1 mx-3 mb-5">
-                        <div className="h-0.5 w-full bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
+                        <div className="h-0.5 w-full bg-surface-light dark:bg-surface-dark rounded-full overflow-hidden">
                           <div
                             className="h-full bg-blue-400 dark:bg-blue-600 rounded-full transition-all duration-300"
                             style={{ width: isDone ? "100%" : "0%" }}
@@ -459,7 +459,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                         <BookOpen className="w-5 h-5" />
                       </div>
                       <div>
-                        <h4 className="text-sm font-bold text-gray-900 dark:text-white leading-tight">
+                        <h4 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark leading-tight">
                           {courseData.title}
                         </h4>
                         <div className="flex items-center gap-2 mt-0.5">
@@ -512,7 +512,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                       onChange={(e) =>
                         handleTypeChange(e.target.value as QuestionType)
                       }
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      className="w-full px-4 py-3 rounded-xl border border-border-light dark:border-border-dark/50 bg-white dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                     >
                       {QUESTION_TYPES.map((type) => (
                         <option key={type.value} value={type.value}>
@@ -570,7 +570,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                       min="10"
                       max="3600"
                       required
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all"
+                      className="w-full px-4 py-3 rounded-xl border border-border-light dark:border-border-dark/50 bg-white dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
                     />
                   </div>
                 </div>
@@ -579,12 +579,12 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
 
             {activeTab === "content" ? (
               <div className="animate-in slide-in-from-right-2 duration-300">
-                <div className="bg-gray-50/50 dark:bg-gray-900/40 rounded-3xl border border-gray-100 dark:border-gray-800/50 p-6">
+                <div className="bg-surface-light dark:bg-surface-dark/30 rounded-3xl border border-border-light dark:border-border-dark/30 p-6">
                   <div className="flex items-center gap-2 mb-6">
                     <div className="w-8 h-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
                       <CheckCircle2 className="w-4 h-4" />
                     </div>
-                    <h3 className="font-bold text-gray-900 dark:text-white">
+                    <h3 className="font-bold text-text-primary-light dark:text-text-primary-dark">
                       {
                         QUESTION_TYPES.find(
                           (t) => t.value === formData.question_type,
@@ -674,7 +674,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                                 onChange={(e) =>
                                   setSchemeSearch(e.target.value)
                                 }
-                                className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/50 text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all placeholder:text-gray-400"
+                                className="w-full pl-9 pr-4 py-2 text-sm rounded-xl border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-1 focus:ring-blue-500/30 transition-all placeholder:text-text-secondary-light dark:placeholder:text-text-secondary-dark/50"
                               />
                             </div>
                             <div className="grid grid-cols-1 gap-2 max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-gray-200 dark:scrollbar-thumb-gray-800">
@@ -732,7 +732,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                                 ))}
 
                               {isLoadingScheme ? (
-                                <div className="py-8 text-center bg-gray-50/50 dark:bg-gray-900/30 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
+                                <div className="py-8 text-center bg-surface-light dark:bg-surface-dark/30 rounded-2xl border border-dashed border-border-light dark:border-border-dark/50">
                                   <Loader2 className="w-8 h-8 text-blue-500 mx-auto mb-2 animate-spin" />
                                   <p className="text-sm text-gray-400">
                                     Loading topics...
@@ -743,7 +743,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                                     .toLowerCase()
                                     .includes(schemeSearch.toLowerCase()),
                                 ).length === 0 ? (
-                                <div className="py-8 text-center bg-gray-50/50 dark:bg-gray-900/30 rounded-2xl border border-dashed border-gray-200 dark:border-gray-800">
+                                <div className="py-8 text-center bg-surface-light dark:bg-surface-dark/30 rounded-2xl border border-dashed border-border-light dark:border-border-dark/50">
                                   <Search className="w-8 h-8 text-gray-300 mx-auto mb-2" />
                                   <p className="text-sm text-gray-400">
                                     No matching topics found
@@ -803,7 +803,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                             }
                           }}
                           placeholder="Add a tag..."
-                          className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900 text-gray-900 dark:text-white"
+                          className="w-full px-4 py-3 pr-12 rounded-xl border border-border-light dark:border-border-dark/50 bg-white dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark"
                         />
                         <button
                           type="button"
@@ -865,7 +865,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
           </div>
 
           {/* Footer */}
-          <div className="flex-shrink-0 px-6 py-4 border-t border-gray-100 dark:border-gray-800/50 bg-gray-50/50 dark:bg-gray-900/50 flex items-center justify-between gap-4">
+          <div className="flex-shrink-0 px-6 py-4 border-t border-border-light dark:border-border-dark/30 bg-surface-light dark:bg-surface-dark/30 flex items-center justify-between gap-4">
             <div className="hidden sm:block flex-shrink-0">
               <p className="text-xs text-gray-500 dark:text-gray-400">
                 * Required fields. All changes will be saved to the course bank.
@@ -874,7 +874,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
             <div className="flex items-center gap-3 w-full sm:w-auto">
               <button
                 onClick={onClose}
-                className="flex-1 sm:flex-none px-6 py-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                className="flex-1 sm:flex-none px-6 py-3 rounded-2xl bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark/50 text-text-secondary-light dark:text-text-secondary-dark font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
               >
                 Cancel
               </button>
@@ -882,7 +882,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
               {!isFirstTab && (
                 <button
                   onClick={goPrev}
-                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-3 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-3 rounded-2xl bg-white dark:bg-surface-dark border border-border-light dark:border-border-dark/50 text-text-secondary-light dark:text-text-secondary-dark font-semibold text-sm hover:bg-gray-50 dark:hover:bg-gray-700 transition-all"
                 >
                   <ChevronLeft className="w-4 h-4" />
                   Previous

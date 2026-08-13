@@ -178,43 +178,43 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
     <div className="space-y-6">
       {/* Top Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.4rem] border border-gray-200/80 dark:border-gray-800/60 p-5 flex items-center">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-5 flex items-center">
           <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 mr-4">
             <LayoutDashboard className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
               Total Questions
             </p>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h3 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
               {questions.length}
             </h3>
           </div>
         </div>
 
-        <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.4rem] border border-gray-200/80 dark:border-gray-800/60 p-5 flex items-center">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-5 flex items-center">
           <div className="w-12 h-12 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400 mr-4">
             <Target className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
               Classified by Bloom's
             </p>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h3 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
               {questions.length - (bloomsCounts["Unclassified"] || 0)}
             </h3>
           </div>
         </div>
 
-        <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.4rem] border border-gray-200/80 dark:border-gray-800/60 p-5 flex items-center">
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-5 flex items-center">
           <div className="w-12 h-12 rounded-2xl bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center text-purple-600 dark:text-purple-400 mr-4">
             <Activity className="w-6 h-6" />
           </div>
           <div>
-            <p className="text-sm font-medium text-gray-500 dark:text-gray-400">
+            <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
               Unique Types Used
             </p>
-            <h3 className="text-2xl font-bold text-gray-900 dark:text-white">
+            <h3 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
               {Object.keys(typeCounts).length}
             </h3>
           </div>
@@ -224,8 +224,8 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
       {/* Charts */}
       {questions.length > 0 ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 p-6 flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col">
+            <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-6">
               Distribution by Type
             </h3>
             <div className="flex-1 min-h-[250px] relative">
@@ -233,8 +233,8 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             </div>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 p-6 flex flex-col">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col">
+            <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-6">
               Difficulty Level Spread
             </h3>
             <div className="flex-1 min-h-[250px] relative">
@@ -242,8 +242,8 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             </div>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 p-6 flex flex-col lg:col-span-2">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col lg:col-span-2">
+            <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-6">
               Bloom's Taxonomy Classification
             </h3>
             <div className="flex-1 min-h-[300px] relative">
@@ -251,8 +251,8 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
             </div>
           </div>
 
-          <div className="bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 p-6 flex flex-col lg:col-span-2">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-6">
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col lg:col-span-2">
+            <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-6">
               Scheme of Work Coverage
             </h3>
             <div className="flex-1 min-h-[400px] relative">
@@ -278,14 +278,14 @@ const QuestionBankDashboard: React.FC<QuestionBankDashboardProps> = ({
           </div>
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center p-12 text-center bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl rounded-[1.6rem] border border-gray-200/80 dark:border-gray-800/60 border-dashed">
-          <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+        <div className="flex flex-col items-center justify-center p-12 text-center bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 border-dashed">
+          <div className="w-16 h-16 bg-surface-light dark:bg-surface-dark rounded-full flex items-center justify-center mb-4">
             <Activity className="w-8 h-8 text-gray-400" />
           </div>
-          <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-1">
+          <h3 className="text-lg font-medium text-text-primary-light dark:text-text-primary-dark mb-1">
             No data to display
           </h3>
-          <p className="text-sm text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 max-w-sm mx-auto">
             Add some questions to the bank to start seeing analytics and
             distribution charts here.
           </p>
