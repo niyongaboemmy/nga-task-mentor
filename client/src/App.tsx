@@ -8,8 +8,11 @@ import Login from "./components/Auth/Login";
 import Callback from "./components/Auth/Callback";
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 import { appRoutes } from "./routes/routeConfig";
+import { useTheme } from "./contexts/ThemeContext";
 
 function AppContent() {
+  const { theme } = useTheme();
+
   return (
     <ErrorBoundary>
       <Router basename="/">
@@ -51,7 +54,7 @@ function AppContent() {
             pauseOnFocusLoss
             draggable
             pauseOnHover
-            theme="light"
+            theme={theme}
           />
         </div>
       </Router>

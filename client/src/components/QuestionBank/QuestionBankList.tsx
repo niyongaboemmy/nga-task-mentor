@@ -42,22 +42,23 @@ import type {
   SchemeOfWorkEntry,
 } from "../../types/quiz.types";
 import { toast } from "react-toastify";
+import { getQuestionTypeIcon } from "./questionTypeIcons";
 
 // Question Types Map
-const QUESTION_TYPES: { value: QuestionType; label: string; icon: string }[] = [
-  { value: "single_choice", label: "Single Choice", icon: "🔘" },
-  { value: "multiple_choice", label: "Multiple Choice", icon: "☑️" },
-  { value: "true_false", label: "True / False", icon: "✅" },
-  { value: "fill_blank", label: "Fill in the Blank", icon: "📝" },
-  { value: "matching", label: "Matching", icon: "🔗" },
-  { value: "numerical", label: "Numerical", icon: "🔢" },
-  { value: "short_answer", label: "Short Answer", icon: "💬" },
-  { value: "coding", label: "Coding", icon: "💻" },
-  { value: "algorithmic", label: "Algorithmic", icon: "⚙️" },
-  { value: "logical_expression", label: "Logical Expression", icon: "🧩" },
-  { value: "drag_drop", label: "Drag & Drop", icon: "🖐️" },
-  { value: "ordering", label: "Ordering", icon: "🔡" },
-  { value: "dropdown", label: "Dropdown", icon: "📋" },
+const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
+  { value: "single_choice", label: "Single Choice" },
+  { value: "multiple_choice", label: "Multiple Choice" },
+  { value: "true_false", label: "True / False" },
+  { value: "fill_blank", label: "Fill in the Blank" },
+  { value: "matching", label: "Matching" },
+  { value: "numerical", label: "Numerical" },
+  { value: "short_answer", label: "Short Answer" },
+  { value: "coding", label: "Coding" },
+  { value: "algorithmic", label: "Algorithmic" },
+  { value: "logical_expression", label: "Logical Expression" },
+  { value: "drag_drop", label: "Drag & Drop" },
+  { value: "ordering", label: "Ordering" },
+  { value: "dropdown", label: "Dropdown" },
 ];
 
 const DIFFICULTY_LEVELS: {
@@ -408,20 +409,23 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                   <Cpu className="w-3 h-3" /> Types
                 </label>
                 <div className="flex flex-wrap gap-1.5 h-[110px] overflow-y-auto pr-2 scrollbar-thin">
-                  {QUESTION_TYPES.map((qt) => (
-                    <PillToggle
-                      key={qt.value}
-                      active={selectedTypes.includes(qt.value)}
-                      onClick={() => {
-                        setSelectedTypes(
-                          toggleInArray(selectedTypes, qt.value),
-                        );
-                        setPage(1);
-                      }}
-                    >
-                      <span>{qt.icon}</span> {qt.label}
-                    </PillToggle>
-                  ))}
+                  {QUESTION_TYPES.map((qt) => {
+                    const TypeIcon = getQuestionTypeIcon(qt.value);
+                    return (
+                      <PillToggle
+                        key={qt.value}
+                        active={selectedTypes.includes(qt.value)}
+                        onClick={() => {
+                          setSelectedTypes(
+                            toggleInArray(selectedTypes, qt.value),
+                          );
+                          setPage(1);
+                        }}
+                      >
+                        <TypeIcon className="w-3.5 h-3.5" /> {qt.label}
+                      </PillToggle>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -630,10 +634,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
               </thead>
               <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {questions.map((question) => {
-                  const typeIcon =
-                    QUESTION_TYPES.find(
-                      (t) => t.value === question.question_type,
-                    )?.icon || "❓";
+                  const TypeIcon = getQuestionTypeIcon(question.question_type);
                   const diffObj = DIFFICULTY_LEVELS.find(
                     (d) => d.value === question.difficulty_level,
                   );
@@ -662,7 +663,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1.5">
                           <span className="inline-flex items-center gap-1 text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark truncate">
-                            {typeIcon}{" "}
+                            <TypeIcon className="w-3.5 h-3.5 shrink-0" />{" "}
                             {question.question_type.replace(/_/g, " ")}
                           </span>
                           {question.tags && question.tags.length > 0 && (

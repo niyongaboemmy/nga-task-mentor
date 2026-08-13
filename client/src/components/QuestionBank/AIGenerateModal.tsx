@@ -16,6 +16,7 @@ import { QuestionBankApiService } from "../../services/quizApi";
 import { toast } from "react-toastify";
 import DocxPreviewList from "./DocxPreviewList";
 import type { QuestionType, DifficultyLevel } from "../../types/quiz.types";
+import { getQuestionTypeIcon } from "./questionTypeIcons";
 
 const DOCX_MIME =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -35,25 +36,23 @@ interface AIGenerateModalProps {
 const QUESTION_TYPES: {
   value: QuestionType;
   label: string;
-  icon: string;
   complex?: boolean;
 }[] = [
-  { value: "single_choice", label: "Single Choice", icon: "🔘" },
-  { value: "multiple_choice", label: "Multiple Choice", icon: "☑️" },
-  { value: "true_false", label: "True / False", icon: "✅" },
-  { value: "fill_blank", label: "Fill in the Blank", icon: "📝" },
-  { value: "matching", label: "Matching", icon: "🔗" },
-  { value: "numerical", label: "Numerical", icon: "🔢" },
-  { value: "short_answer", label: "Short Answer", icon: "💬" },
-  { value: "ordering", label: "Ordering", icon: "🔡" },
-  { value: "dropdown", label: "Dropdown", icon: "📋" },
-  { value: "coding", label: "Coding", icon: "💻", complex: true },
-  { value: "algorithmic", label: "Algorithmic", icon: "⚙️", complex: true },
-  { value: "drag_drop", label: "Drag & Drop", icon: "🖐️", complex: true },
+  { value: "single_choice", label: "Single Choice" },
+  { value: "multiple_choice", label: "Multiple Choice" },
+  { value: "true_false", label: "True / False" },
+  { value: "fill_blank", label: "Fill in the Blank" },
+  { value: "matching", label: "Matching" },
+  { value: "numerical", label: "Numerical" },
+  { value: "short_answer", label: "Short Answer" },
+  { value: "ordering", label: "Ordering" },
+  { value: "dropdown", label: "Dropdown" },
+  { value: "coding", label: "Coding", complex: true },
+  { value: "algorithmic", label: "Algorithmic", complex: true },
+  { value: "drag_drop", label: "Drag & Drop", complex: true },
   {
     value: "logical_expression",
     label: "Logical Expression",
-    icon: "🧩",
     complex: true,
   },
 ];
@@ -317,6 +316,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
               <div className="flex flex-wrap gap-2 max-h-36 overflow-y-auto pr-1 scrollbar-thin">
                 {QUESTION_TYPES.map((qt) => {
                   const active = selectedTypes.includes(qt.value);
+                  const TypeIcon = getQuestionTypeIcon(qt.value);
                   return (
                     <button
                       key={qt.value}
@@ -328,7 +328,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({
                           : "bg-white dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark border-gray-200 dark:border-gray-700 hover:border-violet-400"
                       }`}
                     >
-                      <span>{qt.icon}</span> {qt.label}
+                      <TypeIcon className="w-3.5 h-3.5" /> {qt.label}
                       {active && <Check className="w-3 h-3 ml-0.5" />}
                     </button>
                   );
