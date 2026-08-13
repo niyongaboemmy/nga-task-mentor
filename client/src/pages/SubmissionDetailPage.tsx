@@ -722,7 +722,7 @@ const SubmissionDetailPage: React.FC = () => {
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-3 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
         <div className="bg-white dark:bg-gray-900 rounded-2xl border border-emerald-200 dark:border-emerald-800 p-4 text-center">
           <div className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
             {correctCount}

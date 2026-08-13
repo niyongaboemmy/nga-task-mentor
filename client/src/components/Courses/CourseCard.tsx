@@ -14,7 +14,7 @@ const CourseCard: React.FC<CourseCardProps> = ({
 }) => {
   return (
     <div
-      className={`bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 transition-colors cursor-pointer ${
+      className={`group bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer ${
         compact ? "p-4" : "p-5"
       }`}
       onClick={onClick}

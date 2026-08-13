@@ -626,7 +626,7 @@ export const QuizTaker: React.FC<QuizTakerProps> = ({
 
             {/* Question Content - 3 Column Grid Layout */}
             <div className="p-4 sm:p-6">
-              <div className="grid grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Column 1: Question Details */}
                 <div className="space-y-4">
                   <div className="bg-gray-50 dark:bg-gray-800/50 rounded-lg p-4">

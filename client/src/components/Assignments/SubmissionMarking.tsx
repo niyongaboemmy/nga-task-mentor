@@ -366,7 +366,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="md:col-span-1 space-y-3">
-            <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-[2rem] border border-blue-100/50 dark:border-blue-900/30">
+            <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-3xl border border-blue-100/50 dark:border-blue-900/30">
               <label className="block text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-widest">
                 Override Grade
               </label>
@@ -385,7 +385,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           </div>
 
           <div className="md:col-span-3">
-            <div className="bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-100 dark:border-gray-800 p-6 focus-within:ring-4 focus-within:ring-blue-500/5 transition-all">
+            <div className="bg-white dark:bg-gray-900 rounded-3xl border border-gray-100 dark:border-gray-800 p-6 focus-within:ring-4 focus-within:ring-blue-500/5 transition-all">
               <div className="flex items-center gap-2 mb-4 text-gray-400 dark:text-gray-500">
                 <MessageSquare className="w-4 h-4" />
                 <span className="text-[10px] font-bold uppercase tracking-widest">
@@ -406,7 +406,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="group relative overflow-hidden px-10 py-5 bg-blue-600 dark:bg-blue-700 text-white rounded-[2rem] font-bold text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
+            className="group relative overflow-hidden px-10 py-5 bg-blue-600 dark:bg-blue-700 text-white rounded-3xl font-bold text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             <div className="relative flex items-center gap-3">
               {isSubmitting ? (

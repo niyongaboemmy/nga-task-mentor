@@ -266,6 +266,7 @@ export default function AssessmentMarksPage() {
 
       {/* Marks table */}
       <div className="rounded-2xl border border-gray-200 dark:border-gray-700 overflow-hidden bg-white dark:bg-gray-900">
+        <div className="overflow-x-auto">
         <table className="min-w-full">
           <thead>
             <tr className="border-b border-gray-100">
@@ -304,6 +305,7 @@ export default function AssessmentMarksPage() {
             ))}
           </tbody>
         </table>
+        </div>
 
         {displayRows.length === 0 && (
           <div className="py-16 text-center">

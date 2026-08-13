@@ -351,6 +351,7 @@ export default function GradesPage() {
             </div>
           ) : (
             <div className="rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden bg-card-light dark:bg-card-dark/30">
+              <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-border-light dark:divide-border-dark/30">
                 <thead>
                   <tr className="bg-surface-light dark:bg-surface-dark/50">
@@ -414,6 +415,7 @@ export default function GradesPage() {
                   })}
                 </tbody>
               </table>
+              </div>
 
               {/* Pagination */}
               <div className="flex items-center justify-between px-5 py-3.5 border-t border-border-light dark:border-border-dark/30 bg-surface-light dark:bg-surface-dark/50">

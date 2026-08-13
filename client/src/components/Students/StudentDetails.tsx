@@ -216,7 +216,7 @@ const StudentDetails: React.FC = () => {
   if (loading) {
     return (
       <div className="space-y-4">
-        <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50 dark:from-blue-950/20 dark:via-indigo-950/20 dark:to-blue-950/20 rounded-[1.8rem] shadow border-4 border-white/20 dark:border-blue-800/20 p-4 md:p-8">
+        <div className="relative overflow-hidden bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-4 md:p-8">
           <div className="animate-pulse">
             <div className="flex flex-col lg:flex-row items-start lg:items-center gap-8">
               <div className="flex-shrink-0">
@@ -256,9 +256,7 @@ const StudentDetails: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-blue-50 via-indigo-50 to-blue-50 dark:from-blue-950/20 dark:via-indigo-950/20 dark:to-blue-950/20 rounded-3xl shadow border-4 border-white dark:border-blue-800/20 p-6 md:p-8">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxwYXRoIGQ9Ik0zNiAxOGMzLjMxNCAwIDYgMi42ODYgNiA2cy0yLjY4NiA2LTYgNi02LTIuNjg2LTYtNiAyLjY4Ni02IDYtNiIgc3Ryb2tlPSIjOTNjNWZkIiBzdHJva2Utd2lkdGg9IjEiIG9wYWNpdHk9Ii4xIi8+PC9nPjwvc3ZnPg==')] opacity-30"></div>
-
+      <div className="relative overflow-hidden bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-6 md:p-8">
         <div className="relative z-10">
           <div className="flex flex-col lg:flex-row items-start lg:items-center gap-6">
             <div className="flex-shrink-0">
@@ -269,10 +267,10 @@ const StudentDetails: React.FC = () => {
                     alt={`${
                       student.profile?.first_name || student.user?.first_name
                     } ${student.profile?.last_name || student.user?.last_name}`}
-                    className="w-24 h-24 rounded-2xl object-cover shadow-2xl ring-4 ring-white/50 dark:ring-gray-800/50"
+                    className="w-24 h-24 rounded-2xl object-cover shadow-sm ring-2 ring-white dark:ring-gray-800"
                   />
                 ) : (
-                  <div className="w-24 h-24 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-2xl ring-4 ring-white/50 dark:ring-gray-800/50">
+                  <div className="w-24 h-24 bg-gradient-to-br from-blue-600 via-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-sm ring-2 ring-white dark:ring-gray-800">
                     <span className="text-white font-bold text-4xl">
                       {student.profile?.first_name?.[0] ||
                         student.user?.first_name?.[0] ||

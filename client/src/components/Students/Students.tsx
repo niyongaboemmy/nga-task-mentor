@@ -180,7 +180,7 @@ const Students: React.FC = () => {
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 p-4 px-5">
+      <div className="bg-card-light dark:bg-card-dark/30 rounded-3xl shadow-sm border border-white dark:border-border-dark/30 py-4 px-5">
         <div className="flex justify-between items-center">
           <div>
             <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
@@ -304,9 +304,9 @@ const Students: React.FC = () => {
           <>
             {/* Table Header */}
             <div className="px-6 py-4 bg-surface-light dark:bg-surface-dark/50 border-b border-border-light dark:border-border-dark/30">
-              <div className="grid grid-cols-12 gap-4 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
+              <div className="hidden sm:grid grid-cols-12 gap-4 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
                 <div
-                  className="col-span-7 cursor-pointer hover:text-text-primary-light dark:hover:text-text-primary-dark"
+                  className="col-span-7 cursor-pointer transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark"
                   onClick={() => handleSort("first_name")}
                 >
                   <div className="flex items-center space-x-1">
@@ -317,7 +317,7 @@ const Students: React.FC = () => {
                   </div>
                 </div>
                 <div
-                  className="col-span-4 cursor-pointer hover:text-text-primary-light dark:hover:text-text-primary-dark"
+                  className="col-span-4 cursor-pointer transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark"
                   onClick={() => handleSort("email")}
                 >
                   <div className="flex items-center space-x-1">
@@ -328,7 +328,7 @@ const Students: React.FC = () => {
                   </div>
                 </div>
                 <div
-                  className="col-span-1 cursor-pointer hover:text-text-primary-light dark:hover:text-text-primary-dark"
+                  className="col-span-1 cursor-pointer transition-colors hover:text-text-primary-light dark:hover:text-text-primary-dark"
                   onClick={() => handleSort("createdAt")}
                 >
                   <div className="flex items-center space-x-1">
@@ -349,8 +349,8 @@ const Students: React.FC = () => {
                   to={`/students/${student?.user_id || student?.user_id}`}
                   className="block px-6 py-3 hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors duration-200 group"
                 >
-                  <div className="grid grid-cols-12 gap-4 items-center">
-                    <div className="col-span-7">
+                  <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 sm:gap-4 sm:items-center">
+                    <div className="sm:col-span-7">
                       <div className="flex items-center space-x-3">
                         <div className="flex-shrink-0">
                           <div className="w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
@@ -375,12 +375,12 @@ const Students: React.FC = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="col-span-4">
+                    <div className="sm:col-span-4 pl-11 sm:pl-0">
                       <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark truncate">
                         {student.username}
                       </p>
                     </div>
-                    <div className="col-span-1">
+                    <div className="sm:col-span-1 pl-11 sm:pl-0">
                       <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
                         ID: {student?.user_id}
                       </p>
@@ -407,7 +407,7 @@ const Students: React.FC = () => {
                       setCurrentPage((prev) => Math.max(prev - 1, 1))
                     }
                     disabled={currentPage === 1}
-                    className="px-3 py-1 text-sm bg-white dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark border border-border-light dark:border-border-dark/50 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1 text-sm bg-white dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark border border-border-light dark:border-border-dark/50 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
                   >
                     Previous
                   </button>
@@ -419,7 +419,7 @@ const Students: React.FC = () => {
                       setCurrentPage((prev) => Math.min(prev + 1, totalPages))
                     }
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1 text-sm bg-white dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark border border-border-light dark:border-border-dark/50 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1 text-sm bg-white dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark border border-border-light dark:border-border-dark/50 rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 hover:scale-105 hover:shadow-md"
                   >
                     Next
                   </button>
