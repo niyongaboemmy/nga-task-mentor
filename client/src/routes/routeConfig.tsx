@@ -105,6 +105,9 @@ export interface AppRoute {
   permissions?: string[];
   /** Full-width layout (bypasses the default content max-width), e.g. data tables. */
   fullWidth?: boolean;
+  /** Edge-to-edge layout — also strips the shell's content padding, e.g. a
+   * video-wall/monitoring surface that should touch the viewport edges. */
+  noPadding?: boolean;
   /** Renders standalone, without the app shell (Sidebar/TopBar) — e.g. a
    * fullscreen quiz-taking or editing experience. */
   noLayout?: boolean;
@@ -247,6 +250,7 @@ export const appRoutes: AppRoute[] = [
     element: <LiveProctoringDashboard />,
     permissions: ["PROCTORING_JOIN_LIVE_STREAM"],
     fullWidth: true,
+    noPadding: true,
     navItem: { label: "Live Proctoring", icon: Radio, group: "Teaching" },
   },
   {

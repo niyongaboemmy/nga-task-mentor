@@ -12,9 +12,11 @@ import {
   PauseCircle,
   Ban,
   Search,
-  Filter,
   X,
   VideoOff,
+  ArrowLeft,
+  Video,
+  Play,
 } from "lucide-react";
 
 interface LiveStream {
@@ -1585,247 +1587,205 @@ const LiveProctoringDashboard: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-blue-50 dark:from-black dark:via-black dark:to-black">
-      <div className="w-full py-6 pt-0">
-        {/* Header */}
-        <div className="bg-white/90 border-b border-blue-100 dark:bg-card-dark/30 dark:border-border-dark/30 p-3 mb-3">
-          <div className="flex justify-between items-center">
-            <div className="flex items-center space-x-4">
-              <button
-                onClick={() => window.history.back()}
-                className="p-3 hover:bg-blue-50 transition-all duration-300 rounded-xl group dark:hover:bg-gray-800"
-              >
-                <svg
-                  className="w-6 h-6 text-gray-600 group-hover:text-gray-800 transition-colors dark:text-gray-400 dark:group-hover:text-gray-200"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M15 19l-7-7 7-7"
-                  />
-                </svg>
-              </button>
-              <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 bg-gradient-to-r from-blue-400 to-blue-500 rounded-xl flex items-center justify-center dark:from-blue-600 dark:to-blue-700">
-                  <svg
-                    className="w-6 h-6 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <div>
-                  <h1 className="text-2xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:from-gray-200 dark:to-gray-400">
-                    Live Proctoring Dashboard
-                  </h1>
-                  <div className="flex items-center gap-3 mt-0.5">
-                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
-                      Real-time student monitoring system
-                    </p>
-                    <span className={`flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border ${
+    // Intentionally always-dark, regardless of the app's light/dark toggle —
+    // a live camera-monitoring wall reads as a proper "surveillance/proctoring"
+    // console (and video thumbnails stay legible) rather than another light
+    // content page. Same exemption precedent as the code-editor cluster.
+    <div className="min-h-screen bg-[#0b0f17]">
+      {/* Header */}
+      <div className="bg-gray-900/80 backdrop-blur-md border-b border-gray-800 px-4 sm:px-6 lg:px-8 py-4 sticky top-0 z-10">
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <button
+              onClick={() => window.history.back()}
+              className="p-2.5 rounded-full hover:bg-gray-800 transition-colors text-gray-400 hover:text-white shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
+                <Video className="w-5 h-5 text-white" />
+                <span
+                  className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${
+                    socketConnected ? "bg-emerald-400 animate-pulse" : "bg-red-500"
+                  }`}
+                />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight truncate">
+                  Live Proctoring Dashboard
+                </h1>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <p className="text-xs sm:text-sm text-gray-400 truncate">
+                    Real-time student monitoring
+                  </p>
+                  <span
+                    className={`hidden sm:flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border shrink-0 ${
                       socketConnected
-                        ? "bg-green-50 border-green-200 text-green-700 dark:bg-green-900/20 dark:border-green-700 dark:text-green-400"
-                        : "bg-red-50 border-red-200 text-red-600 dark:bg-red-900/20 dark:border-red-700 dark:text-red-400"
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-green-500 animate-pulse" : "bg-red-500"}`} />
-                      {socketConnected ? "Live server connected" : "Live server disconnected"}
-                    </span>
-                  </div>
+                        ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                        : "bg-red-500/10 border-red-500/30 text-red-400"
+                    }`}
+                  >
+                    <span className={`w-1.5 h-1.5 rounded-full ${socketConnected ? "bg-emerald-400 animate-pulse" : "bg-red-400"}`} />
+                    {socketConnected ? "Connected" : "Disconnected"}
+                  </span>
                 </div>
               </div>
-            </div>
-            <div className="flex gap-3">
-              <button
-                onClick={reconnectWebRTC}
-                disabled={isReconnecting}
-                className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 disabled:from-gray-400 disabled:to-gray-500 text-white text-sm font-semibold transition-all duration-300 rounded-full flex items-center gap-2"
-              >
-                <RefreshCw
-                  className={`w-4 h-4 ${isReconnecting ? "animate-spin" : ""}`}
-                />
-                {isReconnecting ? "Reconnecting..." : "Reconnect"}
-              </button>
-              <button
-                onClick={loadActiveStreams}
-                className="px-6 py-3 bg-white/90 hover:bg-white border border-blue-200 hover:border-blue-300 text-gray-700 text-sm font-semibold transition-all duration-300 rounded-full flex items-center gap-2 dark:bg-card-dark/30 dark:hover:bg-gray-700 dark:border-border-dark/30 dark:hover:border-gray-600 dark:text-text-secondary-dark"
-              >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                  />
-                </svg>
-                Refresh
-              </button>
             </div>
           </div>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={reconnectWebRTC}
+              disabled={isReconnecting}
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-semibold transition-colors rounded-full flex items-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${isReconnecting ? "animate-spin" : ""}`} />
+              <span className="hidden sm:inline">{isReconnecting ? "Reconnecting..." : "Reconnect"}</span>
+            </button>
+            <button
+              onClick={loadActiveStreams}
+              className="p-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white transition-colors rounded-full"
+              title="Refresh"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
+      </div>
 
+      <div className="px-4 sm:px-6 lg:px-8 py-6">
         {/* Error Message */}
         {error && (
-          <div className="bg-red-50/90 border border-red-200 p-4 mb-6 rounded-xl dark:bg-red-900/20 dark:border-red-700">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center dark:bg-red-700">
-                  <AlertTriangle className="w-5 h-5 text-white" />
-                </div>
+          <div className="bg-red-500/10 border border-red-500/30 p-4 mb-6 rounded-2xl">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-5 h-5 text-white" />
               </div>
-              <div className="ml-3">
-                <p className="text-red-800 text-sm font-medium">{error}</p>
-              </div>
+              <p className="text-red-300 text-sm font-medium">{error}</p>
             </div>
           </div>
         )}
 
-        {/* Live Student Videos Section */}
-        <div className="bg-white/90 border border-blue-200 rounded-2xl p-6 dark:bg-card-dark/30 dark:border-border-dark/30 dark:text-text-secondary-dark mx-2">
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-400 to-blue-500 rounded-lg flex items-center justify-center dark:from-blue-600 dark:to-blue-700">
-                <Circle className="w-4 h-4 text-white fill-current animate-pulse" />
-              </div>
-              <h2 className="text-xl font-bold bg-gradient-to-r from-gray-800 to-gray-600 bg-clip-text text-transparent dark:from-gray-200 dark:to-gray-400">
-                Live Student Videos
-              </h2>
-              <div className="flex items-center gap-2 ml-auto">
-                <div className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full flex items-center gap-1 dark:bg-green-900/20 dark:text-green-300">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  {getFilteredStreams().filter((s) => s.isLive).length} Live
-                </div>
-                <div className="px-3 py-1 bg-gray-100 text-gray-600 text-xs font-semibold rounded-full dark:bg-surface-dark dark:text-text-secondary-dark">
-                  {getFilteredStreams().length} Total
-                </div>
-              </div>
+        {/* Section header + status pills */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="w-9 h-9 rounded-2xl bg-blue-500/15 flex items-center justify-center shrink-0">
+            <Circle className="w-4 h-4 text-blue-400 fill-current animate-pulse" />
+          </div>
+          <h2 className="text-lg font-bold text-white">Live Student Videos</h2>
+          <div className="flex items-center gap-2 ml-auto">
+            <div className="px-3 py-1 bg-emerald-500/15 text-emerald-400 text-xs font-semibold rounded-full flex items-center gap-1.5">
+              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+              {getFilteredStreams().filter((s) => s.isLive).length} Live
             </div>
-            
-            {/* Search and Filters */}
-            <div className="flex flex-col md:flex-row gap-4 mt-6">
-              {/* Search Input */}
-              <div className="relative flex-1 group">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <Search className="h-4 w-4 text-gray-400 group-focus-within:text-blue-500 transition-colors" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search students, emails, or quiz titles..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="block w-full pl-10 pr-10 py-2.5 bg-gray-50 border border-gray-200 text-gray-900 text-sm rounded-xl focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 outline-none transition-all duration-300 dark:bg-surface-dark/50 dark:border-transparent dark:text-text-primary-dark"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="absolute inset-y-0 right-0 pr-3 flex items-center hover:text-red-500 transition-colors"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                )}
-              </div>
-
-              {/* Status Filters */}
-              <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-full border border-gray-200 dark:bg-surface-dark dark:border-border-dark/30">
-                <button
-                  onClick={() => setStatusFilter("all")}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 ${
-                    statusFilter === "all"
-                      ? "bg-white text-blue-600 shadow-sm dark:bg-gray-700 dark:text-blue-400"
-                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  }`}
-                >
-                  All
-                </button>
-                <button
-                  onClick={() => setStatusFilter("online")}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 flex items-center gap-1.5 ${
-                    statusFilter === "online"
-                      ? "bg-white text-green-600 shadow-sm dark:bg-gray-700 dark:text-green-400"
-                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  }`}
-                >
-                  <div className={`w-1.5 h-1.5 rounded-full bg-green-500 ${statusFilter === "online" ? "animate-pulse" : ""}`}></div>
-                  Online
-                </button>
-                <button
-                  onClick={() => setStatusFilter("offline")}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 flex items-center gap-1.5 ${
-                    statusFilter === "offline"
-                      ? "bg-white text-gray-600 shadow-sm dark:bg-gray-700 dark:text-gray-400"
-                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  }`}
-                >
-                  <div className="w-1.5 h-1.5 rounded-full bg-gray-400"></div>
-                  Offline
-                </button>
-                <button
-                  onClick={() => setStatusFilter("flagged")}
-                  className={`px-4 py-1.5 text-xs font-semibold rounded-full transition-all duration-300 flex items-center gap-1.5 ${
-                    statusFilter === "flagged"
-                      ? "bg-white text-red-600 shadow-sm dark:bg-gray-700 dark:text-red-400"
-                      : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  }`}
-                >
-                  <Flag className="w-3 h-3" />
-                  Flagged
-                </button>
-              </div>
+            <div className="px-3 py-1 bg-gray-800 text-gray-400 text-xs font-semibold rounded-full">
+              {getFilteredStreams().length} Total
             </div>
           </div>
+        </div>
 
-          {getFilteredStreams().length === 0 ? (
-            <div className="flex items-center justify-center py-20">
-              <div className="text-center">
-                <div className="w-24 h-24 bg-gradient-to-r from-gray-100 to-gray-200 rounded-2xl flex items-center justify-center mx-auto mb-6 dark:from-gray-800/30 dark:to-gray-700/30">
-                  <svg
-                    className="w-12 h-12 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
-                    />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2 dark:text-gray-200">
-                  No students found for this quiz
-                </h3>
-                <p className="text-text-secondary-light dark:text-text-secondary-dark">
-                  {selectedQuiz
-                    ? "No connected students for the selected quiz."
-                    : "Students will appear here when they start their quiz sessions"}
-                </p>
-              </div>
+        {/* Search and Filters */}
+        <div className="flex flex-col md:flex-row gap-3 mb-6">
+          <div className="relative flex-1 group">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <Search className="h-4 w-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
             </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+            <input
+              type="text"
+              placeholder="Search students, emails, or quiz titles..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full pl-11 pr-10 py-3 bg-gray-900 border border-gray-800 text-gray-100 placeholder:text-gray-500 text-sm rounded-full focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-red-400 transition-colors"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+
+          {/* Status Filters */}
+          <div className="flex items-center gap-1 bg-gray-900 p-1 rounded-full border border-gray-800 overflow-x-auto">
+            <button
+              onClick={() => setStatusFilter("all")}
+              className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 whitespace-nowrap ${
+                statusFilter === "all"
+                  ? "bg-gray-700 text-white shadow-sm"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              All
+            </button>
+            <button
+              onClick={() => setStatusFilter("online")}
+              className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
+                statusFilter === "online"
+                  ? "bg-gray-700 text-emerald-400 shadow-sm"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              <div className={`w-1.5 h-1.5 rounded-full bg-emerald-400 ${statusFilter === "online" ? "animate-pulse" : ""}`} />
+              Online
+            </button>
+            <button
+              onClick={() => setStatusFilter("offline")}
+              className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
+                statusFilter === "offline"
+                  ? "bg-gray-700 text-gray-300 shadow-sm"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              <div className="w-1.5 h-1.5 rounded-full bg-gray-500" />
+              Offline
+            </button>
+            <button
+              onClick={() => setStatusFilter("flagged")}
+              className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
+                statusFilter === "flagged"
+                  ? "bg-gray-700 text-red-400 shadow-sm"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              <Flag className="w-3 h-3" />
+              Flagged
+            </button>
+          </div>
+        </div>
+
+        {getFilteredStreams().length === 0 ? (
+          <div className="flex items-center justify-center py-24 border border-dashed border-gray-800 rounded-2xl">
+            <div className="text-center px-4">
+              <div className="w-16 h-16 bg-gray-900 border border-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-5">
+                <VideoOff className="w-7 h-7 text-gray-600" />
+              </div>
+              <h3 className="text-base font-semibold text-gray-200 mb-1.5">
+                No students found for this quiz
+              </h3>
+              <p className="text-sm text-gray-500 max-w-sm">
+                {selectedQuiz
+                  ? "No connected students for the selected quiz."
+                  : "Students will appear here when they start their quiz sessions"}
+              </p>
+            </div>
+          </div>
+        ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
               {getFilteredStreams().map((stream, index) => (
                 <div
                   key={index + 1}
-                  className="group bg-white rounded-2xl hover:bg-blue-50 transition-all duration-300 cursor-pointer overflow-hidden border border-blue-100 dark:bg-card-dark/30 dark:hover:bg-gray-700 dark:border-border-dark/30"
+                  className="group bg-gray-900 rounded-2xl hover:bg-gray-800 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30 transition-all duration-200 cursor-pointer overflow-hidden border border-gray-800 hover:border-gray-700"
                   onClick={() => setSelectedStreamForModal(stream)}
                 >
-                  <div className="aspect-video bg-gradient-to-br from-gray-100 to-gray-200 relative overflow-hidden dark:from-gray-800/30 dark:to-gray-700/30">
+                  <div className="aspect-video bg-gray-950 relative overflow-hidden">
                     {stream.stream ? (
                       <>
                         <video
@@ -1846,18 +1806,18 @@ const LiveProctoringDashboard: React.FC = () => {
                             }
                           }}
                         />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 dark:from-white/20"></div>
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                       </>
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-800/30 dark:to-gray-700/30">
+                      <div className="w-full h-full flex items-center justify-center bg-gray-900">
                         <div className="text-center">
-                          <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 ${stream.cameraHidden ? "bg-gray-800" : "bg-white"}`}>
+                          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-gray-800">
                             {stream.cameraHidden
-                              ? <VideoOff className="w-8 h-8 text-gray-400" />
-                              : <User className="w-8 h-8 text-gray-400 dark:text-gray-400" />
+                              ? <VideoOff className="w-8 h-8 text-gray-500" />
+                              : <User className="w-8 h-8 text-gray-500" />
                             }
                           </div>
-                          <p className="text-xs text-gray-500 font-medium dark:text-gray-400">
+                          <p className="text-xs text-gray-500 font-medium">
                             {stream.cameraHidden ? "Camera hidden" : stream.isLive ? "Connecting..." : "No Stream"}
                           </p>
                         </div>
@@ -1929,42 +1889,36 @@ const LiveProctoringDashboard: React.FC = () => {
                     )}
 
                     {/* Play overlay on hover */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                      <div className="w-16 h-16 bg-white/90 rounded-full flex items-center justify-center backdrop-blur-sm dark:bg-card-dark/90">
-                        <svg
-                          className="w-6 h-6 text-gray-800 ml-1 dark:text-gray-200"
-                          fill="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M8 5v14l11-7z" />
-                        </svg>
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/10">
+                      <div className="w-14 h-14 bg-white/15 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
+                        <Play className="w-6 h-6 text-white ml-0.5 fill-current" />
                       </div>
                     </div>
                   </div>
 
                   <div className="p-4">
-                    <h3 className="text-sm font-bold text-gray-800 line-clamp-2 mb-2 group-hover:text-blue-600 transition-colors dark:text-gray-200">
+                    <h3 className="text-sm font-bold text-gray-100 line-clamp-2 mb-2 group-hover:text-blue-400 transition-colors">
                       {stream.student.first_name} {stream.student.last_name}
                     </h3>
                     {/* Exam Status Badge */}
                     {stream.examStatus && stream.examStatus !== "active" && (
                       <div
-                        className={`mb-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        className={`mb-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
                           stream.examStatus === "paused"
-                            ? "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400"
+                            ? "bg-yellow-500/15 text-yellow-400"
                             : stream.examStatus === "ended"
-                              ? "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400"
+                              ? "bg-red-500/15 text-red-400"
                               : stream.examStatus === "warning"
-                                ? "bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400"
-                                : "bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300"
+                                ? "bg-orange-500/15 text-orange-400"
+                                : "bg-gray-700 text-gray-300"
                         }`}
                       >
-                        {stream.examStatus === "paused" && "⏸ Paused"}
-                        {stream.examStatus === "ended" && "⏹ Ended"}
-                        {stream.examStatus === "warning" && "⚠ Warning"}
+                        {stream.examStatus === "paused" && (<><PauseCircle className="w-3 h-3" /> Paused</>)}
+                        {stream.examStatus === "ended" && (<><Ban className="w-3 h-3" /> Ended</>)}
+                        {stream.examStatus === "warning" && (<><AlertTriangle className="w-3 h-3" /> Warning</>)}
                       </div>
                     )}
-                    <p className="text-xs text-gray-600 line-clamp-1 mb-3 dark:text-gray-400">
+                    <p className="text-xs text-gray-500 line-clamp-1 mb-3">
                       {stream.quiz.title}
                     </p>
                     <div className="flex items-center justify-between">
@@ -1972,15 +1926,15 @@ const LiveProctoringDashboard: React.FC = () => {
                         <div
                           className={`w-2 h-2 rounded-full ${
                             stream.isLive
-                              ? "bg-green-500 animate-pulse"
-                              : "bg-gray-400"
+                              ? "bg-emerald-400 animate-pulse"
+                              : "bg-gray-600"
                           }`}
                         ></div>
-                        <span className="text-xs text-gray-500 font-medium dark:text-gray-400">
+                        <span className="text-xs text-gray-400 font-medium">
                           {stream.isLive ? "Live" : "Offline"}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-400 dark:text-gray-400">
+                      <span className="text-xs text-gray-500">
                         {new Date(stream.startTime).toLocaleTimeString()}
                       </span>
                     </div>
@@ -1989,7 +1943,6 @@ const LiveProctoringDashboard: React.FC = () => {
               ))}
             </div>
           )}
-        </div>
       </div>
 
       <StreamModal

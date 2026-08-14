@@ -35,7 +35,9 @@ function AppContent() {
                     {route.noLayout ? (
                       route.element
                     ) : (
-                      <Layout fullWidth={route.fullWidth}>{route.element}</Layout>
+                      <Layout fullWidth={route.fullWidth} noPadding={route.noPadding}>
+                        {route.element}
+                      </Layout>
                     )}
                   </ProtectedRoute>
                 }

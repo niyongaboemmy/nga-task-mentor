@@ -4,10 +4,11 @@ import { useAuth } from "../../contexts/AuthContext";
 import Sidebar from "./Sidebar";
 import TopBar from "./TopBar";
 
-const Layout: React.FC<{ children: React.ReactNode; fullWidth?: boolean }> = ({
-  children,
-  fullWidth = false,
-}) => {
+const Layout: React.FC<{
+  children: React.ReactNode;
+  fullWidth?: boolean;
+  noPadding?: boolean;
+}> = ({ children, fullWidth = false, noPadding = false }) => {
   const { academicPeriodVersion } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -27,9 +28,11 @@ const Layout: React.FC<{ children: React.ReactNode; fullWidth?: boolean }> = ({
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: 0.1 }}
             className={
-              fullWidth
-                ? "flex-1 w-full py-3 md:py-4 px-4 sm:px-6 lg:px-8"
-                : "flex-1 max-w-8xl w-full mx-auto py-3 md:py-4 px-4 sm:px-6 lg:px-8"
+              noPadding
+                ? "flex-1 w-full"
+                : fullWidth
+                  ? "flex-1 w-full py-3 md:py-4 px-4 sm:px-6 lg:px-8"
+                  : "flex-1 max-w-8xl w-full mx-auto py-3 md:py-4 px-4 sm:px-6 lg:px-8"
             }
           >
             {/* Remounting on academicPeriodVersion forces every page under
