@@ -11,6 +11,8 @@ import {
   BookOpen,
   Copy,
   Check,
+  CalendarClock,
+  ShieldCheck,
 } from "lucide-react";
 
 const containerVariants = {
@@ -77,6 +79,26 @@ const Profile: React.FC = () => {
       </div>
     );
 
+  const completenessFields = [
+    user.first_name,
+    user.last_name,
+    user.gender,
+    user.date_of_birth,
+    user.address,
+    user.department,
+    user.external_id,
+    user.profile_image,
+  ];
+  const filledCount = completenessFields.filter(Boolean).length;
+  const completeness = Math.round(
+    (filledCount / completenessFields.length) * 100,
+  );
+
+  const currentPeriod =
+    user.currentAcademicTerm?.name && user.currentAcademicYear?.name
+      ? `${user.currentAcademicTerm.name} · ${user.currentAcademicYear.name}`
+      : null;
+
   // Data Card Component
   const DataCard = ({
     title,
@@ -97,7 +119,9 @@ const Profile: React.FC = () => {
     return (
       <motion.div
         variants={itemVariants}
-        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 h-full"
+        whileHover={{ y: -3 }}
+        transition={{ type: "spring", stiffness: 300, damping: 20 }}
+        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm hover:shadow-md p-6 h-full"
       >
         <div className="flex items-center gap-2.5 mb-4 pb-4 border-b border-gray-100 dark:border-border-dark/30">
           <div className={`p-2 rounded-2xl ${colorClasses[color]}`}>
@@ -161,17 +185,29 @@ const Profile: React.FC = () => {
         variants={itemVariants}
         className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm overflow-hidden"
       >
-        <div className="h-28 sm:h-32 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 relative overflow-hidden">
+        <div className="h-32 sm:h-40 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20" />
-          <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute right-16 bottom-0 w-24 h-24 bg-white/10 rounded-full blur-xl" />
+          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.06] to-transparent" />
+          <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/10 rounded-full blur-3xl" />
+          <div className="absolute left-1/3 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
+
+          {/* Message Toast */}
+          {message && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`absolute top-4 right-4 px-4 py-2 rounded-full text-sm font-medium shadow-lg ${message.type === "success" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/90 dark:text-emerald-300" : "bg-red-50 text-red-700 dark:bg-red-900/90 dark:text-red-300"}`}
+            >
+              {message.text}
+            </motion.div>
+          )}
         </div>
-        <div className="px-6 pb-5">
+        <div className="px-6 pb-6">
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
             {/* Profile Picture & Upload — floats up over the gradient banner
                 independently of the text below, which stays put in the
                 white area. */}
-            <div className="shrink-0 -mt-10 sm:-mt-12 p-1 bg-card-light dark:bg-card-dark rounded-full shadow-lg w-fit">
+            <div className="relative shrink-0 -mt-12 sm:-mt-14 p-1 bg-card-light dark:bg-card-dark rounded-full shadow-lg w-fit">
               <ProfilePictureUpload
                 compact
                 onUploadSuccess={handleProfilePictureUpdate}
@@ -179,34 +215,67 @@ const Profile: React.FC = () => {
                   setMessage({ type: "error", text: msg })
                 }
               />
+              <span
+                className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-card-light dark:border-card-dark"
+                title="Active now"
+              />
             </div>
 
             {/* Name & Role */}
             <div className="flex-1 min-w-0 pb-1">
-              <h1 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark truncate">
-                {user.first_name} {user.last_name}
-              </h1>
-              <div className="flex items-center flex-wrap gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-1.5">
-                <span className="flex items-center gap-1.5">
-                  <Mail size={14} className="text-gray-400 dark:text-gray-500" /> {user.email}
-                </span>
-                <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full hidden sm:block" />
+              <div className="flex items-center flex-wrap gap-2">
+                <h1 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark truncate">
+                  {user.first_name} {user.last_name}
+                </h1>
                 <span className="capitalize px-3 py-1 bg-blue-100 dark:bg-blue-900/20 rounded-full text-blue-700 dark:text-blue-400 text-xs font-semibold">
                   {user.role}
                 </span>
               </div>
+              <div className="flex items-center flex-wrap gap-x-3 gap-y-1.5 text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-1.5">
+                <span className="flex items-center gap-1.5 group">
+                  <Mail size={14} className="text-gray-400 dark:text-gray-500 shrink-0" />
+                  {user.email}
+                  <button
+                    onClick={() => handleCopy("email", user.email)}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 hover:text-blue-600"
+                    title="Copy email"
+                  >
+                    {copiedField === "email" ? (
+                      <Check className="w-3.5 h-3.5 text-emerald-500" />
+                    ) : (
+                      <Copy className="w-3.5 h-3.5" />
+                    )}
+                  </button>
+                </span>
+                {currentPeriod && (
+                  <span className="flex items-center gap-1.5">
+                    <CalendarClock size={14} className="text-gray-400 dark:text-gray-500" />
+                    {currentPeriod}
+                  </span>
+                )}
+              </div>
             </div>
+          </div>
 
-            {/* Message Toast */}
-            {message && (
+          {/* Profile completeness */}
+          <div className="mt-5 pt-4 border-t border-gray-100 dark:border-border-dark/30">
+            <div className="flex items-center justify-between text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 mb-1.5">
+              <span className="flex items-center gap-1.5">
+                <ShieldCheck size={14} className="text-gray-400 dark:text-gray-500" />
+                Profile completeness
+              </span>
+              <span className="text-text-primary-light dark:text-text-primary-dark">
+                {completeness}%
+              </span>
+            </div>
+            <div className="h-1.5 w-full bg-gray-100 dark:bg-gray-800 rounded-full overflow-hidden">
               <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium ${message.type === "success" ? "bg-emerald-50 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-900/20" : "bg-red-50 text-red-700 dark:text-red-400 dark:bg-red-900/20"}`}
-              >
-                {message.text}
-              </motion.div>
-            )}
+                initial={{ width: 0 }}
+                animate={{ width: `${completeness}%` }}
+                transition={{ duration: 0.8, ease: "easeOut", delay: 0.2 }}
+                className="h-full bg-gradient-to-r from-blue-500 to-indigo-500 rounded-full"
+              />
+            </div>
           </div>
         </div>
       </motion.div>
