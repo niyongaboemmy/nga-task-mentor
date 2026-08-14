@@ -695,7 +695,7 @@ const QuizResultsPage: React.FC = () => {
                     {/* Collapsible Header */}
                     <button
                       onClick={() => toggleQuestion(attempt.question_id)}
-                      className="w-full text-left px-6 py-5 flex items-start justify-between gap-4 group"
+                      className="w-full text-left px-6 py-3 flex items-start justify-between gap-4 group"
                     >
                       <div className="flex flex-wrap items-center gap-3 flex-1 min-w-0">
                         {/* Question number */}

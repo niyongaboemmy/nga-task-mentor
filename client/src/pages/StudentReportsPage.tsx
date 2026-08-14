@@ -533,7 +533,7 @@ const StudentReportsPage: React.FC = () => {
 
               <Link
                 to={`/courses/${report.courseId}/reports`}
-                className="w-full flex items-center justify-center gap-2 px-6 py-4 bg-gray-50 dark:bg-gray-800/50 text-text-secondary-light dark:text-text-secondary-dark font-bold uppercase tracking-wider text-xs rounded-full hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-blue-500/20"
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-50 dark:bg-gray-800/50 text-text-secondary-light dark:text-text-secondary-dark font-bold uppercase tracking-wider text-xs rounded-full hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-blue-500/20"
               >
                 <span>View Full Report</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />

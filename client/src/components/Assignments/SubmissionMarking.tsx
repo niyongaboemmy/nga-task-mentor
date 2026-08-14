@@ -406,7 +406,7 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="group relative overflow-hidden px-10 py-5 bg-blue-600 dark:bg-blue-700 text-white rounded-2xl font-bold text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
+            className="group relative overflow-hidden px-6 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-full font-bold text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             <div className="relative flex items-center gap-3">
               {isSubmitting ? (
