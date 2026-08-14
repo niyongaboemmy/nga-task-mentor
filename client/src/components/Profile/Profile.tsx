@@ -7,10 +7,12 @@ import {
   User,
   MapPin,
   Mail,
-  Hash,
+  Fingerprint,
   Briefcase,
-  Award,
   BookOpen,
+  Copy,
+  Check,
+  Camera,
 } from "lucide-react";
 
 const containerVariants = {
@@ -43,6 +45,13 @@ const Profile: React.FC = () => {
     text: string;
   } | null>(null);
   const [imageLoading, setImageLoading] = useState(true);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
+  const handleCopy = (label: string, value: string) => {
+    navigator.clipboard.writeText(value);
+    setCopiedField(label);
+    setTimeout(() => setCopiedField(null), 1500);
+  };
 
   const handleProfilePictureUpdate = async (imageUrl: string) => {
     try {
@@ -75,25 +84,36 @@ const Profile: React.FC = () => {
   const DataCard = ({
     title,
     icon: Icon,
+    color,
     children,
   }: {
     title: string;
     icon: any;
+    color: "blue" | "violet" | "emerald";
     children: React.ReactNode;
-  }) => (
-    <motion.div
-      variants={itemVariants}
-      className="bg-white dark:bg-gray-900 rounded-2xl p-5 border border-gray-100 dark:border-gray-800 h-full"
-    >
-      <div className="flex items-center gap-2 mb-4 text-text-primary-light dark:text-text-primary-dark font-semibold pb-3 border-b border-gray-100 dark:border-gray-800">
-        <div className="p-1.5 bg-blue-50 dark:bg-blue-900/20 rounded-lg text-blue-600 dark:text-blue-400">
-          <Icon size={18} />
+  }) => {
+    const colorClasses = {
+      blue: "bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400",
+      violet: "bg-violet-100 dark:bg-violet-900/20 text-violet-600 dark:text-violet-400",
+      emerald: "bg-emerald-100 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400",
+    };
+    return (
+      <motion.div
+        variants={itemVariants}
+        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 h-full"
+      >
+        <div className="flex items-center gap-2.5 mb-4 pb-4 border-b border-gray-100 dark:border-border-dark/30">
+          <div className={`p-2 rounded-2xl ${colorClasses[color]}`}>
+            <Icon size={18} />
+          </div>
+          <h3 className="font-semibold text-text-primary-light dark:text-text-primary-dark">
+            {title}
+          </h3>
         </div>
-        {title}
-      </div>
-      <div className="space-y-3">{children}</div>
-    </motion.div>
-  );
+        <div className="space-y-3.5">{children}</div>
+      </motion.div>
+    );
+  };
 
   // Field Component
   const Field = ({
@@ -107,33 +127,25 @@ const Profile: React.FC = () => {
   }) => (
     <div className="flex justify-between items-center text-sm group">
       <span className="text-text-secondary-light dark:text-text-secondary-dark/70">{label}</span>
-      <div className="flex items-center gap-2">
-        <span className="font-medium text-gray-900 dark:text-white dark:text-gray-200 text-right">
+      <div className="flex items-center gap-1.5">
+        <span className="font-medium text-text-primary-light dark:text-text-primary-dark text-right">
           {value || (
-            <span className="text-gray-300 dark:text-gray-600 italic">
+            <span className="text-gray-400 dark:text-gray-600 italic font-normal">
               Not set
             </span>
           )}
         </span>
         {copyable && value && (
           <button
-            onClick={() => navigator.clipboard.writeText(String(value))}
-            className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 hover:text-blue-600"
+            onClick={() => handleCopy(label, String(value))}
+            className="opacity-0 group-hover:opacity-100 transition-opacity text-blue-500 hover:text-blue-600 shrink-0"
             title="Copy"
           >
-            <svg
-              className="w-3.5 h-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-              />
-            </svg>
+            {copiedField === label ? (
+              <Check className="w-3.5 h-3.5 text-emerald-500" />
+            ) : (
+              <Copy className="w-3.5 h-3.5" />
+            )}
           </button>
         )}
       </div>
@@ -150,29 +162,22 @@ const Profile: React.FC = () => {
       {/* Header */}
       <motion.div
         variants={itemVariants}
-        className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 overflow-hidden"
+        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm overflow-hidden"
       >
-        <div className="h-24 bg-gradient-to-r from-blue-600 to-blue-600 relative">
+        <div className="h-28 sm:h-32 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-600 relative overflow-hidden">
           <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20" />
+          <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
+          <div className="absolute right-16 bottom-0 w-24 h-24 bg-white/10 rounded-full blur-xl" />
         </div>
         <div className="px-6 pb-6">
-          <div className="flex flex-col sm:flex-row gap-5 items-end -mt-10">
+          <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-end -mt-12 sm:-mt-14">
             {/* Profile Picture & Upload */}
-            <div className="relative group">
-              <div className="p-1.5 bg-white dark:bg-gray-900 rounded-2xl inline-block">
-                <div className="w-24 h-24 bg-gray-200 dark:bg-gray-800 rounded-2xl overflow-hidden relative">
+            <div className="relative group shrink-0">
+              <div className="p-1.5 bg-card-light dark:bg-card-dark rounded-3xl inline-block shadow-lg">
+                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-gray-200 dark:bg-gray-800 rounded-2xl overflow-hidden relative">
                   <ProfilePictureUpload
                     onUploadSuccess={handleProfilePictureUpdate}
                   />
-                  {/* We might need to adjust ProfilePictureUpload to render the image itself if not already managing it well 
-                       However, the previous version wrapped it awkwardly. 
-                       Assuming ProfilePictureUpload handles the image display or we should stick to the explicit image logic.
-                       Let's be safe and render the image here if we want full control, BUT ProfilePictureUpload usually handles the hidden input logic.
-                       Let's assume ProfilePictureUpload handles the visuals including the image itself based on context or props.
-                       Wait, existing ProfilePictureUpload (from context) might render a button. 
-                       Let's check if we should render the image explicitly as before. 
-                       Looking at previous code: logic was messy. Let's create a clean container. 
-                   */}
                   {user.profile_image ? (
                     <>
                       {imageLoading && (
@@ -189,19 +194,20 @@ const Profile: React.FC = () => {
                       />
                     </>
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold text-3xl">
+                    <div className="w-full h-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold text-3xl">
                       {user.first_name?.[0]}
                       {user.last_name?.[0]}
                     </div>
                   )}
-                  {/* Overlay hidden upload trigger - assuming ProfilePictureUpload can be invisible or styled */}
-                  <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                  {/* Overlay hidden upload trigger */}
+                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer">
                     <div className="opacity-0 w-full h-full absolute inset-0 overflow-hidden">
                       <ProfilePictureUpload
                         onUploadSuccess={handleProfilePictureUpdate}
                       />
                     </div>
-                    <span className="text-white text-xs font-medium">
+                    <Camera className="w-5 h-5 text-white" />
+                    <span className="text-white text-[11px] font-medium">
                       Change
                     </span>
                   </div>
@@ -210,16 +216,16 @@ const Profile: React.FC = () => {
             </div>
 
             {/* Name & Role */}
-            <div className="flex-1 mb-1">
-              <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            <div className="flex-1 mb-1 pt-2 sm:pt-0">
+              <h1 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                 {user.first_name} {user.last_name}
               </h1>
-              <div className="flex items-center flex-wrap gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-1">
-                <span className="flex items-center gap-1">
-                  <Mail size={14} /> {user.email}
+              <div className="flex items-center flex-wrap gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-1.5">
+                <span className="flex items-center gap-1.5">
+                  <Mail size={14} className="text-gray-400 dark:text-gray-500" /> {user.email}
                 </span>
                 <span className="w-1 h-1 bg-gray-300 dark:bg-gray-600 rounded-full hidden sm:block" />
-                <span className="capitalize px-3 py-0.5 bg-gray-100 dark:bg-gray-800 rounded-full text-text-secondary-light dark:text-text-secondary-dark text-xs font-medium border border-gray-200 dark:border-gray-700">
+                <span className="capitalize px-3 py-1 bg-blue-100 dark:bg-blue-900/20 rounded-full text-blue-700 dark:text-blue-400 text-xs font-semibold">
                   {user.role}
                 </span>
               </div>
@@ -230,7 +236,7 @@ const Profile: React.FC = () => {
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`px-4 py-2 rounded-lg text-sm font-medium ${ message.type === "success" ? "bg-green-50 text-green-700 dark:text-green-400 border border-green-200 dark:bg-green-900/20 dark:border-green-800 dark:text-green-300" : "bg-red-50 text-red-700 dark:text-red-400 border border-red-200 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300" }`}
+                className={`px-4 py-2 rounded-full text-sm font-medium ${message.type === "success" ? "bg-emerald-50 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-900/20" : "bg-red-50 text-red-700 dark:text-red-400 dark:bg-red-900/20"}`}
               >
                 {message.text}
               </motion.div>
@@ -245,7 +251,7 @@ const Profile: React.FC = () => {
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5"
       >
         {/* Personal Details */}
-        <DataCard title="Personal Information" icon={User}>
+        <DataCard title="Personal Information" icon={User} color="blue">
           <Field label="First Name" value={user.first_name} />
           <Field label="Last Name" value={user.last_name} />
           <Field label="Gender" value={user.gender} />
@@ -257,12 +263,12 @@ const Profile: React.FC = () => {
                 : null
             }
           />
-          <div className="pt-2 border-t border-gray-50 dark:border-gray-800/50">
+          <div className="pt-3.5 border-t border-gray-100 dark:border-border-dark/30">
             <div className="flex items-start gap-2 text-sm">
               <MapPin size={16} className="text-gray-400 dark:text-gray-500 mt-0.5 shrink-0" />
               <span className="text-text-secondary-light dark:text-text-secondary-dark">
                 {user.address || (
-                  <span className="text-gray-400 dark:text-gray-500 italic">
+                  <span className="text-gray-400 dark:text-gray-600 italic">
                     No address provided
                   </span>
                 )}
@@ -272,8 +278,7 @@ const Profile: React.FC = () => {
         </DataCard>
 
         {/* System Identity */}
-        <DataCard title="System Identity" icon={FingerprintIcon || Hash}>
-          {/* Fallback to Hash if Fingerprint not in lucide defaults loaded */}
+        <DataCard title="System Identity" icon={Fingerprint} color="violet">
           <Field label="User ID" value={user.id} copyable />
           <Field label="MIS ID" value={user.mis_user_id} copyable />
           <Field label="External ID" value={user.external_id} copyable />
@@ -281,12 +286,12 @@ const Profile: React.FC = () => {
         </DataCard>
 
         {/* Academic / Work Info */}
-        <DataCard title="Academic & Department" icon={Briefcase}>
+        <DataCard title="Academic & Department" icon={Briefcase} color="emerald">
           <Field label="Department" value={user.department} />
           <Field label="Role" value={user.role} />
 
           {user.assigned_programs && user.assigned_programs.length > 0 && (
-            <div className="mt-4">
+            <div className="pt-3.5 border-t border-gray-100 dark:border-border-dark/30">
               <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider block mb-2">
                 Assigned Programs
               </span>
@@ -294,7 +299,7 @@ const Profile: React.FC = () => {
                 {user.assigned_programs.map((prog: any, i: number) => (
                   <span
                     key={i}
-                    className="inline-flex items-center px-3 py-1 rounded-2xl text-xs font-medium bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300 border border-blue-100 dark:border-blue-800/50"
+                    className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-900/20 dark:text-emerald-300"
                   >
                     <BookOpen size={12} className="mr-1.5 opacity-70" />
                     {prog.name || prog}
@@ -308,8 +313,5 @@ const Profile: React.FC = () => {
     </motion.div>
   );
 };
-
-// Helper for dynamic icon import fallback if needed, but Hash is safe
-const FingerprintIcon = Award;
 
 export default Profile;
