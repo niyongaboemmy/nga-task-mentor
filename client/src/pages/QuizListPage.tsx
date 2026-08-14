@@ -248,13 +248,15 @@ const QuizListPage: React.FC = () => {
         <div className="mb-8">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <Link
-                to={`/courses/${courseId}`}
-                className="inline-flex items-center px-6 py-3 border border-border-light dark:border-border-dark/50 rounded-full text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark transition-all duration-200"
-              >
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Course
-              </Link>
+              {courseId && (
+                <Link
+                  to={`/courses/${courseId}`}
+                  className="inline-flex items-center px-6 py-3 border border-border-light dark:border-border-dark/50 rounded-full text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark transition-all duration-200"
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to Course
+                </Link>
+              )}
               <div>
                 <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                   Course Quizzes
