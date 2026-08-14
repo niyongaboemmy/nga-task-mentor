@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import ProfilePictureUpload from "./ProfilePictureUpload";
-import { getProfileImageUrl } from "../../utils/imageUrl";
 import {
   User,
   MapPin,
@@ -12,7 +11,6 @@ import {
   BookOpen,
   Copy,
   Check,
-  Camera,
 } from "lucide-react";
 
 const containerVariants = {
@@ -44,7 +42,6 @@ const Profile: React.FC = () => {
     type: "success" | "error";
     text: string;
   } | null>(null);
-  const [imageLoading, setImageLoading] = useState(true);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleCopy = (label: string, value: string) => {
@@ -172,47 +169,14 @@ const Profile: React.FC = () => {
         <div className="px-6 pb-6">
           <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-end -mt-12 sm:-mt-14">
             {/* Profile Picture & Upload */}
-            <div className="relative group shrink-0">
-              <div className="p-1.5 bg-card-light dark:bg-card-dark rounded-3xl inline-block shadow-lg">
-                <div className="w-24 h-24 sm:w-28 sm:h-28 bg-gray-200 dark:bg-gray-800 rounded-2xl overflow-hidden relative">
-                  <ProfilePictureUpload
-                    onUploadSuccess={handleProfilePictureUpdate}
-                  />
-                  {user.profile_image ? (
-                    <>
-                      {imageLoading && (
-                        <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
-                          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
-                        </div>
-                      )}
-                      <img
-                        src={getProfileImageUrl(user.profile_image) || ""}
-                        alt="Profile"
-                        className={`w-full h-full object-cover transition-opacity duration-300 ${imageLoading ? "opacity-0" : "opacity-100"}`}
-                        onLoad={() => setImageLoading(false)}
-                        onError={() => setImageLoading(false)}
-                      />
-                    </>
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 font-bold text-3xl">
-                      {user.first_name?.[0]}
-                      {user.last_name?.[0]}
-                    </div>
-                  )}
-                  {/* Overlay hidden upload trigger */}
-                  <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1 cursor-pointer">
-                    <div className="opacity-0 w-full h-full absolute inset-0 overflow-hidden">
-                      <ProfilePictureUpload
-                        onUploadSuccess={handleProfilePictureUpdate}
-                      />
-                    </div>
-                    <Camera className="w-5 h-5 text-white" />
-                    <span className="text-white text-[11px] font-medium">
-                      Change
-                    </span>
-                  </div>
-                </div>
-              </div>
+            <div className="shrink-0 p-1.5 bg-card-light dark:bg-card-dark rounded-full shadow-lg">
+              <ProfilePictureUpload
+                compact
+                onUploadSuccess={handleProfilePictureUpdate}
+                onUploadError={(msg) =>
+                  setMessage({ type: "error", text: msg })
+                }
+              />
             </div>
 
             {/* Name & Role */}

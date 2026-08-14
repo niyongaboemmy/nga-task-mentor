@@ -6,13 +6,22 @@ import { getProfileImageUrl } from "../../utils/imageUrl";
 interface ProfilePictureUploadProps {
   onUploadSuccess?: (imageUrl: string) => void;
   onUploadStateChange?: (isUploading: boolean) => void;
+  /** Fires with an error message when compact mode suppresses the inline
+   * status panel, so the parent can surface it via its own toast. */
+  onUploadError?: (message: string) => void;
   className?: string;
+  /** Shrinks the avatar circle and hides the inline status panel, for
+   * embedding inside a page's own hero/header layout that already
+   * handles success/error feedback itself. */
+  compact?: boolean;
 }
 
 const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
   onUploadSuccess,
   onUploadStateChange,
+  onUploadError,
   className = "",
+  compact = false,
 }) => {
   const { user } = useAuth();
   const [isDragOver, setIsDragOver] = useState(false);
@@ -29,14 +38,22 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
     }
   }, [isUploading, onUploadStateChange]);
 
+  const reportError = useCallback(
+    (msg: string) => {
+      setError(msg);
+      onUploadError?.(msg);
+    },
+    [onUploadError],
+  );
+
   const handleFileSelect = useCallback((file: File) => {
     if (!file.type.startsWith("image/")) {
-      setError("Please select a valid image file ✨");
+      reportError("Please select a valid image file");
       return;
     }
 
     if (file.size > 5 * 1024 * 1024) {
-      setError("File size must be less than 5MB 📏");
+      reportError("File size must be less than 5MB");
       return;
     }
 
@@ -49,7 +66,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
     reader.readAsDataURL(file);
 
     uploadFile(file);
-  }, []);
+  }, [reportError]);
 
   const uploadFile = async (file: File) => {
     setIsUploading(true);
@@ -81,7 +98,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       setUploadProgress(0);
     } catch (error: any) {
       console.error("Upload error:", error);
-      setError(error?.response?.data?.message || "Failed to upload image 😔");
+      reportError(error?.response?.data?.message || "Failed to upload image");
       setUploadProgress(0);
     } finally {
       setIsUploading(false);
@@ -132,7 +149,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
       if (onUploadSuccess) onUploadSuccess("");
     } catch (error: any) {
       console.error("Delete error:", error);
-      setError(error?.response?.data?.message || "Failed to delete image 😔");
+      reportError(error?.response?.data?.message || "Failed to delete image");
     } finally {
       setIsUploading(false);
     }
@@ -147,12 +164,13 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
 
   return (
     <div className={`profile-picture-upload ${className}`}>
-      <div className="flex flex-col items-center gap-6">
+      <div className={`flex flex-col items-center ${compact ? "gap-0" : "gap-6"}`}>
         {/* Profile Picture Display */}
         <div className="relative group">
           <div
             className={`
-              relative w-40 h-40 rounded-full border-4 transition-all duration-300 cursor-pointer
+              relative rounded-full transition-all duration-300 cursor-pointer
+              ${compact ? "w-24 h-24 border-2" : "w-40 h-40 border-4"}
               ${
                 isDragOver
                   ? "border-blue-400 scale-105 shadow-xl shadow-blue-200"
@@ -192,6 +210,22 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
                   </div>
                 </div>
               </>
+            ) : compact ? (
+              <div className="flex flex-col items-center justify-center h-full text-center p-2">
+                <svg
+                  className="w-7 h-7 text-blue-400 dark:text-blue-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+                  />
+                </svg>
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center p-3">
                 <div className="w-12 h-12 bg-gradient-to-br from-blue-400 via-blue-500 to-blue-500 rounded-full flex items-center justify-center mb-2 animate-pulse shadow-md">
@@ -301,11 +335,11 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
                 e.stopPropagation();
                 handleDelete();
               }}
-              className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white rounded-full flex items-center justify-center shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 animate-pulse"
+              className={`absolute bg-gradient-to-r from-red-400 to-red-500 hover:from-red-500 hover:to-red-600 text-white rounded-full flex items-center justify-center shadow-md hover:shadow-lg transform hover:scale-105 transition-all duration-150 ${compact ? "-top-1 -right-1 w-6 h-6" : "-top-2 -right-2 w-8 h-8 animate-pulse"}`}
               title="Remove photo"
             >
               <svg
-                className="w-4 h-4"
+                className={compact ? "w-3 h-3" : "w-4 h-4"}
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -336,7 +370,7 @@ const ProfilePictureUpload: React.FC<ProfilePictureUploadProps> = ({
         />
 
         {/* Status Messages - Compact Layout */}
-        {(error ||
+        {!compact && (error ||
           (imageUrl && !isUploading) ||
           (isUploading && uploadProgress > 0)) && (
           <div className="flex-1 min-w-0">
