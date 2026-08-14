@@ -166,10 +166,12 @@ const Profile: React.FC = () => {
           <div className="absolute -right-10 -top-10 w-40 h-40 bg-white/10 rounded-full blur-2xl" />
           <div className="absolute right-16 bottom-0 w-24 h-24 bg-white/10 rounded-full blur-xl" />
         </div>
-        <div className="px-6 pb-6">
-          <div className="flex flex-col sm:flex-row gap-5 items-start sm:items-end -mt-12 sm:-mt-14">
-            {/* Profile Picture & Upload */}
-            <div className="shrink-0 p-1.5 bg-card-light dark:bg-card-dark rounded-full shadow-lg">
+        <div className="px-6 pb-5">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4">
+            {/* Profile Picture & Upload — floats up over the gradient banner
+                independently of the text below, which stays put in the
+                white area. */}
+            <div className="shrink-0 -mt-10 sm:-mt-12 p-1 bg-card-light dark:bg-card-dark rounded-full shadow-lg w-fit">
               <ProfilePictureUpload
                 compact
                 onUploadSuccess={handleProfilePictureUpdate}
@@ -180,8 +182,8 @@ const Profile: React.FC = () => {
             </div>
 
             {/* Name & Role */}
-            <div className="flex-1 mb-1 pt-2 sm:pt-0">
-              <h1 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            <div className="flex-1 min-w-0 pb-1">
+              <h1 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark truncate">
                 {user.first_name} {user.last_name}
               </h1>
               <div className="flex items-center flex-wrap gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-1.5">
@@ -200,7 +202,7 @@ const Profile: React.FC = () => {
               <motion.div
                 initial={{ opacity: 0, x: 20 }}
                 animate={{ opacity: 1, x: 0 }}
-                className={`px-4 py-2 rounded-full text-sm font-medium ${message.type === "success" ? "bg-emerald-50 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-900/20" : "bg-red-50 text-red-700 dark:text-red-400 dark:bg-red-900/20"}`}
+                className={`shrink-0 px-4 py-2 rounded-full text-sm font-medium ${message.type === "success" ? "bg-emerald-50 text-emerald-700 dark:text-emerald-400 dark:bg-emerald-900/20" : "bg-red-50 text-red-700 dark:text-red-400 dark:bg-red-900/20"}`}
               >
                 {message.text}
               </motion.div>
