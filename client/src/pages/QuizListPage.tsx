@@ -9,6 +9,7 @@ import {
   updateQuiz,
 } from "../store/slices/quizSlice";
 import QuizListItem from "../components/Quizzes/QuizListItem";
+import { StatCard } from "../components/Dashboard/dashboardUi";
 import {
   ChevronLeft,
   ChevronRight,
@@ -22,6 +23,9 @@ import {
   SortAsc,
   SortDesc,
   Circle,
+  CheckCircle2,
+  FileEdit,
+  Award,
 } from "lucide-react";
 
 const QuizListPage: React.FC = () => {
@@ -261,75 +265,52 @@ const QuizListPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Link
-                to={`/courses/${courseId}/quizzes/create`}
-                className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Create Quiz
-              </Link>
-            </div>
+            {/* Only shown once quizzes exist — when the course has none yet,
+                the empty state below already offers a single, prominent
+                "Create Your First Quiz" CTA, so a second identical button
+                here would just be a duplicate action competing for attention. */}
+            {quizzes.length > 0 && (
+              <div className="flex items-center gap-3">
+                <Link
+                  to={`/courses/${courseId}/quizzes/create`}
+                  className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full font-medium transition-all duration-200 hover:scale-105 hover:shadow-lg"
+                >
+                  <Plus className="h-5 w-5 mr-2" />
+                  Create Quiz
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 border border-white dark:border-border-dark/30">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    Total Quizzes
-                  </p>
-                  <p className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
-                    {quizzes.length}
-                  </p>
-                </div>
-                <BookOpen className="h-8 w-8 text-blue-500" />
-              </div>
+          {quizzes.length > 0 && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+              <StatCard
+                icon={<BookOpen className="w-5 h-5" />}
+                value={quizzes.length}
+                label="Total Quizzes"
+                color="blue"
+              />
+              <StatCard
+                icon={<CheckCircle2 className="w-5 h-5" />}
+                value={groupedQuizzes.published.length}
+                label="Published"
+                color="emerald"
+              />
+              <StatCard
+                icon={<FileEdit className="w-5 h-5" />}
+                value={groupedQuizzes.draft.length}
+                label="Drafts"
+                color="amber"
+              />
+              <StatCard
+                icon={<Award className="w-5 h-5" />}
+                value={groupedQuizzes.completed.length}
+                label="Completed"
+                color="indigo"
+              />
             </div>
-
-            <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 border border-white dark:border-border-dark/30">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    Published
-                  </p>
-                  <p className="text-2xl font-bold text-green-600 dark:text-green-400">
-                    {groupedQuizzes.published.length}
-                  </p>
-                </div>
-                <Circle className="h-8 w-8 fill-current text-green-500" />
-              </div>
-            </div>
-
-            <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 border border-white dark:border-border-dark/30">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    Drafts
-                  </p>
-                  <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
-                    {groupedQuizzes.draft.length}
-                  </p>
-                </div>
-                <Circle className="h-8 w-8 fill-current text-yellow-500" />
-              </div>
-            </div>
-
-            <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 border border-white dark:border-border-dark/30">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    Completed
-                  </p>
-                  <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                    {groupedQuizzes.completed.length}
-                  </p>
-                </div>
-                <Circle className="h-8 w-8 fill-current text-blue-500" />
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Search and Filters */}
           <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 mb-6">
@@ -470,7 +451,7 @@ const QuizListPage: React.FC = () => {
                     {quizzes.map((quiz) => (
                       <div
                         key={quiz.id}
-                        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 transition-colors p-6"
+                        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 hover:border-blue-200 dark:hover:border-blue-900 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 p-6"
                       >
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
@@ -524,7 +505,7 @@ const QuizListPage: React.FC = () => {
                                 )
                               }
                               disabled={publicLoading === quiz.id.toString()}
-                              className={`px-3 py-1 text-xs font-medium rounded-full border transition-colors ${
+                              className={`px-3 py-1.5 text-xs font-medium rounded-full border transition-colors ${
                                 quiz.is_public
                                   ? "bg-purple-100 text-purple-800 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400 dark:border-purple-800"
                                   : "bg-gray-100 text-gray-600 border-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700"
@@ -540,7 +521,7 @@ const QuizListPage: React.FC = () => {
                             <button
                               onClick={() => handleDeleteQuiz(quiz.id)}
                               disabled={deleteLoading === quiz.id.toString()}
-                              className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-full disabled:opacity-50"
+                              className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white text-xs font-medium rounded-full disabled:opacity-50"
                             >
                               {deleteLoading === quiz.id.toString()
                                 ? "..."
@@ -563,7 +544,7 @@ const QuizListPage: React.FC = () => {
             <button
               onClick={() => handlePageChange(currentPage - 1)}
               disabled={currentPage === 1}
-              className="p-3 rounded-2xl bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="p-3 rounded-full bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -578,7 +559,7 @@ const QuizListPage: React.FC = () => {
                   <button
                     key={pageNum}
                     onClick={() => handlePageChange(pageNum)}
-                    className={`px-4 py-3 rounded-2xl text-sm font-medium transition-all duration-200 hover:scale-105 ${
+                    className={`px-4 py-3 rounded-full text-sm font-medium transition-all duration-200 hover:scale-105 ${
                       currentPage === pageNum
                         ? "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md"
                         : "bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700"
@@ -593,7 +574,7 @@ const QuizListPage: React.FC = () => {
             <button
               onClick={() => handlePageChange(currentPage + 1)}
               disabled={currentPage === totalPages}
-              className="p-3 rounded-2xl bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              className="p-3 rounded-full bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -602,16 +583,16 @@ const QuizListPage: React.FC = () => {
 
         {/* Empty State */}
         {filteredAndSortedQuizzes.length === 0 && (
-          <div className="text-center py-16">
-            <div className="mx-auto h-24 w-24 bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-900/30 dark:to-blue-800/30 rounded-2xl flex items-center justify-center mb-6">
-              <Search className="h-12 w-12 text-blue-400" />
+          <div className="text-center py-12">
+            <div className="mx-auto h-16 w-16 bg-blue-100 dark:bg-blue-900/20 rounded-2xl flex items-center justify-center mb-5">
+              <Search className="h-7 w-7 text-blue-500 dark:text-blue-400" />
             </div>
-            <h3 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
+            <h3 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark mb-2">
               {searchTerm || statusFilter !== "all" || typeFilter !== "all"
                 ? "No quizzes match your filters"
                 : "No quizzes yet"}
             </h3>
-            <p className="text-text-secondary-light dark:text-text-secondary-dark mb-8 max-w-md mx-auto">
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mb-6 max-w-md mx-auto">
               {searchTerm || statusFilter !== "all" || typeFilter !== "all"
                 ? "Try adjusting your search terms or filters to find what you're looking for."
                 : "Create your first quiz to start assessing student learning and progress."}
