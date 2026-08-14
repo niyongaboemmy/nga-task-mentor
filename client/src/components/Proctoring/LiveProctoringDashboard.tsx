@@ -1591,36 +1591,36 @@ const LiveProctoringDashboard: React.FC = () => {
     // a live camera-monitoring wall reads as a proper "surveillance/proctoring"
     // console (and video thumbnails stay legible) rather than another light
     // content page. Same exemption precedent as the code-editor cluster.
-    <div className="min-h-screen bg-[#0b0f17]">
+    <div className="min-h-screen bg-black">
       {/* Header */}
-      <div className="bg-gray-900/80 backdrop-blur-md border-b border-gray-800 px-4 sm:px-6 lg:px-8 py-4 sticky top-0 z-10">
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
+      <div className="bg-[#0a0a0a] backdrop-blur-md border-b border-gray-900 px-4 sm:px-6 lg:px-8 py-2.5 sticky top-0 z-10">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
             <button
               onClick={() => window.history.back()}
-              className="p-2.5 rounded-full hover:bg-gray-800 transition-colors text-gray-400 hover:text-white shrink-0"
+              className="p-2 rounded-full hover:bg-gray-900 transition-colors text-gray-500 hover:text-white shrink-0"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4" />
             </button>
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-blue-500/20 shrink-0">
-                <Video className="w-5 h-5 text-white" />
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="relative w-8 h-8 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shadow-md shadow-blue-500/20 shrink-0">
+                <Video className="w-4 h-4 text-white" />
                 <span
-                  className={`absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full border-2 border-gray-900 ${
+                  className={`absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-black ${
                     socketConnected ? "bg-emerald-400 animate-pulse" : "bg-red-500"
                   }`}
                 />
               </div>
               <div className="min-w-0">
-                <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight truncate">
+                <h1 className="text-sm sm:text-base font-bold text-white tracking-tight truncate">
                   Live Proctoring Dashboard
                 </h1>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <p className="text-xs sm:text-sm text-gray-400 truncate">
+                  <p className="text-[11px] text-gray-500 truncate hidden sm:block">
                     Real-time student monitoring
                   </p>
                   <span
-                    className={`hidden sm:flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border shrink-0 ${
+                    className={`hidden sm:flex items-center gap-1.5 text-[11px] font-medium px-1.5 py-0.5 rounded-full border shrink-0 ${
                       socketConnected
                         ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
                         : "bg-red-500/10 border-red-500/30 text-red-400"
@@ -1633,21 +1633,21 @@ const LiveProctoringDashboard: React.FC = () => {
               </div>
             </div>
           </div>
-          <div className="flex gap-2 shrink-0">
+          <div className="flex gap-1.5 shrink-0">
             <button
               onClick={reconnectWebRTC}
               disabled={isReconnecting}
-              className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-700 disabled:text-gray-500 text-white text-sm font-semibold transition-colors rounded-full flex items-center gap-2"
+              className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 disabled:bg-gray-800 disabled:text-gray-500 text-white text-xs font-semibold transition-colors rounded-full flex items-center gap-1.5"
             >
-              <RefreshCw className={`w-4 h-4 ${isReconnecting ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isReconnecting ? "animate-spin" : ""}`} />
               <span className="hidden sm:inline">{isReconnecting ? "Reconnecting..." : "Reconnect"}</span>
             </button>
             <button
               onClick={loadActiveStreams}
-              className="p-3 bg-gray-800 hover:bg-gray-700 border border-gray-700 text-gray-300 hover:text-white transition-colors rounded-full"
+              className="p-2 bg-gray-900 hover:bg-gray-800 border border-gray-800 text-gray-400 hover:text-white transition-colors rounded-full"
               title="Refresh"
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
                   strokeLinecap="round"
                   strokeLinejoin="round"
@@ -1660,77 +1660,77 @@ const LiveProctoringDashboard: React.FC = () => {
         </div>
       </div>
 
-      <div className="px-4 sm:px-6 lg:px-8 py-6">
+      <div className="px-4 sm:px-6 lg:px-8 py-4">
         {/* Error Message */}
         {error && (
-          <div className="bg-red-500/10 border border-red-500/30 p-4 mb-6 rounded-2xl">
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 bg-red-500 rounded-full flex items-center justify-center shrink-0">
-                <AlertTriangle className="w-5 h-5 text-white" />
+          <div className="bg-red-500/10 border border-red-500/30 p-3 mb-4 rounded-xl">
+            <div className="flex items-center gap-2.5">
+              <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center shrink-0">
+                <AlertTriangle className="w-3.5 h-3.5 text-white" />
               </div>
-              <p className="text-red-300 text-sm font-medium">{error}</p>
+              <p className="text-red-300 text-xs font-medium">{error}</p>
             </div>
           </div>
         )}
 
         {/* Section header + status pills */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="w-9 h-9 rounded-2xl bg-blue-500/15 flex items-center justify-center shrink-0">
-            <Circle className="w-4 h-4 text-blue-400 fill-current animate-pulse" />
+        <div className="flex items-center gap-2.5 mb-3.5">
+          <div className="w-7 h-7 rounded-xl bg-blue-500/15 flex items-center justify-center shrink-0">
+            <Circle className="w-3.5 h-3.5 text-blue-400 fill-current animate-pulse" />
           </div>
-          <h2 className="text-lg font-bold text-white">Live Student Videos</h2>
-          <div className="flex items-center gap-2 ml-auto">
-            <div className="px-3 py-1 bg-emerald-500/15 text-emerald-400 text-xs font-semibold rounded-full flex items-center gap-1.5">
-              <div className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+          <h2 className="text-sm font-bold text-white">Live Student Videos</h2>
+          <div className="flex items-center gap-1.5 ml-auto">
+            <div className="px-2.5 py-1 bg-emerald-500/15 text-emerald-400 text-[11px] font-semibold rounded-full flex items-center gap-1.5">
+              <div className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse" />
               {getFilteredStreams().filter((s) => s.isLive).length} Live
             </div>
-            <div className="px-3 py-1 bg-gray-800 text-gray-400 text-xs font-semibold rounded-full">
+            <div className="px-2.5 py-1 bg-gray-900 text-gray-500 text-[11px] font-semibold rounded-full">
               {getFilteredStreams().length} Total
             </div>
           </div>
         </div>
 
         {/* Search and Filters */}
-        <div className="flex flex-col md:flex-row gap-3 mb-6">
+        <div className="flex flex-col md:flex-row gap-2 mb-4">
           <div className="relative flex-1 group">
-            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-gray-500 group-focus-within:text-blue-400 transition-colors" />
+            <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
+              <Search className="h-3.5 w-3.5 text-gray-600 group-focus-within:text-blue-400 transition-colors" />
             </div>
             <input
               type="text"
               placeholder="Search students, emails, or quiz titles..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="block w-full pl-11 pr-10 py-3 bg-gray-900 border border-gray-800 text-gray-100 placeholder:text-gray-500 text-sm rounded-full focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all"
+              className="block w-full pl-10 pr-9 py-2 bg-gray-950 border border-gray-900 text-gray-100 placeholder:text-gray-600 text-xs rounded-full focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500 outline-none transition-all"
             />
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-500 hover:text-red-400 transition-colors"
+                className="absolute inset-y-0 right-0 pr-3.5 flex items-center text-gray-600 hover:text-red-400 transition-colors"
               >
-                <X className="h-4 w-4" />
+                <X className="h-3.5 w-3.5" />
               </button>
             )}
           </div>
 
           {/* Status Filters */}
-          <div className="flex items-center gap-1 bg-gray-900 p-1 rounded-full border border-gray-800 overflow-x-auto">
+          <div className="flex items-center gap-1 bg-gray-950 p-1 rounded-full border border-gray-900 overflow-x-auto">
             <button
               onClick={() => setStatusFilter("all")}
-              className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 whitespace-nowrap ${
+              className={`px-3 py-1.5 text-[11px] font-semibold rounded-full transition-all duration-200 whitespace-nowrap ${
                 statusFilter === "all"
-                  ? "bg-gray-700 text-white shadow-sm"
-                  : "text-gray-400 hover:text-gray-200"
+                  ? "bg-gray-800 text-white shadow-sm"
+                  : "text-gray-500 hover:text-gray-300"
               }`}
             >
               All
             </button>
             <button
               onClick={() => setStatusFilter("online")}
-              className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-3 py-1.5 text-[11px] font-semibold rounded-full transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
                 statusFilter === "online"
-                  ? "bg-gray-700 text-emerald-400 shadow-sm"
-                  : "text-gray-400 hover:text-gray-200"
+                  ? "bg-gray-800 text-emerald-400 shadow-sm"
+                  : "text-gray-500 hover:text-gray-300"
               }`}
             >
               <div className={`w-1.5 h-1.5 rounded-full bg-emerald-400 ${statusFilter === "online" ? "animate-pulse" : ""}`} />
@@ -1738,10 +1738,10 @@ const LiveProctoringDashboard: React.FC = () => {
             </button>
             <button
               onClick={() => setStatusFilter("offline")}
-              className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-3 py-1.5 text-[11px] font-semibold rounded-full transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
                 statusFilter === "offline"
-                  ? "bg-gray-700 text-gray-300 shadow-sm"
-                  : "text-gray-400 hover:text-gray-200"
+                  ? "bg-gray-800 text-gray-300 shadow-sm"
+                  : "text-gray-500 hover:text-gray-300"
               }`}
             >
               <div className="w-1.5 h-1.5 rounded-full bg-gray-500" />
@@ -1749,10 +1749,10 @@ const LiveProctoringDashboard: React.FC = () => {
             </button>
             <button
               onClick={() => setStatusFilter("flagged")}
-              className={`px-4 py-2 text-xs font-semibold rounded-full transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
+              className={`px-3 py-1.5 text-[11px] font-semibold rounded-full transition-all duration-200 flex items-center gap-1.5 whitespace-nowrap ${
                 statusFilter === "flagged"
-                  ? "bg-gray-700 text-red-400 shadow-sm"
-                  : "text-gray-400 hover:text-gray-200"
+                  ? "bg-gray-800 text-red-400 shadow-sm"
+                  : "text-gray-500 hover:text-gray-300"
               }`}
             >
               <Flag className="w-3 h-3" />
@@ -1762,15 +1762,15 @@ const LiveProctoringDashboard: React.FC = () => {
         </div>
 
         {getFilteredStreams().length === 0 ? (
-          <div className="flex items-center justify-center py-24 border border-dashed border-gray-800 rounded-2xl">
+          <div className="flex items-center justify-center py-20 border border-dashed border-gray-900 rounded-2xl">
             <div className="text-center px-4">
-              <div className="w-16 h-16 bg-gray-900 border border-gray-800 rounded-2xl flex items-center justify-center mx-auto mb-5">
-                <VideoOff className="w-7 h-7 text-gray-600" />
+              <div className="w-12 h-12 bg-gray-950 border border-gray-900 rounded-xl flex items-center justify-center mx-auto mb-4">
+                <VideoOff className="w-5 h-5 text-gray-700" />
               </div>
-              <h3 className="text-base font-semibold text-gray-200 mb-1.5">
+              <h3 className="text-sm font-semibold text-gray-300 mb-1">
                 No students found for this quiz
               </h3>
-              <p className="text-sm text-gray-500 max-w-sm">
+              <p className="text-xs text-gray-600 max-w-sm">
                 {selectedQuiz
                   ? "No connected students for the selected quiz."
                   : "Students will appear here when they start their quiz sessions"}
@@ -1778,14 +1778,14 @@ const LiveProctoringDashboard: React.FC = () => {
             </div>
           </div>
         ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3.5">
               {getFilteredStreams().map((stream, index) => (
                 <div
                   key={index + 1}
-                  className="group bg-gray-900 rounded-2xl hover:bg-gray-800 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/30 transition-all duration-200 cursor-pointer overflow-hidden border border-gray-800 hover:border-gray-700"
+                  className="group bg-gray-950 rounded-xl hover:bg-gray-900 hover:-translate-y-0.5 hover:shadow-lg hover:shadow-black/50 transition-all duration-200 cursor-pointer overflow-hidden border border-gray-900 hover:border-gray-800"
                   onClick={() => setSelectedStreamForModal(stream)}
                 >
-                  <div className="aspect-video bg-gray-950 relative overflow-hidden">
+                  <div className="aspect-video bg-black relative overflow-hidden">
                     {stream.stream ? (
                       <>
                         <video
@@ -1809,15 +1809,15 @@ const LiveProctoringDashboard: React.FC = () => {
                         <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                       </>
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                      <div className="w-full h-full flex items-center justify-center bg-black">
                         <div className="text-center">
-                          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-gray-800">
+                          <div className="w-11 h-11 rounded-xl flex items-center justify-center mx-auto mb-2 bg-gray-900">
                             {stream.cameraHidden
-                              ? <VideoOff className="w-8 h-8 text-gray-500" />
-                              : <User className="w-8 h-8 text-gray-500" />
+                              ? <VideoOff className="w-5 h-5 text-gray-600" />
+                              : <User className="w-5 h-5 text-gray-600" />
                             }
                           </div>
-                          <p className="text-xs text-gray-500 font-medium">
+                          <p className="text-[11px] text-gray-600 font-medium">
                             {stream.cameraHidden ? "Camera hidden" : stream.isLive ? "Connecting..." : "No Stream"}
                           </p>
                         </div>
@@ -1825,10 +1825,10 @@ const LiveProctoringDashboard: React.FC = () => {
                     )}
 
                     {/* YouTube-style LIVE indicator */}
-                    <div className="absolute top-3 left-3">
+                    <div className="absolute top-2 left-2">
                       {stream.isLive && (
-                        <div className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-xs font-bold rounded dark:bg-red-700 dark:text-white">
-                          <div className="w-2 h-2 bg-white rounded-full animate-pulse"></div>
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded">
+                          <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse"></div>
                           LIVE
                         </div>
                       )}
@@ -1836,22 +1836,22 @@ const LiveProctoringDashboard: React.FC = () => {
 
                     {/* Exam Status Indicator */}
                     {stream.examStatus && stream.examStatus !== "active" && (
-                      <div className="absolute top-3 left-3">
+                      <div className="absolute top-2 left-2">
                         {stream.examStatus === "paused" && (
-                          <div className="flex items-center gap-1 px-2 py-1 bg-yellow-500 text-white text-xs font-bold rounded dark:bg-yellow-600 dark:text-white">
-                            <PauseCircle className="w-3 h-3" />
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-yellow-500 text-white text-[10px] font-bold rounded">
+                            <PauseCircle className="w-2.5 h-2.5" />
                             PAUSED
                           </div>
                         )}
                         {stream.examStatus === "ended" && (
-                          <div className="flex items-center gap-1 px-2 py-1 bg-red-600 text-white text-xs font-bold rounded dark:bg-red-700 dark:text-white">
-                            <Ban className="w-3 h-3" />
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-600 text-white text-[10px] font-bold rounded">
+                            <Ban className="w-2.5 h-2.5" />
                             ENDED
                           </div>
                         )}
                         {stream.examStatus === "warning" && (
-                          <div className="flex items-center gap-1 px-2 py-1 bg-orange-500 text-white text-xs font-bold rounded dark:bg-orange-600 dark:text-white">
-                            <AlertTriangle className="w-3 h-3" />
+                          <div className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] font-bold rounded">
+                            <AlertTriangle className="w-2.5 h-2.5" />
                             WARNING
                           </div>
                         )}
@@ -1860,9 +1860,9 @@ const LiveProctoringDashboard: React.FC = () => {
 
                     {/* Risk score indicator */}
                     {stream.riskScore >= 60 && (
-                      <div className="absolute top-3 right-3">
-                        <div className="flex items-center gap-1 px-2 py-1 bg-orange-500 text-white text-xs font-bold rounded dark:bg-orange-700 dark:text-white">
-                          <AlertTriangle className="w-3 h-3" />
+                      <div className="absolute top-2 right-2">
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-orange-500 text-white text-[10px] font-bold rounded">
+                          <AlertTriangle className="w-2.5 h-2.5" />
                           {stream.riskScore}
                         </div>
                       </div>
@@ -1870,9 +1870,9 @@ const LiveProctoringDashboard: React.FC = () => {
 
                     {/* Camera hidden indicator */}
                     {stream.cameraHidden && (
-                      <div className="absolute bottom-3 left-3">
-                        <div className="flex items-center gap-1 px-2 py-1 bg-gray-800/90 text-white text-xs font-medium rounded backdrop-blur-sm">
-                          <VideoOff className="w-3 h-3" />
+                      <div className="absolute bottom-2 left-2">
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-gray-900/90 text-white text-[10px] font-medium rounded backdrop-blur-sm">
+                          <VideoOff className="w-2.5 h-2.5" />
                           Camera hidden
                         </div>
                       </div>
@@ -1880,61 +1880,61 @@ const LiveProctoringDashboard: React.FC = () => {
 
                     {/* Flags indicator */}
                     {stream.flagsCount > 0 && (
-                      <div className="absolute bottom-3 right-3">
-                        <div className="flex items-center gap-1 px-2 py-1 bg-red-600/90 text-white text-xs font-medium rounded backdrop-blur-sm dark:bg-red-700/90 dark:text-white">
-                          <Flag className="w-3 h-3" />
+                      <div className="absolute bottom-2 right-2">
+                        <div className="flex items-center gap-1 px-1.5 py-0.5 bg-red-600/90 text-white text-[10px] font-medium rounded backdrop-blur-sm">
+                          <Flag className="w-2.5 h-2.5" />
                           {stream.flagsCount}
                         </div>
                       </div>
                     )}
 
                     {/* Play overlay on hover */}
-                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/10">
-                      <div className="w-14 h-14 bg-white/15 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
-                        <Play className="w-6 h-6 text-white ml-0.5 fill-current" />
+                    <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-black/20">
+                      <div className="w-10 h-10 bg-white/15 backdrop-blur-md rounded-full flex items-center justify-center border border-white/20">
+                        <Play className="w-4 h-4 text-white ml-0.5 fill-current" />
                       </div>
                     </div>
                   </div>
 
-                  <div className="p-4">
-                    <h3 className="text-sm font-bold text-gray-100 line-clamp-2 mb-2 group-hover:text-blue-400 transition-colors">
+                  <div className="p-2.5">
+                    <h3 className="text-xs font-bold text-gray-100 line-clamp-2 mb-1.5 group-hover:text-blue-400 transition-colors">
                       {stream.student.first_name} {stream.student.last_name}
                     </h3>
                     {/* Exam Status Badge */}
                     {stream.examStatus && stream.examStatus !== "active" && (
                       <div
-                        className={`mb-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+                        className={`mb-1.5 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-medium ${
                           stream.examStatus === "paused"
                             ? "bg-yellow-500/15 text-yellow-400"
                             : stream.examStatus === "ended"
                               ? "bg-red-500/15 text-red-400"
                               : stream.examStatus === "warning"
                                 ? "bg-orange-500/15 text-orange-400"
-                                : "bg-gray-700 text-gray-300"
+                                : "bg-gray-800 text-gray-300"
                         }`}
                       >
-                        {stream.examStatus === "paused" && (<><PauseCircle className="w-3 h-3" /> Paused</>)}
-                        {stream.examStatus === "ended" && (<><Ban className="w-3 h-3" /> Ended</>)}
-                        {stream.examStatus === "warning" && (<><AlertTriangle className="w-3 h-3" /> Warning</>)}
+                        {stream.examStatus === "paused" && (<><PauseCircle className="w-2.5 h-2.5" /> Paused</>)}
+                        {stream.examStatus === "ended" && (<><Ban className="w-2.5 h-2.5" /> Ended</>)}
+                        {stream.examStatus === "warning" && (<><AlertTriangle className="w-2.5 h-2.5" /> Warning</>)}
                       </div>
                     )}
-                    <p className="text-xs text-gray-500 line-clamp-1 mb-3">
+                    <p className="text-[11px] text-gray-600 line-clamp-1 mb-2">
                       {stream.quiz.title}
                     </p>
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1.5">
                         <div
-                          className={`w-2 h-2 rounded-full ${
+                          className={`w-1.5 h-1.5 rounded-full ${
                             stream.isLive
                               ? "bg-emerald-400 animate-pulse"
-                              : "bg-gray-600"
+                              : "bg-gray-700"
                           }`}
                         ></div>
-                        <span className="text-xs text-gray-400 font-medium">
+                        <span className="text-[11px] text-gray-500 font-medium">
                           {stream.isLive ? "Live" : "Offline"}
                         </span>
                       </div>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-[11px] text-gray-600">
                         {new Date(stream.startTime).toLocaleTimeString()}
                       </span>
                     </div>
