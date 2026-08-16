@@ -137,7 +137,21 @@ export const getUsers = async (req: Request, res: Response) => {
           : undefined,
     });
 
-    const rawUsers = response.data.data ?? [];
+    let rawUsers = response.data.data ?? [];
+
+    // Defense in depth: params.userRole above already asks MIS to filter by
+    // role, but re-check each record's own roles here too rather than
+    // trusting that filter blindly -- a role-id mismatch on either side (or
+    // a future edit that drops the userRole param) would otherwise leak
+    // non-students into what's supposed to be a students-only list.
+    if (role === "student" && endpoint === "/users/") {
+      rawUsers = rawUsers.filter((entry: any) =>
+        (entry.roles || []).some(
+          (r: any) => String(r.name).toUpperCase() === "STUDENT",
+        ),
+      );
+    }
+
     // /users/ returns nested { user, profile }; other endpoints are already
     // flat. flattenMisUser is a no-op for records that are already flat.
     const users =
