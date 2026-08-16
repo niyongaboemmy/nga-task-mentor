@@ -45,6 +45,13 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
       .filter((s) => s.name.toLowerCase().includes(searchQuery.toLowerCase()));
   }, [systems, searchQuery]);
 
+  // Derived from VITE_MIS_LOGIN_URL rather than a second env var — the
+  // hardcoded https://nga.ac.rw/mis/ below was the pre-amashuri.com domain
+  // and no longer resolves to the live MIS.
+  const misHomeUrl = (
+    import.meta.env.VITE_MIS_LOGIN_URL || "https://nga.ac.rw/mis/login"
+  ).replace(/\/login\/?$/, "");
+
   const handleSystemClick = async (system: System) => {
     const callbacks = system.allowed_redirect_uris
       ? system.allowed_redirect_uris.split(",").map((s) => s.trim())
@@ -169,9 +176,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                   key="mis-back"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  onClick={() =>
-                    window.open("https://nga.ac.rw/mis/", "_blank")
-                  }
+                  onClick={() => window.open(misHomeUrl, "_blank")}
                   className="group relative flex flex-col items-center p-1.5 pt-2 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-600/10 transition-all duration-200 text-center"
                 >
                   <div className="relative mb-1.5">
