@@ -926,6 +926,39 @@ export const switchAcademicPeriod = async (req: Request, res: Response) => {
   }
 };
 
+// Polled periodically by the frontend (see AuthContext) so a logout on the
+// MIS ends this app's session too. This app's own tm_auth_token is
+// self-contained and stays valid for its own life (up to JWT_EXPIRE,
+// default 30d) regardless of what happens to the MIS session it was built
+// from -- misToken is otherwise only read back out incidentally, by routes
+// that already happen to call MIS for data. Deliberately fails CLOSED
+// (401) on an MIS rejection: a stale MIS session should end this one.
+export const verifyMisSession = async (req: Request, res: Response) => {
+  const misToken = getMisToken(req);
+  if (!misToken) {
+    return res
+      .status(401)
+      .json({ success: false, message: "No MIS session on this token." });
+  }
+
+  try {
+    const response = await axios.get(`${process.env.NGA_MIS_BASE_URL}/auth/verify`, {
+      headers: { Authorization: `Bearer ${misToken}` },
+    });
+    return res.status(200).json({ success: true, data: response.data });
+  } catch (error: any) {
+    if (error.response?.status === 401) {
+      return res
+        .status(401)
+        .json({ success: false, message: "MIS session has ended." });
+    }
+    // MIS unreachable is not the same as "logged out" -- don't force-logout
+    // everyone over a network blip. The next successful poll settles it.
+    console.error("MIS session verify error:", error.message);
+    return res.status(200).json({ success: true });
+  }
+};
+
 // Logout
 export const logout = async (req: Request, res: Response) => {
   res.cookie("tm_auth_token", "none", {

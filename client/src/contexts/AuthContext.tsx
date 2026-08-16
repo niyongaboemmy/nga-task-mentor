@@ -242,6 +242,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     initializeAuth();
   }, [initializeAuth]);
 
+  // This app's own tm_auth_token is self-contained and stays valid for its
+  // own life (up to JWT_EXPIRE, default 30d) regardless of what happens to
+  // the MIS session it was built from — logging out of the MIS otherwise
+  // has no effect here until natural expiry. Poll MIS session validity
+  // through our own backend periodically so a revoked MIS session ends
+  // this one too.
+  useEffect(() => {
+    if (!user) return;
+
+    const verifyMisSession = async () => {
+      try {
+        await apiAxios.get("/auth/verify-mis");
+      } catch (error: any) {
+        if (error.response?.status === 401) {
+          console.log("ℹ️ MIS session ended — logging out here too");
+          logoutUser();
+        }
+        // Any other error (network blip, MIS briefly down) is left for the
+        // next poll to settle — don't force-logout over a transient failure.
+      }
+    };
+
+    const intervalId = setInterval(verifyMisSession, 3 * 60 * 1000);
+    return () => clearInterval(intervalId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   // Stable reference — safe to put in useEffect dependency arrays
   const checkAuth = useCallback(async () => {
     console.log("🔄 Manually checking authentication status...");

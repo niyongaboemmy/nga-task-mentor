@@ -16,6 +16,7 @@ import {
   updateTheme,
   switchAcademicPeriod,
   confirmDbAccess,
+  verifyMisSession,
 } from "../controllers/auth.controller";
 import {
   loginSchema,
@@ -40,6 +41,7 @@ router.post("/login", loginLimiter, validate(loginSchema), login);
 router.post("/verify-otp", otpLimiter, validate(otpSchema), verifyOtp);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", logout);
+router.get("/verify-mis", protect, verifyMisSession);
 router.post("/sso/callback", ssoCallback);
 router.get("/sso/authorize", protect, proxySsoAuthorize);
 router.patch("/theme", protect, updateTheme);
