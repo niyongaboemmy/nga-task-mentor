@@ -7,6 +7,10 @@ const Login: React.FC = () => {
   const SSO_CLIENT_ID = import.meta.env.VITE_SSO_CLIENT_ID || "taskmentor_app";
   const MIS_LOGIN_URL =
     import.meta.env.VITE_MIS_LOGIN_URL || "https://nga.ac.rw/mis/login";
+  // Same origin as the login URL above, just without the /login path — kept
+  // derived (rather than a second hardcoded domain) so the two can't drift
+  // out of sync the way the old hardcoded ngamis.isengesho.com link did.
+  const MIS_HOME_URL = MIS_LOGIN_URL.replace(/\/login\/?$/, "");
 
   const { sessionExpired } = useAuth();
 
@@ -130,7 +134,7 @@ const Login: React.FC = () => {
               <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
                 No account or need password help?{" "}
                 <a
-                  href="https://ngamis.isengesho.com"
+                  href={MIS_HOME_URL}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
