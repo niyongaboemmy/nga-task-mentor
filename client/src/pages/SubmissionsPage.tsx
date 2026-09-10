@@ -13,13 +13,14 @@ import {
   HelpCircle,
   CheckCircle2,
   Clock,
+  Users,
   AlertCircle,
 } from "lucide-react";
 import { usePermissions } from "../hooks/usePermissions";
 import {
   SubmissionsApiService,
   type GroupedSubmissionsSubject,
-  type GroupedSubmissionRow,
+  type GroupedAssessment,
 } from "../services/submissionsApi";
 import { onAcademicPeriodChanged } from "../utils/academicPeriodEvents";
 
@@ -28,7 +29,10 @@ import { onAcademicPeriodChanged } from "../utils/academicPeriodEvents";
 const SUBJECT_HUES = [211, 262, 340, 24, 152, 190, 45, 288];
 const hueFor = (id: number) => SUBJECT_HUES[Math.abs(id) % SUBJECT_HUES.length];
 
-const STATUS_STYLE = (status: string): string => {
+const prettyStatus = (s: string) =>
+  s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+const MY_STATUS_STYLE = (status: string): string => {
   const s = status.toLowerCase();
   if (["graded", "auto_graded"].includes(s))
     return "text-emerald-700 bg-emerald-50 border-emerald-200 dark:text-emerald-300 dark:bg-emerald-900/20 dark:border-emerald-800/50";
@@ -40,8 +44,6 @@ const STATUS_STYLE = (status: string): string => {
     return "text-violet-700 bg-violet-50 border-violet-200 dark:text-violet-300 dark:bg-violet-900/20 dark:border-violet-800/50";
   return "text-gray-600 bg-gray-100 border-gray-200 dark:text-gray-400 dark:bg-gray-800 dark:border-gray-700";
 };
-const prettyStatus = (s: string) =>
-  s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 
 const fmtDate = (iso: string | null) =>
   iso
@@ -52,13 +54,11 @@ const fmtDate = (iso: string | null) =>
       })
     : "—";
 
-const initials = (name: string) =>
-  name
-    .split(" ")
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join("") || "?";
+const STATUS_LABELS: Record<string, string> = {
+  needs_grading: "Needs grading",
+  fully_graded: "Fully graded",
+  no_submissions: "No submissions",
+};
 
 const COLLAPSE_KEY = "tm.submissions.collapsed";
 const loadCollapsed = (): Record<string, boolean> => {
@@ -78,14 +78,14 @@ function useDebounced<T>(value: T, ms: number): T {
   return v;
 }
 
-/* ── submission row ──────────────────────────────────────────────────────── */
+/* ── assessment row ──────────────────────────────────────────────────────── */
 
-function SubmissionRow({
-  row,
-  showStudent,
+function AssessmentRow({
+  a,
+  canViewAll,
 }: {
-  row: GroupedSubmissionRow;
-  showStudent: boolean;
+  a: GroupedAssessment;
+  canViewAll: boolean;
 }) {
   return (
     <motion.div
@@ -95,52 +95,69 @@ function SubmissionRow({
       exit={{ opacity: 0 }}
       className="group flex flex-col gap-2 rounded-xl border border-transparent bg-surface-light px-3.5 py-3 transition-colors hover:border-blue-200 dark:bg-surface-dark/40 dark:hover:border-blue-900/50 sm:flex-row sm:items-center"
     >
-      {showStudent && row.student && (
-        <div className="flex min-w-0 items-center gap-2 sm:w-48 sm:shrink-0">
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-[10px] font-bold text-white">
-            {initials(row.student.name)}
+      <div className="min-w-0 flex-1">
+        <Link
+          to={a.detail_url}
+          className="truncate text-sm font-semibold text-text-primary-light hover:text-blue-600 dark:text-text-primary-dark dark:hover:text-blue-400"
+        >
+          {a.title}
+        </Link>
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+          {a.last_submission_at ? (
+            <span>Last submission {fmtDate(a.last_submission_at)}</span>
+          ) : (
+            <span>No submissions yet</span>
+          )}
+          {a.max_score != null && <span>{a.max_score} pts</span>}
+          {a.status !== "published" && (
+            <span className="capitalize">{a.status}</span>
+          )}
+        </div>
+      </div>
+
+      {canViewAll ? (
+        <div className="flex shrink-0 items-center gap-3">
+          <span className="flex items-center gap-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/80">
+            <Users className="h-3.5 w-3.5" />
+            {a.submission_count}
           </span>
-          <span className="truncate text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-            {row.student.name}
-          </span>
+          {a.pending_count > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 dark:border-amber-800/50 dark:bg-amber-900/20 dark:text-amber-300">
+              <Clock className="h-3 w-3" />
+              {a.pending_count} to grade
+            </span>
+          ) : a.submission_count > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:border-emerald-800/50 dark:bg-emerald-900/20 dark:text-emerald-300">
+              <CheckCircle2 className="h-3 w-3" />
+              All graded
+            </span>
+          ) : null}
+          {a.avg_percentage != null && (
+            <span className="w-12 text-right text-xs font-semibold text-text-primary-light dark:text-text-primary-dark">
+              {a.avg_percentage}%
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="shrink-0">
+          {a.my_status ? (
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${MY_STATUS_STYLE(a.my_status)}`}
+            >
+              {a.my_grade_display ??
+                (a.my_percentage != null
+                  ? `${a.my_percentage}%`
+                  : prettyStatus(a.my_status))}
+            </span>
+          ) : null}
         </div>
       )}
 
-      <div className="min-w-0 flex-1">
-        <span className="truncate text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-          {row.title}
-        </span>
-        <div className="mt-0.5 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-          {fmtDate(row.submitted_at)}
-        </div>
-      </div>
-
-      <span
-        className={`shrink-0 rounded-full border px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE(row.status)}`}
-      >
-        {prettyStatus(row.status)}
-      </span>
-
-      <div className="flex w-20 shrink-0 items-center justify-end gap-1 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-        {row.is_graded ? (
-          <>
-            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-            {row.grade_display ??
-              (row.percentage != null ? `${row.percentage}%` : "—")}
-          </>
-        ) : (
-          <span className="flex items-center gap-1 text-xs font-normal text-text-secondary-light dark:text-text-secondary-dark/60">
-            <Clock className="h-3 w-3" />
-            Ungraded
-          </span>
-        )}
-      </div>
-
       <Link
-        to={row.detail_url}
+        to={a.detail_url}
         className="shrink-0 rounded-full bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
       >
-        Open
+        {canViewAll ? `View ${a.submission_count} submission${a.submission_count === 1 ? "" : "s"}` : "Open"}
       </Link>
     </motion.div>
   );
@@ -153,13 +170,13 @@ function TypeGroup({
   icon,
   group,
   subjectId,
-  showStudent,
+  canViewAll,
 }: {
   label: string;
   icon: React.ReactNode;
   group: GroupedSubmissionsSubject["assignments"];
   subjectId: number;
-  showStudent: boolean;
+  canViewAll: boolean;
 }) {
   if (group.count === 0) return null;
   return (
@@ -176,8 +193,8 @@ function TypeGroup({
         </span>
       </div>
       <AnimatePresence>
-        {group.items.map((row) => (
-          <SubmissionRow key={row.id} row={row} showStudent={showStudent} />
+        {group.items.map((a) => (
+          <AssessmentRow key={`${a.type}-${a.id}`} a={a} canViewAll={canViewAll} />
         ))}
       </AnimatePresence>
       {group.has_more && (
@@ -198,13 +215,13 @@ function SubjectSection({
   subject,
   collapsed,
   onToggle,
-  showStudent,
+  canViewAll,
   typeFilter,
 }: {
   subject: GroupedSubmissionsSubject;
   collapsed: boolean;
   onToggle: () => void;
-  showStudent: boolean;
+  canViewAll: boolean;
   typeFilter: string;
 }) {
   const hue = hueFor(subject.subject_id);
@@ -235,10 +252,16 @@ function SubjectSection({
             )}
           </div>
           <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-            {subject.total} submission{subject.total === 1 ? "" : "s"} ·{" "}
-            {subject.graded} graded
-            {typeFilter === "all" &&
-              ` · ${subject.assignments.count} assignment / ${subject.quizzes.count} quiz`}
+            {subject.assessment_count}{" "}
+            {subject.assessment_count === 1 ? "assessment" : "assessments"} ·{" "}
+            {subject.submission_total} submission
+            {subject.submission_total === 1 ? "" : "s"}
+            {canViewAll && subject.pending_total > 0 && (
+              <span className="text-amber-600 dark:text-amber-400">
+                {" "}
+                · {subject.pending_total} to grade
+              </span>
+            )}
           </span>
         </div>
         <ChevronDown
@@ -256,9 +279,9 @@ function SubjectSection({
             className="overflow-hidden"
           >
             <div className="space-y-3 border-t border-border-light px-2.5 pb-3 pt-2.5 dark:border-border-dark/30 sm:px-3">
-              {subject.total === 0 ? (
+              {subject.assessment_count === 0 ? (
                 <p className="px-2 py-4 text-center text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
-                  No submissions in this subject yet.
+                  No assessments in this subject yet.
                 </p>
               ) : (
                 <>
@@ -268,7 +291,7 @@ function SubjectSection({
                       icon={<ClipboardList className="h-3.5 w-3.5" />}
                       group={subject.assignments}
                       subjectId={subject.subject_id}
-                      showStudent={showStudent}
+                      canViewAll={canViewAll}
                     />
                   )}
                   {typeFilter !== "assignment" && (
@@ -277,7 +300,7 @@ function SubjectSection({
                       icon={<HelpCircle className="h-3.5 w-3.5" />}
                       group={subject.quizzes}
                       subjectId={subject.subject_id}
-                      showStudent={showStudent}
+                      canViewAll={canViewAll}
                     />
                   )}
                 </>
@@ -300,7 +323,7 @@ const TYPE_TABS = [
 ] as const;
 
 const SubmissionsPage: React.FC = () => {
-  const { can } = usePermissions();
+  usePermissions();
 
   const [subjects, setSubjects] = useState<GroupedSubmissionsSubject[]>([]);
   const [allSubjects, setAllSubjects] = useState<
@@ -393,12 +416,8 @@ const SubmissionsPage: React.FC = () => {
           ? "your enrolled subjects"
           : "";
 
-  const showStudent = canViewAll;
-
-  const statusOptions = useMemo(
-    () => ["all", ...statusValues],
-    [statusValues],
-  );
+  const statusOptions = useMemo(() => ["all", ...statusValues], [statusValues]);
+  const noAssessments = subjects.every((s) => s.assessment_count === 0);
 
   return (
     <div className="space-y-5">
@@ -445,11 +464,7 @@ const SubmissionsPage: React.FC = () => {
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-text-secondary-light dark:text-text-secondary-dark/60" />
           <input
             type="text"
-            placeholder={
-              showStudent
-                ? "Search by student, subject or title…"
-                : "Search by subject or title…"
-            }
+            placeholder="Search by subject or assessment title…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-xl border border-transparent bg-surface-light py-2.5 pl-9 pr-4 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark"
@@ -475,7 +490,11 @@ const SubmissionsPage: React.FC = () => {
         >
           {statusOptions.map((o) => (
             <option key={o} value={o}>
-              {o === "all" ? "All statuses" : prettyStatus(o)}
+              {o === "all"
+                ? canViewAll
+                  ? "All assessments"
+                  : "All statuses"
+                : STATUS_LABELS[o] ?? prettyStatus(o)}
             </option>
           ))}
         </select>
@@ -505,20 +524,20 @@ const SubmissionsPage: React.FC = () => {
             />
           ))}
         </div>
-      ) : subjects.every((s) => s.total === 0) ? (
+      ) : subjects.length === 0 || noAssessments ? (
         <div className="rounded-2xl border border-white/60 bg-card-light py-16 text-center shadow-sm dark:border-border-dark/30 dark:bg-card-dark/30">
           <AlertCircle className="mx-auto h-12 w-12 text-text-secondary-light/50 dark:text-text-secondary-dark/40" />
           <h3 className="mt-3 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
             {search || status !== "all" || subjectId || type !== "all"
-              ? "No submissions match your filters"
-              : "No submissions found"}
+              ? "No assessments match your filters"
+              : "No assessments found"}
           </h3>
           <p className="mx-auto mt-1 max-w-md text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
             {search || status !== "all" || subjectId || type !== "all"
               ? "Try clearing the search or filters."
-              : showStudent
-                ? "Submissions will appear here, grouped by subject, once students submit their work."
-                : "Your submitted assignments and quizzes will appear here, grouped by subject."}
+              : canViewAll
+                ? "Quizzes and assignments appear here, grouped by subject. Open one to see its submissions."
+                : "Assessments you've submitted to appear here, grouped by subject."}
           </p>
         </div>
       ) : (
@@ -530,7 +549,7 @@ const SubmissionsPage: React.FC = () => {
                 subject={s}
                 collapsed={!!collapsed[s.subject_id]}
                 onToggle={() => toggleSection(s.subject_id)}
-                showStudent={showStudent}
+                canViewAll={canViewAll}
                 typeFilter={type}
               />
             ))}

@@ -16,17 +16,23 @@ export interface SubmissionListFilters {
   status?: string;
 }
 
-export interface GroupedSubmissionRow {
-  id: string;
+/** One quiz or assignment, with the submission stats for its detail view. */
+export interface GroupedAssessment {
+  id: number;
   type: "assignment" | "quiz";
   subject_id: number;
   title: string;
-  student: { id: number; name: string; email?: string } | null;
   status: string;
-  submitted_at: string | null;
-  grade_display: string | null;
-  percentage: number | null;
-  is_graded: boolean;
+  max_score: number | null;
+  submission_count: number;
+  graded_count: number;
+  pending_count: number;
+  avg_percentage: number | null;
+  last_submission_at: string | null;
+  /** student view only */
+  my_status: string | null;
+  my_grade_display: string | null;
+  my_percentage: number | null;
   detail_url: string;
 }
 
@@ -34,10 +40,12 @@ export interface GroupedSubmissionsSubject {
   subject_id: number;
   subject_name: string;
   subject_code: string | null;
-  total: number;
-  graded: number;
-  assignments: { count: number; has_more: boolean; items: GroupedSubmissionRow[] };
-  quizzes: { count: number; has_more: boolean; items: GroupedSubmissionRow[] };
+  assessment_count: number;
+  submission_total: number;
+  graded_total: number;
+  pending_total: number;
+  assignments: { count: number; has_more: boolean; items: GroupedAssessment[] };
+  quizzes: { count: number; has_more: boolean; items: GroupedAssessment[] };
 }
 
 export interface GroupedSubmissionsData {
@@ -47,7 +55,7 @@ export interface GroupedSubmissionsData {
   subjects: GroupedSubmissionsSubject[];
   all_subjects: { id: number; name: string; code: string | null }[];
   status_values: string[];
-  totals: { subjects: number; submissions: number; submissions_on_page: number };
+  totals: { subjects: number; submissions: number; assessments_on_page: number };
   pagination: { page: number; page_size: number; total_pages: number };
 }
 

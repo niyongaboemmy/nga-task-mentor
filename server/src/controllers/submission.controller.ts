@@ -83,15 +83,17 @@ export const getSubmissions = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Submissions grouped by subject then by type (assignment | quiz),
-//          role-scoped and paginated by subject. Backs the redesigned
-//          /submissions page.
+// @desc    Assessments (quizzes + assignments) grouped by subject, each
+//          carrying its submission stats — the redesigned /submissions page
+//          drills subject → assessment → (its own submissions list, on the
+//          quiz/assignment detail pages).
 // @route   GET /api/submissions/grouped
 // @access  Private (SUBMISSIONS_VIEW_OWN | SUBMISSIONS_VIEW_ALL)
 export const getGroupedSubmissions = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user.id;
     const canViewAll = !!(req as any).user.permissions?.has("SUBMISSIONS_VIEW_ALL");
+    const canGrade = !!(req as any).user.permissions?.has("SUBMISSIONS_GRADE");
 
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
     const pageSize = Math.min(
@@ -101,9 +103,7 @@ export const getGroupedSubmissions = async (req: Request, res: Response) => {
     const search = String(req.query.search ?? "").trim().toLowerCase();
     const typeFilter = String(req.query.type ?? "").trim(); // "assignment" | "quiz" | ""
     const statusFilter = String(req.query.status ?? "").trim();
-    const subjectIdParam = req.query.subjectId
-      ? Number(req.query.subjectId)
-      : null;
+    const subjectIdParam = req.query.subjectId ? Number(req.query.subjectId) : null;
 
     const { scope, subjects } = await getScopedSubjects(req);
     if (scope === "none") {
@@ -142,7 +142,7 @@ export const getGroupedSubmissions = async (req: Request, res: Response) => {
     const wantAssignments = typeFilter !== "quiz";
     const wantQuizzes = typeFilter !== "assignment";
 
-    // Global totals across every visible subject (not just this page).
+    // Global submission total across every visible subject (header figure).
     let grandTotal = 0;
     if (allVisibleIds.length > 0) {
       const [aCount, qCount] = await Promise.all([
@@ -179,176 +179,247 @@ export const getGroupedSubmissions = async (req: Request, res: Response) => {
       ]);
       grandTotal = aCount + qCount;
     }
-    const PER_GROUP_CAP = 20;
 
-    type Row = {
-      id: string;
+    const PER_GROUP_CAP = 25;
+
+    interface Assessment {
+      id: number;
       type: "assignment" | "quiz";
       subject_id: number;
       title: string;
-      student: { id: number; name: string; email?: string } | null;
       status: string;
-      submitted_at: string | null;
-      grade_display: string | null;
-      percentage: number | null;
-      is_graded: boolean;
+      max_score: number | null;
+      submission_count: number;
+      graded_count: number;
+      pending_count: number;
+      avg_percentage: number | null;
+      last_submission_at: string | null;
+      my_status: string | null;
+      my_grade_display: string | null;
+      my_percentage: number | null;
       detail_url: string;
-    };
+    }
 
-    const rows: Row[] = [];
+    const assessments: Assessment[] = [];
 
+    /* ── Assignments on the page's subjects ── */
     if (pageIds.length > 0 && wantAssignments) {
-      const subs = await Submission.findAll({
-        where: canViewAll ? {} : { student_id: userId },
+      const rows = await Assignment.findAll({
+        where: {
+          course_id: { [Op.in]: pageIds },
+          status: { [Op.ne]: "removed" },
+          ...termWhere,
+        },
+        attributes: ["id", "title", "course_id", "status", "max_score"],
         include: [
           {
-            model: Assignment,
-            attributes: ["id", "title", "course_id"],
-            where: { course_id: { [Op.in]: pageIds }, ...termWhere },
-            required: true,
+            model: Submission,
+            as: "submissions",
+            required: false,
+            where: canViewAll ? undefined : { student_id: userId },
+            attributes: ["id", "student_id", "grade", "status", "submitted_at"],
           },
-          ...(canViewAll
-            ? [
-                {
-                  model: User,
-                  as: "student",
-                  attributes: ["id", "first_name", "last_name", "email"],
-                },
-              ]
-            : []),
         ],
-        order: [["submitted_at", "DESC"]],
+        order: [["due_date", "DESC"]],
       });
-      for (const s of subs) {
-        const a = (s as any).assignment;
-        if (!a) continue;
-        const stu = (s as any).student;
-        rows.push({
-          id: `a-${s.id}`,
-          type: "assignment",
-          subject_id: a.course_id,
-          title: a.title,
-          student: stu
-            ? {
-                id: stu.id,
-                name: `${stu.first_name} ${stu.last_name}`.trim(),
-                email: stu.email,
-              }
-            : null,
-          status: s.status,
-          submitted_at: s.submitted_at ? new Date(s.submitted_at).toISOString() : null,
-          grade_display: s.grade ?? null,
-          percentage: (() => {
+
+      for (const a of rows) {
+        const subs: any[] = (a as any).submissions ?? [];
+        // Managers see every published/completed assessment (plus any with
+        // submissions); students see only assessments they've submitted to.
+        if (!canViewAll && subs.length === 0) continue;
+        if (
+          canViewAll &&
+          !["published", "completed"].includes(a.status) &&
+          subs.length === 0
+        ) {
+          continue;
+        }
+        const gradedSubs = subs.filter(
+          (s) => s.grade != null && s.grade !== "",
+        );
+        const pcts = gradedSubs
+          .map((s) => {
             if (!s.grade || !String(s.grade).includes("/")) return null;
             const [n, d] = String(s.grade).split("/").map(parseFloat);
+            return d > 0 ? (n / d) * 100 : null;
+          })
+          .filter((x): x is number => x != null);
+        const mine = canViewAll ? null : subs[0] ?? null;
+        assessments.push({
+          id: a.id,
+          type: "assignment",
+          subject_id: a.course_id!,
+          title: a.title,
+          status: a.status,
+          max_score: a.max_score ?? null,
+          submission_count: subs.length,
+          graded_count: gradedSubs.length,
+          pending_count: subs.length - gradedSubs.length,
+          avg_percentage:
+            pcts.length > 0
+              ? Math.round(pcts.reduce((x, y) => x + y, 0) / pcts.length)
+              : null,
+          last_submission_at: subs.reduce<string | null>((acc, s) => {
+            if (!s.submitted_at) return acc;
+            const t = new Date(s.submitted_at).toISOString();
+            return !acc || t > acc ? t : acc;
+          }, null),
+          my_status: mine ? mine.status : null,
+          my_grade_display: mine ? mine.grade ?? null : null,
+          my_percentage: (() => {
+            if (!mine?.grade || !String(mine.grade).includes("/")) return null;
+            const [n, d] = String(mine.grade).split("/").map(parseFloat);
             return d > 0 ? Math.round((n / d) * 100) : null;
           })(),
-          is_graded: s.grade != null && s.grade !== "",
           detail_url: `/assignments/${a.id}`,
         });
       }
     }
 
+    /* ── Quizzes on the page's subjects ── */
     if (pageIds.length > 0 && wantQuizzes) {
-      const qsubs = await QuizSubmission.findAll({
-        where: {
-          ...(canViewAll ? {} : { student_id: userId }),
-          status: { [Op.in]: ["completed", "in_progress"] },
-        },
+      const rows = await Quiz.findAll({
+        where: { course_id: { [Op.in]: pageIds }, ...termWhere },
+        attributes: ["id", "title", "course_id", "status"],
         include: [
           {
-            model: Quiz,
-            as: "submissionQuiz",
-            attributes: ["id", "title", "course_id"],
-            where: { course_id: { [Op.in]: pageIds }, ...termWhere },
-            required: true,
+            model: QuizSubmission,
+            as: "quizSubmissions",
+            required: false,
+            where: {
+              ...(canViewAll ? {} : { student_id: userId }),
+              status: { [Op.in]: ["completed", "in_progress"] },
+            },
+            attributes: [
+              "id",
+              "student_id",
+              "total_score",
+              "max_score",
+              "percentage",
+              "grade_status",
+              "status",
+              "completed_at",
+            ],
           },
-          ...(canViewAll
-            ? [
-                {
-                  model: User,
-                  as: "submissionStudent",
-                  attributes: ["id", "first_name", "last_name", "email"],
-                },
-              ]
-            : []),
         ],
-        order: [["completed_at", "DESC"]],
+        order: [["created_at", "DESC"]],
       });
-      for (const s of qsubs) {
-        const q = (s as any).submissionQuiz;
-        if (!q) continue;
-        const stu = (s as any).submissionStudent;
-        const gs = (s as any).grade_status as string | undefined;
-        const isGraded = gs === "graded" || gs === "auto_graded";
-        rows.push({
-          id: `q-${s.id}`,
+
+      for (const qz of rows) {
+        const subs: any[] = (qz as any).quizSubmissions ?? [];
+        if (!canViewAll && subs.length === 0) continue;
+        if (
+          canViewAll &&
+          qz.status !== "published" &&
+          qz.status !== "completed" &&
+          subs.length === 0
+        ) {
+          continue;
+        }
+        // De-dupe to one submission per student (best attempt).
+        const bestByStudent = new Map<number, any>();
+        for (const s of subs) {
+          const cur = bestByStudent.get(s.student_id);
+          if (!cur || Number(s.total_score) > Number(cur.total_score)) {
+            bestByStudent.set(s.student_id, s);
+          }
+        }
+        const deduped = [...bestByStudent.values()];
+        const graded = deduped.filter((s) =>
+          ["graded", "auto_graded"].includes(s.grade_status),
+        );
+        const pcts = graded
+          .map((s) => (s.percentage != null ? Number(s.percentage) : null))
+          .filter((x): x is number => x != null);
+        const mine = canViewAll ? null : deduped[0] ?? null;
+        const mineGraded =
+          mine && ["graded", "auto_graded"].includes(mine.grade_status);
+        assessments.push({
+          id: qz.id,
           type: "quiz",
-          subject_id: q.course_id,
-          title: q.title,
-          student: stu
-            ? {
-                id: stu.id,
-                name: `${stu.first_name} ${stu.last_name}`.trim(),
-                email: stu.email,
-              }
-            : null,
-          status: s.status === "in_progress" ? "in_progress" : gs ?? "pending",
-          submitted_at: s.completed_at
-            ? new Date(s.completed_at).toISOString()
-            : s.started_at
-              ? new Date(s.started_at).toISOString()
+          subject_id: qz.course_id!,
+          title: qz.title,
+          status: qz.status,
+          max_score: deduped[0]?.max_score != null ? Number(deduped[0].max_score) : null,
+          submission_count: deduped.length,
+          graded_count: graded.length,
+          pending_count: deduped.length - graded.length,
+          avg_percentage:
+            pcts.length > 0
+              ? Math.round(pcts.reduce((x, y) => x + y, 0) / pcts.length)
               : null,
-          grade_display: isGraded
-            ? `${Number(s.total_score)}/${Number(s.max_score)}`
+          last_submission_at: deduped.reduce<string | null>((acc, s) => {
+            if (!s.completed_at) return acc;
+            const t = new Date(s.completed_at).toISOString();
+            return !acc || t > acc ? t : acc;
+          }, null),
+          my_status: mine
+            ? mine.status === "in_progress"
+              ? "in_progress"
+              : mine.grade_status ?? "pending"
             : null,
-          percentage:
-            s.percentage != null ? Math.round(Number(s.percentage)) : null,
-          is_graded: isGraded,
-          detail_url: `/quizzes/${q.id}/submissions`,
+          my_grade_display: mineGraded
+            ? `${Number(mine.total_score)}/${Number(mine.max_score)}`
+            : null,
+          my_percentage:
+            mine?.percentage != null ? Math.round(Number(mine.percentage)) : null,
+          detail_url: canViewAll
+            ? `/quizzes/${qz.id}/submissions`
+            : `/quizzes/${qz.id}/results`,
         });
       }
     }
 
-    // In-memory search on student name / title, and status filter.
-    const q = search;
-    const filtered = rows.filter((r) => {
-      if (statusFilter && r.status !== statusFilter) return false;
-      if (!q) return true;
-      // If the subject itself matched the search, keep all its rows.
+    /* ── Filters (search on title, status on assessment health) ── */
+    const matchesStatus = (a: Assessment): boolean => {
+      if (!statusFilter || statusFilter === "all") return true;
+      if (canViewAll) {
+        if (statusFilter === "needs_grading") return a.pending_count > 0;
+        if (statusFilter === "fully_graded")
+          return a.submission_count > 0 && a.pending_count === 0;
+        if (statusFilter === "no_submissions") return a.submission_count === 0;
+        return true;
+      }
+      return a.my_status === statusFilter;
+    };
+
+    const filtered = assessments.filter((a) => {
+      if (!matchesStatus(a)) return false;
+      if (!search) return true;
       const subjMatched = pageSubjects.some(
         (s) =>
-          s.id === r.subject_id &&
-          (s.name.toLowerCase().includes(q) ||
-            (s.code ?? "").toLowerCase().includes(q)),
+          s.id === a.subject_id &&
+          (s.name.toLowerCase().includes(search) ||
+            (s.code ?? "").toLowerCase().includes(search)),
       );
-      return (
-        subjMatched ||
-        r.title.toLowerCase().includes(q) ||
-        (r.student?.name.toLowerCase().includes(q) ?? false)
-      );
+      return subjMatched || a.title.toLowerCase().includes(search);
     });
 
-    const bySubject = new Map<number, Row[]>();
-    for (const r of filtered) {
-      const list = bySubject.get(r.subject_id) ?? [];
-      list.push(r);
-      bySubject.set(r.subject_id, list);
+    const bySubject = new Map<number, Assessment[]>();
+    for (const a of filtered) {
+      const list = bySubject.get(a.subject_id) ?? [];
+      list.push(a);
+      bySubject.set(a.subject_id, list);
     }
 
-    const statusValues = new Set<string>();
-    for (const r of rows) statusValues.add(r.status);
+    const statusValues = canViewAll
+      ? ["needs_grading", "fully_graded", "no_submissions"]
+      : [...new Set(assessments.map((a) => a.my_status).filter(Boolean))].sort();
 
     const data = pageSubjects.map((s) => {
       const all = bySubject.get(s.id) ?? [];
-      const assignments = all.filter((r) => r.type === "assignment");
-      const quizzes = all.filter((r) => r.type === "quiz");
+      const assignments = all.filter((a) => a.type === "assignment");
+      const quizzes = all.filter((a) => a.type === "quiz");
+      const submissionTotal = all.reduce((n, a) => n + a.submission_count, 0);
       return {
         subject_id: s.id,
         subject_name: s.name,
         subject_code: s.code,
-        total: all.length,
-        graded: all.filter((r) => r.is_graded).length,
+        assessment_count: all.length,
+        submission_total: submissionTotal,
+        graded_total: all.reduce((n, a) => n + a.graded_count, 0),
+        pending_total: all.reduce((n, a) => n + a.pending_count, 0),
         assignments: {
           count: assignments.length,
           has_more: assignments.length > PER_GROUP_CAP,
@@ -367,18 +438,18 @@ export const getGroupedSubmissions = async (req: Request, res: Response) => {
       data: {
         scope,
         can_view_all: canViewAll,
-        can_grade: !!(req as any).user.permissions?.has("SUBMISSIONS_GRADE"),
+        can_grade: canGrade,
         subjects: data,
         all_subjects: subjects.map((s) => ({
           id: s.id,
           name: s.name,
           code: s.code,
         })),
-        status_values: [...statusValues].sort(),
+        status_values: statusValues,
         totals: {
           subjects: totalSubjects,
           submissions: grandTotal,
-          submissions_on_page: data.reduce((n, s) => n + s.total, 0),
+          assessments_on_page: data.reduce((n, s) => n + s.assessment_count, 0),
         },
         pagination: { page, page_size: pageSize, total_pages: totalPages },
       },
