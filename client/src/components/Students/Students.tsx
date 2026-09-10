@@ -62,8 +62,11 @@ const Students: React.FC = () => {
 
   // Fetch students when selectedCourse or searchTerm changes
   useEffect(() => {
-    // Don't fetch if no course selected (except for non-instructors)
+    // Instructors must pick a course first — clear the list and stop the
+    // spinner instead of leaving the page stuck in a loading state.
     if (isInstructorLike && !selectedCourse) {
+      setStudents([]);
+      setLoading(false);
       return;
     }
 
@@ -76,7 +79,10 @@ const Students: React.FC = () => {
         }
         if (selectedCourse) {
           params.subjectId = selectedCourse;
-          params.termId = user?.currentAcademicTerm?.academic_term_id || 4;
+          const termId = user?.currentAcademicTerm?.academic_term_id;
+          if (termId) {
+            params.termId = termId;
+          }
         }
 
         const response = await axios.get<{

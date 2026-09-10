@@ -27,6 +27,40 @@ import {
 
 // Deep equality comparison for objects
 
+/**
+ * The MIS subject ids the requesting instructor is assigned to teach for the
+ * given term (any co-teacher of a subject is "assigned" to it). Used to widen
+ * the quiz management list beyond just the quizzes an instructor personally
+ * created. Returns [] on any MIS failure — the caller still falls back to
+ * `created_by = self` so the instructor never loses sight of their own quizzes.
+ */
+async function getAssignedSubjectIds(
+  req: Request,
+  termId: number | null,
+): Promise<number[]> {
+  try {
+    const token = getMisToken(req);
+    if (!token) return [];
+    const response = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/my-assigned-subjects`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+        params: termId ? { academic_term_id: termId } : {},
+      },
+    );
+    if (!response.data?.success) return [];
+    return (response.data.data || [])
+      .map((s: any) => Number(s.id ?? s.subject_id))
+      .filter((id: number) => !isNaN(id) && id > 0);
+  } catch (error: any) {
+    console.warn(
+      "getAssignedSubjectIds: MIS my-assigned-subjects fetch failed:",
+      error.message,
+    );
+    return [];
+  }
+}
+
 // @desc    Get all quizzes for a course (or all quizzes if no course specified)
 // @route   GET /api/courses/:courseId/quizzes
 // @route   GET /api/quizzes (admin/instructor only)
@@ -45,6 +79,29 @@ export const getQuizzes = async (req: Request, res: Response) => {
       ? parseInt(req.query.academic_term_id as string)
       : null;
     const resolvedTermId = termIdParam ?? (await getCurrentTermId(req));
+
+    // Scope the management list by capability:
+    //  - no QUIZZES_EDIT (students / view-only roles) → only published quizzes
+    //  - QUIZZES_EDIT but not QUIZZES_MANAGE_ANY (instructors) → quizzes they
+    //    created OR that belong to a subject they're assigned to (so
+    //    co-teachers of the same subject see each other's quizzes), never a
+    //    subject they have no involvement with
+    //  - QUIZZES_MANAGE_ANY (admins) → everything
+    const canEditQuizzes = !!req.user?.permissions?.has("QUIZZES_EDIT");
+    const canManageAnyQuiz = !!req.user?.permissions?.has("QUIZZES_MANAGE_ANY");
+    if (!canEditQuizzes) {
+      whereClause.status = "published";
+    } else if (!canManageAnyQuiz) {
+      const assignedCourseIds = await getAssignedSubjectIds(req, resolvedTermId);
+      const ownershipScope: any[] = [{ created_by: req.user.id }];
+      if (assignedCourseIds.length > 0) {
+        ownershipScope.push({ course_id: { [Op.in]: assignedCourseIds } });
+      }
+      whereClause[Op.and] = [
+        ...(whereClause[Op.and] || []),
+        { [Op.or]: ownershipScope },
+      ];
+    }
     if (resolvedTermId) {
       whereClause[Op.and] = [
         ...(whereClause[Op.and] || []),

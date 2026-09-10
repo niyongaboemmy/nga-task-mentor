@@ -11,6 +11,8 @@ import { getQuestionBankInclude } from "../utils/quizUtils";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { AdvancedQuizGrader } from "../utils/quizGrader";
+import axios from "axios";
+import { getMisToken, resolveAcademicTermId } from "../utils/misUtils";
 
 // @desc    Get pending submissions for grading
 // @route   GET /api/quiz-submissions/pending
@@ -787,16 +789,117 @@ export const initializeManualSubmission = async (req: Request, res: Response) =>
   }
 };
 
-// @desc    Search local student accounts for manual marks wizard
+// @desc    List the students enrolled in a quiz's subject (for the manual
+//          marks wizard). Roster comes from the MIS enrolled-students endpoint
+//          for the quiz's course + the requester's current term; each MIS
+//          student is mapped to a local User row (created on demand) so the
+//          returned `id` is the local PK that initializeManualSubmission /
+//          QuizSubmission.student_id expect.
 // @route   GET /api/quizzes/:quizId/students?search=...
 // @access  Private/Instructor/Admin
 export const getQuizStudents = async (req: Request, res: Response) => {
   try {
-    const { search } = req.query;
-    const where: any = { role: "student" };
+    const { quizId } = req.params;
+    const search = String(req.query.search ?? "").trim().toLowerCase();
 
-    if (search && String(search).trim()) {
-      const term = `%${String(search).trim()}%`;
+    const quiz = await Quiz.findByPk(quizId, { attributes: ["id", "course_id"] });
+    if (!quiz) {
+      return res.status(404).json({ success: false, message: "Quiz not found" });
+    }
+
+    const applySearch = <T extends { first_name?: string; last_name?: string; email?: string }>(
+      rows: T[],
+    ) =>
+      !search
+        ? rows
+        : rows.filter((r) =>
+            `${r.first_name ?? ""} ${r.last_name ?? ""} ${r.email ?? ""}`
+              .toLowerCase()
+              .includes(search),
+          );
+
+    const toPayload = (
+      rows: { id: number; first_name?: string; last_name?: string; email?: string }[],
+    ) => ({
+      success: true,
+      count: rows.length,
+      data: rows
+        .map((r) => ({
+          id: r.id,
+          name: `${r.first_name ?? ""} ${r.last_name ?? ""}`.trim() || r.email || `User #${r.id}`,
+          email: r.email ?? "",
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
+    });
+
+    // --- Preferred path: MIS enrolled students for this subject + term ---
+    const token = getMisToken(req);
+    if (token && quiz.course_id) {
+      try {
+        const termId = await resolveAcademicTermId(req);
+        const misResponse = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${quiz.course_id}/terms/${termId}/students`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+          },
+        );
+
+        const enrolled: any[] = misResponse.data?.success
+          ? misResponse.data.data || []
+          : [];
+
+        const normalized = enrolled
+          .map((s: any) => ({
+            mis_user_id: Number(s.user_id ?? s.id),
+            first_name: s.first_name ?? "",
+            last_name: s.last_name ?? "",
+            email: s.email ?? s.username ?? "",
+          }))
+          .filter((s) => !isNaN(s.mis_user_id) && s.mis_user_id > 0);
+
+        const filtered = applySearch(normalized);
+
+        // Map each MIS student to a local User row (create on demand) so the
+        // returned id is usable by the manual-submission endpoints.
+        const resolved = await Promise.all(
+          filtered.map(async (s) => {
+            const [localUser] = await User.findOrCreate({
+              where: { mis_user_id: s.mis_user_id },
+              defaults: {
+                first_name: s.first_name,
+                last_name: s.last_name,
+                email:
+                  s.email || `mis-${s.mis_user_id}@placeholder.local`,
+                password: "MIS_AUTH",
+                role: "student",
+                mis_user_id: s.mis_user_id,
+              } as any,
+            });
+            return {
+              id: localUser.id,
+              first_name: localUser.first_name || s.first_name,
+              last_name: localUser.last_name || s.last_name,
+              email: localUser.email || s.email,
+            };
+          }),
+        );
+
+        return res.status(200).json(toPayload(resolved));
+      } catch (misError: any) {
+        console.warn(
+          "getQuizStudents: MIS roster fetch failed, falling back to local users:",
+          misError.message,
+        );
+      }
+    }
+
+    // --- Fallback: local student accounts only (pre-MIS behaviour) ---
+    const where: any = { role: "student" };
+    if (search) {
+      const term = `%${search}%`;
       where[Op.or] = [
         { first_name: { [Op.like]: term } },
         { last_name: { [Op.like]: term } },
@@ -808,18 +911,19 @@ export const getQuizStudents = async (req: Request, res: Response) => {
       where,
       attributes: ["id", "first_name", "last_name", "email"],
       order: [["first_name", "ASC"], ["last_name", "ASC"]],
-      limit: 50,
+      limit: 100,
     });
 
-    res.status(200).json({
-      success: true,
-      count: users.length,
-      data: users.map((u) => ({
-        id: u.id,
-        name: (u as any).full_name || `${u.first_name} ${u.last_name}`,
-        email: u.email,
-      })),
-    });
+    return res.status(200).json(
+      toPayload(
+        users.map((u) => ({
+          id: u.id,
+          first_name: u.first_name,
+          last_name: u.last_name,
+          email: u.email,
+        })),
+      ),
+    );
   } catch (error) {
     console.error("Get quiz students error:", error);
     res.status(500).json({ success: false, message: "Server error" });

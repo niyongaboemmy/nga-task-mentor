@@ -57,36 +57,41 @@ export const getUsers = async (req: Request, res: Response) => {
       subjectId,
       termId,
     } = req.query;
-    const token = getMisToken(req);
-    if (!token) {
-      return res.status(401).json({
-        success: false,
-        message: "Authentication required",
-      });
-    }
-
     // Build query parameters
     let params: any = {
       page,
       limit,
     };
 
-    // Determine MIS endpoint based on role and requester
+    // Determine MIS endpoint based on the requester's permissions.
+    //
+    // The raw MIS `/users/` list requires an admin-level MIS permission
+    // (MANAGE_USERS) that instructors — and any custom local role that grants
+    // USERS_VIEW_ALL without USERS_EDIT — do not hold. Those users must reach
+    // students through the subject-scoped or search endpoints instead. Keying
+    // this off the resolved permission set (rather than the deprecated flat
+    // `req.user.role` string) means custom roles behave correctly too.
     let endpoint = "/users/";
+    const canListAllUsers = !!req.user.permissions?.has("USERS_EDIT");
 
-    if (req.user.role === "instructor" && role === "student") {
-      if (subjectId && termId) {
-        // Use the specific academic endpoint provided by the user
-        endpoint = `/academics/subjects/${subjectId}/terms/${termId}/students`;
+    if (!canListAllUsers && role === "student") {
+      // Fall back to the requester's current term when the client didn't send
+      // one explicitly, so selecting only a course is enough to load a roster.
+      const scopedTermId =
+        termId || (subjectId ? await resolveAcademicTermId(req) : null);
+      if (subjectId && scopedTermId) {
+        // Use the subject-scoped academic endpoint (enrolled students only)
+        endpoint = `/academics/subjects/${subjectId}/terms/${scopedTermId}/students`;
       } else if (search) {
-        // Instructors use the search endpoint for students if they have a query
+        // Non-admins use the search endpoint for students when they have a query
         endpoint = "/users/search";
         params.roleId = 6; // MIS Student Role ID
         params.q = search;
       } else {
-        // If an instructor tries to fetch students without a course or search term,
-        // we can't use /users/ (forbidden) or /users/search (requires query).
-        // Return 200 with empty data and a message instead of letting it fail.
+        // Without a course (subjectId+termId) or a search term a non-admin
+        // has no usable MIS endpoint — /users/ is forbidden for them and
+        // /users/search requires a query. Return 200 with empty data and a
+        // hint instead of letting the request fail.
         return res.status(200).json({
           success: true,
           count: 0,
@@ -98,6 +103,15 @@ export const getUsers = async (req: Request, res: Response) => {
     } else if (search) {
       // Admins using the regular users endpoint
       params.search = search;
+    }
+
+    // Every remaining path calls the MIS API — a token is required from here on.
+    const token = getMisToken(req);
+    if (!token) {
+      return res.status(401).json({
+        success: false,
+        message: "Authentication required",
+      });
     }
 
     // Role filtering will be done after fetching from MIS for the main endpoint,

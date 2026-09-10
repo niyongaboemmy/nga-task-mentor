@@ -118,6 +118,25 @@ describe("users routes (previously had IDOR gaps)", () => {
     expect(res.status).not.toBe(403);
   });
 
+  it("allows an instructor to list students, returning a hint (not 403/500) when no course is selected", async () => {
+    const res = await request(app)
+      .get("/api/users?role=student")
+      .set("Authorization", `Bearer ${instructorToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(Array.isArray(res.body.data)).toBe(true);
+    expect(res.body.data).toHaveLength(0);
+  });
+
+  it("does not 403 an instructor listing students scoped to a course (permission gate + controller path pass)", async () => {
+    const res = await request(app)
+      .get("/api/users?role=student&subjectId=1&termId=1")
+      .set("Authorization", `Bearer ${instructorToken}`);
+    // No MIS token is attached in this harness, so the controller stops at the
+    // MIS-auth guard (401) — the point is the RBAC layer let it through.
+    expect(res.status).not.toBe(403);
+  });
+
   it("rejects a student from viewing another user's assignments", async () => {
     const res = await request(app)
       .get("/api/users/999999/assignments")
