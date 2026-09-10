@@ -251,6 +251,43 @@ describe("submissions — grouped by subject + type, role-scoped", () => {
   });
 });
 
+describe("quizzes — grouped, role-scoped listing", () => {
+  it("rejects an unauthenticated request", async () => {
+    const res = await request(app).get("/api/quizzes/grouped");
+    expect(res.status).toBe(401);
+  });
+
+  it("scopes a student to 'enrolled' and publishes only", async () => {
+    const res = await request(app)
+      .get("/api/quizzes/grouped")
+      .set("Authorization", `Bearer ${studentToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.scope).toBe("enrolled");
+    expect(res.body.data.can_create).toBe(false);
+    expect(res.body.data.can_edit).toBe(false);
+  });
+
+  it("lets an instructor create/edit within their assigned subjects", async () => {
+    const res = await request(app)
+      .get("/api/quizzes/grouped")
+      .set("Authorization", `Bearer ${instructorToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.scope).toBe("assigned");
+    expect(res.body.data.can_create).toBe(true);
+    expect(res.body.data.can_edit).toBe(true);
+  });
+
+  it("scopes an admin to 'all' with a bounded page", async () => {
+    const res = await request(app)
+      .get("/api/quizzes/grouped?pageSize=3")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.scope).toBe("all");
+    expect(res.body.data.subjects.length).toBeLessThanOrEqual(3);
+    expect(res.body.data.pagination.page_size).toBe(3);
+  });
+});
+
 describe("database admin routes (defense in depth: permission + step-up token)", () => {
   it("rejects a student outright (fails the permission check before step-up is even considered)", async () => {
     const res = await request(app)

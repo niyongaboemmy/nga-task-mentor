@@ -24,6 +24,7 @@ import {
   resolveAcademicYearId,
   handleMisError,
 } from "../utils/misUtils";
+import { getScopedSubjects } from "../utils/scopedSubjects";
 
 // Deep equality comparison for objects
 
@@ -148,6 +149,227 @@ export const getQuizzes = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("Get quizzes error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Quizzes grouped by subject, role-scoped, paginated by subject.
+//          Backs the redesigned /quizzes management page.
+// @route   GET /api/quizzes/grouped
+// @access  Private (QUIZZES_VIEW)
+export const getGroupedQuizzes = async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
+    const pageSize = Math.min(
+      24,
+      Math.max(1, parseInt(String(req.query.pageSize ?? "8"), 10) || 8),
+    );
+    const search = String(req.query.search ?? "").trim().toLowerCase();
+    const statusFilter = String(req.query.status ?? "").trim();
+    const typeFilter = String(req.query.type ?? "").trim();
+    const subjectIdParam = req.query.subjectId ? Number(req.query.subjectId) : null;
+
+    const { scope, subjects } = await getScopedSubjects(req);
+    if (scope === "none") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized to view quizzes" });
+    }
+
+    let visibleSubjects = subjects;
+    if (subjectIdParam != null && !isNaN(subjectIdParam)) {
+      visibleSubjects = visibleSubjects.filter((s) => s.id === subjectIdParam);
+    }
+
+    const canEditQuizzes = !!req.user?.permissions?.has("QUIZZES_EDIT");
+    const canManageAnyQuiz = !!req.user?.permissions?.has("QUIZZES_MANAGE_ANY");
+    const canCreate = !!req.user?.permissions?.has("QUIZZES_CREATE");
+
+    const resolvedTermId = req.query.academic_term_id
+      ? parseInt(req.query.academic_term_id as string, 10)
+      : await getCurrentTermId(req);
+    const termAnd = resolvedTermId
+      ? [
+          {
+            [Op.or]: [
+              { academic_term_id: resolvedTermId },
+              { academic_term_id: null },
+            ],
+          },
+        ]
+      : [];
+
+    // Non-editors (students) only see published quizzes; instructors without
+    // MANAGE_ANY are limited to their own + co-taught subjects (already scoped
+    // by getScopedSubjects), managers see all.
+    const baseAnd: any[] = [...termAnd];
+    if (!canEditQuizzes) {
+      baseAnd.push({ status: "published" });
+    } else if (
+      ["draft", "published", "completed"].includes(statusFilter)
+    ) {
+      baseAnd.push({ status: statusFilter });
+    }
+    if (["Assessment", "Homework", "Quiz", "Exam"].includes(typeFilter)) {
+      baseAnd.push({ type: typeFilter });
+    }
+    if (search) {
+      baseAnd.push({
+        [Op.or]: [
+          { title: { [Op.like]: `%${search}%` } },
+          { description: { [Op.like]: `%${search}%` } },
+        ],
+      });
+    }
+
+    // Keep subjects whose name/code matches the search, or that have a matching quiz.
+    if (search) {
+      const nameHit = new Set(
+        visibleSubjects
+          .filter(
+            (s) =>
+              s.name.toLowerCase().includes(search) ||
+              (s.code ?? "").toLowerCase().includes(search),
+          )
+          .map((s) => s.id),
+      );
+      let quizHit = new Set<number>();
+      if (visibleSubjects.length > 0) {
+        const rows = (await Quiz.findAll({
+          where: {
+            course_id: { [Op.in]: visibleSubjects.map((s) => s.id) },
+            [Op.and]: baseAnd,
+          },
+          attributes: ["course_id"],
+          group: ["course_id"],
+          raw: true,
+        })) as any[];
+        quizHit = new Set(rows.map((r) => Number(r.course_id)));
+      }
+      visibleSubjects = visibleSubjects.filter(
+        (s) => nameHit.has(s.id) || quizHit.has(s.id),
+      );
+    }
+    visibleSubjects = visibleSubjects.sort((a, b) => a.name.localeCompare(b.name));
+
+    const totalSubjects = visibleSubjects.length;
+    const totalPages = Math.max(1, Math.ceil(totalSubjects / pageSize));
+    const pageSubjects = visibleSubjects.slice(
+      (page - 1) * pageSize,
+      page * pageSize,
+    );
+
+    // Global count across every visible subject.
+    const allIds = visibleSubjects.map((s) => s.id);
+    let grandTotal = 0;
+    if (allIds.length > 0) {
+      grandTotal = await Quiz.count({
+        where: { course_id: { [Op.in]: allIds }, [Op.and]: baseAnd },
+      });
+    }
+
+    const PER_SUBJECT_CAP = 25;
+    const bySubject = new Map<number, any[]>();
+
+    if (pageSubjects.length > 0) {
+      const quizzes = await Quiz.findAll({
+        where: {
+          course_id: { [Op.in]: pageSubjects.map((s) => s.id) },
+          [Op.and]: baseAnd,
+        },
+        include: [
+          {
+            model: User,
+            as: "quizCreator",
+            attributes: ["id", "first_name", "last_name"],
+          },
+          { model: QuizQuestion, attributes: ["id", "points"], required: false },
+        ],
+        order: [["created_at", "DESC"]],
+      });
+
+      const quizIds = quizzes.map((q) => q.id);
+      const subCounts = new Map<number, { total: number; graded: number }>();
+      if (quizIds.length > 0) {
+        const subRows = (await QuizSubmission.findAll({
+          where: { quiz_id: { [Op.in]: quizIds }, status: "completed" },
+          attributes: ["quiz_id", "grade_status"],
+          raw: true,
+        })) as any[];
+        for (const r of subRows) {
+          const c = subCounts.get(r.quiz_id) ?? { total: 0, graded: 0 };
+          c.total += 1;
+          if (["graded", "auto_graded"].includes(r.grade_status)) c.graded += 1;
+          subCounts.set(r.quiz_id, c);
+        }
+      }
+
+      for (const q of quizzes) {
+        const list = bySubject.get(q.course_id!) ?? [];
+        const questions = (q as any).questions ?? [];
+        const sc = subCounts.get(q.id) ?? { total: 0, graded: 0 };
+        list.push({
+          id: q.id,
+          title: q.title,
+          description: q.description,
+          type: q.type,
+          status: q.status,
+          course_id: q.course_id,
+          created_by: q.created_by,
+          is_public: q.is_public,
+          start_date: q.start_date,
+          end_date: q.end_date,
+          created_at: q.createdAt,
+          total_questions: questions.length,
+          total_points: questions.reduce(
+            (s: number, x: any) => s + Number(x.points || 0),
+            0,
+          ),
+          submission_count: sc.total,
+          graded_count: sc.graded,
+          creator: (q as any).quizCreator ?? null,
+          // Subjects are already scoped to what the caller teaches, so any
+          // editor may manage quizzes within them (co-teacher model, matching
+          // getQuizzes). is_own flags the ones they personally created.
+          can_edit: canManageAnyQuiz || canEditQuizzes,
+          is_own: q.created_by === req.user.id,
+        });
+        bySubject.set(q.course_id!, list);
+      }
+    }
+
+    const data = pageSubjects.map((s) => {
+      const all = bySubject.get(s.id) ?? [];
+      return {
+        subject_id: s.id,
+        subject_name: s.name,
+        subject_code: s.code,
+        quiz_count: all.length,
+        published_count: all.filter((q) => q.status === "published").length,
+        draft_count: all.filter((q) => q.status === "draft").length,
+        has_more: all.length > PER_SUBJECT_CAP,
+        quizzes: all.slice(0, PER_SUBJECT_CAP),
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        scope,
+        can_create: canCreate,
+        can_edit: canEditQuizzes,
+        subjects: data,
+        all_subjects: subjects.map((s) => ({
+          id: s.id,
+          name: s.name,
+          code: s.code,
+        })),
+        totals: { subjects: totalSubjects, quizzes: grandTotal },
+        pagination: { page, page_size: pageSize, total_pages: totalPages },
+      },
+    });
+  } catch (error) {
+    console.error("Get grouped quizzes error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

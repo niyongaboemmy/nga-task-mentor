@@ -8,6 +8,7 @@ import {
   getQuizStats,
   getAvailableQuizzes,
   getPublicQuizzes,
+  getGroupedQuizzes,
   submitQuizAttempt,
   getQuizResultsById,
   createQuizSubmission,
@@ -84,6 +85,9 @@ router
   .route("/")
   .get(authorizePermission("QUIZZES_VIEW"), getQuizzes)
   .post(authorizePermission("QUIZZES_CREATE"), createQuiz);
+
+// Quizzes grouped by subject, role-scoped, paginated (redesigned /quizzes page)
+router.get("/grouped", authorizePermission("QUIZZES_VIEW"), getGroupedQuizzes);
 
 // Student quiz routes
 router.get("/available", authorizePermission("QUIZZES_ATTEMPT"), getAvailableQuizzes);

@@ -46,6 +46,7 @@ import QuizProctoringMonitoringPage from "../components/Quizzes/QuizProctoringMo
 import QuizProctoringAnalyticsPage from "../components/Quizzes/QuizProctoringAnalyticsPage";
 import { LiveProctoringDashboard } from "../components/Proctoring";
 import QuizListPage from "../pages/QuizListPage";
+import QuizzesPage from "../pages/QuizzesPage";
 import CourseReportsPage from "../pages/CourseReportsPage";
 import StudentReportsPage from "../pages/StudentReportsPage";
 import ReportCardBuilderPage from "../pages/ReportCardBuilderPage";
@@ -223,10 +224,16 @@ export const appRoutes: AppRoute[] = [
     permissions: ["QUIZZES_VIEW"],
   },
   {
-    path: "/quizzes/public",
-    element: <QuizListPage />,
-    permissions: ["QUIZZES_VIEW"],
+    path: "/quizzes",
+    element: <QuizzesPage />,
+    permissions: ["QUIZZES_EDIT"],
     navItem: { label: "Quizzes", icon: HelpCircle, group: "General" },
+  },
+  {
+    // Back-compat: older links (e.g. the dashboard shortcut) used /quizzes/public
+    path: "/quizzes/public",
+    element: <QuizzesPage />,
+    permissions: ["QUIZZES_EDIT"],
   },
   {
     path: "/my-quizzes",

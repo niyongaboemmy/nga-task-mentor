@@ -8,6 +8,7 @@ import databaseRoutes from "../routes/database.routes";
 import rolesPermissionsRoutes from "../routes/rolesPermissions";
 import assignmentRoutes from "../routes/assignments";
 import submissionRoutes from "../routes/submissions";
+import quizRoutes from "../routes/quizzes";
 
 /**
  * Minimal test harness app — mounts only the routers under test against the
@@ -25,6 +26,7 @@ export function buildTestApp() {
   app.use("/api/roles-permissions", rolesPermissionsRoutes);
   app.use("/api/assignments", assignmentRoutes);
   app.use("/api/submissions", submissionRoutes);
+  app.use("/api/quizzes", quizRoutes);
   return app;
 }
 
