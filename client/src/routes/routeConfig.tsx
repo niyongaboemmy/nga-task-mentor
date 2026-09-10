@@ -19,8 +19,8 @@ import {
 
 import Dashboard from "../components/Dashboard/Dashboard";
 import Courses from "../components/Courses/Courses";
-import Assignments from "../components/Assignments/Assignments";
-import Submissions from "../components/Submissions/Submissions";
+import AssignmentsPage from "../pages/AssignmentsPage";
+import SubmissionsPage from "../pages/SubmissionsPage";
 import CourseDetails from "../components/Courses/CourseDetails";
 import AssignmentDetails from "../components/Assignments/AssignmentDetails";
 import CreateAssignmentPage from "../components/Assignments/CreateAssignmentPage";
@@ -158,7 +158,7 @@ export const appRoutes: AppRoute[] = [
   },
   {
     path: "/assignments",
-    element: <Assignments />,
+    element: <AssignmentsPage />,
     permissions: ["ASSIGNMENTS_VIEW"],
     navItem: { label: "Assignments", icon: ClipboardList, group: "General" },
   },
@@ -180,7 +180,7 @@ export const appRoutes: AppRoute[] = [
   },
   {
     path: "/submissions",
-    element: <Submissions />,
+    element: <SubmissionsPage />,
     permissions: ["SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"],
     navItem: { label: "Submissions", icon: FileText, group: "General" },
   },

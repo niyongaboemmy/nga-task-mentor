@@ -18,6 +18,7 @@ import {
   getCurrentTermId,
   handleMisError,
 } from "../utils/misUtils";
+import { getScopedSubjects } from "../utils/scopedSubjects";
 
 // This controller manages all assignment-related operations, including creation, retrieval, updating, deletion, and submission handling. It also integrates with the NGA MIS to fetch enrolled students and manage assignment visibility based on course enrollment. The controller ensures that only authorized users can perform certain actions (e.g., only instructors can create assignments) and that students can only see and submit assignments for courses they are enrolled in. It also handles file uploads for assignments and submissions, storing metadata in the database and files on disk.
 // @desc    Get assignments for a specific course
@@ -90,10 +91,10 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
 
 export const getAssignments = async (req: Request, res: Response) => {
   try {
-    // Cross-course "all assignments" view -- was unscoped entirely (every
-    // assignment ever created, across every term). Scope to the caller's
-    // current academic term like the other assignment listings, so it also
-    // respects the academic period switcher.
+    // Cross-course "all assignments" view. Scope to the caller's current
+    // academic term AND to the subjects they're allowed to see (admins: all;
+    // instructors: assigned; students: enrolled) — previously this returned
+    // every assignment in the term regardless of who was asking.
     const termId = await getCurrentTermId(req);
     const termWhere = termId
       ? {
@@ -104,12 +105,261 @@ export const getAssignments = async (req: Request, res: Response) => {
         }
       : {};
 
-    const assignments = await Assignment.findAll({ where: termWhere });
+    const { scope, subjects } = await getScopedSubjects(req);
+    const scopedWhere: any = { ...termWhere };
+    if (scope !== "all") {
+      const ids = subjects.map((s) => s.id);
+      if (ids.length === 0) {
+        return res.status(200).json({ success: true, count: 0, data: [] });
+      }
+      scopedWhere.course_id = { [Op.in]: ids };
+    }
+
+    const isStudent = !req.user.permissions?.has("ASSIGNMENTS_VIEW_SUBMISSIONS");
+    if (isStudent) {
+      scopedWhere.status = { [Op.in]: ["published", "completed"] };
+    }
+
+    const assignments = await Assignment.findAll({
+      where: scopedWhere,
+      include: [
+        { model: User, as: "creator", attributes: ["id", "first_name", "last_name"] },
+      ],
+      order: [["due_date", "ASC"]],
+    });
     res
       .status(200)
       .json({ success: true, count: assignments.length, data: assignments });
   } catch (error) {
     console.error("Get assignments error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Assignments grouped by subject, scoped by role, paginated by subject.
+//          Backs the redesigned /assignments page.
+// @route   GET /api/assignments/grouped
+// @access  Private (ASSIGNMENTS_VIEW)
+export const getGroupedAssignments = async (req: Request, res: Response) => {
+  try {
+    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
+    const pageSize = Math.min(
+      24,
+      Math.max(1, parseInt(String(req.query.pageSize ?? "8"), 10) || 8),
+    );
+    const search = String(req.query.search ?? "").trim().toLowerCase();
+    const statusFilter = String(req.query.status ?? "").trim();
+    const subjectIdParam = req.query.subjectId
+      ? Number(req.query.subjectId)
+      : null;
+
+    const { scope, subjects } = await getScopedSubjects(req);
+
+    if (scope === "none") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized to view assignments" });
+    }
+
+    let visibleSubjects = subjects;
+    if (subjectIdParam != null && !isNaN(subjectIdParam)) {
+      visibleSubjects = visibleSubjects.filter((s) => s.id === subjectIdParam);
+    }
+
+    const isStudent = !req.user.permissions?.has("ASSIGNMENTS_VIEW_SUBMISSIONS");
+    const canManage = req.user.permissions?.has("ASSIGNMENTS_CREATE");
+
+    const termId = await getCurrentTermId(req);
+    const termWhere = termId
+      ? {
+          [Op.or]: [
+            { academic_term_id: termId },
+            { academic_term_id: null },
+          ],
+        }
+      : {};
+
+    // Status scoping: students only ever see published/completed; managers may
+    // filter, and by default see everything except hard-removed unless they ask.
+    let statusWhere: any = {};
+    if (isStudent) {
+      statusWhere = { status: { [Op.in]: ["published", "completed"] } };
+    } else if (
+      ["draft", "published", "completed", "removed"].includes(statusFilter)
+    ) {
+      statusWhere = { status: statusFilter };
+    } else {
+      statusWhere = { status: { [Op.ne]: "removed" } };
+    }
+
+    // Search keeps a subject if its name/code matches OR it has an assignment
+    // whose title matches — so searching a task name doesn't hide its subject.
+    if (search) {
+      const nameMatch = new Set(
+        visibleSubjects
+          .filter(
+            (s) =>
+              s.name.toLowerCase().includes(search) ||
+              (s.code ?? "").toLowerCase().includes(search),
+          )
+          .map((s) => s.id),
+      );
+      let titleMatch = new Set<number>();
+      if (visibleSubjects.length > 0) {
+        const rows = (await Assignment.findAll({
+          where: {
+            course_id: { [Op.in]: visibleSubjects.map((s) => s.id) },
+            title: { [Op.like]: `%${search}%` },
+            ...termWhere,
+            ...statusWhere,
+          },
+          attributes: ["course_id"],
+          group: ["course_id"],
+          raw: true,
+        })) as any[];
+        titleMatch = new Set(rows.map((r) => Number(r.course_id)));
+      }
+      visibleSubjects = visibleSubjects.filter(
+        (s) => nameMatch.has(s.id) || titleMatch.has(s.id),
+      );
+    }
+
+    // When searching, the assignment lists + counts also narrow to title
+    // matches, so a subject section's badge and its rows stay consistent.
+    const searchWhere: any = search ? { title: { [Op.like]: `%${search}%` } } : {};
+
+    // Per-subject assignment counts across ALL visible subjects (cheap, for totals
+    // + the section badges even on pages we don't hydrate).
+    const countRows: Array<{ course_id: number; n: number }> =
+      visibleSubjects.length > 0
+        ? ((await Assignment.findAll({
+            where: {
+              course_id: { [Op.in]: visibleSubjects.map((s) => s.id) },
+              ...termWhere,
+              ...statusWhere,
+              ...searchWhere,
+            },
+            attributes: [
+              "course_id",
+              [Assignment.sequelize!.fn("COUNT", Assignment.sequelize!.col("id")), "n"],
+            ],
+            group: ["course_id"],
+            raw: true,
+          })) as any)
+        : [];
+    const countBySubject = new Map<number, number>(
+      countRows.map((r) => [Number(r.course_id), Number(r.n)]),
+    );
+
+    const totalAssignments = [...countBySubject.values()].reduce((a, b) => a + b, 0);
+    const totalSubjects = visibleSubjects.length;
+    const totalPages = Math.max(1, Math.ceil(totalSubjects / pageSize));
+    const pageSubjects = visibleSubjects.slice(
+      (page - 1) * pageSize,
+      page * pageSize,
+    );
+
+    const PER_SUBJECT_CAP = 25;
+
+    const assignmentsBySubject = new Map<number, any[]>();
+    if (pageSubjects.length > 0) {
+      const rows = await Assignment.findAll({
+        where: {
+          course_id: { [Op.in]: pageSubjects.map((s) => s.id) },
+          ...termWhere,
+          ...statusWhere,
+          ...searchWhere,
+        },
+        include: [
+          { model: User, as: "creator", attributes: ["id", "first_name", "last_name"] },
+          {
+            model: Submission,
+            as: "submissions",
+            required: false,
+            where: isStudent ? { student_id: req.user.id } : undefined,
+            attributes: ["id", "student_id", "grade", "status"],
+          },
+        ],
+        attributes: [
+          "id",
+          "title",
+          "due_date",
+          "max_score",
+          "submission_type",
+          "status",
+          "course_id",
+          "created_by",
+        ],
+        order: [["due_date", "ASC"]],
+      });
+
+      for (const a of rows) {
+        const list = assignmentsBySubject.get(a.course_id!) ?? [];
+        const subs: any[] = (a as any).submissions ?? [];
+        const base = {
+          id: a.id,
+          title: a.title,
+          due_date: a.due_date,
+          max_score: a.max_score,
+          submission_type: a.submission_type,
+          status: a.status,
+          course_id: a.course_id,
+          creator: (a as any).creator ?? null,
+        };
+        if (isStudent) {
+          const mine = subs[0] ?? null;
+          list.push({
+            ...base,
+            my_submission: mine
+              ? { status: mine.status, grade: mine.grade ?? null }
+              : null,
+          });
+        } else {
+          list.push({
+            ...base,
+            submission_count: subs.length,
+            graded_count: subs.filter(
+              (s) => s.grade !== null && s.grade !== undefined && s.grade !== "",
+            ).length,
+          });
+        }
+        assignmentsBySubject.set(a.course_id!, list);
+      }
+    }
+
+    const data = pageSubjects.map((s) => {
+      const all = assignmentsBySubject.get(s.id) ?? [];
+      const capped = all.slice(0, PER_SUBJECT_CAP);
+      return {
+        subject_id: s.id,
+        subject_name: s.name,
+        subject_code: s.code,
+        assignment_count: countBySubject.get(s.id) ?? all.length,
+        published_count: all.filter((a) => a.status === "published").length,
+        draft_count: all.filter((a) => a.status === "draft").length,
+        has_more: all.length > PER_SUBJECT_CAP,
+        assignments: capped,
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        scope,
+        can_manage: !!canManage,
+        subjects: data,
+        // The full scoped subject list (for the subject-filter dropdown)
+        all_subjects: subjects.map((s) => ({
+          id: s.id,
+          name: s.name,
+          code: s.code,
+        })),
+        totals: { subjects: totalSubjects, assignments: totalAssignments },
+        pagination: { page, page_size: pageSize, total_pages: totalPages },
+      },
+    });
+  } catch (error) {
+    console.error("Get grouped assignments error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -843,9 +1093,18 @@ export const getEnrolledAssignments = async (req: Request, res: Response) => {
         }
       : {};
 
+    // Scope to the subjects the student is actually enrolled in — previously
+    // this returned every published assignment in the term, school-wide.
+    const { subjects } = await getScopedSubjects(req);
+    const enrolledSubjectIds = subjects.map((s) => s.id);
+    if (enrolledSubjectIds.length === 0) {
+      return res.status(200).json({ success: true, count: 0, data: [] });
+    }
+
     const assignments = await Assignment.findAll({
       where: {
         status: "published",
+        course_id: { [Op.in]: enrolledSubjectIds },
         ...enrolledTermWhere,
       },
       include: [

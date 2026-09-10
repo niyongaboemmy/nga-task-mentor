@@ -1,8 +1,9 @@
 import { Request, Response } from "express";
-import { Submission, Assignment, User } from "../models";
+import { Submission, Assignment, User, Quiz, QuizSubmission } from "../models";
 import { Op } from "sequelize";
 import { isPastDate } from "../utils/dateUtils";
-import { resolveAcademicTermId } from "../utils/misUtils";
+import { resolveAcademicTermId, getCurrentTermId } from "../utils/misUtils";
+import { getScopedSubjects } from "../utils/scopedSubjects";
 import fs from "fs";
 import path from "path";
 import fileServer from "../utils/fileServer";
@@ -78,6 +79,312 @@ export const getSubmissions = async (req: Request, res: Response) => {
       .json({ success: true, count: submissions.length, data: submissions });
   } catch (error) {
     console.error("Get submissions error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Submissions grouped by subject then by type (assignment | quiz),
+//          role-scoped and paginated by subject. Backs the redesigned
+//          /submissions page.
+// @route   GET /api/submissions/grouped
+// @access  Private (SUBMISSIONS_VIEW_OWN | SUBMISSIONS_VIEW_ALL)
+export const getGroupedSubmissions = async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.id;
+    const canViewAll = !!(req as any).user.permissions?.has("SUBMISSIONS_VIEW_ALL");
+
+    const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
+    const pageSize = Math.min(
+      24,
+      Math.max(1, parseInt(String(req.query.pageSize ?? "8"), 10) || 8),
+    );
+    const search = String(req.query.search ?? "").trim().toLowerCase();
+    const typeFilter = String(req.query.type ?? "").trim(); // "assignment" | "quiz" | ""
+    const statusFilter = String(req.query.status ?? "").trim();
+    const subjectIdParam = req.query.subjectId
+      ? Number(req.query.subjectId)
+      : null;
+
+    const { scope, subjects } = await getScopedSubjects(req);
+    if (scope === "none") {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized to view submissions" });
+    }
+
+    let visibleSubjects = subjects;
+    if (subjectIdParam != null && !isNaN(subjectIdParam)) {
+      visibleSubjects = visibleSubjects.filter((s) => s.id === subjectIdParam);
+    }
+    if (search) {
+      visibleSubjects = visibleSubjects.filter(
+        (s) =>
+          s.name.toLowerCase().includes(search) ||
+          (s.code ?? "").toLowerCase().includes(search),
+      );
+    }
+    visibleSubjects = visibleSubjects.sort((a, b) => a.name.localeCompare(b.name));
+
+    const totalSubjects = visibleSubjects.length;
+    const totalPages = Math.max(1, Math.ceil(totalSubjects / pageSize));
+    const pageSubjects = visibleSubjects.slice(
+      (page - 1) * pageSize,
+      page * pageSize,
+    );
+    const pageIds = pageSubjects.map((s) => s.id);
+    const allVisibleIds = visibleSubjects.map((s) => s.id);
+
+    const termId = await getCurrentTermId(req);
+    const termWhere = termId
+      ? { [Op.or]: [{ academic_term_id: termId }, { academic_term_id: null }] }
+      : {};
+
+    const wantAssignments = typeFilter !== "quiz";
+    const wantQuizzes = typeFilter !== "assignment";
+
+    // Global totals across every visible subject (not just this page).
+    let grandTotal = 0;
+    if (allVisibleIds.length > 0) {
+      const [aCount, qCount] = await Promise.all([
+        wantAssignments
+          ? Submission.count({
+              where: canViewAll ? {} : { student_id: userId },
+              include: [
+                {
+                  model: Assignment,
+                  attributes: [],
+                  where: { course_id: { [Op.in]: allVisibleIds }, ...termWhere },
+                  required: true,
+                },
+              ],
+            })
+          : Promise.resolve(0),
+        wantQuizzes
+          ? QuizSubmission.count({
+              where: {
+                ...(canViewAll ? {} : { student_id: userId }),
+                status: { [Op.in]: ["completed", "in_progress"] },
+              },
+              include: [
+                {
+                  model: Quiz,
+                  as: "submissionQuiz",
+                  attributes: [],
+                  where: { course_id: { [Op.in]: allVisibleIds }, ...termWhere },
+                  required: true,
+                },
+              ],
+            })
+          : Promise.resolve(0),
+      ]);
+      grandTotal = aCount + qCount;
+    }
+    const PER_GROUP_CAP = 20;
+
+    type Row = {
+      id: string;
+      type: "assignment" | "quiz";
+      subject_id: number;
+      title: string;
+      student: { id: number; name: string; email?: string } | null;
+      status: string;
+      submitted_at: string | null;
+      grade_display: string | null;
+      percentage: number | null;
+      is_graded: boolean;
+      detail_url: string;
+    };
+
+    const rows: Row[] = [];
+
+    if (pageIds.length > 0 && wantAssignments) {
+      const subs = await Submission.findAll({
+        where: canViewAll ? {} : { student_id: userId },
+        include: [
+          {
+            model: Assignment,
+            attributes: ["id", "title", "course_id"],
+            where: { course_id: { [Op.in]: pageIds }, ...termWhere },
+            required: true,
+          },
+          ...(canViewAll
+            ? [
+                {
+                  model: User,
+                  as: "student",
+                  attributes: ["id", "first_name", "last_name", "email"],
+                },
+              ]
+            : []),
+        ],
+        order: [["submitted_at", "DESC"]],
+      });
+      for (const s of subs) {
+        const a = (s as any).assignment;
+        if (!a) continue;
+        const stu = (s as any).student;
+        rows.push({
+          id: `a-${s.id}`,
+          type: "assignment",
+          subject_id: a.course_id,
+          title: a.title,
+          student: stu
+            ? {
+                id: stu.id,
+                name: `${stu.first_name} ${stu.last_name}`.trim(),
+                email: stu.email,
+              }
+            : null,
+          status: s.status,
+          submitted_at: s.submitted_at ? new Date(s.submitted_at).toISOString() : null,
+          grade_display: s.grade ?? null,
+          percentage: (() => {
+            if (!s.grade || !String(s.grade).includes("/")) return null;
+            const [n, d] = String(s.grade).split("/").map(parseFloat);
+            return d > 0 ? Math.round((n / d) * 100) : null;
+          })(),
+          is_graded: s.grade != null && s.grade !== "",
+          detail_url: `/assignments/${a.id}`,
+        });
+      }
+    }
+
+    if (pageIds.length > 0 && wantQuizzes) {
+      const qsubs = await QuizSubmission.findAll({
+        where: {
+          ...(canViewAll ? {} : { student_id: userId }),
+          status: { [Op.in]: ["completed", "in_progress"] },
+        },
+        include: [
+          {
+            model: Quiz,
+            as: "submissionQuiz",
+            attributes: ["id", "title", "course_id"],
+            where: { course_id: { [Op.in]: pageIds }, ...termWhere },
+            required: true,
+          },
+          ...(canViewAll
+            ? [
+                {
+                  model: User,
+                  as: "submissionStudent",
+                  attributes: ["id", "first_name", "last_name", "email"],
+                },
+              ]
+            : []),
+        ],
+        order: [["completed_at", "DESC"]],
+      });
+      for (const s of qsubs) {
+        const q = (s as any).submissionQuiz;
+        if (!q) continue;
+        const stu = (s as any).submissionStudent;
+        const gs = (s as any).grade_status as string | undefined;
+        const isGraded = gs === "graded" || gs === "auto_graded";
+        rows.push({
+          id: `q-${s.id}`,
+          type: "quiz",
+          subject_id: q.course_id,
+          title: q.title,
+          student: stu
+            ? {
+                id: stu.id,
+                name: `${stu.first_name} ${stu.last_name}`.trim(),
+                email: stu.email,
+              }
+            : null,
+          status: s.status === "in_progress" ? "in_progress" : gs ?? "pending",
+          submitted_at: s.completed_at
+            ? new Date(s.completed_at).toISOString()
+            : s.started_at
+              ? new Date(s.started_at).toISOString()
+              : null,
+          grade_display: isGraded
+            ? `${Number(s.total_score)}/${Number(s.max_score)}`
+            : null,
+          percentage:
+            s.percentage != null ? Math.round(Number(s.percentage)) : null,
+          is_graded: isGraded,
+          detail_url: `/quizzes/${q.id}/submissions`,
+        });
+      }
+    }
+
+    // In-memory search on student name / title, and status filter.
+    const q = search;
+    const filtered = rows.filter((r) => {
+      if (statusFilter && r.status !== statusFilter) return false;
+      if (!q) return true;
+      // If the subject itself matched the search, keep all its rows.
+      const subjMatched = pageSubjects.some(
+        (s) =>
+          s.id === r.subject_id &&
+          (s.name.toLowerCase().includes(q) ||
+            (s.code ?? "").toLowerCase().includes(q)),
+      );
+      return (
+        subjMatched ||
+        r.title.toLowerCase().includes(q) ||
+        (r.student?.name.toLowerCase().includes(q) ?? false)
+      );
+    });
+
+    const bySubject = new Map<number, Row[]>();
+    for (const r of filtered) {
+      const list = bySubject.get(r.subject_id) ?? [];
+      list.push(r);
+      bySubject.set(r.subject_id, list);
+    }
+
+    const statusValues = new Set<string>();
+    for (const r of rows) statusValues.add(r.status);
+
+    const data = pageSubjects.map((s) => {
+      const all = bySubject.get(s.id) ?? [];
+      const assignments = all.filter((r) => r.type === "assignment");
+      const quizzes = all.filter((r) => r.type === "quiz");
+      return {
+        subject_id: s.id,
+        subject_name: s.name,
+        subject_code: s.code,
+        total: all.length,
+        graded: all.filter((r) => r.is_graded).length,
+        assignments: {
+          count: assignments.length,
+          has_more: assignments.length > PER_GROUP_CAP,
+          items: assignments.slice(0, PER_GROUP_CAP),
+        },
+        quizzes: {
+          count: quizzes.length,
+          has_more: quizzes.length > PER_GROUP_CAP,
+          items: quizzes.slice(0, PER_GROUP_CAP),
+        },
+      };
+    });
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        scope,
+        can_view_all: canViewAll,
+        can_grade: !!(req as any).user.permissions?.has("SUBMISSIONS_GRADE"),
+        subjects: data,
+        all_subjects: subjects.map((s) => ({
+          id: s.id,
+          name: s.name,
+          code: s.code,
+        })),
+        status_values: [...statusValues].sort(),
+        totals: {
+          subjects: totalSubjects,
+          submissions: grandTotal,
+          submissions_on_page: data.reduce((n, s) => n + s.total, 0),
+        },
+        pagination: { page, page_size: pageSize, total_pages: totalPages },
+      },
+    });
+  } catch (error) {
+    console.error("Get grouped submissions error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

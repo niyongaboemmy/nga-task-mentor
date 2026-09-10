@@ -163,6 +163,94 @@ describe("users routes (previously had IDOR gaps)", () => {
   });
 });
 
+describe("assignments — grouped, role-scoped listing", () => {
+  it("rejects an unauthenticated request", async () => {
+    const res = await request(app).get("/api/assignments/grouped");
+    expect(res.status).toBe(401);
+  });
+
+  it("scopes a student to 'enrolled'", async () => {
+    const res = await request(app)
+      .get("/api/assignments/grouped")
+      .set("Authorization", `Bearer ${studentToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.scope).toBe("enrolled");
+    expect(res.body.data.can_manage).toBe(false);
+    expect(Array.isArray(res.body.data.subjects)).toBe(true);
+  });
+
+  it("scopes an instructor to 'assigned' and marks them a manager", async () => {
+    const res = await request(app)
+      .get("/api/assignments/grouped")
+      .set("Authorization", `Bearer ${instructorToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.scope).toBe("assigned");
+    expect(res.body.data.can_manage).toBe(true);
+  });
+
+  it("scopes an admin to 'all'", async () => {
+    const res = await request(app)
+      .get("/api/assignments/grouped")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.scope).toBe("all");
+  });
+
+  it("returns a bounded page shape", async () => {
+    const res = await request(app)
+      .get("/api/assignments/grouped?pageSize=5&page=1")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.body.data.pagination).toMatchObject({ page: 1, page_size: 5 });
+    expect(res.body.data.subjects.length).toBeLessThanOrEqual(5);
+  });
+});
+
+describe("submissions — grouped by subject + type, role-scoped", () => {
+  it("rejects an unauthenticated request", async () => {
+    const res = await request(app).get("/api/submissions/grouped");
+    expect(res.status).toBe(401);
+  });
+
+  it("scopes a student to 'enrolled', not a viewer of all", async () => {
+    const res = await request(app)
+      .get("/api/submissions/grouped")
+      .set("Authorization", `Bearer ${studentToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.scope).toBe("enrolled");
+    expect(res.body.data.can_view_all).toBe(false);
+  });
+
+  it("scopes an instructor to 'assigned' and exposes grading", async () => {
+    const res = await request(app)
+      .get("/api/submissions/grouped")
+      .set("Authorization", `Bearer ${instructorToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.scope).toBe("assigned");
+    expect(res.body.data.can_view_all).toBe(true);
+    expect(res.body.data.can_grade).toBe(true);
+  });
+
+  it("scopes an admin to 'all' with a bounded page", async () => {
+    const res = await request(app)
+      .get("/api/submissions/grouped?pageSize=4")
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.scope).toBe("all");
+    expect(res.body.data.subjects.length).toBeLessThanOrEqual(4);
+    expect(res.body.data.pagination.page_size).toBe(4);
+  });
+
+  it("each subject section splits assignments and quizzes", async () => {
+    const res = await request(app)
+      .get("/api/submissions/grouped")
+      .set("Authorization", `Bearer ${adminToken}`);
+    for (const s of res.body.data.subjects) {
+      expect(s).toHaveProperty("assignments.items");
+      expect(s).toHaveProperty("quizzes.items");
+    }
+  });
+});
+
 describe("database admin routes (defense in depth: permission + step-up token)", () => {
   it("rejects a student outright (fails the permission check before step-up is even considered)", async () => {
     const res = await request(app)

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getSubmissions,
+  getGroupedSubmissions,
   getSubmission,
   createSubmission,
   updateSubmission,
@@ -24,6 +25,13 @@ router.post(
   checkEnrollment(),
   uploadSubmission.single("file_submission"),
   createSubmission,
+);
+
+// Submissions grouped by subject + type, role-scoped, paginated (redesigned page)
+router.get(
+  "/grouped",
+  authorizePermission("SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"),
+  getGroupedSubmissions,
 );
 
 // Student and instructor routes (controller enforces own-vs-all scoping)
