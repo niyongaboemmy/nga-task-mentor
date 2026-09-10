@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getUsers,
+  getMyStudents,
   getUser,
   createUser,
   updateUser,
@@ -26,6 +27,13 @@ router
   .route("/")
   .get(authorizePermission("USERS_VIEW_ALL"), getUsers)
   .post(authorizePermission("USERS_CREATE"), createUser);
+
+// Instructor roster — must be declared before "/:id" so it isn't shadowed.
+router.get(
+  "/my-students",
+  authorizePermission("USERS_VIEW_ALL"),
+  getMyStudents,
+);
 
 router
   .route("/:id")

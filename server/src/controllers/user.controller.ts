@@ -184,6 +184,218 @@ export const getUsers = async (req: Request, res: Response) => {
   }
 };
 
+const EMPTY_ROSTER = {
+  success: true,
+  count: 0,
+  data: {
+    students: [] as any[],
+    filters: { subjects: [] as any[], class_groups: [] as any[] },
+    academic_year_id: null as number | null,
+    total: 0,
+  },
+};
+
+// @desc    The roster an instructor needs: everyone in the class groups they're
+//          assigned to teach, each tagged with which of the instructor's
+//          subjects that student is actually enrolled in. Merges three MIS
+//          endpoints teachers CAN reach (VIEW_MY_ASSIGNED_SUBJECTS /
+//          VIEW_MY_STUDENTS / class-group roster) rather than the
+//          subject-scoped endpoints that need the admin-only
+//          VIEW_SUBJECT_ENROLLED_STUDENTS and so returned nothing for them.
+// @route   GET /api/users/my-students
+// @access  Private (USERS_VIEW_ALL)
+export const getMyStudents = async (req: Request, res: Response) => {
+  try {
+    const token = getMisToken(req);
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
+    }
+
+    const base = process.env.NGA_MIS_BASE_URL;
+    const authHeaders = {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    };
+    const httpsAgent =
+      process.env.NODE_ENV === "production"
+        ? new (require("https").Agent)({ rejectUnauthorized: true })
+        : undefined;
+
+    const termId = await resolveAcademicTermId(req);
+    const termParam = termId ? { academic_term_id: termId } : {};
+
+    // 1. What the instructor is assigned to teach this term — the source of the
+    //    subject + class-group filter lists and the "(subject, class group)"
+    //    pairs that decide which subject badges a student gets.
+    const assignedRes = await axios.get(`${base}/academics/my-assigned-subjects`, {
+      headers: authHeaders,
+      params: termParam,
+      httpsAgent,
+    });
+    const assignedSubjectsRaw: any[] = assignedRes.data?.data ?? [];
+
+    const subjectFilter = new Map<number, any>();
+    const classGroupFilter = new Map<number, any>();
+    const taughtPairs = new Set<string>(); // `${classGroupId}-${subjectId}`
+    let yearId: number | null = null;
+
+    for (const subj of assignedSubjectsRaw) {
+      const sid = Number(subj.subject_id ?? subj.id);
+      if (!isNaN(sid) && !subjectFilter.has(sid)) {
+        subjectFilter.set(sid, {
+          subject_id: sid,
+          subject_name: subj.subject_name ?? subj.name ?? "",
+          subject_code: subj.subject_code ?? subj.code ?? null,
+        });
+      }
+      for (const g of subj.grades ?? []) {
+        const cgId = Number(g.class_group_id);
+        if (isNaN(cgId)) continue;
+        yearId = yearId ?? (g.academic_year_id ? Number(g.academic_year_id) : null);
+        if (!classGroupFilter.has(cgId)) {
+          classGroupFilter.set(cgId, {
+            class_group_id: cgId,
+            class_group_name: g.class_group_name ?? g.grade_name ?? "",
+            grade_name: g.grade_name ?? "",
+            program_name: g.program_name ?? "",
+          });
+        }
+        if (!isNaN(sid)) taughtPairs.add(`${cgId}-${sid}`);
+      }
+    }
+
+    if (yearId == null) {
+      yearId = (await resolveAcademicYearId(req)) ?? null;
+    }
+
+    // Optional narrowing from the UI
+    const subjectIdParam = req.query.subjectId ? Number(req.query.subjectId) : null;
+    const classGroupIdParam = req.query.classGroupId
+      ? Number(req.query.classGroupId)
+      : null;
+
+    // 2. Strict roster — students who are BOTH in one of the instructor's class
+    //    groups AND enrolled in the subject taught to that group. Gives us the
+    //    per-student subject badges.
+    const subjectsByStudent = new Map<number, Map<number, any>>();
+    try {
+      const myStudentsRes = await axios.get(`${base}/academics/my-students`, {
+        headers: authHeaders,
+        params: termParam,
+        httpsAgent,
+      });
+      for (const s of myStudentsRes.data?.data?.students ?? []) {
+        const uid = Number(s.user_id);
+        if (isNaN(uid)) continue;
+        const map = subjectsByStudent.get(uid) ?? new Map<number, any>();
+        for (const sub of s.subjects ?? []) {
+          const sid = Number(sub.subject_id);
+          if (!isNaN(sid)) map.set(sid, sub);
+        }
+        subjectsByStudent.set(uid, map);
+      }
+    } catch (e: any) {
+      console.warn("getMyStudents: my-students fetch failed:", e.message);
+    }
+
+    // 3. Full membership of each assigned class group — so students physically
+    //    in the instructor's class are never hidden by a subject-enrollment gap.
+    const targetClassGroups = [...classGroupFilter.values()].filter(
+      (cg) => classGroupIdParam == null || cg.class_group_id === classGroupIdParam,
+    );
+
+    const byStudent = new Map<number, any>();
+    await Promise.all(
+      targetClassGroups.map(async (cg) => {
+        try {
+          const rosterRes = await axios.get(
+            `${base}/academics/class-groups/${cg.class_group_id}/students`,
+            {
+              headers: authHeaders,
+              params: yearId ? { academic_year_id: yearId } : {},
+              httpsAgent,
+            },
+          );
+          for (const s of rosterRes.data?.data ?? []) {
+            const uid = Number(s.user_id);
+            if (isNaN(uid)) continue;
+            const enrolledSubjects = [
+              ...(subjectsByStudent.get(uid)?.values() ?? []),
+            ];
+            const existing = byStudent.get(uid);
+            const record = existing ?? {
+              user_id: uid,
+              username: s.username ?? null,
+              email: s.email ?? null,
+              first_name: s.first_name ?? null,
+              last_name: s.last_name ?? null,
+              gender: s.gender ?? null,
+              class_group_id: cg.class_group_id,
+              class_group_name: cg.class_group_name,
+              grade_name: cg.grade_name,
+              program_name: cg.program_name,
+              subjects: enrolledSubjects,
+            };
+            if (existing) {
+              // student in more than one of the instructor's groups — merge badges
+              const seen = new Set(existing.subjects.map((x: any) => x.subject_id));
+              for (const sub of enrolledSubjects) {
+                if (!seen.has(sub.subject_id)) existing.subjects.push(sub);
+              }
+            } else {
+              byStudent.set(uid, record);
+            }
+          }
+        } catch (e: any) {
+          console.warn(
+            `getMyStudents: class-group ${cg.class_group_id} roster failed:`,
+            e.message,
+          );
+        }
+      }),
+    );
+
+    let students = [...byStudent.values()];
+    if (subjectIdParam != null) {
+      students = students.filter((s) =>
+        s.subjects.some((sub: any) => sub.subject_id === subjectIdParam),
+      );
+    }
+    students.sort((a, b) =>
+      `${a.first_name ?? ""} ${a.last_name ?? ""}`.localeCompare(
+        `${b.first_name ?? ""} ${b.last_name ?? ""}`,
+      ),
+    );
+
+    return res.status(200).json({
+      success: true,
+      count: students.length,
+      data: {
+        students,
+        filters: {
+          subjects: [...subjectFilter.values()].sort((a, b) =>
+            a.subject_name.localeCompare(b.subject_name),
+          ),
+          class_groups: [...classGroupFilter.values()].sort((a, b) =>
+            a.class_group_name.localeCompare(b.class_group_name),
+          ),
+        },
+        academic_year_id: yearId,
+        total: students.length,
+      },
+    });
+  } catch (error: any) {
+    // 404 (nothing there) or 403 (teacher with no assignments / missing the
+    // MIS perm) both mean "empty roster", not a hard error for the UI.
+    if (error.response?.status === 404 || error.response?.status === 403) {
+      return res.status(200).json(EMPTY_ROSTER);
+    }
+    return handleMisError(error, res, "Error fetching your students");
+  }
+};
+
 // @desc    Get single user
 // @route   GET /api/users/:id
 // @access  Private/Admin

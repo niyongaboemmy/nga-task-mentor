@@ -137,6 +137,24 @@ describe("users routes (previously had IDOR gaps)", () => {
     expect(res.status).not.toBe(403);
   });
 
+  it("rejects a student from the instructor 'my students' roster", async () => {
+    const res = await request(app)
+      .get("/api/users/my-students")
+      .set("Authorization", `Bearer ${studentToken}`);
+    expect(res.status).toBe(403);
+  });
+
+  it("lets an instructor reach the 'my students' roster (RBAC gate passes)", async () => {
+    const res = await request(app)
+      .get("/api/users/my-students")
+      .set("Authorization", `Bearer ${instructorToken}`);
+    // No MIS token in this harness → controller stops at the MIS-auth guard;
+    // the point is the RBAC layer allowed it through and the route resolved
+    // to the roster handler (not the /:id handler).
+    expect(res.status).not.toBe(403);
+    expect(res.status).not.toBe(404);
+  });
+
   it("rejects a student from viewing another user's assignments", async () => {
     const res = await request(app)
       .get("/api/users/999999/assignments")
