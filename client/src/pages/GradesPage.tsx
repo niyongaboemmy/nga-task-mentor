@@ -5,6 +5,7 @@ import {
   Search,
   Pencil,
   Trash2,
+  Eye,
   Loader2,
   Users,
   BookOpen,
@@ -20,12 +21,47 @@ import { toast } from "react-toastify";
 import { CourseApiService } from "../services/courseApi";
 import {
   ManualAssessmentApiService,
-  ASSESSMENT_TYPE_LABELS,
   type ManualAssessment,
 } from "../services/manualAssessmentApi";
+import { QuizGroupedApiService } from "../services/quizGroupedApi";
+import { AssignmentApiService } from "../services/assignmentApi";
 import { useAuth } from "../contexts/AuthContext";
 import CreateAssessmentModal from "../components/Grades/CreateAssessmentModal";
 import type { Course } from "../types/course.types";
+
+// ─── Unified assessment row ───────────────────────────────────────────────────
+// Quizzes, assignments, and manual entries are three separate models on the
+// backend (and three separate creation flows — Quizzes/Assignments pages own
+// their own CRUD), but a teacher thinks of them as one pool of "things that
+// feed a subject's report card". This page's job is to show all three
+// together at a glance; only manual entries can be created/edited/deleted
+// here — quizzes/assignments link out to their native management pages.
+
+type AssessmentKind = "quiz" | "assignment" | "manual";
+
+interface AssessmentRow {
+  key: string;
+  kind: AssessmentKind;
+  id: number;
+  courseId: number;
+  title: string;
+  date: string | null;
+  maxScore: number | null;
+  recorded: number | null;
+  manual?: ManualAssessment;
+}
+
+const KIND_BADGE: Record<AssessmentKind, string> = {
+  quiz: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
+  assignment: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300",
+  manual: "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300",
+};
+
+const KIND_LABEL: Record<AssessmentKind, string> = {
+  quiz: "Quiz",
+  assignment: "Assignment",
+  manual: "Manual",
+};
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
 
@@ -93,10 +129,12 @@ export default function GradesPage() {
   const academicYear = user?.currentAcademicYear?.name ?? "";
 
   // ── Data ──────────────────────────────────────────────────────────────────
-  const [courses, setCourses]         = useState<Course[]>([]);
-  const [assessments, setAssessments] = useState<ManualAssessment[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [activeTab, setActiveTab]     = useState<Tab>("Assessments");
+  const [courses, setCourses]           = useState<Course[]>([]);
+  const [manualAssessments, setManualAssessments] = useState<ManualAssessment[]>([]);
+  const [quizRows, setQuizRows]         = useState<AssessmentRow[]>([]);
+  const [assignmentRows, setAssignmentRows] = useState<AssessmentRow[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [activeTab, setActiveTab]       = useState<Tab>("Assessments");
 
   // ── Table state ───────────────────────────────────────────────────────────
   const [search, setSearch]           = useState("");
@@ -122,10 +160,10 @@ export default function GradesPage() {
     }
   }, []);
 
-  // ── Load assessments for all courses ─────────────────────────────────────
-  const loadAssessments = useCallback(async (courseList: Course[]) => {
+  // ── Load manual assessments for all courses ───────────────────────────────
+  const loadManualAssessments = useCallback(async (courseList: Course[]) => {
     if (courseList.length === 0) {
-      setAssessments([]);
+      setManualAssessments([]);
       return;
     }
     const ids = courseList.map((c) => c.id);
@@ -136,11 +174,58 @@ export default function GradesPage() {
         academic_year: academicYear || undefined,
         with_counts:   true,
       });
-      setAssessments(res.data ?? []);
+      setManualAssessments(res.data ?? []);
     } catch {
-      toast.error("Failed to load assessments");
+      toast.error("Failed to load manual assessments");
     }
   }, [term, academicYear]);
+
+  // ── Load quizzes + assignments across every subject (view-only here — ────
+  // creation/editing of these stays on their own Quizzes/Assignments pages).
+  const loadQuizzesAndAssignments = useCallback(async (courseList: Course[]) => {
+    if (courseList.length === 0) {
+      setQuizRows([]);
+      setAssignmentRows([]);
+      return;
+    }
+    try {
+      const [quizData, assignmentData] = await Promise.all([
+        QuizGroupedApiService.getGrouped({ pageSize: courseList.length }),
+        AssignmentApiService.getGrouped({ pageSize: courseList.length }),
+      ]);
+
+      const quizzes: AssessmentRow[] = quizData.subjects.flatMap((s) =>
+        s.quizzes.map((q) => ({
+          key: `quiz-${q.id}`,
+          kind: "quiz" as const,
+          id: q.id,
+          courseId: q.course_id,
+          title: q.title,
+          date: q.start_date ?? q.created_at,
+          maxScore: q.total_points || null,
+          recorded: q.graded_count,
+        })),
+      );
+
+      const assignments: AssessmentRow[] = assignmentData.subjects.flatMap((s) =>
+        s.assignments.map((a) => ({
+          key: `assignment-${a.id}`,
+          kind: "assignment" as const,
+          id: a.id,
+          courseId: a.course_id,
+          title: a.title,
+          date: a.due_date,
+          maxScore: a.max_score ? Number(a.max_score) : null,
+          recorded: a.graded_count ?? null,
+        })),
+      );
+
+      setQuizRows(quizzes);
+      setAssignmentRows(assignments);
+    } catch {
+      toast.error("Failed to load quizzes and assignments");
+    }
+  }, []);
 
   // ── Load enrolled student counts (best-effort, non-blocking) ─────────────
   const loadEnrolledCounts = useCallback(async (courseList: Course[]) => {
@@ -162,26 +247,51 @@ export default function GradesPage() {
     (async () => {
       setLoading(true);
       const courseList = await loadCourses();
-      await loadAssessments(courseList);
+      await Promise.all([
+        loadManualAssessments(courseList),
+        loadQuizzesAndAssignments(courseList),
+      ]);
       setLoading(false);
       // Load enrollment counts in background
       loadEnrolledCounts(courseList);
     })();
-  }, [loadCourses, loadAssessments, loadEnrolledCounts]);
+  }, [loadCourses, loadManualAssessments, loadQuizzesAndAssignments, loadEnrolledCounts]);
+
+  // ── Unified rows: quizzes + assignments + manual entries ──────────────────
+  const manualRows = useMemo<AssessmentRow[]>(
+    () =>
+      manualAssessments.map((a) => ({
+        key: `manual-${a.id}`,
+        kind: "manual" as const,
+        id: a.id,
+        courseId: a.course_id,
+        title: ManualAssessmentApiService.getTypeLabel(a),
+        date: a.assessment_date,
+        maxScore: a.max_score,
+        recorded: a.recorded_count ?? null,
+        manual: a,
+      })),
+    [manualAssessments],
+  );
+
+  const assessments = useMemo<AssessmentRow[]>(
+    () => [...quizRows, ...assignmentRows, ...manualRows],
+    [quizRows, assignmentRows, manualRows],
+  );
 
   // ── Derived stats ─────────────────────────────────────────────────────────
   const stats = useMemo(() => {
-    const subjectsWithAssessments = new Set(assessments.map((a) => a.course_id)).size;
+    const subjectsWithAssessments = new Set(assessments.map((a) => a.courseId)).size;
     const totalSubjects = courses.length;
     const subjectsWithoutAssessments = courses.filter(
-      (c) => !assessments.some((a) => a.course_id === c.id),
+      (c) => !assessments.some((a) => a.courseId === c.id),
     ).length;
 
     // "Classes" here = unique class groups (by class_group_id)
     const classGroupIds = [...new Set(courses.map((c) => c.class_group_id).filter(Boolean))];
     const classesWithoutAssessments = classGroupIds.filter((gid) => {
       const groupCourses = courses.filter((c) => c.class_group_id === gid);
-      return !groupCourses.some((c) => assessments.some((a) => a.course_id === c.id));
+      return !groupCourses.some((c) => assessments.some((a) => a.courseId === c.id));
     }).length;
 
     return {
@@ -204,12 +314,12 @@ export default function GradesPage() {
     if (!search.trim()) return assessments;
     const q = search.toLowerCase();
     return assessments.filter((a) => {
-      const course = courseMap.get(a.course_id);
+      const course = courseMap.get(a.courseId);
       const subjectLabel = course?.title ?? "";
-      const typeLabel = ManualAssessmentApiService.getTypeLabel(a);
       return (
         subjectLabel.toLowerCase().includes(q) ||
-        typeLabel.toLowerCase().includes(q)
+        a.title.toLowerCase().includes(q) ||
+        KIND_LABEL[a.kind].toLowerCase().includes(q)
       );
     });
   }, [assessments, search, courseMap]);
@@ -219,26 +329,28 @@ export default function GradesPage() {
 
   const handlePageChange = (p: number) => setPage(Math.min(Math.max(1, p), totalPages));
 
-  // ── Delete assessment ─────────────────────────────────────────────────────
+  // ── Delete manual assessment ───────────────────────────────────────────────
   const handleDelete = async (a: ManualAssessment) => {
     if (!window.confirm(`Delete "${ManualAssessmentApiService.getTypeLabel(a)}"? All student scores will be removed.`)) return;
     try {
       await ManualAssessmentApiService.delete(a.id);
       toast.success("Assessment deleted.");
-      setAssessments((prev) => prev.filter((x) => x.id !== a.id));
+      setManualAssessments((prev) => prev.filter((x) => x.id !== a.id));
     } catch {
       toast.error("Failed to delete assessment.");
     }
   };
 
-  // ── Navigate to student marks ─────────────────────────────────────────────
-  const goToMarks = (a: ManualAssessment) => {
-    navigate(`/grades/${a.id}/marks`);
+  // ── Navigate to the right "view results" screen per assessment kind ───────
+  const goToDetail = (row: AssessmentRow) => {
+    if (row.kind === "manual") navigate(`/grades/${row.id}/marks`);
+    else if (row.kind === "quiz") navigate(`/quizzes/${row.id}/submissions`);
+    else navigate(`/assignments/${row.id}`);
   };
 
   // ── After create/edit ─────────────────────────────────────────────────────
   const handleSaved = (saved: ManualAssessment) => {
-    setAssessments((prev) => {
+    setManualAssessments((prev) => {
       const idx = prev.findIndex((x) => x.id === saved.id);
       if (idx >= 0) {
         const next = [...prev];
@@ -355,7 +467,7 @@ export default function GradesPage() {
               <table className="min-w-full divide-y divide-border-light dark:divide-border-dark/30">
                 <thead>
                   <tr className="bg-surface-light dark:bg-surface-dark/50">
-                    {["Date", "Subject", "Type", "Maximum", "Recorded Results", "Actions"].map((h) => (
+                    {["Date", "Subject", "Title", "Type", "Maximum", "Recorded Results", "Actions"].map((h) => (
                       <th
                         key={h}
                         className="px-5 py-3.5 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider text-left"
@@ -367,26 +479,32 @@ export default function GradesPage() {
                 </thead>
                 <tbody className="divide-y divide-border-light dark:divide-border-dark/20">
                   {paginated.map((a) => {
-                    const course   = courseMap.get(a.course_id);
-                    const typeLabel = ManualAssessmentApiService.getTypeLabel(a);
-                    const enrolled = enrolledCounts.get(a.course_id) ?? "—";
-                    const recorded = a.recorded_count ?? 0;
+                    const course   = courseMap.get(a.courseId);
+                    const enrolled = enrolledCounts.get(a.courseId) ?? "—";
+                    const recorded = a.recorded ?? 0;
                     return (
-                      <tr key={a.id} className="hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors">
+                      <tr key={a.key} className="hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors">
                         <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark whitespace-nowrap">
-                          {a.assessment_date ?? "—"}
+                          {a.date ? new Date(a.date).toLocaleDateString() : "—"}
                         </td>
                         <td className="px-5 py-4 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-                          {course?.title ?? `Course #${a.course_id}`}
+                          {course?.title ?? `Course #${a.courseId}`}
                         </td>
-                        <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">{typeLabel}</td>
-                        <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">{a.max_score}</td>
+                        <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark max-w-[220px] truncate" title={a.title}>
+                          {a.title}
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${KIND_BADGE[a.kind]}`}>
+                            {KIND_LABEL[a.kind]}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">{a.maxScore ?? "—"}</td>
                         <td className="px-5 py-4 text-sm">
                           {typeof enrolled === "number" ? (
                             <RecordedChip
                               recorded={recorded}
                               total={enrolled}
-                              onClick={() => goToMarks(a)}
+                              onClick={() => goToDetail(a)}
                             />
                           ) : (
                             <span className="text-text-secondary-light dark:text-text-secondary-dark/50 text-sm">—</span>
@@ -394,20 +512,32 @@ export default function GradesPage() {
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => { setEditTarget(a); setModalOpen(true); }}
-                              className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
-                              title="Edit"
-                            >
-                              <Pencil className="w-4 h-4" />
-                            </button>
-                            <button
-                              onClick={() => handleDelete(a)}
-                              className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                              title="Delete"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {a.kind === "manual" ? (
+                              <>
+                                <button
+                                  onClick={() => { setEditTarget(a.manual!); setModalOpen(true); }}
+                                  className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
+                                  title="Edit"
+                                >
+                                  <Pencil className="w-4 h-4" />
+                                </button>
+                                <button
+                                  onClick={() => handleDelete(a.manual!)}
+                                  className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+                                  title="Delete"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => goToDetail(a)}
+                                className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
+                                title="View"
+                              >
+                                <Eye className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         </td>
                       </tr>
