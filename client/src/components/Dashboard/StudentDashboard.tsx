@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { Link } from "react-router-dom";
 import AssignmentCard, {
   type AssignmentInterface,
@@ -16,8 +16,10 @@ import {
   Eye,
   Loader2,
   GraduationCap,
+  Clock3,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { toast } from "react-toastify";
 import { useAuth } from "../../contexts/AuthContext";
 import ReportCardPreview from "../ReportCard/ReportCardPreview";
 import AnnualReportCardPreview from "../ReportCard/AnnualReportCardPreview";
@@ -64,34 +66,59 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({ data }) =>
   const [showPreview, setShowPreview] = useState(false);
   const [showAnnual, setShowAnnual] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  // Whether an *approved* term report card exists yet — checked up front so
+  // View/Download don't sit there looking clickable and then fail silently
+  // behind a browser alert() once a student has already tapped them.
+  const [reportCardAvailable, setReportCardAvailable] = useState<"checking" | "yes" | "no">("checking");
+  const [reportCardId, setReportCardId] = useState<number | null>(null);
 
   const currentTerm = user?.currentAcademicTerm?.name as string | undefined;
   const currentAcademicYear = user?.currentAcademicYear?.name as string | undefined;
 
-  const handleDownloadPdf = useCallback(async () => {
+  useEffect(() => {
     if (!user?.id) return;
+    let cancelled = false;
+    setReportCardAvailable("checking");
+    ReportCardApiService.getStudentReportCard(parseInt(String(user.id), 10), {
+      term: currentTerm,
+      academic_year: currentAcademicYear,
+    })
+      .then((res) => {
+        if (cancelled) return;
+        if (res.success && res.data?.report_card) {
+          setReportCardId(res.data.report_card.id);
+          setReportCardAvailable("yes");
+        } else {
+          setReportCardAvailable("no");
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setReportCardAvailable("no");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, currentTerm, currentAcademicYear]);
+
+  const handleDownloadPdf = useCallback(async () => {
+    if (!reportCardId) return;
     setDownloadingPdf(true);
     try {
-      const res = await ReportCardApiService.getStudentReportCard(
-        parseInt(String(user.id), 10),
-        { term: currentTerm, academic_year: currentAcademicYear },
-      );
-      if (!res.success) throw new Error("not_found");
-      const blob = await ReportCardApiService.generatePdf(res.data.report_card.id);
+      const blob = await ReportCardApiService.generatePdf(reportCardId);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `ReportCard-${data.user.first_name}_${data.user.last_name}-${res.data.report_card.term}.pdf`;
+      a.download = `ReportCard-${data.user.first_name}_${data.user.last_name}-${currentTerm ?? "report"}.pdf`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      alert("Could not generate PDF. Your report card may not be available yet.");
+      toast.error("Could not generate the PDF. Please try again in a moment.");
     } finally {
       setDownloadingPdf(false);
     }
-  }, [user, currentTerm, currentAcademicYear, data.user]);
+  }, [reportCardId, currentTerm, data.user]);
 
   const enrolledCourseIds = React.useMemo(
     () => data.enrolledCourses.map((c) => String(c.id)),
@@ -356,49 +383,75 @@ const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({ data }) =>
           currentTerm && currentAcademicYear ? `${currentTerm} · ${currentAcademicYear}` : "Current academic term"
         }
       >
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-          <div className="flex-1 flex items-center gap-4 p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10">
-            <div className="w-11 h-13 bg-white dark:bg-gray-800 rounded-xl shadow-sm flex items-center justify-center shrink-0">
+        <div className="flex flex-col gap-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 p-4 sm:p-5">
+          <div className="flex items-center gap-4 min-w-0">
+            <div className="w-11 h-11 bg-white dark:bg-gray-800 rounded-xl shadow-sm flex items-center justify-center shrink-0">
               <FileText className="w-5 h-5 text-indigo-500" />
             </div>
-            <div>
-              <p className="font-semibold text-text-primary-light dark:text-text-primary-dark text-sm">
-                Academic Report Card
-              </p>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <p className="font-semibold text-text-primary-light dark:text-text-primary-dark text-sm">
+                  Academic Report Card
+                </p>
+                {reportCardAvailable === "yes" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
+                    <CheckCircle className="w-3 h-3" />
+                    Ready
+                  </span>
+                )}
+                {reportCardAvailable === "no" && (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
+                    <Clock3 className="w-3 h-3" />
+                    Not yet published
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">
                 {currentTerm ?? "—"} · {currentAcademicYear ?? "—"}
               </p>
             </div>
           </div>
 
-          <div className="flex gap-2 sm:flex-col">
-            <button
-              onClick={() => setShowPreview(true)}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
-            >
-              <Eye className="w-4 h-4" />
-              View
-            </button>
-
-            <button
-              onClick={handleDownloadPdf}
-              disabled={downloadingPdf}
-              className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-              {downloadingPdf ? "Generating…" : "Download PDF"}
-            </button>
-
-            {currentAcademicYear && (
+          {reportCardAvailable === "no" ? (
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 leading-relaxed">
+              Your class teacher hasn't published this term's report card yet. Check back once grading is
+              finalized — it'll appear here automatically.
+            </p>
+          ) : (
+            <div className="flex flex-col sm:flex-row gap-2">
               <button
-                onClick={() => setShowAnnual(true)}
-                className="flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors"
+                onClick={() => setShowPreview(true)}
+                disabled={reportCardAvailable !== "yes"}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <GraduationCap className="w-4 h-4" />
-                Annual Summary
+                {reportCardAvailable === "checking" ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Eye className="w-4 h-4" />
+                )}
+                View
               </button>
-            )}
-          </div>
+
+              <button
+                onClick={handleDownloadPdf}
+                disabled={reportCardAvailable !== "yes" || downloadingPdf}
+                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                {downloadingPdf ? "Generating…" : "Download PDF"}
+              </button>
+
+              {currentAcademicYear && (
+                <button
+                  onClick={() => setShowAnnual(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
+                >
+                  <GraduationCap className="w-4 h-4" />
+                  Annual Summary
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </SectionCard>
 
