@@ -16,6 +16,22 @@ export const builderSaveSchema = z.object({
   assessments: z.array(assessmentItemSchema).min(0),
 });
 
+// Subject-wide mapping: no student_id — one save applies to every student
+// currently enrolled in the subject for this term/year (see
+// reportCard.controller.ts::saveSubjectMapping).
+const subjectMappingItemSchema = z.object({
+  assessment_type: z.enum(["quiz", "assignment", "manual"] as const),
+  assessment_id: z.number().int().positive("assessment_id must be a positive integer"),
+  category: z.enum(["CW", "HW", "MD", "EOT"] as const),
+});
+
+export const subjectMappingSaveSchema = z.object({
+  subject_id: z.number().int().positive("subject_id must be a positive integer"),
+  term: z.string().trim().min(1, "term is required").max(50),
+  academic_year: z.string().trim().min(1, "academic_year is required").max(20),
+  assessments: z.array(subjectMappingItemSchema).min(0),
+});
+
 const attributeItemSchema = z.object({
   attribute_name: z.string().trim().min(1, "attribute_name is required").max(100),
   rating: z.enum(["Excellent", "Very good", "Good"] as const),
@@ -43,6 +59,7 @@ export const updateStatusSchema = z.object({
 });
 
 export type BuilderSavePayload = z.infer<typeof builderSaveSchema>;
+export type SubjectMappingSavePayload = z.infer<typeof subjectMappingSaveSchema>;
 export type AttributesSavePayload = z.infer<typeof attributesSaveSchema>;
 export type GeneratePdfPayload = z.infer<typeof generatePdfSchema>;
 export type UpdateStatusPayload = z.infer<typeof updateStatusSchema>;

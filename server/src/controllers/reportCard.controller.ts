@@ -4,6 +4,7 @@ import axios from "axios";
 import { ReportCard } from "../models/ReportCard.model";
 import { ReportCardAttribute } from "../models/ReportCardAttribute.model";
 import { ReportCardAssessment } from "../models/ReportCardAssessment.model";
+import { SubjectAssessmentMapping } from "../models/SubjectAssessmentMapping.model";
 import { QuizSubmission } from "../models/QuizSubmission.model";
 import { Submission } from "../models/Submission.model";
 import { ManualAssessment } from "../models/ManualAssessment.model";
@@ -22,11 +23,18 @@ import {
 } from "../services/reportCardPdf.service";
 import type {
   BuilderSavePayload,
+  SubjectMappingSavePayload,
   AttributesSavePayload,
   GeneratePdfPayload,
   UpdateStatusPayload,
 } from "../validations/reportCard.validation";
-import { resolveCurrentAcademicPeriodNames, getMisToken } from "../utils/misUtils";
+import {
+  resolveCurrentAcademicPeriodNames,
+  resolveAcademicTermIdByName,
+  resolveAcademicTermId,
+  getMisToken,
+  fetchEnrolledStudents,
+} from "../utils/misUtils";
 
 // ─── Subject name resolution ─────────────────────────────────────────────────
 // Report card data only stores subject_id. Both the on-screen preview and the
@@ -136,6 +144,147 @@ export const saveBuilder = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("saveBuilder error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── GET /api/report-cards/subject-mapping ───────────────────────────────────
+// Returns the canonical CW/HW/MD/EOT mapping for one subject/term/year, so the
+// builder can pre-populate without needing to pick an arbitrary student's card.
+
+export const getSubjectMapping = async (req: Request, res: Response) => {
+  try {
+    const subjectId = parseInt(req.query.subject_id as string, 10);
+    const { term, academic_year } = req.query as { term?: string; academic_year?: string };
+
+    if (isNaN(subjectId) || !term || !academic_year) {
+      return res.status(400).json({
+        success: false,
+        message: "subject_id, term, and academic_year are required",
+      });
+    }
+
+    const mappings = await SubjectAssessmentMapping.findAll({
+      where: { subject_id: subjectId, term, academic_year },
+      attributes: ["assessment_type", "assessment_id", "category"],
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        subject_id: subjectId,
+        term,
+        academic_year,
+        assessments: mappings.map((m) => ({
+          assessment_type: m.assessment_type,
+          assessment_id: m.assessment_id,
+          category: m.category,
+        })),
+      },
+    });
+  } catch (error) {
+    console.error("getSubjectMapping error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── POST /api/report-cards/subject-mapping/save ─────────────────────────────
+// Design: the canonical mapping lives at the SUBJECT level, not per student.
+// An instructor maps their subject's assessments into CW/HW/MD/EOT once; this
+// full-replaces the canonical SubjectAssessmentMapping rows for this
+// (subject, term, year), then fans that mapping out to every currently
+// enrolled student's own report_card_assessments row (creating each
+// student's ReportCard shell via findOrCreate if this is their first mapped
+// subject this term). The existing per-student grading/PDF/annual-summary
+// pipeline (aggregateReportCardData) is untouched — it still reads
+// ReportCardAssessment exactly as it did before this endpoint existed.
+
+export const saveSubjectMapping = async (req: Request, res: Response) => {
+  try {
+    const body = req.body as SubjectMappingSavePayload;
+    const { subject_id, term, academic_year, assessments } = body;
+
+    // 1. Full-replace the canonical subject-level mapping.
+    await SubjectAssessmentMapping.destroy({ where: { subject_id, term, academic_year } });
+
+    if (assessments.length > 0) {
+      await SubjectAssessmentMapping.bulkCreate(
+        assessments.map((a) => ({
+          subject_id,
+          term,
+          academic_year,
+          assessment_type: a.assessment_type,
+          assessment_id: a.assessment_id,
+          category: a.category,
+          created_by: (req as any).user?.id ?? null,
+        })),
+      );
+    }
+
+    // 2. Fan out to every student currently enrolled in this subject.
+    const token = getMisToken(req);
+    let studentsUpdated = 0;
+
+    if (token) {
+      let termId = await resolveAcademicTermIdByName(req, term, academic_year);
+      if (termId == null) {
+        // Fall back to the caller's session-current term if the name pair
+        // couldn't be resolved (e.g. MIS briefly unreachable) — better to
+        // attempt the fan-out against *a* term than skip it silently.
+        termId = await resolveAcademicTermId(req);
+      }
+
+      const enrolled = await fetchEnrolledStudents(token, subject_id, termId);
+      const studentIds: number[] = enrolled
+        .map((s: any) => s.id ?? s.user_id)
+        .filter((id: any) => typeof id === "number" && !isNaN(id));
+
+      for (const studentId of studentIds) {
+        const [reportCard] = await ReportCard.findOrCreate({
+          where: { student_id: studentId, term, academic_year },
+          defaults: {
+            student_id: studentId,
+            term,
+            academic_year,
+            status: "draft",
+            attendance_present: 0,
+            attendance_absent: 0,
+            attendance_late: 0,
+          },
+        });
+
+        await ReportCardAssessment.destroy({
+          where: { report_card_id: reportCard.id, subject_id },
+        });
+
+        if (assessments.length > 0) {
+          await ReportCardAssessment.bulkCreate(
+            assessments.map((a) => ({
+              report_card_id: reportCard.id!,
+              subject_id,
+              assessment_type: a.assessment_type,
+              assessment_id: a.assessment_id,
+              category: a.category,
+            })),
+          );
+        }
+        studentsUpdated++;
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Assessment mapping saved and applied to ${studentsUpdated} enrolled student${studentsUpdated !== 1 ? "s" : ""}`,
+      data: {
+        subject_id,
+        term,
+        academic_year,
+        total_assessments_mapped: assessments.length,
+        students_updated: studentsUpdated,
+      },
+    });
+  } catch (error) {
+    console.error("saveSubjectMapping error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

@@ -6,6 +6,7 @@ import {
   resolveAcademicTermId,
   resolveAcademicYearId,
   handleMisError,
+  fetchEnrolledStudents,
 } from "../utils/misUtils";
 import {
   Assignment,
@@ -16,62 +17,6 @@ import {
   User,
 } from "../models";
 import { Op } from "sequelize";
-
-/**
- * Enrolled roster for one subject/term. Admins hold the MIS permission
- * behind `/academics/subjects/:id/terms/:termId/students`
- * (VIEW_SUBJECT_ENROLLED_STUDENTS) and get the full roster from it.
- * Instructors don't hold that permission — that call 403s for them — so on
- * a 403 this falls back to `/academics/my-students` (VIEW_MY_STUDENTS,
- * granted to TEACHER/CLASS_TEACHER) narrowed to this one subject. Before
- * this fallback existed, every instructor's course "Students" tab silently
- * rendered empty instead of surfacing the permission error.
- */
-async function fetchEnrolledStudents(
-  token: string,
-  subjectId: string | number,
-  termId: number | null,
-): Promise<any[]> {
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    "Content-Type": "application/json",
-  };
-
-  try {
-    const studentsResponse = await axios.get(
-      `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${subjectId}/terms/${termId}/students`,
-      { headers },
-    );
-    return studentsResponse.data.success ? studentsResponse.data.data || [] : [];
-  } catch (enrollmentError: any) {
-    if (enrollmentError.response?.status !== 403) {
-      console.warn(
-        `Could not fetch enrolled students for subject ${subjectId}:`,
-        enrollmentError.message,
-      );
-      return [];
-    }
-  }
-
-  try {
-    const myStudentsResponse = await axios.get(
-      `${process.env.NGA_MIS_BASE_URL}/academics/my-students`,
-      {
-        headers,
-        params: { subject_id: subjectId, ...(termId ? { academic_term_id: termId } : {}) },
-      },
-    );
-    return myStudentsResponse.data.success
-      ? myStudentsResponse.data.data?.students || []
-      : [];
-  } catch (fallbackError: any) {
-    console.warn(
-      `Could not fetch enrolled students (teacher fallback) for subject ${subjectId}:`,
-      fallbackError.message,
-    );
-    return [];
-  }
-}
 
 // @desc    Get all courses
 // @route   GET /api/courses

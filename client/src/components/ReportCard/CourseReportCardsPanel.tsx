@@ -134,13 +134,13 @@ function ProgressSummary({
 function WorkflowCallout({ isAdmin }: { isAdmin: boolean }) {
   const steps = isAdmin
     ? [
-        { icon: ClipboardList, color: "text-violet-500", bg: "bg-violet-100 dark:bg-violet-900/30", label: "Instructors build", desc: "Each instructor maps their course assessments to CW / HW / MD / EOT for each student" },
-        { icon: FileText,      color: "text-blue-500",   bg: "bg-blue-100 dark:bg-blue-900/30",     label: "Class teacher saves", desc: "Class teacher fills attendance, behavior attributes, and marks the card as Saved" },
+        { icon: ClipboardList, color: "text-violet-500", bg: "bg-violet-100 dark:bg-violet-900/30", label: "Instructors build", desc: "Each instructor maps their course's assessments to CW / HW / MD / EOT once — it applies automatically to every enrolled student" },
+        { icon: FileText,      color: "text-blue-500",   bg: "bg-blue-100 dark:bg-blue-900/30",     label: "Class teacher saves", desc: "Class teacher fills attendance, behavior attributes, and marks each card as Saved" },
         { icon: ThumbsUp,      color: "text-emerald-500",bg: "bg-emerald-100 dark:bg-emerald-900/30",label: "Admin approves", desc: "You review and approve — the student can now view and download their report card" },
       ]
     : [
-        { icon: ClipboardList, color: "text-violet-500", bg: "bg-violet-100 dark:bg-violet-900/30", label: "You build your subject", desc: "Click Build on any student to map your course assessments to CW / HW / MD / EOT categories" },
-        { icon: FileText,      color: "text-blue-500",   bg: "bg-blue-100 dark:bg-blue-900/30",     label: "Other instructors do the same", desc: "Each instructor adds their own subject — all contributions roll into one report card" },
+        { icon: ClipboardList, color: "text-violet-500", bg: "bg-violet-100 dark:bg-violet-900/30", label: "You build your subject once", desc: "Use \"Report Card Builder\" above to map your course's assessments to CW / HW / MD / EOT — it applies to the whole class automatically" },
+        { icon: FileText,      color: "text-blue-500",   bg: "bg-blue-100 dark:bg-blue-900/30",     label: "Other instructors do the same", desc: "Each instructor maps their own subject — all contributions roll into every student's report card" },
         { icon: ThumbsUp,      color: "text-emerald-500",bg: "bg-emerald-100 dark:bg-emerald-900/30",label: "Class teacher saves, admin approves", desc: "Once all subjects are in, the class teacher saves and an admin approves for student access" },
       ];
 
@@ -182,9 +182,6 @@ function StudentDesktopRow({
   status,
   loadingOverview,
   isAdmin,
-  builderBase,
-  term,
-  year,
   approvingId,
   revertingId,
   markingCompleteId,
@@ -199,9 +196,6 @@ function StudentDesktopRow({
   status: ReportCardStatus | null;
   loadingOverview: boolean;
   isAdmin: boolean;
-  builderBase: string;
-  term: string;
-  year: string;
   approvingId: number | null;
   revertingId: number | null;
   markingCompleteId: number | null;
@@ -267,17 +261,6 @@ function StudentDesktopRow({
 
       {/* Actions */}
       <div className="flex items-center gap-1.5 flex-wrap justify-end">
-        <Link
-          to={`${builderBase}?studentId=${student.id}&name=${encodeURIComponent(student.name)}${term && year ? `&term=${encodeURIComponent(term)}&year=${encodeURIComponent(year)}` : ""}`}
-          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium
-            bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300
-            hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-colors"
-          title="Open Report Card Builder"
-        >
-          <ClipboardList className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">{status ? "Edit" : "Build"}</span>
-        </Link>
-
         {rcId && (
           <button
             onClick={onPreview}
@@ -355,9 +338,6 @@ function StudentMobileCard({
   status,
   loadingOverview,
   isAdmin,
-  builderBase,
-  term,
-  year,
   approvingId,
   revertingId,
   markingCompleteId,
@@ -372,9 +352,6 @@ function StudentMobileCard({
   status: ReportCardStatus | null;
   loadingOverview: boolean;
   isAdmin: boolean;
-  builderBase: string;
-  term: string;
-  year: string;
   approvingId: number | null;
   revertingId: number | null;
   markingCompleteId: number | null;
@@ -420,16 +397,6 @@ function StudentMobileCard({
 
       {/* Actions row */}
       <div className="flex items-center gap-2 flex-wrap pt-1 border-t border-gray-100 dark:border-gray-800/60">
-        <Link
-          to={`${builderBase}?studentId=${student.id}&name=${encodeURIComponent(student.name)}${term && year ? `&term=${encodeURIComponent(term)}&year=${encodeURIComponent(year)}` : ""}`}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold
-            bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300
-            hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-colors"
-        >
-          <ClipboardList className="w-3.5 h-3.5" />
-          {status ? "Edit" : "Build"}
-        </Link>
-
         {rcId && (
           <button
             onClick={onPreview}
@@ -610,9 +577,6 @@ export default function CourseReportCardsPanel({
   const sharedRowProps = {
     loadingOverview,
     isAdmin,
-    builderBase,
-    term,
-    year,
     approvingId,
     revertingId,
     markingCompleteId,
@@ -620,6 +584,33 @@ export default function CourseReportCardsPanel({
 
   return (
     <div className="p-4 space-y-5">
+
+      {/* ── Report Card Builder shortcut ── */}
+      {term && year && (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4
+          p-4 rounded-2xl bg-gradient-to-r from-violet-50 to-indigo-50 dark:from-violet-950/30 dark:to-indigo-950/30
+          border border-violet-200 dark:border-violet-800/60">
+          <div className="flex items-start gap-3">
+            <div className="w-9 h-9 rounded-xl bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center flex-shrink-0 border border-violet-200 dark:border-violet-700/40">
+              <ClipboardList className="w-4.5 h-4.5 text-violet-600 dark:text-violet-400" />
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-violet-700 dark:text-violet-300">Report Card Builder</p>
+              <p className="text-xs text-violet-500 dark:text-violet-400 mt-0.5 leading-relaxed">
+                Map this subject's assessments into CW / HW / MD / EOT once — it applies automatically to every enrolled student
+              </p>
+            </div>
+          </div>
+          <Link
+            to={`${builderBase}${termYearQs}`}
+            className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold
+              bg-violet-600 hover:bg-violet-700 text-white transition-all shadow-sm hover:shadow-md
+              hover:shadow-violet-500/20 active:scale-95 whitespace-nowrap flex-shrink-0"
+          >
+            Open <ChevronRight className="w-4 h-4" />
+          </Link>
+        </div>
+      )}
 
       {/* ── Term / year filter ── */}
       <div className="flex flex-wrap items-end gap-3">

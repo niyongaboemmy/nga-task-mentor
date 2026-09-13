@@ -48,6 +48,45 @@ export interface BuilderSaveResponse {
   };
 }
 
+// ─── Subject-wide mapping (report-card builder v2) ────────────────────────────
+// No student_id: one mapping applies automatically to every student enrolled
+// in the subject for that term/year.
+
+export interface SubjectMappingItem {
+  assessment_type: AssessmentType;
+  assessment_id: number;
+  category: AssessmentCategory;
+}
+
+export interface SubjectMappingSavePayload {
+  subject_id: number;
+  term: string;
+  academic_year: string;
+  assessments: SubjectMappingItem[];
+}
+
+export interface SubjectMappingSaveResponse {
+  success: boolean;
+  message: string;
+  data: {
+    subject_id: number;
+    term: string;
+    academic_year: string;
+    total_assessments_mapped: number;
+    students_updated: number;
+  };
+}
+
+export interface SubjectMappingResponse {
+  success: boolean;
+  data: {
+    subject_id: number;
+    term: string;
+    academic_year: string;
+    assessments: SubjectMappingItem[];
+  };
+}
+
 export interface AttributesSaveResponse {
   success: boolean;
   message: string;
@@ -247,6 +286,23 @@ export interface AdminReportCardSummaryResponse {
 export class ReportCardApiService {
   static async saveBuilder(payload: BuilderSavePayload): Promise<BuilderSaveResponse> {
     const response = await axios.post("/report-cards/builder/save", payload);
+    return response.data;
+  }
+
+  // Subject-wide mapping — no student_id; applies to every enrolled student.
+  static async getSubjectMapping(params: {
+    subject_id: number;
+    term: string;
+    academic_year: string;
+  }): Promise<SubjectMappingResponse> {
+    const response = await axios.get("/report-cards/subject-mapping", { params });
+    return response.data;
+  }
+
+  static async saveSubjectMapping(
+    payload: SubjectMappingSavePayload,
+  ): Promise<SubjectMappingSaveResponse> {
+    const response = await axios.post("/report-cards/subject-mapping/save", payload);
     return response.data;
   }
 

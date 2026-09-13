@@ -558,13 +558,7 @@ const CourseDetails: React.FC = () => {
                   )}
                 </div>
               )}
-              <StudentsList
-                students={displayedStudents}
-                courseId={courseId!}
-                currentTerm={viewPeriod?.termName ?? currentTerm}
-                currentYear={viewPeriod?.yearName ?? currentYear}
-                isInstructorOrAdmin={isInstructorOrAdmin}
-              />
+              <StudentsList students={displayedStudents} />
             </div>
           )}
 
@@ -597,11 +591,7 @@ type SortKey = "name" | "email";
 
 const StudentsList: React.FC<{
   students: any[];
-  courseId: string;
-  currentTerm?: string;
-  currentYear?: string;
-  isInstructorOrAdmin: boolean;
-}> = ({ students, courseId, currentTerm, currentYear, isInstructorOrAdmin }) => {
+}> = ({ students }) => {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [showSort, setShowSort] = useState(false);
@@ -690,13 +680,10 @@ const StudentsList: React.FC<{
       {filtered.length > 0 ? (
         <div className="rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
           {/* Table header */}
-          <div className={`grid ${isInstructorOrAdmin ? "grid-cols-[auto_1fr_1fr_auto_auto]" : "grid-cols-[auto_1fr_1fr_auto]"} items-center gap-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800`}>
+          <div className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
             <span className="w-8" />
             <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">Name</span>
             <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60 hidden sm:block">Email</span>
-            {isInstructorOrAdmin && (
-              <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60 hidden sm:block">Report Card</span>
-            )}
             <span className="w-5" />
           </div>
 
@@ -711,12 +698,10 @@ const StudentsList: React.FC<{
               const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
               const initials = `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase() || "?";
 
-              const builderUrl = `/courses/${courseId}/report-card-builder?studentId=${id}&name=${encodeURIComponent(fullName)}${currentTerm ? `&term=${encodeURIComponent(currentTerm)}` : ""}${currentYear ? `&year=${encodeURIComponent(currentYear)}` : ""}`;
-
               return (
                 <div
                   key={id}
-                  className={`grid ${isInstructorOrAdmin ? "grid-cols-[auto_1fr_1fr_auto_auto]" : "grid-cols-[auto_1fr_1fr_auto]"} items-center gap-4 px-4 py-3 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors group`}
+                  className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-4 px-4 py-3 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors group"
                 >
                   <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
                     {initials}
@@ -731,16 +716,6 @@ const StudentsList: React.FC<{
                     <Mail className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />
                     <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 truncate">{email}</span>
                   </div>
-                  {isInstructorOrAdmin && (
-                    <Link
-                      to={builderUrl}
-                      className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-400 hover:bg-violet-200 dark:hover:bg-violet-800/50 transition-colors whitespace-nowrap"
-                      title="Open Report Card Builder for this student"
-                    >
-                      <ClipboardList className="w-3.5 h-3.5" />
-                      Build
-                    </Link>
-                  )}
                   <Link to={`/students/${id}`}>
                     <ChevronRight className="w-4 h-4 text-gray-300 dark:text-gray-600 group-hover:text-blue-400 transition-colors flex-shrink-0" />
                   </Link>

@@ -1,6 +1,8 @@
 import { Router } from "express";
 import {
   saveBuilder,
+  getSubjectMapping,
+  saveSubjectMapping,
   saveAttributes,
   getStudentReportCard,
   getAnnualReportCard,
@@ -15,6 +17,7 @@ import { protect, authorizePermission } from "../middleware/auth";
 import { validate } from "../middleware/validation.middleware";
 import {
   builderSaveSchema,
+  subjectMappingSaveSchema,
   attributesSaveSchema,
   generatePdfSchema,
   updateStatusSchema,
@@ -24,14 +27,32 @@ const router = Router();
 
 router.use(protect);
 
-// ── Build ──────────────────────────────────────────────────────────────────────
-// Any instructor or admin can call this for their course (subject).
-// The controller does a partial replace scoped to the subject_ids in the payload.
+// ── Build (legacy, per-student) ─────────────────────────────────────────────────
+// Superseded by the subject-mapping endpoints below for new saves — kept so
+// any already-stored per-student mappings remain readable/editable. Any
+// instructor or admin can call this for their course (subject); the
+// controller does a partial replace scoped to the subject_ids in the payload.
 router.post(
   "/builder/save",
   authorizePermission("REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT"),
   validate(builderSaveSchema),
   saveBuilder,
+);
+
+// ── Subject-wide mapping ─────────────────────────────────────────────────────────
+// The builder now maps a subject's assessments into CW/HW/MD/EOT ONCE; saving
+// fans the mapping out to every student currently enrolled in that subject
+// (see saveSubjectMapping). No student_id in this payload at all.
+router.get(
+  "/subject-mapping",
+  authorizePermission("REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT", "REPORT_CARDS_VIEW_ALL"),
+  getSubjectMapping,
+);
+router.post(
+  "/subject-mapping/save",
+  authorizePermission("REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT"),
+  validate(subjectMappingSaveSchema),
+  saveSubjectMapping,
 );
 
 // ── Attributes (class teacher / admin) ────────────────────────────────────────

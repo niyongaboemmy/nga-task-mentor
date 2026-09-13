@@ -51,6 +51,7 @@ export async function ensureModelsRegistered() {
     models.ReportCard,
     models.ReportCardAttribute,
     models.ReportCardAssessment,
+    models.SubjectAssessmentMapping,
     models.ManualAssessment,
     models.ManualAssessmentScore,
     models.DatabaseQueryLog,

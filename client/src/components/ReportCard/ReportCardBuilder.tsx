@@ -62,12 +62,12 @@ export interface SubjectOption {
 }
 
 export interface ReportCardBuilderProps {
-  studentId: number;
   term: string;
   academicYear: string;
   subjects: SubjectOption[];
   initialDropped?: Partial<Record<AssessmentCategory, AssessmentDragItem[]>>;
-  onSaved?: (reportCardId: number) => void;
+  /** Called after a successful save with how many enrolled students were updated */
+  onSaved?: (studentsUpdated: number) => void;
   readOnly?: boolean;
   /** Students in the course — needed for score entry modal */
   students?: StudentEntry[];
@@ -467,7 +467,6 @@ function WeightSummary({ dropped }: { dropped: Record<AssessmentCategory, Assess
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export default function ReportCardBuilder({
-  studentId,
   term,
   academicYear,
   subjects,
@@ -646,16 +645,16 @@ export default function ReportCardBuilder({
 
     setIsSaving(true);
     try {
-      const result = await ReportCardApiService.saveBuilder({
-        student_id:    studentId,
+      const result = await ReportCardApiService.saveSubjectMapping({
+        subject_id:    selectedSubjectId,
         term,
         academic_year: academicYear,
         assessments:   allMappings,
       });
 
       if (result.success) {
-        toast.success(`Saved ${result.data.subject_mappings_saved} assessment mapping(s).`);
-        onSaved?.(result.data.report_card_id);
+        toast.success(result.message);
+        onSaved?.(result.data.students_updated);
       }
     } catch {
       toast.error("Failed to save. Please try again.");
@@ -700,7 +699,7 @@ export default function ReportCardBuilder({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
                 <h1 className="text-lg font-bold text-white tracking-tight">Report Card Builder</h1>
-                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{term} · {academicYear} · Student #{studentId}</p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">{term} · {academicYear} · applies to every enrolled student</p>
               </div>
 
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -717,7 +716,7 @@ export default function ReportCardBuilder({
                 {readOnly ? (
                   <span className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-950/50 border border-emerald-800/50 text-emerald-300">
                     <CheckCircle2 className="w-4 h-4" />
-                    Approved — view only
+                    View only
                   </span>
                 ) : (
                   <button

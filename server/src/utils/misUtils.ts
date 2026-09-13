@@ -338,3 +338,98 @@ export const resolveCurrentAcademicPeriodNames = async (
     return { term: null, academicYear: null };
   }
 };
+
+/**
+ * Resolve the numeric MIS academic_term_id for a given term/year NAME pair
+ * (e.g. "Term 1", "2026-2027") — mirrors the client-side lookup previously
+ * duplicated in ReportCardBuilderPage.tsx. Needed because ReportCard rows
+ * (and now SubjectAssessmentMapping rows) are keyed by these free-text names,
+ * but MIS's enrolled-students endpoints are keyed by numeric term id. Returns
+ * null (never throws) if either name can't be matched, so callers degrade to
+ * "use the caller's current term" rather than fail outright.
+ */
+export const resolveAcademicTermIdByName = async (
+  req: Request,
+  termName: string,
+  yearName: string,
+): Promise<number | null> => {
+  const token = getMisToken(req);
+  if (!token || !termName || !yearName) return null;
+
+  try {
+    const headers = { Authorization: `Bearer ${token}` };
+    const yearsRes = await axios.get(`${process.env.NGA_MIS_BASE_URL}/academics/years`, { headers });
+    const years = yearsRes.data?.data ?? [];
+    const matchedYear = years.find((y: any) => y.name === yearName);
+    if (!matchedYear) return null;
+
+    const termsRes = await axios.get(`${process.env.NGA_MIS_BASE_URL}/academics/terms`, {
+      headers,
+      params: { academic_year_id: matchedYear.academic_year_id },
+    });
+    const terms = termsRes.data?.data ?? [];
+    const matchedTerm = terms.find((t: any) => t.name === termName);
+    return matchedTerm?.academic_term_id ?? null;
+  } catch (error) {
+    console.error("resolveAcademicTermIdByName: could not resolve term id:", error);
+    return null;
+  }
+};
+
+/**
+ * Enrolled roster for one subject/term. Admins hold the MIS permission
+ * behind `/academics/subjects/:id/terms/:termId/students`
+ * (VIEW_SUBJECT_ENROLLED_STUDENTS) and get the full roster from it.
+ * Instructors don't hold that permission — that call 403s for them — so on
+ * a 403 this falls back to `/academics/my-students` (VIEW_MY_STUDENTS,
+ * granted to TEACHER/CLASS_TEACHER) narrowed to this one subject. Before
+ * this fallback existed, every instructor's course "Students" tab silently
+ * rendered empty instead of surfacing the permission error. Shared by
+ * course.controller.ts (roster display) and reportCard.controller.ts (the
+ * per-subject assessment-mapping fan-out).
+ */
+export const fetchEnrolledStudents = async (
+  token: string,
+  subjectId: string | number,
+  termId: number | null,
+): Promise<any[]> => {
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const studentsResponse = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${subjectId}/terms/${termId}/students`,
+      { headers },
+    );
+    return studentsResponse.data.success ? studentsResponse.data.data || [] : [];
+  } catch (enrollmentError: any) {
+    if (enrollmentError.response?.status !== 403) {
+      console.warn(
+        `Could not fetch enrolled students for subject ${subjectId}:`,
+        enrollmentError.message,
+      );
+      return [];
+    }
+  }
+
+  try {
+    const myStudentsResponse = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/my-students`,
+      {
+        headers,
+        params: { subject_id: subjectId, ...(termId ? { academic_term_id: termId } : {}) },
+      },
+    );
+    return myStudentsResponse.data.success
+      ? myStudentsResponse.data.data?.students || []
+      : [];
+  } catch (fallbackError: any) {
+    console.warn(
+      `Could not fetch enrolled students (teacher fallback) for subject ${subjectId}:`,
+      fallbackError.message,
+    );
+    return [];
+  }
+};

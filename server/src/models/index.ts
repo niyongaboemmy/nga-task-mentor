@@ -13,6 +13,7 @@ import QuestionBank from "./QuestionBank.model";
 import ReportCard from "./ReportCard.model";
 import ReportCardAttribute from "./ReportCardAttribute.model";
 import ReportCardAssessment from "./ReportCardAssessment.model";
+import SubjectAssessmentMapping from "./SubjectAssessmentMapping.model";
 import ManualAssessment from "./ManualAssessment.model";
 import ManualAssessmentScore from "./ManualAssessmentScore.model";
 import DatabaseQueryLog from "./DatabaseQueryLog.model";
@@ -243,6 +244,7 @@ export {
   ReportCard,
   ReportCardAttribute,
   ReportCardAssessment,
+  SubjectAssessmentMapping,
   ManualAssessment,
   ManualAssessmentScore,
   DatabaseQueryLog,
@@ -268,6 +270,7 @@ export default {
   ReportCard,
   ReportCardAttribute,
   ReportCardAssessment,
+  SubjectAssessmentMapping,
   ManualAssessment,
   ManualAssessmentScore,
   DatabaseQueryLog,
