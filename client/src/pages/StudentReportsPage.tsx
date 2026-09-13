@@ -10,6 +10,8 @@ import {
   Tooltip,
   Legend,
   type TooltipItem,
+  type ChartEvent,
+  type ActiveElement,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import {
@@ -160,14 +162,15 @@ const StudentReportsPage: React.FC = () => {
     () => ({
       responsive: true,
       maintainAspectRatio: false,
-      onClick: (_evt: unknown, elements: Array<{ index: number }>) => {
+      onClick: (_evt: ChartEvent, elements: ActiveElement[]) => {
         const el = elements[0];
         if (!el) return;
         const report = reports[el.index];
         if (report) navigate(`/courses/${report.courseId}/reports`);
       },
-      onHover: (evt: { native: { target: HTMLElement } }, elements: unknown[]) => {
-        evt.native.target.style.cursor = elements.length ? "pointer" : "default";
+      onHover: (evt: ChartEvent, elements: ActiveElement[]) => {
+        const target = evt.native?.target as HTMLElement | null;
+        if (target) target.style.cursor = elements.length ? "pointer" : "default";
       },
       plugins: {
         legend: { display: false },
