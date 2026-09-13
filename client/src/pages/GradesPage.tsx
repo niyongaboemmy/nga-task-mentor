@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import {
   Plus,
   Search,
@@ -533,12 +533,16 @@ export default function GradesPage() {
                     key={g.courseId}
                     className="rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden bg-card-light dark:bg-card-dark/30"
                   >
-                    {/* Header */}
-                    <button
-                      onClick={() => toggleExpanded(g.courseId)}
-                      className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-surface-light/60 dark:hover:bg-surface-dark/40 transition-colors text-left"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
+                    {/* Header — the toggle button covers only the expand/collapse
+                        affordance; the actions on the right are siblings, not
+                        nested inside it, so we never put a <button>/<a> inside
+                        another <button> (invalid HTML + broken a11y/focus order). */}
+                    <div className="w-full flex items-center justify-between gap-3 pl-5 pr-3 py-2 hover:bg-surface-light/60 dark:hover:bg-surface-dark/40 transition-colors">
+                      <button
+                        onClick={() => toggleExpanded(g.courseId)}
+                        aria-expanded={isOpen}
+                        className="flex-1 flex items-center gap-3 min-w-0 py-2 text-left"
+                      >
                         <ChevronDown
                           className={`w-4 h-4 flex-shrink-0 text-text-secondary-light dark:text-text-secondary-dark/60 transition-transform ${isOpen ? "rotate-180" : ""}`}
                         />
@@ -554,37 +558,36 @@ export default function GradesPage() {
                             {typeof enrolled === "number" ? ` · ${enrolled} student${enrolled !== 1 ? "s" : ""}` : ""}
                           </p>
                         </div>
-                      </div>
+                      </button>
 
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <span
-                          role="link"
-                          onClick={(e) => { e.stopPropagation(); navigate(`/grades/subjects/${g.courseId}`); }}
-                          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors cursor-pointer"
+                        <Link
+                          to={`/grades/subjects/${g.courseId}`}
+                          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
                         >
                           <ClipboardCheck className="w-3.5 h-3.5" />
                           Report Card
                           <ArrowRight className="w-3 h-3" />
-                        </span>
+                        </Link>
                         <button
-                          onClick={(e) => { e.stopPropagation(); openAddModal(g.courseId); }}
+                          onClick={() => openAddModal(g.courseId)}
                           title="Add assessment to this subject"
                           className="p-2 rounded-full hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
                         >
                           <Plus className="w-4 h-4" />
                         </button>
                       </div>
-                    </button>
+                    </div>
 
                     {/* Mobile-only Report Card shortcut */}
                     <div className="sm:hidden px-5 pb-3 -mt-1">
-                      <button
-                        onClick={() => navigate(`/grades/subjects/${g.courseId}`)}
-                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                      <Link
+                        to={`/grades/subjects/${g.courseId}`}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
                       >
                         <ClipboardCheck className="w-3.5 h-3.5" />
                         Report Card <ArrowRight className="w-3 h-3" />
-                      </button>
+                      </Link>
                     </div>
 
                     {/* Body */}
