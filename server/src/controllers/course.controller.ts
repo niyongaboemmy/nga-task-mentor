@@ -17,6 +17,62 @@ import {
 } from "../models";
 import { Op } from "sequelize";
 
+/**
+ * Enrolled roster for one subject/term. Admins hold the MIS permission
+ * behind `/academics/subjects/:id/terms/:termId/students`
+ * (VIEW_SUBJECT_ENROLLED_STUDENTS) and get the full roster from it.
+ * Instructors don't hold that permission — that call 403s for them — so on
+ * a 403 this falls back to `/academics/my-students` (VIEW_MY_STUDENTS,
+ * granted to TEACHER/CLASS_TEACHER) narrowed to this one subject. Before
+ * this fallback existed, every instructor's course "Students" tab silently
+ * rendered empty instead of surfacing the permission error.
+ */
+async function fetchEnrolledStudents(
+  token: string,
+  subjectId: string | number,
+  termId: number | null,
+): Promise<any[]> {
+  const headers = {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+
+  try {
+    const studentsResponse = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${subjectId}/terms/${termId}/students`,
+      { headers },
+    );
+    return studentsResponse.data.success ? studentsResponse.data.data || [] : [];
+  } catch (enrollmentError: any) {
+    if (enrollmentError.response?.status !== 403) {
+      console.warn(
+        `Could not fetch enrolled students for subject ${subjectId}:`,
+        enrollmentError.message,
+      );
+      return [];
+    }
+  }
+
+  try {
+    const myStudentsResponse = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/my-students`,
+      {
+        headers,
+        params: { subject_id: subjectId, ...(termId ? { academic_term_id: termId } : {}) },
+      },
+    );
+    return myStudentsResponse.data.success
+      ? myStudentsResponse.data.data?.students || []
+      : [];
+  } catch (fallbackError: any) {
+    console.warn(
+      `Could not fetch enrolled students (teacher fallback) for subject ${subjectId}:`,
+      fallbackError.message,
+    );
+    return [];
+  }
+}
+
 // @desc    Get all courses
 // @route   GET /api/courses
 // @access  Private
@@ -179,28 +235,8 @@ export const getCourse = async (req: Request, res: Response) => {
     // Get enrolled students for this subject and term (dynamic) from MIS.
     // Honors ?academicTermId= so admins can view a past term's roster
     // instead of always the requester's current term.
-    let enrolledStudents = [];
-    try {
-      const termId = await resolveAcademicTermId(req);
-      const studentsResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/${termId}/students`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (studentsResponse.data.success) {
-        enrolledStudents = studentsResponse.data.data || [];
-      }
-    } catch (enrollmentError: any) {
-      console.warn(
-        `Could not fetch enrolled students for course ${req.params.id}:`,
-        enrollmentError.message,
-      );
-    }
+    const termId = await resolveAcademicTermId(req);
+    const enrolledStudents = await fetchEnrolledStudents(token, req.params.id, termId);
 
     // Get subject details from MIS
     let subjectDetails: any = {};
@@ -619,29 +655,8 @@ export const getCourseStudents = async (req: Request, res: Response) => {
     }
 
     // Get enrolled students for this subject and term (dynamic)
-    let enrolledStudents = [];
-    try {
-      const termId = await resolveAcademicTermId(req);
-      const studentsResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${req.params.id}/terms/${termId}/students`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (studentsResponse.data.success) {
-        enrolledStudents = studentsResponse.data.data || [];
-      }
-    } catch (enrollmentError: any) {
-      console.warn(
-        "Could not fetch enrolled students:",
-        enrollmentError.message,
-      );
-      // Continue with empty array
-    }
+    const termId = await resolveAcademicTermId(req);
+    const enrolledStudents = await fetchEnrolledStudents(token, req.params.id, termId);
 
     // Map enrolled students to match UserFullData structure expected by frontend
     const mappedStudents = enrolledStudents.map((s: any) => ({
@@ -733,27 +748,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       : undefined;
 
     // 1. Get enrolled students from MIS
-    let enrolledStudents: any[] = [];
-    try {
-      const studentsResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}/terms/${termId}/students`,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json",
-          },
-        },
-      );
-
-      if (studentsResponse.data.success) {
-        enrolledStudents = studentsResponse.data.data || [];
-      }
-    } catch (enrollmentError: any) {
-      console.warn(
-        "Could not fetch enrolled students:",
-        enrollmentError.message,
-      );
-    }
+    const enrolledStudents = await fetchEnrolledStudents(token, courseId, termId);
 
     // 2. Get all Assignments
     const assignments = await Assignment.findAll({
