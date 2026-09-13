@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -9,6 +9,7 @@ import {
   Title,
   Tooltip,
   Legend,
+  type TooltipItem,
 } from "chart.js";
 import { Bar } from "react-chartjs-2";
 import {
@@ -25,6 +26,8 @@ import {
 } from "lucide-react";
 import axios from "../utils/axiosConfig";
 import { toast } from "react-toastify";
+import { useTheme } from "../contexts/ThemeContext";
+import { STAT_COLORS } from "../components/Dashboard/dashboardUi";
 
 ChartJS.register(
   CategoryScale,
@@ -74,6 +77,9 @@ const itemVariants = {
 const StudentReportsPage: React.FC = () => {
   const [reports, setReports] = useState<ReportCard[]>([]);
   const [loading, setLoading] = useState(true);
+  const { theme } = useTheme();
+  const navigate = useNavigate();
+  const isDark = theme === "dark";
 
   useEffect(() => {
     fetchReports();
@@ -122,52 +128,76 @@ const StudentReportsPage: React.FC = () => {
   const overallGPA = calculateOverallGPA();
   const completionRate = calculateCompletionRate();
 
-  // Chart Data Preparation
+  // Chart Data Preparation — colors mirror the app's semantic status palette
+  // (emerald/amber/blue/red) so the bars read the same as the Status
+  // Breakdown card and the rest of the dashboard's STAT_COLORS.
+  const gradeColor = (percentage: number, hover = false) => {
+    const alpha = hover ? 1 : 0.85;
+    if (percentage >= 80) return `rgba(16, 185, 129, ${alpha})`; // emerald-500
+    if (percentage >= 60) return `rgba(245, 158, 11, ${alpha})`; // amber-500
+    if (percentage >= 50) return `rgba(59, 130, 246, ${alpha})`; // blue-500
+    return `rgba(239, 68, 68, ${alpha})`; // red-500
+  };
+
   const chartData = {
     labels: reports.map((r) => r.code),
     datasets: [
       {
         label: "Grade (%)",
         data: reports.map((r) => r.percentage),
-        backgroundColor: reports.map((r) => {
-          if (r.percentage >= 80) return "rgba(16, 185, 129, 0.8)"; // Green
-          if (r.percentage >= 60) return "rgba(245, 158, 11, 0.8)"; // Yellow
-          if (r.percentage >= 50) return "rgba(59, 130, 246, 0.8)"; // Blue
-          return "rgba(239, 68, 68, 0.8)"; // Red
-        }),
+        backgroundColor: reports.map((r) => gradeColor(r.percentage)),
+        hoverBackgroundColor: reports.map((r) => gradeColor(r.percentage, true)),
         borderRadius: 6,
+        maxBarThickness: 48,
       },
     ],
   };
 
-  const chartOptions = {
-    responsive: true,
-    maintainAspectRatio: false,
-    plugins: {
-      legend: {
-        display: false,
+  // Chart.js reads plain colors, not Tailwind's `dark:` variant — so it's
+  // rebuilt whenever the theme toggles, using the same tokens as the rest
+  // of the card (text-secondary / surface borders).
+  const chartOptions = useMemo(
+    () => ({
+      responsive: true,
+      maintainAspectRatio: false,
+      onClick: (_evt: unknown, elements: Array<{ index: number }>) => {
+        const el = elements[0];
+        if (!el) return;
+        const report = reports[el.index];
+        if (report) navigate(`/courses/${report.courseId}/reports`);
       },
-      tooltip: {
-        backgroundColor: "rgba(17, 24, 39, 0.9)",
-        padding: 12,
-        cornerRadius: 8,
+      onHover: (evt: { native: { target: HTMLElement } }, elements: unknown[]) => {
+        evt.native.target.style.cursor = elements.length ? "pointer" : "default";
       },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        max: 100,
-        grid: {
-          color: "rgba(156, 163, 175, 0.1)",
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: isDark ? "rgba(30, 41, 59, 0.95)" : "rgba(15, 23, 42, 0.92)",
+          titleColor: "#f8fafc",
+          bodyColor: "#e2e8f0",
+          padding: 12,
+          cornerRadius: 8,
+          displayColors: false,
+          callbacks: {
+            label: (ctx: TooltipItem<"bar">) => `Grade: ${ctx.formattedValue}%`,
+          },
         },
       },
-      x: {
-        grid: {
-          display: false,
+      scales: {
+        y: {
+          beginAtZero: true,
+          max: 100,
+          grid: { color: isDark ? "rgba(148, 163, 184, 0.12)" : "rgba(148, 163, 184, 0.18)" },
+          ticks: { color: isDark ? "#94a3b8" : "#64748b" },
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: isDark ? "#94a3b8" : "#64748b" },
         },
       },
-    },
-  };
+    }),
+    [isDark, reports, navigate],
+  );
 
   if (loading) {
     return (
@@ -229,11 +259,11 @@ const StudentReportsPage: React.FC = () => {
             <LayoutDashboard className="w-7 h-7" />
           </div>
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400 tracking-tight">
+            <h1 className="text-2xl sm:text-3xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
               Academic Performance
             </h1>
             <p className="mt-0.5 text-text-secondary-light dark:text-text-secondary-dark/70 text-sm font-medium flex items-center gap-2">
-              <span className="px-2 py-0.5 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded-md text-[10px] font-bold uppercase tracking-wider">
+              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${STAT_COLORS.blue}`}>
                 Student Report
               </span>
               <span className="hidden sm:inline">Comprehensive overview of your grades.</span>
@@ -242,7 +272,7 @@ const StudentReportsPage: React.FC = () => {
         </div>
         <button
           onClick={fetchReports}
-          className="px-6 py-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark self-start sm:self-auto active:scale-95"
+          className="px-6 py-3 bg-card-light dark:bg-card-dark/30 rounded-full hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark self-start sm:self-auto active:scale-95"
         >
           <RefreshCw className="w-4 h-4" />
           <span>Refresh</span>
@@ -255,11 +285,11 @@ const StudentReportsPage: React.FC = () => {
         className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
       >
         {/* Overall Grade Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
-
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8 relative overflow-hidden group hover:shadow-md transition-shadow">
           <div className="relative z-10">
-            <p className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+            <p
+              className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 mb-4 w-fit px-2 py-1 rounded-lg ${STAT_COLORS.blue}`}
+            >
               <Award className="w-4 h-4" />
               Overview
             </p>
@@ -273,7 +303,7 @@ const StudentReportsPage: React.FC = () => {
             </p>
 
             <div
-              className={`mt-6 inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${overallGPA >= 50 ? "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400" : "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"}`}
+              className={`mt-6 inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${overallGPA >= 50 ? STAT_COLORS.emerald : STAT_COLORS.red}`}
             >
               <CheckCircle className="w-3 h-3" />
               <span>
@@ -284,10 +314,11 @@ const StudentReportsPage: React.FC = () => {
         </div>
 
         {/* Completion Rate Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-green-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-green-500/10 transition-colors duration-700" />
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8 relative overflow-hidden group hover:shadow-md transition-shadow">
           <div className="relative z-10">
-            <p className="text-xs font-bold text-green-600 dark:text-green-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+            <p
+              className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 mb-4 w-fit px-2 py-1 rounded-lg ${STAT_COLORS.emerald}`}
+            >
               <Zap className="w-4 h-4" />
               Progress
             </p>
@@ -297,23 +328,26 @@ const StudentReportsPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="w-full bg-gray-100 dark:bg-gray-800 h-3 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-green-500 rounded-full transition-all duration-1000"
-                style={{ width: `${completionRate}%` }}
-              ></div>
+            <div className="w-full bg-surface-light dark:bg-surface-dark h-3 rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-emerald-500 rounded-full"
+                initial={{ width: 0 }}
+                animate={{ width: `${completionRate}%` }}
+                transition={{ duration: 1, ease: "easeOut" }}
+              />
             </div>
-            <p className="mt-3 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+            <p className="mt-3 text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-wider">
               Assignments & Quizzes Completed
             </p>
           </div>
         </div>
 
         {/* Course Count Card */}
-        <div className="bg-white dark:bg-gray-900 rounded-2xl p-6 sm:p-8 shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-purple-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-purple-500/10 transition-colors duration-700" />
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8 relative overflow-hidden group hover:shadow-md transition-shadow">
           <div className="relative z-10">
-            <p className="text-xs font-bold text-purple-600 dark:text-purple-400 uppercase tracking-widest flex items-center gap-2 mb-4">
+            <p
+              className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 mb-4 w-fit px-2 py-1 rounded-lg ${STAT_COLORS.violet}`}
+            >
               <BookOpen className="w-4 h-4" />
               Courses
             </p>
@@ -327,18 +361,18 @@ const StudentReportsPage: React.FC = () => {
               {reports.slice(0, 3).map((r) => (
                 <span
                   key={r.courseId}
-                  className="text-[10px] font-bold px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider"
+                  className="text-[10px] font-bold px-2 py-1 bg-surface-light dark:bg-surface-dark rounded-lg text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider"
                 >
                   {r.code}
                 </span>
               ))}
               {reports.length > 3 && (
-                <span className="text-[10px] font-bold px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-lg text-gray-400 uppercase tracking-wider">
+                <span className="text-[10px] font-bold px-2 py-1 bg-surface-light dark:bg-surface-dark rounded-lg text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-wider">
                   +{reports.length - 3}
                 </span>
               )}
             </div>
-            <p className="mt-4 text-xs font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+            <p className="mt-4 text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-wider">
               Active Enrollments
             </p>
           </div>
@@ -353,15 +387,20 @@ const StudentReportsPage: React.FC = () => {
         {/* Left Column: Grade Distribution Chart */}
         <motion.div
           variants={itemVariants}
-          className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8"
+          className="lg:col-span-2 bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8"
         >
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
-              <TrendingUp className="w-5 h-5" />
+          <div className="flex items-center justify-between gap-3 mb-6">
+            <div className="flex items-center gap-3">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${STAT_COLORS.blue}`}>
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <h3 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
+                Performance Overview
+              </h3>
             </div>
-            <h3 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
-              Performance Overview
-            </h3>
+            <span className="hidden sm:inline text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/60">
+              Click a bar to open that course
+            </span>
           </div>
           <div className="h-[220px] sm:h-[280px] lg:h-[350px] w-full">
             <Bar data={chartData} options={chartOptions} />
@@ -372,10 +411,10 @@ const StudentReportsPage: React.FC = () => {
         <div className="space-y-6">
           <motion.div
             variants={itemVariants}
-            className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8"
+            className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8"
           >
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 flex-shrink-0">
+              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${STAT_COLORS.indigo}`}>
                 <Filter className="w-5 h-5" />
               </div>
               <h3 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
@@ -383,36 +422,36 @@ const StudentReportsPage: React.FC = () => {
               </h3>
             </div>
 
-            <div className="space-y-4">
-              <div className="flex justify-between items-center p-4 bg-green-50 dark:bg-green-900/10 rounded-2xl border border-green-100 dark:border-green-900/20 group hover:scale-[1.02] transition-transform">
+            <div className="space-y-3">
+              <div className="flex justify-between items-center p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl group hover:scale-[1.02] transition-transform">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-2xl bg-green-100 dark:bg-green-900/30 flex items-center justify-center text-green-600 dark:text-green-400">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${STAT_COLORS.emerald}`}>
                     <CheckCircle className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                       Passing
                     </span>
-                    <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                    <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-widest">
                       On Track
                     </span>
                   </div>
                 </div>
-                <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
                   {reports.filter((r) => r.percentage >= 50).length}
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-4 bg-red-50 dark:bg-red-900/10 rounded-2xl border border-red-100 dark:border-red-900/20 group hover:scale-[1.02] transition-transform">
+              <div className="flex justify-between items-center p-4 bg-red-50 dark:bg-red-900/10 rounded-2xl group hover:scale-[1.02] transition-transform">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-2xl bg-red-100 dark:bg-red-900/30 flex items-center justify-center text-red-600 dark:text-red-400">
+                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${STAT_COLORS.red}`}>
                     <Zap className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                       Needs Attention
                     </span>
-                    <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                    <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-widest">
                       Below 50%
                     </span>
                   </div>
@@ -425,16 +464,16 @@ const StudentReportsPage: React.FC = () => {
                 </span>
               </div>
 
-              <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-700 group hover:scale-[1.02] transition-transform">
+              <div className="flex justify-between items-center p-4 bg-surface-light dark:bg-surface-dark/50 rounded-2xl group hover:scale-[1.02] transition-transform">
                 <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-2xl bg-gray-200 dark:bg-gray-700 flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark/70">
+                  <div className="w-10 h-10 rounded-2xl bg-white dark:bg-gray-800 flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark/70">
                     <BookOpen className="w-5 h-5" />
                   </div>
                   <div>
                     <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
                       No Grade
                     </span>
-                    <span className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">
+                    <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-widest">
                       Not Started
                     </span>
                   </div>
@@ -462,11 +501,12 @@ const StudentReportsPage: React.FC = () => {
             <motion.div
               key={report.courseId}
               variants={itemVariants}
-              className="group bg-white dark:bg-gray-900 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 p-6 sm:p-8 hover:-translate-y-1 transition-all duration-300"
+              onClick={() => navigate(`/courses/${report.courseId}/reports`)}
+              className="group bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer"
             >
               <div className="flex justify-between items-start mb-6">
                 <div>
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-900/30 px-3 py-1.5 rounded-lg mb-3 inline-block">
+                  <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg mb-3 inline-block ${STAT_COLORS.blue}`}>
                     {report.code}
                   </span>
                   <h4 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
@@ -475,7 +515,7 @@ const StudentReportsPage: React.FC = () => {
                 </div>
                 <div
                   className={`flex flex-col items-end ${
-                    report.percentage >= 50 ? "text-green-500" : "text-red-500"
+                    report.percentage >= 50 ? "text-emerald-500" : "text-red-500"
                   }`}
                 >
                   <span className="text-3xl font-bold tracking-tight">
@@ -487,14 +527,14 @@ const StudentReportsPage: React.FC = () => {
               <div className="space-y-5 mb-8">
                 <div>
                   <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
-                    <span className="text-gray-400 dark:text-gray-500">Assignments</span>
+                    <span className="text-text-secondary-light dark:text-text-secondary-dark/60">Assignments</span>
                     <span className="text-text-primary-light dark:text-text-primary-dark">
                       {report.assignmentsCompleted}/{report.totalAssignments}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-100 dark:bg-gray-800 h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-surface-light dark:bg-surface-dark h-2 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-indigo-500 rounded-full"
+                      className="h-full bg-indigo-500 rounded-full transition-[width] duration-700"
                       style={{
                         width: `${
                           report.totalAssignments > 0
@@ -510,14 +550,14 @@ const StudentReportsPage: React.FC = () => {
 
                 <div>
                   <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
-                    <span className="text-gray-400 dark:text-gray-500">Quizzes</span>
+                    <span className="text-text-secondary-light dark:text-text-secondary-dark/60">Quizzes</span>
                     <span className="text-text-primary-light dark:text-text-primary-dark">
                       {report.quizzesCompleted}/{report.totalQuizzes}
                     </span>
                   </div>
-                  <div className="w-full bg-gray-100 dark:bg-gray-800 h-2 rounded-full overflow-hidden">
+                  <div className="w-full bg-surface-light dark:bg-surface-dark h-2 rounded-full overflow-hidden">
                     <div
-                      className="h-full bg-pink-500 rounded-full"
+                      className="h-full bg-pink-500 rounded-full transition-[width] duration-700"
                       style={{
                         width: `${
                           report.totalQuizzes > 0
@@ -533,7 +573,8 @@ const StudentReportsPage: React.FC = () => {
 
               <Link
                 to={`/courses/${report.courseId}/reports`}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gray-50 dark:bg-gray-800/50 text-text-secondary-light dark:text-text-secondary-dark font-bold uppercase tracking-wider text-xs rounded-full hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-blue-500/20"
+                onClick={(e) => e.stopPropagation()}
+                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-surface-light dark:bg-surface-dark/60 text-text-secondary-light dark:text-text-secondary-dark font-bold uppercase tracking-wider text-xs rounded-full hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-blue-500/20"
               >
                 <span>View Full Report</span>
                 <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
