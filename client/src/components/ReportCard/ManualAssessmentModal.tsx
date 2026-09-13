@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   X,
@@ -9,12 +9,14 @@ import {
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
+  Search,
+  Zap,
+  Eraser,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import {
   ManualAssessmentApiService,
   type ManualAssessment,
-  type ManualAssessmentScore,
 } from "../../services/manualAssessmentApi";
 
 export interface StudentEntry {
@@ -159,6 +161,18 @@ function CreatePanel({
 
 // ─── Score entry panel ────────────────────────────────────────────────────────
 
+// Deterministic avatar gradient per student, matching the palette used for
+// roster rows elsewhere in the app (CourseReportCardsPanel) so this feels
+// like the same design system rather than a bespoke list.
+const AVATAR_GRADIENTS = [
+  "from-indigo-400 to-violet-500",
+  "from-blue-400 to-cyan-500",
+  "from-emerald-400 to-teal-500",
+  "from-amber-400 to-orange-500",
+  "from-pink-400 to-rose-500",
+  "from-fuchsia-400 to-purple-500",
+];
+
 function ScoresPanel({
   assessment,
   students,
@@ -171,16 +185,16 @@ function ScoresPanel({
   onClose: () => void;
 }) {
   const [scores, setScores] = useState<Record<number, string>>({});
-  const [existingScores, setExistingScores] = useState<ManualAssessmentScore[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [search, setSearch] = useState("");
+  const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
   useEffect(() => {
     (async () => {
       setLoading(true);
       try {
         const res = await ManualAssessmentApiService.getScores(assessment.id);
-        setExistingScores(res.data);
         const initial: Record<number, string> = {};
         for (const s of res.data) {
           initial[s.student_id] = String(s.score);
@@ -239,13 +253,50 @@ function ScoresPanel({
   const filledCount = Object.values(scores).filter((v) => v !== "" && v !== undefined).length;
   const maxScore = parseFloat(String(assessment.max_score));
 
+  const filteredStudents = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return students;
+    return students.filter(
+      (s) => s.name.toLowerCase().includes(q) || String(s.student_id).includes(q),
+    );
+  }, [students, search]);
+
+  // Enter jumps to the next visible row instead of submitting the form —
+  // turns entering 20+ scores into a fast top-to-bottom keyboard flow
+  // instead of click, type, click, type.
+  const focusNext = useCallback(
+    (fromStudentId: number) => {
+      const idx = filteredStudents.findIndex((s) => s.student_id === fromStudentId);
+      const next = filteredStudents[idx + 1];
+      if (next) inputRefs.current[next.student_id]?.focus();
+    },
+    [filteredStudents],
+  );
+
+  const fillRemainingWithMax = () => {
+    setScores((prev) => {
+      const next = { ...prev };
+      for (const s of students) {
+        if (next[s.student_id] === undefined || next[s.student_id] === "") {
+          next[s.student_id] = String(maxScore);
+        }
+      }
+      return next;
+    });
+  };
+
+  const clearAll = () => {
+    if (!confirm("Clear every score entered in this session?")) return;
+    setScores({});
+  };
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="px-5 pt-5 pb-4 border-b border-white/[0.06] flex-shrink-0">
+      <div className="px-5 pt-5 pb-4 border-b border-white/[0.06] flex-shrink-0 space-y-3">
         <button
           onClick={onBack}
-          className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-300 transition-colors mb-3"
+          className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-300 transition-colors"
         >
           <ArrowLeft className="w-3.5 h-3.5" />
           Back
@@ -256,13 +307,52 @@ function ScoresPanel({
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Max score: <span className="text-slate-300 dark:text-slate-600 font-semibold">{assessment.max_score}</span>
               {" · "}
-              <span className="text-emerald-400">{filledCount}</span> of {students.length} filled
+              <span className="text-emerald-400 font-semibold">{filledCount}</span> of {students.length} filled
             </p>
           </div>
           <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-violet-900/40 border border-violet-700/40 text-violet-300 flex-shrink-0">
             <Users className="w-3 h-3" />
             {students.length}
           </div>
+        </div>
+
+        {/* Progress bar */}
+        <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+          <motion.div
+            className="h-full bg-emerald-500 rounded-full"
+            initial={{ width: 0 }}
+            animate={{ width: students.length > 0 ? `${(filledCount / students.length) * 100}%` : "0%" }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          />
+        </div>
+
+        {/* Search + quick actions */}
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500 dark:text-slate-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search student…"
+              className="w-full pl-8 pr-3 py-1.5 rounded-lg text-xs bg-white/[0.05] border border-white/[0.1] text-slate-200 dark:text-slate-700 placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500/50 transition-all"
+            />
+          </div>
+          <button
+            onClick={fillRemainingWithMax}
+            title={`Fill every empty score with the max (${maxScore})`}
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-emerald-900/40 border border-emerald-700/40 text-emerald-300 hover:bg-emerald-800/50 transition-all flex-shrink-0"
+          >
+            <Zap className="w-3 h-3" />
+            Fill max
+          </button>
+          <button
+            onClick={clearAll}
+            title="Clear every score entered in this session"
+            className="flex items-center justify-center p-1.5 rounded-lg bg-white/[0.05] border border-white/[0.1] text-slate-400 dark:text-slate-500 hover:bg-red-900/30 hover:text-red-300 hover:border-red-700/40 transition-all flex-shrink-0"
+          >
+            <Eraser className="w-3.5 h-3.5" />
+          </button>
         </div>
       </div>
 
@@ -277,17 +367,45 @@ function ScoresPanel({
             <AlertCircle className="w-8 h-8 text-slate-600 dark:text-slate-400" />
             <p className="text-xs text-slate-600 dark:text-slate-400">No students found in this course.</p>
           </div>
+        ) : filteredStudents.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-12 gap-3">
+            <Search className="w-8 h-8 text-slate-600 dark:text-slate-400" />
+            <p className="text-xs text-slate-600 dark:text-slate-400">No students match "{search}".</p>
+          </div>
         ) : (
-          students.map((student) => {
+          filteredStudents.map((student, idx) => {
             const val = scores[student.student_id] ?? "";
             const numVal = parseFloat(val);
             const isValid = val === "" || (!isNaN(numVal) && numVal >= 0 && numVal <= maxScore);
+            const gradient = AVATAR_GRADIENTS[student.student_id % AVATAR_GRADIENTS.length];
+            const initials = student.name
+              .split(" ")
+              .filter(Boolean)
+              .slice(0, 2)
+              .map((p) => p[0])
+              .join("")
+              .toUpperCase();
 
             return (
-              <div
+              <motion.div
                 key={student.student_id}
-                className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-white/[0.03] border border-white/[0.06]"
+                initial={{ opacity: 0, y: 4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: Math.min(idx, 12) * 0.015 }}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${
+                  val !== "" && isValid
+                    ? "bg-emerald-950/20 border-emerald-800/30"
+                    : !isValid
+                      ? "bg-red-950/20 border-red-800/30"
+                      : "bg-white/[0.03] border-white/[0.06]"
+                }`}
               >
+                <div
+                  className={`w-9 h-9 rounded-xl bg-gradient-to-br ${gradient} flex items-center justify-center text-white text-xs font-bold flex-shrink-0 shadow-sm`}
+                >
+                  {initials || "?"}
+                </div>
+
                 <div className="flex-1 min-w-0">
                   <p className="text-sm text-slate-200 dark:text-slate-700 font-medium truncate">{student.name}</p>
                   <p className="text-[11px] text-slate-600 dark:text-slate-400">ID #{student.student_id}</p>
@@ -295,23 +413,31 @@ function ScoresPanel({
 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <input
+                    ref={(el) => { inputRefs.current[student.student_id] = el; }}
                     type="number"
                     value={val}
                     onChange={(e) =>
                       setScores((prev) => ({ ...prev, [student.student_id]: e.target.value }))
                     }
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        focusNext(student.student_id);
+                      }
+                    }}
                     min={0}
                     max={maxScore}
                     step="any"
-                    placeholder="—"
-                    className={`w-20 px-3 py-1.5 rounded-lg text-sm text-right font-mono bg-white/[0.05] border transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 ${!isValid ? "border-red-500/50 focus:ring-red-500/40 text-red-400" : val !== "" ? "border-emerald-600/40 text-emerald-300" : "border-white/[0.1] text-slate-300" }`}
+                    placeholder="0"
+                    aria-label={`Score for ${student.name}`}
+                    className={`w-20 px-3 py-1.5 rounded-lg text-sm text-right font-mono bg-white/[0.06] border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 hover:border-white/[0.2] ${!isValid ? "border-red-500/50 focus:ring-red-500/40 text-red-400" : val !== "" ? "border-emerald-600/50 text-emerald-300" : "border-white/[0.14] text-slate-200" }`}
                   />
                   <span className="text-xs text-slate-600 dark:text-slate-400 w-10 text-right">/ {maxScore}</span>
                   {val !== "" && isValid && (
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
                   )}
                 </div>
-              </div>
+              </motion.div>
             );
           })
         )}
@@ -414,7 +540,7 @@ export default function ManualAssessmentModal({
             className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none"
           >
             <div
-              className="relative w-full max-w-md bg-[#0D1525] border border-white/[0.1] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden pointer-events-auto flex flex-col max-h-[90vh]"
+              className={`relative w-full ${showScores ? "max-w-lg" : "max-w-md"} bg-[#0D1525] border border-white/[0.1] rounded-2xl shadow-2xl shadow-black/60 overflow-hidden pointer-events-auto flex flex-col max-h-[90vh] transition-[max-width] duration-200`}
               onClick={(e) => e.stopPropagation()}
             >
               {/* Top bar */}
