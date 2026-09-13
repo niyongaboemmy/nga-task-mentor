@@ -165,12 +165,12 @@ function CreatePanel({
 // roster rows elsewhere in the app (CourseReportCardsPanel) so this feels
 // like the same design system rather than a bespoke list.
 const AVATAR_GRADIENTS = [
-  "from-indigo-400 to-violet-500",
-  "from-blue-400 to-cyan-500",
-  "from-emerald-400 to-teal-500",
-  "from-amber-400 to-orange-500",
-  "from-pink-400 to-rose-500",
-  "from-fuchsia-400 to-purple-500",
+  "from-blue-400 to-orange-500",
+  "from-blue-400 to-slate-500",
+  "from-blue-400 to-blue-700",
+  "from-orange-400 to-orange-600",
+  "from-slate-400 to-blue-600",
+  "from-blue-600 to-slate-800",
 ];
 
 function ScoresPanel({
@@ -307,10 +307,10 @@ function ScoresPanel({
             <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
               Max score: <span className="text-slate-300 dark:text-slate-600 font-semibold">{assessment.max_score}</span>
               {" · "}
-              <span className="text-emerald-400 font-semibold">{filledCount}</span> of {students.length} filled
+              <span className="text-blue-400 font-semibold">{filledCount}</span> of {students.length} filled
             </p>
           </div>
-          <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-violet-900/40 border border-violet-700/40 text-violet-300 flex-shrink-0">
+          <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-orange-900/40 border border-orange-700/40 text-orange-300 flex-shrink-0">
             <Users className="w-3 h-3" />
             {students.length}
           </div>
@@ -319,7 +319,7 @@ function ScoresPanel({
         {/* Progress bar */}
         <div className="w-full h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
           <motion.div
-            className="h-full bg-emerald-500 rounded-full"
+            className="h-full bg-blue-500 rounded-full"
             initial={{ width: 0 }}
             animate={{ width: students.length > 0 ? `${(filledCount / students.length) * 100}%` : "0%" }}
             transition={{ duration: 0.4, ease: "easeOut" }}
@@ -341,7 +341,7 @@ function ScoresPanel({
           <button
             onClick={fillRemainingWithMax}
             title={`Fill every empty score with the max (${maxScore})`}
-            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-emerald-900/40 border border-emerald-700/40 text-emerald-300 hover:bg-emerald-800/50 transition-all flex-shrink-0"
+            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-medium bg-blue-900/40 border border-blue-700/40 text-blue-300 hover:bg-blue-800/50 transition-all flex-shrink-0"
           >
             <Zap className="w-3 h-3" />
             Fill max
@@ -349,7 +349,7 @@ function ScoresPanel({
           <button
             onClick={clearAll}
             title="Clear every score entered in this session"
-            className="flex items-center justify-center p-1.5 rounded-lg bg-white/[0.05] border border-white/[0.1] text-slate-400 dark:text-slate-500 hover:bg-red-900/30 hover:text-red-300 hover:border-red-700/40 transition-all flex-shrink-0"
+            className="flex items-center justify-center p-1.5 rounded-lg bg-white/[0.05] border border-white/[0.1] text-slate-400 dark:text-slate-500 hover:bg-orange-900/30 hover:text-orange-300 hover:border-orange-700/40 transition-all flex-shrink-0"
           >
             <Eraser className="w-3.5 h-3.5" />
           </button>
@@ -394,9 +394,9 @@ function ScoresPanel({
                 transition={{ delay: Math.min(idx, 12) * 0.015 }}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-colors ${
                   val !== "" && isValid
-                    ? "bg-emerald-950/20 border-emerald-800/30"
+                    ? "bg-blue-950/20 border-blue-800/30"
                     : !isValid
-                      ? "bg-red-950/20 border-red-800/30"
+                      ? "bg-orange-950/20 border-orange-800/30"
                       : "bg-white/[0.03] border-white/[0.06]"
                 }`}
               >
@@ -430,11 +430,11 @@ function ScoresPanel({
                     step="any"
                     placeholder="0"
                     aria-label={`Score for ${student.name}`}
-                    className={`w-20 px-3 py-1.5 rounded-lg text-sm text-right font-mono bg-white/[0.06] border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 hover:border-white/[0.2] ${!isValid ? "border-red-500/50 focus:ring-red-500/40 text-red-400" : val !== "" ? "border-emerald-600/50 text-emerald-300" : "border-white/[0.14] text-slate-200" }`}
+                    className={`w-20 px-3 py-1.5 rounded-lg text-sm text-right font-mono bg-white/[0.06] border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 hover:border-white/[0.2] ${!isValid ? "border-orange-500/50 focus:ring-orange-500/40 text-orange-400" : val !== "" ? "border-blue-600/50 text-blue-300" : "border-white/[0.14] text-slate-200" }`}
                   />
                   <span className="text-xs text-slate-600 dark:text-slate-400 w-10 text-right">/ {maxScore}</span>
                   {val !== "" && isValid && (
-                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
                   )}
                 </div>
               </motion.div>
@@ -545,8 +545,8 @@ export default function ManualAssessmentModal({
             >
               {/* Top bar */}
               <div className="flex items-center gap-3 px-5 pt-4 pb-3 border-b border-white/[0.06] flex-shrink-0">
-                <div className="w-8 h-8 rounded-xl bg-violet-900/50 border border-violet-700/40 flex items-center justify-center flex-shrink-0">
-                  <PencilRuler className="w-4 h-4 text-violet-300" />
+                <div className="w-8 h-8 rounded-xl bg-orange-900/50 border border-orange-700/40 flex items-center justify-center flex-shrink-0">
+                  <PencilRuler className="w-4 h-4 text-orange-300" />
                 </div>
                 <span className="text-sm font-semibold text-white flex-1">
                   Manual Assessment Entry

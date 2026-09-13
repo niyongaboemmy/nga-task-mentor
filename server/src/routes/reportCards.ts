@@ -7,6 +7,7 @@ import {
   getStudentReportCard,
   getAnnualReportCard,
   getCourseOverview,
+  getSubjectOverview,
   updateStatus,
   generatePdf,
   generateAnnualPdf,
@@ -71,6 +72,16 @@ router.get(
   "/overview",
   authorizePermission("REPORT_CARDS_VIEW_ALL"),
   getCourseOverview,
+);
+
+// ── Subject overview (Grades → Subject dashboard) ─────────────────────────────
+// Same student_ids-batch shape as /overview, plus one subject's computed
+// grade per student and a class average — the single call the subject
+// dashboard needs instead of scanning admin/summary or N calls to /student/:id.
+router.get(
+  "/subject-overview",
+  authorizePermission("REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT", "REPORT_CARDS_VIEW_ALL"),
+  getSubjectOverview,
 );
 
 // ── Admin cross-course reporting ────────────────────────────────────────────────

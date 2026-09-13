@@ -9,7 +9,6 @@ import { fetchCourse, fetchCourses } from "../../store/slices/courseSlice";
 import type { RootState, AppDispatch } from "../../store";
 import type { Course } from "../../types/course.types";
 import { Library, Search, Users, Mail, ChevronRight, SlidersHorizontal, ClipboardList } from "lucide-react";
-import { useAuth } from "../../contexts/AuthContext";
 import { usePermissions } from "../../hooks/usePermissions";
 import CourseReportCardsPanel from "../ReportCard/CourseReportCardsPanel";
 import AcademicPeriodPicker, {
@@ -59,15 +58,11 @@ const CourseDetails: React.FC = () => {
     () => getStoredTab(courseId || ""),
   );
 
-  const { user: authContext } = useAuth();
-  const currentTerm = authContext?.currentAcademicTerm?.name as string | undefined;
-  const currentYear = authContext?.currentAcademicYear?.name as string | undefined;
   const { can } = usePermissions();
   const isInstructorOrAdmin = can("COURSES_VIEW_STUDENTS");
   const canCreateQuizzes = can("QUIZZES_CREATE");
   const canViewQuestionBank = can("QUESTION_BANK_VIEW");
   const canViewReportCards = can("REPORT_CARDS_VIEW_ALL");
-  const canApproveReportCards = can("REPORT_CARDS_APPROVE");
 
   // Get courses and loading state from Redux store
   const courseState = useSelector((state: RootState) => state.course);
@@ -122,18 +117,6 @@ const CourseDetails: React.FC = () => {
   const displayedStudents = viewPeriod
     ? historicalStudents ?? []
     : course?.enrolledStudents || [];
-
-  // Stable students array for CourseReportCardsPanel — avoids fetchOverview firing on every render
-  const reportCardStudents = useMemo(() => {
-    if (!course) return [];
-    return (course.enrolledStudents ?? [])
-      .map((s: any) => ({
-        id: s.user?.id || s.user?.user_id,
-        name: `${s.profile?.first_name || s.user?.first_name || ""} ${s.profile?.last_name || s.user?.last_name || ""}`.trim()
-          || `Student #${s.user?.id}`,
-      }))
-      .filter((s: any) => s.id);
-  }, [course]);
 
   useEffect(() => {
     const initializeCourse = async () => {
@@ -566,10 +549,6 @@ const CourseDetails: React.FC = () => {
             <CourseReportCardsPanel
               courseId={parseInt(courseId!)}
               courseName={course.title}
-              students={reportCardStudents}
-              currentTerm={currentTerm}
-              currentYear={currentYear}
-              isAdmin={canApproveReportCards}
             />
           )}
         </div>

@@ -49,7 +49,7 @@ import QuizListPage from "../pages/QuizListPage";
 import QuizzesPage from "../pages/QuizzesPage";
 import CourseReportsPage from "../pages/CourseReportsPage";
 import StudentReportsPage from "../pages/StudentReportsPage";
-import ReportCardBuilderPage from "../pages/ReportCardBuilderPage";
+import SubjectGradesPage from "../pages/SubjectGradesPage";
 import GeneralAttributesPage from "../pages/GeneralAttributesPage";
 import BloomsTaxonomyManagementPage from "../components/Quizzes/BloomsTaxonomyManagementPage";
 import QuestionBankPage from "../pages/QuestionBankPage";
@@ -141,11 +141,6 @@ export const appRoutes: AppRoute[] = [
     path: "/courses/:courseId/reports",
     element: <CourseReportsPage />,
     permissions: ["REPORT_CARDS_VIEW_OWN", "REPORT_CARDS_VIEW_ALL"],
-  },
-  {
-    path: "/courses/:courseId/report-card-builder",
-    element: <ReportCardBuilderPage />,
-    permissions: ["REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT", "REPORT_CARDS_APPROVE"],
   },
   {
     path: "/courses/:courseId/report-card-attributes",
@@ -305,6 +300,11 @@ export const appRoutes: AppRoute[] = [
     element: <GradesPage />,
     permissions: ["MANUAL_ASSESSMENTS_VIEW"],
     navItem: { label: "Grades", icon: GraduationCap, group: "Teaching" },
+  },
+  {
+    path: "/grades/subjects/:courseId",
+    element: <SubjectGradesPage />,
+    permissions: ["REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT", "REPORT_CARDS_APPROVE"],
   },
   {
     path: "/grades/:assessmentId/marks",

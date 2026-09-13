@@ -115,6 +115,29 @@ export interface CourseOverviewResponse {
   data: StudentReportCardStatus[];
 }
 
+// ─── Subject overview (Grades → Subject dashboard) ────────────────────────────
+
+export interface StudentSubjectScore {
+  student_id: number;
+  report_card_id: number | null;
+  status: ReportCardStatus | null;
+  total_score: number | null;
+}
+
+export interface SubjectOverviewData {
+  subject_id: number;
+  term: string;
+  academic_year: string;
+  class_average: number | null;
+  category_averages: Partial<Record<AssessmentCategory, number | null>>;
+  students: StudentSubjectScore[];
+}
+
+export interface SubjectOverviewResponse {
+  success: boolean;
+  data: SubjectOverviewData;
+}
+
 // ─── Read-side types (GET /report-cards/student/:studentId) ──────────────────
 
 export interface CategoryResult {
@@ -185,10 +208,10 @@ export const STATUS_META: Record<
 > = {
   draft: {
     label: "Draft",
-    color: "text-amber-700 dark:text-amber-300",
-    bg: "bg-amber-100 dark:bg-amber-900/30",
-    border: "border-amber-300 dark:border-amber-600",
-    dot: "bg-amber-400",
+    color: "text-orange-700 dark:text-orange-300",
+    bg: "bg-orange-100 dark:bg-orange-900/30",
+    border: "border-orange-300 dark:border-orange-600",
+    dot: "bg-orange-400",
   },
   saved: {
     label: "Saved",
@@ -199,10 +222,10 @@ export const STATUS_META: Record<
   },
   approved: {
     label: "Approved",
-    color: "text-emerald-700 dark:text-emerald-300",
-    bg: "bg-emerald-100 dark:bg-emerald-900/30",
-    border: "border-emerald-300 dark:border-emerald-600",
-    dot: "bg-emerald-400",
+    color: "text-white dark:text-white",
+    bg: "bg-blue-700 dark:bg-blue-700",
+    border: "border-blue-800 dark:border-blue-800",
+    dot: "bg-white",
   },
 };
 
@@ -319,6 +342,24 @@ export class ReportCardApiService {
   }): Promise<CourseOverviewResponse> {
     const response = await axios.get("/report-cards/overview", {
       params: {
+        term: params.term,
+        academic_year: params.academic_year,
+        student_ids: params.student_ids.join(","),
+      },
+    });
+    return response.data;
+  }
+
+  // Subject-scoped batch: status + this-subject grade for a list of student IDs.
+  static async getSubjectOverview(params: {
+    subject_id: number;
+    term: string;
+    academic_year: string;
+    student_ids: number[];
+  }): Promise<SubjectOverviewResponse> {
+    const response = await axios.get("/report-cards/subject-overview", {
+      params: {
+        subject_id: params.subject_id,
         term: params.term,
         academic_year: params.academic_year,
         student_ids: params.student_ids.join(","),

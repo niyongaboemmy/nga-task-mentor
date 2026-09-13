@@ -453,6 +453,115 @@ export const getCourseOverview = async (req: Request, res: Response) => {
   }
 };
 
+// ─── GET /api/report-cards/subject-overview ──────────────────────────────────
+// The Grades → Subject dashboard's single data call: for a given subject +
+// term/year + a batch of student_ids (the caller's own enrollment list, same
+// pattern as getCourseOverview), return each student's report-card status
+// plus that ONE subject's computed grade — so the dashboard can show a class
+// average without an admin-wide scan (getAdminSummary) or N+1 requests to
+// getStudentReportCard. Reuses the exact same aggregateReportCardData/
+// calculateSubjectGrade pipeline as every other read endpoint here.
+
+export const getSubjectOverview = async (req: Request, res: Response) => {
+  try {
+    const { subject_id, term, academic_year, student_ids } = req.query as {
+      subject_id?: string;
+      term?: string;
+      academic_year?: string;
+      student_ids?: string;
+    };
+
+    const subjectId = parseInt(subject_id ?? "", 10);
+    if (isNaN(subjectId) || !term || !academic_year || !student_ids) {
+      return res.status(400).json({
+        success: false,
+        message: "subject_id, term, academic_year, and student_ids are required",
+      });
+    }
+
+    const ids = student_ids
+      .split(",")
+      .map((s) => parseInt(s.trim(), 10))
+      .filter((n) => !isNaN(n) && n > 0);
+
+    if (ids.length === 0) {
+      return res.status(400).json({ success: false, message: "No valid student_ids provided" });
+    }
+
+    const reportCards = await ReportCard.findAll({
+      where: { student_id: { [Op.in]: ids }, term, academic_year },
+    });
+
+    const categoryTotals: Record<string, { sum: number; count: number }> = {
+      CW: { sum: 0, count: 0 },
+      HW: { sum: 0, count: 0 },
+      MD: { sum: 0, count: 0 },
+      EOT: { sum: 0, count: 0 },
+    };
+    let classSum = 0;
+    let classCount = 0;
+
+    const studentResults = await Promise.all(
+      reportCards.map(async (reportCard) => {
+        const { grades } = await aggregateReportCardData(reportCard);
+        const subjectGrade = grades.find((g) => g.subject_id === subjectId);
+
+        if (subjectGrade) {
+          classSum += subjectGrade.total_score;
+          classCount += 1;
+          for (const cat of Object.keys(categoryTotals)) {
+            const catResult = subjectGrade.categories[cat as keyof typeof subjectGrade.categories];
+            if (catResult) {
+              categoryTotals[cat].sum += catResult.scaled_score;
+              categoryTotals[cat].count += 1;
+            }
+          }
+        }
+
+        return {
+          student_id: reportCard.student_id,
+          report_card_id: reportCard.id,
+          status: reportCard.status,
+          total_score: subjectGrade ? subjectGrade.total_score : null,
+        };
+      }),
+    );
+
+    const resultByStudent = new Map(studentResults.map((r) => [r.student_id, r]));
+    const students = ids.map(
+      (studentId) =>
+        resultByStudent.get(studentId) ?? {
+          student_id: studentId,
+          report_card_id: null,
+          status: null,
+          total_score: null,
+        },
+    );
+
+    const categoryAverages = Object.fromEntries(
+      Object.entries(categoryTotals).map(([cat, { sum, count }]) => [
+        cat,
+        count > 0 ? parseFloat((sum / count).toFixed(2)) : null,
+      ]),
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        subject_id: subjectId,
+        term,
+        academic_year,
+        class_average: classCount > 0 ? parseFloat((classSum / classCount).toFixed(2)) : null,
+        category_averages: categoryAverages,
+        students,
+      },
+    });
+  } catch (error) {
+    console.error("getSubjectOverview error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 // ─── PATCH /api/report-cards/:id/status ──────────────────────────────────────
 // Instructors: draft ↔ saved
 // Admins:      any → any (including approved)

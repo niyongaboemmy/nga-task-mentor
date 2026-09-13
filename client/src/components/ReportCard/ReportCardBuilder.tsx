@@ -107,34 +107,34 @@ const CATEGORIES: Record<AssessmentCategory, CategoryMeta> = {
     label: "Homework",
     shortLabel: "HW",
     weight: 10,
-    bg: "bg-cyan-950/50",
-    border: "border-cyan-800/50",
-    badge: "bg-cyan-600 text-white",
-    dot: "bg-cyan-400",
-    dropBg: "bg-cyan-900/30",
-    ring: "ring-cyan-500/40",
+    bg: "bg-slate-800/50",
+    border: "border-slate-600/50",
+    badge: "bg-slate-500 text-white",
+    dot: "bg-slate-400",
+    dropBg: "bg-slate-700/30",
+    ring: "ring-slate-400/40",
   },
   MD: {
     label: "Mid-Term",
     shortLabel: "MD",
     weight: 25,
-    bg: "bg-amber-950/50",
-    border: "border-amber-800/50",
-    badge: "bg-amber-600 text-white",
-    dot: "bg-amber-400",
-    dropBg: "bg-amber-900/30",
-    ring: "ring-amber-500/40",
+    bg: "bg-blue-900/40",
+    border: "border-blue-700/50",
+    badge: "bg-blue-700 text-white",
+    dot: "bg-blue-300",
+    dropBg: "bg-blue-800/30",
+    ring: "ring-blue-400/40",
   },
   EOT: {
     label: "End of Term",
     shortLabel: "EOT",
     weight: 50,
-    bg: "bg-emerald-950/50",
-    border: "border-emerald-800/50",
-    badge: "bg-emerald-600 text-white",
-    dot: "bg-emerald-400",
-    dropBg: "bg-emerald-900/30",
-    ring: "ring-emerald-500/40",
+    bg: "bg-orange-950/40",
+    border: "border-orange-800/50",
+    badge: "bg-orange-600 text-white",
+    dot: "bg-orange-400",
+    dropBg: "bg-orange-900/30",
+    ring: "ring-orange-500/40",
   },
 };
 
@@ -231,7 +231,7 @@ function DraggableCard({
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium select-none transition-all duration-150 group ${isOverlay ? "bg-white text-slate-900 dark:text-white border-violet-400 shadow-2xl shadow-violet-500/40 scale-105 rotate-1" : isDragging ? "opacity-20 bg-white/[0.04] border-white/[0.06]" : readOnly ? "bg-white/[0.04] border-white/[0.07] cursor-default" : "bg-white/[0.06] border-white/[0.1] hover:bg-white/[0.1] hover:border-white/[0.18] hover:shadow-md hover:shadow-black/30 cursor-grab active:cursor-grabbing" }`}
+      className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium select-none transition-all duration-150 group ${isOverlay ? "bg-white text-slate-900 dark:text-white border-orange-400 shadow-2xl shadow-orange-500/40 scale-105 rotate-1" : isDragging ? "opacity-20 bg-white/[0.04] border-white/[0.06]" : readOnly ? "bg-white/[0.04] border-white/[0.07] cursor-default" : "bg-white/[0.06] border-white/[0.1] hover:bg-white/[0.1] hover:border-white/[0.18] hover:shadow-md hover:shadow-black/30 cursor-grab active:cursor-grabbing" }`}
       {...attributes}
       {...listeners}
     >
@@ -240,18 +240,18 @@ function DraggableCard({
       )}
 
       {isManual ? (
-        <PencilRuler className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-violet-600" : "text-violet-400"}`} />
+        <PencilRuler className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-orange-600" : "text-orange-400"}`} />
       ) : item.assessment_type === "quiz" ? (
         <BookOpen className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-blue-600" : "text-blue-400"}`} />
       ) : (
-        <ClipboardList className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-cyan-600" : "text-cyan-400"}`} />
+        <ClipboardList className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-slate-600" : "text-slate-400"}`} />
       )}
 
       <span className={`truncate flex-1 text-xs font-medium ${isOverlay ? "text-slate-800" : "text-slate-200"}`}>
         {item.title}
       </span>
 
-      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${ isManual ? isOverlay ? "bg-violet-100 text-violet-700" : "bg-violet-900/60 text-violet-300" : item.assessment_type === "quiz" ? isOverlay ? "bg-blue-100 text-blue-700" : "bg-blue-900/60 text-blue-300" : isOverlay ? "bg-cyan-100 text-cyan-700" : "bg-cyan-900/60 text-cyan-300" }`}>
+      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${ isManual ? isOverlay ? "bg-orange-100 text-orange-700" : "bg-orange-900/60 text-orange-300" : item.assessment_type === "quiz" ? isOverlay ? "bg-blue-100 text-blue-700" : "bg-blue-900/60 text-blue-300" : isOverlay ? "bg-slate-100 text-slate-700" : "bg-slate-900/60 text-slate-300" }`}>
         {isManual ? "Manual" : item.assessment_type === "quiz" ? "Quiz" : "Assign"}
       </span>
 
@@ -264,7 +264,7 @@ function DraggableCard({
           {onEnterScores && (
             <button
               onClick={(e) => { e.stopPropagation(); onEnterScores(item); }}
-              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-violet-600/50 flex items-center justify-center transition-all duration-150"
+              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-orange-600/50 flex items-center justify-center transition-all duration-150"
               title="Enter student scores"
             >
               <ListChecks className="w-3 h-3 text-slate-300 dark:text-slate-600" />
@@ -282,7 +282,7 @@ function DraggableCard({
           {onDelete && (
             <button
               onClick={(e) => { e.stopPropagation(); onDelete(item); }}
-              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-red-600/50 flex items-center justify-center transition-all duration-150"
+              className="w-5 h-5 rounded-md bg-white/[0.08] hover:bg-orange-600/50 flex items-center justify-center transition-all duration-150"
               title="Delete assessment"
             >
               <Trash2 className="w-3 h-3 text-slate-300 dark:text-slate-600" />
@@ -309,7 +309,7 @@ function DraggableCard({
         <button
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => { e.stopPropagation(); onQuickAssign(item); }}
-          className="flex-shrink-0 w-5 h-5 rounded-md bg-white/[0.08] hover:bg-violet-600/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-150 touch-action-auto"
+          className="flex-shrink-0 w-5 h-5 rounded-md bg-white/[0.08] hover:bg-orange-600/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all duration-150 touch-action-auto"
           aria-label={`Quick assign ${item.title}`}
           title="Quick assign to category"
         >
@@ -339,21 +339,21 @@ function DroppedItem({
       className="flex items-center gap-2 px-3 py-2 rounded-xl bg-black/20 border border-white/[0.08] text-sm group"
     >
       {isManual ? (
-        <PencilRuler className="w-3.5 h-3.5 text-violet-400 flex-shrink-0" />
+        <PencilRuler className="w-3.5 h-3.5 text-orange-400 flex-shrink-0" />
       ) : item.assessment_type === "quiz" ? (
         <BookOpen className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
       ) : (
-        <ClipboardList className="w-3.5 h-3.5 text-cyan-400 flex-shrink-0" />
+        <ClipboardList className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
       )}
       <span className="text-slate-200 dark:text-slate-700 truncate flex-1 text-xs font-medium">{item.title}</span>
       {isManual && (
-        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-violet-900/60 text-violet-300 font-semibold flex-shrink-0">
+        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-900/60 text-orange-300 font-semibold flex-shrink-0">
           Manual
         </span>
       )}
       <button
         onClick={() => onRemove(item.dndId)}
-        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full hover:bg-red-500/20 text-slate-600 dark:text-slate-400 hover:text-red-400"
+        className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded-full hover:bg-orange-500/20 text-slate-600 dark:text-slate-400 hover:text-orange-400"
         aria-label={`Remove ${item.title}`}
       >
         <X className="w-3 h-3" />
@@ -457,7 +457,7 @@ function WeightSummary({ dropped }: { dropped: Record<AssessmentCategory, Assess
           </span>
         </span>
       ))}
-      <span className={`ml-auto font-semibold ${totalWeight >= 100 ? "text-emerald-400" : "text-slate-500"}`}>
+      <span className={`ml-auto font-semibold ${totalWeight >= 100 ? "text-blue-400" : "text-slate-500"}`}>
         {totalWeight}% covered
       </span>
     </div>
@@ -707,14 +707,14 @@ export default function ReportCardBuilder({
                   <motion.span
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
-                    className="flex items-center gap-1.5 text-xs text-emerald-300 bg-emerald-950/60 border border-emerald-800/50 rounded-full px-3 py-1.5"
+                    className="flex items-center gap-1.5 text-xs text-blue-300 bg-blue-950/60 border border-blue-800/50 rounded-full px-3 py-1.5"
                   >
                     <CheckCircle2 className="w-3 h-3" />
                     {totalMapped} mapped
                   </motion.span>
                 )}
                 {readOnly ? (
-                  <span className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-emerald-950/50 border border-emerald-800/50 text-emerald-300">
+                  <span className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold bg-blue-950/50 border border-blue-800/50 text-blue-300">
                     <CheckCircle2 className="w-4 h-4" />
                     View only
                   </span>
@@ -801,10 +801,10 @@ export default function ReportCardBuilder({
                   <BookOpen className="w-3 h-3 text-blue-500" /> Quiz
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <ClipboardList className="w-3 h-3 text-cyan-500" /> Assignment
+                  <ClipboardList className="w-3 h-3 text-slate-500" /> Assignment
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <PencilRuler className="w-3 h-3 text-violet-500" /> Manual
+                  <PencilRuler className="w-3 h-3 text-orange-500" /> Manual
                 </span>
                 {!readOnly && (
                   <span className="ml-auto flex items-center gap-1 text-slate-700 dark:text-slate-300">
@@ -846,7 +846,7 @@ export default function ReportCardBuilder({
                   {/* Section header */}
                   <div className="flex items-center justify-between px-1">
                     <div className="flex items-center gap-1.5">
-                      <PencilRuler className="w-3 h-3 text-violet-500" />
+                      <PencilRuler className="w-3 h-3 text-orange-500" />
                       <span className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                         Manual Entries
                       </span>
@@ -854,7 +854,7 @@ export default function ReportCardBuilder({
                     {!readOnly && selectedSubject && (
                       <button
                         onClick={openCreateModal}
-                        className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-violet-900/40 border border-violet-700/40 text-violet-300 hover:bg-violet-800/50 transition-all font-medium"
+                        className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-orange-900/40 border border-orange-700/40 text-orange-300 hover:bg-orange-800/50 transition-all font-medium"
                       >
                         <Plus className="w-3 h-3" />
                         Add Entry
@@ -863,13 +863,13 @@ export default function ReportCardBuilder({
                   </div>
 
                   {availableManuals.length === 0 && !readOnly ? (
-                    <div className="px-3 py-4 rounded-xl border border-dashed border-violet-900/50 text-center">
+                    <div className="px-3 py-4 rounded-xl border border-dashed border-orange-900/50 text-center">
                       <p className="text-xs text-slate-700 dark:text-slate-300 leading-relaxed">
                         No manual entries yet.{" "}
                         {selectedSubject && (
                           <button
                             onClick={openCreateModal}
-                            className="text-violet-400 hover:text-violet-300 underline-offset-2 underline transition-colors"
+                            className="text-orange-400 hover:text-orange-300 underline-offset-2 underline transition-colors"
                           >
                             Add one
                           </button>
@@ -905,8 +905,8 @@ export default function ReportCardBuilder({
                 {/* Empty state when both lists are empty */}
                 {availableItems.length === 0 && allSubjectItems.length > 0 && (
                   <div className="py-12 text-center space-y-3">
-                    <div className="w-12 h-12 mx-auto rounded-2xl bg-emerald-950/50 border border-emerald-900/50 flex items-center justify-center">
-                      <CheckCircle2 className="w-6 h-6 text-emerald-600" />
+                    <div className="w-12 h-12 mx-auto rounded-2xl bg-blue-950/50 border border-blue-900/50 flex items-center justify-center">
+                      <CheckCircle2 className="w-6 h-6 text-blue-600" />
                     </div>
                     <p className="text-slate-600 dark:text-slate-400 text-xs">All assessments have been categorised</p>
                   </div>

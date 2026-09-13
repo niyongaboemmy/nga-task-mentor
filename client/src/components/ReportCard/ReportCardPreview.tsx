@@ -41,11 +41,11 @@ export interface ReportCardPreviewProps {
 // ─── Small helpers ────────────────────────────────────────────────────────────
 
 function gradeColor(score: number): string {
-  if (score >= 90) return "#0d9488"; // teal
+  if (score >= 90) return "#1e3a5f"; // navy blue
   if (score >= 75) return "#2563eb"; // blue
-  if (score >= 60) return "#d97706"; // amber
+  if (score >= 60) return "#57606f"; // gray
   if (score >= 45) return "#ea580c"; // orange
-  return "#dc2626";                  // red
+  return "#111827";                  // near-black
 }
 
 function fmt(n: number): string {
@@ -139,9 +139,9 @@ const attrThStyle: React.CSSProperties = {
 };
 
 const RATING_DOT: Record<string, string> = {
-  Excellent:  "#0d9488",
+  Excellent:  "#1e3a5f",
   "Very good": "#2563eb",
-  Good:        "#d97706",
+  Good:        "#ea580c",
 };
 
 // ─── Loading skeleton (mimics the A4 document structure) ─────────────────────
@@ -574,9 +574,9 @@ function ReportCardDocument({
           >
             {(
               [
-                ["Present", att.present, "#0d9488"],
-                ["Absent",  att.absent,  "#dc2626"],
-                ["Late",    att.late,    "#d97706"],
+                ["Present", att.present, "#2563eb"],
+                ["Absent",  att.absent,  "#111827"],
+                ["Late",    att.late,    "#ea580c"],
               ] as [string, number, string][]
             ).map(([label, val, color], i) => (
               <tr
@@ -644,11 +644,11 @@ function ReportCardDocument({
       >
         {(
           [
-            ["A – Distinction", "≥90%", "#0d9488"],
+            ["A – Distinction", "≥90%", "#1e3a5f"],
             ["B – Merit",       "75–89%", "#2563eb"],
-            ["C – Credit",      "60–74%", "#d97706"],
+            ["C – Credit",      "60–74%", "#57606f"],
             ["D – Pass",        "45–59%", "#ea580c"],
-            ["F – Fail",        "<45%",   "#dc2626"],
+            ["F – Fail",        "<45%",   "#111827"],
           ] as [string, string, string][]
         ).map(([label, range, color]) => (
           <span
@@ -934,7 +934,7 @@ export default function ReportCardPreview({
               <button
                 onClick={handleDownloadPdf}
                 disabled={!data || downloading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 hover:bg-indigo-500 text-white transition-colors disabled:opacity-40 shadow-sm shadow-indigo-500/20"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-40 shadow-sm shadow-blue-500/20"
               >
                 {downloading ? (
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -965,11 +965,11 @@ export default function ReportCardPreview({
 
           {error && !loading && (
             <div className="flex flex-col items-center justify-center gap-4 text-white/70 my-20">
-              <AlertCircle className="w-10 h-10 text-red-400" />
-              <p className="text-sm text-red-300 text-center">{error}</p>
+              <AlertCircle className="w-10 h-10 text-orange-400" />
+              <p className="text-sm text-orange-300 text-center">{error}</p>
               <button
                 onClick={fetchData}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-sm font-medium transition-colors"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
                 Retry

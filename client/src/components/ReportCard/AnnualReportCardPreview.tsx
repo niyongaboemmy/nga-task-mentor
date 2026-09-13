@@ -108,13 +108,13 @@ export default function AnnualReportCardPreview({
         </div>
       ) : error ? (
         <div className="text-center py-12">
-          <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto mb-3" />
+          <AlertTriangle className="w-10 h-10 text-orange-500 mx-auto mb-3" />
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">{error}</p>
         </div>
       ) : data ? (
         <div className="space-y-6">
           {data.missing_terms.length > 0 && (
-            <div className="flex items-start gap-2 p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-sm text-amber-700 dark:text-amber-400">
+            <div className="flex items-start gap-2 p-3 rounded-2xl bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800 text-sm text-orange-700 dark:text-orange-400">
               <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>
                 {data.missing_terms.join(", ")}{" "}

@@ -30,23 +30,23 @@ export type GeneralAttribute = (typeof GENERAL_ATTRIBUTES)[number];
 const RATINGS: AttributeRating[] = ["Excellent", "Very good", "Good"];
 
 const ATTENDANCE_OPTIONS = [
-  { value: "present", label: "Present", color: "text-emerald-300 border-emerald-400/50 bg-emerald-500/10" },
-  { value: "absent",  label: "Absent",  color: "text-red-300 border-red-400/50 bg-red-500/10" },
-  { value: "late",    label: "Late",    color: "text-amber-300 border-amber-400/50 bg-amber-500/10" },
+  { value: "present", label: "Present", color: "text-blue-300 border-blue-400/50 bg-blue-500/10" },
+  { value: "absent",  label: "Absent",  color: "text-orange-300 border-orange-400/50 bg-orange-500/10" },
+  { value: "late",    label: "Late",    color: "text-orange-300 border-orange-400/50 bg-orange-500/10" },
 ] as const;
 
 type AttendanceStatus = "present" | "absent" | "late";
 
 const RATING_COLORS: Record<AttributeRating, string> = {
-  Excellent:  "text-emerald-300 border-emerald-400/50 bg-emerald-500/10",
+  Excellent:  "text-blue-300 border-blue-400/50 bg-blue-500/10",
   "Very good": "text-blue-300 border-blue-400/50 bg-blue-500/10",
-  Good:        "text-amber-300 border-amber-400/50 bg-amber-500/10",
+  Good:        "text-orange-300 border-orange-400/50 bg-orange-500/10",
 };
 
 const ATTENDANCE_META: Record<AttendanceStatus, { label: string; cls: string }> = {
-  present: { label: "Present", cls: "bg-emerald-500/20 text-emerald-300 border-emerald-400/30" },
-  absent:  { label: "Absent",  cls: "bg-red-500/20 text-red-300 border-red-400/30" },
-  late:    { label: "Late",    cls: "bg-amber-500/20 text-amber-300 border-amber-400/30" },
+  present: { label: "Present", cls: "bg-blue-500/20 text-blue-300 border-blue-400/30" },
+  absent:  { label: "Absent",  cls: "bg-orange-500/20 text-orange-300 border-orange-400/30" },
+  late:    { label: "Late",    cls: "bg-orange-500/20 text-orange-300 border-orange-400/30" },
 };
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -170,7 +170,7 @@ function MobileStudentCard({
   return (
     <div
       data-testid={`student-card-${student.id}`}
-      className={`rounded-2xl border overflow-hidden transition-all duration-200 ${ state.saved ? "border-emerald-500/30 bg-emerald-500/5" : open ? "border-indigo-400/30 bg-white/5" : "border-white/10 bg-white/5 hover:border-white/20" }`}
+      className={`rounded-2xl border overflow-hidden transition-all duration-200 ${ state.saved ? "border-blue-500/30 bg-blue-500/5" : open ? "border-blue-400/30 bg-white/5" : "border-white/10 bg-white/5 hover:border-white/20" }`}
     >
       {/* Card header — always visible */}
       <button
@@ -178,7 +178,7 @@ function MobileStudentCard({
         className="w-full flex items-center gap-3 px-4 py-3.5 text-left"
       >
         {/* Avatar */}
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-sm font-bold text-white flex-shrink-0 shadow-lg shadow-indigo-500/20">
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-sm font-bold text-white flex-shrink-0 shadow-lg shadow-blue-500/20">
           {student.name.charAt(0).toUpperCase()}
         </div>
 
@@ -187,7 +187,7 @@ function MobileStudentCard({
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-sm font-semibold text-white/90">{student.name}</span>
             {state.saved && (
-              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+              <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
             )}
           </div>
           <div className="flex items-center gap-2 mt-1 flex-wrap">
@@ -198,7 +198,7 @@ function MobileStudentCard({
               {completedCount}/{GENERAL_ATTRIBUTES.length} attributes rated
             </span>
             {completedCount === GENERAL_ATTRIBUTES.length && (
-              <span className="text-[10px] text-emerald-400 font-semibold">✓ Complete</span>
+              <span className="text-[10px] text-blue-400 font-semibold">✓ Complete</span>
             )}
           </div>
         </div>
@@ -267,7 +267,7 @@ function MobileStudentCard({
                   {GENERAL_ATTRIBUTES.map((attr) => (
                     <div
                       key={attr}
-                      className={`rounded-xl p-2.5 border transition-colors ${ state.attributes[attr] ? "border-indigo-400/20 bg-indigo-500/10" : "border-white/8 bg-white/3" }`}
+                      className={`rounded-xl p-2.5 border transition-colors ${ state.attributes[attr] ? "border-blue-400/20 bg-blue-500/10" : "border-white/8 bg-white/3" }`}
                     >
                       <p className="text-[11px] font-semibold text-white/60 mb-1.5 flex items-center justify-between">
                         <span>{attr}</span>
@@ -306,14 +306,14 @@ function MobileStudentCard({
                   onChange={(e) => onCommentChange(student.id, e.target.value)}
                   placeholder="Write a comment about this student…"
                   rows={3}
-                  className="w-full text-sm bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white/80 placeholder-white/25 resize-none focus:outline-none focus:ring-2 focus:ring-indigo-400/30 focus:border-indigo-400/50 transition-all scrollbar-thin"
+                  className="w-full text-sm bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white/80 placeholder-white/25 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400/50 transition-all scrollbar-thin"
                   aria-label={`Comment for ${student.name}`}
                 />
               </div>
 
               {/* Error */}
               {state.error && (
-                <p className="text-red-400 text-xs flex items-center gap-1.5">
+                <p className="text-orange-400 text-xs flex items-center gap-1.5">
                   <AlertCircle className="w-3.5 h-3.5 flex-shrink-0" />
                   {state.error}
                 </p>
@@ -323,7 +323,7 @@ function MobileStudentCard({
               <button
                 onClick={() => onSave(student)}
                 disabled={state.saving || state.saved}
-                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm border transition-all duration-200 active:scale-[0.98] ${state.saved ? "bg-emerald-500/10 border-emerald-400/30 text-emerald-300 cursor-default" : "bg-indigo-600/20 border-indigo-400/30 text-indigo-300 hover:bg-indigo-600/35 disabled:opacity-40 disabled:cursor-not-allowed" }`}
+                className={`w-full flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm border transition-all duration-200 active:scale-[0.98] ${state.saved ? "bg-blue-500/10 border-blue-400/30 text-blue-300 cursor-default" : "bg-blue-600/20 border-blue-400/30 text-blue-300 hover:bg-blue-600/35 disabled:opacity-40 disabled:cursor-not-allowed" }`}
               >
                 {state.saving ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -360,17 +360,17 @@ function StudentTableRow({
   return (
     <tr
       data-testid={`student-row-${student.id}`}
-      className={`border-b border-white/5 transition-colors ${state.saved ? "bg-emerald-500/5" : "hover:bg-white/2"}`}
+      className={`border-b border-white/5 transition-colors ${state.saved ? "bg-blue-500/5" : "hover:bg-white/2"}`}
     >
       {/* Student name */}
       <td className="px-4 py-3 whitespace-nowrap">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
+          <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-400 to-blue-500 flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0">
             {student.name.charAt(0).toUpperCase()}
           </div>
           <span className="text-sm font-medium text-white/90">{student.name}</span>
           {state.saved && (
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+            <CheckCircle2 className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" />
           )}
         </div>
       </td>
@@ -418,11 +418,11 @@ function StudentTableRow({
           onChange={(e) => onCommentChange(student.id, e.target.value)}
           placeholder="Teacher's comment…"
           rows={2}
-          className="w-full text-xs bg-white/5 border border-white/10 rounded-lg px-2.5 py-2 text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-indigo-400/60 focus:bg-white/8 transition-colors scrollbar-thin"
+          className="w-full text-xs bg-white/5 border border-white/10 rounded-lg px-2.5 py-2 text-white/80 placeholder-white/25 resize-none focus:outline-none focus:border-blue-400/60 focus:bg-white/8 transition-colors scrollbar-thin"
           aria-label={`Comment for ${student.name}`}
         />
         {state.error && (
-          <p className="text-red-400 text-[10px] mt-1 flex items-center gap-1">
+          <p className="text-orange-400 text-[10px] mt-1 flex items-center gap-1">
             <AlertCircle className="w-3 h-3" /> {state.error}
           </p>
         )}
@@ -557,14 +557,14 @@ export default function GeneralAttributesForm({
   const progressPct = students.length > 0 ? Math.round((savedCount / students.length) * 100) : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 p-4 md:p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 p-4 md:p-6">
 
       {/* ── Header ── */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white tracking-tight flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center">
-              <Users className="w-5 h-5 text-indigo-400" />
+            <div className="w-9 h-9 rounded-xl bg-blue-500/20 border border-blue-400/30 flex items-center justify-center">
+              <Users className="w-5 h-5 text-blue-400" />
             </div>
             General Attributes
           </h1>
@@ -575,7 +575,7 @@ export default function GeneralAttributesForm({
 
         <div className="flex items-center gap-3">
           {savedCount > 0 && (
-            <span className="flex items-center gap-1.5 text-sm text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1">
+            <span className="flex items-center gap-1.5 text-sm text-blue-300 bg-blue-500/10 border border-blue-500/20 rounded-full px-3 py-1">
               <CheckCircle2 className="w-3.5 h-3.5" />
               {savedCount}/{students.length} saved
             </span>
@@ -584,7 +584,7 @@ export default function GeneralAttributesForm({
             onClick={handleSaveAll}
             disabled={isSavingAll || allSaved}
             data-testid="save-all-button"
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm bg-gradient-to-r from-indigo-500 to-purple-600 text-white hover:from-indigo-400 hover:to-purple-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-indigo-500/30 transition-all duration-200 active:scale-95"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:from-blue-400 hover:to-blue-500 disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-blue-500/30 transition-all duration-200 active:scale-95"
           >
             {isSavingAll ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -610,7 +610,7 @@ export default function GeneralAttributesForm({
           </div>
           <div className="h-1.5 w-full rounded-full bg-white/8 overflow-hidden">
             <motion.div
-              className="h-full rounded-full bg-gradient-to-r from-indigo-500 to-emerald-500"
+              className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-500"
               initial={{ width: 0 }}
               animate={{ width: `${progressPct}%` }}
               transition={{ duration: 0.6, ease: "easeOut" }}

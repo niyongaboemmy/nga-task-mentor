@@ -18,6 +18,8 @@ interface Props {
   academicYear: string;
   onClose: () => void;
   onSaved: (assessment: ManualAssessment) => void;
+  /** Preselect + lock the subject dropdown when opened from a subject-scoped context. */
+  presetCourseId?: number;
 }
 
 export default function CreateAssessmentModal({
@@ -28,6 +30,7 @@ export default function CreateAssessmentModal({
   academicYear,
   onClose,
   onSaved,
+  presetCourseId,
 }: Props) {
   const isEdit = !!existing;
 
@@ -50,14 +53,14 @@ export default function CreateAssessmentModal({
       setMaxScore(String(existing.max_score));
       setAddToFinalGrade(existing.add_to_final_grade);
     } else {
-      setCourseId("");
+      setCourseId(presetCourseId ?? "");
       setAssessmentType("");
       setAssessmentNumber("");
       setAssessmentDate("");
       setMaxScore("");
       setAddToFinalGrade(true);
     }
-  }, [existing, open]);
+  }, [existing, open, presetCourseId]);
 
   if (!open) return null;
 
@@ -143,7 +146,7 @@ export default function CreateAssessmentModal({
             <select
               value={courseId}
               onChange={(e) => setCourseId(e.target.value ? Number(e.target.value) : "")}
-              disabled={isEdit}
+              disabled={isEdit || presetCourseId != null}
               className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white dark:bg-gray-900 disabled:bg-gray-50 disabled:text-gray-400"
             >
               <option value="">Select a subject</option>

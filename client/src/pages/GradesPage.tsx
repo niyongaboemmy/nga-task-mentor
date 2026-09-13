@@ -12,10 +12,11 @@ import {
   School,
   ClipboardList,
   AlertCircle,
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
+  ChevronDown,
+  ChevronsDown,
+  ChevronsUp,
+  ClipboardCheck,
+  ArrowRight,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { CourseApiService } from "../services/courseApi";
@@ -33,9 +34,9 @@ import type { Course } from "../types/course.types";
 // Quizzes, assignments, and manual entries are three separate models on the
 // backend (and three separate creation flows — Quizzes/Assignments pages own
 // their own CRUD), but a teacher thinks of them as one pool of "things that
-// feed a subject's report card". This page's job is to show all three
-// together at a glance; only manual entries can be created/edited/deleted
-// here — quizzes/assignments link out to their native management pages.
+// feed a subject's report card". This page groups them by subject so a
+// teacher can focus on one class at a time, and hands off to the Subject
+// Grades dashboard (/grades/subjects/:courseId) for report-card building.
 
 type AssessmentKind = "quiz" | "assignment" | "manual";
 
@@ -53,8 +54,8 @@ interface AssessmentRow {
 
 const KIND_BADGE: Record<AssessmentKind, string> = {
   quiz: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
-  assignment: "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-700 dark:text-cyan-300",
-  manual: "bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300",
+  assignment: "bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300",
+  manual: "bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300",
 };
 
 const KIND_LABEL: Record<AssessmentKind, string> = {
@@ -117,7 +118,6 @@ function RecordedChip({
 
 // ─── Main page ────────────────────────────────────────────────────────────────
 
-const ROWS_PER_PAGE_OPTIONS = [10, 20, 50];
 const TABS = ["Assessments", "Comments", "Observations"] as const;
 type Tab = (typeof TABS)[number];
 
@@ -136,14 +136,14 @@ export default function GradesPage() {
   const [loading, setLoading]           = useState(true);
   const [activeTab, setActiveTab]       = useState<Tab>("Assessments");
 
-  // ── Table state ───────────────────────────────────────────────────────────
-  const [search, setSearch]           = useState("");
-  const [page, setPage]               = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  // ── Grouping / search state ──────────────────────────────────────────────
+  const [search, setSearch]             = useState("");
+  const [expanded, setExpanded]         = useState<Set<number>>(new Set());
 
   // ── Modal state ───────────────────────────────────────────────────────────
   const [modalOpen, setModalOpen]     = useState(false);
   const [editTarget, setEditTarget]   = useState<ManualAssessment | null>(null);
+  const [presetCourseId, setPresetCourseId] = useState<number | undefined>(undefined);
 
   // ── Enrolled counts cache: courseId → studentCount ────────────────────────
   const [enrolledCounts, setEnrolledCounts] = useState<Map<number, number>>(new Map());
@@ -309,25 +309,57 @@ export default function GradesPage() {
     [courses],
   );
 
-  // ── Filtered & paginated assessments ─────────────────────────────────────
-  const filtered = useMemo(() => {
-    if (!search.trim()) return assessments;
-    const q = search.toLowerCase();
-    return assessments.filter((a) => {
-      const course = courseMap.get(a.courseId);
-      const subjectLabel = course?.title ?? "";
-      return (
-        subjectLabel.toLowerCase().includes(q) ||
-        a.title.toLowerCase().includes(q) ||
-        KIND_LABEL[a.kind].toLowerCase().includes(q)
-      );
+  // ── Group assessments by subject ──────────────────────────────────────────
+  const subjectGroups = useMemo(() => {
+    const byId = new Map<number, AssessmentRow[]>();
+    for (const c of courses) byId.set(c.id, []);
+    for (const a of assessments) {
+      if (!byId.has(a.courseId)) byId.set(a.courseId, []);
+      byId.get(a.courseId)!.push(a);
+    }
+    return Array.from(byId.entries())
+      .map(([courseId, rows]) => ({ courseId, course: courseMap.get(courseId), rows }))
+      .sort((a, b) => (a.course?.title ?? "").localeCompare(b.course?.title ?? ""));
+  }, [courses, assessments, courseMap]);
+
+  // ── Search: filters subjects/assessments, auto-expands matches ───────────
+  const q = search.trim().toLowerCase();
+  const filteredGroups = useMemo(() => {
+    if (!q) return subjectGroups;
+    return subjectGroups
+      .map((g) => {
+        const subjectMatches = (g.course?.title ?? "").toLowerCase().includes(q);
+        const matchingRows = subjectMatches
+          ? g.rows
+          : g.rows.filter(
+              (r) => r.title.toLowerCase().includes(q) || KIND_LABEL[r.kind].toLowerCase().includes(q),
+            );
+        return { ...g, rows: matchingRows, matched: subjectMatches || matchingRows.length > 0 };
+      })
+      .filter((g) => g.matched);
+  }, [subjectGroups, q]);
+
+  const totalFilteredAssessments = useMemo(
+    () => filteredGroups.reduce((sum, g) => sum + g.rows.length, 0),
+    [filteredGroups],
+  );
+
+  const effectivelyExpanded = useCallback(
+    (courseId: number) => (q ? true : expanded.has(courseId)),
+    [q, expanded],
+  );
+
+  const toggleExpanded = (courseId: number) => {
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(courseId)) next.delete(courseId);
+      else next.add(courseId);
+      return next;
     });
-  }, [assessments, search, courseMap]);
+  };
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / rowsPerPage));
-  const paginated  = filtered.slice((page - 1) * rowsPerPage, page * rowsPerPage);
-
-  const handlePageChange = (p: number) => setPage(Math.min(Math.max(1, p), totalPages));
+  const expandAll = () => setExpanded(new Set(filteredGroups.map((g) => g.courseId)));
+  const collapseAll = () => setExpanded(new Set());
 
   // ── Delete manual assessment ───────────────────────────────────────────────
   const handleDelete = async (a: ManualAssessment) => {
@@ -348,6 +380,18 @@ export default function GradesPage() {
     else navigate(`/assignments/${row.id}`);
   };
 
+  const openAddModal = (courseId?: number) => {
+    setEditTarget(null);
+    setPresetCourseId(courseId);
+    setModalOpen(true);
+  };
+
+  const openEditModal = (a: ManualAssessment) => {
+    setEditTarget(a);
+    setPresetCourseId(undefined);
+    setModalOpen(true);
+  };
+
   // ── After create/edit ─────────────────────────────────────────────────────
   const handleSaved = (saved: ManualAssessment) => {
     setManualAssessments((prev) => {
@@ -361,6 +405,7 @@ export default function GradesPage() {
     });
     setModalOpen(false);
     setEditTarget(null);
+    setExpanded((prev) => new Set(prev).add(saved.course_id));
   };
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -379,20 +424,20 @@ export default function GradesPage() {
           sub="/ subject"
         />
         <StatCard
-          icon={<School className="w-6 h-6 text-violet-600 dark:text-violet-400" />}
-          iconBg="bg-violet-100 dark:bg-violet-900/20"
+          icon={<School className="w-6 h-6 text-gray-600 dark:text-gray-400" />}
+          iconBg="bg-gray-200 dark:bg-gray-800/60"
           label="Classes without assessments"
           value={stats.classesWithoutAssessments}
         />
         <StatCard
-          icon={<Users className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />}
-          iconBg="bg-emerald-100 dark:bg-emerald-900/20"
+          icon={<Users className="w-6 h-6 text-orange-600 dark:text-orange-400" />}
+          iconBg="bg-orange-100 dark:bg-orange-900/20"
           label="Subjects without assessments"
           value={stats.subjectsWithoutAssessments}
         />
         <StatCard
-          icon={<BookOpen className="w-6 h-6 text-red-600 dark:text-red-400" />}
-          iconBg="bg-red-100 dark:bg-red-900/20"
+          icon={<BookOpen className="w-6 h-6 text-blue-800 dark:text-blue-300" />}
+          iconBg="bg-blue-100 dark:bg-blue-950/40"
           label="Total given assessments"
           value={stats.totalAssessments}
         />
@@ -420,27 +465,44 @@ export default function GradesPage() {
       {/* Tab: Assessments */}
       {activeTab === "Assessments" && (
         <div className="space-y-4">
-          {/* Table header toolbar */}
+          {/* Toolbar */}
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div className="flex items-center gap-3">
-              <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">All Assessments</span>
+              <span className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">Subjects</span>
               <span className="inline-flex items-center justify-center w-7 h-7 rounded-full bg-surface-light dark:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark text-xs font-bold">
-                {filtered.length}
+                {filteredGroups.length}
+              </span>
+              <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
+                {totalFilteredAssessments} assessment{totalFilteredAssessments !== 1 ? "s" : ""}
               </span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark/60" />
                 <input
                   type="text"
-                  placeholder="Search"
+                  placeholder="Search subjects or assessments"
                   value={search}
-                  onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                  className="pl-9 pr-4 py-2 rounded-xl border border-transparent text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-56 bg-surface-light dark:bg-surface-dark/50"
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="pl-9 pr-4 py-2 rounded-xl border border-transparent text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-64 bg-surface-light dark:bg-surface-dark/50"
                 />
               </div>
               <button
-                onClick={() => { setEditTarget(null); setModalOpen(true); }}
+                onClick={expandAll}
+                title="Expand all"
+                className="p-2 rounded-xl border border-border-light dark:border-border-dark/40 text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors"
+              >
+                <ChevronsDown className="w-4 h-4" />
+              </button>
+              <button
+                onClick={collapseAll}
+                title="Collapse all"
+                className="p-2 rounded-xl border border-border-light dark:border-border-dark/40 text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors"
+              >
+                <ChevronsUp className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => openAddModal()}
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
               >
                 <Plus className="w-4 h-4" />
@@ -449,136 +511,178 @@ export default function GradesPage() {
             </div>
           </div>
 
-          {/* Table */}
+          {/* Subject cards */}
           {loading ? (
             <div className="flex justify-center items-center py-20">
               <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
             </div>
-          ) : filtered.length === 0 ? (
+          ) : filteredGroups.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-20 text-center">
               <AlertCircle className="w-10 h-10 text-text-secondary-light dark:text-text-secondary-dark/40" />
               <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-sm">
-                {search ? "No assessments match your search." : "No assessments yet. Click \"+  Add Assessment\" to create one."}
+                {search ? "No subjects or assessments match your search." : "No subjects found."}
               </p>
             </div>
           ) : (
-            <div className="rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden bg-card-light dark:bg-card-dark/30">
-              <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-border-light dark:divide-border-dark/30">
-                <thead>
-                  <tr className="bg-surface-light dark:bg-surface-dark/50">
-                    {["Date", "Subject", "Title", "Type", "Maximum", "Recorded Results", "Actions"].map((h) => (
-                      <th
-                        key={h}
-                        className="px-5 py-3.5 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider text-left"
-                      >
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border-light dark:divide-border-dark/20">
-                  {paginated.map((a) => {
-                    const course   = courseMap.get(a.courseId);
-                    const enrolled = enrolledCounts.get(a.courseId) ?? "—";
-                    const recorded = a.recorded ?? 0;
-                    return (
-                      <tr key={a.key} className="hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors">
-                        <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark whitespace-nowrap">
-                          {a.date ? new Date(a.date).toLocaleDateString() : "—"}
-                        </td>
-                        <td className="px-5 py-4 text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
-                          {course?.title ?? `Course #${a.courseId}`}
-                        </td>
-                        <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark max-w-[220px] truncate" title={a.title}>
-                          {a.title}
-                        </td>
-                        <td className="px-5 py-4">
-                          <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${KIND_BADGE[a.kind]}`}>
-                            {KIND_LABEL[a.kind]}
-                          </span>
-                        </td>
-                        <td className="px-5 py-4 text-sm text-text-secondary-light dark:text-text-secondary-dark">{a.maxScore ?? "—"}</td>
-                        <td className="px-5 py-4 text-sm">
-                          {typeof enrolled === "number" ? (
-                            <RecordedChip
-                              recorded={recorded}
-                              total={enrolled}
-                              onClick={() => goToDetail(a)}
-                            />
-                          ) : (
-                            <span className="text-text-secondary-light dark:text-text-secondary-dark/50 text-sm">—</span>
-                          )}
-                        </td>
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-2">
-                            {a.kind === "manual" ? (
-                              <>
-                                <button
-                                  onClick={() => { setEditTarget(a.manual!); setModalOpen(true); }}
-                                  className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
-                                  title="Edit"
-                                >
-                                  <Pencil className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => handleDelete(a.manual!)}
-                                  className="p-1.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-red-500 dark:hover:text-red-400 transition-colors"
-                                  title="Delete"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </>
-                            ) : (
-                              <button
-                                onClick={() => goToDetail(a)}
-                                className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
-                                title="View"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-              </div>
-
-              {/* Pagination */}
-              <div className="flex items-center justify-between px-5 py-3.5 border-t border-border-light dark:border-border-dark/30 bg-surface-light dark:bg-surface-dark/50">
-                <div className="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  <span>Rows per page</span>
-                  <select
-                    value={rowsPerPage}
-                    onChange={(e) => { setRowsPerPage(Number(e.target.value)); setPage(1); }}
-                    className="border border-border-light dark:border-border-dark/50 rounded-lg px-2 py-1 text-sm bg-white dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+            <div className="space-y-3">
+              {filteredGroups.map((g) => {
+                const isOpen = effectivelyExpanded(g.courseId);
+                const enrolled = enrolledCounts.get(g.courseId);
+                return (
+                  <div
+                    key={g.courseId}
+                    className="rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden bg-card-light dark:bg-card-dark/30"
                   >
-                    {ROWS_PER_PAGE_OPTIONS.map((n) => (
-                      <option key={n} value={n}>{n}</option>
-                    ))}
-                  </select>
-                </div>
-                <div className="flex items-center gap-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  <span>Page {page} of {totalPages}</span>
-                  <div className="flex items-center gap-0.5 ml-3">
-                    <button onClick={() => handlePageChange(1)} disabled={page === 1} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                      <ChevronsLeft className="w-4 h-4" />
+                    {/* Header */}
+                    <button
+                      onClick={() => toggleExpanded(g.courseId)}
+                      className="w-full flex items-center justify-between gap-3 px-5 py-4 hover:bg-surface-light/60 dark:hover:bg-surface-dark/40 transition-colors text-left"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <ChevronDown
+                          className={`w-4 h-4 flex-shrink-0 text-text-secondary-light dark:text-text-secondary-dark/60 transition-transform ${isOpen ? "rotate-180" : ""}`}
+                        />
+                        <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                          {(g.course?.code ?? "SB").substring(0, 2).toUpperCase()}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
+                            {g.course?.title ?? `Subject #${g.courseId}`}
+                          </p>
+                          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
+                            {g.rows.length} assessment{g.rows.length !== 1 ? "s" : ""}
+                            {typeof enrolled === "number" ? ` · ${enrolled} student${enrolled !== 1 ? "s" : ""}` : ""}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span
+                          role="link"
+                          onClick={(e) => { e.stopPropagation(); navigate(`/grades/subjects/${g.courseId}`); }}
+                          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors cursor-pointer"
+                        >
+                          <ClipboardCheck className="w-3.5 h-3.5" />
+                          Report Card
+                          <ArrowRight className="w-3 h-3" />
+                        </span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); openAddModal(g.courseId); }}
+                          title="Add assessment to this subject"
+                          className="p-2 rounded-full hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                        </button>
+                      </div>
                     </button>
-                    <button onClick={() => handlePageChange(page - 1)} disabled={page === 1} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                      <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handlePageChange(page + 1)} disabled={page === totalPages} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handlePageChange(totalPages)} disabled={page === totalPages} className="p-1.5 rounded-lg disabled:opacity-30 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
-                      <ChevronsRight className="w-4 h-4" />
-                    </button>
+
+                    {/* Mobile-only Report Card shortcut */}
+                    <div className="sm:hidden px-5 pb-3 -mt-1">
+                      <button
+                        onClick={() => navigate(`/grades/subjects/${g.courseId}`)}
+                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300"
+                      >
+                        <ClipboardCheck className="w-3.5 h-3.5" />
+                        Report Card <ArrowRight className="w-3 h-3" />
+                      </button>
+                    </div>
+
+                    {/* Body */}
+                    {isOpen && (
+                      <div className="border-t border-border-light dark:border-border-dark/30">
+                        {g.rows.length === 0 ? (
+                          <div className="flex flex-col items-center gap-2 py-10 text-center">
+                            <p className="text-text-secondary-light dark:text-text-secondary-dark/60 text-sm">
+                              No assessments yet for this subject.
+                            </p>
+                            <button
+                              onClick={() => openAddModal(g.courseId)}
+                              className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:underline"
+                            >
+                              + Add the first one
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-border-light dark:divide-border-dark/30">
+                              <thead>
+                                <tr className="bg-surface-light dark:bg-surface-dark/50">
+                                  {["Date", "Title", "Type", "Maximum", "Recorded Results", "Actions"].map((h) => (
+                                    <th
+                                      key={h}
+                                      className="px-5 py-2.5 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider text-left"
+                                    >
+                                      {h}
+                                    </th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody className="divide-y divide-border-light dark:divide-border-dark/20">
+                                {g.rows.map((a) => {
+                                  const recorded = a.recorded ?? 0;
+                                  return (
+                                    <tr key={a.key} className="hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors">
+                                      <td className="px-5 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark whitespace-nowrap">
+                                        {a.date ? new Date(a.date).toLocaleDateString() : "—"}
+                                      </td>
+                                      <td className="px-5 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark max-w-[240px] truncate" title={a.title}>
+                                        {a.title}
+                                      </td>
+                                      <td className="px-5 py-3">
+                                        <span className={`inline-flex px-2 py-0.5 rounded-full text-[11px] font-semibold ${KIND_BADGE[a.kind]}`}>
+                                          {KIND_LABEL[a.kind]}
+                                        </span>
+                                      </td>
+                                      <td className="px-5 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">{a.maxScore ?? "—"}</td>
+                                      <td className="px-5 py-3 text-sm">
+                                        {typeof enrolled === "number" ? (
+                                          <RecordedChip recorded={recorded} total={enrolled} onClick={() => goToDetail(a)} />
+                                        ) : (
+                                          <span className="text-text-secondary-light dark:text-text-secondary-dark/50 text-sm">—</span>
+                                        )}
+                                      </td>
+                                      <td className="px-5 py-3">
+                                        <div className="flex items-center gap-2">
+                                          {a.kind === "manual" ? (
+                                            <>
+                                              <button
+                                                onClick={() => openEditModal(a.manual!)}
+                                                className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
+                                                title="Edit"
+                                              >
+                                                <Pencil className="w-4 h-4" />
+                                              </button>
+                                              <button
+                                                onClick={() => handleDelete(a.manual!)}
+                                                className="p-1.5 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                                                title="Delete"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </button>
+                                            </>
+                                          ) : (
+                                            <button
+                                              onClick={() => goToDetail(a)}
+                                              className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
+                                              title="View"
+                                            >
+                                              <Eye className="w-4 h-4" />
+                                            </button>
+                                          )}
+                                        </div>
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              </div>
+                );
+              })}
             </div>
           )}
         </div>
@@ -603,7 +707,8 @@ export default function GradesPage() {
         existing={editTarget}
         term={term}
         academicYear={academicYear}
-        onClose={() => { setModalOpen(false); setEditTarget(null); }}
+        presetCourseId={presetCourseId}
+        onClose={() => { setModalOpen(false); setEditTarget(null); setPresetCourseId(undefined); }}
         onSaved={handleSaved}
       />
     </div>
