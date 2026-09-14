@@ -860,7 +860,7 @@ export default function ReportCardBuilder({
           )}
 
           {/* ── Subject selector ── */}
-          <div className="mb-5 relative">
+          {/* <div className="mb-5 relative">
             <button
               onClick={() => setSubjectOpen((o) => !o)}
               data-testid="subject-selector"
@@ -895,7 +895,7 @@ export default function ReportCardBuilder({
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
+          </div> */}
 
           {/* ── Touch hint ── */}
           {!readOnly && (
