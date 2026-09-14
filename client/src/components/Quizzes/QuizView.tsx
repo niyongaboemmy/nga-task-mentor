@@ -94,7 +94,7 @@ const QuizHeader: React.FC<{
                   <div className="flex flex-col sm:flex-row items-center gap-2 mb-3">
                     <div className="animate-fade-in">
                       <button
-                        onClick={() => navigate(`/courses/${quiz.course_id}`)}
+                        onClick={() => navigate(-1)}
                         className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-full transition-all duration-200 text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white"
                       >
                         <ArrowLeft className="w-4 h-4" />

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useParams, Link } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../store";
 import { fetchCourses } from "../../store/slices/courseSlice";
@@ -16,7 +16,7 @@ import SubmissionDetailsModal from "./SubmissionDetailsModal";
 import FilePreviewModal from "../Submissions/FilePreviewModal";
 import { type SubmissionItemInterface } from "./SubmissionSummaryItem";
 import { type RubricCriterion } from "./AssignmentCard";
-import { Award, Target } from "lucide-react";
+import { Award, Target, ArrowLeft } from "lucide-react";
 import {
   formatDateTimeLocal,
   parseLocalDateTimeToUTC,
@@ -73,6 +73,7 @@ interface Assignment {
 
 const AssignmentDetails = () => {
   const { assignmentId } = useParams<{ assignmentId: string }>();
+  const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [assignment, setAssignment] = useState<Assignment | null>(null);
   const [submissions, setSubmissions] = useState<SubmissionItemInterface[]>([]);
@@ -471,6 +472,16 @@ const AssignmentDetails = () => {
   return (
     <div className="min-h-screen">
       <div className="space-y-4 pb-10">
+        {/* Back — returns to wherever the user actually came from (Grades,
+            the Report Card Builder, Course Details…), not a fixed page. */}
+        <button
+          onClick={() => navigate(-1)}
+          className="inline-flex items-center gap-2 px-3 py-2 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-full shadow-sm hover:shadow-md transition-all duration-200 text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white"
+        >
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span className="text-xs font-medium">Back</span>
+        </button>
+
         {/* Clean Header */}
         <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">
           <AssignmentHeader

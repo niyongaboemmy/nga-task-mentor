@@ -12,6 +12,15 @@ vi.mock("react-toastify", () => ({
   toast: { success: vi.fn(), error: vi.fn(), warning: vi.fn() },
 }));
 
+// The builder now navigates to a quiz/assignment's detail page from its
+// "view details" action — these tests render it outside a <Router>, and
+// don't exercise navigation itself, so useNavigate is stubbed rather than
+// wrapping all 12+ render() call sites in a MemoryRouter.
+vi.mock("react-router-dom", async (importOriginal) => {
+  const original = await importOriginal<typeof import("react-router-dom")>();
+  return { ...original, useNavigate: () => vi.fn() };
+});
+
 vi.mock("../services/reportCardApi", () => ({
   ReportCardApiService: {
     saveBuilder: vi.fn(),

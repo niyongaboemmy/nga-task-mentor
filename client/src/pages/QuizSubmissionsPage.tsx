@@ -408,7 +408,7 @@ const QuizSubmissionsPage: React.FC = () => {
         <div className="mb-6 sm:mb-8">
           <div className="flex items-center justify-between gap-3 mb-4 sm:mb-6">
             <button
-              onClick={() => navigate(`/quizzes/${quizId}`)}
+              onClick={() => navigate(-1)}
               className="inline-flex items-center gap-2 px-3 py-2 bg-white/80 dark:bg-gray-800/80 hover:bg-white dark:hover:bg-gray-800 border border-gray-200/50 dark:border-gray-700/50 rounded-full shadow-sm hover:shadow-md transition-all duration-200 text-text-secondary-light dark:text-text-secondary-dark hover:text-gray-900 dark:hover:text-white backdrop-blur-sm"
             >
               <ArrowLeft className="w-3 h-3" />

@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   DndContext,
   DragOverlay,
@@ -26,6 +27,8 @@ import {
   PencilRuler,
   Pencil,
   ListChecks,
+  Eye,
+  Search,
   Trash2,
 } from "lucide-react";
 import { toast } from "react-toastify";
@@ -39,7 +42,10 @@ import ManualAssessmentModal, {
   type ManualAssessmentModalMode,
   type StudentEntry,
 } from "./ManualAssessmentModal";
-import { ManualAssessmentApiService, type ManualAssessment } from "../../services/manualAssessmentApi";
+import {
+  ManualAssessmentApiService,
+  type ManualAssessment,
+} from "../../services/manualAssessmentApi";
 import Tooltip from "../ui/Tooltip";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import AssessmentMappingControl from "./AssessmentMappingControl";
@@ -60,8 +66,8 @@ export interface AssessmentDragItem {
 export interface SubjectOption {
   id: number;
   name: string;
-  quizzes:           { id: number; title: string }[];
-  assignments:       { id: number; title: string }[];
+  quizzes: { id: number; title: string }[];
+  assignments: { id: number; title: string }[];
   manualAssessments: ManualAssessment[];
 }
 
@@ -100,6 +106,7 @@ function DraggableCard({
   onEnterScores,
   onEdit,
   onDelete,
+  onViewDetails,
 }: {
   item: AssessmentDragItem;
   isOverlay?: boolean;
@@ -108,11 +115,15 @@ function DraggableCard({
   onEnterScores?: (item: AssessmentDragItem) => void;
   onEdit?: (item: AssessmentDragItem) => void;
   onDelete?: (item: AssessmentDragItem) => void;
+  /** Quiz/assignment items: opens that quiz's submissions or the
+   * assignment's detail page to see marks. */
+  onViewDetails?: (item: AssessmentDragItem) => void;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
-    id: item.dndId,
-    data: item,
-  });
+  const { attributes, listeners, setNodeRef, transform, isDragging } =
+    useDraggable({
+      id: item.dndId,
+      data: item,
+    });
 
   const style = { transform: CSS.Translate.toString(transform) };
   const isManual = item.assessment_type === "manual";
@@ -129,10 +140,10 @@ function DraggableCard({
         isOverlay
           ? "bg-white text-slate-900 border-orange-400 shadow-2xl shadow-orange-500/40 scale-105 rotate-1"
           : isDragging
-            ? "opacity-20 bg-black/[0.02] dark:bg-white/[0.04] border-gray-200 dark:border-white/[0.06]"
+            ? "opacity-20 bg-black/[0.02] dark:bg-white/[0.03] border-gray-200 dark:border-white/[0.05]"
             : readOnly
-              ? "bg-gray-50 dark:bg-white/[0.04] border-gray-200 dark:border-white/[0.07] cursor-default"
-              : "bg-gray-50 dark:bg-white/[0.06] border-gray-200 dark:border-white/[0.1] hover:bg-gray-100 dark:hover:bg-white/[0.1] hover:border-gray-300 dark:hover:border-white/[0.18] hover:shadow-md hover:shadow-black/5 dark:hover:shadow-black/30"
+              ? "bg-gray-50 dark:bg-white/[0.02] border-gray-200 dark:border-white/[0.05] cursor-default"
+              : "bg-gray-50 dark:bg-white/[0.025] border-gray-200 dark:border-white/[0.07] hover:bg-gray-100 dark:hover:bg-white/[0.05] hover:border-gray-300 dark:hover:border-white/[0.12] hover:shadow-md hover:shadow-black/5 dark:hover:shadow-black/30"
       }`}
     >
       {/* Row 1: drag handle + type icon + title (full width) + type badge */}
@@ -142,15 +153,23 @@ function DraggableCard({
         {...listeners}
       >
         {!readOnly && (
-          <GripVertical className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-slate-400" : "text-gray-400 dark:text-slate-500"}`} />
+          <GripVertical
+            className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-slate-400" : "text-gray-400 dark:text-slate-500"}`}
+          />
         )}
 
         {isManual ? (
-          <PencilRuler className={`w-4 h-4 flex-shrink-0 ${isOverlay ? "text-orange-600" : "text-orange-600 dark:text-orange-400"}`} />
+          <PencilRuler
+            className={`w-4 h-4 flex-shrink-0 ${isOverlay ? "text-orange-600" : "text-orange-600 dark:text-orange-400"}`}
+          />
         ) : item.assessment_type === "quiz" ? (
-          <BookOpen className={`w-4 h-4 flex-shrink-0 ${isOverlay ? "text-blue-600" : "text-blue-600 dark:text-blue-400"}`} />
+          <BookOpen
+            className={`w-4 h-4 flex-shrink-0 ${isOverlay ? "text-blue-600" : "text-blue-600 dark:text-blue-400"}`}
+          />
         ) : (
-          <ClipboardList className={`w-4 h-4 flex-shrink-0 ${isOverlay ? "text-slate-600" : "text-gray-500 dark:text-slate-400"}`} />
+          <ClipboardList
+            className={`w-4 h-4 flex-shrink-0 ${isOverlay ? "text-slate-600" : "text-gray-500 dark:text-slate-400"}`}
+          />
         )}
 
         <span
@@ -160,14 +179,20 @@ function DraggableCard({
           {item.title}
         </span>
 
-        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${
-          isManual
-            ? "bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300"
+        <span
+          className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${
+            isManual
+              ? "bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300"
+              : item.assessment_type === "quiz"
+                ? "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300"
+                : "bg-gray-200 dark:bg-slate-900/60 text-gray-700 dark:text-slate-300"
+          }`}
+        >
+          {isManual
+            ? "Manual"
             : item.assessment_type === "quiz"
-              ? "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300"
-              : "bg-gray-200 dark:bg-slate-900/60 text-gray-700 dark:text-slate-300"
-        }`}>
-          {isManual ? "Manual" : item.assessment_type === "quiz" ? "Quiz" : "Assign"}
+              ? "Quiz"
+              : "Assign"}
         </span>
       </div>
 
@@ -175,8 +200,14 @@ function DraggableCard({
       {!isOverlay && (
         <div className="flex items-center justify-between gap-2">
           {!readOnly && onAssign ? (
-            <div onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-              <AssessmentMappingControl category={null} onChange={(cat) => cat && onAssign(item, cat)} />
+            <div
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <AssessmentMappingControl
+                category={null}
+                onChange={(cat) => cat && onAssign(item, cat)}
+              />
             </div>
           ) : (
             <span />
@@ -190,7 +221,10 @@ function DraggableCard({
               {onEnterScores && (
                 <Tooltip label="Enter student scores">
                   <button
-                    onClick={(e) => { e.stopPropagation(); onEnterScores(item); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEnterScores(item);
+                    }}
                     aria-label="Enter student scores"
                     className="w-7 h-7 rounded-md bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white hover:bg-orange-600 hover:text-white flex items-center justify-center transition-all duration-150"
                   >
@@ -201,7 +235,10 @@ function DraggableCard({
               {onEdit && (
                 <Tooltip label="Edit assessment">
                   <button
-                    onClick={(e) => { e.stopPropagation(); onEdit(item); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(item);
+                    }}
                     aria-label="Edit assessment"
                     className="w-7 h-7 rounded-md bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white hover:bg-blue-600 hover:text-white flex items-center justify-center transition-all duration-150"
                   >
@@ -212,7 +249,10 @@ function DraggableCard({
               {onDelete && (
                 <Tooltip label="Delete assessment">
                   <button
-                    onClick={(e) => { e.stopPropagation(); onDelete(item); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDelete(item);
+                    }}
                     aria-label="Delete assessment"
                     className="w-7 h-7 rounded-md bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white hover:bg-orange-600 hover:text-white flex items-center justify-center transition-all duration-150"
                   >
@@ -220,6 +260,33 @@ function DraggableCard({
                   </button>
                 </Tooltip>
               )}
+            </div>
+          )}
+
+          {!isManual && !readOnly && onViewDetails && (
+            <div onPointerDown={(e) => e.stopPropagation()}>
+              <Tooltip
+                label={
+                  item.assessment_type === "quiz"
+                    ? "View quiz submissions"
+                    : "View assignment details"
+                }
+              >
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewDetails(item);
+                  }}
+                  aria-label={
+                    item.assessment_type === "quiz"
+                      ? "View quiz submissions"
+                      : "View assignment details"
+                  }
+                  className="w-7 h-7 rounded-md bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white hover:bg-blue-600 hover:text-white flex items-center justify-center transition-all duration-150"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
             </div>
           )}
         </div>
@@ -253,7 +320,9 @@ function DroppedItem({
       ) : (
         <ClipboardList className="w-3.5 h-3.5 text-gray-500 dark:text-slate-400 flex-shrink-0" />
       )}
-      <span className="text-gray-800 dark:text-slate-200 truncate flex-1 text-xs font-medium">{item.title}</span>
+      <span className="text-gray-800 dark:text-slate-200 truncate flex-1 text-xs font-medium">
+        {item.title}
+      </span>
       {isManual && (
         <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300 font-semibold flex-shrink-0">
           Manual
@@ -300,8 +369,12 @@ function CategoryDropZone({
       <div className="flex items-center justify-between px-4 py-3 border-b border-black/[0.06] dark:border-white/[0.06]">
         <div className="flex items-center gap-2.5">
           <span className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.dot}`} />
-          <span className="font-semibold text-gray-900 dark:text-white text-sm">{meta.label}</span>
-          <span className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${meta.badge}`}>
+          <span className="font-semibold text-gray-900 dark:text-white text-sm">
+            {meta.label}
+          </span>
+          <span
+            className={`text-[11px] px-2 py-0.5 rounded-full font-bold ${meta.badge}`}
+          >
             {meta.weight}%
           </span>
         </div>
@@ -319,11 +392,13 @@ function CategoryDropZone({
 
       {/* Drop area */}
       <div
-        className={`flex-1 p-3 min-h-[120px] flex flex-col gap-2 transition-colors duration-150 ${ isOver ? "bg-black/[0.02] dark:bg-white/[0.03]" : "" }`}
+        className={`flex-1 p-3 min-h-[120px] flex flex-col gap-2 transition-colors duration-150 ${isOver ? "bg-black/[0.02] dark:bg-white/[0.03]" : ""}`}
       >
         {items.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center gap-2.5 py-6">
-            <div className={`w-9 h-9 rounded-xl border-2 border-dashed ${meta.border} flex items-center justify-center`}>
+            <div
+              className={`w-9 h-9 rounded-xl border-2 border-dashed ${meta.border} flex items-center justify-center`}
+            >
               <Plus className="w-4 h-4 text-gray-400 dark:text-slate-300" />
             </div>
             <p className="text-gray-500 dark:text-slate-300 text-xs text-center select-none">
@@ -344,7 +419,11 @@ function CategoryDropZone({
 
 // ─── Weight summary bar ───────────────────────────────────────────────────────
 
-function WeightSummary({ dropped }: { dropped: Record<AssessmentCategory, AssessmentDragItem[]> }) {
+function WeightSummary({
+  dropped,
+}: {
+  dropped: Record<AssessmentCategory, AssessmentDragItem[]>;
+}) {
   const totalWeight = CATEGORY_ORDER.reduce(
     (sum, cat) => sum + (dropped[cat].length > 0 ? CATEGORIES[cat].weight : 0),
     0,
@@ -362,12 +441,20 @@ function WeightSummary({ dropped }: { dropped: Record<AssessmentCategory, Assess
           className={`flex items-center gap-1 transition-opacity ${dropped[cat].length > 0 ? "opacity-100" : "opacity-40"}`}
         >
           <span className={`w-1.5 h-1.5 rounded-full ${CATEGORIES[cat].dot}`} />
-          <span className={dropped[cat].length > 0 ? "text-gray-700 dark:text-slate-300" : "text-gray-400 dark:text-slate-600"}>
+          <span
+            className={
+              dropped[cat].length > 0
+                ? "text-gray-700 dark:text-slate-300"
+                : "text-gray-400 dark:text-slate-600"
+            }
+          >
             {CATEGORIES[cat].shortLabel} {CATEGORIES[cat].weight}%
           </span>
         </span>
       ))}
-      <span className={`ml-auto font-semibold ${totalWeight >= 100 ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-slate-500"}`}>
+      <span
+        className={`ml-auto font-semibold ${totalWeight >= 100 ? "text-blue-600 dark:text-blue-400" : "text-gray-500 dark:text-slate-500"}`}
+      >
         {totalWeight}% covered
       </span>
     </div>
@@ -387,20 +474,28 @@ export default function ReportCardBuilder({
   onManualAssessmentCreated,
   onManualAssessmentDeleted,
 }: ReportCardBuilderProps) {
-  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(subjects[0]?.id ?? null);
-  const [dropped, setDropped] = useState<Record<AssessmentCategory, AssessmentDragItem[]>>({
+  const navigate = useNavigate();
+  const [selectedSubjectId, setSelectedSubjectId] = useState<number | null>(
+    subjects[0]?.id ?? null,
+  );
+  const [dropped, setDropped] = useState<
+    Record<AssessmentCategory, AssessmentDragItem[]>
+  >({
     CW: initialDropped?.CW ?? [],
     HW: initialDropped?.HW ?? [],
     MD: initialDropped?.MD ?? [],
     EOT: initialDropped?.EOT ?? [],
   });
-  const [activeDragItem, setActiveDragItem] = useState<AssessmentDragItem | null>(null);
+  const [activeDragItem, setActiveDragItem] =
+    useState<AssessmentDragItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [subjectOpen, setSubjectOpen] = useState(false);
 
   // Manual assessment modal state
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<ManualAssessmentModalMode>({ type: "create" });
+  const [modalMode, setModalMode] = useState<ManualAssessmentModalMode>({
+    type: "create",
+  });
 
   const [syncKey, setSyncKey] = useState(0);
   useEffect(() => {
@@ -415,7 +510,9 @@ export default function ReportCardBuilder({
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 8 } }),
+    useSensor(TouchSensor, {
+      activationConstraint: { delay: 200, tolerance: 8 },
+    }),
   );
 
   const selectedSubject = useMemo(
@@ -425,33 +522,39 @@ export default function ReportCardBuilder({
 
   const allSubjectItems = useMemo<AssessmentDragItem[]>(() => {
     if (!selectedSubject) return [];
-    const quizItems: AssessmentDragItem[] = selectedSubject.quizzes.map((q) => ({
-      dndId: `quiz-${q.id}`,
-      assessment_id: q.id,
-      assessment_type: "quiz",
-      title: q.title,
-      subject_id: selectedSubject.id,
-    }));
-    const assignItems: AssessmentDragItem[] = selectedSubject.assignments.map((a) => ({
-      dndId: `assignment-${a.id}`,
-      assessment_id: a.id,
-      assessment_type: "assignment",
-      title: a.title,
-      subject_id: selectedSubject.id,
-    }));
-    const manualItems: AssessmentDragItem[] = selectedSubject.manualAssessments.map((m) => ({
-      dndId: `manual-${m.id}`,
-      assessment_id: m.id,
-      assessment_type: "manual",
-      title: m.title,
-      subject_id: selectedSubject.id,
-      max_score: m.max_score,
-    }));
+    const quizItems: AssessmentDragItem[] = selectedSubject.quizzes.map(
+      (q) => ({
+        dndId: `quiz-${q.id}`,
+        assessment_id: q.id,
+        assessment_type: "quiz",
+        title: q.title,
+        subject_id: selectedSubject.id,
+      }),
+    );
+    const assignItems: AssessmentDragItem[] = selectedSubject.assignments.map(
+      (a) => ({
+        dndId: `assignment-${a.id}`,
+        assessment_id: a.id,
+        assessment_type: "assignment",
+        title: a.title,
+        subject_id: selectedSubject.id,
+      }),
+    );
+    const manualItems: AssessmentDragItem[] =
+      selectedSubject.manualAssessments.map((m) => ({
+        dndId: `manual-${m.id}`,
+        assessment_id: m.id,
+        assessment_type: "manual",
+        title: m.title,
+        subject_id: selectedSubject.id,
+        max_score: m.max_score,
+      }));
     return [...quizItems, ...assignItems, ...manualItems];
   }, [selectedSubject]);
 
   const droppedDndIds = useMemo(
-    () => new Set(Object.values(dropped).flatMap((arr) => arr.map((i) => i.dndId))),
+    () =>
+      new Set(Object.values(dropped).flatMap((arr) => arr.map((i) => i.dndId))),
     [dropped],
   );
 
@@ -460,13 +563,56 @@ export default function ReportCardBuilder({
     [allSubjectItems, droppedDndIds],
   );
 
-  const availableManuals  = useMemo(() => availableItems.filter((i) => i.assessment_type === "manual"), [availableItems]);
-  const availableOthers   = useMemo(() => availableItems.filter((i) => i.assessment_type !== "manual"), [availableItems]);
+  const availableManuals = useMemo(
+    () => availableItems.filter((i) => i.assessment_type === "manual"),
+    [availableItems],
+  );
+  const availableOthers = useMemo(
+    () => availableItems.filter((i) => i.assessment_type !== "manual"),
+    [availableItems],
+  );
 
-  const handleDragStart = useCallback((event: DragStartEvent) => {
-    if (readOnly) return;
-    setActiveDragItem(event.active.data.current as AssessmentDragItem);
-  }, [readOnly]);
+  // ── Findability at scale: a subject with 20 quizzes + 30 manual entries
+  // turns a flat scrolling list into a needle-in-a-haystack search — a
+  // client-side title filter plus two independently collapsible sections
+  // (so a teacher can fold away the group they aren't touching) keeps it
+  // navigable regardless of count. ──────────────────────────────────────────
+  const [assessmentSearch, setAssessmentSearch] = useState("");
+  const [othersCollapsed, setOthersCollapsed] = useState(false);
+  const [manualsCollapsed, setManualsCollapsed] = useState(false);
+
+  const searchQuery = assessmentSearch.trim().toLowerCase();
+  const filteredOthers = useMemo(
+    () =>
+      searchQuery
+        ? availableOthers.filter((i) =>
+            i.title.toLowerCase().includes(searchQuery),
+          )
+        : availableOthers,
+    [availableOthers, searchQuery],
+  );
+  const filteredManuals = useMemo(
+    () =>
+      searchQuery
+        ? availableManuals.filter((i) =>
+            i.title.toLowerCase().includes(searchQuery),
+          )
+        : availableManuals,
+    [availableManuals, searchQuery],
+  );
+  const noSearchResults =
+    searchQuery !== "" &&
+    filteredOthers.length === 0 &&
+    filteredManuals.length === 0 &&
+    availableItems.length > 0;
+
+  const handleDragStart = useCallback(
+    (event: DragStartEvent) => {
+      if (readOnly) return;
+      setActiveDragItem(event.active.data.current as AssessmentDragItem);
+    },
+    [readOnly],
+  );
 
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -502,19 +648,26 @@ export default function ReportCardBuilder({
     });
   }, []);
 
-  const handleQuickAssign = useCallback((item: AssessmentDragItem, category: AssessmentCategory) => {
-    setDropped((prev) => {
-      const next = { ...prev };
-      CATEGORY_ORDER.forEach((cat) => {
-        next[cat] = next[cat].filter((i) => i.dndId !== item.dndId);
+  const handleQuickAssign = useCallback(
+    (item: AssessmentDragItem, category: AssessmentCategory) => {
+      setDropped((prev) => {
+        const next = { ...prev };
+        CATEGORY_ORDER.forEach((cat) => {
+          next[cat] = next[cat].filter((i) => i.dndId !== item.dndId);
+        });
+        next[category] = [...next[category], item];
+        return next;
       });
-      next[category] = [...next[category], item];
-      return next;
-    });
-    toast.success(`"${item.title}" assigned to ${CATEGORIES[category].label}.`);
-  }, []);
+      toast.success(
+        `"${item.title}" assigned to ${CATEGORIES[category].label}.`,
+      );
+    },
+    [],
+  );
 
-  const [pendingDelete, setPendingDelete] = useState<AssessmentDragItem | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<AssessmentDragItem | null>(
+    null,
+  );
 
   const confirmDeleteManual = useCallback(async () => {
     const item = pendingDelete;
@@ -545,9 +698,9 @@ export default function ReportCardBuilder({
 
     const allMappings = CATEGORY_ORDER.flatMap((cat) =>
       dropped[cat].map((item) => ({
-        subject_id:      item.subject_id,
+        subject_id: item.subject_id,
         assessment_type: item.assessment_type,
-        assessment_id:   item.assessment_id,
+        assessment_id: item.assessment_id,
         category: cat,
       })),
     );
@@ -560,10 +713,10 @@ export default function ReportCardBuilder({
     setIsSaving(true);
     try {
       const result = await ReportCardApiService.saveSubjectMapping({
-        subject_id:    selectedSubjectId,
+        subject_id: selectedSubjectId,
         term,
         academic_year: academicYear,
-        assessments:   allMappings,
+        assessments: allMappings,
       });
 
       if (result.success) {
@@ -577,7 +730,10 @@ export default function ReportCardBuilder({
     }
   };
 
-  const totalMapped = Object.values(dropped).reduce((sum, arr) => sum + arr.length, 0);
+  const totalMapped = Object.values(dropped).reduce(
+    (sum, arr) => sum + arr.length,
+    0,
+  );
 
   const openCreateModal = () => {
     setModalMode({ type: "create" });
@@ -585,17 +741,31 @@ export default function ReportCardBuilder({
   };
 
   const openEditModal = (item: AssessmentDragItem) => {
-    const ma = selectedSubject?.manualAssessments.find((m) => m.id === item.assessment_id);
+    const ma = selectedSubject?.manualAssessments.find(
+      (m) => m.id === item.assessment_id,
+    );
     if (!ma) return;
     setModalMode({ type: "edit", assessment: ma });
     setModalOpen(true);
   };
 
   const openScoresModal = (item: AssessmentDragItem) => {
-    const ma = selectedSubject?.manualAssessments.find((m) => m.id === item.assessment_id);
+    const ma = selectedSubject?.manualAssessments.find(
+      (m) => m.id === item.assessment_id,
+    );
     if (!ma) return;
     setModalMode({ type: "scores", assessment: ma });
     setModalOpen(true);
+  };
+
+  // Opens the quiz's submissions list or the assignment's own detail page to
+  // see marks — `navigate(-1)` on those pages (fixed separately) now returns
+  // here instead of always landing on Course Details.
+  const goToAssessmentDetails = (item: AssessmentDragItem) => {
+    if (item.assessment_type === "quiz")
+      navigate(`/quizzes/${item.assessment_id}/submissions`);
+    else if (item.assessment_type === "assignment")
+      navigate(`/assignments/${item.assessment_id}`);
   };
 
   const renderAssessmentRow = (item: AssessmentDragItem) => (
@@ -604,9 +774,24 @@ export default function ReportCardBuilder({
       item={item}
       readOnly={readOnly}
       onAssign={!readOnly ? handleQuickAssign : undefined}
-      onEnterScores={item.assessment_type === "manual" && !readOnly ? openScoresModal : undefined}
-      onEdit={item.assessment_type === "manual" && !readOnly ? openEditModal : undefined}
-      onDelete={item.assessment_type === "manual" && !readOnly ? (i) => setPendingDelete(i) : undefined}
+      onEnterScores={
+        item.assessment_type === "manual" && !readOnly
+          ? openScoresModal
+          : undefined
+      }
+      onEdit={
+        item.assessment_type === "manual" && !readOnly
+          ? openEditModal
+          : undefined
+      }
+      onDelete={
+        item.assessment_type === "manual" && !readOnly
+          ? (i) => setPendingDelete(i)
+          : undefined
+      }
+      onViewDetails={
+        item.assessment_type !== "manual" ? goToAssessmentDetails : undefined
+      }
     />
   );
 
@@ -624,8 +809,12 @@ export default function ReportCardBuilder({
           <div className="mb-5">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h1 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">Report Card Builder</h1>
-                <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">{term} · {academicYear} · applies to every enrolled student</p>
+                <h1 className="text-lg font-bold text-gray-900 dark:text-white tracking-tight">
+                  Report Card Builder
+                </h1>
+                <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">
+                  {term} · {academicYear} · applies to every enrolled student
+                </p>
               </div>
 
               <div className="flex items-center gap-2.5 flex-wrap">
@@ -651,7 +840,11 @@ export default function ReportCardBuilder({
                     data-testid="save-button"
                     className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-semibold text-sm bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-40 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20 dark:shadow-blue-900/50 transition-all duration-200 active:scale-95"
                   >
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {isSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
                     {isSaving ? "Saving…" : "Save Mappings"}
                   </button>
                 )}
@@ -708,7 +901,8 @@ export default function ReportCardBuilder({
           {!readOnly && (
             <p className="mb-4 text-[11px] text-gray-500 dark:text-slate-300 flex items-center gap-1.5 sm:hidden">
               <GripVertical className="w-3 h-3" />
-              Press &amp; hold to drag, or tap <Plus className="w-3 h-3 inline mx-0.5" /> to quick-assign
+              Press &amp; hold to drag, or tap{" "}
+              <Plus className="w-3 h-3 inline mx-0.5" /> to quick-assign
             </p>
           )}
 
@@ -717,8 +911,13 @@ export default function ReportCardBuilder({
             {/* Left panel – available assessments */}
             <div className="bg-white dark:bg-[#0A1020] border border-gray-200 dark:border-white/[0.07] rounded-2xl overflow-hidden flex flex-col">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.06] flex items-center justify-between flex-shrink-0">
-                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">Available Assessments</h2>
-                <span className="text-xs text-gray-500 dark:text-slate-400 tabular-nums">{availableItems.length} item{availableItems.length !== 1 ? "s" : ""}</span>
+                <h2 className="text-sm font-semibold text-gray-900 dark:text-white">
+                  Available Assessments
+                </h2>
+                <span className="text-xs text-gray-500 dark:text-slate-400 tabular-nums">
+                  {availableItems.length} item
+                  {availableItems.length !== 1 ? "s" : ""}
+                </span>
               </div>
 
               {/* Legend */}
@@ -739,71 +938,162 @@ export default function ReportCardBuilder({
                 )}
               </div>
 
+              {/* Search — matters once a subject has 20+ quizzes/assignments
+                  plus 30+ manual entries; without it, finding one item means
+                  scrolling past everything else. */}
+              {allSubjectItems.length > 6 && (
+                <div className="px-3 pt-3 flex-shrink-0">
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 dark:text-slate-500" />
+                    <input
+                      type="text"
+                      value={assessmentSearch}
+                      onChange={(e) => setAssessmentSearch(e.target.value)}
+                      placeholder="Search assessments…"
+                      className="w-full pl-8 pr-7 py-1.5 rounded-lg text-xs bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.08] text-gray-800 dark:text-slate-200 placeholder:text-gray-400 dark:placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/30 focus:border-blue-500/50 transition-all"
+                    />
+                    {assessmentSearch && (
+                      <button
+                        onClick={() => setAssessmentSearch("")}
+                        aria-label="Clear search"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-0.5 rounded text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div
-                className="p-3 flex flex-col gap-2 flex-1 max-h-[520px] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-black/[0.08] dark:scrollbar-thumb-white/[0.08]"
+                className="p-3 flex flex-col gap-2 flex-1 max-h-[65vh] overflow-y-auto scrollbar-thin scrollbar-track-transparent scrollbar-thumb-black/[0.08] dark:scrollbar-thumb-white/[0.08]"
                 data-testid="available-items"
               >
-                {/* Quizzes & assignments */}
-                {availableOthers.length > 0 && (
+                {/* Quizzes & assignments — collapsible, so a long list can be
+                    folded away while working through manual entries (or vice
+                    versa) instead of scrolling past it every time. */}
+                {filteredOthers.length > 0 && (
                   <div className="space-y-2">
-                    {availableOthers.map(renderAssessmentRow)}
+                    <button
+                      onClick={() => setOthersCollapsed((v) => !v)}
+                      className="w-full flex items-center gap-1.5 px-1 text-[11px] font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 uppercase tracking-wider transition-colors"
+                    >
+                      <ChevronDown
+                        className={`w-3 h-3 transition-transform ${othersCollapsed ? "-rotate-90" : ""}`}
+                      />
+                      Assessments
+                      <span className="normal-case font-normal text-gray-400 dark:text-slate-500">
+                        ({filteredOthers.length})
+                      </span>
+                    </button>
+                    <AnimatePresence initial={false}>
+                      {!othersCollapsed && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="overflow-hidden space-y-2"
+                        >
+                          {filteredOthers.map(renderAssessmentRow)}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
 
                 {/* Manual entries section */}
-                <div className="mt-2 space-y-2">
-                  {/* Section header */}
-                  <div className="flex items-center justify-between px-1">
-                    <div className="flex items-center gap-1.5">
-                      <PencilRuler className="w-3 h-3 text-orange-500" />
-                      <span className="text-[11px] font-semibold text-gray-500 dark:text-slate-400 uppercase tracking-wider">
-                        Manual Entries
-                      </span>
-                    </div>
-                    {!readOnly && selectedSubject && (
+                {(filteredManuals.length > 0 ||
+                  (!searchQuery && !readOnly)) && (
+                  <div className="mt-2 space-y-2">
+                    {/* Section header */}
+                    <div className="flex items-center justify-between px-1 gap-2">
                       <button
-                        onClick={openCreateModal}
-                        className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/40 border border-orange-200 dark:border-orange-700/40 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-800/50 transition-all font-medium"
+                        onClick={() => setManualsCollapsed((v) => !v)}
+                        className="flex items-center gap-1.5 text-[11px] font-semibold text-gray-500 dark:text-slate-400 hover:text-gray-700 dark:hover:text-slate-200 uppercase tracking-wider transition-colors min-w-0"
                       >
-                        <Plus className="w-3 h-3" />
-                        Add Entry
+                        <ChevronDown
+                          className={`w-3 h-3 flex-shrink-0 transition-transform ${manualsCollapsed ? "-rotate-90" : ""}`}
+                        />
+                        <PencilRuler className="w-3 h-3 text-orange-500 flex-shrink-0" />
+                        <span className="truncate">Manual Entries</span>
+                        <span className="normal-case font-normal text-gray-400 dark:text-slate-500 flex-shrink-0">
+                          ({filteredManuals.length})
+                        </span>
                       </button>
-                    )}
-                  </div>
-
-                  {availableManuals.length === 0 && !readOnly ? (
-                    <div className="px-3 py-4 rounded-xl border border-dashed border-orange-200 dark:border-orange-900/50 text-center">
-                      <p className="text-xs text-gray-500 dark:text-slate-300 leading-relaxed">
-                        No manual entries yet.{" "}
-                        {selectedSubject && (
-                          <button
-                            onClick={openCreateModal}
-                            className="text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 underline-offset-2 underline transition-colors"
-                          >
-                            Add one
-                          </button>
-                        )}{" "}
-                        for physical-paper marks.
-                      </p>
+                      {!readOnly && selectedSubject && (
+                        <button
+                          onClick={openCreateModal}
+                          className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-orange-50 dark:bg-orange-900/40 border border-orange-200 dark:border-orange-700/40 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-800/50 transition-all font-medium flex-shrink-0"
+                        >
+                          <Plus className="w-3 h-3" />
+                          Add Entry
+                        </button>
+                      )}
                     </div>
-                  ) : (
-                    availableManuals.map(renderAssessmentRow)
-                  )}
-                </div>
 
-                {/* Empty state when both lists are empty */}
-                {availableItems.length === 0 && allSubjectItems.length > 0 && (
-                  <div className="py-12 text-center space-y-3">
-                    <div className="w-12 h-12 mx-auto rounded-2xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/50 flex items-center justify-center">
-                      <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <p className="text-gray-500 dark:text-slate-400 text-xs">All assessments have been categorised</p>
+                    <AnimatePresence initial={false}>
+                      {!manualsCollapsed && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.15 }}
+                          className="overflow-hidden space-y-2"
+                        >
+                          {filteredManuals.length === 0 && !readOnly ? (
+                            <div className="px-3 py-4 rounded-xl border border-dashed border-orange-200 dark:border-orange-900/50 text-center">
+                              <p className="text-xs text-gray-500 dark:text-slate-300 leading-relaxed">
+                                No manual entries yet.{" "}
+                                {selectedSubject && (
+                                  <button
+                                    onClick={openCreateModal}
+                                    className="text-orange-600 dark:text-orange-400 hover:text-orange-700 dark:hover:text-orange-300 underline-offset-2 underline transition-colors"
+                                  >
+                                    Add one
+                                  </button>
+                                )}{" "}
+                                for physical-paper marks.
+                              </p>
+                            </div>
+                          ) : (
+                            filteredManuals.map(renderAssessmentRow)
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
                 )}
 
+                {/* No matches for the current search */}
+                {noSearchResults && (
+                  <div className="py-12 text-center space-y-2">
+                    <Search className="w-8 h-8 text-gray-300 dark:text-slate-700 mx-auto" />
+                    <p className="text-gray-500 dark:text-slate-400 text-xs">
+                      No assessments match "{assessmentSearch}".
+                    </p>
+                  </div>
+                )}
+
+                {/* Empty state when both lists are empty (no search active) */}
+                {!searchQuery &&
+                  availableItems.length === 0 &&
+                  allSubjectItems.length > 0 && (
+                    <div className="py-12 text-center space-y-3">
+                      <div className="w-12 h-12 mx-auto rounded-2xl bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-900/50 flex items-center justify-center">
+                        <CheckCircle2 className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <p className="text-gray-500 dark:text-slate-400 text-xs">
+                        All assessments have been categorised
+                      </p>
+                    </div>
+                  )}
+
                 {allSubjectItems.length === 0 && !selectedSubject && (
                   <div className="py-12 text-center">
-                    <p className="text-gray-500 dark:text-slate-400 text-xs">Select a subject to see assessments</p>
+                    <p className="text-gray-500 dark:text-slate-400 text-xs">
+                      Select a subject to see assessments
+                    </p>
                   </div>
                 )}
               </div>
@@ -825,7 +1115,9 @@ export default function ReportCardBuilder({
 
         {/* Drag overlay */}
         <DragOverlay dropAnimation={null}>
-          {activeDragItem ? <DraggableCard item={activeDragItem} isOverlay /> : null}
+          {activeDragItem ? (
+            <DraggableCard item={activeDragItem} isOverlay />
+          ) : null}
         </DragOverlay>
       </DndContext>
 
