@@ -30,6 +30,12 @@ import { useAuth } from "../contexts/AuthContext";
 import CreateAssessmentModal from "../components/Grades/CreateAssessmentModal";
 import Tooltip from "../components/ui/Tooltip";
 import ConfirmDialog from "../components/ui/ConfirmDialog";
+import AssessmentMappingControl from "../components/ReportCard/AssessmentMappingControl";
+import {
+  ReportCardApiService,
+  type AssessmentCategory,
+  type SubjectMappingItem,
+} from "../services/reportCardApi";
 import type { Course } from "../types/course.types";
 
 // ─── Unified assessment row ───────────────────────────────────────────────────
@@ -118,6 +124,36 @@ function RecordedChip({
   );
 }
 
+// ─── Subject mapping-progress pill ────────────────────────────────────────────
+// How many of a subject's assessments are already mapped into a report-card
+// category (CW/HW/MD/EOT) vs. still needing attention. Sits next to the
+// assessment/student count in each subject header.
+
+function MappingProgress({ mapped, total }: { mapped: number; total: number }) {
+  if (total === 0) return null;
+  const complete = mapped === total;
+  const pct = Math.round((mapped / total) * 100);
+  return (
+    <div className="flex items-center gap-1.5" title={`${mapped} of ${total} assessments mapped to a report-card category`}>
+      <div className="w-12 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700 overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all ${complete ? "bg-blue-600" : mapped > 0 ? "bg-orange-400" : "bg-gray-300 dark:bg-gray-600"}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span
+        className={`text-[11px] font-medium whitespace-nowrap ${
+          complete
+            ? "text-blue-600 dark:text-blue-400"
+            : "text-text-secondary-light dark:text-text-secondary-dark/60"
+        }`}
+      >
+        {mapped}/{total} mapped
+      </span>
+    </div>
+  );
+}
+
 // ─── Main page ────────────────────────────────────────────────────────────────
 
 const TABS = ["Assessments", "Comments", "Observations"] as const;
@@ -149,6 +185,11 @@ export default function GradesPage() {
 
   // ── Enrolled counts cache: courseId → studentCount ────────────────────────
   const [enrolledCounts, setEnrolledCounts] = useState<Map<number, number>>(new Map());
+
+  // ── Report-card mapping cache: courseId → its subject-wide mapping ───────
+  const [mappings, setMappings] = useState<Map<number, SubjectMappingItem[]>>(new Map());
+  const [mappingsLoading, setMappingsLoading] = useState(true);
+  const [mappingSavingKey, setMappingSavingKey] = useState<string | null>(null);
 
   // ── Load courses ──────────────────────────────────────────────────────────
   const loadCourses = useCallback(async () => {
@@ -245,6 +286,33 @@ export default function GradesPage() {
     setEnrolledCounts(map);
   }, []);
 
+  // ── Load each subject's report-card mapping (best-effort, non-blocking) ──
+  const loadMappings = useCallback(async (courseList: Course[]) => {
+    if (courseList.length === 0 || !term || !academicYear) {
+      setMappings(new Map());
+      setMappingsLoading(false);
+      return;
+    }
+    setMappingsLoading(true);
+    const map = new Map<number, SubjectMappingItem[]>();
+    await Promise.allSettled(
+      courseList.map(async (c) => {
+        try {
+          const res = await ReportCardApiService.getSubjectMapping({
+            subject_id: c.id,
+            term,
+            academic_year: academicYear,
+          });
+          map.set(c.id, res.data.assessments ?? []);
+        } catch {
+          // Ignore individual failures — that subject just shows as unmapped.
+        }
+      }),
+    );
+    setMappings(map);
+    setMappingsLoading(false);
+  }, [term, academicYear]);
+
   useEffect(() => {
     (async () => {
       setLoading(true);
@@ -254,10 +322,11 @@ export default function GradesPage() {
         loadQuizzesAndAssignments(courseList),
       ]);
       setLoading(false);
-      // Load enrollment counts in background
+      // Load enrollment counts and mappings in background
       loadEnrolledCounts(courseList);
+      loadMappings(courseList);
     })();
-  }, [loadCourses, loadManualAssessments, loadQuizzesAndAssignments, loadEnrolledCounts]);
+  }, [loadCourses, loadManualAssessments, loadQuizzesAndAssignments, loadEnrolledCounts, loadMappings]);
 
   // ── Unified rows: quizzes + assignments + manual entries ──────────────────
   const manualRows = useMemo<AssessmentRow[]>(
@@ -320,9 +389,58 @@ export default function GradesPage() {
       byId.get(a.courseId)!.push(a);
     }
     return Array.from(byId.entries())
-      .map(([courseId, rows]) => ({ courseId, course: courseMap.get(courseId), rows }))
+      .map(([courseId, rows]) => {
+        const mapping = mappings.get(courseId) ?? [];
+        const mappedCount = rows.filter((r) =>
+          mapping.some((m) => m.assessment_type === r.kind && m.assessment_id === r.id),
+        ).length;
+        return { courseId, course: courseMap.get(courseId), rows, mappedCount };
+      })
       .sort((a, b) => (a.course?.title ?? "").localeCompare(b.course?.title ?? ""));
-  }, [courses, assessments, courseMap]);
+  }, [courses, assessments, courseMap, mappings]);
+
+  // ── Lookup: what category (if any) an assessment row is mapped to ────────
+  const getMappedCategory = useCallback(
+    (row: AssessmentRow): AssessmentCategory | null =>
+      mappings.get(row.courseId)?.find((m) => m.assessment_type === row.kind && m.assessment_id === row.id)
+        ?.category ?? null,
+    [mappings],
+  );
+
+  // ── Quick-map: assign/clear a single assessment's category without ───────
+  // opening the full Report Card Builder. Reads the subject's current
+  // mapping, patches the one row, and full-replaces it (the backend's
+  // subject-mapping/save endpoint always replaces the whole set for that
+  // subject/term/year).
+  const handleQuickMap = useCallback(
+    async (row: AssessmentRow, category: AssessmentCategory | null) => {
+      if (!term || !academicYear) {
+        toast.error("No active term/year to map against.");
+        return;
+      }
+      const previous = mappings.get(row.courseId) ?? [];
+      const next = previous.filter((m) => !(m.assessment_type === row.kind && m.assessment_id === row.id));
+      if (category) next.push({ assessment_type: row.kind, assessment_id: row.id, category });
+
+      setMappings((prev) => new Map(prev).set(row.courseId, next));
+      setMappingSavingKey(row.key);
+      try {
+        await ReportCardApiService.saveSubjectMapping({
+          subject_id: row.courseId,
+          term,
+          academic_year: academicYear,
+          assessments: next,
+        });
+        toast.success(category ? `Mapped to report-card category.` : "Mapping cleared.");
+      } catch {
+        toast.error("Failed to update mapping.");
+        setMappings((prev) => new Map(prev).set(row.courseId, previous));
+      } finally {
+        setMappingSavingKey(null);
+      }
+    },
+    [term, academicYear, mappings],
+  );
 
   // ── Search: filters subjects/assessments, auto-expands matches ───────────
   const q = search.trim().toLowerCase();
@@ -570,6 +688,12 @@ export default function GradesPage() {
                         </div>
                       </button>
 
+                      {!mappingsLoading && g.rows.length > 0 && (
+                        <div className="hidden md:block flex-shrink-0">
+                          <MappingProgress mapped={g.mappedCount} total={g.rows.length} />
+                        </div>
+                      )}
+
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <Link
                           to={`/grades/subjects/${g.courseId}`}
@@ -591,8 +715,11 @@ export default function GradesPage() {
                       </div>
                     </div>
 
-                    {/* Mobile-only Report Card shortcut */}
-                    <div className="sm:hidden px-5 pb-3 -mt-1">
+                    {/* Mobile-only Report Card shortcut + mapping progress */}
+                    <div className="sm:hidden px-5 pb-3 -mt-1 space-y-2">
+                      {!mappingsLoading && g.rows.length > 0 && (
+                        <MappingProgress mapped={g.mappedCount} total={g.rows.length} />
+                      )}
                       <Link
                         to={`/grades/subjects/${g.courseId}`}
                         className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
@@ -622,7 +749,7 @@ export default function GradesPage() {
                             <table className="min-w-full divide-y divide-border-light dark:divide-border-dark/30">
                               <thead>
                                 <tr className="bg-surface-light dark:bg-surface-dark/50">
-                                  {["Date", "Title", "Type", "Maximum", "Recorded Results", "Actions"].map((h) => (
+                                  {["Date", "Title", "Type", "Maximum", "Recorded Results", "Mapping", "Actions"].map((h) => (
                                     <th
                                       key={h}
                                       className="px-5 py-2.5 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider text-left"
@@ -655,6 +782,13 @@ export default function GradesPage() {
                                         ) : (
                                           <span className="text-text-secondary-light dark:text-text-secondary-dark/50 text-sm">—</span>
                                         )}
+                                      </td>
+                                      <td className="px-5 py-3">
+                                        <AssessmentMappingControl
+                                          category={getMappedCategory(a)}
+                                          saving={mappingSavingKey === a.key}
+                                          onChange={(cat) => handleQuickMap(a, cat)}
+                                        />
                                       </td>
                                       <td className="px-5 py-3">
                                         <div className="flex items-center gap-2">
