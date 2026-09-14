@@ -249,7 +249,7 @@ export default function SubjectGradesPage() {
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
               transition={{ duration: 0.2 }}
-              className="bg-[#060A12] overflow-hidden"
+              className="bg-white dark:bg-[#060A12] overflow-hidden"
             >
               {mappingLoading ? (
                 <div className="flex items-center justify-center py-16">

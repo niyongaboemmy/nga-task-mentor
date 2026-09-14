@@ -3,6 +3,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { X, Download, Printer, Loader2, AlertCircle, RefreshCw, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
+import Tooltip from "../ui/Tooltip";
 import {
   ReportCardApiService,
   scoreToLetterGrade,
@@ -893,32 +894,38 @@ export default function ReportCardPreview({
 
             {/* Center: zoom controls */}
             <div className="flex items-center gap-1 bg-slate-800 rounded-xl px-1 py-1">
-              <button
-                onClick={() => stepZoom(-0.1)}
-                disabled={zoom <= 0.3}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 transition-colors"
-                aria-label="Zoom out"
-              >
-                <ZoomOut className="w-3.5 h-3.5" />
-              </button>
+              <Tooltip label="Zoom out">
+                <button
+                  onClick={() => stepZoom(-0.1)}
+                  disabled={zoom <= 0.3}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 transition-colors"
+                  aria-label="Zoom out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
               <span className="text-[11px] font-semibold text-slate-300 min-w-[36px] text-center tabular-nums">
                 {Math.round(zoom * 100)}%
               </span>
-              <button
-                onClick={() => stepZoom(0.1)}
-                disabled={zoom >= 1.5}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 transition-colors"
-                aria-label="Zoom in"
-              >
-                <ZoomIn className="w-3.5 h-3.5" />
-              </button>
-              <button
-                onClick={resetZoom}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
-                aria-label="Reset zoom"
-              >
-                <Maximize2 className="w-3.5 h-3.5" />
-              </button>
+              <Tooltip label="Zoom in">
+                <button
+                  onClick={() => stepZoom(0.1)}
+                  disabled={zoom >= 1.5}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 disabled:opacity-30 transition-colors"
+                  aria-label="Zoom in"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
+              <Tooltip label="Reset zoom">
+                <button
+                  onClick={resetZoom}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                  aria-label="Reset zoom"
+                >
+                  <Maximize2 className="w-3.5 h-3.5" />
+                </button>
+              </Tooltip>
             </div>
 
             {/* Right: actions */}
@@ -945,13 +952,15 @@ export default function ReportCardPreview({
                 <span className="hidden sm:inline">{downloading ? "Generating…" : "Download PDF"}</span>
               </button>
 
-              <button
-                onClick={onClose}
-                className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors"
-                aria-label="Close preview"
-              >
-                <X className="w-4 h-4" />
-              </button>
+              <Tooltip label="Close preview">
+                <button
+                  onClick={onClose}
+                  className="p-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white transition-colors"
+                  aria-label="Close preview"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </Tooltip>
             </div>
           </div>
         )}

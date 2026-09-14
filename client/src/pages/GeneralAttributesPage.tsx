@@ -103,7 +103,9 @@ export default function GeneralAttributesPage() {
           setFormKey((k) => k + 1); // remount form with pre-populated data
         }
       } catch {
-        setError("Failed to load student list. Please go back and try again.");
+        const message = "Failed to load student list. Please go back and try again.";
+        setError(message);
+        toast.error(message);
       } finally {
         setLoading(false);
       }
@@ -132,9 +134,9 @@ export default function GeneralAttributesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-3 text-white/70">
-          <Loader2 className="w-8 h-8 animate-spin text-indigo-400" />
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-text-secondary-light dark:text-text-secondary-dark/70">
+          <Loader2 className="w-8 h-8 animate-spin text-blue-500 dark:text-blue-400" />
           <p className="text-sm">Loading student roster…</p>
         </div>
       </div>
@@ -143,13 +145,13 @@ export default function GeneralAttributesPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 flex items-center justify-center">
-        <div className="flex flex-col items-center gap-4 text-white/70">
-          <AlertCircle className="w-10 h-10 text-red-400" />
-          <p className="text-sm text-red-300">{error}</p>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4 text-text-secondary-light dark:text-text-secondary-dark/70">
+          <AlertCircle className="w-10 h-10 text-red-500 dark:text-red-400" />
+          <p className="text-sm text-red-600 dark:text-red-300">{error}</p>
           <Link
             to={`/courses/${courseId}`}
-            className="flex items-center gap-2 text-indigo-300 hover:text-indigo-200 text-sm"
+            className="flex items-center gap-2 text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 text-sm"
           >
             <ArrowLeft className="w-4 h-4" /> Back to course
           </Link>
@@ -161,16 +163,16 @@ export default function GeneralAttributesPage() {
   return (
     <div>
       {/* Back navigation */}
-      <div className="bg-slate-900 px-6 py-3 border-b border-white/5 flex items-center justify-between">
+      <div className="bg-white dark:bg-black px-6 py-3 border-b border-slate-200 dark:border-white/5 flex items-center justify-between">
         <Link
           to={`/courses/${courseId}`}
-          className="inline-flex items-center gap-2 text-sm text-indigo-300 hover:text-indigo-200 transition-colors"
+          className="inline-flex items-center gap-2 text-sm text-blue-600 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-200 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to {courseName}
         </Link>
         {term && academicYear && (
-          <span className="text-xs text-white/40 hidden sm:block">
+          <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/40 hidden sm:block">
             {term} · {academicYear}
           </span>
         )}
@@ -178,7 +180,7 @@ export default function GeneralAttributesPage() {
 
       {/* Warning: missing term/year — saves will fail silently without these */}
       {(!term || !academicYear) && (
-        <div className="bg-amber-500/10 border-b border-amber-500/30 px-6 py-3 flex items-center gap-2 text-sm text-amber-300">
+        <div className="bg-amber-50 dark:bg-amber-500/10 border-b border-amber-200 dark:border-amber-500/30 px-6 py-3 flex items-center gap-2 text-sm text-amber-700 dark:text-amber-300">
           <AlertTriangle className="w-4 h-4 flex-shrink-0" />
           <span>
             Missing term or academic year in URL — attributes cannot be saved.
@@ -189,20 +191,20 @@ export default function GeneralAttributesPage() {
 
       {/* Mark-all-complete callout — shown after all attributes are saved */}
       {savedCardIds.length > 0 && !allMarkedComplete && (
-        <div className="mx-4 mt-4 p-4 bg-blue-500/10 border border-blue-400/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="mx-4 mt-4 p-4 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-400/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-semibold text-blue-300 flex items-center gap-2">
+            <p className="text-sm font-semibold text-blue-700 dark:text-blue-300 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4" />
               Attributes saved for all students
             </p>
-            <p className="text-xs text-blue-400/70 mt-0.5">
+            <p className="text-xs text-blue-600/80 dark:text-blue-400/70 mt-0.5">
               Mark all report cards as complete to send them for admin review.
             </p>
           </div>
           <button
             onClick={handleMarkAllComplete}
             disabled={markingComplete}
-            className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white disabled:opacity-50 transition-colors whitespace-nowrap"
+            className="flex items-center gap-2 px-6 py-3 rounded-full text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 transition-colors whitespace-nowrap shadow-sm shadow-blue-500/20 active:scale-95"
           >
             {markingComplete ? (
               <Loader2 className="w-4 h-4 animate-spin" />
@@ -215,11 +217,11 @@ export default function GeneralAttributesPage() {
       )}
 
       {allMarkedComplete && (
-        <div className="mx-4 mt-4 p-4 bg-emerald-500/10 border border-emerald-400/30 rounded-2xl flex items-center gap-3">
-          <CheckCircle2 className="w-5 h-5 text-emerald-400 flex-shrink-0" />
+        <div className="mx-4 mt-4 p-4 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-400/30 rounded-2xl flex items-center gap-3">
+          <CheckCircle2 className="w-5 h-5 text-emerald-500 dark:text-emerald-400 flex-shrink-0" />
           <div>
-            <p className="text-sm font-semibold text-emerald-300">All report cards are now complete</p>
-            <p className="text-xs text-emerald-400/70 mt-0.5">
+            <p className="text-sm font-semibold text-emerald-700 dark:text-emerald-300">All report cards are now complete</p>
+            <p className="text-xs text-emerald-600/80 dark:text-emerald-400/70 mt-0.5">
               An admin can now review and approve them so students can view their cards.
             </p>
           </div>

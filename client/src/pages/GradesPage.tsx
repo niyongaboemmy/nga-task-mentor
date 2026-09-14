@@ -28,6 +28,8 @@ import { QuizGroupedApiService } from "../services/quizGroupedApi";
 import { AssignmentApiService } from "../services/assignmentApi";
 import { useAuth } from "../contexts/AuthContext";
 import CreateAssessmentModal from "../components/Grades/CreateAssessmentModal";
+import Tooltip from "../components/ui/Tooltip";
+import ConfirmDialog from "../components/ui/ConfirmDialog";
 import type { Course } from "../types/course.types";
 
 // ─── Unified assessment row ───────────────────────────────────────────────────
@@ -362,8 +364,12 @@ export default function GradesPage() {
   const collapseAll = () => setExpanded(new Set());
 
   // ── Delete manual assessment ───────────────────────────────────────────────
-  const handleDelete = async (a: ManualAssessment) => {
-    if (!window.confirm(`Delete "${ManualAssessmentApiService.getTypeLabel(a)}"? All student scores will be removed.`)) return;
+  const [pendingDelete, setPendingDelete] = useState<ManualAssessment | null>(null);
+
+  const confirmDelete = async () => {
+    const a = pendingDelete;
+    if (!a) return;
+    setPendingDelete(null);
     try {
       await ManualAssessmentApiService.delete(a.id);
       toast.success("Assessment deleted.");
@@ -487,20 +493,24 @@ export default function GradesPage() {
                   className="pl-9 pr-4 py-2 rounded-xl border border-transparent text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 w-64 bg-surface-light dark:bg-surface-dark/50"
                 />
               </div>
-              <button
-                onClick={expandAll}
-                title="Expand all"
-                className="p-2 rounded-xl border border-border-light dark:border-border-dark/40 text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors"
-              >
-                <ChevronsDown className="w-4 h-4" />
-              </button>
-              <button
-                onClick={collapseAll}
-                title="Collapse all"
-                className="p-2 rounded-xl border border-border-light dark:border-border-dark/40 text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors"
-              >
-                <ChevronsUp className="w-4 h-4" />
-              </button>
+              <Tooltip label="Expand all subjects">
+                <button
+                  onClick={expandAll}
+                  aria-label="Expand all subjects"
+                  className="p-2 rounded-xl border border-border-light dark:border-border-dark/40 text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors"
+                >
+                  <ChevronsDown className="w-4 h-4" />
+                </button>
+              </Tooltip>
+              <Tooltip label="Collapse all subjects">
+                <button
+                  onClick={collapseAll}
+                  aria-label="Collapse all subjects"
+                  className="p-2 rounded-xl border border-border-light dark:border-border-dark/40 text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors"
+                >
+                  <ChevronsUp className="w-4 h-4" />
+                </button>
+              </Tooltip>
               <button
                 onClick={() => openAddModal()}
                 className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
@@ -569,13 +579,15 @@ export default function GradesPage() {
                           Report Card
                           <ArrowRight className="w-3 h-3" />
                         </Link>
-                        <button
-                          onClick={() => openAddModal(g.courseId)}
-                          title="Add assessment to this subject"
-                          className="p-2 rounded-full hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
+                        <Tooltip label="Add assessment to this subject">
+                          <button
+                            onClick={() => openAddModal(g.courseId)}
+                            aria-label="Add assessment to this subject"
+                            className="p-2 rounded-full hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                          >
+                            <Plus className="w-4 h-4" />
+                          </button>
+                        </Tooltip>
                       </div>
                     </div>
 
@@ -648,29 +660,35 @@ export default function GradesPage() {
                                         <div className="flex items-center gap-2">
                                           {a.kind === "manual" ? (
                                             <>
-                                              <button
-                                                onClick={() => openEditModal(a.manual!)}
-                                                className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
-                                                title="Edit"
-                                              >
-                                                <Pencil className="w-4 h-4" />
-                                              </button>
-                                              <button
-                                                onClick={() => handleDelete(a.manual!)}
-                                                className="p-1.5 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
-                                                title="Delete"
-                                              >
-                                                <Trash2 className="w-4 h-4" />
-                                              </button>
+                                              <Tooltip label="Edit assessment">
+                                                <button
+                                                  onClick={() => openEditModal(a.manual!)}
+                                                  aria-label="Edit assessment"
+                                                  className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
+                                                >
+                                                  <Pencil className="w-4 h-4" />
+                                                </button>
+                                              </Tooltip>
+                                              <Tooltip label="Delete assessment">
+                                                <button
+                                                  onClick={() => setPendingDelete(a.manual!)}
+                                                  aria-label="Delete assessment"
+                                                  className="p-1.5 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                                                >
+                                                  <Trash2 className="w-4 h-4" />
+                                                </button>
+                                              </Tooltip>
                                             </>
                                           ) : (
-                                            <button
-                                              onClick={() => goToDetail(a)}
-                                              className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
-                                              title="View"
-                                            >
-                                              <Eye className="w-4 h-4" />
-                                            </button>
+                                            <Tooltip label="View results">
+                                              <button
+                                                onClick={() => goToDetail(a)}
+                                                aria-label="View results"
+                                                className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
+                                              >
+                                                <Eye className="w-4 h-4" />
+                                              </button>
+                                            </Tooltip>
                                           )}
                                         </div>
                                       </td>
@@ -713,6 +731,16 @@ export default function GradesPage() {
         presetCourseId={presetCourseId}
         onClose={() => { setModalOpen(false); setEditTarget(null); setPresetCourseId(undefined); }}
         onSaved={handleSaved}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        title="Delete assessment?"
+        description={pendingDelete ? `"${ManualAssessmentApiService.getTypeLabel(pendingDelete)}" and every student's score for it will be removed. This can't be undone.` : ""}
+        confirmLabel="Delete"
+        danger
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
       />
     </div>
   );

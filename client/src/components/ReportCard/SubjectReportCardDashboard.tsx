@@ -23,6 +23,7 @@ import {
 } from "../../services/reportCardApi";
 import ReportCardPreview from "./ReportCardPreview";
 import AnnualReportCardPreview from "./AnnualReportCardPreview";
+import Tooltip from "../ui/Tooltip";
 
 // ─── Read side of the subject report-card picture: class average, progress,
 // and the student roster with Preview/Annual/status-lifecycle actions.
@@ -313,22 +314,26 @@ export default function SubjectReportCardDashboard({
                       )}
 
                       {row?.report_card_id && (
-                        <button
-                          onClick={() => setPreviewStudent({ id: student.student_id, name: student.name })}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
-                          title="Preview report card"
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
+                        <Tooltip label="Preview report card">
+                          <button
+                            onClick={() => setPreviewStudent({ id: student.student_id, name: student.name })}
+                            aria-label="Preview report card"
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                          </button>
+                        </Tooltip>
                       )}
 
-                      <button
-                        onClick={() => setAnnualStudent({ id: student.student_id, name: student.name })}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                        title="Annual summary"
-                      >
-                        <GraduationCap className="w-3.5 h-3.5" />
-                      </button>
+                      <Tooltip label="Annual summary (all terms)">
+                        <button
+                          onClick={() => setAnnualStudent({ id: student.student_id, name: student.name })}
+                          aria-label="Annual summary"
+                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                        >
+                          <GraduationCap className="w-3.5 h-3.5" />
+                        </button>
+                      </Tooltip>
 
                       {status === "draft" && row?.report_card_id && (
                         <button
@@ -353,13 +358,16 @@ export default function SubjectReportCardDashboard({
                       )}
 
                       {isAdmin && status === "approved" && (
-                        <button
-                          onClick={() => handleRevert(student.student_id)}
-                          disabled={revertingId === student.student_id}
-                          className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-800/50 disabled:opacity-50 transition-colors"
-                        >
-                          {revertingId === student.student_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
-                        </button>
+                        <Tooltip label="Revert to Saved">
+                          <button
+                            onClick={() => handleRevert(student.student_id)}
+                            disabled={revertingId === student.student_id}
+                            aria-label="Revert to Saved"
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-800/50 disabled:opacity-50 transition-colors"
+                          >
+                            {revertingId === student.student_id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                          </button>
+                        </Tooltip>
                       )}
 
                       <ChevronRight className="w-3.5 h-3.5 text-gray-300 dark:text-gray-600 flex-shrink-0" />

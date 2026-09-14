@@ -132,6 +132,7 @@ export default function CreateAssessmentModal({
           </h2>
           <button
             onClick={onClose}
+            aria-label="Close"
             className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
           >
             <X className="w-5 h-5" />
