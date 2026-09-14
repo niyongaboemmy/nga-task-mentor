@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Save,
@@ -251,7 +251,7 @@ function MobileStudentCard({
             transition={{ duration: 0.22, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 pt-1 space-y-4 border-t border-slate-100 dark:border-white/8">
+            <div className="px-4 pb-4 pt-1 space-y-4 border-t border-slate-100 dark:border-white/[0.08]">
               {/* Attendance */}
               <div>
                 <p className="text-[11px] uppercase tracking-wider font-semibold text-text-secondary-light dark:text-text-secondary-dark/60 mb-2 mt-2">
@@ -281,7 +281,7 @@ function MobileStudentCard({
                   {GENERAL_ATTRIBUTES.map((attr) => (
                     <div
                       key={attr}
-                      className={`rounded-xl p-2.5 border transition-colors ${ state.attributes[attr] ? "border-blue-200 dark:border-blue-400/20 bg-blue-50/60 dark:bg-blue-500/10" : "border-slate-100 dark:border-white/8 bg-slate-50/60 dark:bg-white/3" }`}
+                      className={`rounded-xl p-2.5 border transition-colors ${ state.attributes[attr] ? "border-blue-200 dark:border-blue-400/20 bg-blue-50/60 dark:bg-blue-500/10" : "border-slate-100 dark:border-white/[0.08] bg-slate-50/60 dark:bg-white/[0.03]" }`}
                     >
                       <p className="text-[11px] font-semibold text-text-secondary-light dark:text-text-secondary-dark/80 mb-1.5 flex items-center justify-between">
                         <span>{attr}</span>
@@ -320,7 +320,7 @@ function MobileStudentCard({
                   onChange={(e) => onCommentChange(student.id, e.target.value)}
                   placeholder="Write a comment about this student…"
                   rows={3}
-                  className="w-full text-sm bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-text-primary-light dark:text-white/80 placeholder-slate-400 dark:placeholder-white/25 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 transition-all scrollbar-thin"
+                  className="w-full text-sm bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-xl px-3 py-2.5 text-text-primary-light dark:text-white/80 placeholder-slate-400 dark:placeholder-white/25 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 transition-all scrollbar-thin"
                   aria-label={`Comment for ${student.name}`}
                 />
               </div>
@@ -432,7 +432,7 @@ function StudentTableRow({
           onChange={(e) => onCommentChange(student.id, e.target.value)}
           placeholder="Teacher's comment…"
           rows={2}
-          className="w-full text-xs bg-slate-50 dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-2 text-text-primary-light dark:text-white/80 placeholder-slate-400 dark:placeholder-white/25 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400/60 focus:bg-white dark:focus:bg-white/8 transition-colors scrollbar-thin"
+          className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-2 text-text-primary-light dark:text-white/80 placeholder-slate-400 dark:placeholder-white/25 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400/60 focus:bg-white dark:focus:bg-slate-700 transition-colors scrollbar-thin"
           aria-label={`Comment for ${student.name}`}
         />
         {state.error && (
@@ -459,6 +459,22 @@ export default function GeneralAttributesForm({
   );
   const [isSavingAll, setIsSavingAll] = useState(false);
   const [query, setQuery] = useState("");
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const updateScrollFades = useCallback(() => {
+    const el = tableScrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 4);
+    setCanScrollRight(el.scrollLeft + el.clientWidth < el.scrollWidth - 4);
+  }, []);
+
+  useEffect(() => {
+    updateScrollFades();
+    window.addEventListener("resize", updateScrollFades);
+    return () => window.removeEventListener("resize", updateScrollFades);
+  }, [updateScrollFades, students.length]);
 
   const updateStudentField = useCallback(
     <K extends keyof StudentFormState>(studentId: number, field: K, value: StudentFormState[K]) => {
@@ -643,7 +659,7 @@ export default function GeneralAttributesForm({
                     if (e.target.value) applyAttendanceToAll(e.target.value as AttendanceStatus);
                     e.target.value = "";
                   }}
-                  className="w-full sm:w-auto appearance-none cursor-pointer pl-9 pr-7 py-2 text-sm rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark/80 hover:border-slate-300 dark:hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition-all"
+                  className="w-full sm:w-auto appearance-none cursor-pointer pl-9 pr-7 py-2 text-sm rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 text-text-secondary-light dark:text-text-secondary-dark/80 hover:border-slate-300 dark:hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition-all"
                   aria-label="Mark all visible students' attendance"
                 >
                   <option value="" disabled>Mark all attendance…</option>
@@ -662,7 +678,7 @@ export default function GeneralAttributesForm({
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                   placeholder="Search student…"
-                  className="w-full sm:w-52 pl-9 pr-8 py-2 text-sm rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-white/5 text-text-primary-light dark:text-white/80 placeholder-slate-400 dark:placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 transition-all"
+                  className="w-full sm:w-52 pl-9 pr-8 py-2 text-sm rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 text-text-primary-light dark:text-white/80 placeholder-slate-400 dark:placeholder-white/25 focus:outline-none focus:ring-2 focus:ring-blue-400/40 focus:border-blue-400/60 transition-all"
                   aria-label="Search students"
                 />
                 {query && (
@@ -710,7 +726,7 @@ export default function GeneralAttributesForm({
               </span>
               <span className="font-semibold text-text-primary-light dark:text-text-secondary-dark">{progressPct}%</span>
             </div>
-            <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-white/8 overflow-hidden">
+            <div className="h-1.5 w-full rounded-full bg-slate-200 dark:bg-white/[0.08] overflow-hidden">
               <motion.div
                 className="h-full rounded-full bg-blue-500"
                 initial={{ width: 0 }}
@@ -763,11 +779,20 @@ export default function GeneralAttributesForm({
           </div>
 
           {/* ── Desktop: scrollable table (hidden below lg) ── */}
-          <div className="hidden lg:block mt-4 bg-white dark:bg-white/5 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm">
-            <div className="overflow-x-auto">
+          <div className="hidden lg:block mt-4 bg-white dark:bg-white/5 backdrop-blur-sm border border-slate-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm relative">
+            {/* Edge fades hint that the table scrolls horizontally — this is a
+                9-column table (name, attendance, 6 attributes, comment) that
+                clips at typical 1024-1280px laptop widths without this. */}
+            {canScrollLeft && (
+              <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-white dark:from-gray-900 to-transparent" />
+            )}
+            {canScrollRight && (
+              <div className="pointer-events-none absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-white dark:from-gray-900 to-transparent" />
+            )}
+            <div className="overflow-x-auto" ref={tableScrollRef} onScroll={updateScrollFades}>
               <table className="w-full border-collapse text-sm" data-testid="attributes-table">
                 <thead>
-                  <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/3">
+                  <tr className="border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-white/[0.03]">
                     <th className="px-4 py-3 text-left text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wider whitespace-nowrap">
                       Student
                     </th>

@@ -439,15 +439,15 @@ export default function ManualScoreEntry({
                       step="any"
                       placeholder="0"
                       aria-label={`Score for ${student.name}, out of ${maxScore}`}
-                      className={`w-14 pl-3 pr-1.5 py-1.5 text-sm text-right font-mono bg-white dark:bg-white/[0.06] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                      className={`w-14 pl-3 pr-1.5 py-1.5 text-sm text-right font-mono bg-white dark:bg-white/[0.06] focus:outline-none placeholder:text-gray-400 dark:placeholder:text-slate-400 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                         !isValid
-                          ? "text-orange-700 dark:text-orange-400"
+                          ? "text-orange-700 dark:text-orange-300"
                           : val !== ""
-                            ? "text-blue-700 dark:text-blue-300"
-                            : "text-text-primary-light dark:text-slate-200"
+                            ? "text-blue-700 dark:text-white"
+                            : "text-text-primary-light dark:text-white"
                       }`}
                     />
-                    <span className="pr-2.5 pl-1 py-1.5 text-xs font-medium text-text-secondary-light dark:text-slate-500 bg-gray-50 dark:bg-white/[0.03] border-l border-gray-200 dark:border-white/[0.1]">
+                    <span className="pr-2.5 pl-1 py-1.5 text-xs font-medium text-text-secondary-light dark:text-slate-300 bg-gray-50 dark:bg-white/[0.03] border-l border-gray-200 dark:border-white/[0.1]">
                       /{maxScore}
                     </span>
                   </div>

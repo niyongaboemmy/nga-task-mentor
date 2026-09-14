@@ -52,7 +52,13 @@ export default function Tooltip({ label, children, side = "top", disabled }: Too
       let left = anchorRect.left + anchorRect.width / 2 - bubbleWidth / 2;
       left = Math.max(VIEWPORT_MARGIN, Math.min(left, window.innerWidth - bubbleWidth - VIEWPORT_MARGIN));
 
-      const top = placement === "top" ? anchorRect.top - GAP : anchorRect.bottom + GAP;
+      // Pixel-exact top (not a CSS `transform: translateY(-100%)`) — a raw
+      // transform string here would fight framer-motion, which manages
+      // `transform` itself for the `scale` animation below and silently
+      // drops anything set directly via `style`. That was the actual bug:
+      // the "flip up" offset never applied, so the tooltip rendered
+      // downward from the anchor and covered the button it was labeling.
+      const top = placement === "top" ? anchorRect.top - GAP - bubbleHeight : anchorRect.bottom + GAP;
       setPos({ top, left, placement });
     };
 
@@ -107,7 +113,6 @@ export default function Tooltip({ label, children, side = "top", disabled }: Too
                 position: "fixed",
                 top: pos?.top ?? -9999,
                 left: pos?.left ?? -9999,
-                transform: pos?.placement === "top" ? "translateY(-100%)" : undefined,
               }}
               className="pointer-events-none z-[9999] whitespace-nowrap px-2 py-1 rounded-lg text-[11px] font-medium bg-gray-900 text-white shadow-lg shadow-black/30 border border-white/10"
             >

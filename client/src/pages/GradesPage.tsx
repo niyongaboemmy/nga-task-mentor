@@ -13,10 +13,13 @@ import {
   ClipboardList,
   AlertCircle,
   ChevronDown,
+  ChevronRight,
   ChevronsDown,
   ChevronsUp,
   ClipboardCheck,
   ArrowRight,
+  CheckCircle2,
+  X,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { CourseApiService } from "../services/courseApi";
@@ -73,53 +76,132 @@ const KIND_LABEL: Record<AssessmentKind, string> = {
 };
 
 // ─── Stat card ────────────────────────────────────────────────────────────────
+// "tone" carries the meaning a bare number can't: blue/neutral for "on
+// track", orange for "needs attention" (a small pulsing dot doubles down on
+// that). A card with an `onClick` becomes a real filter toggle for the list
+// below (see "Subjects Missing Assessments"), not just a static readout —
+// `active` rings it while that filter is applied.
 
 function StatCard({
   icon,
+  iconBg,
   label,
   value,
-  sub,
-  iconBg,
+  total,
+  tone = "neutral",
+  hint,
+  onClick,
+  active = false,
 }: {
   icon: React.ReactNode;
-  label: string;
-  value: string | number;
-  sub?: string;
   iconBg: string;
+  label: string;
+  value: number;
+  total?: number;
+  tone?: "good" | "warning" | "neutral";
+  hint: string;
+  onClick?: () => void;
+  active?: boolean;
 }) {
+  const pct = typeof total === "number" && total > 0 ? Math.round((value / total) * 100) : null;
+  const toneText = {
+    good: "text-blue-600 dark:text-blue-400",
+    warning: "text-orange-600 dark:text-orange-400",
+    neutral: "text-text-primary-light dark:text-text-primary-dark",
+  }[tone];
+  const toneBar = {
+    good: "bg-blue-600",
+    warning: "bg-orange-500",
+    neutral: "bg-gray-400 dark:bg-gray-500",
+  }[tone];
+
   return (
-    <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 p-6 flex flex-col gap-4">
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${iconBg}`}>
-        {icon}
-      </div>
-      <div>
-        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">{label}</p>
-        <p className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mt-1">
-          {value}
-          {sub && <span className="text-sm font-normal text-text-secondary-light dark:text-text-secondary-dark/60 ml-1">{sub}</span>}
-        </p>
-      </div>
-    </div>
+    <Tooltip label={hint}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={!onClick}
+        className={`w-full text-left bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border p-5 flex flex-col gap-3 transition-all disabled:cursor-default ${
+          onClick ? "cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98]" : ""
+        } ${active ? "border-blue-500 dark:border-blue-500 ring-2 ring-blue-500/30" : "border-white dark:border-border-dark/30"}`}
+      >
+        <div className="flex items-center justify-between">
+          <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${iconBg}`}>{icon}</div>
+          {tone === "warning" && value > 0 && (
+            <span className="relative flex w-2.5 h-2.5">
+              <span className="absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75 animate-ping" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-orange-500" />
+            </span>
+          )}
+          {active && (
+            <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-blue-600 text-white">Filtered</span>
+          )}
+        </div>
+        <div>
+          <p className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wide">
+            {label}
+          </p>
+          <p className={`text-2xl font-bold mt-1 ${toneText}`}>
+            {value}
+            {typeof total === "number" && (
+              <span className="text-sm font-normal text-text-secondary-light dark:text-text-secondary-dark/50"> / {total}</span>
+            )}
+          </p>
+        </div>
+        {pct !== null && (
+          <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-white/[0.06] overflow-hidden">
+            <div className={`h-full rounded-full transition-all ${toneBar}`} style={{ width: `${pct}%` }} />
+          </div>
+        )}
+      </button>
+    </Tooltip>
   );
 }
 
-// ─── Recorded results chip ────────────────────────────────────────────────────
+// ─── Recorded results button ──────────────────────────────────────────────────
+// This is the one thing a teacher actually clicks per assessment, so it has
+// to look clickable, not like plain data. Quizzes/assignments are graded on
+// their own pages (view-only here); manual assessments are entered right on
+// this page's marks screen, so an empty one reads as an outstanding task
+// ("Record scores", solid blue) rather than a passive stat.
 
-function RecordedChip({
+function RecordedResultsButton({
+  kind,
   recorded,
   total,
   onClick,
 }: {
+  kind: AssessmentKind;
   recorded: number;
-  total: number;
+  total?: number;
   onClick: () => void;
 }) {
+  const hasTotal = typeof total === "number" && total > 0;
+  const complete = hasTotal && recorded >= total;
+  const started = recorded > 0;
+  const isManual = kind === "manual";
+
+  const label = complete ? "Completed" : isManual ? (started ? "Continue entry" : "Record scores") : "View results";
+  const Icon = complete ? CheckCircle2 : isManual ? Pencil : Eye;
+
+  const toneClasses = complete
+    ? "bg-blue-50 dark:bg-blue-900/25 border-blue-200 dark:border-blue-800/40 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40"
+    : started
+      ? "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800/40 text-orange-700 dark:text-orange-300 hover:bg-orange-100 dark:hover:bg-orange-900/35"
+      : isManual
+        ? "bg-blue-600 border-blue-600 text-white hover:bg-blue-700 shadow-sm shadow-blue-900/20"
+        : "bg-gray-100 dark:bg-white/[0.06] border-gray-200 dark:border-white/[0.1] text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-white/[0.12]";
+
   return (
     <button
       onClick={onClick}
-      className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 font-medium text-sm transition-colors"
+      title={label}
+      className={`group inline-flex items-center gap-1.5 pl-2 pr-2.5 py-1.5 rounded-full border text-xs font-semibold transition-all active:scale-95 ${toneClasses}`}
     >
-      {recorded} / {total}
+      <Icon className="w-3.5 h-3.5 flex-shrink-0" />
+      <span>{hasTotal ? `${recorded}/${total}` : recorded}</span>
+      <span className="hidden lg:inline font-medium opacity-90">{label}</span>
+      <ChevronRight className="w-3 h-3 opacity-60 group-hover:translate-x-0.5 transition-transform flex-shrink-0" />
     </button>
   );
 }
@@ -177,6 +259,9 @@ export default function GradesPage() {
   // ── Grouping / search state ──────────────────────────────────────────────
   const [search, setSearch]             = useState("");
   const [expanded, setExpanded]         = useState<Set<number>>(new Set());
+  // Toggled from the "Subjects Missing Assessments" KPI card — turns a
+  // static number into a real filter on the list below.
+  const [showOnlyMissing, setShowOnlyMissing] = useState(false);
 
   // ── Modal state ───────────────────────────────────────────────────────────
   const [modalOpen, setModalOpen]     = useState(false);
@@ -442,11 +527,12 @@ export default function GradesPage() {
     [term, academicYear, mappings],
   );
 
-  // ── Search: filters subjects/assessments, auto-expands matches ───────────
+  // ── Search + "missing only" filter: auto-expands matches ─────────────────
   const q = search.trim().toLowerCase();
   const filteredGroups = useMemo(() => {
-    if (!q) return subjectGroups;
-    return subjectGroups
+    const base = showOnlyMissing ? subjectGroups.filter((g) => g.rows.length === 0) : subjectGroups;
+    if (!q) return base;
+    return base
       .map((g) => {
         const subjectMatches = (g.course?.title ?? "").toLowerCase().includes(q);
         const matchingRows = subjectMatches
@@ -457,7 +543,7 @@ export default function GradesPage() {
         return { ...g, rows: matchingRows, matched: subjectMatches || matchingRows.length > 0 };
       })
       .filter((g) => g.matched);
-  }, [subjectGroups, q]);
+  }, [subjectGroups, q, showOnlyMissing]);
 
   const totalFilteredAssessments = useMemo(
     () => filteredGroups.reduce((sum, g) => sum + g.rows.length, 0),
@@ -541,29 +627,51 @@ export default function GradesPage() {
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          icon={<ClipboardList className="w-6 h-6 text-blue-600 dark:text-blue-400" />}
+          icon={<ClipboardList className="w-5 h-5 text-blue-600 dark:text-blue-400" />}
           iconBg="bg-blue-100 dark:bg-blue-900/20"
-          label="Assessments tracking"
+          label="Subjects tracked"
           value={stats.assessmentsTracking}
-          sub="/ subject"
+          total={stats.totalSubjects}
+          tone={
+            stats.totalSubjects > 0 && stats.assessmentsTracking === stats.totalSubjects
+              ? "good"
+              : stats.assessmentsTracking > 0
+                ? "neutral"
+                : "warning"
+          }
+          hint="Subjects that already have at least one assessment recorded this term."
         />
         <StatCard
-          icon={<School className="w-6 h-6 text-gray-600 dark:text-gray-400" />}
-          iconBg="bg-gray-200 dark:bg-gray-800/60"
-          label="Classes without assessments"
-          value={stats.classesWithoutAssessments}
-        />
-        <StatCard
-          icon={<Users className="w-6 h-6 text-orange-600 dark:text-orange-400" />}
+          icon={<School className="w-5 h-5 text-orange-600 dark:text-orange-400" />}
           iconBg="bg-orange-100 dark:bg-orange-900/20"
-          label="Subjects without assessments"
-          value={stats.subjectsWithoutAssessments}
+          label="Classes missing assessments"
+          value={stats.classesWithoutAssessments}
+          tone={stats.classesWithoutAssessments > 0 ? "warning" : "good"}
+          hint="Class groups where none of their subjects have an assessment yet."
         />
         <StatCard
-          icon={<BookOpen className="w-6 h-6 text-blue-800 dark:text-blue-300" />}
+          icon={<Users className="w-5 h-5 text-orange-600 dark:text-orange-400" />}
+          iconBg="bg-orange-100 dark:bg-orange-900/20"
+          label="Subjects missing assessments"
+          value={stats.subjectsWithoutAssessments}
+          tone={stats.subjectsWithoutAssessments > 0 ? "warning" : "good"}
+          hint={
+            stats.subjectsWithoutAssessments === 0
+              ? "Every subject already has at least one assessment."
+              : showOnlyMissing
+                ? "Click to show every subject again."
+                : "Click to filter the list below to only these subjects."
+          }
+          onClick={stats.subjectsWithoutAssessments > 0 ? () => setShowOnlyMissing((v) => !v) : undefined}
+          active={showOnlyMissing}
+        />
+        <StatCard
+          icon={<BookOpen className="w-5 h-5 text-blue-800 dark:text-blue-300" />}
           iconBg="bg-blue-100 dark:bg-blue-950/40"
-          label="Total given assessments"
+          label="Total assessments given"
           value={stats.totalAssessments}
+          tone="neutral"
+          hint="Every quiz, assignment, and manual entry created this term across all subjects."
         />
       </div>
 
@@ -599,6 +707,15 @@ export default function GradesPage() {
               <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
                 {totalFilteredAssessments} assessment{totalFilteredAssessments !== 1 ? "s" : ""}
               </span>
+              {showOnlyMissing && (
+                <button
+                  onClick={() => setShowOnlyMissing(false)}
+                  className="flex items-center gap-1 pl-2.5 pr-2 py-1 rounded-full text-[11px] font-medium bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border border-orange-200 dark:border-orange-800/40 hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors"
+                >
+                  Missing only
+                  <X className="w-3 h-3" />
+                </button>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <div className="relative">
@@ -648,8 +765,20 @@ export default function GradesPage() {
             <div className="flex flex-col items-center gap-3 py-20 text-center">
               <AlertCircle className="w-10 h-10 text-text-secondary-light dark:text-text-secondary-dark/40" />
               <p className="text-text-secondary-light dark:text-text-secondary-dark/70 text-sm">
-                {search ? "No subjects or assessments match your search." : "No subjects found."}
+                {search
+                  ? "No subjects or assessments match your search."
+                  : showOnlyMissing
+                    ? "Every subject now has at least one assessment."
+                    : "No subjects found."}
               </p>
+              {showOnlyMissing && (
+                <button
+                  onClick={() => setShowOnlyMissing(false)}
+                  className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:underline"
+                >
+                  Show all subjects
+                </button>
+              )}
             </div>
           ) : (
             <div className="space-y-3">
@@ -777,11 +906,12 @@ export default function GradesPage() {
                                       </td>
                                       <td className="px-5 py-3 text-sm text-text-secondary-light dark:text-text-secondary-dark">{a.maxScore ?? "—"}</td>
                                       <td className="px-5 py-3 text-sm">
-                                        {typeof enrolled === "number" ? (
-                                          <RecordedChip recorded={recorded} total={enrolled} onClick={() => goToDetail(a)} />
-                                        ) : (
-                                          <span className="text-text-secondary-light dark:text-text-secondary-dark/50 text-sm">—</span>
-                                        )}
+                                        <RecordedResultsButton
+                                          kind={a.kind}
+                                          recorded={recorded}
+                                          total={enrolled}
+                                          onClick={() => goToDetail(a)}
+                                        />
                                       </td>
                                       <td className="px-5 py-3">
                                         <AssessmentMappingControl
@@ -791,40 +921,34 @@ export default function GradesPage() {
                                         />
                                       </td>
                                       <td className="px-5 py-3">
-                                        <div className="flex items-center gap-2">
-                                          {a.kind === "manual" ? (
-                                            <>
-                                              <Tooltip label="Edit assessment">
-                                                <button
-                                                  onClick={() => openEditModal(a.manual!)}
-                                                  aria-label="Edit assessment"
-                                                  className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
-                                                >
-                                                  <Pencil className="w-4 h-4" />
-                                                </button>
-                                              </Tooltip>
-                                              <Tooltip label="Delete assessment">
-                                                <button
-                                                  onClick={() => setPendingDelete(a.manual!)}
-                                                  aria-label="Delete assessment"
-                                                  className="p-1.5 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
-                                                >
-                                                  <Trash2 className="w-4 h-4" />
-                                                </button>
-                                              </Tooltip>
-                                            </>
-                                          ) : (
-                                            <Tooltip label="View results">
+                                        {/* Viewing/recording results now lives on the Recorded
+                                            Results button itself — this column is only for
+                                            manual assessments' edit/delete, so it's not a
+                                            second, redundant place to click for the rest. */}
+                                        {a.kind === "manual" ? (
+                                          <div className="flex items-center gap-2">
+                                            <Tooltip label="Edit assessment">
                                               <button
-                                                onClick={() => goToDetail(a)}
-                                                aria-label="View results"
+                                                onClick={() => openEditModal(a.manual!)}
+                                                aria-label="Edit assessment"
                                                 className="p-1.5 rounded-lg hover:bg-surface-light dark:hover:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-text-primary-light dark:hover:text-text-primary-dark transition-colors"
                                               >
-                                                <Eye className="w-4 h-4" />
+                                                <Pencil className="w-4 h-4" />
                                               </button>
                                             </Tooltip>
-                                          )}
-                                        </div>
+                                            <Tooltip label="Delete assessment">
+                                              <button
+                                                onClick={() => setPendingDelete(a.manual!)}
+                                                aria-label="Delete assessment"
+                                                className="p-1.5 rounded-lg hover:bg-orange-50 dark:hover:bg-orange-900/20 text-text-secondary-light dark:text-text-secondary-dark/60 hover:text-orange-600 dark:hover:text-orange-400 transition-colors"
+                                              >
+                                                <Trash2 className="w-4 h-4" />
+                                              </button>
+                                            </Tooltip>
+                                          </div>
+                                        ) : (
+                                          <span className="text-text-secondary-light dark:text-text-secondary-dark/30 text-sm">—</span>
+                                        )}
                                       </td>
                                     </tr>
                                   );

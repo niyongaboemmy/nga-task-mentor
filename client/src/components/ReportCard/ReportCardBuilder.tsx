@@ -117,102 +117,111 @@ function DraggableCard({
   const style = { transform: CSS.Translate.toString(transform) };
   const isManual = item.assessment_type === "manual";
 
+  // Two-row card, not one cramped line: the title gets its own full-width
+  // row (it's the thing a teacher actually scans for), and the toolbar row
+  // below has room for both the category picker and the action icons
+  // without anything getting cut off in a narrow column.
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`relative flex items-center gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium select-none transition-all duration-150 group ${
+      className={`relative flex flex-col gap-2 px-3 py-2.5 rounded-xl border text-sm font-medium select-none transition-all duration-150 group ${
         isOverlay
           ? "bg-white text-slate-900 border-orange-400 shadow-2xl shadow-orange-500/40 scale-105 rotate-1"
           : isDragging
             ? "opacity-20 bg-black/[0.02] dark:bg-white/[0.04] border-gray-200 dark:border-white/[0.06]"
             : readOnly
               ? "bg-gray-50 dark:bg-white/[0.04] border-gray-200 dark:border-white/[0.07] cursor-default"
-              : "bg-gray-50 dark:bg-white/[0.06] border-gray-200 dark:border-white/[0.1] hover:bg-gray-100 dark:hover:bg-white/[0.1] hover:border-gray-300 dark:hover:border-white/[0.18] hover:shadow-md hover:shadow-black/5 dark:hover:shadow-black/30 cursor-grab active:cursor-grabbing"
+              : "bg-gray-50 dark:bg-white/[0.06] border-gray-200 dark:border-white/[0.1] hover:bg-gray-100 dark:hover:bg-white/[0.1] hover:border-gray-300 dark:hover:border-white/[0.18] hover:shadow-md hover:shadow-black/5 dark:hover:shadow-black/30"
       }`}
-      {...attributes}
-      {...listeners}
     >
-      {!readOnly && (
-        <GripVertical className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-slate-400" : "text-gray-400 dark:text-slate-500"}`} />
-      )}
+      {/* Row 1: drag handle + type icon + title (full width) + type badge */}
+      <div
+        className={`flex items-center gap-2 ${!readOnly ? "cursor-grab active:cursor-grabbing" : ""}`}
+        {...attributes}
+        {...listeners}
+      >
+        {!readOnly && (
+          <GripVertical className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-slate-400" : "text-gray-400 dark:text-slate-500"}`} />
+        )}
 
-      {isManual ? (
-        <PencilRuler className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-orange-600" : "text-orange-600 dark:text-orange-400"}`} />
-      ) : item.assessment_type === "quiz" ? (
-        <BookOpen className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-blue-600" : "text-blue-600 dark:text-blue-400"}`} />
-      ) : (
-        <ClipboardList className={`w-3.5 h-3.5 flex-shrink-0 ${isOverlay ? "text-slate-600" : "text-gray-500 dark:text-slate-400"}`} />
-      )}
+        {isManual ? (
+          <PencilRuler className={`w-4 h-4 flex-shrink-0 ${isOverlay ? "text-orange-600" : "text-orange-600 dark:text-orange-400"}`} />
+        ) : item.assessment_type === "quiz" ? (
+          <BookOpen className={`w-4 h-4 flex-shrink-0 ${isOverlay ? "text-blue-600" : "text-blue-600 dark:text-blue-400"}`} />
+        ) : (
+          <ClipboardList className={`w-4 h-4 flex-shrink-0 ${isOverlay ? "text-slate-600" : "text-gray-500 dark:text-slate-400"}`} />
+        )}
 
-      <span className={`truncate flex-1 text-xs font-medium ${isOverlay ? "text-slate-800" : "text-gray-700 dark:text-slate-200"}`}>
-        {item.title}
-      </span>
-
-      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${
-        isManual
-          ? "bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300"
-          : item.assessment_type === "quiz"
-            ? "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300"
-            : "bg-gray-200 dark:bg-slate-900/60 text-gray-700 dark:text-slate-300"
-      }`}>
-        {isManual ? "Manual" : item.assessment_type === "quiz" ? "Quiz" : "Assign"}
-      </span>
-
-      {/* Action buttons for manual assessments — visible (not hover-only) so
-          they're discoverable on touch devices too; opacity still steps up
-          on hover/focus for a bit of polish. Icons inherit color from the
-          button (currentColor) so hover/theme only need one class to change. */}
-      {isManual && !readOnly && !isOverlay && (
-        <div
-          className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity"
-          onPointerDown={(e) => e.stopPropagation()}
+        <span
+          className={`flex-1 min-w-0 truncate text-sm font-semibold ${isOverlay ? "text-slate-900" : "text-gray-900 dark:text-white"}`}
+          title={item.title}
         >
-          {onEnterScores && (
-            <Tooltip label="Enter student scores">
-              <button
-                onClick={(e) => { e.stopPropagation(); onEnterScores(item); }}
-                aria-label="Enter student scores"
-                className="w-6 h-6 rounded-md bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white hover:bg-orange-600 hover:text-white flex items-center justify-center transition-all duration-150"
-              >
-                <ListChecks className="w-3.5 h-3.5" />
-              </button>
-            </Tooltip>
-          )}
-          {onEdit && (
-            <Tooltip label="Edit assessment">
-              <button
-                onClick={(e) => { e.stopPropagation(); onEdit(item); }}
-                aria-label="Edit assessment"
-                className="w-6 h-6 rounded-md bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white hover:bg-blue-600 hover:text-white flex items-center justify-center transition-all duration-150"
-              >
-                <Pencil className="w-3.5 h-3.5" />
-              </button>
-            </Tooltip>
-          )}
-          {onDelete && (
-            <Tooltip label="Delete assessment">
-              <button
-                onClick={(e) => { e.stopPropagation(); onDelete(item); }}
-                aria-label="Delete assessment"
-                className="w-6 h-6 rounded-md bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white hover:bg-orange-600 hover:text-white flex items-center justify-center transition-all duration-150"
-              >
-                <Trash2 className="w-3.5 h-3.5" />
-              </button>
-            </Tooltip>
-          )}
-        </div>
-      )}
+          {item.title}
+        </span>
 
-      {/* Category picker — a real <select>, so it's unmistakably a dropdown
-          and immune to the list's overflow clipping (see note above). */}
-      {!readOnly && !isOverlay && onAssign && (
-        <div onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
-          <AssessmentMappingControl
-            category={null}
-            onChange={(cat) => cat && onAssign(item, cat)}
-            className="flex-shrink-0"
-          />
+        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold flex-shrink-0 ${
+          isManual
+            ? "bg-orange-100 dark:bg-orange-900/60 text-orange-700 dark:text-orange-300"
+            : item.assessment_type === "quiz"
+              ? "bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300"
+              : "bg-gray-200 dark:bg-slate-900/60 text-gray-700 dark:text-slate-300"
+        }`}>
+          {isManual ? "Manual" : item.assessment_type === "quiz" ? "Quiz" : "Assign"}
+        </span>
+      </div>
+
+      {/* Row 2: toolbar — category picker (left) + actions (right) */}
+      {!isOverlay && (
+        <div className="flex items-center justify-between gap-2">
+          {!readOnly && onAssign ? (
+            <div onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+              <AssessmentMappingControl category={null} onChange={(cat) => cat && onAssign(item, cat)} />
+            </div>
+          ) : (
+            <span />
+          )}
+
+          {isManual && !readOnly && (
+            <div
+              className="flex items-center gap-1 opacity-80 group-hover:opacity-100 transition-opacity"
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {onEnterScores && (
+                <Tooltip label="Enter student scores">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEnterScores(item); }}
+                    aria-label="Enter student scores"
+                    className="w-7 h-7 rounded-md bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white hover:bg-orange-600 hover:text-white flex items-center justify-center transition-all duration-150"
+                  >
+                    <ListChecks className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
+              )}
+              {onEdit && (
+                <Tooltip label="Edit assessment">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEdit(item); }}
+                    aria-label="Edit assessment"
+                    className="w-7 h-7 rounded-md bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white hover:bg-blue-600 hover:text-white flex items-center justify-center transition-all duration-150"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
+              )}
+              {onDelete && (
+                <Tooltip label="Delete assessment">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(item); }}
+                    aria-label="Delete assessment"
+                    className="w-7 h-7 rounded-md bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white hover:bg-orange-600 hover:text-white flex items-center justify-center transition-all duration-150"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </Tooltip>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -704,7 +713,7 @@ export default function ReportCardBuilder({
           )}
 
           {/* ── Main two-panel layout ── */}
-          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-5">
+          <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5">
             {/* Left panel – available assessments */}
             <div className="bg-white dark:bg-[#0A1020] border border-gray-200 dark:border-white/[0.07] rounded-2xl overflow-hidden flex flex-col">
               <div className="px-4 py-3 border-b border-gray-100 dark:border-white/[0.06] flex items-center justify-between flex-shrink-0">
