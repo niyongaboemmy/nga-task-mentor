@@ -1,4 +1,4 @@
-import { Loader2 } from "lucide-react";
+import { Loader2, ChevronDown } from "lucide-react";
 import type { AssessmentCategory } from "../../services/reportCardApi";
 import { CATEGORIES, CATEGORY_ORDER } from "./categoryMeta";
 
@@ -32,13 +32,13 @@ export default function AssessmentMappingControl({
   const meta = category ? CATEGORIES[category] : null;
 
   return (
-    <div className={`relative inline-flex items-center ${className}`}>
+    <div className={`group relative inline-flex items-center ${className}`}>
       <select
         value={category ?? ""}
         disabled={disabled || saving}
         onChange={(e) => onChange((e.target.value || null) as AssessmentCategory | null)}
         aria-label="Report card category"
-        className={`appearance-none pl-2.5 pr-6 py-1 rounded-full text-[11px] font-semibold border cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-colors ${
+        className={`appearance-none pl-2.5 pr-6 py-1 rounded-full text-[11px] font-semibold border cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 hover:brightness-95 dark:hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all ${
           meta
             ? `${meta.badge} border-transparent`
             : "bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark/70 border-border-light dark:border-border-dark/40"
@@ -53,8 +53,16 @@ export default function AssessmentMappingControl({
           </option>
         ))}
       </select>
-      {saving && (
+      {/* appearance-none strips the browser's own arrow, so this is the only
+          visual cue this is a dropdown — always visible, not hover-only. */}
+      {saving ? (
         <Loader2 className="w-3 h-3 animate-spin absolute right-1.5 pointer-events-none text-current opacity-80" />
+      ) : (
+        <ChevronDown
+          className={`w-3 h-3 absolute right-1.5 pointer-events-none transition-colors ${
+            meta ? "text-current opacity-80" : "text-gray-400 dark:text-gray-500 group-hover:text-text-secondary-light dark:group-hover:text-text-secondary-dark"
+          }`}
+        />
       )}
     </div>
   );

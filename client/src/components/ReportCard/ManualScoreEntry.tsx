@@ -10,6 +10,9 @@ import {
   Zap,
   Eraser,
   Save,
+  TrendingUp,
+  Trophy,
+  Clock,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import {
@@ -39,6 +42,34 @@ function SkeletonRow() {
         <div className="h-2.5 w-16 rounded bg-gray-200 dark:bg-white/[0.06]" />
       </div>
       <div className="w-20 h-8 rounded-lg bg-gray-200 dark:bg-white/[0.08] flex-shrink-0" />
+    </div>
+  );
+}
+
+// Compact number summary chip for the header KPI row — deliberately tiny
+// (icon + short label + value) so four of them fit on one line without
+// pushing the header's height up.
+function KpiChip({
+  icon,
+  label,
+  value,
+  tone = "neutral",
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone?: "blue" | "orange" | "neutral";
+}) {
+  const toneClasses = {
+    blue: "bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 border-blue-200 dark:border-blue-800/40",
+    orange: "bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-800/40",
+    neutral: "bg-gray-50 dark:bg-white/[0.04] text-text-secondary-light dark:text-slate-300 border-gray-200 dark:border-white/[0.08]",
+  }[tone];
+  return (
+    <div className={`flex items-center gap-1 pl-1.5 pr-2 py-1 rounded-lg border text-[10.5px] leading-none ${toneClasses}`}>
+      {icon}
+      <span className="opacity-70 font-medium">{label}</span>
+      <span className="font-bold">{value}</span>
     </div>
   );
 }
@@ -78,6 +109,13 @@ export default function ManualScoreEntry({
   const [search, setSearch] = useState("");
   const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
 
+  // Brief highlight on whichever input just got clamped to the max, so the
+  // clamp reads as a deliberate "capped it for you" instead of a silent
+  // rewrite of what the teacher typed.
+  const [clampFlashId, setClampFlashId] = useState<number | null>(null);
+  const clampTimeoutRef = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(clampTimeoutRef.current), []);
+
   useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -99,8 +137,30 @@ export default function ManualScoreEntry({
     return () => { cancelled = true; };
   }, [assessment.id]);
 
+  const maxScore = parseFloat(String(assessment.max_score));
+
+  // Clamps to [0, maxScore] as the teacher types, instead of just flagging
+  // out-of-range values after the fact — a score can never actually exceed
+  // the max, it gets capped in place with a brief highlight on that input.
+  const handleScoreChange = useCallback(
+    (studentId: number, raw: string) => {
+      if (raw !== "") {
+        const num = parseFloat(raw);
+        if (!isNaN(num) && num > maxScore) {
+          raw = String(maxScore);
+          setClampFlashId(studentId);
+          window.clearTimeout(clampTimeoutRef.current);
+          clampTimeoutRef.current = window.setTimeout(() => setClampFlashId(null), 900);
+        } else if (!isNaN(num) && num < 0) {
+          raw = "0";
+        }
+      }
+      setScores((prev) => ({ ...prev, [studentId]: raw }));
+    },
+    [maxScore],
+  );
+
   const handleSave = async () => {
-    const maxScore = parseFloat(String(assessment.max_score));
     const entries: Array<{ student_id: number; score: number }> = [];
     const errors: string[] = [];
 
@@ -142,7 +202,19 @@ export default function ManualScoreEntry({
   };
 
   const filledCount = Object.values(scores).filter((v) => v !== "" && v !== undefined).length;
-  const maxScore = parseFloat(String(assessment.max_score));
+
+  // Header KPI numbers — derived from whatever's currently in `scores`,
+  // recomputed as the teacher types.
+  const kpis = useMemo(() => {
+    const validScores = Object.values(scores)
+      .filter((v): v is string => v !== undefined && v !== "")
+      .map((v) => parseFloat(v))
+      .filter((v) => !isNaN(v));
+    const avg = validScores.length > 0 ? validScores.reduce((a, b) => a + b, 0) / validScores.length : null;
+    const highest = validScores.length > 0 ? Math.max(...validScores) : null;
+    const remaining = students.length - filledCount;
+    return { avg, highest, remaining };
+  }, [scores, students.length, filledCount]);
 
   const filteredStudents = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -205,8 +277,10 @@ export default function ManualScoreEntry({
 
   return (
     <div className={`flex flex-col ${isPage ? "" : "h-full min-h-0"}`}>
-      {/* Header */}
-      <div className={`px-5 pt-5 pb-4 border-b border-border-light dark:border-white/[0.06] flex-shrink-0 space-y-3 ${isPage ? "rounded-t-2xl bg-white dark:bg-[#0A1020]" : ""}`}>
+      {/* Header — compact: title/max on one line, KPI chips, a hairline
+          progress bar. Deliberately tight (px-4/py-2.5) so this stays out
+          of the way of the actual score list below. */}
+      <div className={`px-4 pt-3 pb-2.5 border-b border-border-light dark:border-white/[0.06] flex-shrink-0 space-y-2 ${isPage ? "rounded-t-2xl bg-white dark:bg-[#0A1020]" : ""}`}>
         {onBack && (
           <button
             onClick={onBack}
@@ -216,23 +290,25 @@ export default function ManualScoreEntry({
             Back
           </button>
         )}
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-bold text-text-primary-light dark:text-white">{assessment.title}</h2>
-            <p className="text-xs text-text-secondary-light dark:text-slate-400 mt-0.5">
-              Max score: <span className="text-text-primary-light dark:text-slate-300 font-semibold">{assessment.max_score}</span>
-              {" · "}
-              <span className="text-blue-600 dark:text-blue-400 font-semibold">{filledCount}</span> of {students.length} filled
-            </p>
-          </div>
-          <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full bg-orange-50 dark:bg-orange-900/40 border border-orange-200 dark:border-orange-700/40 text-orange-700 dark:text-orange-300 flex-shrink-0">
+
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-bold text-text-primary-light dark:text-white truncate">{assessment.title}</h2>
+          <span className="flex items-center gap-1 text-[11px] text-text-secondary-light dark:text-slate-400 flex-shrink-0">
             <Users className="w-3 h-3" />
             {students.length}
-          </div>
+          </span>
+        </div>
+
+        {/* KPI chips */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <KpiChip icon={<CheckCircle2 className="w-3 h-3" />} label="Filled" value={`${filledCount}/${students.length}`} tone="blue" />
+          <KpiChip icon={<TrendingUp className="w-3 h-3" />} label="Avg" value={kpis.avg != null ? kpis.avg.toFixed(1) : "—"} />
+          <KpiChip icon={<Trophy className="w-3 h-3" />} label="High" value={kpis.highest != null ? String(kpis.highest) : "—"} />
+          <KpiChip icon={<Clock className="w-3 h-3" />} label="Left" value={String(kpis.remaining)} tone={kpis.remaining > 0 ? "orange" : "blue"} />
         </div>
 
         {/* Progress bar */}
-        <div className="w-full h-1.5 rounded-full bg-gray-100 dark:bg-white/[0.06] overflow-hidden">
+        <div className="w-full h-1 rounded-full bg-gray-100 dark:bg-white/[0.06] overflow-hidden">
           <motion.div
             className="h-full bg-blue-500 rounded-full"
             initial={{ width: 0 }}
@@ -335,35 +411,51 @@ export default function ManualScoreEntry({
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
-                  <input
-                    ref={(el) => { inputRefs.current[student.student_id] = el; }}
-                    type="number"
-                    value={val}
-                    onChange={(e) =>
-                      setScores((prev) => ({ ...prev, [student.student_id]: e.target.value }))
-                    }
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        focusNext(student.student_id);
-                      }
-                    }}
-                    min={0}
-                    max={maxScore}
-                    step="any"
-                    placeholder="0"
-                    aria-label={`Score for ${student.name}`}
-                    className={`w-20 px-3 py-1.5 rounded-lg text-sm text-right font-mono bg-white dark:bg-white/[0.06] border-2 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500/40 hover:border-gray-300 dark:hover:border-white/[0.2] ${
-                      !isValid
-                        ? "border-orange-400 dark:border-orange-500/50 focus:ring-orange-500/40 text-orange-700 dark:text-orange-400"
-                        : val !== ""
-                          ? "border-blue-400 dark:border-blue-600/50 text-blue-700 dark:text-blue-300"
-                          : "border-gray-200 dark:border-white/[0.14] text-text-primary-light dark:text-slate-200"
+                  <div
+                    className={`flex items-center rounded-xl border-2 overflow-hidden transition-all focus-within:ring-2 focus-within:ring-blue-500/40 ${
+                      clampFlashId === student.student_id
+                        ? "border-orange-400 dark:border-orange-500/60 ring-2 ring-orange-500/30"
+                        : !isValid
+                          ? "border-orange-400 dark:border-orange-500/50"
+                          : val !== ""
+                            ? "border-blue-400 dark:border-blue-600/50"
+                            : "border-gray-200 dark:border-white/[0.14] hover:border-gray-300 dark:hover:border-white/[0.22]"
                     }`}
-                  />
-                  <span className="text-xs text-text-secondary-light dark:text-slate-400 w-10 text-right">/ {maxScore}</span>
+                  >
+                    <input
+                      ref={(el) => { inputRefs.current[student.student_id] = el; }}
+                      type="number"
+                      inputMode="decimal"
+                      value={val}
+                      onChange={(e) => handleScoreChange(student.student_id, e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          focusNext(student.student_id);
+                        }
+                      }}
+                      min={0}
+                      max={maxScore}
+                      step="any"
+                      placeholder="0"
+                      aria-label={`Score for ${student.name}, out of ${maxScore}`}
+                      className={`w-14 pl-3 pr-1.5 py-1.5 text-sm text-right font-mono bg-white dark:bg-white/[0.06] focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                        !isValid
+                          ? "text-orange-700 dark:text-orange-400"
+                          : val !== ""
+                            ? "text-blue-700 dark:text-blue-300"
+                            : "text-text-primary-light dark:text-slate-200"
+                      }`}
+                    />
+                    <span className="pr-2.5 pl-1 py-1.5 text-xs font-medium text-text-secondary-light dark:text-slate-500 bg-gray-50 dark:bg-white/[0.03] border-l border-gray-200 dark:border-white/[0.1]">
+                      /{maxScore}
+                    </span>
+                  </div>
                   {val !== "" && isValid && (
                     <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                  )}
+                  {!isValid && val !== "" && (
+                    <AlertCircle className="w-3.5 h-3.5 text-orange-500 flex-shrink-0" />
                   )}
                 </div>
               </motion.div>

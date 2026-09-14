@@ -42,6 +42,7 @@ import ManualAssessmentModal, {
 import { ManualAssessmentApiService, type ManualAssessment } from "../../services/manualAssessmentApi";
 import Tooltip from "../ui/Tooltip";
 import ConfirmDialog from "../ui/ConfirmDialog";
+import AssessmentMappingControl from "./AssessmentMappingControl";
 import { CATEGORIES, CATEGORY_ORDER } from "./categoryMeta";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -80,47 +81,14 @@ export interface ReportCardBuilderProps {
   onManualAssessmentDeleted?: (assessmentId: number) => void;
 }
 
-// ─── Quick-assign — inline reveal, not a floating popover ─────────────────────
-// A floating/absolute popover here would sit inside the "Available
-// Assessments" list, which scrolls (`overflow-y-auto`) — any popover near the
-// bottom of that list gets clipped by the list's own overflow. Expanding
-// inline instead pushes the rest of the list down in normal flow, so there is
-// nothing to clip.
-
-function QuickAssignInline({
-  onAssign,
-}: {
-  onAssign: (cat: AssessmentCategory) => void;
-}) {
-  return (
-    <motion.div
-      initial={{ height: 0, opacity: 0 }}
-      animate={{ height: "auto", opacity: 1 }}
-      exit={{ height: 0, opacity: 0 }}
-      transition={{ duration: 0.15 }}
-      className="overflow-hidden"
-    >
-      <div className="mt-1.5 p-1.5 rounded-xl bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-white/[0.08] grid grid-cols-2 gap-1.5">
-        {CATEGORY_ORDER.map((cat) => {
-          const meta = CATEGORIES[cat];
-          return (
-            <button
-              key={cat}
-              onClick={() => onAssign(cat)}
-              className="flex items-center gap-1.5 px-2.5 py-2 rounded-lg text-xs font-medium bg-white dark:bg-white/[0.03] border border-gray-200 dark:border-white/[0.06] hover:border-blue-300 dark:hover:border-blue-600/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all text-left"
-            >
-              <span className={`w-2 h-2 rounded-full flex-shrink-0 ${meta.dot}`} />
-              <span className="flex-1 text-gray-700 dark:text-slate-200 truncate">{meta.shortLabel}</span>
-              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold flex-shrink-0 ${meta.badge}`}>
-                {meta.weight}%
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </motion.div>
-  );
-}
+// Quick-assign used to be a custom floating popover / inline-reveal panel.
+// Both were absolutely-positioned inside the "Available Assessments" list,
+// which scrolls (`overflow-y-auto`) — any custom floating element there gets
+// clipped by the list's own overflow, and a bare "+" icon gave no visual hint
+// that it opened a category picker at all. A native <select> (via the shared
+// AssessmentMappingControl, also used on the Grades page) sidesteps both
+// problems for free: the browser renders its own dropdown outside any CSS
+// overflow/stacking context, and a <select> is unmistakably a dropdown.
 
 // ─── Draggable item card ──────────────────────────────────────────────────────
 
@@ -128,7 +96,7 @@ function DraggableCard({
   item,
   isOverlay = false,
   readOnly = false,
-  onToggleQuickAssign,
+  onAssign,
   onEnterScores,
   onEdit,
   onDelete,
@@ -136,7 +104,7 @@ function DraggableCard({
   item: AssessmentDragItem;
   isOverlay?: boolean;
   readOnly?: boolean;
-  onToggleQuickAssign?: (item: AssessmentDragItem) => void;
+  onAssign?: (item: AssessmentDragItem, category: AssessmentCategory) => void;
   onEnterScores?: (item: AssessmentDragItem) => void;
   onEdit?: (item: AssessmentDragItem) => void;
   onDelete?: (item: AssessmentDragItem) => void;
@@ -236,20 +204,16 @@ function DraggableCard({
         </div>
       )}
 
-      {/* Quick-assign toggle (both manual and non-manual items) */}
-      {!readOnly && !isOverlay && onToggleQuickAssign && (
-        <Tooltip label="Assign to a category">
-          <button
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => { e.stopPropagation(); onToggleQuickAssign(item); }}
-            className={`flex-shrink-0 w-6 h-6 rounded-md flex items-center justify-center opacity-80 group-hover:opacity-100 transition-all duration-150 touch-action-auto bg-black/[0.05] dark:bg-white/[0.12] text-gray-600 dark:text-white ${
-              isManual ? "hover:bg-orange-600 hover:text-white" : "hover:bg-blue-600 hover:text-white"
-            }`}
-            aria-label={`Assign ${item.title} to a category`}
-          >
-            <Plus className="w-3.5 h-3.5" />
-          </button>
-        </Tooltip>
+      {/* Category picker — a real <select>, so it's unmistakably a dropdown
+          and immune to the list's overflow clipping (see note above). */}
+      {!readOnly && !isOverlay && onAssign && (
+        <div onPointerDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+          <AssessmentMappingControl
+            category={null}
+            onChange={(cat) => cat && onAssign(item, cat)}
+            className="flex-shrink-0"
+          />
+        </div>
       )}
     </div>
   );
@@ -424,7 +388,6 @@ export default function ReportCardBuilder({
   const [activeDragItem, setActiveDragItem] = useState<AssessmentDragItem | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [subjectOpen, setSubjectOpen] = useState(false);
-  const [quickAssignId, setQuickAssignId] = useState<string | null>(null);
 
   // Manual assessment modal state
   const [modalOpen, setModalOpen] = useState(false);
@@ -539,7 +502,6 @@ export default function ReportCardBuilder({
       next[category] = [...next[category], item];
       return next;
     });
-    setQuickAssignId(null);
     toast.success(`"${item.title}" assigned to ${CATEGORIES[category].label}.`);
   }, []);
 
@@ -628,21 +590,15 @@ export default function ReportCardBuilder({
   };
 
   const renderAssessmentRow = (item: AssessmentDragItem) => (
-    <div key={item.dndId}>
-      <DraggableCard
-        item={item}
-        readOnly={readOnly}
-        onToggleQuickAssign={!readOnly ? (i) => setQuickAssignId((prev) => (prev === i.dndId ? null : i.dndId)) : undefined}
-        onEnterScores={item.assessment_type === "manual" && !readOnly ? openScoresModal : undefined}
-        onEdit={item.assessment_type === "manual" && !readOnly ? openEditModal : undefined}
-        onDelete={item.assessment_type === "manual" && !readOnly ? (i) => setPendingDelete(i) : undefined}
-      />
-      <AnimatePresence>
-        {quickAssignId === item.dndId && (
-          <QuickAssignInline onAssign={(cat) => handleQuickAssign(item, cat)} />
-        )}
-      </AnimatePresence>
-    </div>
+    <DraggableCard
+      key={item.dndId}
+      item={item}
+      readOnly={readOnly}
+      onAssign={!readOnly ? handleQuickAssign : undefined}
+      onEnterScores={item.assessment_type === "manual" && !readOnly ? openScoresModal : undefined}
+      onEdit={item.assessment_type === "manual" && !readOnly ? openEditModal : undefined}
+      onDelete={item.assessment_type === "manual" && !readOnly ? (i) => setPendingDelete(i) : undefined}
+    />
   );
 
   return (

@@ -1,4 +1,5 @@
-import { useState, useId, cloneElement, type ReactElement, type HTMLAttributes } from "react";
+import { useState, useId, useRef, useLayoutEffect, cloneElement, type ReactElement, type HTMLAttributes } from "react";
+import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 
 type TriggerProps = HTMLAttributes<HTMLElement>;
@@ -13,12 +14,56 @@ export interface TooltipProps {
   disabled?: boolean;
 }
 
-// Lightweight, dependency-free tooltip: shows on hover *and* keyboard focus
-// (so it's discoverable without a mouse too), fades in on a short delay to
-// avoid flicker while moving the pointer across a toolbar.
+const VIEWPORT_MARGIN = 8;
+const GAP = 6;
+
+// Renders through a portal to document.body with `position: fixed`, computed
+// from the trigger's live bounding box — NOT `position: absolute` inside the
+// trigger's own DOM position. A tooltip anchored the old way gets clipped by
+// any scrolling/`overflow` ancestor between it and the page (e.g. the
+// "Available Assessments" list), no matter its z-index — z-index can't win
+// against a clipping ancestor. Portaling to <body> escapes every such
+// ancestor, which is the actual, permanent fix (the same technique Radix/
+// Floating UI use), not a per-usage z-index bump.
 export default function Tooltip({ label, children, side = "top", disabled }: TooltipProps) {
   const [visible, setVisible] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; placement: "top" | "bottom" } | null>(null);
+  const anchorRef = useRef<HTMLSpanElement>(null);
+  const bubbleRef = useRef<HTMLDivElement>(null);
   const id = useId();
+
+  useLayoutEffect(() => {
+    if (!visible) return;
+
+    const place = () => {
+      const anchor = anchorRef.current;
+      if (!anchor) return;
+      const anchorRect = anchor.getBoundingClientRect();
+      const bubbleRect = bubbleRef.current?.getBoundingClientRect();
+      const bubbleWidth = bubbleRect?.width ?? 0;
+      const bubbleHeight = bubbleRect?.height ?? 24;
+
+      // Flip to the side with room, so a tooltip near the top or bottom edge
+      // of the viewport never gets cut off either.
+      let placement = side;
+      if (placement === "top" && anchorRect.top - bubbleHeight - GAP < VIEWPORT_MARGIN) placement = "bottom";
+      else if (placement === "bottom" && anchorRect.bottom + bubbleHeight + GAP > window.innerHeight - VIEWPORT_MARGIN) placement = "top";
+
+      let left = anchorRect.left + anchorRect.width / 2 - bubbleWidth / 2;
+      left = Math.max(VIEWPORT_MARGIN, Math.min(left, window.innerWidth - bubbleWidth - VIEWPORT_MARGIN));
+
+      const top = placement === "top" ? anchorRect.top - GAP : anchorRect.bottom + GAP;
+      setPos({ top, left, placement });
+    };
+
+    place();
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [visible, side]);
 
   if (disabled) return children;
 
@@ -43,25 +88,35 @@ export default function Tooltip({ label, children, side = "top", disabled }: Too
   } as Partial<TriggerProps>);
 
   return (
-    <span className="relative inline-flex">
-      {trigger}
-      <AnimatePresence>
-        {visible && (
-          <motion.span
-            id={id}
-            role="tooltip"
-            initial={{ opacity: 0, y: side === "top" ? 4 : -4, scale: 0.96 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.96 }}
-            transition={{ duration: 0.12, delay: 0.15 }}
-            className={`pointer-events-none absolute left-1/2 -translate-x-1/2 z-[999] whitespace-nowrap px-2 py-1 rounded-lg text-[11px] font-medium
-              bg-gray-900 text-white shadow-lg shadow-black/30 border border-white/10
-              ${side === "top" ? "bottom-full mb-1.5" : "top-full mt-1.5"}`}
-          >
-            {label}
-          </motion.span>
-        )}
-      </AnimatePresence>
-    </span>
+    <>
+      <span ref={anchorRef} className="inline-flex">
+        {trigger}
+      </span>
+      {createPortal(
+        <AnimatePresence>
+          {visible && (
+            <motion.div
+              ref={bubbleRef}
+              id={id}
+              role="tooltip"
+              initial={{ opacity: 0, scale: 0.96 }}
+              animate={{ opacity: pos ? 1 : 0, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.96 }}
+              transition={{ duration: 0.12, delay: 0.15 }}
+              style={{
+                position: "fixed",
+                top: pos?.top ?? -9999,
+                left: pos?.left ?? -9999,
+                transform: pos?.placement === "top" ? "translateY(-100%)" : undefined,
+              }}
+              className="pointer-events-none z-[9999] whitespace-nowrap px-2 py-1 rounded-lg text-[11px] font-medium bg-gray-900 text-white shadow-lg shadow-black/30 border border-white/10"
+            >
+              {label}
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body,
+      )}
+    </>
   );
 }
