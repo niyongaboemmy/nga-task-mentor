@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Download, Loader2, AlertTriangle, GraduationCap } from "lucide-react";
+import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
 import {
   ReportCardApiService,
@@ -83,7 +84,7 @@ export default function AnnualReportCardPreview({
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      alert("PDF download failed. Please try again.");
+      toast.error("PDF download failed. Please try again.");
     } finally {
       setDownloading(false);
     }

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { X, Download, Printer, Loader2, AlertCircle, RefreshCw, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { toast } from "react-toastify";
 import {
   ReportCardApiService,
   scoreToLetterGrade,
@@ -844,7 +845,7 @@ export default function ReportCardPreview({
       a.remove();
       URL.revokeObjectURL(url);
     } catch {
-      alert("PDF download failed. Please try again.");
+      toast.error("PDF download failed. Please try again.");
     } finally {
       setDownloading(false);
     }
