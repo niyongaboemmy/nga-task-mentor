@@ -1535,3 +1535,99 @@ export const updateTheme = async (req: Request, res: Response) => {
       .json(error.response?.data || { message: "Internal server error" });
   }
 };
+
+// ─── DEV BYPASS LOGIN ────────────────────────────────────────────────────────
+// SAFETY: This route returns 404 unless ALL of the following are true:
+//   1. NODE_ENV !== "production"
+//   2. ENABLE_DEV_LOGIN === "true"  (must be explicitly set in server/.env)
+// It NEVER exists in a production build — production .env never sets ENABLE_DEV_LOGIN.
+// ─────────────────────────────────────────────────────────────────────────────
+export const devLogin = async (req: Request, res: Response) => {
+  // Hard kill — acts as if the route doesn't exist in production
+  if (
+    process.env.NODE_ENV === "production" ||
+    process.env.ENABLE_DEV_LOGIN !== "true"
+  ) {
+    return res.status(404).end();
+  }
+
+  try {
+    const { role } = req.body as { role?: string };
+
+    const validRoles = ["admin", "instructor", "student"];
+    if (!role || !validRoles.includes(role)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid role. Must be one of: ${validRoles.join(", ")}`,
+      });
+    }
+
+    console.log(`🔧 DEV LOGIN: Attempting login as role="${role}"`);
+
+    // Find the first user in local DB that has this legacy role string
+    const localUser = await User.findOne({
+      where: { role },
+    });
+
+    if (!localUser) {
+      return res.status(404).json({
+        success: false,
+        message: `No user with role "${role}" found in the local database. Please seed your DB first.`,
+      });
+    }
+
+    // Build role/permission info
+    const effectiveRole = localUser.role_id
+      ? await Role.findByPk(localUser.role_id, { include: [Permission] })
+      : null;
+    const roleId = localUser.role_id ?? null;
+    const roleName = effectiveRole?.name ?? role;
+    const localPermissions = (effectiveRole?.permissions ?? []).map(
+      (p) => p.key,
+    );
+
+    // Sign JWT (no termId/yearId for dev)
+    const token = localUser.getSignedJwtToken();
+
+    // Set auth cookie (never secure in dev)
+    res.cookie("tm_auth_token", token, {
+      expires: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      httpOnly: true,
+      secure: false,
+      sameSite: "lax" as const,
+    });
+
+    console.log(`✅ DEV LOGIN: ${localUser.email} (role=${role})`);
+
+    // Return the exact same shape as ssoCallback so loginWithSSOData() works unchanged
+    return res.status(200).json({
+      success: true,
+      token,
+      misToken: null,
+      user: {
+        id: localUser.id,
+        first_name: localUser.first_name,
+        last_name: localUser.last_name,
+        email: localUser.email,
+        role: localUser.role,
+        roleId,
+        roleName,
+        localPermissions,
+        mis_user_id: localUser.mis_user_id,
+        profile_image: localUser.profile_image,
+        preferred_theme: null,
+      },
+      profile: null,
+      roles: roleId ? [{ id: roleId, name: roleName }] : [],
+      permissions: localPermissions,
+      assignedPrograms: [],
+      assignedGrades: [],
+      currentAcademicYear: null,
+      currentAcademicTerms: [],
+      systems: [],
+    });
+  } catch (error: any) {
+    console.error("❌ DEV LOGIN error:", error.message);
+    return res.status(500).json({ success: false, message: "Dev login error" });
+  }
+};

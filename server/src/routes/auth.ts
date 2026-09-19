@@ -17,6 +17,7 @@ import {
   switchAcademicPeriod,
   confirmDbAccess,
   verifyMisSession,
+  devLogin,
 } from "../controllers/auth.controller";
 import {
   loginSchema,
@@ -44,6 +45,8 @@ router.post("/logout", logout);
 router.get("/verify-mis", protect, verifyMisSession);
 router.post("/sso/callback", ssoCallback);
 router.get("/sso/authorize", protect, proxySsoAuthorize);
+// DEV ONLY — returns 404 in production (guarded inside devLogin controller)
+router.post("/dev-login", devLogin);
 router.patch("/theme", protect, updateTheme);
 router.post("/switch-academic-period", protect, switchAcademicPeriod);
 // Note: forgotPasswordSchema and resetPasswordSchema would also be migrated to the new middleware

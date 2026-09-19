@@ -31,6 +31,12 @@ if not exist "client\.env" (
         echo   - Created client\.env from example
     )
 )
+:: Ensure ENABLE_DEV_LOGIN is present in existing .env files
+findstr /C:"ENABLE_DEV_LOGIN" "server\.env" >nul 2>&1
+if errorlevel 1 (
+    echo ENABLE_DEV_LOGIN=true>> "server\.env"
+    echo   - Added ENABLE_DEV_LOGIN=true to server\.env
+)
 
 :: 3. Locate MySQL (PATH or XAMPP)
 echo [2/4] Checking MySQL connection...
