@@ -85,15 +85,15 @@ if "%MYSQL_CMD%"=="" (
 echo [3/4] Checking dependencies...
 if not exist "node_modules" (
     echo   - Installing root dependencies...
-    call npm install
+    call npm install --legacy-peer-deps
 )
 if not exist "server\node_modules" (
     echo   - Installing server dependencies...
-    call npm install --prefix server
+    call npm install --prefix server --legacy-peer-deps
 )
 if not exist "client\node_modules" (
     echo   - Installing client dependencies...
-    call npm install --prefix client
+    call npm install --prefix client --legacy-peer-deps
 )
 
 :: 5. Start development servers
