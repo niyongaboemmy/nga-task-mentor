@@ -101,7 +101,7 @@ echo [4/4] Starting Task-Mentor (Server + Client)...
 echo.
 echo ===================================================
 echo   Server: http://localhost:5002
-echo   Client: http://localhost:5174
+echo   Client: http://localhost:5173/taskmentor
 echo ===================================================
 echo.
 call npm run dev

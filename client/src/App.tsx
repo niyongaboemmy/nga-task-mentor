@@ -15,7 +15,7 @@ function AppContent() {
 
   return (
     <ErrorBoundary>
-      <Router basename="/">
+      <Router basename={import.meta.env.BASE_URL}>
         <div className="min-h-screen bg-gray-100 dark:bg-black text-text-primary-light dark:text-text-primary-dark">
           <Routes>
             {/* Public routes */}

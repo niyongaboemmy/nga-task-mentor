@@ -2,11 +2,11 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
 // https://vitejs.dev/config/
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   plugins: [react()],
-  base: "/",
+  base: mode === "production" ? "/" : "/taskmentor/",
   server: {
-    port: 5174,
+    port: 5173,
     host: true,
     strictPort: true, // fail fast if port is taken, don't silently increment
   },
@@ -22,4 +22,4 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: false,
   },
-});
+}));
