@@ -19,8 +19,9 @@ live-server/  WebRTC signalling for live proctoring       → http://localhost:5
 - **MySQL 8** running locally, and its root password
   (Windows: [MySQL Installer](https://dev.mysql.com/downloads/installer/) — pick
   "Server only"; macOS: `brew install mysql && brew services start mysql`)
-- The **MIS admin login**, which is where you actually sign in — ask your team
-  lead for it. See [LOCAL_SETUP.md](LOCAL_SETUP.md).
+- **Git**, and read access to the `nga_central_mis` repository: sign-in goes
+  through a Central MIS that `start.bat` clones and runs next to this folder
+  (login `superadmin` / `Admin@1234`). See [LOCAL_SETUP.md](LOCAL_SETUP.md).
 
 ### 2. Install
 
