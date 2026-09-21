@@ -84,7 +84,7 @@ No task-mentor code references the now-corrected fields incorrectly (confirmed v
 | 1 | Decide fate of legacy `/auth/login` + `/auth/verify-otp` path; delete or fix per §2.1 | `server/src/controllers/auth.controller.ts`, `server/src/routes/auth.routes.ts` | Low | Cleanup/bugfix |
 | 2 | Remove hardcoded `termId = 4` fallback in `getCurrentTermId()` | `server/src/utils/misUtils.ts:143` | Medium | Bugfix (pre-existing, bundled here) |
 | 3 | No action needed on academics/scheme-of-work integration — verified compliant with current MIS contract | n/a | — | Verified safe |
-| 4 | Spot-check MIS `System` registration for task-mentor's `client_id` has the correct redirect URIs registered for both dev (`http://localhost:5173/taskmentor/sso/callback`) and prod | MIS Admin Dashboard (operational, not code) | Low | Ops check |
+| 4 | Spot-check MIS `System` registration for task-mentor's `client_id` has the correct redirect URIs registered for both dev (`http://localhost:5174/taskmentor/sso/callback`) and prod | MIS Admin Dashboard (operational, not code) | Low | Ops check |
 | 5 | If/when task-mentor ever builds admin screens for teacher/student/class-group assignment, use `academic_year_id` (not `academic_term_id`) and treat `class_group_id` as year-independent, per updated `MIS_API_DOCS.md` | Future work | — | Forward guidance |
 
 ## 4. Verification plan (for items 1–2 if implemented)

@@ -1,8 +1,7 @@
-import React, { useState } from "react";
+import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import HomeNavbar from "../HomeNavbar";
 import { useAuth } from "../../contexts/AuthContext";
-import axios from "axios";
 
 const Login: React.FC = () => {
   const SSO_CLIENT_ID = import.meta.env.VITE_SSO_CLIENT_ID || "taskmentor_app";
@@ -13,32 +12,7 @@ const Login: React.FC = () => {
   // out of sync the way the old hardcoded ngamis.isengesho.com link did.
   const MIS_HOME_URL = MIS_LOGIN_URL.replace(/\/login\/?$/, "");
 
-  const { sessionExpired, loginWithSSOData } = useAuth();
-
-  // ── DEV-ONLY state (Vite strips this block entirely in production builds) ──
-  const [devLoading, setDevLoading] = useState<string | null>(null);
-  const [devError, setDevError] = useState<string | null>(null);
-
-  const handleDevLogin = async (role: "admin" | "instructor" | "student") => {
-    if (!import.meta.env.DEV) return;
-    setDevLoading(role);
-    setDevError(null);
-    try {
-      const res = await axios.post(
-        "/api/auth/dev-login",
-        { role },
-        { withCredentials: true },
-      );
-      loginWithSSOData(res.data);
-    } catch (err: any) {
-      setDevError(
-        err.response?.data?.message ?? "Dev login failed — is ENABLE_DEV_LOGIN=true in server/.env?",
-      );
-    } finally {
-      setDevLoading(null);
-    }
-  };
-  // ─────────────────────────────────────────────────────────────────────────
+  const { sessionExpired } = useAuth();
 
   const handleSSOLogin = () => {
     const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
@@ -155,39 +129,6 @@ const Login: React.FC = () => {
                 </button>
               </div>
             </div>
-
-            {/* ── DEV-ONLY role picker — Vite removes this in production ── */}
-            {import.meta.env.DEV && (
-              <div className="border-t border-dashed border-amber-300 dark:border-amber-600 mx-6 pt-5 pb-4">
-                <p className="text-xs font-semibold uppercase tracking-widest text-amber-600 dark:text-amber-400 mb-3 text-center">
-                  🔧 Dev Login — local only
-                </p>
-                <div className="grid grid-cols-3 gap-2">
-                  {(["admin", "instructor", "student"] as const).map((role) => (
-                    <button
-                      key={role}
-                      type="button"
-                      disabled={devLoading !== null}
-                      onClick={() => handleDevLogin(role)}
-                      className="flex flex-col items-center gap-1 py-2 px-1 rounded-xl border border-amber-200 dark:border-amber-700 bg-amber-50 dark:bg-amber-900/20 hover:bg-amber-100 dark:hover:bg-amber-800/30 transition-colors text-xs font-medium text-amber-800 dark:text-amber-300 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <span className="text-lg">
-                        {role === "admin" ? "🛡️" : role === "instructor" ? "👩‍🏫" : "🎓"}
-                      </span>
-                      <span className="capitalize">
-                        {devLoading === role ? "..." : role}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-                {devError && (
-                  <p className="mt-2 text-xs text-red-600 dark:text-red-400 text-center">
-                    {devError}
-                  </p>
-                )}
-              </div>
-            )}
-            {/* ────────────────────────────────────────────────────────────── */}
 
             <div className="bg-gray-50/80 dark:bg-gray-800/50 px-6 py-4 text-center border-t border-gray-100 dark:border-gray-800">
               <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">

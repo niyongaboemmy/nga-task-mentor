@@ -1,5 +1,7 @@
 # NGA TaskMentor
 
+> **Setting this up on your machine?** Start with **[LOCAL_SETUP.md](LOCAL_SETUP.md)** — it covers the whole local stack, including the Central MIS sign-in every module depends on.
+
 Assignments, quizzes, grading and proctoring for NGA. Sign-in is through the
 **NGA Central MIS** (single sign-on) — this app has no user accounts of its own.
 
@@ -17,8 +19,8 @@ live-server/  WebRTC signalling for live proctoring       → http://localhost:5
 - **MySQL 8** running locally, and its root password
   (Windows: [MySQL Installer](https://dev.mysql.com/downloads/installer/) — pick
   "Server only"; macOS: `brew install mysql && brew services start mysql`)
-- An **NGA MIS account** (you sign in with it) and the TaskMentor **SSO client
-  secret** from the maintainer
+- The **MIS admin login**, which is where you actually sign in — ask your team
+  lead for it. See [LOCAL_SETUP.md](LOCAL_SETUP.md).
 
 ### 2. Install
 
@@ -37,8 +39,9 @@ cp server/.env.example server/.env
 cp client/.env.example client/.env
 ```
 
-In `server/.env` set `DB_PASS` (your MySQL root password) and `SSO_CLIENT_SECRET`
-(from the maintainer). The defaults for everything else work locally.
+In `server/.env` set `DB_PASS` to your MySQL root password. `SSO_CLIENT_SECRET`
+is already filled in with the local-dev SSO client's secret. Everything else
+works as-is.
 
 ### 4. Create the database
 

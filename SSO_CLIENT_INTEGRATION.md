@@ -18,7 +18,7 @@ Before you begin, ensure you have the following:
 
 1.  **Registered Application**: Your app must be registered in the NGA MIS Admin Dashboard (System Modules).
 2.  **Credentials**: Obtain your `Client ID` and `Client Secret`.
-3.  **Redirect URI**: nga-task-mentor's registered callback is `http://localhost:5173/taskmentor/sso/callback` in development (client dev server port); use the equivalent path on your production domain in the MIS System registration for prod.
+3.  **Redirect URI**: nga-task-mentor's registered callback is `http://localhost:5174/taskmentor/sso/callback` in development (client dev server port); use the equivalent path on your production domain in the MIS System registration for prod.
 
 ---
 

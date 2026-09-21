@@ -6,16 +6,9 @@ export default defineConfig(({ mode }) => ({
   plugins: [react()],
   base: mode === "production" ? "/" : "/taskmentor/",
   server: {
-    port: 5173,
+    port: 5174,
     host: true,
     strictPort: true, // fail fast if port is taken, don't silently increment
-    proxy: {
-      // Forward all /api/* requests to Express backend in dev
-      "/api": {
-        target: "http://localhost:5002",
-        changeOrigin: true,
-      },
-    },
   },
   optimizeDeps: {
     include: ["sanitize-html", "jquery"],
