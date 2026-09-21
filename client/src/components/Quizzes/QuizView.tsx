@@ -839,8 +839,12 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
     try {
       await dispatch(updateQuiz({ quizId, quizData: editForm })).unwrap();
       setEditing(false);
-    } catch (error) {
-      console.error("Failed to update quiz:", error);
+      toast.success("Quiz updated successfully");
+    } catch (error: any) {
+      const fieldMessages = Array.isArray(error?.errors)
+        ? error.errors.map((e: any) => e.message).join("; ")
+        : "";
+      toast.error(fieldMessages || error?.message || "Failed to update quiz");
     }
   };
 

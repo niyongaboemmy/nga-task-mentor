@@ -4,7 +4,6 @@ export { default as QuizQuestion } from "./QuizQuestion";
 export { default as QuizTaker } from "./QuizTaker";
 export { default as QuizResults } from "./QuizResults";
 export { default as QuizView } from "./QuizView";
-export { default as CreateQuiz } from "./CreateQuiz";
 export { default as BaseQuestion } from "./BaseQuestion";
 export { default as QuestionRenderer } from "./QuestionRenderer";
 

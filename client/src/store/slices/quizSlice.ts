@@ -14,6 +14,22 @@ import type {
   AnswerDataType,
 } from "../../types/quiz.types";
 
+/**
+ * Serializable rejection payload for mutations. Components that show a form
+ * need the field-level `errors` the server returns (400), not only a message.
+ */
+export interface QuizMutationError {
+  message: string;
+  statusCode?: number;
+  errors?: { field: string; message: string }[];
+}
+
+const toMutationError = (error: any): QuizMutationError => ({
+  message: error?.message || "Something went wrong",
+  statusCode: error?.statusCode,
+  errors: Array.isArray(error?.errors) ? error.errors : undefined,
+});
+
 // Async thunks for API calls
 export const fetchQuizzes = createAsyncThunk(
   "quiz/fetchQuizzes",
@@ -37,37 +53,33 @@ export const fetchQuiz = createAsyncThunk(
   }
 );
 
-export const createQuiz = createAsyncThunk(
-  "quiz/createQuiz",
-  async (
-    { courseId, quizData }: { courseId: number; quizData: CreateQuizRequest },
-    { rejectWithValue }
-  ) => {
-    try {
-      return await handleQuizApiCall(() =>
-        QuizApiService.createQuiz(courseId, quizData)
-      );
-    } catch (error: any) {
-      return rejectWithValue(error.message);
-    }
+export const createQuiz = createAsyncThunk<
+  Quiz,
+  { courseId: number; quizData: CreateQuizRequest },
+  { rejectValue: QuizMutationError }
+>("quiz/createQuiz", async ({ courseId, quizData }, { rejectWithValue }) => {
+  try {
+    return await handleQuizApiCall(() =>
+      QuizApiService.createQuiz(courseId, quizData)
+    );
+  } catch (error: any) {
+    return rejectWithValue(toMutationError(error));
   }
-);
+});
 
-export const updateQuiz = createAsyncThunk(
-  "quiz/updateQuiz",
-  async (
-    { quizId, quizData }: { quizId: number; quizData: UpdateQuizRequest },
-    { rejectWithValue }
-  ) => {
-    try {
-      return await handleQuizApiCall(() =>
-        QuizApiService.updateQuiz(quizId, quizData)
-      );
-    } catch (error: any) {
-      return rejectWithValue(error.message);
-    }
+export const updateQuiz = createAsyncThunk<
+  Quiz,
+  { quizId: number; quizData: UpdateQuizRequest },
+  { rejectValue: QuizMutationError }
+>("quiz/updateQuiz", async ({ quizId, quizData }, { rejectWithValue }) => {
+  try {
+    return await handleQuizApiCall(() =>
+      QuizApiService.updateQuiz(quizId, quizData)
+    );
+  } catch (error: any) {
+    return rejectWithValue(toMutationError(error));
   }
-);
+});
 
 export const deleteQuiz = createAsyncThunk(
   "quiz/deleteQuiz",
@@ -514,7 +526,8 @@ const quizSlice = createSlice({
       })
       .addCase(createQuiz.rejected, (state, action) => {
         state.loading.quiz = false;
-        state.error.quiz = action.payload as string;
+        state.error.quiz =
+          action.payload?.message ?? action.error.message ?? "Failed to create quiz";
       });
 
     // Update quiz

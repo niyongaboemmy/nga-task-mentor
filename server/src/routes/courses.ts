@@ -20,6 +20,8 @@ import { uploadAssignmentAttachment } from "../middleware/assignmentUpload";
 
 import { protect, authorizePermission } from "../middleware/auth";
 import { requireMisToken } from "../middleware/misAuth";
+import { validateBody } from "../middleware/validation.middleware";
+import { createQuizSchema } from "../validations/quiz.validation";
 
 const router = express.Router();
 
@@ -66,6 +68,11 @@ router
 router
   .route("/:courseId/quizzes")
   .get(protect, authorizePermission("QUIZZES_VIEW"), getQuizzes)
-  .post(protect, authorizePermission("QUIZZES_CREATE"), createQuiz);
+  .post(
+    protect,
+    authorizePermission("QUIZZES_CREATE"),
+    validateBody(createQuizSchema),
+    createQuiz,
+  );
 
 export default router;

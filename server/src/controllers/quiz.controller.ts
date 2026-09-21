@@ -12,12 +12,13 @@ import { aiService } from "../services/ai/aiService";
 import { Judge0Service } from "../services/Judge0Service";
 import { getQuestionBankInclude } from "../utils/quizUtils";
 
-import {
-  QuestionType,
-  CreateQuizRequest,
-  UpdateQuizRequest,
-  GradingResult,
-} from "../types/quiz.types";
+import { QuestionType, GradingResult } from "../types/quiz.types";
+import type { QuizCreationAttributes } from "../models/Quiz.model";
+import type {
+  CreateQuizPayload,
+  UpdateQuizPayload,
+} from "../validations/quiz.validation";
+import { sendControllerError } from "../utils/controllerErrors";
 import {
   getMisToken,
   getCurrentTermId,
@@ -562,83 +563,86 @@ export const getQuiz = async (req: Request, res: Response) => {
 // @route   POST /api/courses/:courseId/quizzes
 // @access  Private/Instructor/Admin
 export const createQuiz = async (req: Request, res: Response) => {
-  const transaction = await sequelize.transaction();
+  // The client hits POST /api/courses/:courseId/quizzes, but the same handler
+  // is mounted at POST /api/quizzes where the course comes from the body.
+  const rawCourseId = req.params.courseId ?? req.body?.course_id;
+  const courseId = Number(rawCourseId);
+  if (!Number.isInteger(courseId) || courseId <= 0) {
+    return res.status(400).json({
+      success: false,
+      message: "A valid course id is required to create a quiz",
+      errors: [{ field: "course_id", message: "A valid course id is required" }],
+    });
+  }
+
+  // req.body has already been validated/sanitised by validateBody(createQuizSchema)
+  const quizData: CreateQuizPayload = req.body;
+
+  // Check that the course exists in MIS. Distinguish "not found" from "MIS is
+  // unreachable / session expired" so the user gets an actionable message.
+  const token = getMisToken(req);
   try {
-    const { courseId } = req.params;
-    const quizData: CreateQuizRequest = req.body;
-
-    // Validate required fields
-    if (!quizData.title || !quizData.description) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Title and description are required",
-      });
-    }
-
-    // Check if course exists (validate via MIS API)
-    const token = getMisToken(req);
-    try {
-      const courseResponse = await axios.get(
-        `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}`,
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      if (!courseResponse.data.success) {
-        await transaction.rollback();
-        return res
-          .status(404)
-          .json({ success: false, message: "Course not found" });
-      }
-      const course = courseResponse.data.data;
-
-      // Check if user is course instructor or admin
-      // Note: In MIS, instructor_id might be in different field, so we just check admin role for now
-      if (!req.user.permissions?.has("QUIZZES_CREATE")) {
-        await transaction.rollback();
-        return res.status(403).json({
-          success: false,
-          message:
-            "Only instructors and admins can create quizzes for this course",
-        });
-      }
-    } catch (courseError: any) {
-      await transaction.rollback();
-      if (courseError.response?.status === 401) {
-        return handleMisError(courseError, res, "MIS session expired");
-      }
-      console.error("Error validating course:", courseError);
+    const courseResponse = await axios.get(
+      `${process.env.NGA_MIS_BASE_URL}/academics/subjects/${courseId}`,
+      { headers: { Authorization: `Bearer ${token}` } },
+    );
+    if (!courseResponse.data?.success || !courseResponse.data?.data) {
       return res
         .status(404)
         .json({ success: false, message: "Course not found" });
     }
+  } catch (courseError: any) {
+    const status = courseError.response?.status;
+    if (status === 401) {
+      return handleMisError(courseError, res, "MIS session expired");
+    }
+    if (status === 404) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Course not found" });
+    }
+    if (status === 403) {
+      return res.status(403).json({
+        success: false,
+        message: "You do not have access to this course",
+      });
+    }
+    console.error("createQuiz: could not verify course with MIS:", courseError.message);
+    return res.status(502).json({
+      success: false,
+      message:
+        "Could not verify the course with the MIS. Please try again in a moment.",
+    });
+  }
 
+  const transaction = await sequelize.transaction();
+  try {
     const academicTermId = await getCurrentTermId(req);
 
     const quiz = await Quiz.create(
       {
         title: quizData.title,
         description: quizData.description,
-        course_id: parseInt(courseId),
+        course_id: courseId,
         created_by: req.user.id,
-        status: quizData.status || "draft",
+        status: quizData.status,
         type: quizData.type,
-        instructions: quizData.instructions,
-        time_limit: quizData.time_limit,
-        max_attempts: quizData.max_attempts,
-        passing_score: quizData.passing_score,
+        instructions: quizData.instructions ?? undefined,
+        // Quiz-level time limits are no longer used: each question carries its
+        // own duration (QuestionBank.time_limit_seconds).
+        time_limit: undefined,
+        max_attempts: quizData.max_attempts ?? undefined,
+        passing_score: quizData.passing_score ?? undefined,
         show_results_immediately: quizData.show_results_immediately,
         randomize_questions: quizData.randomize_questions,
         show_correct_answers: quizData.show_correct_answers,
-        enable_automatic_grading:
-          quizData.enable_automatic_grading !== undefined
-            ? quizData.enable_automatic_grading
-            : true,
-        require_manual_grading: quizData.require_manual_grading || false,
+        enable_automatic_grading: quizData.enable_automatic_grading,
+        require_manual_grading: quizData.require_manual_grading,
         start_date: quizData.start_date
           ? new Date(quizData.start_date)
           : undefined,
         end_date: quizData.end_date ? new Date(quizData.end_date) : undefined,
-        is_public: quizData.is_public || false,
+        is_public: quizData.is_public,
         academic_term_id: academicTermId ?? null,
       },
       { transaction },
@@ -657,11 +661,14 @@ export const createQuiz = async (req: Request, res: Response) => {
       ],
     });
 
-    res.status(201).json({ success: true, data: createdQuiz });
+    res.status(201).json({
+      success: true,
+      message: "Quiz created successfully",
+      data: createdQuiz,
+    });
   } catch (error) {
     await transaction.rollback();
-    console.error("Create quiz error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    return sendControllerError(res, error, "creating the quiz");
   }
 };
 
@@ -669,11 +676,19 @@ export const createQuiz = async (req: Request, res: Response) => {
 // @route   PUT /api/quizzes/:id
 // @access  Private/Instructor/Admin (quiz creator or course instructor)
 export const updateQuiz = async (req: Request, res: Response) => {
+  const quizId = Number(req.params.id);
+  if (!Number.isInteger(quizId) || quizId <= 0) {
+    return res
+      .status(400)
+      .json({ success: false, message: "A valid quiz id is required" });
+  }
+
+  // req.body has already been validated/sanitised by validateBody(updateQuizSchema)
+  const updateData: UpdateQuizPayload = req.body;
+
   const transaction = await sequelize.transaction();
   try {
-    const updateData: UpdateQuizRequest = req.body;
-
-    const quiz = await Quiz.findByPk(req.params.id, { transaction });
+    const quiz = await Quiz.findByPk(quizId, { transaction });
     if (!quiz) {
       await transaction.rollback();
       return res
@@ -691,7 +706,7 @@ export const updateQuiz = async (req: Request, res: Response) => {
     }
 
     // Don't allow status change to published if there are no questions
-    if (updateData.status === "published") {
+    if (updateData.status === "published" && quiz.status !== "published") {
       const questionCount = await QuizQuestion.count({
         where: { quiz_id: quiz.id },
         transaction,
@@ -701,45 +716,76 @@ export const updateQuiz = async (req: Request, res: Response) => {
         await transaction.rollback();
         return res.status(400).json({
           success: false,
-          message: "Cannot publish quiz without questions",
+          message: "Cannot publish a quiz that has no questions yet",
+          errors: [
+            {
+              field: "status",
+              message: "Add at least one question before publishing",
+            },
+          ],
         });
       }
     }
 
-    await quiz.update(
-      {
-        title: updateData.title,
-        description: updateData.description,
-        status: updateData.status,
-        type: updateData.type,
-        instructions: updateData.instructions,
-        time_limit: updateData.time_limit,
-        max_attempts: updateData.max_attempts,
-        passing_score: updateData.passing_score,
-        show_results_immediately: updateData.show_results_immediately,
-        randomize_questions: updateData.randomize_questions,
-        show_correct_answers: updateData.show_correct_answers,
-        enable_automatic_grading:
-          updateData.enable_automatic_grading !== undefined
-            ? updateData.enable_automatic_grading
-            : quiz.enable_automatic_grading,
-        require_manual_grading:
-          updateData.require_manual_grading !== undefined
-            ? updateData.require_manual_grading
-            : quiz.require_manual_grading,
-        start_date: updateData.start_date
+    // Cross-field check against the stored value when only one date is sent.
+    const effectiveStart =
+      updateData.start_date === undefined
+        ? quiz.start_date ?? null
+        : updateData.start_date
           ? new Date(updateData.start_date)
-          : undefined,
-        end_date: updateData.end_date
+          : null;
+    const effectiveEnd =
+      updateData.end_date === undefined
+        ? quiz.end_date ?? null
+        : updateData.end_date
           ? new Date(updateData.end_date)
-          : undefined,
-        is_public:
-          updateData.is_public !== undefined
-            ? updateData.is_public
-            : quiz.is_public,
-      },
-      { transaction },
-    );
+          : null;
+    if (
+      effectiveStart &&
+      effectiveEnd &&
+      effectiveEnd.getTime() <= effectiveStart.getTime()
+    ) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: "End date must be after the start date",
+        errors: [
+          { field: "end_date", message: "End date must be after the start date" },
+        ],
+      });
+    }
+
+    // Only touch the columns that were actually sent. Nullable fields are
+    // cleared when the client explicitly sends null.
+    const changes: Partial<QuizCreationAttributes> = {};
+    if (updateData.title !== undefined) changes.title = updateData.title;
+    if (updateData.description !== undefined)
+      changes.description = updateData.description;
+    if (updateData.status !== undefined) changes.status = updateData.status;
+    if (updateData.type !== undefined) changes.type = updateData.type;
+    if (updateData.instructions !== undefined)
+      changes.instructions = updateData.instructions ?? (null as any);
+    if (updateData.max_attempts !== undefined)
+      changes.max_attempts = updateData.max_attempts ?? (null as any);
+    if (updateData.passing_score !== undefined)
+      changes.passing_score = updateData.passing_score ?? (null as any);
+    if (updateData.show_results_immediately !== undefined)
+      changes.show_results_immediately = updateData.show_results_immediately;
+    if (updateData.randomize_questions !== undefined)
+      changes.randomize_questions = updateData.randomize_questions;
+    if (updateData.show_correct_answers !== undefined)
+      changes.show_correct_answers = updateData.show_correct_answers;
+    if (updateData.enable_automatic_grading !== undefined)
+      changes.enable_automatic_grading = updateData.enable_automatic_grading;
+    if (updateData.require_manual_grading !== undefined)
+      changes.require_manual_grading = updateData.require_manual_grading;
+    if (updateData.is_public !== undefined) changes.is_public = updateData.is_public;
+    if (updateData.start_date !== undefined)
+      changes.start_date = effectiveStart ?? (null as any);
+    if (updateData.end_date !== undefined)
+      changes.end_date = effectiveEnd ?? (null as any);
+
+    await quiz.update(changes, { transaction });
     await transaction.commit();
 
     // Fetch updated quiz
@@ -753,11 +799,14 @@ export const updateQuiz = async (req: Request, res: Response) => {
       ],
     });
 
-    res.status(200).json({ success: true, data: updatedQuiz });
+    res.status(200).json({
+      success: true,
+      message: "Quiz updated successfully",
+      data: updatedQuiz,
+    });
   } catch (error) {
     await transaction.rollback();
-    console.error("Update quiz error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    return sendControllerError(res, error, "updating the quiz");
   }
 };
 
@@ -765,9 +814,16 @@ export const updateQuiz = async (req: Request, res: Response) => {
 // @route   DELETE /api/quizzes/:id
 // @access  Private/Instructor/Admin (quiz creator or course instructor)
 export const deleteQuiz = async (req: Request, res: Response) => {
+  const quizId = Number(req.params.id);
+  if (!Number.isInteger(quizId) || quizId <= 0) {
+    return res
+      .status(400)
+      .json({ success: false, message: "A valid quiz id is required" });
+  }
+
   const transaction = await sequelize.transaction();
   try {
-    const quiz = await Quiz.findByPk(req.params.id, { transaction });
+    const quiz = await Quiz.findByPk(quizId, { transaction });
     if (!quiz) {
       await transaction.rollback();
       return res
@@ -794,18 +850,19 @@ export const deleteQuiz = async (req: Request, res: Response) => {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
-        message: "Cannot delete quiz with existing submissions",
+        message: `Cannot delete this quiz: it already has ${submissionCount} submission${submissionCount === 1 ? "" : "s"}`,
       });
     }
 
     await quiz.destroy({ transaction });
     await transaction.commit();
 
-    res.status(200).json({ success: true, data: {} });
+    res
+      .status(200)
+      .json({ success: true, message: "Quiz deleted successfully", data: {} });
   } catch (error) {
     await transaction.rollback();
-    console.error("Delete quiz error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
+    return sendControllerError(res, error, "deleting the quiz");
   }
 };
 

@@ -57,6 +57,11 @@ import {
   deleteBloomsTaxonomyLevel,
 } from "../controllers/bloomsTaxonomy.controller";
 import { protect, authorizePermission } from "../middleware/auth";
+import { validateBody } from "../middleware/validation.middleware";
+import {
+  createQuizSchema,
+  updateQuizSchema,
+} from "../validations/quiz.validation";
 
 const router = Router();
 
@@ -84,7 +89,11 @@ router.delete(
 router
   .route("/")
   .get(authorizePermission("QUIZZES_VIEW"), getQuizzes)
-  .post(authorizePermission("QUIZZES_CREATE"), createQuiz);
+  .post(
+    authorizePermission("QUIZZES_CREATE"),
+    validateBody(createQuizSchema),
+    createQuiz,
+  );
 
 // Quizzes grouped by subject, role-scoped, paginated (redesigned /quizzes page)
 router.get("/grouped", authorizePermission("QUIZZES_VIEW"), getGroupedQuizzes);
@@ -108,7 +117,11 @@ router.get(
 router
   .route("/:id")
   .get(authorizePermission("QUIZZES_VIEW"), getQuiz)
-  .put(authorizePermission("QUIZZES_EDIT"), updateQuiz)
+  .put(
+    authorizePermission("QUIZZES_EDIT"),
+    validateBody(updateQuizSchema),
+    updateQuiz,
+  )
   .delete(authorizePermission("QUIZZES_DELETE"), deleteQuiz);
 
 // Question routes

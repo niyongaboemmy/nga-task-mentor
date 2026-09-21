@@ -95,6 +95,35 @@ export const validate = (schema: z.ZodSchema) => {
   };
 };
 
+/**
+ * Like `validate`, but on success REPLACES `req.body` with the parsed value so
+ * controllers receive trimmed strings, applied defaults, coerced numbers and
+ * no unknown keys. Use this for new routes; `validate` above is kept as-is so
+ * existing controllers that read extra body fields keep working.
+ */
+export const validateBody = (schema: z.ZodSchema) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const result = schema.safeParse(req.body ?? {});
+    if (!result.success) {
+      const issues: any[] =
+        (result.error.issues ?? (result.error as any).errors) ?? [];
+      const errors = issues.map((err: any) => ({
+        field: err.path && err.path.length ? err.path.join(".") : "unknown",
+        message: err.message,
+      }));
+      return res.status(400).json({
+        success: false,
+        message: errors.length
+          ? `Validation failed: ${errors.map((e) => e.message).join("; ")}`
+          : "Validation failed",
+        errors,
+      });
+    }
+    req.body = result.data;
+    next();
+  };
+};
+
 // Sanitize error messages to prevent information disclosure
 export const sanitizeError = (error: any): string => {
   // Don't expose internal error details in production

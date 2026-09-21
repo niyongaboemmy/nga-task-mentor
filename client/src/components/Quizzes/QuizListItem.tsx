@@ -26,7 +26,7 @@ interface Quiz {
   is_public?: boolean;
   total_questions?: number;
   total_points?: number;
-  time_limit?: number;
+  time_limit?: number | null;
   created_at?: string;
 }
 

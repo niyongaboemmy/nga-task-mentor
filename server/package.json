@@ -13,8 +13,8 @@
     "migrate:reset": "sequelize-cli db:migrate:undo:all && npm run migrate",
     "test:grader": "ts-node --transpile-only --require ./test-grader-mock.cjs src/utils/quizGrader.test.ts",
     "migrate:term": "ts-node --transpile-only src/migrations/add_academic_term_id.ts",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "test": "TZ=UTC jest",
+    "test:watch": "TZ=UTC jest --watch"
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",

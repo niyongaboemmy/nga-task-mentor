@@ -275,17 +275,20 @@ export interface Quiz {
   id: number;
   title: string;
   description: string;
-  instructions?: string;
+  instructions?: string | null;
   status: QuizStatus;
   type: QuizType;
-  time_limit?: number;
-  max_attempts?: number;
-  passing_score?: number;
+  /** Legacy quiz-level limit; no longer editable — timing is per question. */
+  time_limit?: number | null;
+  max_attempts?: number | null;
+  passing_score?: number | null;
   show_results_immediately: boolean;
   randomize_questions: boolean;
   show_correct_answers: boolean;
-  start_date?: string;
-  end_date?: string;
+  enable_automatic_grading?: boolean;
+  require_manual_grading?: boolean;
+  start_date?: string | null;
+  end_date?: string | null;
   course_id: number;
   created_by: number;
   created_at: string;
@@ -423,22 +426,28 @@ export interface QuizSubmission {
 }
 
 // API Request/Response interfaces
+/**
+ * Payload for POST /courses/:courseId/quizzes. Mirrors
+ * server/src/validations/quiz.validation.ts — note there is deliberately no
+ * quiz-level `time_limit`: each question carries its own duration.
+ */
 export interface CreateQuizRequest {
   title: string;
   description: string;
-  course_id: number;
-  instructions?: string;
+  course_id?: number;
+  instructions?: string | null;
   type: QuizType;
-  time_limit?: number;
-  max_attempts?: number;
-  passing_score?: number;
+  status?: QuizStatus;
+  max_attempts?: number | null;
+  passing_score?: number | null;
   show_results_immediately: boolean;
   randomize_questions: boolean;
   show_correct_answers: boolean;
   enable_automatic_grading?: boolean;
   require_manual_grading?: boolean;
-  start_date?: string;
-  end_date?: string;
+  /** ISO 8601 instant, or null to clear. */
+  start_date?: string | null;
+  end_date?: string | null;
   is_public?: boolean;
 }
 

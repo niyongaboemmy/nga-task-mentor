@@ -1,59 +1,50 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
+import { toast } from "react-toastify";
 import type { AppDispatch } from "../../store";
 import {
   updateQuiz,
   fetchQuiz,
   clearQuizError,
+  type QuizMutationError,
 } from "../../store/slices/quizSlice";
 import ProctoringSettings from "../Proctoring/ProctoringSettings";
 import type { UpdateQuizRequest } from "../../types/quiz.types";
+import {
+  quizToFormValues,
+  type QuizFormValues,
+} from "../../utils/quizFormValidation";
+import QuizForm from "./QuizForm";
 
 export const EditQuizPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { quizId } = useParams<{ quizId: string }>();
+  const parsedQuizId = Number(quizId);
   const [loading, setLoading] = useState(false);
   const [fetchLoading, setFetchLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"quiz" | "proctoring">("quiz");
-  const [formData, setFormData] = useState<UpdateQuizRequest>({
-    title: "",
-    description: "",
-    type: "Quiz",
-    show_results_immediately: true,
-    randomize_questions: false,
-    show_correct_answers: false,
-    enable_automatic_grading: true,
-    require_manual_grading: false,
-    is_public: false,
-  });
+  const [initialValues, setInitialValues] = useState<QuizFormValues | null>(null);
+  const [serverError, setServerError] = useState<QuizMutationError | null>(null);
 
   useEffect(() => {
     const loadQuiz = async () => {
-      if (!quizId) return;
+      if (!Number.isInteger(parsedQuizId) || parsedQuizId <= 0) {
+        toast.error("Invalid quiz link.");
+        navigate("/dashboard");
+        return;
+      }
 
       try {
-        const quiz = await dispatch(fetchQuiz(parseInt(quizId))).unwrap();
-        setFormData({
-          title: quiz.title,
-          description: quiz.description,
-          type: quiz.type,
-          instructions: quiz.instructions,
-          time_limit: quiz.time_limit,
-          max_attempts: quiz.max_attempts,
-          passing_score: quiz.passing_score,
-          show_results_immediately: quiz.show_results_immediately,
-          randomize_questions: quiz.randomize_questions,
-          show_correct_answers: quiz.show_correct_answers,
-          enable_automatic_grading:
-            (quiz as any).enable_automatic_grading !== false,
-          require_manual_grading: (quiz as any).require_manual_grading || false,
-          status: quiz.status,
-          is_public: quiz.is_public || false,
-        });
+        const quiz = await dispatch(fetchQuiz(parsedQuizId)).unwrap();
+        setInitialValues(quizToFormValues(quiz));
       } catch (error) {
-        console.error("Failed to load quiz:", error);
+        toast.error(
+          typeof error === "string"
+            ? error
+            : (error as { message?: string })?.message || "Failed to load quiz.",
+        );
         navigate("/dashboard");
       } finally {
         setFetchLoading(false);
@@ -61,35 +52,30 @@ export const EditQuizPage: React.FC = () => {
     };
 
     loadQuiz();
-  }, [dispatch, quizId, navigate]);
+  }, [dispatch, parsedQuizId, navigate]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.title?.trim() || !formData.description?.trim()) {
-      return;
-    }
-
+  const handleSubmit = async (payload: UpdateQuizRequest) => {
     setLoading(true);
+    setServerError(null);
     dispatch(clearQuizError("quiz"));
 
     try {
-      await dispatch(
-        updateQuiz({
-          quizId: parseInt(quizId!),
-          quizData: formData,
-        }),
+      const updated = await dispatch(
+        updateQuiz({ quizId: parsedQuizId, quizData: payload }),
       ).unwrap();
-
+      toast.success(`Quiz "${updated.title}" updated successfully`);
       navigate(`/quizzes/${quizId}`);
     } catch (error) {
-      console.error("Failed to update quiz:", error);
+      const err = (error ?? {}) as QuizMutationError;
+      setServerError(err);
+      toast.error(
+        err.errors?.length
+          ? "Some fields need attention — see the highlighted fields."
+          : err.message || "Failed to update quiz. Please try again.",
+      );
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleChange = (field: keyof UpdateQuizRequest, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   if (fetchLoading) {
@@ -211,356 +197,30 @@ export const EditQuizPage: React.FC = () => {
           </div>
 
           {activeTab === "quiz" ? (
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-8 bg-white p-4 md:p-6 rounded-2xl dark:bg-gray-900"
-            >
-              {/* Title */}
-              <div>
-                <label
-                  htmlFor="title"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
-                >
-                  Quiz Title *
-                </label>
-                <input
-                  type="text"
-                  id="title"
-                  value={formData.title}
-                  onChange={(e) => handleChange("title", e.target.value)}
-                  placeholder="Enter quiz title..."
-                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
-                  required
-                />
-              </div>
-
-              {/* Description */}
-              <div>
-                <label
-                  htmlFor="description"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
-                >
-                  Description *
-                </label>
-                <textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => handleChange("description", e.target.value)}
-                  placeholder="Enter quiz description..."
-                  rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
-                  required
-                />
-              </div>
-
-              {/* Quiz Type */}
-              <div>
-                <label
-                  htmlFor="type"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
-                >
-                  Quiz Type
-                </label>
-                <select
-                  id="type"
-                  value={formData.type}
-                  onChange={(e) => handleChange("type", e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
-                >
-                  <option value="Assessment">Assessment</option>
-                  <option value="Homework">Homework</option>
-                  <option value="Quiz">Quiz</option>
-                  <option value="Exam">Exam</option>
-                </select>
-              </div>
-
-              {/* Quiz Status */}
-              <div>
-                <label
-                  htmlFor="status"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
-                >
-                  Quiz Status
-                </label>
-                <select
-                  id="status"
-                  value={formData.status || "draft"}
-                  onChange={(e) => handleChange("status", e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="published">Published</option>
-                  <option value="archived">Archived</option>
-                </select>
-                <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-                  Published quizzes are visible to students. Draft quizzes are
-                  only visible to instructors.
-                </p>
-              </div>
-
-              {/* Instructions */}
-              <div>
-                <label
-                  htmlFor="instructions"
-                  className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
-                >
-                  Instructions (Optional)
-                </label>
-                <textarea
-                  id="instructions"
-                  value={formData.instructions || ""}
-                  onChange={(e) => handleChange("instructions", e.target.value)}
-                  placeholder="Enter quiz instructions..."
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
-                />
-              </div>
-
-              {/* Settings */}
-              <div className="space-y-6">
-                <h3 className="text-lg font-medium">Quiz Settings</h3>
-
-                {/* Time Limit */}
-                <div>
-                  <label
-                    htmlFor="time_limit"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
-                  >
-                    Time Limit (minutes)
-                  </label>
-                  <input
-                    type="number"
-                    id="time_limit"
-                    value={formData.time_limit || ""}
-                    onChange={(e) =>
-                      handleChange(
-                        "time_limit",
-                        e.target.value ? parseInt(e.target.value) : undefined,
-                      )
-                    }
-                    placeholder="No limit"
-                    min="1"
-                    max="480"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
-                  />
-                </div>
-
-                {/* Max Attempts */}
-                <div>
-                  <label
-                    htmlFor="max_attempts"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
-                  >
-                    Maximum Attempts
-                  </label>
-                  <input
-                    type="number"
-                    id="max_attempts"
-                    value={formData.max_attempts || ""}
-                    onChange={(e) =>
-                      handleChange(
-                        "max_attempts",
-                        e.target.value ? parseInt(e.target.value) : undefined,
-                      )
-                    }
-                    placeholder="Unlimited"
-                    min="1"
-                    max="50"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
-                  />
-                </div>
-
-                {/* Passing Score */}
-                <div>
-                  <label
-                    htmlFor="passing_score"
-                    className="block text-sm font-medium text-gray-700 dark:text-gray-400 mb-2"
-                  >
-                    Passing Score (%)
-                  </label>
-                  <input
-                    type="number"
-                    id="passing_score"
-                    value={formData.passing_score || ""}
-                    onChange={(e) =>
-                      handleChange(
-                        "passing_score",
-                        e.target.value ? parseFloat(e.target.value) : undefined,
-                      )
-                    }
-                    placeholder="60%"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-800/60 dark:border-gray-700/50"
-                  />
-                </div>
-
-                {/* Options */}
-                <div className="space-y-3">
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="show_results_immediately"
-                      checked={formData.show_results_immediately}
-                      onChange={(e) =>
-                        handleChange(
-                          "show_results_immediately",
-                          e.target.checked,
-                        )
-                      }
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
-                    />
-                    <label
-                      htmlFor="show_results_immediately"
-                      className="ml-2 text-sm text-gray-700 dark:text-gray-400"
-                    >
-                      Show results immediately after completion
-                    </label>
-                  </div>
-
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="randomize_questions"
-                      checked={formData.randomize_questions}
-                      onChange={(e) =>
-                        handleChange("randomize_questions", e.target.checked)
-                      }
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
-                    />
-                    <label
-                      htmlFor="randomize_questions"
-                      className="ml-2 text-sm text-gray-700 dark:text-gray-400"
-                    >
-                      Randomize question order
-                    </label>
-                  </div>
-
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="show_correct_answers"
-                      checked={formData.show_correct_answers}
-                      onChange={(e) =>
-                        handleChange("show_correct_answers", e.target.checked)
-                      }
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
-                    />
-                    <label
-                      htmlFor="show_correct_answers"
-                      className="ml-2 text-sm text-gray-700 dark:text-gray-400"
-                    >
-                      Show correct answers after completion
-                    </label>
-                  </div>
-
-                  {/* Grading Options */}
-                  <div className="space-y-3 border-t border-gray-200 dark:border-gray-800 pt-4">
-                    <h4 className="text-sm font-medium">Grading Options</h4>
-
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="enable_automatic_grading"
-                        checked={formData.enable_automatic_grading !== false}
-                        onChange={(e) =>
-                          handleChange(
-                            "enable_automatic_grading",
-                            e.target.checked,
-                          )
-                        }
-                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
-                      />
-                      <label
-                        htmlFor="enable_automatic_grading"
-                        className="ml-2 text-sm text-gray-700 dark:text-gray-400"
-                      >
-                        Show grades to students immediately after quiz
-                        completion
-                      </label>
-                    </div>
-
-                    <div className="flex items-center">
-                      <input
-                        type="checkbox"
-                        id="require_manual_grading"
-                        checked={formData.require_manual_grading || false}
-                        onChange={(e) =>
-                          handleChange(
-                            "require_manual_grading",
-                            e.target.checked,
-                          )
-                        }
-                        className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
-                      />
-                      <label
-                        htmlFor="require_manual_grading"
-                        className="ml-2 text-sm text-gray-700 dark:text-gray-400"
-                      >
-                        Require instructor manual grading (grades hidden until
-                        reviewed)
-                      </label>
-                    </div>
-
-                    <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70/60 ml-6">
-                      {formData.require_manual_grading
-                        ? "Students will see 'Pending' until instructor reviews and grades the quiz manually."
-                        : formData.enable_automatic_grading
-                          ? "Grades will be calculated automatically and shown immediately."
-                          : "Grades will be hidden from students (manual grading required)."}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="is_public"
-                      checked={formData.is_public || false}
-                      onChange={(e) =>
-                        handleChange("is_public", e.target.checked)
-                      }
-                      className="h-5 w-5 text-blue-600 focus:ring-blue-500 border-gray-300 dark:border-gray-600 rounded-xl"
-                    />
-                    <label
-                      htmlFor="is_public"
-                      className="ml-2 text-sm text-gray-700 dark:text-gray-400"
-                    >
-                      Make this quiz publicly accessible
-                    </label>
-                  </div>
-                </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="flex justify-end gap-4 pt-6 border-t border-gray-200 dark:border-gray-700">
-                <button
-                  type="button"
-                  onClick={() => navigate(`/quizzes/${quizId}`)}
-                  className="px-6 py-3 border border-gray-300 dark:border-gray-600 text-text-secondary-light dark:text-text-secondary-dark rounded-full hover:bg-gray-50 dark:hover:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-gray-500 transition-all duration-200"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={
-                    loading ||
-                    !formData.title?.trim() ||
-                    !formData.description?.trim()
+            <div className="bg-white p-4 md:p-6 rounded-2xl dark:bg-gray-900">
+              {initialValues && (
+                <QuizForm
+                  mode="edit"
+                  initialValues={initialValues}
+                  submitting={loading}
+                  serverErrors={serverError?.errors ?? null}
+                  serverMessage={
+                    serverError && !serverError.errors?.length
+                      ? serverError.message
+                      : null
                   }
-                  className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-                >
-                  {loading ? "Updating..." : "Update Quiz"}
-                </button>
-              </div>
-            </form>
+                  submitLabel="Update Quiz"
+                  onSubmit={handleSubmit}
+                  onCancel={() => navigate(`/quizzes/${quizId}`)}
+                />
+              )}
+            </div>
           ) : (
             <div className="space-y-6">
               <ProctoringSettings
                 quizId={quizId!}
                 onSettingsSaved={() => {
-                  // Could show a success message or refresh data
-                  console.log("Proctoring settings saved");
+                  // ProctoringSettings already toasts on save.
                 }}
               />
             </div>
