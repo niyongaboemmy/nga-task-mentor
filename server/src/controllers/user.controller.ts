@@ -11,6 +11,10 @@ import {
   resolveAcademicTermId,
 } from "../utils/misUtils";
 import { Submission, Assignment, QuizSubmission, Quiz, User } from "../models";
+import {
+  buildManualAssessmentRow,
+  fetchManualAssessments,
+} from "../utils/manualAssessments";
 
 // MIS role IDs (see nga_central_mis Role table) — used to filter the generic
 // /users/ endpoint via its `userRole` query param.
@@ -965,6 +969,114 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error("Get student quizzes error:", error.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Marks a teacher recorded by hand for one student, across every
+//          subject they are enrolled in this period
+// @route   GET /api/users/:userId/recorded-assessments
+// @access  Private (self, or USERS_VIEW_OTHERS_ACTIVITY)
+//
+// The student profile shows assignments and quizzes from their own endpoints;
+// recorded marks live in manual_assessments and had nowhere to come from, so a
+// subject assessed entirely in class looked like a student who had done
+// nothing. Rows come back grouped by subject, each carrying what was marked
+// and what is still outstanding, so the caller never has to treat an
+// un-entered mark as a zero.
+export const getStudentRecordedAssessments = async (
+  req: Request,
+  res: Response,
+) => {
+  try {
+    const { userId } = req.params;
+
+    const token = getMisToken(req);
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
+    }
+
+    // IDOR protection, mirroring getStudentAssignments.
+    if (
+      req.user.id.toString() !== userId &&
+      !req.user.permissions?.has("USERS_VIEW_OTHERS_ACTIVITY")
+    ) {
+      return res.status(403).json({
+        success: false,
+        message: "Not authorized to view these marks",
+      });
+    }
+
+    // `:userId` is the MIS user id here (as it is for assignments/quizzes);
+    // the local record is what submissions and some older marks are keyed on.
+    const localUser = await User.findOne({
+      where: { mis_user_id: Number(userId) },
+      attributes: ["id"],
+    });
+
+    let subjects: any[] = [];
+    try {
+      const yearId = await resolveAcademicYearId(req);
+      const misResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          params: yearId ? { academic_year_id: yearId } : {},
+          httpsAgent:
+            process.env.NODE_ENV === "production"
+              ? new (require("https").Agent)({ rejectUnauthorized: true })
+              : undefined,
+        },
+      );
+      subjects = misResponse.data?.success ? misResponse.data.data || [] : [];
+    } catch (error: any) {
+      // A student with no enrolment is a normal state, not an error.
+      console.warn(
+        `Could not fetch enrolled subjects for student ${userId}:`,
+        error.message,
+      );
+    }
+
+    if (subjects.length === 0) {
+      return res.status(200).json({ success: true, data: [] });
+    }
+
+    const courseIds = subjects.map((s: any) => s.id ?? s.subject_id);
+    const { assessments, scoresByAssessment } = await fetchManualAssessments(
+      req,
+      courseIds,
+      [Number(userId), localUser?.id].filter((id): id is number => !!id),
+    );
+
+    const data = subjects.map((subject: any) => {
+      const courseId = subject.id ?? subject.subject_id;
+      const rows = assessments
+        .filter((a) => String(a.course_id) === String(courseId))
+        .map((a) =>
+          buildManualAssessmentRow(a, scoresByAssessment, [
+            Number(userId),
+            localUser?.id,
+          ]),
+        );
+
+      return {
+        course_id: courseId,
+        subject_name: subject.name ?? subject.subject_name ?? `Subject #${courseId}`,
+        subject_code: subject.code ?? subject.subject_code ?? "",
+        assessments: rows,
+        recorded_count: rows.filter((r) => r.recorded).length,
+        pending_count: rows.filter((r) => !r.recorded).length,
+      };
+    });
+
+    res.status(200).json({ success: true, data });
+  } catch (error: any) {
+    console.error("Get student recorded assessments error:", error.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

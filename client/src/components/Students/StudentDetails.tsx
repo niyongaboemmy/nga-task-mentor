@@ -25,6 +25,14 @@ import { getProfileImageUrl } from "../../utils/imageUrl";
 import type { UserFullData } from "../../types/user.types";
 import type { Course } from "../../types/course.types";
 import StudentReportCardDashboard from "../ReportCard/StudentReportCardDashboard";
+import {
+  fetchStudentRecordedAssessments,
+  recordedLabel,
+  summariseMarks,
+  type MarkInput,
+  type RecordedSubject,
+} from "../../services/studentProfileApi";
+import { bandMeta, bandOf } from "../../services/subjectReportApi";
 
 interface UserCourse {
   enrollment_id: string;
@@ -79,7 +87,14 @@ interface StudentQuiz {
   } | null;
 }
 
-const TABS = ["overview", "courses", "assignments", "quizzes", "report-cards"] as const;
+const TABS = [
+  "overview",
+  "courses",
+  "assignments",
+  "quizzes",
+  "recorded",
+  "report-cards",
+] as const;
 type TabId = (typeof TABS)[number];
 
 const TAB_META: Record<TabId, { label: string; icon: React.ElementType }> = {
@@ -87,6 +102,7 @@ const TAB_META: Record<TabId, { label: string; icon: React.ElementType }> = {
   courses: { label: "Enrolled Courses", icon: BookOpen },
   assignments: { label: "Assignments", icon: ClipboardList },
   quizzes: { label: "Quizzes", icon: HelpCircle },
+  recorded: { label: "Recorded Assessments", icon: ClipboardCheck },
   "report-cards": { label: "Report Cards", icon: ClipboardCheck },
 };
 
@@ -104,6 +120,7 @@ const StudentDetails: React.FC = () => {
   const [courses, setCourses] = useState<UserCourse[]>([]);
   const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
   const [quizzes, setQuizzes] = useState<StudentQuiz[]>([]);
+  const [recorded, setRecorded] = useState<RecordedSubject[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabId>("overview");
 
@@ -124,18 +141,22 @@ const StudentDetails: React.FC = () => {
     }
     const fetchStudentData = async () => {
       try {
-        const [studentRes, coursesRes, assignmentsRes, quizzesRes] =
+        const [studentRes, coursesRes, assignmentsRes, quizzesRes, recordedRes] =
           await Promise.all([
             api.get(`/users/${studentId}`),
             api.get(`/users/${studentId}/courses`),
             api.get(`/users/${studentId}/assignments`),
             api.get(`/users/${studentId}/quizzes`),
+            // Best-effort: a missing recorded-marks feed must not blank the
+            // whole profile, it just means that section stays empty.
+            fetchStudentRecordedAssessments(studentId).catch(() => []),
           ]);
 
         setStudent(studentRes.data.data);
         setCourses(coursesRes.data.data);
         setAssignments(assignmentsRes.data.data);
         setQuizzes(quizzesRes.data.data);
+        setRecorded(recordedRes);
       } catch (error) {
         console.error("Error fetching student data:", error);
         toast.error("Failed to load student data.");
@@ -280,16 +301,51 @@ const StudentDetails: React.FC = () => {
     );
   }
 
-  const gradedAssignments = assignments.filter((a) => a.submissions?.[0]?.grade);
-  const avgGrade =
-    gradedAssignments.length === 0
-      ? null
-      : Math.round(
-          gradedAssignments.reduce((sum, a) => {
-            const grade = parseFloat(a.submissions[0].grade!);
-            return sum + (grade / a.max_score) * 100;
-          }, 0) / gradedAssignments.length,
-        );
+  // Every markable thing this student has, flattened so the summary can treat
+  // assignments, quizzes and hand-recorded marks identically — and so the
+  // average is taken over marked work only (see services/studentProfileApi).
+  const marks: MarkInput[] = [
+    ...assignments.map((a) => {
+      const raw = a.submissions?.[0]?.grade ?? null;
+      const score = raw === null ? null : parseFloat(raw);
+      const marked = score !== null && !isNaN(score) && Number(a.max_score) > 0;
+      return {
+        courseKey: a.subject?.subject_code ?? String(a.course_id),
+        kind: "assignment" as const,
+        marked,
+        percentage: marked ? Math.round((score! / Number(a.max_score)) * 1000) / 10 : null,
+      };
+    }),
+    ...quizzes.map((q) => {
+      const sub = q.quizSubmissions?.[0];
+      const pct = sub ? Number(sub.percentage) : null;
+      const marked = pct !== null && !isNaN(pct);
+      return {
+        courseKey: q.subject?.subject_code ?? String(q.course_id),
+        kind: "quiz" as const,
+        marked,
+        percentage: marked ? Math.round(pct! * 10) / 10 : null,
+      };
+    }),
+    ...recorded.flatMap((subject) =>
+      subject.assessments.map((row) => ({
+        courseKey: subject.subject_code || String(subject.course_id),
+        kind: "recorded" as const,
+        marked: row.recorded && row.percentage !== null,
+        percentage: row.recorded ? row.percentage : null,
+      })),
+    ),
+  ];
+
+  const summary = summariseMarks(marks);
+  const avgGrade = summary.overallAverage;
+  const recordedTotals = recorded.reduce(
+    (acc, s) => ({
+      marked: acc.marked + s.recorded_count,
+      total: acc.total + s.assessments.length,
+    }),
+    { marked: 0, total: 0 },
+  );
 
   return (
     <div className="space-y-6">
@@ -391,6 +447,7 @@ const StudentDetails: React.FC = () => {
                 tabId === "courses" ? courses.length
                 : tabId === "assignments" ? assignments.length
                 : tabId === "quizzes" ? quizzes.length
+                : tabId === "recorded" ? recordedTotals.total
                 : null;
               return (
                 <button
@@ -419,7 +476,7 @@ const StudentDetails: React.FC = () => {
           {/* Overview */}
           {activeTab === "overview" && (
             <div className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
                 <div className="bg-blue-50 dark:bg-blue-900/20 rounded-2xl p-5 border border-blue-200/50 dark:border-blue-800/50">
                   <div className="flex items-center gap-3">
                     <div className="p-3 bg-blue-600 rounded-xl">
@@ -458,15 +515,42 @@ const StudentDetails: React.FC = () => {
                     </div>
                   </div>
                 </div>
+                <div className="bg-amber-50 dark:bg-amber-900/20 rounded-2xl p-5 border border-amber-200/50 dark:border-amber-800/50">
+                  <div className="flex items-center gap-3">
+                    <div className="p-3 bg-amber-500 rounded-xl">
+                      <ClipboardCheck className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">
+                        Recorded Marks
+                      </p>
+                      <p className="text-3xl font-bold text-amber-600 dark:text-amber-400">
+                        {recordedTotals.marked}/{recordedTotals.total}
+                      </p>
+                    </div>
+                  </div>
+                </div>
                 <div className="bg-orange-50 dark:bg-orange-900/20 rounded-2xl p-5 border border-orange-200/50 dark:border-orange-800/50">
                   <div className="flex items-center gap-3">
                     <div className="p-3 bg-orange-500 rounded-xl">
                       <Award className="w-6 h-6 text-white" />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">Avg Grade</p>
-                      <p className="text-3xl font-bold text-orange-600 dark:text-orange-400">
-                        {avgGrade == null ? "N/A" : `${avgGrade}%`}
+                      <p
+                        className="text-3xl font-bold"
+                        style={
+                          avgGrade == null
+                            ? undefined
+                            : { color: bandMeta(bandOf(avgGrade)).color }
+                        }
+                      >
+                        {avgGrade == null ? "—" : `${avgGrade}%`}
+                      </p>
+                      <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
+                        {avgGrade == null
+                          ? "Nothing marked yet"
+                          : `${summary.markedCount} of ${summary.totalCount} marked`}
                       </p>
                     </div>
                   </div>
@@ -488,6 +572,10 @@ const StudentDetails: React.FC = () => {
                       const courseQuizzes = quizzes.filter((q) => q.subject?.subject_code === course.subject_code);
                       const submittedAssignments = courseAssignments.filter((a) => a.submissions?.[0]);
                       const attemptedQuizzes = courseQuizzes.filter((q) => q.quizSubmissions?.[0]);
+                      const courseRecorded = recorded.find(
+                        (r) => String(r.course_id) === String(course.subject_id),
+                      );
+                      const stats = summary.byCourse[course.subject_code] ?? null;
 
                       return (
                         <div key={course.subject_id} className="p-3 hover:bg-gray-50 dark:hover:bg-gray-800/40 transition-colors">
@@ -498,17 +586,44 @@ const StudentDetails: React.FC = () => {
                               </h4>
                               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">{course.subject_code}</p>
                             </div>
-                            <div className="flex items-center gap-4 flex-shrink-0">
+                            <div className="flex items-center gap-4 sm:gap-5 flex-shrink-0">
                               <div className="text-center">
                                 <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">Assignments</p>
                                 <p className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
-                                  {submittedAssignments.length}/{courseAssignments.length}
+                                  {courseAssignments.length === 0
+                                    ? "—"
+                                    : `${submittedAssignments.length}/${courseAssignments.length}`}
                                 </p>
                               </div>
                               <div className="text-center">
                                 <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">Quizzes</p>
                                 <p className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
-                                  {attemptedQuizzes.length}/{courseQuizzes.length}
+                                  {courseQuizzes.length === 0
+                                    ? "—"
+                                    : `${attemptedQuizzes.length}/${courseQuizzes.length}`}
+                                </p>
+                              </div>
+                              <div className="text-center">
+                                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">Recorded</p>
+                                <p className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
+                                  {!courseRecorded || courseRecorded.assessments.length === 0
+                                    ? "—"
+                                    : `${courseRecorded.recorded_count}/${courseRecorded.assessments.length}`}
+                                </p>
+                              </div>
+                              {/* A subject with nothing marked shows no average
+                                  rather than a 0% it never earned. */}
+                              <div className="text-center min-w-[52px]">
+                                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">Average</p>
+                                <p
+                                  className="text-sm font-bold"
+                                  style={
+                                    stats?.average == null
+                                      ? undefined
+                                      : { color: bandMeta(bandOf(stats.average)).color }
+                                  }
+                                >
+                                  {stats?.average == null ? "—" : `${stats.average}%`}
                                 </p>
                               </div>
                             </div>
@@ -688,6 +803,105 @@ const StudentDetails: React.FC = () => {
                     No quizzes are available for the enrolled courses.
                   </p>
                 </div>
+              )}
+            </div>
+          )}
+
+          {/* Recorded assessments — marks the teacher entered by hand, which
+              never produce a submission and so appear on no other tab. */}
+          {activeTab === "recorded" && (
+            <div className="space-y-4">
+              {recordedTotals.total === 0 ? (
+                <div className="text-center py-14">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-surface-light dark:bg-surface-dark flex items-center justify-center mb-3">
+                    <ClipboardCheck className="w-7 h-7 text-text-secondary-light dark:text-text-secondary-dark/50" />
+                  </div>
+                  <h3 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
+                    No recorded assessments
+                  </h3>
+                  <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
+                    No class work, homework, midterm or CA exam has been recorded
+                    for this student in their subjects this term.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+                    {recordedTotals.marked} of {recordedTotals.total} recorded assessment
+                    {recordedTotals.total !== 1 ? "s" : ""} marked. Un-entered marks are
+                    shown as pending and are left out of every average.
+                  </p>
+
+                  {recorded
+                    .filter((subject) => subject.assessments.length > 0)
+                    .map((subject) => (
+                      <div
+                        key={subject.course_id}
+                        className="rounded-2xl border border-gray-200/50 dark:border-gray-700/50 bg-white/60 dark:bg-gray-800/20 overflow-hidden"
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-gray-200/50 dark:border-gray-700/50">
+                          <div className="min-w-0">
+                            <h4 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark truncate">
+                              {subject.subject_name}
+                            </h4>
+                            <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
+                              {subject.subject_code} · {subject.recorded_count}/
+                              {subject.assessments.length} marked
+                            </p>
+                          </div>
+                          <Link
+                            to={`/courses/${subject.course_id}`}
+                            className="text-[11px] font-semibold text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap"
+                          >
+                            Open subject
+                          </Link>
+                        </div>
+
+                        <ul className="divide-y divide-gray-200/50 dark:divide-gray-700/50">
+                          {subject.assessments.map((row) => (
+                            <li
+                              key={row.assessment_id}
+                              className="flex items-center justify-between gap-3 px-4 py-2.5"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
+                                  {recordedLabel(row)}
+                                </p>
+                                <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
+                                  Max {row.max_score}
+                                  {row.assessment_date
+                                    ? ` · ${new Date(row.assessment_date).toLocaleDateString()}`
+                                    : ""}
+                                  {!row.counts_to_final ? " · not in final grade" : ""}
+                                </p>
+                              </div>
+                              {row.recorded && row.percentage !== null ? (
+                                <div className="text-right flex-shrink-0">
+                                  <p className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
+                                    {row.score}
+                                    <span className="text-text-secondary-light dark:text-text-secondary-dark/50">
+                                      {" "}
+                                      / {row.max_score}
+                                    </span>
+                                  </p>
+                                  <p
+                                    className="text-[11px] font-bold tabular-nums"
+                                    style={{ color: bandMeta(bandOf(row.percentage)).color }}
+                                  >
+                                    {row.percentage}%
+                                  </p>
+                                </div>
+                              ) : (
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400 whitespace-nowrap flex-shrink-0">
+                                  Not marked
+                                </span>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ))}
+                </>
               )}
             </div>
           )}

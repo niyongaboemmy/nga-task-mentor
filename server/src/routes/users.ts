@@ -11,6 +11,7 @@ import {
   getUserCourses,
   getStudentAssignments,
   getStudentQuizzes,
+  getStudentRecordedAssessments,
   getProfilePicture,
 } from "../controllers/user.controller";
 import { protect, authorizePermission, selfOrPermission } from "../middleware/auth";
@@ -63,6 +64,11 @@ router.get(
   "/:userId/quizzes",
   selfOrPermission("userId", "USERS_VIEW_OTHERS_ACTIVITY"),
   getStudentQuizzes,
+);
+router.get(
+  "/:userId/recorded-assessments",
+  selfOrPermission("userId", "USERS_VIEW_OTHERS_ACTIVITY"),
+  getStudentRecordedAssessments,
 );
 router.get(
   "/:userId/courses",
