@@ -1,89 +1,77 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
 import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-  type TooltipItem,
-  type ChartEvent,
-  type ActiveElement,
-} from "chart.js";
-import { Bar } from "react-chartjs-2";
-import {
-  TrendingUp,
+  AlertTriangle,
+  ArrowRight,
   Award,
   BookOpen,
-  ArrowRight,
-  CheckCircle,
-  RefreshCw,
-  Zap,
-  GraduationCap,
-  LayoutDashboard,
-  Filter,
-  ClipboardList,
   CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Gauge,
+  GraduationCap,
+  Info,
+  Lightbulb,
+  PencilLine,
+  RefreshCw,
+  Sparkles,
+  TrendingUp,
 } from "lucide-react";
-import axios from "../utils/axiosConfig";
 import { toast } from "react-toastify";
-import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
-import { STAT_COLORS } from "../components/Dashboard/dashboardUi";
-import { ASSESSMENT_TYPE_LABELS } from "../services/manualAssessmentApi";
+import {
+  BandPill,
+  KpiCard,
+  Panel,
+  ReportSkeleton,
+} from "../components/Grades/reportUi";
+import {
+  containerVariants,
+  itemVariants,
+} from "../components/Grades/reportMotion";
+import { SubjectAveragesChart } from "../components/Grades/SubjectReportCharts";
+import { bandMeta, bandOf } from "../services/subjectReportApi";
+import {
+  buildStudentOverview,
+  fetchMyGrades,
+  itemLabel,
+  itemPercentage,
+  type Recommendation,
+  type StudentOverview,
+  type SubjectView,
+} from "../services/studentReportApi";
 
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend,
-);
+// ─── My Reports ───────────────────────────────────────────────────────────────
+// A student's own academic picture across every enrolled subject: what has been
+// marked, what it adds up to, and — the part that makes it worth opening — what
+// to do about it.
+//
+// Two rules keep the numbers honest (see services/studentReportApi.ts): only
+// marked work is averaged, and a subject with nothing marked has *no grade*
+// rather than 0%. Without them the page reported a full timetable of untouched
+// subjects as a failing student.
 
-/** A mark the teacher recorded by hand (class work, homework, midterm, CA…). */
-interface RecordedAssessment {
-  assessment_id: number;
-  title: string;
-  assessment_type: string | null;
-  assessment_number: number | null;
-  assessment_date: string | null;
-  counts_to_final: boolean;
-  max_score: number;
-  recorded: boolean;
-  score: number | null;
-  percentage: number | null;
-}
+const TONE = {
+  serious: {
+    box: "bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900/40 text-red-700 dark:text-red-300",
+    Icon: AlertTriangle,
+  },
+  warning: {
+    box: "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40 text-amber-700 dark:text-amber-300",
+    Icon: AlertTriangle,
+  },
+  info: {
+    box: "bg-surface-light dark:bg-surface-dark/60 border-border-light dark:border-border-dark/40 text-text-secondary-light dark:text-text-secondary-dark",
+    Icon: Info,
+  },
+  good: {
+    box: "bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900/40 text-emerald-700 dark:text-emerald-300",
+    Icon: Sparkles,
+  },
+} as const;
 
-interface ReportCard {
-  courseId: number;
-  courseName: string;
-  code: string;
-  totalMaxPoints: number;
-  totalPointsEarned: number;
-  percentage: number;
-  status: "Passing" | "Failing" | "No Grade";
-  assignmentsCompleted: number;
-  totalAssignments: number;
-  quizzesCompleted: number;
-  totalQuizzes: number;
-  assessmentsRecorded: number;
-  totalAssessments: number;
-  assessments: RecordedAssessment[];
-}
-
-/** "Midterm 1", or the free-text title when the teacher left the type blank. */
-const assessmentLabel = (a: RecordedAssessment) => {
-  const base = a.assessment_type
-    ? (ASSESSMENT_TYPE_LABELS[a.assessment_type] ?? a.title)
-    : a.title;
-  return a.assessment_number ? `${base} ${a.assessment_number}` : base;
-};
-
-const formatAssessmentDate = (value: string | null) => {
+const formatDate = (value: string | null) => {
   if (!value) return null;
   const parsed = new Date(value);
   if (isNaN(parsed.getTime())) return null;
@@ -94,581 +82,408 @@ const formatAssessmentDate = (value: string | null) => {
   });
 };
 
-const containerVariants = {
-  hidden: { opacity: 0 },
-  visible: {
-    opacity: 1,
-    transition: {
-      staggerChildren: 0.1,
-    },
-  },
-};
+function RecommendationRow({
+  recommendation,
+  onOpen,
+}: {
+  recommendation: Recommendation;
+  onOpen: (courseId: number) => void;
+}) {
+  const { box, Icon } = TONE[recommendation.tone];
+  return (
+    <motion.li
+      layout
+      initial={{ opacity: 0, y: -6 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, height: 0 }}
+      className={`flex flex-wrap items-center justify-between gap-3 px-4 py-3 rounded-xl border ${box}`}
+    >
+      <div className="flex items-start gap-2.5 min-w-0">
+        <Icon className="w-4 h-4 mt-0.5 flex-shrink-0" />
+        <div className="min-w-0">
+          <p className="text-sm font-semibold">{recommendation.title}</p>
+          <p className="text-xs opacity-80">{recommendation.detail}</p>
+        </div>
+      </div>
+      {recommendation.courseId !== undefined && (
+        <button
+          onClick={() => onOpen(recommendation.courseId!)}
+          className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full bg-white/70 dark:bg-black/20 hover:bg-white dark:hover:bg-black/40 transition-colors whitespace-nowrap"
+        >
+          Open subject <ArrowRight className="w-3 h-3" />
+        </button>
+      )}
+    </motion.li>
+  );
+}
 
-const itemVariants = {
-  hidden: { opacity: 0, y: 20 },
-  visible: {
-    opacity: 1,
-    y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 100,
+function SubjectCard({ subject, onOpen }: { subject: SubjectView; onOpen: () => void }) {
+  const bars: Array<{ label: string; done: number; total: number; color: string }> = [
+    {
+      label: "Assignments",
+      done: subject.items.filter((i) => i.kind === "assignment" && i.submitted).length,
+      total: subject.totalAssignments,
+      color: "bg-indigo-500",
     },
-  },
-};
+    {
+      label: "Quizzes",
+      done: subject.items.filter((i) => i.kind === "quiz" && i.submitted).length,
+      total: subject.totalQuizzes,
+      color: "bg-pink-500",
+    },
+    {
+      label: "Class marks",
+      done: subject.assessmentsRecorded,
+      total: subject.totalAssessments,
+      color: "bg-amber-500",
+    },
+  ].filter((b) => b.total > 0);
 
-const StudentReportsPage: React.FC = () => {
-  const [reports, setReports] = useState<ReportCard[]>([]);
-  const [loading, setLoading] = useState(true);
-  const { theme } = useTheme();
+  return (
+    <motion.button
+      variants={itemVariants}
+      whileHover={{ y: -3 }}
+      onClick={onOpen}
+      className="text-left bg-card-light dark:bg-card-dark/30 rounded-2xl border border-white dark:border-border-dark/30 p-4 hover:border-blue-400/50 transition-colors"
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+            {subject.code}
+          </span>
+          <h3 className="mt-2 text-sm font-bold text-text-primary-light dark:text-text-primary-dark line-clamp-2">
+            {subject.courseName}
+          </h3>
+        </div>
+        <div className="text-right flex-shrink-0">
+          {subject.hasMarks ? (
+            <>
+              <p
+                className="text-xl font-bold tabular-nums"
+                style={{ color: bandMeta(bandOf(subject.percentage)).color }}
+              >
+                {subject.percentage}%
+              </p>
+              <p className="text-[10px] text-text-secondary-light dark:text-text-secondary-dark/60">
+                {subject.totalPointsEarned}/{subject.totalMaxPoints} pts
+              </p>
+            </>
+          ) : (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg bg-surface-light dark:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark/70">
+              No marks yet
+            </span>
+          )}
+        </div>
+      </div>
+
+      {bars.length > 0 ? (
+        <div className="mt-3 space-y-2">
+          {bars.map((bar) => (
+            <div key={bar.label}>
+              <div className="flex justify-between text-[10px] font-semibold uppercase tracking-wider mb-1">
+                <span className="text-text-secondary-light dark:text-text-secondary-dark/60">
+                  {bar.label}
+                </span>
+                <span className="text-text-primary-light dark:text-text-primary-dark tabular-nums">
+                  {bar.done}/{bar.total}
+                </span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-surface-light dark:bg-surface-dark overflow-hidden">
+                <motion.div
+                  className={`h-full rounded-full ${bar.color}`}
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(bar.done / bar.total) * 100}%` }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                />
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className="mt-3 text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
+          Nothing has been set for this subject yet.
+        </p>
+      )}
+
+      <div className="mt-3 flex items-center justify-between gap-2">
+        {subject.hasMarks ? (
+          <BandPill band={bandOf(subject.percentage)} />
+        ) : (
+          <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/50">
+            Not started
+          </span>
+        )}
+        <span className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
+          {subject.pendingCount > 0 ? `${subject.pendingCount} pending` : "All marked"}
+        </span>
+      </div>
+    </motion.button>
+  );
+}
+
+export default function StudentReportsPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const isDark = theme === "dark";
+  const [overview, setOverview] = useState<StudentOverview | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  // Manual assessments are stored against the term/year NAMES, so send the
-  // period the student currently has selected rather than letting the server
-  // fall back to whatever MIS calls "current".
+  // Recorded marks are keyed on the term/year names, so send the period the
+  // student has selected rather than letting the server guess.
   const term = user?.currentAcademicTerm?.name ?? "";
   const academicYear = user?.currentAcademicYear?.name ?? "";
 
-  useEffect(() => {
-    fetchReports();
-  }, [term, academicYear]);
-
-  const fetchReports = async () => {
-    try {
-      const response = await axios.get("/courses/my-grades", {
-        params:
-          term && academicYear
-            ? { term, academic_year: academicYear }
-            : undefined,
-      });
-      if (response.data.success) {
-        setReports(response.data.data);
+  const load = useCallback(
+    async (mode: "initial" | "refresh") => {
+      if (mode === "initial") setLoading(true);
+      else setRefreshing(true);
+      try {
+        const rows = await fetchMyGrades(
+          term && academicYear ? { term, academicYear } : undefined,
+        );
+        setOverview(buildStudentOverview(rows));
+        if (mode === "refresh") toast.success("Report updated");
+      } catch {
+        toast.error("Failed to load your academic report");
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
       }
-    } catch (error) {
-      console.error("Error fetching reports:", error);
-      toast.error("Failed to load academic reports.");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const calculateOverallGPA = () => {
-    // "Active" = the subject has something that can actually carry marks.
-    // Counting subjects with nothing gradeable would drag the average to 0.
-    const activeReports = reports.filter((r) => r.totalMaxPoints > 0);
-
-    if (activeReports.length === 0) return 0;
-    const totalPercentage = activeReports.reduce(
-      (acc, curr) => acc + curr.percentage,
-      0,
-    );
-    return Math.round(totalPercentage / activeReports.length);
-  };
-
-  const calculateCompletionRate = () => {
-    if (reports.length === 0) return 0;
-    const totalItems = reports.reduce(
-      (acc, curr) =>
-        acc + curr.totalAssignments + curr.totalQuizzes + curr.totalAssessments,
-      0,
-    );
-    const completedItems = reports.reduce(
-      (acc, curr) =>
-        acc +
-        curr.assignmentsCompleted +
-        curr.quizzesCompleted +
-        curr.assessmentsRecorded,
-      0,
-    );
-    return totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
-  };
-
-  const overallGPA = calculateOverallGPA();
-  const completionRate = calculateCompletionRate();
-  // A subject counts as "started" once anything has been submitted or the
-  // teacher has recorded a mark for it. Until then its 0% means "no data yet",
-  // not a failing grade — the page used to read `percentage === 0` for this,
-  // which quietly filed a genuine zero under "Not started" instead.
-  const hasActivity = (r: ReportCard) =>
-    r.assignmentsCompleted > 0 ||
-    r.quizzesCompleted > 0 ||
-    r.assessmentsRecorded > 0;
-  const hasAnyGrade = reports.some(hasActivity);
-
-  // Every teacher-recorded mark, newest first, flattened across subjects — the
-  // "my teacher gave me 14/20 for Homework 2" view that quizzes/assignments
-  // alone can't answer.
-  const recordedMarks = useMemo(
-    () =>
-      reports
-        .flatMap((report) =>
-          (report.assessments ?? [])
-            .filter((a) => a.recorded)
-            .map((a) => ({ ...a, report })),
-        )
-        .sort((a, b) =>
-          (b.assessment_date ?? "").localeCompare(a.assessment_date ?? ""),
-        ),
-    [reports],
+    },
+    [term, academicYear],
   );
 
-  const pendingMarkCount = reports.reduce(
-    (acc, r) => acc + (r.totalAssessments - r.assessmentsRecorded),
-    0,
-  );
+  useEffect(() => {
+    load("initial");
+  }, [load]);
 
-  // Chart Data Preparation — colors mirror the app's semantic status palette
-  // (emerald/amber/blue/red) so the bars read the same as the Status
-  // Breakdown card and the rest of the dashboard's STAT_COLORS.
-  const gradeColor = (percentage: number, hover = false) => {
-    const alpha = hover ? 1 : 0.85;
-    if (percentage >= 80) return `rgba(16, 185, 129, ${alpha})`; // emerald-500
-    if (percentage >= 60) return `rgba(245, 158, 11, ${alpha})`; // amber-500
-    if (percentage >= 50) return `rgba(59, 130, 246, ${alpha})`; // blue-500
-    return `rgba(239, 68, 68, ${alpha})`; // red-500
-  };
+  const openSubject = (courseId: number) => navigate(`/courses/${courseId}/reports`);
 
-  const chartData = {
-    labels: reports.map((r) => r.code),
-    datasets: [
-      {
-        label: "Grade (%)",
-        data: reports.map((r) => r.percentage),
-        backgroundColor: reports.map((r) => gradeColor(r.percentage)),
-        hoverBackgroundColor: reports.map((r) => gradeColor(r.percentage, true)),
-        borderRadius: 6,
-        maxBarThickness: 48,
-      },
-    ],
-  };
+  /** Every mark a teacher recorded, newest first, across all subjects. */
+  const recordedMarks = useMemo(() => {
+    if (!overview) return [];
+    return overview.subjects
+      .flatMap((subject) =>
+        subject.items
+          .filter((item) => item.kind === "manual" && item.marked)
+          .map((item) => ({ item, subject })),
+      )
+      .sort((a, b) => (b.item.date ?? "").localeCompare(a.item.date ?? ""));
+  }, [overview]);
 
-  // Chart.js reads plain colors, not Tailwind's `dark:` variant — so it's
-  // rebuilt whenever the theme toggles, using the same tokens as the rest
-  // of the card (text-secondary / surface borders).
-  const chartOptions = useMemo(
-    () => ({
-      responsive: true,
-      maintainAspectRatio: false,
-      onClick: (_evt: ChartEvent, elements: ActiveElement[]) => {
-        const el = elements[0];
-        if (!el) return;
-        const report = reports[el.index];
-        if (report) navigate(`/courses/${report.courseId}/reports`);
-      },
-      onHover: (evt: ChartEvent, elements: ActiveElement[]) => {
-        const target = evt.native?.target as HTMLElement | null;
-        if (target) target.style.cursor = elements.length ? "pointer" : "default";
-      },
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          backgroundColor: isDark ? "rgba(30, 41, 59, 0.95)" : "rgba(15, 23, 42, 0.92)",
-          titleColor: "#f8fafc",
-          bodyColor: "#e2e8f0",
-          padding: 12,
-          cornerRadius: 8,
-          displayColors: false,
-          callbacks: {
-            label: (ctx: TooltipItem<"bar">) => `Grade: ${ctx.formattedValue}%`,
-          },
-        },
-      },
-      scales: {
-        y: {
-          beginAtZero: true,
-          max: 100,
-          grid: { color: isDark ? "rgba(148, 163, 184, 0.12)" : "rgba(148, 163, 184, 0.18)" },
-          ticks: { color: isDark ? "#94a3b8" : "#64748b" },
-        },
-        x: {
-          grid: { display: false },
-          ticks: { color: isDark ? "#94a3b8" : "#64748b" },
-        },
-      },
-    }),
-    [isDark, reports, navigate],
-  );
+  if (loading) return <ReportSkeleton />;
 
-  if (loading) {
+  if (!overview || overview.subjects.length === 0) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center gap-5">
-          <div className="relative w-14 h-14">
-            <div className="absolute inset-0 rounded-full border-4 border-blue-100 dark:border-blue-900/30" />
-            <div className="absolute inset-0 rounded-full border-4 border-blue-500 border-t-transparent animate-spin" />
-          </div>
-          <p className="text-text-secondary-light dark:text-text-secondary-dark/70 font-semibold text-sm">
-            Loading your academic profile…
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!loading && reports.length === 0) {
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="flex flex-col items-center justify-center min-h-[60vh] gap-6 text-center px-4"
-      >
-        <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-100 to-indigo-100 dark:from-blue-900/30 dark:to-indigo-900/30 flex items-center justify-center shadow-xl shadow-blue-100 dark:shadow-none border border-blue-200/50 dark:border-blue-800/40">
-          <GraduationCap className="w-10 h-10 text-blue-500 dark:text-blue-400" />
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center px-4">
+        <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark flex items-center justify-center">
+          <GraduationCap className="w-7 h-7 text-text-secondary-light dark:text-text-secondary-dark/60" />
         </div>
         <div>
-          <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">No Reports Yet</h2>
-          <p className="mt-2 text-text-secondary-light dark:text-text-secondary-dark/70 max-w-sm leading-relaxed">
-            You're not enrolled in any courses yet, or no grades have been recorded. Check back after your instructor publishes results.
+          <p className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
+            No reports yet
+          </p>
+          <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark/70 max-w-sm">
+            You are not enrolled in any subject for this term, or nothing has been
+            assessed yet.
           </p>
         </div>
         <button
-          onClick={fetchReports}
-          className="flex items-center gap-2 px-6 py-3 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-500/25 hover:shadow-blue-500/40 active:scale-95"
+          onClick={() => load("refresh")}
+          className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
         >
-          <RefreshCw className="w-4 h-4" />
-          Refresh
+          <RefreshCw className="w-3.5 h-3.5" /> Refresh
         </button>
-      </motion.div>
+      </div>
     );
   }
 
   return (
     <motion.div
-      className="pb-8 pt-5 space-y-8 min-h-screen"
+      className="space-y-5 pb-10"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
     >
-      {/* Header Section */}
+      {/* Header */}
       <motion.div
         variants={itemVariants}
-        className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4"
+        className="bg-card-light dark:bg-card-dark/30 rounded-2xl border border-white dark:border-border-dark/30 p-4 sm:p-5 flex flex-wrap items-start justify-between gap-4"
       >
-        <div className="flex items-center gap-4">
-          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white shadow-xl shadow-blue-500/25 flex-shrink-0">
-            <LayoutDashboard className="w-7 h-7" />
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center text-white flex-shrink-0">
+            <Award className="w-6 h-6" />
           </div>
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
+          <div className="min-w-0">
+            <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-widest font-medium">
+              Student report
+            </p>
+            <h1 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
               Academic Performance
             </h1>
-            <p className="mt-0.5 text-text-secondary-light dark:text-text-secondary-dark/70 text-sm font-medium flex items-center gap-2">
-              <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${STAT_COLORS.blue}`}>
-                Student Report
-              </span>
-              <span className="hidden sm:inline">Comprehensive overview of your grades.</span>
+            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60 mt-0.5">
+              {overview.subjects.length} subject{overview.subjects.length !== 1 ? "s" : ""} ·{" "}
+              {overview.graded.length} with marks
+              {term ? ` · ${term}` : ""}
             </p>
           </div>
         </div>
+
         <button
-          onClick={fetchReports}
-          className="px-6 py-3 bg-card-light dark:bg-card-dark/30 rounded-full hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-all shadow-sm hover:shadow-md flex items-center gap-2 font-bold text-xs uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark self-start sm:self-auto active:scale-95"
+          onClick={() => load("refresh")}
+          disabled={refreshing}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold border border-border-light dark:border-border-dark/40 text-text-secondary-light dark:text-text-secondary-dark hover:bg-surface-light dark:hover:bg-surface-dark/50 transition-colors disabled:opacity-50"
         >
-          <RefreshCw className="w-4 h-4" />
-          <span>Refresh</span>
+          <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          {refreshing ? "Refreshing" : "Refresh"}
         </button>
       </motion.div>
 
-      {/* Summary Stats Cards */}
-      <motion.div
-        variants={itemVariants}
-        className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6"
-      >
-        {/* Overall Grade Card */}
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8 relative overflow-hidden group hover:shadow-md transition-shadow">
-          <div className="relative z-10">
-            <p
-              className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 mb-4 w-fit px-2 py-1 rounded-lg ${STAT_COLORS.blue}`}
-            >
-              <Award className="w-4 h-4" />
-              Overview
-            </p>
-            <div className="flex items-baseline gap-2 mb-2">
-              <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
-                {overallGPA}%
-              </p>
-            </div>
-            <p className="text-text-secondary-light dark:text-text-secondary-dark/70 font-medium text-sm">
-              Overall Average Grade
-            </p>
-
-            <div
-              className={`mt-6 inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                !hasAnyGrade
-                  ? STAT_COLORS.blue
-                  : overallGPA >= 50
-                    ? STAT_COLORS.emerald
-                    : STAT_COLORS.red
-              }`}
-            >
-              <CheckCircle className="w-3 h-3" />
-              <span>
-                {!hasAnyGrade
-                  ? "No Marks Yet"
-                  : overallGPA >= 50
-                    ? "Standing: Good"
-                    : "Needs Improvement"}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* Completion Rate Card */}
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8 relative overflow-hidden group hover:shadow-md transition-shadow">
-          <div className="relative z-10">
-            <p
-              className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 mb-4 w-fit px-2 py-1 rounded-lg ${STAT_COLORS.emerald}`}
-            >
-              <Zap className="w-4 h-4" />
-              Progress
-            </p>
-            <div className="flex items-baseline gap-2 mb-6">
-              <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
-                {completionRate}%
-              </p>
-            </div>
-
-            <div className="w-full bg-surface-light dark:bg-surface-dark h-3 rounded-full overflow-hidden">
-              <motion.div
-                className="h-full bg-emerald-500 rounded-full"
-                initial={{ width: 0 }}
-                animate={{ width: `${completionRate}%` }}
-                transition={{ duration: 1, ease: "easeOut" }}
-              />
-            </div>
-            <p className="mt-3 text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-wider">
-              Assignments, Quizzes & Recorded Marks
-            </p>
-          </div>
-        </div>
-
-        {/* Course Count Card */}
-        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8 relative overflow-hidden group hover:shadow-md transition-shadow">
-          <div className="relative z-10">
-            <p
-              className={`text-xs font-bold uppercase tracking-widest flex items-center gap-2 mb-4 w-fit px-2 py-1 rounded-lg ${STAT_COLORS.violet}`}
-            >
-              <BookOpen className="w-4 h-4" />
-              Courses
-            </p>
-            <div className="flex items-baseline gap-2 mb-6">
-              <p className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
-                {reports.length}
-              </p>
-            </div>
-
-            <div className="flex flex-wrap gap-2">
-              {reports.slice(0, 3).map((r) => (
-                <span
-                  key={r.courseId}
-                  className="text-[10px] font-bold px-2 py-1 bg-surface-light dark:bg-surface-dark rounded-lg text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider"
-                >
-                  {r.code}
-                </span>
-              ))}
-              {reports.length > 3 && (
-                <span className="text-[10px] font-bold px-2 py-1 bg-surface-light dark:bg-surface-dark rounded-lg text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-wider">
-                  +{reports.length - 3}
-                </span>
-              )}
-            </div>
-            <p className="mt-4 text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-wider">
-              Active Enrollments
-            </p>
-          </div>
-        </div>
-      </motion.div>
-
-      {/* Main Content Area */}
+      {/* KPIs */}
       <motion.div
         variants={containerVariants}
-        className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8"
+        className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4"
       >
-        {/* Left Column: Grade Distribution Chart */}
-        <motion.div
-          variants={itemVariants}
-          className="lg:col-span-2 bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8"
-        >
-          <div className="flex items-center justify-between gap-3 mb-6">
-            <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${STAT_COLORS.blue}`}>
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
-                Performance Overview
-              </h3>
-            </div>
-            <span className="hidden sm:inline text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/60">
-              Click a bar to open that course
-            </span>
-          </div>
-          <div className="h-[220px] sm:h-[280px] lg:h-[350px] w-full">
-            <Bar data={chartData} options={chartOptions} />
-          </div>
-        </motion.div>
-
-        {/* Right Column: Alerts / Passing Status */}
-        <div className="space-y-6">
-          <motion.div
-            variants={itemVariants}
-            className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8"
-          >
-            <div className="flex items-center gap-3 mb-6">
-              <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${STAT_COLORS.indigo}`}>
-                <Filter className="w-5 h-5" />
-              </div>
-              <h3 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
-                Status Breakdown
-              </h3>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex justify-between items-center p-4 bg-emerald-50 dark:bg-emerald-900/10 rounded-2xl group hover:scale-[1.02] transition-transform">
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${STAT_COLORS.emerald}`}>
-                    <CheckCircle className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
-                      Passing
-                    </span>
-                    <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-widest">
-                      On Track
-                    </span>
-                  </div>
-                </div>
-                <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                  {
-                    reports.filter((r) => hasActivity(r) && r.percentage >= 50)
-                      .length
-                  }
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center p-4 bg-red-50 dark:bg-red-900/10 rounded-2xl group hover:scale-[1.02] transition-transform">
-                <div className="flex items-center gap-4">
-                  <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${STAT_COLORS.red}`}>
-                    <Zap className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
-                      Needs Attention
-                    </span>
-                    <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-widest">
-                      Below 50%
-                    </span>
-                  </div>
-                </div>
-                <span className="text-2xl font-bold text-red-600 dark:text-red-400">
-                  {
-                    reports.filter((r) => hasActivity(r) && r.percentage < 50)
-                      .length
-                  }
-                </span>
-              </div>
-
-              <div className="flex justify-between items-center p-4 bg-surface-light dark:bg-surface-dark/50 rounded-2xl group hover:scale-[1.02] transition-transform">
-                <div className="flex items-center gap-4">
-                  <div className="w-10 h-10 rounded-2xl bg-white dark:bg-gray-800 flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark/70">
-                    <BookOpen className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-wider">
-                      No Grade
-                    </span>
-                    <span className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-widest">
-                      Not Started
-                    </span>
-                  </div>
-                </div>
-                <span className="text-2xl font-bold text-text-secondary-light dark:text-text-secondary-dark">
-                  {reports.filter((r) => !hasActivity(r)).length}
-                </span>
-              </div>
-            </div>
-          </motion.div>
-        </div>
+        <KpiCard
+          icon={<Gauge className="w-4 h-4 text-blue-600 dark:text-blue-400" />}
+          accent="bg-blue-100 dark:bg-blue-900/20"
+          label="Average"
+          value={overview.overallAverage}
+          suffix="%"
+          progress={overview.overallAverage}
+          caption={
+            overview.graded.length === 0
+              ? "Nothing marked yet — no average to show"
+              : `Across the ${overview.graded.length} subject${
+                  overview.graded.length !== 1 ? "s" : ""
+                } with marks`
+          }
+        />
+        <KpiCard
+          icon={<CheckCircle2 className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />}
+          accent="bg-emerald-100 dark:bg-emerald-900/20"
+          label="Marked"
+          value={overview.progress}
+          suffix="%"
+          progress={overview.progress}
+          progressColor="bg-emerald-500"
+          caption={`${overview.markedCount} of ${overview.markedCount + overview.pendingCount} assessments`}
+        />
+        <KpiCard
+          icon={<PencilLine className="w-4 h-4 text-amber-600 dark:text-amber-400" />}
+          accent="bg-amber-100 dark:bg-amber-900/20"
+          label="Awaiting marks"
+          value={overview.pendingCount}
+          caption="Not counted in your average until marked"
+        />
+        <KpiCard
+          icon={<AlertTriangle className="w-4 h-4 text-red-600 dark:text-red-400" />}
+          accent="bg-red-100 dark:bg-red-900/20"
+          label="Overdue"
+          value={overview.overdueCount}
+          caption={
+            overview.overdueCount === 0
+              ? "Nothing is past its deadline"
+              : "Work past due and not submitted"
+          }
+        />
       </motion.div>
 
-      {/* Marks recorded by teachers — class work, homework, midterms, CA exams.
-          These never pass through a submission, so they only reach the student
-          here. */}
-      <motion.div
-        variants={itemVariants}
-        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8"
+      {/* What to do about it */}
+      <Panel
+        title="What to focus on"
+        icon={<Lightbulb className="w-4 h-4" />}
+        hint="Based on the work marked so far"
       >
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
-          <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${STAT_COLORS.amber}`}>
-              <ClipboardList className="w-5 h-5" />
-            </div>
-            <div>
-              <h3 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
-                Marks Recorded by Your Teachers
-              </h3>
-              <p className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/60">
-                Class work, homework, midterms and CA exams marked off-platform
-              </p>
-            </div>
-          </div>
-          {pendingMarkCount > 0 && (
-            <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg self-start sm:self-auto bg-surface-light dark:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark">
-              {pendingMarkCount} awaiting entry
-            </span>
-          )}
-        </div>
+        <ul className="space-y-2">
+          <AnimatePresence initial={false}>
+            {overview.recommendations.map((r) => (
+              <RecommendationRow key={r.id} recommendation={r} onOpen={openSubject} />
+            ))}
+          </AnimatePresence>
+        </ul>
+      </Panel>
 
-        {recordedMarks.length === 0 ? (
-          <div className="text-center py-10 flex flex-col items-center gap-3">
-            <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark/50">
-              <ClipboardList className="w-7 h-7" />
-            </div>
-            <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70 max-w-md">
-              No marks have been recorded for you yet this term. Anything your
-              teacher records in class will appear here.
-            </p>
-          </div>
+      {/* Subject comparison — only subjects that actually have marks */}
+      <Panel
+        title="How your subjects compare"
+        icon={<TrendingUp className="w-4 h-4" />}
+        hint={
+          overview.graded.length === 0
+            ? "Appears once your first mark is in"
+            : "Weakest first · click a bar to open that subject"
+        }
+      >
+        {overview.graded.length === 0 ? (
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/60 py-8 text-center">
+            Nothing has been marked yet, so there is nothing to compare. Subjects
+            with no marks are deliberately left out rather than shown as 0%.
+          </p>
         ) : (
-          <div className="overflow-x-auto -mx-2 px-2">
-            <table className="w-full min-w-[560px] text-left border-collapse">
+          <SubjectAveragesChart
+            subjects={overview.graded.map((s) => ({
+              key: String(s.courseId),
+              label: s.code || s.courseName,
+              value: s.percentage,
+              tooltip: [
+                s.courseName,
+                `${s.totalPointsEarned}/${s.totalMaxPoints} points from ${s.markedCount} marked`,
+                s.pendingCount > 0 ? `${s.pendingCount} still to be marked` : "Everything marked",
+              ],
+            }))}
+            onSelect={(key) => openSubject(Number(key))}
+          />
+        )}
+      </Panel>
+
+      {/* Marks recorded by teachers */}
+      <Panel
+        title="Marks recorded by your teachers"
+        icon={<ClipboardList className="w-4 h-4" />}
+        hint="Class work, homework, midterms and CA exams marked off-platform"
+      >
+        {recordedMarks.length === 0 ? (
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/60 py-8 text-center">
+            No marks have been recorded for you yet this term.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[520px] text-left border-collapse">
               <thead>
                 <tr className="text-[10px] font-bold uppercase tracking-widest text-text-secondary-light dark:text-text-secondary-dark/60">
-                  <th className="pb-3 pr-4 font-bold">Subject</th>
-                  <th className="pb-3 pr-4 font-bold">Assessment</th>
-                  <th className="pb-3 pr-4 font-bold">Date</th>
-                  <th className="pb-3 pr-4 font-bold text-right">Score</th>
-                  <th className="pb-3 font-bold text-right">%</th>
+                  <th className="pb-2 pr-4">Subject</th>
+                  <th className="pb-2 pr-4">Assessment</th>
+                  <th className="pb-2 pr-4">Date</th>
+                  <th className="pb-2 pr-4 text-right">Score</th>
+                  <th className="pb-2 text-right">%</th>
                 </tr>
               </thead>
               <tbody>
-                {recordedMarks.map((mark) => {
-                  const pct = mark.percentage ?? 0;
-                  const date = formatAssessmentDate(mark.assessment_date);
+                {recordedMarks.map(({ item, subject }) => {
+                  const pct = itemPercentage(item) ?? 0;
+                  const date = formatDate(item.date);
                   return (
                     <tr
-                      key={`${mark.report.courseId}-${mark.assessment_id}`}
-                      onClick={() =>
-                        navigate(`/courses/${mark.report.courseId}/reports`)
-                      }
-                      className="border-t border-surface-light dark:border-surface-dark/60 cursor-pointer hover:bg-surface-light/60 dark:hover:bg-surface-dark/40 transition-colors"
+                      key={`${subject.courseId}-${item.id}`}
+                      onClick={() => openSubject(subject.courseId)}
+                      className="border-t border-border-light dark:border-border-dark/30 cursor-pointer hover:bg-surface-light/60 dark:hover:bg-surface-dark/40 transition-colors"
                     >
-                      <td className="py-3 pr-4">
-                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg ${STAT_COLORS.blue}`}>
-                          {mark.report.code}
+                      <td className="py-2.5 pr-4">
+                        <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300">
+                          {subject.code}
                         </span>
                       </td>
-                      <td className="py-3 pr-4">
-                        <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
-                          {assessmentLabel(mark)}
+                      <td className="py-2.5 pr-4">
+                        <span className="block text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
+                          {itemLabel(item)}
                         </span>
-                        {!mark.counts_to_final && (
+                        {!item.countsToFinal && (
                           <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">
                             Not counted in final grade
                           </span>
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 whitespace-nowrap">
+                      <td className="py-2.5 pr-4 text-xs text-text-secondary-light dark:text-text-secondary-dark/70 whitespace-nowrap">
                         {date ? (
                           <span className="inline-flex items-center gap-1.5">
                             <CalendarDays className="w-3.5 h-3.5" />
@@ -678,19 +493,16 @@ const StudentReportsPage: React.FC = () => {
                           "—"
                         )}
                       </td>
-                      <td className="py-3 pr-4 text-right text-sm font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums whitespace-nowrap">
-                        {mark.score}
+                      <td className="py-2.5 pr-4 text-right text-sm font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark whitespace-nowrap">
+                        {item.score}
                         <span className="text-text-secondary-light dark:text-text-secondary-dark/50">
                           {" "}
-                          / {mark.max_score}
+                          / {item.maxScore}
                         </span>
                       </td>
                       <td
-                        className={`py-3 text-right text-sm font-bold tabular-nums ${
-                          pct >= 50
-                            ? "text-emerald-600 dark:text-emerald-400"
-                            : "text-red-600 dark:text-red-400"
-                        }`}
+                        className="py-2.5 text-right text-sm font-bold tabular-nums"
+                        style={{ color: bandMeta(bandOf(pct)).color }}
                       >
                         {pct}%
                       </td>
@@ -701,131 +513,44 @@ const StudentReportsPage: React.FC = () => {
             </table>
           </div>
         )}
-      </motion.div>
+      </Panel>
 
-      {/* Detailed Course Cards Grid */}
-      <div className="pt-2">
-        <h3 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-5 flex items-center gap-3">
-          <GraduationCap className="w-7 h-7 text-blue-600 dark:text-blue-400 flex-shrink-0" />
-          Subject Details
-        </h3>
+      {/* Per-subject detail */}
+      <motion.section variants={itemVariants} className="space-y-3">
+        <div className="flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-xl bg-surface-light dark:bg-surface-dark flex items-center justify-center text-blue-600 dark:text-blue-400">
+            <BookOpen className="w-4 h-4" />
+          </span>
+          <div>
+            <h2 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
+              Subject details
+            </h2>
+            <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
+              Open a subject for every mark behind its grade
+            </p>
+          </div>
+        </div>
+
         <motion.div
           variants={containerVariants}
-          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6"
+          className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3 sm:gap-4"
         >
-          {reports.map((report) => (
-            <motion.div
-              key={report.courseId}
-              variants={itemVariants}
-              onClick={() => navigate(`/courses/${report.courseId}/reports`)}
-              className="group bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8 hover:-translate-y-1 hover:shadow-lg transition-all duration-300 cursor-pointer"
-            >
-              <div className="flex justify-between items-start mb-6">
-                <div>
-                  <span className={`text-[10px] font-bold uppercase tracking-widest px-3 py-1.5 rounded-lg mb-3 inline-block ${STAT_COLORS.blue}`}>
-                    {report.code}
-                  </span>
-                  <h4 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark line-clamp-2 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
-                    {report.courseName}
-                  </h4>
-                </div>
-                <div
-                  className={`flex flex-col items-end ${
-                    report.percentage >= 50 ? "text-emerald-500" : "text-red-500"
-                  }`}
-                >
-                  <span className="text-3xl font-bold tracking-tight">
-                    {report.percentage}%
-                  </span>
-                </div>
-              </div>
-
-              <div className="space-y-5 mb-8">
-                <div>
-                  <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
-                    <span className="text-text-secondary-light dark:text-text-secondary-dark/60">Assignments</span>
-                    <span className="text-text-primary-light dark:text-text-primary-dark">
-                      {report.assignmentsCompleted}/{report.totalAssignments}
-                    </span>
-                  </div>
-                  <div className="w-full bg-surface-light dark:bg-surface-dark h-2 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-indigo-500 rounded-full transition-[width] duration-700"
-                      style={{
-                        width: `${
-                          report.totalAssignments > 0
-                            ? (report.assignmentsCompleted /
-                                report.totalAssignments) *
-                              100
-                            : 0
-                        }%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
-                    <span className="text-text-secondary-light dark:text-text-secondary-dark/60">Quizzes</span>
-                    <span className="text-text-primary-light dark:text-text-primary-dark">
-                      {report.quizzesCompleted}/{report.totalQuizzes}
-                    </span>
-                  </div>
-                  <div className="w-full bg-surface-light dark:bg-surface-dark h-2 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-pink-500 rounded-full transition-[width] duration-700"
-                      style={{
-                        width: `${
-                          report.totalQuizzes > 0
-                            ? (report.quizzesCompleted / report.totalQuizzes) *
-                              100
-                            : 0
-                        }%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
-                    <span className="text-text-secondary-light dark:text-text-secondary-dark/60">
-                      Class Assessments
-                    </span>
-                    <span className="text-text-primary-light dark:text-text-primary-dark">
-                      {report.assessmentsRecorded}/{report.totalAssessments}
-                    </span>
-                  </div>
-                  <div className="w-full bg-surface-light dark:bg-surface-dark h-2 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-amber-500 rounded-full transition-[width] duration-700"
-                      style={{
-                        width: `${
-                          report.totalAssessments > 0
-                            ? (report.assessmentsRecorded /
-                                report.totalAssessments) *
-                              100
-                            : 0
-                        }%`,
-                      }}
-                    ></div>
-                  </div>
-                </div>
-              </div>
-
-              <Link
-                to={`/courses/${report.courseId}/reports`}
-                onClick={(e) => e.stopPropagation()}
-                className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-surface-light dark:bg-surface-dark/60 text-text-secondary-light dark:text-text-secondary-dark font-bold uppercase tracking-wider text-xs rounded-full hover:bg-blue-600 hover:text-white dark:hover:bg-blue-600 transition-all duration-300 group-hover:shadow-lg group-hover:shadow-blue-500/20"
-              >
-                <span>View Full Report</span>
-                <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-              </Link>
-            </motion.div>
+          {overview.subjects.map((subject) => (
+            <SubjectCard
+              key={subject.courseId}
+              subject={subject}
+              onOpen={() => openSubject(subject.courseId)}
+            />
           ))}
         </motion.div>
-      </div>
+      </motion.section>
+
+      <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/50 text-center">
+        Only marked work counts towards these figures.{" "}
+        <Link to="/assignments" className="text-blue-600 dark:text-blue-400 hover:underline">
+          See what is still open
+        </Link>
+      </p>
     </motion.div>
   );
-};
-
-export default StudentReportsPage;
+}

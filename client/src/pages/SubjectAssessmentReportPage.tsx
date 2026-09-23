@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -26,6 +26,16 @@ import { useTermYearSelector } from "../hooks/useTermYearSelector";
 import TermYearSelect from "../components/ReportCard/TermYearSelect";
 import StudentGradeModal from "../components/Courses/StudentGradeModal";
 import {
+  BandPill,
+  KpiCard,
+  Panel,
+  Progress,
+} from "../components/Grades/reportUi";
+import {
+  containerVariants as container,
+  itemVariants as item,
+} from "../components/Grades/reportMotion";
+import {
   AssessmentAveragesChart,
   BandDistributionChart,
   PerformanceTrendChart,
@@ -34,6 +44,7 @@ import {
   BANDS,
   bandMeta,
   bandOf,
+  buildReportAlerts,
   buildSubjectReport,
   fetchSubjectGrades,
   type AssessmentStat,
@@ -52,16 +63,6 @@ import {
 // All of it is derived client-side from GET /courses/:id/grades (see
 // services/subjectReportApi.ts), so there is no second source of truth for a
 // class average.
-
-const container = {
-  hidden: { opacity: 0 },
-  visible: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-
-const item = {
-  hidden: { opacity: 0, y: 14 },
-  visible: { opacity: 1, y: 0, transition: { type: "spring" as const, stiffness: 120, damping: 18 } },
-};
 
 const KIND_BADGE: Record<AssessmentStat["kind"], string> = {
   quiz: "bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300",
@@ -82,174 +83,6 @@ const actionFor = (a: AssessmentStat) =>
     : a.kind === "quiz"
       ? { to: `/quizzes/${a.id}/submissions`, label: "Grade quiz" }
       : { to: `/assignments/${a.id}`, label: "Grade work" };
-
-// ─── Count-up number ──────────────────────────────────────────────────────────
-// A KPI that animates from 0 tells the eye "this just changed"; it also makes
-// a re-fetch after a term switch visible without a spinner.
-
-function CountUp({ value, suffix = "" }: { value: number; suffix?: string }) {
-  const [shown, setShown] = useState(0);
-  const fromRef = useRef(0);
-
-  useEffect(() => {
-    const from = fromRef.current;
-    const start = performance.now();
-    const duration = 650;
-    let frame = 0;
-    const tick = (now: number) => {
-      const t = Math.min(1, (now - start) / duration);
-      const eased = 1 - Math.pow(1 - t, 3);
-      setShown(Math.round((from + (value - from) * eased) * 10) / 10);
-      if (t < 1) frame = requestAnimationFrame(tick);
-      else fromRef.current = value;
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [value]);
-
-  return (
-    <span className="tabular-nums">
-      {Number.isInteger(value) ? Math.round(shown) : shown}
-      {suffix}
-    </span>
-  );
-}
-
-function KpiCard({
-  icon,
-  label,
-  value,
-  suffix,
-  caption,
-  accent,
-  progress,
-  onClick,
-  active = false,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: number;
-  suffix?: string;
-  caption: string;
-  accent: string;
-  progress?: number;
-  onClick?: () => void;
-  active?: boolean;
-}) {
-  const Wrapper = onClick ? motion.button : motion.div;
-  return (
-    <Wrapper
-      variants={item}
-      {...(onClick ? { onClick, type: "button" as const, "aria-pressed": active } : {})}
-      whileHover={onClick ? { y: -3 } : undefined}
-      className={`text-left bg-card-light dark:bg-card-dark/30 rounded-2xl border p-5 transition-colors ${
-        active
-          ? "border-blue-500/60 ring-2 ring-blue-500/20"
-          : "border-white dark:border-border-dark/30"
-      } ${onClick ? "hover:border-blue-400/50 cursor-pointer" : ""}`}
-    >
-      <div className="flex items-center gap-2 mb-3">
-        <span className={`w-8 h-8 rounded-xl flex items-center justify-center ${accent}`}>
-          {icon}
-        </span>
-        <span className="text-[11px] font-bold uppercase tracking-widest text-text-secondary-light dark:text-text-secondary-dark/60">
-          {label}
-        </span>
-      </div>
-      <p className="text-3xl font-bold text-text-primary-light dark:text-text-primary-dark">
-        <CountUp value={value} suffix={suffix} />
-      </p>
-      {typeof progress === "number" && (
-        <div className="mt-3 h-1.5 w-full rounded-full bg-surface-light dark:bg-surface-dark overflow-hidden">
-          <motion.div
-            className="h-full rounded-full bg-blue-600"
-            initial={{ width: 0 }}
-            animate={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
-            transition={{ duration: 0.8, ease: "easeOut" }}
-          />
-        </div>
-      )}
-      <p className="mt-2 text-xs text-text-secondary-light dark:text-text-secondary-dark/60 leading-relaxed">
-        {caption}
-      </p>
-    </Wrapper>
-  );
-}
-
-function Panel({
-  title,
-  icon,
-  hint,
-  action,
-  children,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  hint?: string;
-  action?: React.ReactNode;
-  children: React.ReactNode;
-}) {
-  return (
-    <motion.section
-      variants={item}
-      className="bg-card-light dark:bg-card-dark/30 rounded-2xl border border-white dark:border-border-dark/30 p-5"
-    >
-      <header className="flex items-start justify-between gap-3 mb-4">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <span className="w-8 h-8 rounded-xl bg-surface-light dark:bg-surface-dark flex items-center justify-center text-blue-600 dark:text-blue-400 flex-shrink-0">
-            {icon}
-          </span>
-          <div className="min-w-0">
-            <h2 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
-              {title}
-            </h2>
-            {hint && (
-              <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
-                {hint}
-              </p>
-            )}
-          </div>
-        </div>
-        {action}
-      </header>
-      {children}
-    </motion.section>
-  );
-}
-
-/** A horizontal marks-recorded bar — the same shape on both tables. */
-function Progress({ done, total }: { done: number; total: number }) {
-  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
-  const complete = total > 0 && done >= total;
-  return (
-    <div className="flex items-center gap-2 min-w-[120px]">
-      <div className="flex-1 h-1.5 rounded-full bg-surface-light dark:bg-surface-dark overflow-hidden">
-        <motion.div
-          className={`h-full rounded-full ${complete ? "bg-emerald-500" : "bg-amber-500"}`}
-          initial={{ width: 0 }}
-          animate={{ width: `${pct}%` }}
-          transition={{ duration: 0.6, ease: "easeOut" }}
-        />
-      </div>
-      <span className="text-[11px] font-semibold tabular-nums text-text-secondary-light dark:text-text-secondary-dark/70 w-12 text-right">
-        {done}/{total}
-      </span>
-    </div>
-  );
-}
-
-function BandPill({ band }: { band: BandKey }) {
-  const meta = bandMeta(band);
-  return (
-    <span
-      className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold"
-      style={{ backgroundColor: `${meta.color}1f`, color: meta.color }}
-    >
-      <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: meta.color }} aria-hidden />
-      {meta.label}
-    </span>
-  );
-}
 
 export default function SubjectAssessmentReportPage() {
   const { courseId } = useParams<{ courseId: string }>();
@@ -325,74 +158,31 @@ export default function SubjectAssessmentReportPage() {
     });
   }, [report, search, activeBand, sortBy]);
 
-  /** The "what needs doing" list — every entry carries its own way to act. */
+  /** Service-derived alerts, wired to this page's navigation and filters. */
   const alerts = useMemo(() => {
     if (!report) return [];
-    const out: Array<{
-      id: string;
-      tone: "warning" | "serious" | "good";
-      title: string;
-      detail: string;
-      action?: { label: string; to?: string; onClick?: () => void };
-    }> = [];
-
-    if (report.unmarkedAssessments.length > 0) {
-      const first = report.unmarkedAssessments[0];
-      out.push({
-        id: "unmarked",
-        tone: "serious",
-        title: `${report.unmarkedAssessments.length} assessment${report.unmarkedAssessments.length !== 1 ? "s" : ""} with no marks at all`,
-        detail: report.unmarkedAssessments.map((a) => a.title).slice(0, 3).join(", "),
-        action: { label: actionFor(first).label, to: actionFor(first).to },
-      });
-    }
-
-    const partial = report.assessments.filter(
-      (a) => a.markedCount > 0 && a.markedCount < a.rosterSize,
-    );
-    if (partial.length > 0) {
-      out.push({
-        id: "partial",
-        tone: "warning",
-        title: `${partial.length} assessment${partial.length !== 1 ? "s" : ""} only partly marked`,
-        detail: `${report.outstandingMarks} student mark${report.outstandingMarks !== 1 ? "s" : ""} still missing across the subject.`,
-        action: { label: "Show these", onClick: () => setOnlyIncomplete(true) },
-      });
-    }
-
-    if (report.atRiskCount > 0) {
-      out.push({
-        id: "at-risk",
-        tone: "serious",
-        title: `${report.atRiskCount} student${report.atRiskCount !== 1 ? "s" : ""} below 50%`,
-        detail: "They need intervention before the report card is issued.",
-        action: { label: "List them", onClick: () => setActiveBand("at_risk") },
-      });
-    }
-
-    const weakest = [...report.assessments]
-      .filter((a) => a.averagePct !== null)
-      .sort((a, b) => (a.averagePct ?? 0) - (b.averagePct ?? 0))[0];
-    if (weakest && (weakest.averagePct ?? 0) < 50) {
-      out.push({
-        id: "weak-assessment",
-        tone: "warning",
-        title: `The class averaged ${weakest.averagePct}% on "${weakest.title}"`,
-        detail: "Worth re-teaching this topic before moving on.",
-        action: { label: "Focus", onClick: () => setSelectedAssessment(weakest.key) },
-      });
-    }
-
-    if (out.length === 0 && report.assessments.length > 0) {
-      out.push({
-        id: "clear",
-        tone: "good",
-        title: "Everything is marked and nobody is below 50%",
-        detail: "This subject is ready for report cards.",
-      });
-    }
-
-    return out;
+    return buildReportAlerts(report).map((alert) => {
+      const a = alert.action;
+      if (!a) return { ...alert, resolved: undefined };
+      if (a.kind === "assessment") {
+        const target = actionFor(a.assessment);
+        return { ...alert, resolved: { label: target.label, to: target.to } };
+      }
+      if (a.kind === "focus") {
+        return {
+          ...alert,
+          resolved: { label: a.label, onClick: () => setSelectedAssessment(a.assessmentKey) },
+        };
+      }
+      return {
+        ...alert,
+        resolved: {
+          label: a.label,
+          onClick: () =>
+            a.filter === "incomplete" ? setOnlyIncomplete(true) : setActiveBand("at_risk"),
+        },
+      };
+    });
   }, [report]);
 
   const handleExport = () => {
@@ -601,20 +391,20 @@ export default function SubjectAssessmentReportPage() {
                       <p className="text-xs opacity-80 truncate">{a.detail}</p>
                     </div>
                   </div>
-                  {a.action &&
-                    (a.action.to ? (
+                  {a.resolved &&
+                    (a.resolved.to ? (
                       <Link
-                        to={a.action.to}
+                        to={a.resolved.to}
                         className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full bg-white/70 dark:bg-black/20 hover:bg-white dark:hover:bg-black/40 transition-colors whitespace-nowrap"
                       >
-                        {a.action.label} <ArrowRight className="w-3 h-3" />
+                        {a.resolved.label} <ArrowRight className="w-3 h-3" />
                       </Link>
                     ) : (
                       <button
-                        onClick={a.action.onClick}
+                        onClick={a.resolved.onClick}
                         className="flex items-center gap-1 text-xs font-bold px-3 py-1.5 rounded-full bg-white/70 dark:bg-black/20 hover:bg-white dark:hover:bg-black/40 transition-colors whitespace-nowrap"
                       >
-                        {a.action.label} <ArrowRight className="w-3 h-3" />
+                        {a.resolved.label} <ArrowRight className="w-3 h-3" />
                       </button>
                     ))}
                 </motion.li>

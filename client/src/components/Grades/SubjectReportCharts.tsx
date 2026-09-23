@@ -514,3 +514,115 @@ export function BandDistributionChart({
     </div>
   );
 }
+
+// ─── Subject comparison (student view) ────────────────────────────────────────
+// Same grammar as AssessmentAveragesChart — horizontal bars, weakest first,
+// value labels, the 50% pass rule — but fed plain rows, because a student's
+// axis is their subjects rather than one subject's assessments. Only subjects
+// that actually carry a mark should ever be passed in; plotting an unassessed
+// subject as 0% is the bug this page used to have.
+
+export interface SubjectBar {
+  key: string;
+  label: string;
+  value: number;
+  /** Extra tooltip lines, rendered under the value. */
+  tooltip?: string[];
+}
+
+export function SubjectAveragesChart({
+  subjects,
+  onSelect,
+}: {
+  subjects: SubjectBar[];
+  onSelect?: (key: string) => void;
+}) {
+  const t = useChartTheme();
+  const themeRef = useThemeRef(t);
+  const plugins = useMemo(
+    () => [barValueLabels(themeRef), passLine(themeRef, "x")],
+    [themeRef],
+  );
+
+  const ordered = useMemo(
+    () => [...subjects].sort((a, b) => a.value - b.value),
+    [subjects],
+  );
+
+  const data = useMemo(
+    () => ({
+      labels: ordered.map((s) => s.label),
+      datasets: [
+        {
+          label: "Average",
+          data: ordered.map((s) => s.value),
+          backgroundColor: ordered.map((s) => bandMeta(bandOf(s.value)).color),
+          borderRadius: 4,
+          borderSkipped: false as const,
+          barThickness: 18,
+          maxBarThickness: 22,
+        },
+      ],
+    }),
+    [ordered],
+  );
+
+  const options = useMemo(
+    () => ({
+      indexAxis: "y" as const,
+      responsive: true,
+      maintainAspectRatio: false,
+      layout: { padding: { top: 14 } },
+      animation: { duration: 700, easing: "easeOutQuart" as const },
+      onClick: (_e: ChartEvent, els: ActiveElement[]) => {
+        const hit = ordered[els[0]?.index ?? -1];
+        if (hit && onSelect) onSelect(hit.key);
+      },
+      onHover: (e: ChartEvent, els: ActiveElement[]) => {
+        const target = e.native?.target as HTMLElement | null;
+        if (target) target.style.cursor = els.length && onSelect ? "pointer" : "default";
+      },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          ...t.tooltip,
+          callbacks: {
+            title: (items: TooltipItem<"bar">[]) => ordered[items[0].dataIndex].label,
+            label: (ctx: TooltipItem<"bar">) => [
+              `${ordered[ctx.dataIndex].value}%`,
+              ...(ordered[ctx.dataIndex].tooltip ?? []),
+            ],
+          },
+        },
+      },
+      scales: {
+        x: {
+          beginAtZero: true,
+          max: 108,
+          grid: { color: t.grid, drawTicks: false },
+          border: { display: false },
+          ticks: {
+            color: t.tick,
+            font: { size: 11 },
+            stepSize: 25,
+            callback: (v: string | number) => (Number(v) > 100 ? "" : `${v}%`),
+          },
+        },
+        y: {
+          grid: { display: false },
+          border: { display: false },
+          ticks: { color: t.tick, font: { size: 11 } },
+        },
+      },
+    }),
+    [ordered, onSelect, t],
+  );
+
+  if (ordered.length === 0) return null;
+
+  return (
+    <div style={{ height: Math.max(160, ordered.length * 32 + 52) }}>
+      <Bar data={data} options={options} plugins={plugins} />
+    </div>
+  );
+}

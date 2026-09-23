@@ -813,8 +813,20 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       ? { [Op.or]: [{ academic_term_id: termId }, { academic_term_id: null }] }
       : undefined;
 
+    // A student looking at their own report is NOT allowed to read the MIS
+    // roster (`/academics/subjects/:id/terms/:id/students` is admin-only and
+    // the `/academics/my-students` fallback is a teacher endpoint), so both
+    // calls 403 and the roster comes back empty. The page then had nothing to
+    // build a row from unless the student happened to have a submission —
+    // anyone whose subject is assessed only by hand-recorded marks saw "no
+    // grade data" while their marks sat in the database. Self-viewers get
+    // their own row built locally instead of going through the roster.
+    const isSelfView = !req.user?.permissions?.has("COURSES_VIEW_GRADES");
+
     // 1. Get enrolled students from MIS
-    const enrolledStudents = await fetchEnrolledStudents(token, courseId, termId);
+    const enrolledStudents = isSelfView
+      ? []
+      : await fetchEnrolledStudents(token, courseId, termId);
 
     // 2. Get all Assignments
     const assignments = await Assignment.findAll({
@@ -869,7 +881,11 @@ export const getCourseGrades = async (req: Request, res: Response) => {
     // 4. Get all Assignment Submissions
     const assignmentIds = assignments.map((a) => a.id);
     const assignmentSubmissions = await Submission.findAll({
-      where: { assignment_id: { [Op.in]: assignmentIds } },
+      where: {
+        assignment_id: { [Op.in]: assignmentIds },
+        // A self view needs one student's rows, not the whole class's.
+        ...(isSelfView && req.user ? { student_id: req.user.id } : {}),
+      },
       attributes: ["student_id", "assignment_id", "grade", "status"],
       include: [
         {
@@ -886,6 +902,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       where: {
         quiz_id: { [Op.in]: quizIds },
         status: "completed", // Only count completed attempts
+        ...(isSelfView && req.user ? { student_id: req.user.id } : {}),
       },
       attributes: [
         "student_id",
@@ -904,102 +921,134 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       order: [["total_score", "DESC"]],
     });
 
-    // 6. Enrich Student List with Local Submitters and Remove Duplicates
-    // Extract unique local student IDs from submissions
-    const localStudentIds = new Set<number>();
-    assignmentSubmissions.forEach((s) => localStudentIds.add(s.student_id));
-    quizSubmissions.forEach((s) => localStudentIds.add(s.student_id));
-
+    // 6. Build the roster.
     let finalStudents: any[] = [];
 
-    // Always start with MIS enrolled students as the base
-    if (enrolledStudents.length > 0) {
-      finalStudents = enrolledStudents.map((student: any) => ({
-        id: student.id || student.user_id,
-        first_name: student.first_name || student.name?.split(" ")[0] || "",
-        last_name:
-          student.last_name ||
-          student.name?.split(" ").slice(1).join(" ") ||
-          "",
-        email: student.email || "",
-        profile_image: student.profile_image || null,
-        mis_user_id: student.id || student.user_id,
-      }));
-    }
+    if (isSelfView) {
+      // One row: the caller. Their name/email come from the local user record,
+      // and the id is their MIS id where they have one so the marks a teacher
+      // recorded against the MIS roster line up with it.
+      const me = req.user
+        ? await User.findByPk(req.user.id, {
+            attributes: [
+              "id",
+              "first_name",
+              "last_name",
+              "email",
+              "profile_image",
+              "mis_user_id",
+            ],
+          })
+        : null;
 
-    // If there are local students who submitted but are NOT in the MIS enrolled list, add them
-    if (localStudentIds.size > 0) {
-      // Fetch user details for these local students
-      const localStudents = await User.findAll({
-        where: {
-          id: { [Op.in]: Array.from(localStudentIds) },
+      const misId = me?.mis_user_id ?? req.user?.mis_user_id ?? null;
+      finalStudents = [
+        {
+          id: misId ?? `local_${req.user?.id}`,
+          user_id: req.user?.id,
+          first_name: me?.first_name ?? "",
+          last_name: me?.last_name ?? "",
+          email: me?.email ?? req.user?.email ?? "",
+          profile_image: me?.profile_image ?? null,
+          mis_user_id: misId,
         },
-        attributes: [
-          "id",
-          "first_name",
-          "last_name",
-          "email",
-          "profile_image",
-          "mis_user_id",
-        ],
-      });
+      ];
+    } else {
+      // 6b. Enrich Student List with Local Submitters and Remove Duplicates
+      // Extract unique local student IDs from submissions
+      const localStudentIds = new Set<number>();
+      assignmentSubmissions.forEach((s) => localStudentIds.add(s.student_id));
+      quizSubmissions.forEach((s) => localStudentIds.add(s.student_id));
 
-      // Add local students who are not already in the final list
-      const existingIds = new Set(
-        finalStudents.map((s) => s.mis_user_id || s.id),
-      );
-      localStudents.forEach((localUser) => {
-        const localId = localUser.mis_user_id || `local_${localUser.id}`;
-        if (!existingIds.has(localId) && !existingIds.has(localUser.id)) {
-          finalStudents.push({
-            id: localUser.mis_user_id || `local_${localUser.id}`,
-            user_id: localUser.id,
-            first_name: localUser.first_name,
-            last_name: localUser.last_name,
-            email: localUser.email,
-            profile_image: localUser.profile_image,
-            is_local_only: !localUser.mis_user_id,
-            mis_user_id: localUser.mis_user_id,
-          });
+      // Always start with MIS enrolled students as the base
+      if (enrolledStudents.length > 0) {
+        finalStudents = enrolledStudents.map((student: any) => ({
+          id: student.id || student.user_id,
+          first_name: student.first_name || student.name?.split(" ")[0] || "",
+          last_name:
+            student.last_name ||
+            student.name?.split(" ").slice(1).join(" ") ||
+            "",
+          email: student.email || "",
+          profile_image: student.profile_image || null,
+          mis_user_id: student.id || student.user_id,
+        }));
+      }
+
+      // If there are local students who submitted but are NOT in the MIS enrolled list, add them
+      if (localStudentIds.size > 0) {
+        // Fetch user details for these local students
+        const localStudents = await User.findAll({
+          where: {
+            id: { [Op.in]: Array.from(localStudentIds) },
+          },
+          attributes: [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "profile_image",
+            "mis_user_id",
+          ],
+        });
+
+        // Add local students who are not already in the final list
+        const existingIds = new Set(
+          finalStudents.map((s) => s.mis_user_id || s.id),
+        );
+        localStudents.forEach((localUser) => {
+          const localId = localUser.mis_user_id || `local_${localUser.id}`;
+          if (!existingIds.has(localId) && !existingIds.has(localUser.id)) {
+            finalStudents.push({
+              id: localUser.mis_user_id || `local_${localUser.id}`,
+              user_id: localUser.id,
+              first_name: localUser.first_name,
+              last_name: localUser.last_name,
+              email: localUser.email,
+              profile_image: localUser.profile_image,
+              is_local_only: !localUser.mis_user_id,
+              mis_user_id: localUser.mis_user_id,
+            });
+          }
+        });
+      }
+
+      // If still no students (no MIS enrollment and no local submissions), try to get all local users
+      if (finalStudents.length === 0 && localStudentIds.size > 0) {
+        const localStudents = await User.findAll({
+          where: {
+            id: { [Op.in]: Array.from(localStudentIds) },
+          },
+          attributes: [
+            "id",
+            "first_name",
+            "last_name",
+            "email",
+            "profile_image",
+            "mis_user_id",
+          ],
+        });
+        finalStudents = localStudents.map((localUser) => ({
+          id: localUser.mis_user_id || `local_${localUser.id}`,
+          user_id: localUser.id,
+          first_name: localUser.first_name,
+          last_name: localUser.last_name,
+          email: localUser.email,
+          profile_image: localUser.profile_image,
+          is_local_only: !localUser.mis_user_id,
+        }));
+      }
+
+      // Remove any duplicates from final list
+      const studentMap = new Map();
+      finalStudents.forEach((student) => {
+        const key = student.mis_user_id || student.id || student.email;
+        if (!studentMap.has(key)) {
+          studentMap.set(key, student);
         }
       });
+      finalStudents = Array.from(studentMap.values());
     }
-
-    // If still no students (no MIS enrollment and no local submissions), try to get all local users
-    if (finalStudents.length === 0 && localStudentIds.size > 0) {
-      const localStudents = await User.findAll({
-        where: {
-          id: { [Op.in]: Array.from(localStudentIds) },
-        },
-        attributes: [
-          "id",
-          "first_name",
-          "last_name",
-          "email",
-          "profile_image",
-          "mis_user_id",
-        ],
-      });
-      finalStudents = localStudents.map((localUser) => ({
-        id: localUser.mis_user_id || `local_${localUser.id}`,
-        user_id: localUser.id,
-        first_name: localUser.first_name,
-        last_name: localUser.last_name,
-        email: localUser.email,
-        profile_image: localUser.profile_image,
-        is_local_only: !localUser.mis_user_id,
-      }));
-    }
-
-    // Remove any duplicates from final list
-    const studentMap = new Map();
-    finalStudents.forEach((student) => {
-      const key = student.mis_user_id || student.id || student.email;
-      if (!studentMap.has(key)) {
-        studentMap.set(key, student);
-      }
-    });
-    finalStudents = Array.from(studentMap.values());
 
     // 6b. Teacher-recorded (manual) assessments for this subject/term, plus
     // every roster member's score, so the grade sheet shows offline marks
@@ -1014,6 +1063,13 @@ export const getCourseGrades = async (req: Request, res: Response) => {
     // 7. Aggregate Data
     const studentsWithGrades = finalStudents.map((student) => {
       const studentId = student.id;
+      // A student is known by their MIS id on the roster and by the local
+      // users.id on their submissions; either may be missing, so match on both.
+      const ownsSubmission = (sub: any) =>
+        (sub.student?.mis_user_id &&
+          String(sub.student.mis_user_id) === String(student.mis_user_id ?? studentId)) ||
+        (sub.student_id !== undefined &&
+          String(sub.student_id) === String(student.user_id ?? sub.student?.id ?? ""));
       const studentAssessments = manualAssessments.map((a) =>
         buildManualAssessmentRow(a, scoresByAssessment, [
           student.id,
@@ -1025,12 +1081,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       // Assignments Map
       const studentAssignments = assignments.map((assignment) => {
         const sub = assignmentSubmissions.find(
-          (s: any) =>
-            (s.student?.mis_user_id &&
-              String(s.student.mis_user_id) === String(studentId)) ||
-            (s.student_id &&
-              String(s.student_id) === String(studentId) &&
-              s.assignment_id === assignment.id),
+          (s: any) => s.assignment_id === assignment.id && ownsSubmission(s),
         );
         return {
           assignment_id: assignment.id,
@@ -1047,12 +1098,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         // Find best submission for this quiz (if multiple allowed)
         // Since we fetched all, we filter by student and quiz
         const subs = quizSubmissions.filter(
-          (s: any) =>
-            (s.student?.mis_user_id &&
-              String(s.student.mis_user_id) === String(studentId)) ||
-            (s.student_id &&
-              String(s.student_id) === String(studentId) &&
-              s.quiz_id === quiz.id),
+          (s: any) => s.quiz_id === quiz.id && ownsSubmission(s),
         );
         // Take best score
         const bestSub =
@@ -1304,7 +1350,7 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         },
         ...termWhere,
       },
-      attributes: ["id", "course_id", "max_score", "title"],
+      attributes: ["id", "course_id", "max_score", "title", "due_date"],
     });
 
     // Fetch quizzes with questions to calculate total points
@@ -1315,7 +1361,7 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         },
         ...termWhere,
       },
-      attributes: ["id", "course_id", "title"],
+      attributes: ["id", "course_id", "title", "start_date", "end_date"],
       include: [
         {
           model: QuizQuestion,
@@ -1380,83 +1426,109 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
           ]),
         );
 
+      // One row per thing that can carry a mark, whatever kind it is. The
+      // page reads only this, so assignments, quizzes and teacher-recorded
+      // marks are presented (and counted) identically.
+      const now = Date.now();
+      const items = [
+        ...courseAssignments.map((a) => {
+          const sub = submissions.find((s) => s.assignment_id === a.id);
+          const raw = sub?.grade ?? null;
+          const score =
+            raw === null || raw === undefined
+              ? null
+              : Number(String(raw).includes("/") ? String(raw).split("/")[0] : raw);
+          const due = (a as any).due_date ?? null;
+          return {
+            kind: "assignment" as const,
+            id: a.id,
+            title: a.title,
+            maxScore: Number(a.max_score) || 0,
+            score: score !== null && !isNaN(score) ? score : null,
+            marked: score !== null && !isNaN(score),
+            submitted: !!sub,
+            date: due,
+            // Only work whose deadline has passed and was never handed in is a
+            // real problem; everything else is simply not due yet.
+            overdue: !sub && !!due && new Date(due).getTime() < now,
+            countsToFinal: true,
+          };
+        }),
+        ...courseQuizzes.map((q: any) => {
+          const sub = quizSubmissions.find((s) => s.quiz_id === q.id);
+          const maxScore = Array.isArray(q.quizQuestions)
+            ? q.quizQuestions.reduce(
+                (sum: number, question: any) => sum + (Number(question.points) || 0),
+                0,
+              )
+            : 0;
+          const closed = q.end_date ? new Date(q.end_date).getTime() < now : false;
+          return {
+            kind: "quiz" as const,
+            id: q.id,
+            title: q.title,
+            maxScore,
+            score: sub ? Number(sub.total_score) || 0 : null,
+            marked: !!sub,
+            submitted: !!sub,
+            date: q.end_date ?? q.start_date ?? null,
+            overdue: !sub && closed,
+            countsToFinal: true,
+          };
+        }),
+        ...courseAssessments.map((a) => ({
+          kind: "manual" as const,
+          id: a.assessment_id,
+          title: a.title,
+          assessmentType: a.assessment_type,
+          assessmentNumber: a.assessment_number,
+          maxScore: a.max_score,
+          score: a.score,
+          marked: a.recorded,
+          submitted: a.recorded,
+          date: a.assessment_date,
+          overdue: false,
+          countsToFinal: a.counts_to_final,
+        })),
+      ];
+
+      // Only marked work counts. Folding in un-marked items would report a
+      // student who has sat one of five tests as though they had failed the
+      // other four, which is the opposite of the truth — the pending ones are
+      // surfaced separately instead.
       let totalMaxPoints = 0;
       let totalPointsEarned = 0;
-
-      courseAssignments.forEach((a) => {
-        const sub = submissions.find((s) => s.assignment_id === a.id);
-        if (a.max_score) {
-          const max = Number(a.max_score);
-          totalMaxPoints += max;
-          if (sub && sub.grade) {
-            // Handle "15/20" string format
-            const gradePoints = String(sub.grade).includes("/")
-              ? parseFloat(String(sub.grade).split("/")[0])
-              : Number(sub.grade);
-            if (!isNaN(gradePoints)) {
-              totalPointsEarned += gradePoints;
-            }
-          }
-        }
-      });
-
-      courseQuizzes.forEach((q) => {
-        const sub = quizSubmissions.find((s) => s.quiz_id === q.id);
-
-        // Calculate total points from questions
-        let quizMaxPoints = 0;
-        if (q.quizQuestions && Array.isArray(q.quizQuestions)) {
-          quizMaxPoints = q.quizQuestions.reduce(
-            (sum: number, question: any) =>
-              sum + (Number(question.points) || 0),
-            0,
-          );
-        }
-
-        if (quizMaxPoints > 0) {
-          totalMaxPoints += quizMaxPoints;
-          if (sub && sub.total_score) {
-            totalPointsEarned += Number(sub.total_score);
-          }
-        }
-      });
-
-      // Unlike an unsubmitted assignment (a zero the student earned), a manual
-      // assessment with no score usually means the teacher hasn't entered the
-      // marks yet — so only recorded ones move the average.
-      courseAssessments.forEach((a) => {
-        if (!a.counts_to_final || !a.recorded || a.max_score <= 0) return;
-        totalMaxPoints += a.max_score;
-        totalPointsEarned += Number(a.score) || 0;
-      });
+      for (const item of items) {
+        if (!item.countsToFinal || !item.marked || item.maxScore <= 0) continue;
+        totalMaxPoints += item.maxScore;
+        totalPointsEarned += Number(item.score) || 0;
+      }
 
       const percentage =
         totalMaxPoints > 0 ? (totalPointsEarned / totalMaxPoints) * 100 : 0;
 
-      let status = "No Grade";
-      if (totalMaxPoints > 0) {
-        status = percentage >= 50 ? "Passing" : "Failing";
-      }
+      const markedCount = items.filter((i) => i.marked).length;
+      const status =
+        markedCount === 0 ? "No Grade" : percentage >= 50 ? "Passing" : "Failing";
 
       return {
         courseId,
         courseName,
         code: courseCode,
         totalMaxPoints,
-        totalPointsEarned,
+        totalPointsEarned: Math.round(totalPointsEarned * 100) / 100,
         percentage: Math.round(percentage * 100) / 100,
         status,
-        assignmentsCompleted: submissions.filter((s) =>
-          courseAssignments.some((a) => a.id === s.assignment_id),
-        ).length,
+        items,
+        markedCount,
+        pendingCount: items.length - markedCount,
+        overdueCount: items.filter((i) => i.overdue).length,
+        assignmentsCompleted: items.filter((i) => i.kind === "assignment" && i.submitted).length,
         totalAssignments: courseAssignments.length,
-        quizzesCompleted: quizSubmissions.filter((s) =>
-          courseQuizzes.some((q) => q.id === s.quiz_id),
-        ).length,
+        quizzesCompleted: items.filter((i) => i.kind === "quiz" && i.submitted).length,
         totalQuizzes: courseQuizzes.length,
-        assessmentsRecorded: courseAssessments.filter((a) => a.recorded).length,
+        assessmentsRecorded: items.filter((i) => i.kind === "manual" && i.marked).length,
         totalAssessments: courseAssessments.length,
-        assessments: courseAssessments,
       };
     });
 

@@ -336,3 +336,85 @@ export const fetchSubjectGrades = async (
   if (!res.data?.success) throw new Error("Failed to load subject grades");
   return res.data.data as SubjectGradesPayload;
 };
+
+// ─── Alerts ───────────────────────────────────────────────────────────────────
+// The "what needs doing" list. Derived here rather than in a page so the
+// subject report and the course report notify a teacher about exactly the same
+// things; each page decides how to act on a descriptor (navigate vs filter).
+
+export interface ReportAlert {
+  id: string;
+  tone: "serious" | "warning" | "good";
+  title: string;
+  detail: string;
+  action?:
+    | { kind: "assessment"; label: string; assessment: AssessmentStat }
+    | { kind: "filter"; label: string; filter: "incomplete" | "at_risk" }
+    | { kind: "focus"; label: string; assessmentKey: string };
+}
+
+export const buildReportAlerts = (report: SubjectReport): ReportAlert[] => {
+  const alerts: ReportAlert[] = [];
+
+  if (report.unmarkedAssessments.length > 0) {
+    const n = report.unmarkedAssessments.length;
+    alerts.push({
+      id: "unmarked",
+      tone: "serious",
+      title: `${n} assessment${n !== 1 ? "s" : ""} with no marks at all`,
+      detail: report.unmarkedAssessments.map((a) => a.title).slice(0, 3).join(", "),
+      action: {
+        kind: "assessment",
+        label: "Open it",
+        assessment: report.unmarkedAssessments[0],
+      },
+    });
+  }
+
+  const partial = report.assessments.filter(
+    (a) => a.markedCount > 0 && a.markedCount < a.rosterSize,
+  );
+  if (partial.length > 0) {
+    alerts.push({
+      id: "partial",
+      tone: "warning",
+      title: `${partial.length} assessment${partial.length !== 1 ? "s" : ""} only partly marked`,
+      detail: `${report.outstandingMarks} student mark${report.outstandingMarks !== 1 ? "s" : ""} still missing across the subject.`,
+      action: { kind: "filter", label: "Show these", filter: "incomplete" },
+    });
+  }
+
+  if (report.atRiskCount > 0) {
+    alerts.push({
+      id: "at-risk",
+      tone: "serious",
+      title: `${report.atRiskCount} student${report.atRiskCount !== 1 ? "s" : ""} below 50%`,
+      detail: "They need intervention before the report card is issued.",
+      action: { kind: "filter", label: "List them", filter: "at_risk" },
+    });
+  }
+
+  const weakest = [...report.assessments]
+    .filter((a) => a.averagePct !== null)
+    .sort((a, b) => (a.averagePct ?? 0) - (b.averagePct ?? 0))[0];
+  if (weakest && (weakest.averagePct ?? 0) < 50) {
+    alerts.push({
+      id: "weak-assessment",
+      tone: "warning",
+      title: `The class averaged ${weakest.averagePct}% on "${weakest.title}"`,
+      detail: "Worth re-teaching this topic before moving on.",
+      action: { kind: "focus", label: "Focus", assessmentKey: weakest.key },
+    });
+  }
+
+  if (alerts.length === 0 && report.assessments.length > 0) {
+    alerts.push({
+      id: "clear",
+      tone: "good",
+      title: "Everything is marked and nobody is below 50%",
+      detail: "This subject is ready for report cards.",
+    });
+  }
+
+  return alerts;
+};
