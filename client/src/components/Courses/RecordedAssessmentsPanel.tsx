@@ -14,7 +14,6 @@ import {
   Users,
 } from "lucide-react";
 import { BandPill, Progress } from "../Grades/reportUi";
-import { itemVariants } from "../Grades/reportMotion";
 import {
   bandMeta,
   bandOf,
@@ -99,7 +98,13 @@ function AssessmentRow({
   return (
     <motion.li
       layout
-      variants={itemVariants}
+      // Explicit, not `variants` — this panel mounts inside the course page's
+      // variant context *after* its animation has finished, so an inherited
+      // "hidden" label would never be animated away and the row would stay
+      // invisible. Self-contained motion is immune to that.
+      initial={{ opacity: 0, y: 6 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.18 }}
       className="rounded-2xl border border-white dark:border-border-dark/30 bg-card-light dark:bg-card-dark/30 overflow-hidden"
     >
       <button
@@ -383,7 +388,7 @@ export default function RecordedAssessmentsPanel({
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60 flex items-center gap-1.5">
           {canViewAll ? (
             <Users className="w-3.5 h-3.5" />
@@ -426,7 +431,9 @@ export default function RecordedAssessmentsPanel({
             return (
               <motion.li
                 key={assessment.key}
-                variants={itemVariants}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.18 }}
                 className="flex items-center justify-between gap-3 rounded-2xl border border-white dark:border-border-dark/30 bg-card-light dark:bg-card-dark/30 px-4 py-3"
               >
                 <div className="min-w-0">

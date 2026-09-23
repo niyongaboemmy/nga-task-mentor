@@ -388,7 +388,10 @@ const CourseDetails: React.FC = () => {
         className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70"
       >
         <div className="border-b border-gray-200 dark:border-gray-800">
-          <nav className="-mb-px flex space-x-0 px-8">
+          <nav
+            aria-label="Course sections"
+            className="-mb-px flex overflow-x-auto px-3 sm:px-6 [scrollbar-width:thin]"
+          >
             {[
               {
                 id: "overview",
@@ -439,7 +442,7 @@ const CourseDetails: React.FC = () => {
                     activeTab === tab.id
                       ? "border-blue-500 text-blue-600 dark:text-blue-500"
                       : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
-                  } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors`}
+                  } whitespace-nowrap flex-shrink-0 py-3 sm:py-4 px-3 sm:px-5 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-2 transition-colors`}
                 >
                   <svg
                     className="h-4 w-4"
@@ -462,7 +465,7 @@ const CourseDetails: React.FC = () => {
             {canViewQuestionBank && (
               <Link
                 to={`/courses/${courseId}/question-bank`}
-                className="border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors"
+                className="border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 whitespace-nowrap flex-shrink-0 py-3 sm:py-4 px-3 sm:px-5 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-2 transition-colors"
               >
                 <Library className="h-4 w-4" />
                 Question Bank
@@ -480,7 +483,7 @@ const CourseDetails: React.FC = () => {
                   activeTab === "report-cards"
                     ? "border-violet-500 text-violet-600 dark:text-violet-400"
                     : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
-                } whitespace-nowrap py-4 px-6 border-b-2 font-medium text-sm flex items-center gap-2 transition-colors`}
+                } whitespace-nowrap flex-shrink-0 py-3 sm:py-4 px-3 sm:px-5 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-2 transition-colors`}
               >
                 <ClipboardList className="h-4 w-4" />
                 Report Cards

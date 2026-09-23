@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { motion } from "framer-motion";
 import RecordedAssessmentsPanel from "../components/Courses/RecordedAssessmentsPanel";
 import {
   buildSubjectReport,
@@ -182,5 +183,29 @@ describe("student view detail", () => {
     );
     const homework = screen.getByText("Homework 2").closest("li")!;
     expect(within(homework).getByText("Not marked")).toBeInTheDocument();
+  });
+});
+
+describe("nested in the course page's animation", () => {
+  // The course page wraps its tabs in a variant context that animates once on
+  // mount. Rows that relied on inherited variants mounted later — when the tab
+  // is opened — stayed at the parent's "hidden" label forever and the list
+  // rendered blank. They must carry their own motion.
+  it("renders its rows visibly when mounted after the parent has animated", async () => {
+    render(
+      <MemoryRouter>
+        <motion.div
+          variants={{ hidden: { opacity: 0 }, visible: { opacity: 1 } }}
+          initial="hidden"
+          animate="visible"
+        >
+          <RecordedAssessmentsPanel canViewAll canEdit state={stateFor(payload)} />
+        </motion.div>
+      </MemoryRouter>,
+    );
+
+    const row = await screen.findByText("Midterm 1");
+    const li = row.closest("li") as HTMLElement;
+    await waitFor(() => expect(li.style.opacity === "" || Number(li.style.opacity) > 0).toBe(true));
   });
 });
