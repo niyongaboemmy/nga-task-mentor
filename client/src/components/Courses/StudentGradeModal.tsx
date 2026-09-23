@@ -1,4 +1,27 @@
 import React from "react";
+import { ASSESSMENT_TYPE_LABELS } from "../../services/manualAssessmentApi";
+
+/** One teacher-recorded mark, as returned by GET /courses/:id/grades. */
+interface RecordedAssessment {
+  assessment_id: number;
+  title: string;
+  assessment_type: string | null;
+  assessment_number: number | null;
+  assessment_date: string | null;
+  counts_to_final: boolean;
+  max_score: number;
+  recorded: boolean;
+  score: number | null;
+  percentage: number | null;
+}
+
+/** "Midterm 1", or the free-text title when the teacher left the type blank. */
+const assessmentLabel = (a: RecordedAssessment) => {
+  const base = a.assessment_type
+    ? (ASSESSMENT_TYPE_LABELS[a.assessment_type] ?? a.title)
+    : a.title;
+  return a.assessment_number ? `${base} ${a.assessment_number}` : base;
+};
 
 interface StudentGradeModalProps {
   isOpen: boolean;
@@ -265,6 +288,81 @@ const StudentGradeModal: React.FC<StudentGradeModalProps> = ({
               ) : (
                 <p className="text-sm text-gray-500 italic">
                   No quizzes for this course.
+                </p>
+              )}
+            </div>
+
+            {/* Class assessments — marks the teacher recorded by hand. */}
+            <h4 className="flex items-center text-text-primary-light dark:text-text-primary-dark font-bold text-lg mb-4 mt-8">
+              <span className="w-8 h-8 rounded-lg bg-amber-100 dark:bg-amber-900/50 text-amber-600 dark:text-amber-400 flex items-center justify-center mr-3">
+                <svg
+                  className="w-5 h-5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
+                  />
+                </svg>
+              </span>
+              Class Assessments
+              <span className="ml-2 text-sm font-normal text-gray-500 bg-gray-100 dark:bg-gray-700 dark:text-gray-400 px-2 py-0.5 rounded-full">
+                {student.summary.assessment_percentage ?? 0}% Avg
+              </span>
+            </h4>
+
+            <div className="space-y-3">
+              {student.assessments && student.assessments.length > 0 ? (
+                student.assessments.map((assessment: RecordedAssessment) => (
+                  <div
+                    key={assessment.assessment_id}
+                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/30 rounded-xl border border-gray-100 dark:border-gray-700/50 hover:border-amber-200 dark:hover:border-amber-800 transition-colors"
+                  >
+                    <div className="flex-1 min-w-0 pr-4">
+                      <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark truncate">
+                        {assessmentLabel(assessment)}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                        <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+                          Max Score: {assessment.max_score}
+                        </span>
+                        {assessment.assessment_date && (
+                          <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+                            {assessment.assessment_date}
+                          </span>
+                        )}
+                        {!assessment.counts_to_final && (
+                          <span className="text-[10px] text-gray-500 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.5 rounded">
+                            Not in final
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      {assessment.recorded ? (
+                        <div className="flex flex-col items-end">
+                          <span className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
+                            {assessment.score}
+                          </span>
+                          <span className="text-[10px] text-gray-500">
+                            {assessment.percentage}%
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-medium text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 px-2 py-1 rounded">
+                          Not marked
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <p className="text-sm text-gray-500 italic">
+                  No class assessments recorded for this course.
                 </p>
               )}
             </div>

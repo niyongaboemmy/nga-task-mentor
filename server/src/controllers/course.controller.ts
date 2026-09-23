@@ -7,6 +7,7 @@ import {
   resolveAcademicYearId,
   handleMisError,
   fetchEnrolledStudents,
+  resolveCurrentAcademicPeriodNames,
 } from "../utils/misUtils";
 import {
   Assignment,
@@ -16,7 +17,127 @@ import {
   QuizQuestion,
   User,
 } from "../models";
+import { ManualAssessment } from "../models/ManualAssessment.model";
+import { ManualAssessmentScore } from "../models/ManualAssessmentScore.model";
 import { Op } from "sequelize";
+
+/**
+ * Teacher-recorded ("manual") assessments — class work, homework, midterms,
+ * CA end-of-term exams… — for a set of courses, together with the scores of
+ * the students we care about.
+ *
+ * These live outside the quiz/assignment tables but are just as much a part of
+ * a student's grade, so every grade read-out has to fold them in.
+ *
+ * Two things to know:
+ *  - `manual_assessments` rows are keyed on the free-text term / academic-year
+ *    NAMES (not MIS ids), so the period is resolved to names the same way
+ *    manualAssessment.controller.ts does — with an explicit `?term=` /
+ *    `?academic_year=` override honored first.
+ *  - `manual_assessment_scores.student_id` holds whichever id the roster the
+ *    teacher typed against carried: the MIS user id for enrolled students, the
+ *    local `users.id` for local-only ones. Callers therefore pass every id a
+ *    student may be known by and we match on any of them.
+ */
+const fetchManualAssessments = async (
+  req: Request,
+  courseIds: Array<number | string>,
+  studentIds: Array<number | string>,
+): Promise<{
+  assessments: ManualAssessment[];
+  /** manual_assessment_id -> student id -> score */
+  scoresByAssessment: Map<number, Map<string, number>>;
+}> => {
+  const empty = { assessments: [], scoresByAssessment: new Map() };
+
+  const numericCourseIds = courseIds.map(Number).filter((n) => !isNaN(n));
+  if (numericCourseIds.length === 0) return empty;
+
+  let term = (req.query.term as string) || undefined;
+  let academicYear = (req.query.academic_year as string) || undefined;
+  if (!term && !academicYear) {
+    const current = await resolveCurrentAcademicPeriodNames(req);
+    term = current.term ?? undefined;
+    academicYear = current.academicYear ?? undefined;
+  }
+
+  const where: any = { course_id: { [Op.in]: numericCourseIds } };
+  if (term) where.term = term;
+  if (academicYear) where.academic_year = academicYear;
+
+  const assessments = await ManualAssessment.findAll({
+    where,
+    order: [
+      ["assessment_date", "ASC"],
+      ["created_at", "ASC"],
+    ],
+  });
+
+  const scoresByAssessment = new Map<number, Map<string, number>>();
+  const numericStudentIds = studentIds.map(Number).filter((n) => !isNaN(n));
+
+  if (assessments.length > 0 && numericStudentIds.length > 0) {
+    const scores = await ManualAssessmentScore.findAll({
+      where: {
+        manual_assessment_id: { [Op.in]: assessments.map((a) => a.id) },
+        student_id: { [Op.in]: Array.from(new Set(numericStudentIds)) },
+      },
+      attributes: ["manual_assessment_id", "student_id", "score"],
+    });
+
+    for (const s of scores) {
+      let bucket = scoresByAssessment.get(s.manual_assessment_id);
+      if (!bucket) {
+        bucket = new Map<string, number>();
+        scoresByAssessment.set(s.manual_assessment_id, bucket);
+      }
+      bucket.set(String(s.student_id), parseFloat(String(s.score)));
+    }
+  }
+
+  return { assessments, scoresByAssessment };
+};
+
+/**
+ * Shape one student's row for a single manual assessment. `ids` is every id
+ * that student may have been recorded under (see fetchManualAssessments).
+ */
+const buildManualAssessmentRow = (
+  assessment: ManualAssessment,
+  scoresByAssessment: Map<number, Map<string, number>>,
+  ids: Array<number | string | null | undefined>,
+) => {
+  const bucket = scoresByAssessment.get(assessment.id);
+  let score: number | null = null;
+  if (bucket) {
+    for (const id of ids) {
+      if (id === null || id === undefined) continue;
+      const found = bucket.get(String(id));
+      if (found !== undefined) {
+        score = found;
+        break;
+      }
+    }
+  }
+
+  const maxScore = Number(assessment.max_score) || 0;
+
+  return {
+    assessment_id: assessment.id,
+    title: assessment.title,
+    assessment_type: assessment.assessment_type,
+    assessment_number: assessment.assessment_number,
+    assessment_date: assessment.assessment_date,
+    counts_to_final: assessment.add_to_final_grade,
+    max_score: maxScore,
+    recorded: score !== null,
+    score,
+    percentage:
+      score !== null && maxScore > 0
+        ? Math.round((score / maxScore) * 10000) / 100
+        : null,
+  };
+};
 
 // @desc    Get all courses
 // @route   GET /api/courses
@@ -713,7 +834,14 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         status: "published", // Only parsed published quizzes
         ...termWhere,
       },
-      attributes: ["id", "title", "type", "passing_score"],
+      attributes: [
+        "id",
+        "title",
+        "type",
+        "passing_score",
+        "start_date",
+        "created_at",
+      ],
       include: [
         {
           model: QuizQuestion,
@@ -732,6 +860,9 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         title: quiz.title,
         type: quiz.type,
         max_score: maxScore,
+        // The subject report plots assessments on a timeline; a quiz with no
+        // window falls back to when it was created.
+        date: quiz.start_date ?? quiz.createdAt ?? null,
       };
     });
 
@@ -870,9 +1001,26 @@ export const getCourseGrades = async (req: Request, res: Response) => {
     });
     finalStudents = Array.from(studentMap.values());
 
+    // 6b. Teacher-recorded (manual) assessments for this subject/term, plus
+    // every roster member's score, so the grade sheet shows offline marks
+    // alongside the online ones.
+    const { assessments: manualAssessments, scoresByAssessment } =
+      await fetchManualAssessments(
+        req,
+        [courseId],
+        finalStudents.flatMap((s) => [s.id, s.user_id, s.mis_user_id]),
+      );
+
     // 7. Aggregate Data
     const studentsWithGrades = finalStudents.map((student) => {
       const studentId = student.id;
+      const studentAssessments = manualAssessments.map((a) =>
+        buildManualAssessmentRow(a, scoresByAssessment, [
+          student.id,
+          student.user_id,
+          student.mis_user_id,
+        ]),
+      );
 
       // Assignments Map
       const studentAssignments = assignments.map((assignment) => {
@@ -953,6 +1101,22 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         }
       });
 
+      // Only assessments the teacher has actually marked count — an empty
+      // column is "not entered yet", not a zero.
+      let assessmentsPoints = 0;
+      let assessmentsMaxPoints = 0;
+      studentAssessments.forEach((a) => {
+        if (!a.counts_to_final || !a.recorded || a.max_score <= 0) return;
+        assessmentsMaxPoints += a.max_score;
+        assessmentsPoints += Number(a.score) || 0;
+      });
+      totalMaxPoints += assessmentsMaxPoints;
+      totalPointsEarned += assessmentsPoints;
+      const assessmentPercentage =
+        assessmentsMaxPoints > 0
+          ? (assessmentsPoints / assessmentsMaxPoints) * 100
+          : 0;
+
       const totalPercentage =
         totalMaxPoints > 0 ? (totalPointsEarned / totalMaxPoints) * 100 : 0;
 
@@ -998,12 +1162,14 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         },
         assignments: studentAssignments,
         quizzes: studentQuizzes,
+        assessments: studentAssessments,
         summary: {
           total_points_earned: totalPointsEarned,
           total_max_points: totalMaxPoints,
           total_percentage: Math.round(totalPercentage * 100) / 100,
           assignment_percentage: Math.round(assignmentPercentage * 100) / 100,
           quiz_percentage: Math.round(quizPercentage * 100) / 100,
+          assessment_percentage: Math.round(assessmentPercentage * 100) / 100,
         },
       };
     });
@@ -1041,11 +1207,22 @@ export const getCourseGrades = async (req: Request, res: Response) => {
           id: a.id,
           title: a.title,
           max_score: a.max_score,
+          date: a.due_date ?? null,
         })),
         quizzes: quizzesWithMaxScore.map((q) => ({
           id: q.id,
           title: q.title,
           max_score: q.max_score,
+          date: q.date ?? null,
+        })),
+        assessments: manualAssessments.map((a) => ({
+          id: a.id,
+          title: a.title,
+          assessment_type: a.assessment_type,
+          assessment_number: a.assessment_number,
+          assessment_date: a.assessment_date,
+          counts_to_final: a.add_to_final_grade,
+          max_score: Number(a.max_score) || 0,
         })),
       },
     });
@@ -1172,6 +1349,16 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
       attributes: ["quiz_id", "total_score"],
     })) as any[];
 
+    // 3b. Fetch the marks the student's teachers recorded by hand (class work,
+    // homework, midterms, CA exams…). Without these the "Academic Performance"
+    // page only ever reflected online work, so a student whose subject is
+    // assessed entirely offline saw a permanent 0%.
+    const { assessments: manualAssessments, scoresByAssessment } =
+      await fetchManualAssessments(req, courseIds, [
+        studentMisId,
+        req.user.id,
+      ]);
+
     // 4. Aggregate
     const reportCards = subjects.map((subject: any) => {
       const courseId = subject.id || subject.subject_id;
@@ -1184,6 +1371,14 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
       const courseQuizzes = quizzes.filter(
         (q) => String(q.course_id) === String(courseId),
       );
+      const courseAssessments = manualAssessments
+        .filter((a) => String(a.course_id) === String(courseId))
+        .map((a) =>
+          buildManualAssessmentRow(a, scoresByAssessment, [
+            studentMisId,
+            req.user!.id,
+          ]),
+        );
 
       let totalMaxPoints = 0;
       let totalPointsEarned = 0;
@@ -1226,6 +1421,15 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
         }
       });
 
+      // Unlike an unsubmitted assignment (a zero the student earned), a manual
+      // assessment with no score usually means the teacher hasn't entered the
+      // marks yet — so only recorded ones move the average.
+      courseAssessments.forEach((a) => {
+        if (!a.counts_to_final || !a.recorded || a.max_score <= 0) return;
+        totalMaxPoints += a.max_score;
+        totalPointsEarned += Number(a.score) || 0;
+      });
+
       const percentage =
         totalMaxPoints > 0 ? (totalPointsEarned / totalMaxPoints) * 100 : 0;
 
@@ -1250,6 +1454,9 @@ export const getStudentOverallGrades = async (req: Request, res: Response) => {
           courseQuizzes.some((q) => q.id === s.quiz_id),
         ).length,
         totalQuizzes: courseQuizzes.length,
+        assessmentsRecorded: courseAssessments.filter((a) => a.recorded).length,
+        totalAssessments: courseAssessments.length,
+        assessments: courseAssessments,
       };
     });
 

@@ -17,6 +17,7 @@ import {
   ChevronsDown,
   ChevronsUp,
   ClipboardCheck,
+  BarChart3,
   ArrowRight,
   CheckCircle2,
   X,
@@ -825,6 +826,13 @@ export default function GradesPage() {
 
                       <div className="flex items-center gap-2 flex-shrink-0">
                         <Link
+                          to={`/grades/subjects/${g.courseId}/report`}
+                          className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-surface-light dark:bg-surface-dark/60 text-text-secondary-light dark:text-text-secondary-dark hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300 transition-colors"
+                        >
+                          <BarChart3 className="w-3.5 h-3.5" />
+                          Report
+                        </Link>
+                        <Link
                           to={`/grades/subjects/${g.courseId}`}
                           className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
                         >
@@ -849,13 +857,22 @@ export default function GradesPage() {
                       {!mappingsLoading && g.rows.length > 0 && (
                         <MappingProgress mapped={g.mappedCount} total={g.rows.length} />
                       )}
-                      <Link
-                        to={`/grades/subjects/${g.courseId}`}
-                        className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
-                      >
-                        <ClipboardCheck className="w-3.5 h-3.5" />
-                        Report Card <ArrowRight className="w-3 h-3" />
-                      </Link>
+                      <div className="grid grid-cols-2 gap-2">
+                        <Link
+                          to={`/grades/subjects/${g.courseId}/report`}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-surface-light dark:bg-surface-dark/60 text-text-secondary-light dark:text-text-secondary-dark hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors"
+                        >
+                          <BarChart3 className="w-3.5 h-3.5" />
+                          Report
+                        </Link>
+                        <Link
+                          to={`/grades/subjects/${g.courseId}`}
+                          className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-900/20 text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40 transition-colors"
+                        >
+                          <ClipboardCheck className="w-3.5 h-3.5" />
+                          Report Card <ArrowRight className="w-3 h-3" />
+                        </Link>
+                      </div>
                     </div>
 
                     {/* Body */}

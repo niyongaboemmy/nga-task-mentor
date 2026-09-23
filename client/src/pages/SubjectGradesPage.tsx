@@ -10,6 +10,7 @@ import {
   ClipboardList,
   CheckCircle2,
   FileText,
+  BarChart3,
 } from "lucide-react";
 import { CourseApiService } from "../services/courseApi";
 import axiosConfig from "../utils/axiosConfig";
@@ -212,14 +213,23 @@ export default function SubjectGradesPage() {
           <h1 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">{subject.name}</h1>
         </div>
 
-        <TermYearSelect
-          years={years}
+        <div className="flex items-center gap-2 flex-wrap">
+          <Link
+            to={`/grades/subjects/${courseId}/report`}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-surface-light dark:bg-surface-dark/60 text-text-secondary-light dark:text-text-secondary-dark hover:bg-blue-50 dark:hover:bg-blue-900/30 hover:text-blue-700 dark:hover:text-blue-300 transition-colors whitespace-nowrap"
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            Assessment report
+          </Link>
+          <TermYearSelect
+            years={years}
           terms={terms}
-          academicYear={academicYear}
-          term={term}
-          onAcademicYearChange={setAcademicYear}
-          onTermChange={setTerm}
-        />
+            academicYear={academicYear}
+            term={term}
+            onAcademicYearChange={setAcademicYear}
+            onTermChange={setTerm}
+          />
+        </div>
       </div>
 
       {/* Build Mapping — collapsible */}

@@ -25,11 +25,15 @@ import {
   GraduationCap,
   LayoutDashboard,
   Filter,
+  ClipboardList,
+  CalendarDays,
 } from "lucide-react";
 import axios from "../utils/axiosConfig";
 import { toast } from "react-toastify";
 import { useTheme } from "../contexts/ThemeContext";
+import { useAuth } from "../contexts/AuthContext";
 import { STAT_COLORS } from "../components/Dashboard/dashboardUi";
+import { ASSESSMENT_TYPE_LABELS } from "../services/manualAssessmentApi";
 
 ChartJS.register(
   CategoryScale,
@@ -39,6 +43,20 @@ ChartJS.register(
   Tooltip,
   Legend,
 );
+
+/** A mark the teacher recorded by hand (class work, homework, midterm, CA…). */
+interface RecordedAssessment {
+  assessment_id: number;
+  title: string;
+  assessment_type: string | null;
+  assessment_number: number | null;
+  assessment_date: string | null;
+  counts_to_final: boolean;
+  max_score: number;
+  recorded: boolean;
+  score: number | null;
+  percentage: number | null;
+}
 
 interface ReportCard {
   courseId: number;
@@ -52,7 +70,29 @@ interface ReportCard {
   totalAssignments: number;
   quizzesCompleted: number;
   totalQuizzes: number;
+  assessmentsRecorded: number;
+  totalAssessments: number;
+  assessments: RecordedAssessment[];
 }
+
+/** "Midterm 1", or the free-text title when the teacher left the type blank. */
+const assessmentLabel = (a: RecordedAssessment) => {
+  const base = a.assessment_type
+    ? (ASSESSMENT_TYPE_LABELS[a.assessment_type] ?? a.title)
+    : a.title;
+  return a.assessment_number ? `${base} ${a.assessment_number}` : base;
+};
+
+const formatAssessmentDate = (value: string | null) => {
+  if (!value) return null;
+  const parsed = new Date(value);
+  if (isNaN(parsed.getTime())) return null;
+  return parsed.toLocaleDateString(undefined, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+};
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -80,16 +120,28 @@ const StudentReportsPage: React.FC = () => {
   const [reports, setReports] = useState<ReportCard[]>([]);
   const [loading, setLoading] = useState(true);
   const { theme } = useTheme();
+  const { user } = useAuth();
   const navigate = useNavigate();
   const isDark = theme === "dark";
 
+  // Manual assessments are stored against the term/year NAMES, so send the
+  // period the student currently has selected rather than letting the server
+  // fall back to whatever MIS calls "current".
+  const term = user?.currentAcademicTerm?.name ?? "";
+  const academicYear = user?.currentAcademicYear?.name ?? "";
+
   useEffect(() => {
     fetchReports();
-  }, []);
+  }, [term, academicYear]);
 
   const fetchReports = async () => {
     try {
-      const response = await axios.get("/courses/my-grades");
+      const response = await axios.get("/courses/my-grades", {
+        params:
+          term && academicYear
+            ? { term, academic_year: academicYear }
+            : undefined,
+      });
       if (response.data.success) {
         setReports(response.data.data);
       }
@@ -102,9 +154,9 @@ const StudentReportsPage: React.FC = () => {
   };
 
   const calculateOverallGPA = () => {
-    const activeReports = reports.filter(
-      (r) => r.totalAssignments > 0 || r.totalQuizzes > 0,
-    );
+    // "Active" = the subject has something that can actually carry marks.
+    // Counting subjects with nothing gradeable would drag the average to 0.
+    const activeReports = reports.filter((r) => r.totalMaxPoints > 0);
 
     if (activeReports.length === 0) return 0;
     const totalPercentage = activeReports.reduce(
@@ -117,11 +169,16 @@ const StudentReportsPage: React.FC = () => {
   const calculateCompletionRate = () => {
     if (reports.length === 0) return 0;
     const totalItems = reports.reduce(
-      (acc, curr) => acc + curr.totalAssignments + curr.totalQuizzes,
+      (acc, curr) =>
+        acc + curr.totalAssignments + curr.totalQuizzes + curr.totalAssessments,
       0,
     );
     const completedItems = reports.reduce(
-      (acc, curr) => acc + curr.assignmentsCompleted + curr.quizzesCompleted,
+      (acc, curr) =>
+        acc +
+        curr.assignmentsCompleted +
+        curr.quizzesCompleted +
+        curr.assessmentsRecorded,
       0,
     );
     return totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
@@ -129,6 +186,37 @@ const StudentReportsPage: React.FC = () => {
 
   const overallGPA = calculateOverallGPA();
   const completionRate = calculateCompletionRate();
+  // A subject counts as "started" once anything has been submitted or the
+  // teacher has recorded a mark for it. Until then its 0% means "no data yet",
+  // not a failing grade — the page used to read `percentage === 0` for this,
+  // which quietly filed a genuine zero under "Not started" instead.
+  const hasActivity = (r: ReportCard) =>
+    r.assignmentsCompleted > 0 ||
+    r.quizzesCompleted > 0 ||
+    r.assessmentsRecorded > 0;
+  const hasAnyGrade = reports.some(hasActivity);
+
+  // Every teacher-recorded mark, newest first, flattened across subjects — the
+  // "my teacher gave me 14/20 for Homework 2" view that quizzes/assignments
+  // alone can't answer.
+  const recordedMarks = useMemo(
+    () =>
+      reports
+        .flatMap((report) =>
+          (report.assessments ?? [])
+            .filter((a) => a.recorded)
+            .map((a) => ({ ...a, report })),
+        )
+        .sort((a, b) =>
+          (b.assessment_date ?? "").localeCompare(a.assessment_date ?? ""),
+        ),
+    [reports],
+  );
+
+  const pendingMarkCount = reports.reduce(
+    (acc, r) => acc + (r.totalAssessments - r.assessmentsRecorded),
+    0,
+  );
 
   // Chart Data Preparation — colors mirror the app's semantic status palette
   // (emerald/amber/blue/red) so the bars read the same as the Status
@@ -306,11 +394,21 @@ const StudentReportsPage: React.FC = () => {
             </p>
 
             <div
-              className={`mt-6 inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${overallGPA >= 50 ? STAT_COLORS.emerald : STAT_COLORS.red}`}
+              className={`mt-6 inline-flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
+                !hasAnyGrade
+                  ? STAT_COLORS.blue
+                  : overallGPA >= 50
+                    ? STAT_COLORS.emerald
+                    : STAT_COLORS.red
+              }`}
             >
               <CheckCircle className="w-3 h-3" />
               <span>
-                {overallGPA >= 50 ? "Standing: Good" : "Needs Improvement"}
+                {!hasAnyGrade
+                  ? "No Marks Yet"
+                  : overallGPA >= 50
+                    ? "Standing: Good"
+                    : "Needs Improvement"}
               </span>
             </div>
           </div>
@@ -340,7 +438,7 @@ const StudentReportsPage: React.FC = () => {
               />
             </div>
             <p className="mt-3 text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark/60 uppercase tracking-wider">
-              Assignments & Quizzes Completed
+              Assignments, Quizzes & Recorded Marks
             </p>
           </div>
         </div>
@@ -441,7 +539,10 @@ const StudentReportsPage: React.FC = () => {
                   </div>
                 </div>
                 <span className="text-2xl font-bold text-emerald-600 dark:text-emerald-400">
-                  {reports.filter((r) => r.percentage >= 50).length}
+                  {
+                    reports.filter((r) => hasActivity(r) && r.percentage >= 50)
+                      .length
+                  }
                 </span>
               </div>
 
@@ -461,7 +562,7 @@ const StudentReportsPage: React.FC = () => {
                 </div>
                 <span className="text-2xl font-bold text-red-600 dark:text-red-400">
                   {
-                    reports.filter((r) => r.percentage < 50 && r.percentage > 0)
+                    reports.filter((r) => hasActivity(r) && r.percentage < 50)
                       .length
                   }
                 </span>
@@ -482,12 +583,124 @@ const StudentReportsPage: React.FC = () => {
                   </div>
                 </div>
                 <span className="text-2xl font-bold text-text-secondary-light dark:text-text-secondary-dark">
-                  {reports.filter((r) => r.percentage === 0).length}
+                  {reports.filter((r) => !hasActivity(r)).length}
                 </span>
               </div>
             </div>
           </motion.div>
         </div>
+      </motion.div>
+
+      {/* Marks recorded by teachers — class work, homework, midterms, CA exams.
+          These never pass through a submission, so they only reach the student
+          here. */}
+      <motion.div
+        variants={itemVariants}
+        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-6 sm:p-8"
+      >
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+          <div className="flex items-center gap-3">
+            <div className={`w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0 ${STAT_COLORS.amber}`}>
+              <ClipboardList className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-lg sm:text-xl font-bold text-text-primary-light dark:text-text-primary-dark tracking-tight">
+                Marks Recorded by Your Teachers
+              </h3>
+              <p className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/60">
+                Class work, homework, midterms and CA exams marked off-platform
+              </p>
+            </div>
+          </div>
+          {pendingMarkCount > 0 && (
+            <span className="text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg self-start sm:self-auto bg-surface-light dark:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark">
+              {pendingMarkCount} awaiting entry
+            </span>
+          )}
+        </div>
+
+        {recordedMarks.length === 0 ? (
+          <div className="text-center py-10 flex flex-col items-center gap-3">
+            <div className="w-14 h-14 rounded-2xl bg-surface-light dark:bg-surface-dark flex items-center justify-center text-text-secondary-light dark:text-text-secondary-dark/50">
+              <ClipboardList className="w-7 h-7" />
+            </div>
+            <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70 max-w-md">
+              No marks have been recorded for you yet this term. Anything your
+              teacher records in class will appear here.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto -mx-2 px-2">
+            <table className="w-full min-w-[560px] text-left border-collapse">
+              <thead>
+                <tr className="text-[10px] font-bold uppercase tracking-widest text-text-secondary-light dark:text-text-secondary-dark/60">
+                  <th className="pb-3 pr-4 font-bold">Subject</th>
+                  <th className="pb-3 pr-4 font-bold">Assessment</th>
+                  <th className="pb-3 pr-4 font-bold">Date</th>
+                  <th className="pb-3 pr-4 font-bold text-right">Score</th>
+                  <th className="pb-3 font-bold text-right">%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recordedMarks.map((mark) => {
+                  const pct = mark.percentage ?? 0;
+                  const date = formatAssessmentDate(mark.assessment_date);
+                  return (
+                    <tr
+                      key={`${mark.report.courseId}-${mark.assessment_id}`}
+                      onClick={() =>
+                        navigate(`/courses/${mark.report.courseId}/reports`)
+                      }
+                      className="border-t border-surface-light dark:border-surface-dark/60 cursor-pointer hover:bg-surface-light/60 dark:hover:bg-surface-dark/40 transition-colors"
+                    >
+                      <td className="py-3 pr-4">
+                        <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded-lg ${STAT_COLORS.blue}`}>
+                          {mark.report.code}
+                        </span>
+                      </td>
+                      <td className="py-3 pr-4">
+                        <span className="block text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
+                          {assessmentLabel(mark)}
+                        </span>
+                        {!mark.counts_to_final && (
+                          <span className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">
+                            Not counted in final grade
+                          </span>
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 whitespace-nowrap">
+                        {date ? (
+                          <span className="inline-flex items-center gap-1.5">
+                            <CalendarDays className="w-3.5 h-3.5" />
+                            {date}
+                          </span>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td className="py-3 pr-4 text-right text-sm font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums whitespace-nowrap">
+                        {mark.score}
+                        <span className="text-text-secondary-light dark:text-text-secondary-dark/50">
+                          {" "}
+                          / {mark.max_score}
+                        </span>
+                      </td>
+                      <td
+                        className={`py-3 text-right text-sm font-bold tabular-nums ${
+                          pct >= 50
+                            ? "text-emerald-600 dark:text-emerald-400"
+                            : "text-red-600 dark:text-red-400"
+                        }`}
+                      >
+                        {pct}%
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </motion.div>
 
       {/* Detailed Course Cards Grid */}
@@ -565,6 +778,31 @@ const StudentReportsPage: React.FC = () => {
                         width: `${
                           report.totalQuizzes > 0
                             ? (report.quizzesCompleted / report.totalQuizzes) *
+                              100
+                            : 0
+                        }%`,
+                      }}
+                    ></div>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between text-xs font-bold uppercase tracking-wider mb-2">
+                    <span className="text-text-secondary-light dark:text-text-secondary-dark/60">
+                      Class Assessments
+                    </span>
+                    <span className="text-text-primary-light dark:text-text-primary-dark">
+                      {report.assessmentsRecorded}/{report.totalAssessments}
+                    </span>
+                  </div>
+                  <div className="w-full bg-surface-light dark:bg-surface-dark h-2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-amber-500 rounded-full transition-[width] duration-700"
+                      style={{
+                        width: `${
+                          report.totalAssessments > 0
+                            ? (report.assessmentsRecorded /
+                                report.totalAssessments) *
                               100
                             : 0
                         }%`,

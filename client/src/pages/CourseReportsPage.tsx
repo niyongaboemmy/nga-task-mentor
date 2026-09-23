@@ -24,6 +24,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Award,
+  ClipboardList,
   Zap,
   ArrowLeft,
   GraduationCap,
@@ -36,6 +37,7 @@ import { usePermissions } from "../hooks/usePermissions";
 import AcademicPeriodPicker, {
   type SelectedPeriod,
 } from "../components/Common/AcademicPeriodPicker";
+import { ASSESSMENT_TYPE_LABELS } from "../services/manualAssessmentApi";
 
 ChartJS.register(
   CategoryScale,
@@ -52,6 +54,8 @@ interface GradeData {
   students: StudentGrade[];
   assignments: AssessmentMeta[];
   quizzes: AssessmentMeta[];
+  /** Teacher-recorded marks (class work, homework, midterm, CA exam…). */
+  assessments?: ManualAssessmentMeta[];
 }
 
 interface StudentGrade {
@@ -63,12 +67,14 @@ interface StudentGrade {
   };
   assignments: AssignmentGrade[];
   quizzes: QuizGrade[];
+  assessments?: RecordedAssessment[];
   summary: {
     total_points_earned: number;
     total_max_points: number;
     total_percentage: number;
     assignment_percentage: number;
     quiz_percentage: number;
+    assessment_percentage?: number;
   };
 }
 
@@ -96,6 +102,39 @@ interface AssessmentMeta {
   title: string;
   max_score: number;
 }
+
+interface ManualAssessmentMeta extends AssessmentMeta {
+  assessment_type: string | null;
+  assessment_number: number | null;
+  assessment_date: string | null;
+  counts_to_final: boolean;
+}
+
+/** One student's mark for a manual assessment. */
+interface RecordedAssessment {
+  assessment_id: number;
+  title: string;
+  assessment_type: string | null;
+  assessment_number: number | null;
+  assessment_date: string | null;
+  counts_to_final: boolean;
+  max_score: number;
+  recorded: boolean;
+  score: number | null;
+  percentage: number | null;
+}
+
+/** "Midterm 1", or the free-text title when no type was chosen. */
+const assessmentLabel = (a: {
+  title: string;
+  assessment_type: string | null;
+  assessment_number: number | null;
+}) => {
+  const base = a.assessment_type
+    ? (ASSESSMENT_TYPE_LABELS[a.assessment_type] ?? a.title)
+    : a.title;
+  return a.assessment_number ? `${base} ${a.assessment_number}` : base;
+};
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -167,7 +206,14 @@ const CourseReportsPage: React.FC = () => {
       setLoading(true);
       const response = await axios.get(`/courses/${courseId}/grades`, {
         params: viewPeriod
-          ? { academicTermId: viewPeriod.academicTermId }
+          ? {
+              academicTermId: viewPeriod.academicTermId,
+              // Manual assessments are keyed on the term/year NAMES, not the
+              // MIS ids, so send both or a past-term view would show the
+              // current term's recorded marks.
+              term: viewPeriod.termName,
+              academic_year: viewPeriod.yearName,
+            }
           : undefined,
       });
       if (response.data.success) {
@@ -195,10 +241,14 @@ const CourseReportsPage: React.FC = () => {
       "Email",
       ...data.assignments.map((a) => `Assignment: ${a.title} (${a.max_score})`),
       ...data.quizzes.map((q) => `Quiz: ${q.title} (${q.max_score})`),
+      ...(data.assessments ?? []).map(
+        (a) => `Assessment: ${assessmentLabel(a)} (${a.max_score})`,
+      ),
       "Total Points",
       "Total Percentage",
       "Assignments Avg %",
       "Quizzes Avg %",
+      "Assessments Avg %",
     ];
 
     // Rows
@@ -216,10 +266,17 @@ const CourseReportsPage: React.FC = () => {
           const grade = student.quizzes.find((qg) => qg.quiz_id === q.id);
           return grade?.score !== null ? grade?.score : "-";
         }),
+        ...(data.assessments ?? []).map((a) => {
+          const mark = student.assessments?.find(
+            (sa) => sa.assessment_id === a.id,
+          );
+          return mark?.recorded ? mark.score : "-";
+        }),
         student.summary.total_points_earned,
         `${student.summary.total_percentage}%`,
         `${student.summary.assignment_percentage}%`,
         `${student.summary.quiz_percentage}%`,
+        `${student.summary.assessment_percentage ?? 0}%`,
       ];
     });
 
@@ -514,7 +571,8 @@ const CourseReportsPage: React.FC = () => {
                       <span className="text-text-primary-light dark:text-text-primary-dark font-bold">
                         {student.summary.total_points_earned} points
                       </span>{" "}
-                      across all assignments and quizzes.
+                      across all assignments, quizzes and recorded
+                      assessments.
                     </p>
                   </div>
                 </motion.div>
@@ -726,6 +784,82 @@ const CourseReportsPage: React.FC = () => {
                       </div>
                     )}
                   </motion.div>
+                </motion.div>
+
+                {/* Teacher-recorded assessments — marks entered by hand in
+                    class, which never produce a submission of their own. */}
+                <motion.div
+                  variants={itemVariants}
+                  className="lg:col-span-2 bg-white dark:bg-gray-900 rounded-2xl shadow-xl shadow-gray-200/50 dark:shadow-none border border-gray-100 dark:border-gray-800 overflow-hidden"
+                >
+                  <div className="px-8 py-6 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center gap-3 bg-gray-50/30 dark:bg-black/20 backdrop-blur-sm">
+                    <h3 className="font-bold text-xl flex items-center gap-3 text-transparent bg-clip-text bg-gradient-to-r from-gray-900 to-gray-600 dark:from-white dark:to-gray-400">
+                      <span className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 flex items-center justify-center shadow-lg shadow-amber-500/10">
+                        <ClipboardList className="w-5 h-5" />
+                      </span>
+                      Class Assessments
+                    </h3>
+                    <span className="text-xs font-bold uppercase tracking-widest bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300 px-4 py-1.5 rounded-xl whitespace-nowrap">
+                      Avg: {student.summary.assessment_percentage ?? 0}%
+                    </span>
+                  </div>
+                  <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {student.assessments && student.assessments.length > 0 ? (
+                      student.assessments.map((assessment) => (
+                        <div
+                          key={assessment.assessment_id}
+                          className="flex items-center justify-between p-5 bg-white dark:bg-gray-800/50 rounded-2xl border border-gray-100 dark:border-gray-800 hover:border-amber-500/30 hover:shadow-lg hover:shadow-amber-500/5 transition-all duration-300 group"
+                        >
+                          <div className="flex-1 min-w-0 pr-6">
+                            <p className="font-bold text-text-primary-light dark:text-text-primary-dark truncate text-base group-hover:text-amber-600 dark:group-hover:text-amber-400 transition-colors">
+                              {assessmentLabel(assessment)}
+                            </p>
+                            <div className="flex flex-wrap items-center gap-3 mt-2">
+                              <span className="text-xs font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider">
+                                Max: {assessment.max_score}
+                              </span>
+                              {assessment.assessment_date && (
+                                <span className="text-xs font-medium text-gray-400 dark:text-gray-500">
+                                  {assessment.assessment_date}
+                                </span>
+                              )}
+                              {!assessment.counts_to_final && (
+                                <span className="text-[10px] font-bold uppercase tracking-widest text-gray-500 bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded-lg">
+                                  Not in final
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            {assessment.recorded ? (
+                              <div className="flex flex-col items-end">
+                                <span className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
+                                  {assessment.score}
+                                </span>
+                                <span className="text-[10px] font-bold text-gray-400 dark:text-gray-500">
+                                  {assessment.percentage}%
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-xs font-bold uppercase tracking-wider text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 px-3 py-1.5 rounded-xl whitespace-nowrap">
+                                Not marked
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="md:col-span-2 text-center py-12 flex flex-col items-center gap-4">
+                        <div className="w-16 h-16 rounded-full bg-gray-50 dark:bg-gray-800 flex items-center justify-center text-gray-300 dark:text-gray-600">
+                          <ClipboardList className="w-8 h-8" />
+                        </div>
+                        <p className="text-gray-500 dark:text-gray-400 font-medium">
+                          Your teacher hasn't recorded any class assessments for
+                          this subject yet.
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </motion.div>
               </motion.div>
             </motion.div>
@@ -949,6 +1083,25 @@ const CourseReportsPage: React.FC = () => {
                         </div>
                       </th>
                     ))}
+                    {(data.assessments ?? []).map((assessment) => (
+                      <th
+                        key={`h-m-${assessment.id}`}
+                        scope="col"
+                        className="px-6 py-5 text-center text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] min-w-[140px] border-b border-gray-100 dark:border-gray-800"
+                      >
+                        <div className="flex flex-col items-center gap-1">
+                          <span
+                            className="text-text-secondary-light dark:text-text-secondary-dark truncate max-w-[120px]"
+                            title={assessmentLabel(assessment)}
+                          >
+                            {assessmentLabel(assessment)}
+                          </span>
+                          <span className="text-[9px] text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-900/20 px-1.5 py-0.5 rounded">
+                            Recorded / {assessment.max_score}
+                          </span>
+                        </div>
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-50 dark:divide-gray-800/50">
@@ -1058,6 +1211,35 @@ const CourseReportsPage: React.FC = () => {
                                   Pending
                                 </span>
                               )
+                            ) : (
+                              <span className="text-gray-200 dark:text-gray-700 font-bold text-lg">
+                                -
+                              </span>
+                            )}
+                          </td>
+                        );
+                      })}
+
+                      {/* Teacher-recorded assessments */}
+                      {(data.assessments ?? []).map((assessment) => {
+                        const mark = student.assessments?.find(
+                          (a) => a.assessment_id === assessment.id,
+                        );
+                        return (
+                          <td
+                            key={`g-m-${student.student.id}-${assessment.id}`}
+                            className="px-6 py-5 whitespace-nowrap text-center"
+                          >
+                            {mark?.recorded ? (
+                              <span
+                                className={`inline-flex items-center px-3 py-1.5 rounded-xl text-sm font-bold transition-colors ${
+                                  (mark.percentage ?? 0) >= 50
+                                    ? "bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400"
+                                    : "bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400"
+                                }`}
+                              >
+                                {mark.score}
+                              </span>
                             ) : (
                               <span className="text-gray-200 dark:text-gray-700 font-bold text-lg">
                                 -

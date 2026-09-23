@@ -50,6 +50,7 @@ import QuizzesPage from "../pages/QuizzesPage";
 import CourseReportsPage from "../pages/CourseReportsPage";
 import StudentReportsPage from "../pages/StudentReportsPage";
 import SubjectGradesPage from "../pages/SubjectGradesPage";
+import SubjectAssessmentReportPage from "../pages/SubjectAssessmentReportPage";
 import GeneralAttributesPage from "../pages/GeneralAttributesPage";
 import BloomsTaxonomyManagementPage from "../components/Quizzes/BloomsTaxonomyManagementPage";
 import QuestionBankPage from "../pages/QuestionBankPage";
@@ -300,6 +301,11 @@ export const appRoutes: AppRoute[] = [
     element: <GradesPage />,
     permissions: ["MANUAL_ASSESSMENTS_VIEW"],
     navItem: { label: "Grades", icon: GraduationCap, group: "Teaching" },
+  },
+  {
+    path: "/grades/subjects/:courseId/report",
+    element: <SubjectAssessmentReportPage />,
+    permissions: ["COURSES_VIEW_GRADES"],
   },
   {
     path: "/grades/subjects/:courseId",
