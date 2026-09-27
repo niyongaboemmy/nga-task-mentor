@@ -35,6 +35,63 @@ import {
   getMisToken,
   fetchEnrolledStudents,
 } from "../utils/misUtils";
+import type { Target } from "../vendor/nga-access";
+import { denyResponse, once, scopedAllow, scopedFilter } from "../access/policy";
+import { allowedStudentIds, reportCardStudentMisIds, studentTarget } from "../access/targets";
+
+// ─── Access control v2: report-card scoping ──────────────────────────────────
+// With ACCESS_V2_MODE=off these helpers return the legacy answer untouched;
+// shadow returns it too and logs where v2 disagrees; enforce lets v2 decide
+// over the student's class group / (subject, class) pair. Report-card chain
+// (plan §10.2): marks = REPORT_CARDS_EDIT (subject x class), class-teacher
+// comment = REPORT_CARDS_COMMENT (class group), approve = REPORT_CARDS_APPROVE,
+// publish = REPORT_CARDS_PUBLISH. "approved" is also the published state here,
+// so under enforce entering/leaving it needs APPROVE and PUBLISH.
+
+/** v2 target for a report card's student (student_id may be local or MIS). */
+const cardStudentTarget = async (req: Request, studentId: number, extra: Target = {}): Promise<Target> => {
+  const misId = (await reportCardStudentMisIds([studentId])).get(studentId) ?? studentId;
+  return studentTarget(req, misId, extra);
+};
+
+/** Keep only the report-card student ids v2 lets the caller see with `caps`. */
+const filterCardStudents = (
+  req: Request,
+  ids: number[],
+  caps: string[],
+  opts: { minDepth?: "summary" | "detail"; subjectId?: number | null } = {},
+) =>
+  scopedFilter(req, ids, caps.join("|"), async (snap) => {
+    const misOf = await reportCardStudentMisIds(ids);
+    const allowed = new Set(
+      await allowedStudentIds(req, snap, caps, [...new Set(misOf.values())], opts),
+    );
+    return ids.filter((id) => allowed.has(misOf.get(id) ?? id));
+  });
+
+/**
+ * May the caller read this student's cards at all, and at which level?
+ * Legacy: REPORT_CARDS_VIEW_ALL anywhere -> every card of every student;
+ * otherwise approved cards of ANY student (the route only checked
+ * VIEW_OWN|VIEW_ALL). v2: VIEW_ALL @detail over the student, else VIEW_OWN
+ * over the student (SELF / mentees / children), else nothing.
+ */
+const reportCardReadAccess = async (
+  req: Request,
+  studentId: number,
+): Promise<{ allowed: boolean; canViewAll: boolean }> => {
+  const perms: Set<string> = (req as any).user?.permissions ?? new Set();
+  const target = once(() => cardStudentTarget(req, studentId));
+  const canViewAll = await scopedAllow(req, {
+    caps: "REPORT_CARDS_VIEW_ALL",
+    minDepth: "detail",
+    target,
+    legacy: perms.has("REPORT_CARDS_VIEW_ALL"),
+  });
+  if (canViewAll) return { allowed: true, canViewAll: true };
+  const own = await scopedAllow(req, { caps: "REPORT_CARDS_VIEW_OWN", target, legacy: true });
+  return { allowed: own, canViewAll: false };
+};
 
 // ─── Subject name resolution ─────────────────────────────────────────────────
 // Report card data only stores subject_id. Both the on-screen preview and the
@@ -83,6 +140,17 @@ export const saveBuilder = async (req: Request, res: Response) => {
   try {
     const body = req.body as BuilderSavePayload;
     const { student_id, term, academic_year, assessments } = body;
+
+    // v2: marks entry needs REPORT_CARDS_CREATE|EDIT over (subject, student's class).
+    const builderTarget = once(() => cardStudentTarget(req, student_id));
+    for (const subjectId of [...new Set(assessments.map((a) => a.subject_id))]) {
+      const ok = await scopedAllow(req, {
+        caps: ["REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT"],
+        target: async () => ({ ...(await builderTarget()), subjectId }),
+        legacy: true,
+      });
+      if (!ok) return denyResponse(req, res, "Not authorized to enter marks for this subject and class");
+    }
 
     // Find or create the single report card for this student+term+year.
     const [reportCard, created] = await ReportCard.findOrCreate({
@@ -204,6 +272,14 @@ export const saveSubjectMapping = async (req: Request, res: Response) => {
     const body = req.body as SubjectMappingSavePayload;
     const { subject_id, term, academic_year, assessments } = body;
 
+    // v2: the subject-wide mapping needs REPORT_CARDS_CREATE|EDIT on the subject.
+    const mayMap = await scopedAllow(req, {
+      caps: ["REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT"],
+      target: { subjectId: subject_id },
+      legacy: true,
+    });
+    if (!mayMap) return denyResponse(req, res, "Not authorized to map assessments for this subject");
+
     // 1. Full-replace the canonical subject-level mapping.
     await SubjectAssessmentMapping.destroy({ where: { subject_id, term, academic_year } });
 
@@ -305,6 +381,15 @@ export const saveAttributes = async (req: Request, res: Response) => {
       attributes,
     } = body;
 
+    // v2: the class-teacher comment / attributes need REPORT_CARDS_COMMENT
+    // over the student's class group (legacy: the route's REPORT_CARDS_EDIT).
+    const mayComment = await scopedAllow(req, {
+      caps: "REPORT_CARDS_COMMENT",
+      target: () => cardStudentTarget(req, student_id),
+      legacy: true,
+    });
+    if (!mayComment) return denyResponse(req, res, "Not authorized to comment on this student's report card");
+
     const [reportCard] = await ReportCard.findOrCreate({
       where: { student_id, term, academic_year },
       defaults: {
@@ -376,14 +461,17 @@ export const getCourseOverview = async (req: Request, res: Response) => {
       });
     }
 
-    const ids = student_ids
+    const requestedIds = student_ids
       .split(",")
       .map((s) => parseInt(s.trim(), 10))
       .filter((n) => !isNaN(n) && n > 0);
 
-    if (ids.length === 0) {
+    if (requestedIds.length === 0) {
       return res.status(400).json({ success: false, message: "No valid student_ids provided" });
     }
+
+    // v2: only students whose cards the caller may see (legacy: all requested).
+    const ids = await filterCardStudents(req, requestedIds, ["REPORT_CARDS_VIEW_ALL"], { minDepth: "detail" });
 
     // Fetch all report cards for these students in the given term/year
     const reportCards = await ReportCard.findAll({
@@ -479,14 +567,22 @@ export const getSubjectOverview = async (req: Request, res: Response) => {
       });
     }
 
-    const ids = student_ids
+    const requestedIds = student_ids
       .split(",")
       .map((s) => parseInt(s.trim(), 10))
       .filter((n) => !isNaN(n) && n > 0);
 
-    if (ids.length === 0) {
+    if (requestedIds.length === 0) {
       return res.status(400).json({ success: false, message: "No valid student_ids provided" });
     }
+
+    // v2: students of this subject the caller may see (legacy: all requested).
+    const ids = await filterCardStudents(
+      req,
+      requestedIds,
+      ["REPORT_CARDS_CREATE", "REPORT_CARDS_EDIT", "REPORT_CARDS_VIEW_ALL"],
+      { minDepth: "detail", subjectId },
+    );
 
     const reportCards = await ReportCard.findAll({
       where: { student_id: { [Op.in]: ids }, term, academic_year },
@@ -610,6 +706,37 @@ export const updateStatus = async (req: Request, res: Response) => {
         success: false,
         message: "Only an administrator can revert an approved report card",
       });
+    }
+
+    // v2 scope over this card's student. Approval is also publication (an
+    // approved card is what students/parents see), so entering or leaving
+    // "approved" needs REPORT_CARDS_APPROVE and REPORT_CARDS_PUBLISH there;
+    // draft <-> saved needs REPORT_CARDS_EDIT over the student's class or
+    // (subject, class) for a subject on the card, or APPROVE over the student.
+    const cardTarget = once(() => cardStudentTarget(req, reportCard.student_id));
+    const touchesPublished = status === "approved" || reportCard.status === "approved";
+    const scopeOk = touchesPublished
+      ? await scopedAllow(req, {
+          caps: "REPORT_CARDS_APPROVE",
+          alsoRequire: ["REPORT_CARDS_PUBLISH"],
+          target: cardTarget,
+          legacy: canApprove,
+        })
+      : await scopedAllow(req, {
+          caps: ["REPORT_CARDS_EDIT", "REPORT_CARDS_APPROVE"],
+          target: async () => {
+            const t = await cardTarget();
+            const rows = await ReportCardAssessment.findAll({
+              where: { report_card_id: reportCard.id },
+              attributes: ["subject_id"],
+            });
+            const subjects = [...new Set(rows.map((r) => r.subject_id))];
+            return [t, ...subjects.map((subjectId) => ({ ...t, subjectId }))];
+          },
+          legacy: true,
+        });
+    if (!scopeOk) {
+      return denyResponse(req, res, "Not authorized to change this report card's status");
     }
 
     await reportCard.update({ status });
@@ -752,8 +879,11 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "Invalid studentId" });
     }
 
-    const userPermissions: Set<string> = (req as any).user?.permissions ?? new Set();
-    const canViewAll = userPermissions.has("REPORT_CARDS_VIEW_ALL");
+    const access = await reportCardReadAccess(req, studentId);
+    if (!access.allowed) {
+      return denyResponse(req, res, "Not authorized to view this student's report card");
+    }
+    const canViewAll = access.canViewAll;
     let { term, academic_year } = req.query as { term?: string; academic_year?: string };
 
     // Without an explicit term/year, previously fell through to whichever row
@@ -845,8 +975,11 @@ export const getAnnualReportCard = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "Invalid studentId" });
     }
 
-    const userPermissions: Set<string> = (req as any).user?.permissions ?? new Set();
-    const canViewAll = userPermissions.has("REPORT_CARDS_VIEW_ALL");
+    const access = await reportCardReadAccess(req, studentId);
+    if (!access.allowed) {
+      return denyResponse(req, res, "Not authorized to view this student's report card");
+    }
+    const canViewAll = access.canViewAll;
     const { academic_year, academic_year_id } = req.query as {
       academic_year?: string;
       academic_year_id?: string;
@@ -949,9 +1082,6 @@ export const getAnnualReportCard = async (req: Request, res: Response) => {
 export const generatePdf = async (req: Request, res: Response) => {
   try {
     const { report_card_id } = req.body as GeneratePdfPayload;
-    const canViewAll = ((req as any).user?.permissions as Set<string> | undefined)?.has(
-      "REPORT_CARDS_VIEW_ALL",
-    );
 
     const reportCard = await ReportCard.findByPk(report_card_id, {
       include: [{ model: User, as: "student", attributes: ["id", "first_name", "last_name"] }],
@@ -960,6 +1090,12 @@ export const generatePdf = async (req: Request, res: Response) => {
     if (!reportCard) {
       return res.status(404).json({ success: false, message: "Report card not found" });
     }
+
+    const access = await reportCardReadAccess(req, reportCard.student_id);
+    if (!access.allowed) {
+      return denyResponse(req, res, "Not authorized to export this student's report card");
+    }
+    const canViewAll = access.canViewAll;
 
     // Callers without the view-all permission can only generate PDFs for approved cards
     if (!canViewAll && reportCard.status !== "approved") {
@@ -1042,9 +1178,11 @@ export const generateAnnualPdf = async (req: Request, res: Response) => {
         .json({ success: false, message: "student_id and academic_year are required" });
     }
 
-    const canViewAll = ((req as any).user?.permissions as Set<string> | undefined)?.has(
-      "REPORT_CARDS_VIEW_ALL",
-    );
+    const access = await reportCardReadAccess(req, Number(student_id));
+    if (!access.allowed) {
+      return denyResponse(req, res, "Not authorized to export this student's report card");
+    }
+    const canViewAll = access.canViewAll;
 
     const whereClause: any = { student_id, academic_year };
     if (!canViewAll) whereClause.status = "approved";
@@ -1170,11 +1308,19 @@ export const listReportCardStudents = async (req: Request, res: Response) => {
       });
     }
 
-    const reportCards = await ReportCard.findAll({
+    const allCards = await ReportCard.findAll({
       where: { term, academic_year },
       include: [{ model: User, as: "student", attributes: ["id", "first_name", "last_name"] }],
       order: [["createdAt", "DESC"]],
     });
+
+    // v2: only students in the caller's REPORT_CARDS_VIEW_ALL @detail scope.
+    const visible = new Set(
+      await filterCardStudents(req, [...new Set(allCards.map((rc) => rc.student_id))], ["REPORT_CARDS_VIEW_ALL"], {
+        minDepth: "detail",
+      }),
+    );
+    const reportCards = allCards.filter((rc) => visible.has(rc.student_id));
 
     const data = reportCards.map((rc) => {
       const student = (rc as any).student as User | undefined;
@@ -1222,10 +1368,19 @@ export const getAdminSummary = async (req: Request, res: Response) => {
       });
     }
 
-    const reportCards = await ReportCard.findAll({
+    const periodCards = await ReportCard.findAll({
       where: { term, academic_year },
       limit: ADMIN_SUMMARY_MAX_CARDS,
     });
+
+    // v2: aggregate only over students in the caller's REPORT_CARDS_VIEW_ALL
+    // scope; aggregates need just the summary depth.
+    const inScope = new Set(
+      await filterCardStudents(req, [...new Set(periodCards.map((rc) => rc.student_id))], ["REPORT_CARDS_VIEW_ALL"], {
+        minDepth: "summary",
+      }),
+    );
+    const reportCards = periodCards.filter((rc) => inScope.has(rc.student_id));
 
     const statusCounts = { draft: 0, saved: 0, approved: 0 };
     const categoryTotals: Record<string, { sum: number; count: number }> = {

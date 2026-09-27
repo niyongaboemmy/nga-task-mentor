@@ -9,6 +9,43 @@ import {
 import { sequelize } from "../config/database";
 import { Op } from "sequelize";
 import { getCurrentTermId } from "../utils/misUtils";
+import { signLiveSocketTicket } from "../utils/liveSocketTicket";
+import type { Target } from "../vendor/nga-access";
+import { accessMode } from "../access/mode";
+import { denyResponse, depthAtTarget, once, scopedAllow, scopedFilter } from "../access/policy";
+import { allowedStudentIds, misIdForLocalUser, misIdsForLocalUsers, studentTarget } from "../access/targets";
+
+// ─── Access control v2: proctoring scope ─────────────────────────────────────
+// Legacy: any holder of PROCTORING_VIEW_SESSIONS / _VIEW_ANALYTICS sees every
+// quiz's sessions school-wide. v2 (shadow: logged; enforce: decides) scopes
+// them to the quiz's subject (course_id = MIS subject id), the student's
+// (subject, class) pair, or the quiz's creator (SELF). Off: untouched.
+
+/** Matches no scope entry except `all` (used when the quiz is gone). */
+const NOWHERE: Target = { subjectId: 0 };
+
+const quizTarget = async (quizId: number | string | null | undefined): Promise<Target> => {
+  const quiz = quizId ? await Quiz.findByPk(quizId, { attributes: ["id", "course_id", "created_by"] }) : null;
+  if (!quiz) return NOWHERE;
+  return { subjectId: quiz.course_id ?? 0, ownerId: await misIdForLocalUser(quiz.created_by) };
+};
+
+/** The session's student in the quiz's subject (class group from MIS). */
+const sessionTarget = async (req: Request, session: ProctoringSession): Promise<Target> => {
+  const q = await quizTarget(session.quiz_id);
+  const misStudent = await misIdForLocalUser(session.student_id);
+  if (!misStudent) return q;
+  return studentTarget(req, misStudent, q);
+};
+
+/** v2 check that a non-owner may watch/act on this session (legacy already passed). */
+const maySuperviseSession = (req: Request, session: ProctoringSession) =>
+  scopedAllow(req, {
+    caps: "PROCTORING_VIEW_SESSIONS",
+    minDepth: "detail",
+    target: () => sessionTarget(req, session),
+    legacy: true,
+  });
 
 // Store active WebRTC connections for live streaming
 const activeStreams = new Map<
@@ -371,6 +408,10 @@ export const updateProctoringSession = async (req: Request, res: Response) => {
         message: "Not authorized to update this session",
       });
     }
+    if (session.student_id !== req.user.id && !(await maySuperviseSession(req, session))) {
+      await transaction.rollback();
+      return denyResponse(req, res, "Not authorized to update this session");
+    }
 
     const updateData: any = {};
     if (status) updateData.status = status;
@@ -486,6 +527,9 @@ export const logProctoringEvent = async (req: Request, res: Response) => {
         message: "Not authorized to log events for this session",
       });
     }
+    if (session.student_id !== req.user.id && !(await maySuperviseSession(req, session))) {
+      return denyResponse(req, res, "Not authorized to log events for this session");
+    }
 
     const event = await ProctoringEvent.create({
       session_id: session.id,
@@ -587,6 +631,9 @@ export const getSessionEvents = async (req: Request, res: Response) => {
         message: "Only instructors can view session events",
       });
     }
+    if (!(await maySuperviseSession(req, session))) {
+      return denyResponse(req, res, "Not authorized to view this session's events");
+    }
 
     // Build query options
     const whereClause: any = { session_id: session.id };
@@ -687,6 +734,10 @@ export const logWarningEvent = async (req: Request, res: Response) => {
       });
     }
 
+    if (!(await maySuperviseSession(req, session))) {
+      return denyResponse(req, res, "Not authorized to warn this student");
+    }
+
     // Create warning event - message is NOT stored, only the event is recorded
     const event = await ProctoringEvent.create({
       session_id: session.id,
@@ -761,12 +812,27 @@ export const getProctoringSessions = async (req: Request, res: Response) => {
         message: "Not authorized to view proctoring sessions",
       });
     }
+    // v2: the quiz's creator keeps access; anyone else needs
+    // PROCTORING_VIEW_ANALYTICS @detail over the quiz's subject.
+    const isQuizOwner = req.user.id === quiz.created_by;
+    const listTarget = once(() => quizTarget(quiz.id));
+    if (
+      !isQuizOwner &&
+      !(await scopedAllow(req, {
+        caps: "PROCTORING_VIEW_ANALYTICS",
+        minDepth: "detail",
+        target: listTarget,
+        legacy: true,
+      }))
+    ) {
+      return denyResponse(req, res, "Not authorized to view proctoring sessions");
+    }
 
     const whereClause: any = { quiz_id: quizId };
     if (status) whereClause.status = status;
     if (student_id) whereClause.student_id = student_id;
 
-    const sessions = await ProctoringSession.findAll({
+    const allSessions = await ProctoringSession.findAll({
       where: whereClause,
       include: [
         {
@@ -783,6 +849,27 @@ export const getProctoringSessions = async (req: Request, res: Response) => {
       ],
       order: [["start_time", "DESC"]],
     });
+
+    // v2: a non-owner sees only the students their scope covers in this
+    // subject (e.g. their own class groups), not every class taking the quiz.
+    const localIds = [...new Set(allSessions.map((sess) => sess.student_id))];
+    const visibleStudents = isQuizOwner
+      ? null
+      : new Set(
+          await scopedFilter(req, localIds, "PROCTORING_VIEW_ANALYTICS", async (snap) => {
+            const misOf = await misIdsForLocalUsers(localIds);
+            const t = await listTarget();
+            const allowed = new Set(
+              await allowedStudentIds(req, snap, ["PROCTORING_VIEW_ANALYTICS"], [...new Set(misOf.values())], {
+                minDepth: "detail",
+                subjectId: t.subjectId ?? null,
+              }),
+            );
+            // Students without a MIS id cannot be placed in any scope: hidden.
+            return localIds.filter((id) => misOf.has(id) && allowed.has(misOf.get(id)!));
+          }),
+        );
+    const sessions = visibleStudents ? allSessions.filter((sess) => visibleStudents.has(sess.student_id)) : allSessions;
 
     res.status(200).json({
       success: true,
@@ -870,6 +957,9 @@ export const getProctoringSession = async (req: Request, res: Response) => {
         success: false,
         message: "Not authorized to view this session",
       });
+    }
+    if (session.student_id !== req.user.id && !(await maySuperviseSession(req, session))) {
+      return denyResponse(req, res, "Not authorized to view this session");
     }
 
     res.status(200).json({
@@ -1276,6 +1366,10 @@ export const endProctoringSession = async (req: Request, res: Response) => {
         message: "Not authorized to end proctoring sessions",
       });
     }
+    if (!(await maySuperviseSession(req, session))) {
+      await transaction.rollback();
+      return denyResponse(req, res, "Not authorized to end this session");
+    }
 
     // Check if session is already ended
     if (session.status === "completed" || session.status === "terminated") {
@@ -1376,6 +1470,25 @@ export const getProctoringAnalytics = async (req: Request, res: Response) => {
       });
     }
 
+    // v2: PROCTORING_VIEW_ANALYTICS over the quiz's subject. Holders of the
+    // summary depth only get the aggregates, never per-student rows.
+    const analyticsTarget = once(() => quizTarget(quizId));
+    if (
+      !(await scopedAllow(req, {
+        caps: "PROCTORING_VIEW_ANALYTICS",
+        minDepth: "summary",
+        target: analyticsTarget,
+        legacy: true,
+      }))
+    ) {
+      return denyResponse(req, res, "Not authorized to view this quiz's proctoring analytics");
+    }
+    let includeStudentRows = true;
+    if (accessMode() === "enforce") {
+      const depth = await depthAtTarget(req, ["PROCTORING_VIEW_ANALYTICS"], await analyticsTarget());
+      includeStudentRows = depth === "detail" || depth === "sensitive";
+    }
+
     // Build date filter based on timeRange
     const dateFilter: any = {};
     if (timeRange === "week") {
@@ -1440,8 +1553,8 @@ export const getProctoringAnalytics = async (req: Request, res: Response) => {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    // Per-session detail
-    const sessionDetails = sessions.map((s: any) => ({
+    // Per-session detail (student-level: needs the detail depth under v2)
+    const sessionDetails = (includeStudentRows ? sessions : []).map((s: any) => ({
       student_name: s.student
         ? `${s.student.first_name} ${s.student.last_name}`
         : `Student #${s.student_id}`,
@@ -1478,3 +1591,24 @@ const emptyAnalytics = () => ({
   commonViolations: [],
   sessionDetails: [],
 });
+
+// @desc    Issue a short-lived ticket for authenticating to the live
+//          proctoring socket server (live-server/). The ticket carries the
+//          verified user id and whether they may act as a proctor, so the
+//          live-server never has to trust a client-claimed role.
+// @route   GET /api/proctoring/live-ticket
+// @access  Private (any authenticated user)
+export const getLiveSocketTicket = async (req: Request, res: Response) => {
+  try {
+    const { ticket, proctor, expiresIn } = signLiveSocketTicket({
+      id: req.user.id,
+      permissions: req.user.permissions,
+    });
+    return res.status(200).json({ success: true, ticket, proctor, expiresIn });
+  } catch (error) {
+    console.error("getLiveSocketTicket error:", error);
+    return res
+      .status(500)
+      .json({ success: false, message: "Could not issue live ticket" });
+  }
+};

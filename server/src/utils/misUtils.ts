@@ -52,22 +52,27 @@ export const handleMisError = (
  * @param req Express request object
  * @returns The MIS token string or empty string if not found
  */
-export const getMisToken = (req: Request): string => {
+export const getMisToken = (
+  req: Request,
+  opts: { quiet?: boolean } = {},
+): string => {
+  // quiet: the access-control layer reads the token on every guarded request
+  const log = opts.quiet ? () => {} : console.log;
   // First check cookie (secure HttpOnly)
   if (req.cookies && req.cookies.misToken) {
-    console.log("🍪 Found MIS token in cookie");
+    log("🍪 Found MIS token in cookie");
     return req.cookies.misToken.replace(/^Bearer /i, "");
   }
 
   // Then check x-mis-token header
   let token = req.headers["x-mis-token"];
   if (token) {
-    console.log("Header Found MIS token in x-mis-token header");
+    log("Header Found MIS token in x-mis-token header");
   }
 
   // Fallback to Authorization header if it looks like an MIS token
   if (!token && req.headers.authorization && req.headers["x-use-mis-auth"]) {
-    console.log(
+    log(
       "🛂 Using Authorization header as MIS token (x-use-mis-auth is set)",
     );
     token = req.headers.authorization;
@@ -77,7 +82,7 @@ export const getMisToken = (req: Request): string => {
     return token.replace(/^Bearer /i, "");
   }
 
-  console.log("❓ No MIS token found in request");
+  log("❓ No MIS token found in request");
   return "";
 };
 

@@ -2,11 +2,10 @@ import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import HomeNavbar from "../HomeNavbar";
 import { useAuth } from "../../contexts/AuthContext";
+import { beginSsoLogin, getSsoConfig } from "../../utils/ssoState";
 
 const Login: React.FC = () => {
-  const SSO_CLIENT_ID = import.meta.env.VITE_SSO_CLIENT_ID || "taskmentor_app";
-  const MIS_LOGIN_URL =
-    import.meta.env.VITE_MIS_LOGIN_URL || "https://nga.ac.rw/mis/login";
+  const { loginUrl: MIS_LOGIN_URL } = getSsoConfig();
   // Same origin as the login URL above, just without the /login path — kept
   // derived (rather than a second hardcoded domain) so the two can't drift
   // out of sync the way the old hardcoded ngamis.isengesho.com link did.
@@ -14,10 +13,10 @@ const Login: React.FC = () => {
 
   const { sessionExpired } = useAuth();
 
+  // Sends a random OAuth `state` (kept in sessionStorage) that Callback.tsx
+  // verifies before exchanging the code — see utils/ssoState.ts.
   const handleSSOLogin = () => {
-    const base = (import.meta.env.BASE_URL || "/").replace(/\/$/, "");
-    const redirectUri = window.location.origin + base + "/sso/callback";
-    window.location.href = `${MIS_LOGIN_URL}?client_id=${SSO_CLIENT_ID}&redirect_uri=${encodeURIComponent(redirectUri)}`;
+    beginSsoLogin();
   };
 
   return (

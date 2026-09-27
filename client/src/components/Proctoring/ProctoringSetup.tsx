@@ -6,6 +6,7 @@ import faceDetectionService from "../../utils/faceDetection";
 import { useAuth } from "../../contexts/AuthContext";
 import { QuizApiService } from "../../services/quizApi";
 import WarningNotification from "./WarningNotification";
+import { liveSocketAuth, liveServerAuthHeaders } from "../../utils/liveSocketAuth";
 
 interface ProctoringSetupProps {
   quizId: string;
@@ -356,6 +357,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
       const socketUrl =
         import.meta.env.VITE_SOCKET_URL || "http://localhost:5003";
       const res = await fetch(`${socketUrl}/turn-credentials`, {
+        headers: liveServerAuthHeaders(),
         signal: AbortSignal.timeout(5000),
       });
       if (!res.ok) return fallback;
@@ -402,6 +404,7 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
         import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
         {
           transports: ["polling", "websocket"],
+          auth: liveSocketAuth,
         },
       );
 

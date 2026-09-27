@@ -50,6 +50,8 @@ import reportCardRoutes from "./routes/reportCards";
 import manualAssessmentRoutes from "./routes/manualAssessments";
 import databaseRoutes from "./routes/database.routes";
 import rolesPermissionsRoutes from "./routes/rolesPermissions";
+import accessRoutes from "./routes/access";
+import integrationRoutes from "./routes/integration";
 import aiService from "./services/ai/aiService";
 import { verifyReportCard } from "./controllers/reportCard.controller";
 
@@ -279,6 +281,9 @@ const startServer = async (): Promise<void> => {
     app.use("/api/manual-assessments", manualAssessmentRoutes);
     app.use("/api/database", databaseRoutes);
     app.use("/api/roles-permissions", rolesPermissionsRoutes);
+    app.use("/api/access", accessRoutes);
+    // MIS -> Task Mentor server-to-server reads (MIS bearer token, read-only)
+    app.use("/api/integration", integrationRoutes);
     // Public (no auth) — QR code verification
     app.get("/api/public/verify/report-card/:uuid", verifyReportCard);
 

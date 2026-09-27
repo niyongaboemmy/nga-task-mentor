@@ -15,6 +15,7 @@ import {
   endProctoringSession,
   getSessionEvents,
   getProctoringAnalytics,
+  getLiveSocketTicket,
 } from "../controllers/proctoring.controller";
 import { protect, authorizePermission } from "../middleware/auth";
 
@@ -22,6 +23,11 @@ const router = express.Router();
 
 // All routes require authentication
 router.use(protect);
+
+// Short-lived ticket for the live proctoring socket server. Any authenticated
+// user may request one (students need it to stream); the ticket itself records
+// whether the holder may act as a proctor, derived from their permissions.
+router.get("/live-ticket", getLiveSocketTicket);
 
 // Proctoring settings routes (controller further restricts GET to
 // instructor/admin-with-manage-settings OR student-with-start-session)

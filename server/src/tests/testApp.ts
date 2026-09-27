@@ -10,6 +10,10 @@ import assignmentRoutes from "../routes/assignments";
 import submissionRoutes from "../routes/submissions";
 import quizRoutes from "../routes/quizzes";
 import courseRoutes from "../routes/courses";
+import reportCardRoutes from "../routes/reportCards";
+import manualAssessmentRoutes from "../routes/manualAssessments";
+import accessRoutes from "../routes/access";
+import integrationRoutes from "../routes/integration";
 
 /**
  * Minimal test harness app — mounts only the routers under test against the
@@ -29,6 +33,10 @@ export function buildTestApp() {
   app.use("/api/submissions", submissionRoutes);
   app.use("/api/quizzes", quizRoutes);
   app.use("/api/courses", courseRoutes);
+  app.use("/api/report-cards", reportCardRoutes);
+  app.use("/api/manual-assessments", manualAssessmentRoutes);
+  app.use("/api/access", accessRoutes);
+  app.use("/api/integration", integrationRoutes);
   return app;
 }
 

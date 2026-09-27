@@ -18,6 +18,7 @@ import {
   Video,
   Play,
 } from "lucide-react";
+import { liveSocketAuth, liveServerAuthHeaders } from "../../utils/liveSocketAuth";
 
 interface LiveStream {
   id?: number;
@@ -240,6 +241,7 @@ const LiveProctoringDashboard: React.FC = () => {
 
     socketRef.current = io(socketUrl, {
       transports: ["polling", "websocket"],
+      auth: liveSocketAuth,
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
@@ -300,6 +302,19 @@ const LiveProctoringDashboard: React.FC = () => {
         addStatusMessage(`Socket connection error: ${error.message}`, "error");
       }
     });
+
+    // The live-server refuses proctor actions unless this user's live ticket
+    // carries proctor rights (PROCTORING_JOIN_LIVE_STREAM / _VIEW_SESSIONS).
+    socketRef.current.on(
+      "proctoring-auth-error",
+      (data: { event?: string; message?: string }) => {
+        console.warn("Live proctoring authorization error:", data);
+        addStatusMessage(
+          data?.message || "Not authorized for live proctoring",
+          "error",
+        );
+      },
+    );
 
     socketRef.current.on("reconnect_attempt", (attemptNumber) => {
       addStatusMessage(`Reconnecting... (attempt ${attemptNumber})`, "warning");
@@ -895,6 +910,7 @@ const LiveProctoringDashboard: React.FC = () => {
       const socketUrl =
         import.meta.env.VITE_SOCKET_URL || "http://localhost:5003";
       const res = await fetch(`${socketUrl}/turn-credentials`, {
+        headers: liveServerAuthHeaders(),
         signal: AbortSignal.timeout(5000),
       });
       if (!res.ok) return fallback;

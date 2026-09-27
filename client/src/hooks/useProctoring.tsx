@@ -3,6 +3,7 @@ import { ProctoringApiService } from "../services/proctoringApi";
 import WarningNotification from "../components/Proctoring/WarningNotification";
 import FloatingCameraComponent from "../components/Proctoring/FloatingCameraComponent";
 import ProctoringMonitorComponent from "../components/Proctoring/ProctoringMonitorComponent";
+import { liveSocketAuth } from "../utils/liveSocketAuth";
 
 interface UseProctoringOptions {
   quizId: number;
@@ -152,6 +153,7 @@ export const useProctoring = (
           import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
           {
             transports: ["polling", "websocket"],
+            auth: liveSocketAuth,
           },
         );
         socketRef.current = socket;

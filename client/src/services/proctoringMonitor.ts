@@ -2,6 +2,7 @@ import faceDetectionService, {
   type ProctoringDetectionResult,
 } from "../utils/faceDetection";
 import axios from "../utils/axiosConfig";
+import { liveSocketAuth } from "../utils/liveSocketAuth";
 
 export interface ProctoringSettings {
   require_fullscreen: boolean;
@@ -159,6 +160,7 @@ class ProctoringMonitor {
         import.meta.env.VITE_SOCKET_URL || "http://localhost:5003",
         {
           transports: ["polling", "websocket"],
+          auth: liveSocketAuth,
           timeout: 5000,
           reconnection: true,
           reconnectionAttempts: 3,

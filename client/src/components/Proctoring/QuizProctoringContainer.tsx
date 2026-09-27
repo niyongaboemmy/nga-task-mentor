@@ -9,6 +9,7 @@ import WarningNotification from "./WarningNotification";
 import FloatingCameraComponent from "./FloatingCameraComponent";
 import ProctoringMonitorComponent from "./ProctoringMonitorComponent";
 import { ProctoringApiService } from "../../services/proctoringApi";
+import { liveSocketAuth } from "../../utils/liveSocketAuth";
 
 interface QuizProctoringContainerProps {
   children: ReactNode;
@@ -158,6 +159,7 @@ const QuizProctoringContainer: React.FC<QuizProctoringContainerProps> = ({
           import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
           {
             transports: ["polling", "websocket"],
+            auth: liveSocketAuth,
           },
         );
         socketRef.current = socket;

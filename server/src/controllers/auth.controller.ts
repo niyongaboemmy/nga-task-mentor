@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { noteAccessVersion } from "../access/snapshot";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -537,6 +538,9 @@ export const ssoCallback = async (req: Request, res: Response) => {
       permissions,
       systems,
     } = misResponse.data.data;
+    // Sign-in is a natural refresh point: drop a cached access snapshot if
+    // MIS says this user's access changed since it was fetched.
+    noteAccessVersion(misUser?.user_id, misResponse.data.data?.access_version);
 
     console.log("✅ SSO Token exchange successful for user:", misUser.username);
     console.log("📝 MIS User data:", JSON.stringify(misUser));
@@ -945,6 +949,9 @@ export const verifyMisSession = async (req: Request, res: Response) => {
     const response = await axios.get(`${process.env.NGA_MIS_BASE_URL}/auth/verify`, {
       headers: { Authorization: `Bearer ${misToken}` },
     });
+    // Access control v2: a changed access_version invalidates the cached
+    // access snapshot, so the next request re-fetches GET /access/me.
+    noteAccessVersion(req.user?.mis_user_id, response.data?.data?.access_version);
     return res.status(200).json({ success: true, data: response.data });
   } catch (error: any) {
     if (error.response?.status === 401) {

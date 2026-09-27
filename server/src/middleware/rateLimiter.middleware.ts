@@ -50,3 +50,20 @@ export const apiLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// Integration (MIS -> Task Mentor) reads: 30 per minute per MIS user. Keyed by
+// the verified MIS user id set by misBearerAuth, so it must run after it --
+// every call comes from the MIS backend's IP, so an IP key would throttle
+// the whole school at once.
+export const integrationLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  keyGenerator: (req) => `mis:${(req as any).misUserId ?? req.ip}`,
+  message: {
+    success: false,
+    code: "RATE_LIMITED",
+    message: "Too many requests, please try again shortly",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});

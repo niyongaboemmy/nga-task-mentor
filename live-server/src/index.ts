@@ -1,5 +1,6 @@
 import dotenv from "dotenv";
 import path from "path";
+import fs from "fs";
 // Resolve .env relative to this file, not process.cwd() — pm2 restarts can
 // run with a different working directory, which otherwise makes dotenv
 // silently find nothing.
@@ -19,11 +20,57 @@ import {
   IceCandidatePayload,
   LeaveRoomPayload,
 } from "./types";
+import {
+  createSocketAuthMiddleware,
+  extractHandshakeToken,
+  getIdentity,
+  isProctorSocket,
+  PROCTOR_ONLY_EVENTS,
+  PROCTORS_ROOM,
+  resolveAllowedOrigins,
+  resolveProctoringRole,
+  SocketAuthError,
+  verifySocketToken,
+} from "./socketAuth";
 
 // Environment variables with defaults
 const PORT = process.env.PORT || 5002;
 const NODE_ENV = process.env.NODE_ENV || "development";
-const CORS_ORIGIN = process.env.CORS_ORIGIN?.split(",") || "*";
+// Same env vars as the main API (ALLOWED_ORIGINS / CORS_ORIGIN / FRONTEND_URL);
+// "*" only if explicitly configured.
+const CORS_ORIGIN = resolveAllowedOrigins(process.env);
+
+// Socket/HTTP auth uses the SAME secret the main API signs session JWTs with
+// (server/src/models/User.model.ts -> JWT_SECRET). Set JWT_SECRET in
+// live-server/.env; as a fallback (same host, e.g. local dev) read it from the
+// sibling server/.env without importing any of its other variables.
+const resolveJwtSecret = (): string | undefined => {
+  if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+  for (const candidate of [
+    path.resolve(__dirname, "../../server/.env"),
+    path.resolve(process.cwd(), "../server/.env"),
+  ]) {
+    try {
+      const parsed = dotenv.parse(fs.readFileSync(candidate));
+      if (parsed.JWT_SECRET) {
+        console.warn(
+          `⚠️ JWT_SECRET not set for live-server; using the one from ${candidate}`,
+        );
+        return parsed.JWT_SECRET;
+      }
+    } catch {
+      // file missing/unreadable — try the next candidate
+    }
+  }
+  return undefined;
+};
+const JWT_SECRET = resolveJwtSecret();
+if (!JWT_SECRET) {
+  console.error(
+    "❌ JWT_SECRET is not configured — every socket connection will be rejected. " +
+      "Set JWT_SECRET in live-server/.env to the same value as the main API.",
+  );
+}
 const MAX_PARTICIPANTS = parseInt(
   process.env.MAX_PARTICIPANTS_PER_ROOM || "10",
   10,
@@ -44,7 +91,33 @@ const io = new Server(httpServer, {
   allowEIO3: true,
 });
 
-app.use(cors());
+app.use(cors({ origin: CORS_ORIGIN, credentials: true }));
+
+// Every socket must present a valid TaskMentor token (live ticket or session
+// JWT); identity + proctor status come from the verified token only.
+io.use(createSocketAuthMiddleware(() => JWT_SECRET));
+
+// HTTP counterpart of the socket auth: `requireProctor` limits the endpoint to
+// holders of a proctor live ticket.
+const requireAuth =
+  (requireProctor = false): express.RequestHandler =>
+  (req, res, next) => {
+    try {
+      const identity = verifySocketToken(
+        extractHandshakeToken({ headers: req.headers }),
+        JWT_SECRET,
+      );
+      if (requireProctor && !identity.isProctor) {
+        return res.status(403).json({ error: "Forbidden" });
+      }
+      return next();
+    } catch (err) {
+      const message =
+        err instanceof SocketAuthError ? err.message : "Authentication failed";
+      console.warn(`[live-server] Rejected ${req.method} ${req.path}: ${message}`);
+      return res.status(401).json({ error: message });
+    }
+  };
 app.use(express.json());
 
 // Store rooms in memory (for general WebRTC room functionality)
@@ -68,7 +141,7 @@ app.get("/health", (_req, res) => {
 
 // TURN credentials endpoint — fetches short-lived credentials from Cloudflare
 // Cloudflare Realtime TURN: 1,000 GB/month free, global Anycast network
-app.get("/turn-credentials", async (_req, res) => {
+app.get("/turn-credentials", requireAuth(), async (_req, res) => {
   const fallback = {
     iceServers: [
       { urls: "stun:stun.l.google.com:19302" },
@@ -111,7 +184,7 @@ app.get("/turn-credentials", async (_req, res) => {
 });
 
 // Get all rooms
-app.get("/rooms", (_req, res) => {
+app.get("/rooms", requireAuth(true), (_req, res) => {
   const roomList = Array.from(rooms.values()).map((room) => ({
     id: room.id,
     name: room.name,
@@ -122,7 +195,7 @@ app.get("/rooms", (_req, res) => {
 });
 
 // Get specific room info
-app.get("/rooms/:roomId", (req, res) => {
+app.get("/rooms/:roomId", requireAuth(true), (req, res) => {
   const room = rooms.get(req.params.roomId);
   if (!room) {
     return res.status(404).json({ error: "Room not found" });
@@ -143,7 +216,7 @@ app.get("/rooms/:roomId", (req, res) => {
 });
 
 // Get active proctoring streams
-app.get("/proctoring/streams", (_req, res) => {
+app.get("/proctoring/streams", requireAuth(true), (_req, res) => {
   const streams = Array.from(activeProctoringStreams.values());
   res.json(streams);
 });
@@ -153,7 +226,32 @@ console.log(`🔧 Running in ${NODE_ENV} mode on port ${PORT}`);
 
 // Socket.IO connection handling
 io.on("connection", (socket: Socket) => {
-  console.log(`Client connected: ${socket.id}`);
+  const identity = getIdentity(socket);
+  console.log(
+    `Client connected: ${socket.id} (user ${identity?.userId}, ${
+      identity?.isProctor ? "proctor" : "non-proctor"
+    }, via ${identity?.via})`,
+  );
+
+  // Proctors receive the global stream/status/screenshot broadcasts; students
+  // no longer do (those used to go to every connected socket via io.emit).
+  if (identity?.isProctor) socket.join(PROCTORS_ROOM);
+
+  // Drop proctor-only commands (pause/end exam, warnings, screenshot
+  // requests, WebRTC offers to students, stream listing) from non-proctors.
+  socket.use(([event], next) => {
+    if (PROCTOR_ONLY_EVENTS.has(event) && !isProctorSocket(socket)) {
+      console.warn(
+        `[live-server] Blocked proctor-only event "${event}" from non-proctor socket ${socket.id} (user ${identity?.userId})`,
+      );
+      socket.emit("proctoring-auth-error", {
+        event,
+        message: "Not authorized to perform this action",
+      });
+      return; // do not call next(): the packet is dropped
+    }
+    next();
+  });
 
   // Debug: Listen for ALL events to trace
   socket.onAny((eventName, ...args) => {
@@ -226,7 +324,8 @@ io.on("connection", (socket: Socket) => {
     const client: Client = {
       id: clientId,
       socketId: socket.id,
-      userId: payload.userId,
+      // Identity from the verified token, never from the payload.
+      userId: identity ? String(identity.userId) : undefined,
       username: payload.username,
       role: payload.role,
       isAudioEnabled: true,
@@ -364,10 +463,26 @@ io.on("connection", (socket: Socket) => {
   socket.on(
     "join-proctoring-session",
     (data: { sessionToken: string; role?: string }) => {
-      const { sessionToken, role = "student" } = data;
+      const { sessionToken } = data || ({} as { sessionToken: string });
+      if (!sessionToken) return;
+      // The claimed role is only honoured when consistent with the verified
+      // identity: "dashboard" requires a proctor live ticket.
+      const decision = resolveProctoringRole(identity, data.role);
+      if (!decision.allowed) {
+        console.warn(
+          `[live-server] Denied join-proctoring-session as "${data.role}" for socket ${socket.id} (user ${identity?.userId}): ${decision.reason}`,
+        );
+        socket.emit("proctoring-auth-error", {
+          event: "join-proctoring-session",
+          sessionToken,
+          message: decision.reason,
+        });
+        return;
+      }
+      const role = decision.role;
       socket.join("proctoring-" + sessionToken);
       console.log(
-        `Client ${socket.id} joined proctoring session: ${sessionToken} as ${role}`,
+        `Client ${socket.id} (user ${identity?.userId}) joined proctoring session: ${sessionToken} as ${role}`,
       );
 
       // If this is a STUDENT joining, add them to activeStreams immediately
@@ -382,6 +497,7 @@ io.on("connection", (socket: Socket) => {
           activeProctoringStreams.set(sessionToken, {
             sessionToken,
             student: { first_name: "Student", last_name: "" },
+            studentUserId: identity?.userId,
             quiz: { title: "Quiz" },
             startTime: new Date(),
             socketId: socket.id,
@@ -389,7 +505,7 @@ io.on("connection", (socket: Socket) => {
             lastReconnection: null,
           });
 
-          io.emit("stream-started", {
+          io.to(PROCTORS_ROOM).emit("stream-started", {
             sessionToken,
             student: { first_name: "Student", last_name: "" },
             quiz: { title: "Quiz" },
@@ -442,6 +558,8 @@ io.on("connection", (socket: Socket) => {
       activeProctoringStreams.set(sessionToken, {
         sessionToken,
         student: studentInfo,
+        // Verified user id of the streaming socket (studentInfo is client-supplied).
+        studentUserId: identity?.userId,
         quiz: quizInfo,
         startTime: new Date(),
         socketId: socket.id,
@@ -451,11 +569,11 @@ io.on("connection", (socket: Socket) => {
       });
 
       console.log(
-        "🚨🚨🚨 EMITTING stream-started to ALL clients (io.emit):",
+        "🚨🚨🚨 EMITTING stream-started to proctor clients:",
         sessionToken,
       );
 
-      io.emit("stream-started", {
+      io.to(PROCTORS_ROOM).emit("stream-started", {
         sessionToken,
         student: studentInfo,
         quiz: quizInfo,
@@ -490,7 +608,7 @@ io.on("connection", (socket: Socket) => {
 
     if (activeProctoringStreams.has(sessionToken)) {
       activeProctoringStreams.delete(sessionToken);
-      io.emit("stream-ended", { sessionToken });
+      io.to(PROCTORS_ROOM).emit("stream-ended", { sessionToken });
       console.log(
         "Active proctoring streams count:",
         activeProctoringStreams.size,
@@ -511,7 +629,7 @@ io.on("connection", (socket: Socket) => {
         disconnectedAt: null,
       });
 
-      io.emit("stream-resumed", {
+      io.to(PROCTORS_ROOM).emit("stream-resumed", {
         sessionToken,
         resumedAt: new Date(),
         wasDisconnected: true,
@@ -686,7 +804,7 @@ io.on("connection", (socket: Socket) => {
       status,
     });
 
-    io.emit("exam-status-changed", {
+    io.to(PROCTORS_ROOM).emit("exam-status-changed", {
       sessionToken,
       status,
     });
@@ -722,7 +840,7 @@ io.on("connection", (socket: Socket) => {
     const { sessionToken, screenshot } = data;
 
     // Broadcast to instructor dashboard
-    io.emit("student-camera-screenshot", {
+    io.to(PROCTORS_ROOM).emit("student-camera-screenshot", {
       sessionToken,
       screenshot,
       timestamp: new Date(),
@@ -748,7 +866,7 @@ io.on("connection", (socket: Socket) => {
     const { sessionToken, screenshot } = data;
 
     // Broadcast to instructor dashboard
-    io.emit("student-interface-screenshot", {
+    io.to(PROCTORS_ROOM).emit("student-interface-screenshot", {
       sessionToken,
       screenshot,
       timestamp: new Date(),
@@ -766,7 +884,7 @@ io.on("connection", (socket: Socket) => {
       timestamp: new Date(),
     });
 
-    io.emit("global-proctoring-violation", {
+    io.to(PROCTORS_ROOM).emit("global-proctoring-violation", {
       sessionToken,
       quizId,
       violation,
@@ -804,7 +922,7 @@ io.on("connection", (socket: Socket) => {
           disconnectedAt: new Date(),
         });
 
-        io.emit("stream-paused", {
+        io.to(PROCTORS_ROOM).emit("stream-paused", {
           sessionToken,
           reason: "student_disconnected",
           disconnectedAt: new Date(),
@@ -843,9 +961,14 @@ function handleLeaveRoom(socket: Socket, roomId: string, userId: string): void {
   }
 }
 
-httpServer.listen(PORT, () => {
-  console.log(`✅ Live Server running on port ${PORT}`);
-  console.log(`✅ WebSocket server ready for WebRTC signaling and proctoring`);
-});
+// Tests set LIVE_SERVER_NO_LISTEN=1 so they can import the configured server
+// and listen on an ephemeral port. (Not `require.main === module`: pm2 fork
+// mode loads the script via require(), which would make that check false.)
+if (process.env.LIVE_SERVER_NO_LISTEN !== "1") {
+  httpServer.listen(PORT, () => {
+    console.log(`✅ Live Server running on port ${PORT}`);
+    console.log(`✅ WebSocket server ready for WebRTC signaling and proctoring`);
+  });
+}
 
-export { io, rooms, clients, activeProctoringStreams };
+export { app, httpServer, io, rooms, clients, activeProctoringStreams };

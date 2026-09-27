@@ -34,6 +34,7 @@ import type {
   QuestionComponentProps,
 } from "../types/quiz.types";
 import RichTextDisplay from "../components/Common/RichTextDisplay";
+import { liveSocketAuth } from "../utils/liveSocketAuth";
 
 interface QuizTakingQuiz extends Quiz {
   quiz_completed?: boolean;
@@ -334,6 +335,7 @@ const QuizTakingPage: React.FC = () => {
             import.meta.env.VITE_SOCKET_URL || "http://localhost:5002",
             {
               transports: ["polling", "websocket"],
+              auth: liveSocketAuth,
             },
           );
 

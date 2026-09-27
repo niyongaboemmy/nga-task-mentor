@@ -14,7 +14,7 @@ import {
   listReportCardStudents,
   getAdminSummary,
 } from "../controllers/reportCard.controller";
-import { protect, authorizePermission } from "../middleware/auth";
+import { protect, authorizePermission, authorizeCapability } from "../middleware/auth";
 import { validate } from "../middleware/validation.middleware";
 import {
   builderSaveSchema,
@@ -57,9 +57,12 @@ router.post(
 );
 
 // ── Attributes (class teacher / admin) ────────────────────────────────────────
+// Access control v2 (enforce): the class-teacher comment is its own
+// capability, REPORT_CARDS_COMMENT, checked against the student's class
+// group in the controller. Legacy (off/shadow): REPORT_CARDS_EDIT as before.
 router.post(
   "/attributes/save",
-  authorizePermission("REPORT_CARDS_EDIT"),
+  authorizeCapability({ legacy: ["REPORT_CARDS_EDIT"], v2: ["REPORT_CARDS_COMMENT"] }),
   validate(attributesSaveSchema),
   saveAttributes,
 );
@@ -103,6 +106,9 @@ router.get(
 // PATCH /api/report-cards/:id/status
 // Editors: draft <-> saved
 // Approvers: any -> any (including approved) — enforced in the controller
+// Access control v2 (enforce): "approved" is also the published state, so
+// entering or leaving it needs REPORT_CARDS_APPROVE and REPORT_CARDS_PUBLISH
+// over the student (controller); draft <-> saved needs REPORT_CARDS_EDIT.
 router.patch(
   "/:id/status",
   authorizePermission("REPORT_CARDS_EDIT", "REPORT_CARDS_APPROVE"),

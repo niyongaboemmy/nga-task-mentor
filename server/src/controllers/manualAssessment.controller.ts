@@ -8,6 +8,22 @@ import type {
   UpsertScoresPayload,
 } from "../validations/manualAssessment.validation";
 import { resolveCurrentAcademicPeriodNames } from "../utils/misUtils";
+import { decide, Target } from "../vendor/nga-access";
+import { denyResponse, depthFor, scopedAllow, scopedFilter } from "../access/policy";
+import { misIdForLocalUser } from "../access/targets";
+
+// ─── Access control v2: manual-assessment scope ──────────────────────────────
+// Legacy: any MANUAL_ASSESSMENTS_* holder may act on every subject's
+// assessments. v2 (shadow: logged; enforce: decides) scopes them to the
+// assessment's subject (course_id = MIS subject id) or its creator (SELF).
+
+const assessmentTarget = async (a: ManualAssessment): Promise<Target> => ({
+  subjectId: a.course_id,
+  ownerId: await misIdForLocalUser(a.created_by ?? null),
+});
+
+const mayActOn = (req: Request, cap: string, a: ManualAssessment, minDepth?: "detail") =>
+  scopedAllow(req, { caps: cap, minDepth: minDepth ?? null, target: () => assessmentTarget(a), legacy: true });
 
 // ─── POST /api/manual-assessments ────────────────────────────────────────────
 
@@ -15,6 +31,13 @@ export const createManualAssessment = async (req: Request, res: Response) => {
   try {
     const body = req.body as CreateManualAssessmentPayload;
     const userId: number | undefined = (req as any).user?.id;
+
+    const mayCreate = await scopedAllow(req, {
+      caps: "MANUAL_ASSESSMENTS_CREATE",
+      target: { subjectId: Number(body.course_id) },
+      legacy: true,
+    });
+    if (!mayCreate) return denyResponse(req, res, "Not authorized to create assessments for this subject");
 
     const assessment = await ManualAssessment.create({
       course_id:         body.course_id,
@@ -85,6 +108,13 @@ export const listManualAssessments = async (req: Request, res: Response) => {
       return res.status(400).json({ success: false, message: "No valid course IDs provided" });
     }
 
+    // v2: only subjects where the caller holds MANUAL_ASSESSMENTS_VIEW.
+    courseIdList = await scopedFilter(req, courseIdList, "MANUAL_ASSESSMENTS_VIEW", async (snap) =>
+      courseIdList.filter((subjectId) =>
+        decide(snap, "MANUAL_ASSESSMENTS_VIEW", { subjectId }, depthFor("MANUAL_ASSESSMENTS_VIEW", "summary")).allowed,
+      ),
+    );
+
     const where: any = { course_id: { [Op.in]: courseIdList } };
     if (term) where.term = term;
     if (academic_year) where.academic_year = academic_year;
@@ -135,6 +165,9 @@ export const updateManualAssessment = async (req: Request, res: Response) => {
     if (!assessment) {
       return res.status(404).json({ success: false, message: "Assessment not found" });
     }
+    if (!(await mayActOn(req, "MANUAL_ASSESSMENTS_EDIT", assessment))) {
+      return denyResponse(req, res, "Not authorized to edit this assessment");
+    }
 
     const updates: any = {};
     if (body.title             !== undefined) updates.title             = body.title;
@@ -166,6 +199,9 @@ export const deleteManualAssessment = async (req: Request, res: Response) => {
     if (!assessment) {
       return res.status(404).json({ success: false, message: "Assessment not found" });
     }
+    if (!(await mayActOn(req, "MANUAL_ASSESSMENTS_DELETE", assessment))) {
+      return denyResponse(req, res, "Not authorized to delete this assessment");
+    }
 
     await ManualAssessmentScore.destroy({ where: { manual_assessment_id: id } });
     await assessment.destroy();
@@ -189,6 +225,10 @@ export const getScores = async (req: Request, res: Response) => {
     const assessment = await ManualAssessment.findByPk(id);
     if (!assessment) {
       return res.status(404).json({ success: false, message: "Assessment not found" });
+    }
+    // Per-student marks: the detail depth.
+    if (!(await mayActOn(req, "MANUAL_ASSESSMENTS_VIEW", assessment, "detail"))) {
+      return denyResponse(req, res, "Not authorized to view these scores");
     }
 
     const scores = await ManualAssessmentScore.findAll({
@@ -216,6 +256,9 @@ export const upsertScores = async (req: Request, res: Response) => {
     const assessment = await ManualAssessment.findByPk(id);
     if (!assessment) {
       return res.status(404).json({ success: false, message: "Assessment not found" });
+    }
+    if (!(await mayActOn(req, "MANUAL_ASSESSMENTS_EDIT", assessment))) {
+      return denyResponse(req, res, "Not authorized to record scores for this assessment");
     }
 
     const maxScore = parseFloat(String(assessment.max_score));

@@ -3,6 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
 import { motion, AnimatePresence } from "framer-motion";
 import api from "../../utils/axiosConfig";
+import {
+  beginSsoLogin,
+  consumeSsoState,
+  SSO_STATE_KEY,
+} from "../../utils/ssoState";
 
 type Stage = "processing" | "retrying" | "success" | "error";
 
@@ -26,10 +31,13 @@ const Callback: React.FC = () => {
 
   // Capture code from URL before React clears it
   const initialCode = useRef(new URLSearchParams(window.location.search).get("code"));
+  // OAuth state echoed back by MIS — must match the one Login.tsx stored.
+  const initialState = useRef(new URLSearchParams(window.location.search).get("state"));
 
   useEffect(() => {
     // Already authenticated (e.g. user navigated back to this URL) → go to dashboard silently
     if (isAuthenticated) {
+      sessionStorage.removeItem(SSO_STATE_KEY);
       navigate(DASHBOARD_PATH, { replace: true });
       return;
     }
@@ -56,6 +64,28 @@ const Callback: React.FC = () => {
 
     // Remove code from URL immediately so back-button / refresh can't replay it
     window.history.replaceState({}, document.title, window.location.pathname);
+
+    // Login-CSRF guard: only exchange a code for a login this tab started.
+    const stateCheck = consumeSsoState(initialState.current);
+    if (stateCheck === "unsolicited") {
+      // No login was started from this tab — e.g. TaskMentor was opened from
+      // the MIS apps menu, which attaches its own state. Never exchange an
+      // unsolicited code; start a fresh login with our own state instead (MIS
+      // auto-continues it for an already signed-in user).
+      console.warn("⚠️ SSO callback without a pending login — restarting sign-in");
+      sessionStorage.removeItem(sessionKey);
+      beginSsoLogin();
+      return;
+    }
+    if (stateCheck === "mismatch") {
+      console.error("❌ SSO state mismatch — refusing to exchange the code");
+      setErrorKind("server");
+      setErrorMessage(
+        "This sign-in response could not be verified (security check failed). Please start the sign-in again.",
+      );
+      setStage("error");
+      return;
+    }
 
     let cancelled = false;
 

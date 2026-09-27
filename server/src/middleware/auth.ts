@@ -3,6 +3,12 @@ import jwt from "jsonwebtoken";
 import { User } from "../models/User.model";
 import { Role } from "../models/Role.model";
 import { Permission } from "../models/Permission.model";
+import { accessMode } from "../access/mode";
+import {
+  applyEnforcedPermissions,
+  denyResponse,
+  shadowCompareGuard,
+} from "../access/policy";
 
 declare global {
   namespace Express {
@@ -93,6 +99,10 @@ export const protect = async (
         academicYearId: decoded.academicYearId,
       };
 
+      // Access control v2: under ACCESS_V2_MODE=enforce the MIS snapshot's
+      // capabilities replace the local role's (no-op in off/shadow).
+      await applyEnforcedPermissions(req);
+
       next();
     } catch (error: any) {
       console.error(
@@ -137,7 +147,9 @@ export const authorizePermission = (...required: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const granted: Set<string> = req.user?.permissions ?? new Set();
     const has = required.some((perm) => granted.has(perm));
+    shadowCompareGuard(req, required, "any", has);
     if (!has) {
+      if ((req as any).accessUnavailable) return denyResponse(req, res);
       return res.status(403).json({
         success: false,
         message: `Missing required permission: ${required.join(" or ")}`,
@@ -154,10 +166,34 @@ export const authorizeAllPermissions = (...required: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     const granted: Set<string> = req.user?.permissions ?? new Set();
     const has = required.every((perm) => granted.has(perm));
+    shadowCompareGuard(req, required, "all", has);
     if (!has) {
+      if ((req as any).accessUnavailable) return denyResponse(req, res);
       return res.status(403).json({
         success: false,
         message: `Missing required permissions: ${required.join(" and ")}`,
+      });
+    }
+    next();
+  };
+};
+
+// Access control v2: a route whose capability changes under the v2 model
+// (e.g. the class-teacher comment moves from REPORT_CARDS_EDIT to
+// REPORT_CARDS_COMMENT). off/shadow: exactly authorizePermission(...legacy)
+// (shadow also records where v2 would differ); enforce: any of `v2`.
+export const authorizeCapability = (opts: { legacy: string[]; v2: string[] }) => {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const granted: Set<string> = req.user?.permissions ?? new Set();
+    const enforce = accessMode() === "enforce";
+    const required = enforce ? opts.v2 : opts.legacy;
+    const has = required.some((perm) => granted.has(perm));
+    if (!enforce) shadowCompareGuard(req, opts.v2, "any", has);
+    if (!has) {
+      if ((req as any).accessUnavailable) return denyResponse(req, res);
+      return res.status(403).json({
+        success: false,
+        message: `Missing required permission: ${required.join(" or ")}`,
       });
     }
     next();
@@ -175,7 +211,9 @@ export const selfOrPermission = (idParam: string, ...permsForOthers: string[]) =
     const isSelf = req.user && String(req.user.id) === targetId;
     const granted: Set<string> = req.user?.permissions ?? new Set();
     const hasOverride = permsForOthers.some((perm) => granted.has(perm));
+    shadowCompareGuard(req, permsForOthers, "any", isSelf || hasOverride, { selfPasses: isSelf });
     if (!isSelf && !hasOverride) {
+      if ((req as any).accessUnavailable) return denyResponse(req, res);
       return res.status(403).json({
         success: false,
         message: "Not authorized to access this resource",

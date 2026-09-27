@@ -101,6 +101,10 @@ jobs:
             SSO_CLIENT_SECRET="${SSO_CLIENT_SECRET}"
             SSO_REDIRECT_URI=https://taskmentor.amashuri.com/sso/callback
 
+            # Access control v2 (off | shadow | enforce). shadow = legacy
+            # checks decide, v2 disagreements are logged to access_shadow_diffs.
+            ACCESS_V2_MODE=shadow
+
             JUDGE0_URL=https://judge0-ce.p.rapidapi.com
             JUDGE0_API_KEY="${JUDGE0_API_KEY}"
             JUDGE0_RAPIDAPI_HOST=judge0-ce.p.rapidapi.com
@@ -124,6 +128,8 @@ jobs:
             SOCKET_PORT=5003
             NODE_ENV=production
             CORS_ORIGIN=https://taskmentor.amashuri.com,https://amashuri.com
+            # Same secret as the API: live-server verifies socket tokens with it.
+            JWT_SECRET="${JWT_SECRET}"
             MAX_PARTICIPANTS_PER_ROOM=100
             CLOUDFLARE_TURN_TOKEN_ID="${CLOUDFLARE_TURN_TOKEN_ID}"
             CLOUDFLARE_TURN_API_TOKEN="${CLOUDFLARE_TURN_API_TOKEN}"
@@ -164,4 +170,8 @@ jobs:
             pm2 restart taskmentor-server --update-env || pm2 start server/dist/index.js --name taskmentor-server --update-env
             pm2 restart taskmentor-live --update-env || pm2 start live-server/dist/index.js --name taskmentor-live --update-env
             pm2 save
+
+            # Access control v2: publish the capability manifest to MIS
+            # (PUT /access/manifests/tm). Best-effort -- never fails a deploy.
+            (cd server && timeout 60 npm run --silent access:publish) || echo "WARNING: access manifest publish failed (non-fatal)"
             sudo /usr/sbin/nginx -t && sudo systemctl reload nginx
