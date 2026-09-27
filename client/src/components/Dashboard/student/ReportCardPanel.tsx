@@ -68,8 +68,8 @@ const ReportCardPanel: React.FC = () => {
   return (
     <div>
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 flex items-center justify-center shrink-0">
-          <FileText className="w-5 h-5 text-indigo-500" />
+        <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0">
+          <FileText className="w-5 h-5 text-blue-600" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
@@ -101,7 +101,7 @@ const ReportCardPanel: React.FC = () => {
             type="button"
             onClick={() => setShowPreview(true)}
             disabled={available !== "yes"}
-            className="flex items-center justify-center gap-2 px-3 py-2 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-3 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {available === "checking" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
             View
@@ -110,7 +110,7 @@ const ReportCardPanel: React.FC = () => {
             type="button"
             onClick={download}
             disabled={available !== "yes" || downloading}
-            className="flex items-center justify-center gap-2 px-3 py-2 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-2 px-3 py-2 rounded-full border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
             {downloading ? "Generating…" : "Download PDF"}
@@ -121,7 +121,7 @@ const ReportCardPanel: React.FC = () => {
         <button
           type="button"
           onClick={() => setShowAnnual(true)}
-          className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-full border border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-gray-700 text-sm font-medium"
+          className="mt-2 w-full flex items-center justify-center gap-2 px-3 py-2 rounded-full text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-gray-700 text-sm font-medium"
         >
           <GraduationCap className="w-4 h-4" /> Annual summary
         </button>

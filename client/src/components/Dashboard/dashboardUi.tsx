@@ -1,7 +1,7 @@
 import React from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ListTodo, CheckCircle, BookOpen, Clock } from "lucide-react";
+import { ListTodo, CheckCircle, BookOpen } from "lucide-react";
 
 // Shared MIS-parity building blocks for the Instructor/Student/Admin
 // dashboards — mirrors nga_central_mis/frontend's TeacherDashboard.tsx

@@ -13,41 +13,10 @@ import {
   type TooltipItem,
 } from "chart.js";
 import { Bar, Line } from "react-chartjs-2";
-import { useTheme } from "../../../contexts/ThemeContext";
+import { useChartTheme } from "../chartTheme";
 import { PASS_MARK, subjectLabel, type InstructorOverview, type SubjectSummary } from "../../../services/instructorOverviewApi";
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, PointElement, LineElement, Filler, Tooltip, Legend);
-
-// Palette validated (dataviz validate_palette.js) against the card surface in
-// both modes: slot 1 blue = "submitted", slot 2 orange = "graded". A chart with
-// one series uses slot 1 only.
-const SERIES = {
-  light: { s1: "#2a78d6", s2: "#eb6834" },
-  dark: { s1: "#3987e5", s2: "#d95926" },
-};
-
-function useChartTheme() {
-  const { theme } = useTheme();
-  const isDark = theme === "dark";
-  return useMemo(
-    () => ({
-      isDark,
-      ...(isDark ? SERIES.dark : SERIES.light),
-      tick: isDark ? "#94a3b8" : "#64748b",
-      grid: isDark ? "rgba(148,163,184,0.12)" : "rgba(148,163,184,0.2)",
-      surface: isDark ? "#1c2635" : "#ffffff",
-      tooltip: {
-        backgroundColor: "rgba(15,23,42,0.94)",
-        titleColor: "#f8fafc",
-        bodyColor: "#e2e8f0",
-        padding: 10,
-        cornerRadius: 10,
-        boxPadding: 4,
-      },
-    }),
-    [isDark],
-  );
-}
 
 const fmtWeek = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" });
