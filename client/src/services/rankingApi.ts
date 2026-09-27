@@ -156,3 +156,56 @@ export const ordinal = (n: number): string => {
   if (mod100 >= 11 && mod100 <= 13) return `${n}th`;
   return `${n}${["th", "st", "nd", "rd"][n % 10] ?? "th"}`;
 };
+
+// ─── Top-bar summary ──────────────────────────────────────────────────────────
+// GET /rankings?summary=1: the student's overall standing for the navbar chip.
+// Staff get { view: "none" } and the chip renders nothing. Cached per academic
+// period so moving between pages doesn't refetch; concurrent callers share
+// one request.
+
+export interface StudentRankingSummary {
+  view: "student_summary";
+  rank: number | null;
+  ranked_count: number;
+  score: number | null;
+  band: string | null;
+  status: PerformanceStatus;
+  class_average: number | null;
+  gap: number | null;
+  points_to_next: number | null;
+  subject_count: number;
+  at_risk_subjects: Array<{ course_id: string; name: string; score: number }>;
+  at_risk_count: number;
+  overdue_count: number;
+  top_suggestion: Suggestion | null;
+}
+
+export type RankingSummaryResponse = StudentRankingSummary | { view: "none" };
+
+export const SUMMARY_TTL_MS = 3 * 60 * 1000;
+const summaryCache = new Map<string, { at: number; promise: Promise<RankingSummaryResponse> }>();
+
+export const fetchRankingSummary = (
+  periodKey: string,
+  { force = false }: { force?: boolean } = {},
+): Promise<RankingSummaryResponse> => {
+  const hit = summaryCache.get(periodKey);
+  if (!force && hit && Date.now() - hit.at < SUMMARY_TTL_MS) return hit.promise;
+  const promise = axios
+    .get("/rankings", { params: { summary: 1 } })
+    .then((res) => {
+      if (!res.data?.success) throw new RankingError("Failed to load your standing", null);
+      return res.data.data as RankingSummaryResponse;
+    })
+    .catch((error: unknown) => {
+      summaryCache.delete(periodKey); // don't cache a failure
+      if (error instanceof RankingError) throw error;
+      const response = (error as { response?: { status?: number } })?.response;
+      throw new RankingError("Failed to load your standing", response?.status ?? null);
+    });
+  summaryCache.set(periodKey, { at: Date.now(), promise });
+  return promise;
+};
+
+/** Test hook / sign-out. */
+export const clearRankingSummaryCache = () => summaryCache.clear();

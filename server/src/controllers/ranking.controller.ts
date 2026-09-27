@@ -8,6 +8,7 @@ import { fetchEnrolledStudents, getMisToken, resolveAcademicTermId } from "../ut
 import { getScopedSubjects, type ScopedSubject } from "../utils/scopedSubjects";
 import {
   buildStaffView,
+  buildStudentSummary,
   buildStudentView,
   collectMarks,
   collectPending,
@@ -18,7 +19,7 @@ import {
 } from "../utils/overallRanking";
 
 // @desc    Overall ranking on assignments, quizzes and recorded marks
-// @route   GET /api/rankings?subjectId=&kind=&classGroupId=
+// @route   GET /api/rankings?subjectId=&kind=&classGroupId=&summary=
 // @access  Private — the view is decided by the caller's subject scope
 //          (utils/scopedSubjects), never by a query parameter:
 //   - enrolled (students): their own position, per-subject standing,
@@ -27,12 +28,16 @@ import {
 //   - assigned / all (teachers, admins): a named leaderboard over the
 //     subjects they teach / every subject.
 //   - none: 403.
+// ?summary=1 is the top-bar chip: a student gets their overall standing only
+// (StudentSummary); anyone else gets { view: "none" } without any work done.
 // A subjectId outside the caller's scope is a 403, not an empty result.
 
 export const rankingQuerySchema = z.object({
   subjectId: z.coerce.number().int().positive().optional(),
   kind: z.enum(["all", "assignment", "quiz", "recorded"]).default("all"),
   classGroupId: z.coerce.number().int().positive().optional(),
+  /** Top-bar summary: the student's overall standing only, no filters. */
+  summary: z.enum(["1", "true", "0", "false"]).optional().transform((v) => v === "1" || v === "true"),
 });
 
 /** Roster calls for an all-subjects leaderboard are capped and batched. */
@@ -183,7 +188,9 @@ export const getRanking = async (req: Request, res: Response) => {
         errors: parsed.error.issues.map((i) => ({ field: i.path.join("."), message: i.message })),
       });
     }
-    const { subjectId, kind, classGroupId } = parsed.data;
+    const { kind, classGroupId, summary } = parsed.data;
+    // The summary is always the overall standing on all work.
+    const subjectId = summary ? undefined : parsed.data.subjectId;
 
     const { scope, subjects } = await getScopedSubjects(req);
     if (scope === "none") {
@@ -194,6 +201,13 @@ export const getRanking = async (req: Request, res: Response) => {
         success: false,
         message: "You don't have access to this subject's ranking",
       });
+    }
+
+    // The top bar asks everyone; only students have a standing to show, and a
+    // staff leaderboard (an admin's covers every subject) is far too heavy to
+    // compute on every page load for nothing.
+    if (summary && scope !== "enrolled") {
+      return res.status(200).json({ success: true, data: { view: "none" } });
     }
 
     const available = subjects.map(toInfo);
@@ -219,9 +233,12 @@ export const getRanking = async (req: Request, res: Response) => {
         subjects: available,
         marks,
         pending,
-        kind,
+        kind: summary ? "all" : kind,
         subjectId: subjectKey,
       });
+      if (summary) {
+        return res.status(200).json({ success: true, data: buildStudentSummary(view) });
+      }
       return res.status(200).json({ success: true, data: { ...view, available_subjects: available } });
     }
 

@@ -161,9 +161,27 @@ describe("GET /api/rankings — student", () => {
     expect(JSON.stringify(res.body)).not.toContain("Classmate");
   });
 
+  it("returns a compact overall summary for the top bar", async () => {
+    // A subject filter is ignored: the chip always shows the overall standing.
+    const res = await get(`?summary=1&subjectId=${SUBJ_B}&kind=quiz`);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({
+      view: "student_summary",
+      rank: 2,
+      ranked_count: 2,
+      score: 60,
+      class_average: null,
+      gap: null,
+      subject_count: 1,
+    });
+    expect(res.body.data).not.toHaveProperty("subjects");
+    expect(JSON.stringify(res.body)).not.toContain("Classmate");
+  });
+
   it("rejects malformed filters", async () => {
     expect((await get("?kind=everything")).status).toBe(400);
     expect((await get("?subjectId=abc")).status).toBe(400);
+    expect((await get("?summary=maybe")).status).toBe(400);
   });
 
   it("requires authentication", async () => {
@@ -183,6 +201,14 @@ describe("GET /api/rankings — teacher", () => {
       [2, "Jane Student", 60],
     ]);
     expect(data.class_groups).toEqual([{ id: 1, name: "S4 A" }]);
+  });
+
+  it("gets no summary: the top-bar chip is for students only", async () => {
+    const res = await get("?summary=1", instructorToken);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toEqual({ view: "none" });
+    // Nothing was computed: no roster or catalogue call was made for it.
+    expect(mockedGet.mock.calls.some(([url]) => String(url).includes("/students"))).toBe(false);
   });
 
   it("refuses a subject the teacher doesn't teach", async () => {

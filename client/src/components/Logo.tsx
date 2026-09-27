@@ -5,6 +5,8 @@ interface LogoProps {
   size?: "small" | "medium" | "large";
   className?: string;
   showText?: boolean;
+  /** Extra classes for the wordmark, e.g. to hide it on narrow screens. */
+  textClassName?: string;
   /**
    * If provided, Logo will render as a Link to this path.
    * If omitted, Logo renders as a plain non-anchor element (safe to nest).
@@ -16,6 +18,7 @@ const Logo: React.FC<React.PropsWithChildren<LogoProps>> = ({
   size = "medium",
   className = "",
   showText = true,
+  textClassName = "",
   to = null, // <-- default: NOT clickable
   // intentionally ignore children to avoid accidental nested anchors
 }) => {
@@ -61,7 +64,7 @@ const Logo: React.FC<React.PropsWithChildren<LogoProps>> = ({
 
       {showText && (
         <span
-          className={`${textSizeClasses[size]} font-bold text-text-primary-light dark:text-text-primary-dark tracking-wide`}
+          className={`${textSizeClasses[size]} font-bold text-text-primary-light dark:text-text-primary-dark tracking-wide ${textClassName}`}
         >
           TaskMentor
         </span>

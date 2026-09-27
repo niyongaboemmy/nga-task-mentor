@@ -8,6 +8,7 @@ import { ThemeToggle } from "../ThemeToggle";
 import SystemsMenu from "./SystemsMenu";
 import AcademicPeriodSwitcher from "./AcademicPeriodSwitcher";
 import NotificationBell from "./NotificationBell";
+import RankStandingChip from "./RankStandingChip";
 import { loadInstructorAlerts } from "../../services/instructorOverviewApi";
 import { loadStudentAlerts } from "../../services/studentOverviewApi";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -70,7 +71,13 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
             )}
           />
         </div>
-        <Logo to="/dashboard" size="medium" />
+        {/* A student's top bar also carries the standing chip; on the narrowest
+            phones the wordmark gives way so nothing overlaps. */}
+        <Logo
+          to="/dashboard"
+          size="medium"
+          textClassName={bellFor === "student" ? "hidden min-[440px]:inline" : ""}
+        />
       </div>
 
       <div className="flex items-center gap-1.5 sm:gap-3">
@@ -79,6 +86,9 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
             <AcademicPeriodSwitcher />
           </div>
         )}
+
+        {/* Students only; the server also answers staff with nothing to show. */}
+        {bellFor === "student" && can("COURSES_VIEW") && <RankStandingChip />}
 
         {bellFor === "instructor" && <NotificationBell loadAlerts={loadInstructorAlerts} />}
         {bellFor === "student" && <NotificationBell loadAlerts={loadStudentAlerts} pollMs={2 * 60 * 1000} />}

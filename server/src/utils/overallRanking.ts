@@ -863,3 +863,53 @@ export const buildStaffView = (input: {
     unranked,
   };
 };
+
+// ─── Navbar summary (student) ────────────────────────────────────────────────
+// GET /api/rankings?summary=1 — the student's standing in one glance for the
+// top bar: position, average against the class, what is at risk, and the one
+// thing to do next. Derived from the full student view so the numbers can
+// never disagree with the Ranking page; the payload is just smaller.
+
+export interface StudentSummary {
+  view: "student_summary";
+  rank: number | null;
+  ranked_count: number;
+  score: number | null;
+  band: string | null;
+  status: PerformanceStatus;
+  class_average: number | null;
+  gap: number | null;
+  points_to_next: number | null;
+  subject_count: number;
+  /** Subjects below the pass mark, weakest first (at most 3). */
+  at_risk_subjects: Array<{ course_id: string; name: string; score: number }>;
+  at_risk_count: number;
+  overdue_count: number;
+  top_suggestion: Suggestion | null;
+}
+
+export const buildStudentSummary = (view: StudentView): StudentSummary => {
+  const atRisk = view.subjects
+    .filter((s) => s.status === "at_risk" && s.score !== null)
+    .sort((a, b) => a.score! - b.score!);
+  const { overall } = view;
+  return {
+    view: "student_summary",
+    rank: overall.rank,
+    ranked_count: overall.ranked_count,
+    score: overall.score,
+    band: overall.band,
+    status: overall.status,
+    class_average: overall.class_average,
+    gap:
+      overall.score !== null && overall.class_average !== null
+        ? round1(overall.score - overall.class_average)
+        : null,
+    points_to_next: overall.points_to_next,
+    subject_count: view.subjects.length,
+    at_risk_subjects: atRisk.slice(0, 3).map((s) => ({ course_id: s.course_id, name: s.name, score: s.score! })),
+    at_risk_count: atRisk.length,
+    overdue_count: view.pending.filter((p) => p.status === "overdue").length,
+    top_suggestion: view.suggestions[0] ?? null,
+  };
+};

@@ -1,5 +1,6 @@
 import {
   buildStaffView,
+  buildStudentSummary,
   buildStudentView,
   buildSuggestions,
   collectMarks,
@@ -304,5 +305,53 @@ describe("buildStaffView", () => {
     expect(view.rows.map((r) => [r.rank, r.name])).toEqual([[1, "Cleo C"]]);
     expect(view.unranked.map((u) => u.name)).toEqual(["Dan D"]);
     expect(view.subjects.map((s) => s.course_id)).toEqual(["1"]);
+  });
+});
+
+describe("buildStudentSummary", () => {
+  const subjects = [
+    { course_id: "1", name: "Maths", code: null },
+    { course_id: "2", name: "Physics", code: null },
+    { course_id: "3", name: "Chemistry", code: null },
+  ];
+  const cohort: Mark[] = [
+    mark("me", "1", 30), mark("me", "2", 45), mark("me", "3", 90),
+    ...["a", "b", "c", "d", "e"].flatMap((k, i) => [mark(k, "1", 60 + i * 5), mark(k, "2", 70), mark(k, "3", 70)]),
+  ];
+  const view = buildStudentView({
+    meKey: "me", subjects, marks: cohort, kind: "all", subjectId: null,
+    pending: [
+      { kind: "assignment", course_id: "1", item_id: 7, title: "Late", due_date: null, status: "overdue" },
+      { kind: "quiz", course_id: "2", item_id: 8, title: "Open", due_date: null, status: "open" },
+    ],
+  });
+  const summary = buildStudentSummary(view);
+
+  it("matches the full view's numbers", () => {
+    expect(summary).toMatchObject({
+      view: "student_summary",
+      rank: view.overall.rank,
+      ranked_count: 6,
+      score: view.overall.score,
+      class_average: view.overall.class_average,
+      status: view.overall.status,
+      subject_count: 3,
+      overdue_count: 1,
+    });
+    expect(summary.gap).toBeCloseTo(view.overall.score! - view.overall.class_average!, 1);
+  });
+
+  it("lists at-risk subjects weakest first and the most urgent suggestion", () => {
+    expect(summary.at_risk_subjects).toEqual([
+      { course_id: "1", name: "Maths", score: 30 },
+      { course_id: "2", name: "Physics", score: 45 },
+    ]);
+    expect(summary.at_risk_count).toBe(2);
+    expect(summary.top_suggestion).toMatchObject({ id: "overdue-7", priority: "high" });
+  });
+
+  it("carries nothing about other students", () => {
+    const json = JSON.stringify(summary);
+    for (const k of ["a", "b", "c", "d", "e"]) expect(json).not.toContain(`"${k}"`);
   });
 });
