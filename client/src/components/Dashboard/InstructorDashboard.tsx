@@ -1,281 +1,739 @@
-import React from "react";
-import { Link } from "react-router-dom";
-import {
-  AlertTriangle,
-  Clock,
-  Eye,
-  BookOpen,
-  ListTodo,
-  CheckCircle,
-  GraduationCap,
-  ArrowRight,
-} from "lucide-react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
-  StatCard,
-  SectionCard,
-  PillLink,
-  ActivityRow,
-  EmptyState,
-  dashboardContainerVariants,
-  dashboardItemVariants,
-  type RecentActivity,
-} from "./dashboardUi";
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  BellRing,
+  BookOpen,
+  CalendarClock,
+  ClipboardList,
+  Download,
+  Eye,
+  FilePlus2,
+  GraduationCap,
+  Library,
+  ListChecks,
+  RefreshCw,
+  Target,
+  TrendingUp,
+  UserCheck,
+  Users,
+} from "lucide-react";
+import axios from "../../utils/axiosConfig";
+import { useAuth } from "../../contexts/AuthContext";
+import { ActivityRow, EmptyState, dashboardContainerVariants, dashboardItemVariants, type RecentActivity } from "./dashboardUi";
+import {
+  getInstructorOverview,
+  overviewToCsv,
+  subjectLabel,
+  type DashboardAlert,
+  type InstructorOverview,
+} from "../../services/instructorOverviewApi";
+import {
+  alertSignature,
+  dismissAlert,
+  getAlertsVersion,
+  isImportant,
+  isSeen,
+  markSeen,
+  publishAlerts,
+  subscribeAlerts,
+  visibleAlerts,
+} from "../../services/alertStore";
+import { ActivityTrendChart, ScoreDistributionChart, SubjectComparisonChart } from "./instructor/InstructorCharts";
+import {
+  AlertsList,
+  GradingQueue,
+  KpiTile,
+  Panel,
+  ProgressBar,
+  StudentWatchlist,
+  SubjectScorecards,
+  UpcomingList,
+  pct,
+  relativeDue,
+} from "./instructor/InstructorPanels";
 
-// Interfaces
-interface DashboardStats {
-  totalCourses: number;
-  totalAssignments: number;
-  pendingSubmissions: number;
-  completedAssignments: number;
-  totalEnrolledStudents?: number;
+/**
+ * Instructor dashboard: one decision board across every subject the teacher is
+ * assigned in the app-bar academic period. Data: GET
+ * /dashboard/instructor/overview (optionally ?subjectId=) + the shared
+ * /dashboard/activity feed. The subject focus lives in the URL (?subject=) so
+ * a focused view can be bookmarked or shared.
+ */
+
+const REFRESH_MS = 2 * 60 * 1000;
+/** How long "New" chips stay after the dashboard first shows an alert. */
+const SEEN_AFTER_MS = 4000;
+
+const periodName = (p: unknown): string | undefined =>
+  p && typeof p === "object" && "name" in p ? String((p as { name: unknown }).name) : undefined;
+
+function greeting(d = new Date()) {
+  const h = d.getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
-interface InstructorCourse {
-  id: string;
-  code: string;
-  title: string;
-  description: string;
-  assignmentCount: number;
-  quizCount: number;
-}
+const InstructorDashboard: React.FC = () => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
+  const subjectParam = params.get("subject");
+  const subjectId = subjectParam ? Number(subjectParam) : null;
 
-interface PendingGradingAssignment {
-  id: string;
-  title: string;
-  description: string;
-  due_date: string;
-  max_score: string;
-  submission_type: string;
-  pendingSubmissions: number;
-  course?: {
-    id: string;
-    title: string;
-    code: string;
-  };
-  submissions: Array<{
-    id: string;
-    status: string;
-    submitted_at: string;
-    student: {
-      id: string;
-      first_name: string;
-      last_name: string;
-      profile_image?: string;
+  const location = useLocation();
+  const [overview, setOverview] = useState<InstructorOverview | null>(null);
+  // The unfiltered subject list keeps the filter chips stable while focused.
+  const [allSubjects, setAllSubjects] = useState<InstructorOverview["subjects"]>([]);
+  const [activity, setActivity] = useState<RecentActivity[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  /** Fatal: nothing to show yet. */
+  const [error, setError] = useState<string | null>(null);
+  /** A later refresh failed: keep showing the last good data with a notice. */
+  const [staleError, setStaleError] = useState<string | null>(null);
+  const [, setTick] = useState(0);
+  useSyncExternalStore(subscribeAlerts, getAlertsVersion);
+  // Only the latest request may write state (fast subject switching).
+  const requestSeq = useRef(0);
+  const hasData = useRef(false);
+
+  const load = useCallback(
+    async (mode: "initial" | "refresh" = "initial") => {
+      const seq = ++requestSeq.current;
+      if (hasData.current) setRefreshing(true);
+      try {
+        const [o, act] = await Promise.all([
+          getInstructorOverview(subjectId, { fresh: mode === "refresh" }),
+          axios
+            .get("/dashboard/activity")
+            .then((r) => (r.data?.data ?? []) as RecentActivity[])
+            .catch(() => [] as RecentActivity[]),
+        ]);
+        if (seq !== requestSeq.current) return;
+        hasData.current = true;
+        setOverview(o);
+        if (subjectId == null) {
+          setAllSubjects(o.subjects);
+          publishAlerts(o.alerts); // the top-bar bell shows the same notifications
+        }
+        setActivity(act);
+        setError(null);
+        setStaleError(null);
+      } catch (err) {
+        if (seq !== requestSeq.current) return;
+        const e = err as { response?: { status?: number; data?: { message?: string } } };
+        if (e?.response?.status === 404 && subjectId != null) {
+          // A stale ?subject= from another term: drop it and show everything.
+          // Stay in the loading state; the unfocused load follows.
+          setParams((p) => {
+            p.delete("subject");
+            return p;
+          });
+          return;
+        }
+        const message = e?.response?.data?.message || "Couldn't load your dashboard.";
+        if (hasData.current) setStaleError(message);
+        else setError(message);
+      } finally {
+        if (seq === requestSeq.current) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    },
+    [subjectId, setParams],
+  );
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  // The chips (and the bell) need the full picture even when the page opens
+  // already focused on one subject.
+  useEffect(() => {
+    if (subjectId != null && allSubjects.length === 0) {
+      getInstructorOverview(null)
+        .then((o) => {
+          setAllSubjects(o.subjects);
+          publishAlerts(o.alerts);
+        })
+        .catch(() => undefined);
+    }
+  }, [subjectId, allSubjects.length]);
+
+  // Quiet auto-refresh while the tab is visible, plus a clock for "updated Xm ago".
+  useEffect(() => {
+    const id = window.setInterval(() => {
+      if (document.visibilityState === "visible") load("refresh");
+    }, REFRESH_MS);
+    const clock = window.setInterval(() => setTick((t) => t + 1), 30000);
+    return () => {
+      window.clearInterval(id);
+      window.clearInterval(clock);
     };
-  }>;
-}
+  }, [load]);
 
-interface InstructorDashboardData {
-  stats: DashboardStats;
-  courses?: InstructorCourse[];
-  pendingGrading?: PendingGradingAssignment[];
-  recentActivity: RecentActivity[];
-  user: {
-    user_id: string;
-    first_name: string;
-    last_name: string;
+  const selectSubject = useCallback(
+    (id: number | null) => {
+      setParams((p) => {
+        if (id == null) p.delete("subject");
+        else p.set("subject", String(id));
+        return p;
+      });
+    },
+    [setParams],
+  );
+
+  const alerts = visibleAlerts(overview?.alerts ?? []);
+  // Which alerts are new to the teacher, captured before they get marked seen.
+  const newSignatures = useMemo(
+    () => new Set((overview?.alerts ?? []).filter((a) => isImportant(a) && !isSeen(a)).map(alertSignature)),
+    [overview],
+  );
+  // Seeing the Notifications panel counts as reading them (clears the bell badge).
+  useEffect(() => {
+    if (!overview) return;
+    const t = window.setTimeout(() => markSeen(overview.alerts), SEEN_AFTER_MS);
+    return () => window.clearTimeout(t);
+  }, [overview]);
+
+  // Deep links such as /dashboard#students (from the bell) scroll once loaded.
+  useEffect(() => {
+    if (!overview || !location.hash) return;
+    const el = document.getElementById(location.hash.slice(1));
+    el?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [overview, location.hash]);
+
+  const runAction = (a: Pick<DashboardAlert, "action">) => {
+    if (!a.action) return;
+    if (a.action.url.startsWith("#")) {
+      document.getElementById(a.action.url.slice(1))?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    } else navigate(a.action.url);
   };
-  activeProctoring?: number;
-}
 
-const InstructorDashboard: React.FC<{ data: InstructorDashboardData }> = ({ data }) => {
-  const getUrgencyLevel = (dueDate: string) => {
-    const now = new Date();
-    const due = new Date(dueDate);
-    const hoursUntilDue = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-    if (hoursUntilDue <= 24) return "critical";
-    if (hoursUntilDue <= 48) return "urgent";
-    if (hoursUntilDue <= 72) return "soon";
-    return "normal";
+  const exportCsv = () => {
+    if (!overview) return;
+    const blob = new Blob([overviewToCsv(overview)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const term = periodName(user?.currentAcademicTerm) ?? "term";
+    a.href = url;
+    a.download = `teaching-summary-${String(term).replace(/\s+/g, "-").toLowerCase()}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
+
+  if (loading) return <DashboardSkeleton />;
+
+  if (!overview) {
+    return (
+      <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-8 text-center">
+        <AlertTriangle className="w-8 h-8 mx-auto text-amber-500 mb-2" />
+        <p className="text-text-primary-light dark:text-text-primary-dark font-medium">{error ?? "Couldn't load your dashboard."}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setLoading(true);
+            load();
+          }}
+          className="mt-4 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  const t = overview.totals;
+  const importantCount = alerts.filter(isImportant).length;
+  const focused = subjectId != null ? overview.subjects[0] : null;
+  const yearName = periodName(user?.currentAcademicYear);
+  const termName = periodName(user?.currentAcademicTerm);
+  const updatedMins = Math.floor((Date.now() - new Date(overview.generated_at).getTime()) / 60000);
+
+  const headline: string[] = [];
+  if (t.pending_grading > 0) headline.push(`${t.pending_grading} submission${t.pending_grading === 1 ? "" : "s"} to grade`);
+  if (t.due_next_7_days > 0) headline.push(`${t.due_next_7_days} deadline${t.due_next_7_days === 1 ? "" : "s"} in the next 7 days`);
+  if (t.at_risk_students > 0) headline.push(`${t.at_risk_students} student${t.at_risk_students === 1 ? "" : "s"} needing support`);
 
   return (
     <motion.div
       variants={dashboardContainerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-6"
+      className="space-y-5"
+      aria-busy={refreshing}
     >
-      <motion.div variants={dashboardItemVariants}>
-        <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-1">
-          Welcome back, {data.user.first_name}!
-        </h2>
-        <p className="text-text-secondary-light dark:text-text-secondary-dark">
-          Ready to guide your students' learning journey?
-        </p>
+      {/* Header */}
+      <motion.div variants={dashboardItemVariants} className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            {greeting()}, {user?.first_name || "Teacher"}
+          </h2>
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1">
+            {headline.length > 0 ? `Today: ${headline.join(" · ")}.` : "You're all caught up."}
+            {(yearName || termName) && (
+              <span className="text-text-secondary-light/80 dark:text-text-secondary-dark/60">
+                {" "}Showing {[yearName, termName].filter(Boolean).join(" · ")}.
+              </span>
+            )}
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+            Updated {updatedMins <= 0 ? "just now" : `${updatedMins}m ago`}
+          </span>
+          <button
+            type="button"
+            onClick={() => load("refresh")}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-card-light dark:bg-card-dark/40 shadow-sm hover:shadow text-text-primary-light dark:text-text-primary-dark disabled:opacity-60"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+          <button
+            type="button"
+            onClick={exportCsv}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-card-light dark:bg-card-dark/40 shadow-sm hover:shadow text-text-primary-light dark:text-text-primary-dark"
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </button>
+          <Link
+            to="/assignments/create"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+          >
+            <FilePlus2 className="w-4 h-4" />
+            New assignment
+          </Link>
+        </div>
       </motion.div>
 
-      {data?.stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-          <StatCard
-            icon={<BookOpen className="w-6 h-6" />}
-            value={(data.stats.totalCourses ?? 0).toLocaleString()}
-            label="Courses Teaching"
-            color="blue"
-          />
-          <StatCard
-            icon={<ListTodo className="w-6 h-6" />}
-            value={(data.stats.totalAssignments ?? 0).toLocaleString()}
-            label="Total Assignments"
-            color="emerald"
-          />
-          <StatCard
-            icon={<Clock className="w-6 h-6" />}
-            value={(data.stats.pendingSubmissions ?? 0).toLocaleString()}
-            label="Pending Grading"
-            color="amber"
-          />
-          <StatCard
-            icon={<CheckCircle className="w-6 h-6" />}
-            value={(data.stats.completedAssignments ?? 0).toLocaleString()}
-            label="Completed"
-            color="violet"
-          />
-          <StatCard
-            icon={<Eye className="w-6 h-6" />}
-            value={(data.activeProctoring || 0).toLocaleString()}
-            label="Active Proctoring"
-            color="red"
+      {staleError && (
+        <motion.div
+          variants={dashboardItemVariants}
+          role="status"
+          className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-900/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-200"
+        >
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          Couldn't refresh ({staleError}). Showing data from {updatedMins <= 0 ? "just now" : `${updatedMins}m ago`}.
+        </motion.div>
+      )}
+
+      {/* Subject focus */}
+      {allSubjects.length > 1 && (
+        <motion.div variants={dashboardItemVariants} className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" role="tablist" aria-label="Focus on a subject">
+          <Chip active={subjectId == null} onClick={() => selectSubject(null)}>
+            All subjects ({allSubjects.length})
+          </Chip>
+          {allSubjects.map((s) => (
+            <Chip key={s.subject_id} active={subjectId === s.subject_id} onClick={() => selectSubject(s.subject_id)} title={s.subject_name}>
+              <HealthDot health={s.health} />
+              {subjectLabel(s)}
+            </Chip>
+          ))}
+        </motion.div>
+      )}
+
+      {overview.subjects.length === 0 ? (
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm">
+          <EmptyState
+            icon={<BookOpen className="w-6 h-6 text-text-secondary-light dark:text-text-secondary-dark/60" />}
+            title="No subjects assigned for this period"
+            description="Subjects you're assigned to teach in the MIS for the selected term will appear here. Try switching the academic period in the top bar."
           />
         </div>
-      )}
+      ) : (
+        <>
+          {/* KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-4 2xl:grid-cols-8 gap-3">
+            <KpiTile
+              icon={<GraduationCap className="w-4 h-4" />}
+              color="blue"
+              label={focused ? "Students" : "Subjects"}
+              value={focused ? (t.students ?? "—").toString() : t.subjects.toString()}
+              hint={focused ? focused.class_groups.join(", ") || undefined : t.students != null ? `${t.students} students · ${t.class_groups} classes` : undefined}
+              to="/courses"
+            />
+            <KpiTile
+              icon={<ClipboardList className="w-4 h-4" />}
+              color="amber"
+              label="To grade"
+              value={t.pending_grading.toString()}
+              hint={t.overdue_grading > 0 ? `${t.overdue_grading} over a week old` : undefined}
+              delta={{ current: t.graded_this_week, previous: t.graded_last_week, goodWhenUp: true, unit: " graded" }}
+              emphasis={t.overdue_grading > 0 ? "critical" : undefined}
+              to="/submissions?status=needs_grading"
+            />
+            <KpiTile
+              icon={<Target className="w-4 h-4" />}
+              color="emerald"
+              label="Class average"
+              value={pct(t.avg_score)}
+              progress={t.avg_score}
+              hint={t.avg_score == null ? "No graded work yet" : undefined}
+            />
+            <KpiTile
+              icon={<UserCheck className="w-4 h-4" />}
+              color="indigo"
+              label="Pass rate"
+              value={pct(t.pass_rate)}
+              progress={t.pass_rate}
+              hint="students at 50%+"
+            />
+            <KpiTile
+              icon={<ListChecks className="w-4 h-4" />}
+              color="violet"
+              label="Participation"
+              value={pct(t.participation)}
+              progress={t.participation}
+              delta={{ current: t.submissions_this_week, previous: t.submissions_last_week, goodWhenUp: true, unit: " submitted" }}
+              hint={overview.rosters_available ? (t.missing_work > 0 ? `${t.missing_work} missing` : "closed work") : "roster unavailable"}
+            />
+            <KpiTile
+              icon={<Users className="w-4 h-4" />}
+              color="red"
+              label="Need support"
+              value={t.at_risk_students.toString()}
+              hint={t.students ? `of ${t.students} students` : undefined}
+              emphasis={t.at_risk_students > 0 ? "warning" : undefined}
+              onClick={() => document.getElementById("students")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            />
+            <KpiTile
+              icon={<CalendarClock className="w-4 h-4" />}
+              color="purple"
+              label="Due in 7 days"
+              value={t.due_next_7_days.toString()}
+              hint={overview.upcoming[0]?.due_at ? `next ${relativeDue(overview.upcoming[0].due_at)}` : "nothing scheduled"}
+              onClick={() => document.getElementById("upcoming")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            />
+            <KpiTile
+              icon={<Eye className="w-4 h-4" />}
+              color="red"
+              label="Live proctoring"
+              value={t.live_proctoring.toString()}
+              hint={
+                t.stale_proctoring > 0
+                  ? `${t.stale_proctoring} stale`
+                  : t.flagged_sessions > 0
+                    ? `${t.flagged_sessions} flagged`
+                    : "students online now"
+              }
+              to="/proctoring/live"
+            />
+          </div>
 
-      {data?.courses && data.courses.length > 0 && (
-        <SectionCard
-          icon={<GraduationCap className="w-5 h-5" />}
-          iconColor="blue"
-          title="Courses Teaching"
-          subtitle="Overview of your active courses"
-          action={<PillLink to="/courses">View All</PillLink>}
-        >
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {data.courses.slice(0, 6).map((course) => (
-              <Link
-                key={course.id}
-                to={`/courses/${course.id}`}
-                className="group bg-surface-light dark:bg-surface-dark/50 rounded-2xl p-4 hover:shadow-md transition-all duration-200 block"
+          {/* Notifications + focused subject summary */}
+          <div className="grid gap-5 lg:grid-cols-3">
+            <Panel
+              title="Notifications"
+              subtitle={
+                importantCount > 0
+                  ? `${importantCount} need${importantCount === 1 ? "s" : ""} your attention, most urgent first`
+                  : "Nothing urgent right now"
+              }
+              icon={<BellRing className="w-4 h-4" />}
+              iconColor="amber"
+              className={focused ? "lg:col-span-2" : "lg:col-span-3"}
+            >
+              <AlertsList
+                alerts={alerts}
+                onDismiss={dismissAlert}
+                onAction={runAction}
+                isNew={(a) => newSignatures.has(alertSignature(a))}
+                limit={focused ? 4 : 3}
+              />
+            </Panel>
+            {focused && (
+              <Panel
+                title={focused.subject_name}
+                subtitle={focused.class_groups.join(", ") || "Subject summary"}
+                icon={<BookOpen className="w-4 h-4" />}
+                action={
+                  <Link to={`/courses/${focused.subject_id}`} className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                    Open subject
+                  </Link>
+                }
               >
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0 pr-3">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500 shrink-0" />
-                      <h4 className="font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
-                        {course.code}
-                      </h4>
-                    </div>
-                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 line-clamp-1 mt-0.5">
-                      {course.title}
-                    </p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark/50 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors shrink-0" />
+                <ul className="space-y-1.5 text-sm">
+                  {focused.health_reasons.map((r) => (
+                    <li key={r} className="text-text-secondary-light dark:text-text-secondary-dark">• {r}</li>
+                  ))}
+                </ul>
+                <div className="grid grid-cols-3 gap-2 mt-4 text-center">
+                  <MiniStat label="Assignments" value={focused.assignments} />
+                  <MiniStat label="Quizzes" value={focused.quizzes} />
+                  <MiniStat label="Drafts" value={focused.drafts} />
                 </div>
-                <div className="flex items-center gap-4 pt-3 mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
-                  {course.assignmentCount > 0 && (
-                    <span className="flex items-center gap-1.5">
-                      <ListTodo className="w-4 h-4" />
-                      {course.assignmentCount}
-                    </span>
-                  )}
-                  {course.quizCount > 0 && (
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle className="w-4 h-4" />
-                      {course.quizCount}
-                    </span>
-                  )}
-                </div>
-              </Link>
-            ))}
+              </Panel>
+            )}
           </div>
-        </SectionCard>
+
+          {/* Trend + distribution */}
+          <div className="grid gap-5 lg:grid-cols-3">
+            <Panel
+              title="Weekly activity"
+              subtitle="Work submitted by students vs work you graded, last 10 weeks"
+              icon={<TrendingUp className="w-4 h-4" />}
+              className="lg:col-span-2"
+            >
+              <ActivityTrendChart trend={overview.trend} />
+              <DataTable
+                caption="Weekly activity data"
+                head={["Week of", "Submitted", "Graded", "Avg score"]}
+                rows={overview.trend.map((w) => [
+                  new Date(w.week_start).toLocaleDateString(undefined, { month: "short", day: "numeric", timeZone: "UTC" }),
+                  w.submissions,
+                  w.graded,
+                  pct(w.avg_score),
+                ])}
+              />
+            </Panel>
+            <Panel title="Score distribution" subtitle="Best graded result per student per assessment" icon={<BarChart3 className="w-4 h-4" />} iconColor="indigo">
+              {overview.distribution.some((b) => b.count > 0) ? (
+                <>
+                  <ScoreDistributionChart distribution={overview.distribution} />
+                  <DataTable caption="Score distribution data" head={["Band", "Results"]} rows={overview.distribution.map((b) => [`${b.band}%`, b.count])} />
+                </>
+              ) : (
+                <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark py-16 text-center">No graded work yet this term.</p>
+              )}
+            </Panel>
+          </div>
+
+          {/* Subject scorecards */}
+          <Panel
+            title="Subject scorecards"
+            subtitle="Click a row to focus the dashboard on that subject. Sort by any column."
+            icon={<BookOpen className="w-4 h-4" />}
+            iconColor="emerald"
+          >
+            <SubjectScorecards subjects={allSubjects.length ? allSubjects : overview.subjects} selected={subjectId} onSelect={selectSubject} />
+          </Panel>
+
+          {/* Work queues */}
+          <div className="grid gap-5 lg:grid-cols-3">
+            <Panel title="Grading queue" subtitle="Oldest waiting first" icon={<ClipboardList className="w-4 h-4" />} iconColor="amber">
+              <GradingQueue items={overview.grading_queue} />
+            </Panel>
+            <Panel id="upcoming" title="Upcoming deadlines" subtitle="Next 14 days, with submissions so far" icon={<CalendarClock className="w-4 h-4" />} iconColor="purple">
+              <UpcomingList items={overview.upcoming} />
+            </Panel>
+            <Panel id="students" title="Students" subtitle={`Below 50% or with 2+ missing submissions`} icon={<Users className="w-4 h-4" />} iconColor="red">
+              <StudentWatchlist atRisk={overview.students.at_risk} top={overview.students.top} />
+            </Panel>
+          </div>
+
+          {/* Comparison + assessment performance */}
+          <div className="grid gap-5 lg:grid-cols-3">
+            {!focused && overview.subjects.some((s) => s.avg_score != null) && (
+              <Panel title="Subject comparison" subtitle="Class average against the pass mark" icon={<BarChart3 className="w-4 h-4" />}>
+                <SubjectComparisonChart subjects={overview.subjects} onSelect={selectSubject} />
+              </Panel>
+            )}
+            <Panel
+              id="assessments"
+              title="Assessment performance"
+              subtitle="Published work this term, most recent first"
+              icon={<Activity className="w-4 h-4" />}
+              iconColor="violet"
+              className={!focused && overview.subjects.some((s) => s.avg_score != null) ? "lg:col-span-2" : "lg:col-span-3"}
+            >
+              <AssessmentTable items={overview.assessments} />
+            </Panel>
+          </div>
+        </>
       )}
 
-      {data?.pendingGrading && data.pendingGrading.length > 0 && (
-        <SectionCard
-          icon={<AlertTriangle className="w-5 h-5" />}
-          iconColor="amber"
-          title="Pending Grading"
-          subtitle="Assignments awaiting your review"
-          action={
-            <div className="flex gap-2">
-              <PillLink to="/assignments" variant="amber">
-                Grade Now
-              </PillLink>
-              <PillLink to="/proctoring/live" variant="red" icon={<Eye className="w-4 h-4" />}>
-                Live
-              </PillLink>
-            </div>
-          }
+      {/* Quick actions + activity */}
+      <div className="grid gap-5 lg:grid-cols-3">
+        <Panel title="Quick actions" icon={<FilePlus2 className="w-4 h-4" />}>
+          <div className="grid grid-cols-2 gap-2">
+            <QuickAction to="/assignments/create" icon={<FilePlus2 className="w-4 h-4" />} label="New assignment" />
+            <QuickAction to="/quizzes" icon={<ListChecks className="w-4 h-4" />} label="Quizzes" />
+            <QuickAction to="/submissions" icon={<ClipboardList className="w-4 h-4" />} label="Submissions" />
+            <QuickAction to="/question-bank" icon={<Library className="w-4 h-4" />} label="Question bank" />
+            <QuickAction to="/students" icon={<Users className="w-4 h-4" />} label="My students" />
+            <QuickAction to="/reports" icon={<BarChart3 className="w-4 h-4" />} label="Reports" />
+          </div>
+        </Panel>
+        <Panel
+          title="Recent activity"
+          subtitle="Latest across your subjects"
+          icon={<Activity className="w-4 h-4" />}
+          iconColor="violet"
+          className="lg:col-span-2"
         >
-          <div className="space-y-3">
-            {data.pendingGrading.slice(0, 3).map((assignment) => {
-              const urgency = getUrgencyLevel(assignment.due_date);
-              return (
-                <Link
-                  key={assignment.id}
-                  to={`/assignments/${assignment.id}`}
-                  className={`block rounded-2xl p-4 border transition-colors ${
-                    urgency === "critical"
-                      ? "bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
-                      : urgency === "urgent"
-                        ? "bg-orange-50/50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-900/30"
-                        : "bg-surface-light dark:bg-surface-dark/50 border-border-light dark:border-border-dark/30 hover:border-amber-200 dark:hover:border-amber-800"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
-                        {assignment.title}
-                      </h4>
-                      {assignment.course && (
-                        <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
-                          {assignment.course.code}: {assignment.course.title}
-                        </p>
-                      )}
-                    </div>
-                    <span className="shrink-0 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-                      {assignment.pendingSubmissions} pending
-                    </span>
-                  </div>
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3.5 h-3.5" />
-                      Due {new Date(assignment.due_date).toLocaleDateString()}
-                    </span>
-                    <span>{assignment.max_score} pts</span>
-                    <span className="capitalize">{assignment.submission_type}</span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </SectionCard>
-      )}
-
-      <SectionCard
-        icon={<Clock className="w-5 h-5" />}
-        iconColor="violet"
-        title="Recent Activity"
-        subtitle="Your latest interactions and progress"
-        action={<PillLink to="/assignments">View All</PillLink>}
-      >
-        {data?.recentActivity && data.recentActivity.length > 0 ? (
-          <div className="space-y-1">
-            {data.recentActivity.slice(0, 4).map((activity) => (
-              <ActivityRow key={activity.id} activity={activity} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            icon={<Clock className="w-6 h-6 text-text-secondary-light dark:text-text-secondary-dark/60" />}
-            title="No recent activity yet"
-            description="Activity will appear here as you interact with courses and assignments."
-          />
-        )}
-      </SectionCard>
+          {activity.length > 0 ? (
+            <div className="space-y-1">
+              {activity.slice(0, 5).map((a) => (
+                <ActivityRow key={a.id} activity={a} />
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark py-6 text-center">No recent activity yet.</p>
+          )}
+        </Panel>
+      </div>
     </motion.div>
   );
 };
+
+// ─── Small pieces ─────────────────────────────────────────────────────────────
+
+const Chip: React.FC<{ active: boolean; onClick: () => void; title?: string; children: React.ReactNode }> = ({
+  active,
+  onClick,
+  title,
+  children,
+}) => (
+  <button
+    type="button"
+    role="tab"
+    aria-selected={active}
+    title={title}
+    onClick={onClick}
+    className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${
+      active
+        ? "bg-blue-600 text-white shadow-sm"
+        : "bg-card-light dark:bg-card-dark/40 text-text-secondary-light dark:text-text-secondary-dark shadow-sm hover:text-text-primary-light dark:hover:text-text-primary-dark"
+    }`}
+  >
+    {children}
+  </button>
+);
+
+const HealthDot: React.FC<{ health: InstructorOverview["subjects"][number]["health"] }> = ({ health }) => (
+  <span
+    aria-hidden
+    className={`w-2 h-2 rounded-full ${
+      health === "at_risk" ? "bg-red-500" : health === "watch" ? "bg-amber-500" : health === "on_track" ? "bg-emerald-500" : "bg-gray-400"
+    }`}
+  />
+);
+
+const MiniStat: React.FC<{ label: string; value: number }> = ({ label, value }) => (
+  <div className="rounded-xl bg-surface-light dark:bg-surface-dark/50 py-2">
+    <div className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">{value}</div>
+    <div className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark">{label}</div>
+  </div>
+);
+
+const QuickAction: React.FC<{ to: string; icon: React.ReactNode; label: string }> = ({ to, icon, label }) => (
+  <Link
+    to={to}
+    className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-surface-light dark:bg-surface-dark/50 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm font-medium text-text-primary-light dark:text-text-primary-dark transition-colors"
+  >
+    <span className="text-blue-600 dark:text-blue-400">{icon}</span>
+    {label}
+  </Link>
+);
+
+const DataTable: React.FC<{ caption: string; head: string[]; rows: Array<Array<string | number>> }> = ({ caption, head, rows }) => (
+  <details className="mt-3 group">
+    <summary className="text-xs text-text-secondary-light dark:text-text-secondary-dark cursor-pointer select-none hover:text-text-primary-light dark:hover:text-text-primary-dark">
+      View as table
+    </summary>
+    <table className="mt-2 w-full text-xs">
+      <caption className="sr-only">{caption}</caption>
+      <thead>
+        <tr className="text-left text-text-secondary-light dark:text-text-secondary-dark">
+          {head.map((h) => (
+            <th key={h} scope="col" className="py-1 pr-3 font-medium">{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody className="tabular-nums text-text-primary-light dark:text-text-primary-dark">
+        {rows.map((r, i) => (
+          <tr key={i} className="border-t border-border-light/60 dark:border-border-dark/30">
+            {r.map((c, j) => (
+              <td key={j} className="py-1 pr-3">{c}</td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  </details>
+);
+
+const AssessmentTable: React.FC<{ items: InstructorOverview["assessments"] }> = ({ items }) => {
+  const [showAll, setShowAll] = useState(false);
+  if (items.length === 0) {
+    return <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark py-6 text-center">No published assessments yet.</p>;
+  }
+  const shown = showAll ? items : items.slice(0, 8);
+  return (
+    <div className="overflow-x-auto -mx-5">
+      <table className="w-full text-sm min-w-[620px]">
+        <thead className="text-xs text-left text-text-secondary-light dark:text-text-secondary-dark border-b border-border-light dark:border-border-dark/40">
+          <tr>
+            <th scope="col" className="pl-5 pr-3 py-2 font-medium">Assessment</th>
+            <th scope="col" className="px-3 py-2 font-medium">Due</th>
+            <th scope="col" className="px-3 py-2 font-medium">Submitted</th>
+            <th scope="col" className="px-3 py-2 font-medium">Average</th>
+            <th scope="col" className="pr-5 pl-3 py-2 font-medium">Pass rate</th>
+          </tr>
+        </thead>
+        <tbody>
+          {shown.map((a) => (
+            <tr key={`${a.kind}-${a.id}`} className="border-b last:border-0 border-border-light/70 dark:border-border-dark/30 hover:bg-surface-light dark:hover:bg-surface-dark/40">
+              <td className="pl-5 pr-3 py-2.5">
+                <Link to={a.url} className="font-medium text-text-primary-light dark:text-text-primary-dark hover:text-blue-600 dark:hover:text-blue-400 line-clamp-1">
+                  {a.title}
+                </Link>
+                <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                  {subjectLabel(a)} · {a.kind === "quiz" ? a.quiz_type || "Quiz" : "Assignment"}
+                  {a.pending > 0 && <span className="text-amber-600 dark:text-amber-400"> · {a.pending} to grade</span>}
+                </div>
+              </td>
+              <td className="px-3 py-2.5 text-xs text-text-secondary-light dark:text-text-secondary-dark whitespace-nowrap">
+                {a.due_at ? relativeDue(a.due_at) : "—"}
+              </td>
+              <td className="px-3 py-2.5 w-32">
+                <div className="text-xs text-text-primary-light dark:text-text-primary-dark tabular-nums">
+                  {a.submitted}
+                  {a.expected != null && `/${a.expected}`}
+                </div>
+                {a.expected != null && <ProgressBar value={a.participation} tone="blue" />}
+              </td>
+              <td className="px-3 py-2.5 w-28">
+                <div className="text-xs font-medium text-text-primary-light dark:text-text-primary-dark">{pct(a.avg_score)}</div>
+                <ProgressBar value={a.avg_score} />
+              </td>
+              <td className="pr-5 pl-3 py-2.5 text-xs text-text-primary-light dark:text-text-primary-dark tabular-nums">{pct(a.pass_rate)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {items.length > 8 && (
+        <div className="px-5 pt-3">
+          <button type="button" onClick={() => setShowAll((v) => !v)} className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
+            {showAll ? "Show fewer" : `Show all ${items.length}`}
+          </button>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const DashboardSkeleton: React.FC = () => (
+  <div className="space-y-5 animate-pulse" aria-busy="true" aria-label="Loading dashboard">
+    <div className="h-8 w-72 rounded-lg bg-gray-200 dark:bg-gray-700/50" />
+    <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-3">
+      {Array.from({ length: 8 }).map((_, i) => (
+        <div key={i} className="h-28 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40" />
+      ))}
+    </div>
+    <div className="h-28 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40" />
+    <div className="grid gap-5 lg:grid-cols-3">
+      <div className="h-72 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40 lg:col-span-2" />
+      <div className="h-72 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40" />
+    </div>
+  </div>
+);
 
 export default InstructorDashboard;

@@ -6,13 +6,11 @@ import StudentDashboard from "./StudentDashboard";
 import InstructorDashboard from "./InstructorDashboard";
 import AdminDashboard from "./AdminDashboard";
 
-// Interfaces for data fetching
 interface DashboardStats {
   totalCourses: number;
   totalAssignments: number;
   pendingSubmissions: number;
   completedAssignments: number;
-  totalEnrolledStudents?: number;
 }
 
 interface RecentActivity {
@@ -23,283 +21,89 @@ interface RecentActivity {
   timestamp: string;
 }
 
-interface StudentDashboardData {
-  user: {
-    user_id: string;
-    first_name: string;
-    last_name: string;
-    roles?: Array<{ id: number; name: string }>;
-  };
-  stats: DashboardStats;
-  pendingAssignments: any[];
-  recentActivity: RecentActivity[];
-  publicQuizzes: any[];
-  enrolledCourses: any[];
-  availableQuizzes: any[]; // Add available quizzes from enrolled courses
-}
-
-interface InstructorDashboardData {
-  user: {
-    user_id: string;
-    first_name: string;
-    last_name: string;
-  };
-  stats: DashboardStats;
-  courses?: any[];
-  pendingGrading?: any[];
-  recentActivity: RecentActivity[];
-  activeProctoring?: number;
-}
-
 interface AdminDashboardData {
-  user: {
-    user_id: string;
-    first_name: string;
-    last_name: string;
-  };
+  user: { user_id: string; first_name: string; last_name: string };
   stats: DashboardStats;
   recentActivity: RecentActivity[];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   gradingSummary: any[];
-  gradeDistribution?: {
-    excellent: number;
-    good: number;
-    average: number;
-    poor: number;
-  };
+  gradeDistribution?: { excellent: number; good: number; average: number; poor: number };
   gradingSummaryError?: boolean;
 }
 
-type DashboardData =
-  | StudentDashboardData
-  | InstructorDashboardData
-  | AdminDashboardData;
+const EMPTY_STATS: DashboardStats = {
+  totalCourses: 0,
+  totalAssignments: 0,
+  pendingSubmissions: 0,
+  completedAssignments: 0,
+};
 
+/**
+ * Picks the dashboard for the most-privileged view the user holds, so a custom
+ * role can be granted any of the three without code changes. The instructor
+ * and student dashboards load their own overview; only the admin one is fed
+ * from here.
+ */
 const Dashboard: React.FC = () => {
-  const { user } = useAuth();
   const { can } = usePermissions();
-  // Which dashboard variant to show — most-privileged permission wins, so a
-  // custom role can be granted any one of the three views without code
-  // changes. Drives both which endpoints to fetch and which component renders.
-  const dashboardVariant: "admin" | "instructor" | "student" = can(
-    "DASHBOARD_VIEW_ADMIN",
-  )
-    ? "admin"
-    : can("DASHBOARD_VIEW_INSTRUCTOR")
-      ? "instructor"
-      : "student";
-  const [data, setData] = useState<DashboardData | null>(null);
+  if (can("DASHBOARD_VIEW_ADMIN")) return <AdminDashboardContainer />;
+  if (can("DASHBOARD_VIEW_INSTRUCTOR")) return <InstructorDashboard />;
+  return <StudentDashboard />;
+};
+
+const AdminDashboardContainer: React.FC = () => {
+  const { user } = useAuth();
+  const [data, setData] = useState<AdminDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  // Admin-only: "current" scopes stats/grading-summary to the active academic
-  // term, "all" removes the term filter. Passed through as ?scope= on the
-  // admin dashboard endpoints (see dashboardController.ts).
-  const [adminScope, setAdminScope] = useState<"current" | "all">("current");
+  // "current" scopes stats/grading-summary to the active academic term, "all"
+  // removes the term filter (?scope= on the admin endpoints).
+  const [scope, setScope] = useState<"current" | "all">("current");
 
-  const fetchDashboardData = useCallback(async () => {
-    try {
-      const endpoints = {
-        student: [
-          "/dashboard/student/stats",
-          "/dashboard/student/pending-assignments",
-          "/dashboard/activity",
-          "/quizzes/public",
-          "/courses", // Add enrolled courses with deadlines
-          "/quizzes/available", // Add available quizzes from enrolled courses
-        ],
-        instructor: [
-          "/dashboard/instructor/stats",
-          "/dashboard/instructor/courses",
-          "/dashboard/instructor/pending-grading",
-          "/dashboard/activity",
-          "/dashboard/instructor/active-proctoring",
-        ],
-        admin: [
-          `/dashboard/admin/stats${adminScope === "all" ? "?scope=all" : ""}`,
-          "/dashboard/activity",
-          `/dashboard/admin/grading-summary${adminScope === "all" ? "?scope=all" : ""}`,
-        ],
-      };
-
-      const role = dashboardVariant;
-      const urls =
-        endpoints[role as keyof typeof endpoints] || endpoints.student;
-
-      const responses = await Promise.all(
-        urls.map(async (url) => {
-          try {
-            return await axios.get(url);
-          } catch (error) {
-            return { error, url };
-          }
-        }),
-      );
-
-      // Type guard to check if response is an error response
-      const isErrorResponse = (
-        response: any,
-      ): response is { error: unknown; url: string } => {
-        return response && typeof response === "object" && "error" in response;
-      };
-
-      // Index into `responses` directly (not a filtered copy) so a failure on
-      // one endpoint doesn't shift every later endpoint's data into the wrong
-      // field — filtering out errors before indexing silently mismapped data
-      // whenever a non-final call failed.
-      const dataAt = (index: number) =>
-        isErrorResponse(responses[index])
-          ? undefined
-          : (responses[index] as any)?.data?.data;
-      const failedAt = (index: number) => isErrorResponse(responses[index]);
-
-      const anyFailed = responses.some((response) => isErrorResponse(response));
-      if (anyFailed) {
-        console.error("Some dashboard API calls failed:");
-        responses.forEach((response, index) => {
-          if (isErrorResponse(response)) {
-            console.error(
-              `Failed to fetch ${urls[index]}:`,
-              response.error instanceof Error
-                ? response.error.message
-                : response.error,
-            );
-          }
-        });
-      }
-
-      if (role === "student") {
-        setData({
-          user: {
-            user_id: user?.id || "",
-            first_name: user?.first_name || "",
-            last_name: user?.last_name || "",
-            roles: user?.roles,
+  const load = useCallback(async () => {
+    const q = scope === "all" ? "?scope=all" : "";
+    const urls = [`/dashboard/admin/stats${q}`, "/dashboard/activity", `/dashboard/admin/grading-summary${q}`];
+    // One failing endpoint mustn't blank the others (or shift their data).
+    const results = await Promise.all(
+      urls.map((url) =>
+        axios.get(url).then(
+          (r) => ({ ok: true as const, data: r.data?.data }),
+          (error) => {
+            console.error(`Failed to fetch ${url}:`, error instanceof Error ? error.message : error);
+            return { ok: false as const, data: undefined };
           },
-          stats: dataAt(0) || {
-            totalCourses: 0,
-            totalAssignments: 0,
-            pendingSubmissions: 0,
-            completedAssignments: 0,
-          },
-          pendingAssignments: dataAt(1) || [],
-          recentActivity: dataAt(2) || [],
-          publicQuizzes: dataAt(3) || [],
-          enrolledCourses: dataAt(4) || [],
-          availableQuizzes: dataAt(5) || [], // Add available quizzes from enrolled courses
-        });
-      } else if (role === "instructor") {
-        if (!user) {
-          setLoading(false);
-          return;
-        }
-
-        setData({
-          user: {
-            user_id: user.id || "",
-            first_name: user.first_name || "",
-            last_name: user.last_name || "",
-          },
-          stats: dataAt(0) || {
-            totalCourses: 0,
-            totalAssignments: 0,
-            pendingSubmissions: 0,
-            completedAssignments: 0,
-            totalEnrolledStudents: 0,
-          },
-          courses: dataAt(1) || [],
-          pendingGrading: dataAt(2) || [],
-          recentActivity: dataAt(3) || [],
-          activeProctoring: dataAt(4) || 0,
-        } as InstructorDashboardData);
-      } else {
-        // This block is for admin
-        const baseData = {
-          user: {
-            user_id: user?.id || "",
-            first_name: user?.first_name || "",
-            last_name: user?.last_name || "",
-          },
-          stats: dataAt(0) || {
-            totalCourses: 0,
-            totalAssignments: 0,
-            pendingSubmissions: 0,
-            completedAssignments: 0,
-          },
-          recentActivity: dataAt(1) || [],
-        };
-
-        const adminData = dataAt(2);
-        setData({
-          ...baseData,
-          gradingSummary: adminData?.gradingSummary || [],
-          gradeDistribution: adminData?.gradeDistribution || undefined,
-          gradingSummaryError: failedAt(2),
-        } as AdminDashboardData);
-      }
-    } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [dashboardVariant, user?.id, user?.first_name, user?.last_name, adminScope]);
+        ),
+      ),
+    );
+    setData({
+      user: { user_id: user?.id || "", first_name: user?.first_name || "", last_name: user?.last_name || "" },
+      stats: results[0].data || EMPTY_STATS,
+      recentActivity: results[1].data || [],
+      gradingSummary: results[2].data?.gradingSummary || [],
+      gradeDistribution: results[2].data?.gradeDistribution || undefined,
+      gradingSummaryError: !results[2].ok,
+    });
+    setLoading(false);
+  }, [scope, user?.id, user?.first_name, user?.last_name]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    load();
+  }, [load]);
 
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[300px]">
-        <div className="relative">
-          <div className="flex space-x-3">
-            {[...Array(3)].map((_, i) => (
-              <div
-                key={i}
-                className="w-3 h-3 bg-gradient-to-r from-blue-400 to-purple-400 rounded-full animate-bounce"
-                style={{
-                  animationDelay: `${i * 0.15}s`,
-                  animationDuration: "0.8s",
-                }}
-              />
-            ))}
-          </div>
-          <div className="absolute inset-0 flex items-center justify-center mt-8">
-            <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 animate-pulse">
-              Loading dashboard...
-            </div>
-          </div>
-        </div>
+        <div className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 animate-pulse">Loading dashboard...</div>
       </div>
     );
   }
-
   if (!data) {
     return (
-      <div className="flex items-center justify-center min-h-[300px]">
-        <div className="text-center">
-          <div className="text-text-secondary-light dark:text-text-secondary-dark/70">
-            Unable to load dashboard data
-          </div>
-        </div>
+      <div className="flex items-center justify-center min-h-[300px] text-text-secondary-light dark:text-text-secondary-dark/70">
+        Unable to load dashboard data
       </div>
     );
   }
-
-  // Render the dashboard variant matching the highest-privilege permission
-  // the user holds (see dashboardVariant above).
-  switch (dashboardVariant) {
-    case "instructor":
-      return <InstructorDashboard data={data as InstructorDashboardData} />;
-    case "admin":
-      return (
-        <AdminDashboard
-          data={data as AdminDashboardData}
-          scope={adminScope}
-          onScopeChange={setAdminScope}
-        />
-      );
-    case "student":
-    default:
-      return <StudentDashboard data={data as StudentDashboardData} />;
-  }
+  return <AdminDashboard data={data} scope={scope} onScopeChange={setScope} />;
 };
 
 export default React.memo(Dashboard);

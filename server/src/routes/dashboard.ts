@@ -10,6 +10,8 @@ import {
   getAdminGradingSummary,
   getActiveProctoringCount,
 } from "../controllers/dashboardController";
+import { getInstructorOverview } from "../controllers/instructorOverview.controller";
+import { getStudentOverview } from "../controllers/studentOverview.controller";
 import { protect, authorizePermission } from "../middleware/auth";
 
 const router = Router();
@@ -19,6 +21,11 @@ router.use(protect);
 
 // Student dashboard endpoints
 router.get("/student/stats", authorizePermission("DASHBOARD_VIEW_STUDENT"), getStudentStats);
+router.get(
+  "/student/overview",
+  authorizePermission("DASHBOARD_VIEW_STUDENT"),
+  getStudentOverview,
+);
 router.get(
   "/student/pending-assignments",
   authorizePermission("DASHBOARD_VIEW_STUDENT"),
@@ -40,6 +47,11 @@ router.get(
   "/instructor/pending-grading",
   authorizePermission("DASHBOARD_VIEW_INSTRUCTOR"),
   getInstructorPendingGrading,
+);
+router.get(
+  "/instructor/overview",
+  authorizePermission("DASHBOARD_VIEW_INSTRUCTOR"),
+  getInstructorOverview,
 );
 router.get(
   "/instructor/active-proctoring",

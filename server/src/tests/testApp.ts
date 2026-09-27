@@ -17,6 +17,7 @@ import integrationRoutes from "../routes/integration";
 import questionBankHubRoutes from "../routes/questionBankHub";
 import rankingRoutes from "../routes/rankings";
 import questionBankRoutes from "../routes/questionBank";
+import dashboardRoutes from "../routes/dashboard";
 
 /**
  * Minimal test harness app — mounts only the routers under test against the
@@ -43,6 +44,7 @@ export function buildTestApp() {
   app.use("/api/question-bank", questionBankHubRoutes);
   app.use("/api/rankings", rankingRoutes);
   app.use("/api/courses/:courseId/question-bank", questionBankRoutes);
+  app.use("/api/dashboard", dashboardRoutes);
   return app;
 }
 

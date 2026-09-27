@@ -1,482 +1,481 @@
-import React, { useState, useCallback, useEffect } from "react";
-import { Link } from "react-router-dom";
-import AssignmentCard, {
-  type AssignmentInterface,
-} from "../Assignments/AssignmentCard";
-import CountdownTimer from "./CountdownTimer";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { motion } from "framer-motion";
 import {
   AlertTriangle,
-  Clock,
-  BookOpen,
   Award,
-  CheckCircle,
-  ListTodo,
+  BellRing,
+  BookOpen,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
   FileText,
-  Download,
-  Eye,
-  Loader2,
-  GraduationCap,
-  Clock3,
+  Hourglass,
+  ListChecks,
+  RefreshCw,
+  Target,
+  Timer,
+  Trophy,
 } from "lucide-react";
-import { motion } from "framer-motion";
-import { toast } from "react-toastify";
+import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
-import ReportCardPreview from "../ReportCard/ReportCardPreview";
-import AnnualReportCardPreview from "../ReportCard/AnnualReportCardPreview";
-import { ReportCardApiService } from "../../services/reportCardApi";
+import { dashboardContainerVariants, dashboardItemVariants } from "./dashboardUi";
+import { AlertsList, KpiTile, Panel } from "./instructor/InstructorPanels";
 import {
-  StatCard,
-  SectionCard,
-  PillLink,
-  ActivityRow,
-  EmptyState,
-  dashboardContainerVariants,
-  dashboardItemVariants,
-  type RecentActivity,
-} from "./dashboardUi";
+  FocusCard,
+  ResultsList,
+  SubjectCards,
+  TaskBoard,
+  WeekAgenda,
+  WeekList,
+  type SubjectStanding,
+} from "./student/StudentPanels";
+import ReportCardPanel from "./student/ReportCardPanel";
+import { LiveCountdown } from "../Common/LiveCountdown";
+import {
+  getStudentOverview,
+  reminderToAlert,
+  TODO_STATES,
+  type StudentOverview,
+  type StudentReminder,
+} from "../../services/studentOverviewApi";
+import {
+  alertSignature,
+  dismissAlert,
+  getAlertsVersion,
+  isImportant,
+  isSeen,
+  markSeen,
+  publishAlerts,
+  subscribeAlerts,
+  visibleAlerts,
+} from "../../services/alertStore";
 
-// Interfaces
-interface DashboardStats {
-  totalCourses: number;
-  totalAssignments: number;
-  pendingSubmissions: number;
-  completedAssignments: number;
-  totalEnrolledStudents?: number;
-}
+/**
+ * Student dashboard, built around what a student needs the moment they open
+ * the app, in this order:
+ *   1. the one thing to do first (a running quiz, else the nearest deadline),
+ *   2. reminders (due soon, drafts, missed, retakes, openings, new marks),
+ *   3. the week ahead, day by day, with live countdowns,
+ *   4. every task grouped by what it needs from them,
+ *   5. how they're doing: recent marks, subjects, standing, report card.
+ * Tasks and reminders: GET /dashboard/student/overview. Averages that include
+ * teacher-recorded marks, and the class standing, come from GET /rankings
+ * (optional: the page works without it).
+ */
 
-interface StudentDashboardData {
-  user: {
-    user_id: string;
-    first_name: string;
-    last_name: string;
-    roles?: Array<{ id: number; name: string }>;
+const REFRESH_MS = 60 * 1000;
+const SEEN_AFTER_MS = 4000;
+
+interface StandingResponse {
+  view?: string;
+  overall?: {
+    rank: number | null;
+    ranked_count: number;
+    score: number | null;
+    band: string | null;
+    class_average: number | null;
+    points_to_next: number | null;
+    status: string;
   };
-  stats: DashboardStats;
-  pendingAssignments: AssignmentInterface[];
-  recentActivity: RecentActivity[];
-  publicQuizzes: any[];
-  enrolledCourses: any[];
-  availableQuizzes: any[];
+  subjects?: Array<{ course_id: string; score: number | null; class_average: number | null; status: string }>;
+  suggestions?: Array<{ id: string; priority: string; title: string; detail: string; action?: { label: string; href: string } }>;
 }
 
-const StudentDashboard: React.FC<{ data: StudentDashboardData }> = ({ data }) => {
+const periodName = (p: unknown): string | undefined =>
+  p && typeof p === "object" && "name" in p ? String((p as { name: unknown }).name) : undefined;
+
+function greeting(d = new Date()) {
+  const h = d.getHours();
+  return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
+}
+
+const ordinal = (n: number) => {
+  const s = ["th", "st", "nd", "rd"];
+  const v = n % 100;
+  return `${n}${s[(v - 20) % 10] || s[v] || s[0]}`;
+};
+
+const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [overview, setOverview] = useState<StudentOverview | null>(null);
+  const [standing, setStanding] = useState<StandingResponse | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [staleError, setStaleError] = useState<string | null>(null);
+  const [day, setDay] = useState<string | null>(null);
+  const hasData = useRef(false);
+  const seq = useRef(0);
+  useSyncExternalStore(subscribeAlerts, getAlertsVersion);
 
-  // ── Report Card state ──
-  const [showPreview, setShowPreview] = useState(false);
-  const [showAnnual, setShowAnnual] = useState(false);
-  const [downloadingPdf, setDownloadingPdf] = useState(false);
-  // Whether an *approved* term report card exists yet — checked up front so
-  // View/Download don't sit there looking clickable and then fail silently
-  // behind a browser alert() once a student has already tapped them.
-  const [reportCardAvailable, setReportCardAvailable] = useState<"checking" | "yes" | "no">("checking");
-  const [reportCardId, setReportCardId] = useState<number | null>(null);
-
-  const currentTerm = user?.currentAcademicTerm?.name as string | undefined;
-  const currentAcademicYear = user?.currentAcademicYear?.name as string | undefined;
+  const load = useCallback(async () => {
+    const mine = ++seq.current;
+    if (hasData.current) setRefreshing(true);
+    try {
+      const [o, st] = await Promise.all([
+        getStudentOverview(),
+        axios
+          .get("/rankings")
+          .then((r) => (r.data?.data ?? null) as StandingResponse | null)
+          .catch(() => null),
+      ]);
+      if (mine !== seq.current) return;
+      hasData.current = true;
+      setOverview(o);
+      setStanding(st && st.view === "student" ? st : null);
+      publishAlerts(o.reminders.map(reminderToAlert));
+      setError(null);
+      setStaleError(null);
+    } catch (err) {
+      if (mine !== seq.current) return;
+      const e = err as { response?: { data?: { message?: string } } };
+      const message = e?.response?.data?.message || "Couldn't load your dashboard.";
+      if (hasData.current) setStaleError(message);
+      else setError(message);
+    } finally {
+      if (mine === seq.current) {
+        setLoading(false);
+        setRefreshing(false);
+      }
+    }
+  }, []);
 
   useEffect(() => {
-    if (!user?.id) return;
-    let cancelled = false;
-    setReportCardAvailable("checking");
-    ReportCardApiService.getStudentReportCard(parseInt(String(user.id), 10), {
-      term: currentTerm,
-      academic_year: currentAcademicYear,
-    })
-      .then((res) => {
-        if (cancelled) return;
-        if (res.success && res.data?.report_card) {
-          setReportCardId(res.data.report_card.id);
-          setReportCardAvailable("yes");
-        } else {
-          setReportCardAvailable("no");
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setReportCardAvailable("no");
-      });
+    load();
+    // States move with the clock (due soon -> due today -> missed), so refresh
+    // every minute while the tab is visible, and when the student comes back.
+    const id = window.setInterval(() => document.visibilityState === "visible" && load(), REFRESH_MS);
+    const onVisible = () => document.visibilityState === "visible" && load();
+    document.addEventListener("visibilitychange", onVisible);
     return () => {
-      cancelled = true;
+      window.clearInterval(id);
+      document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [user?.id, currentTerm, currentAcademicYear]);
+  }, [load]);
 
-  const handleDownloadPdf = useCallback(async () => {
-    if (!reportCardId) return;
-    setDownloadingPdf(true);
-    try {
-      const blob = await ReportCardApiService.generatePdf(reportCardId);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `ReportCard-${data.user.first_name}_${data.user.last_name}-${currentTerm ?? "report"}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Could not generate the PDF. Please try again in a moment.");
-    } finally {
-      setDownloadingPdf(false);
-    }
-  }, [reportCardId, currentTerm, data.user]);
-
-  const enrolledCourseIds = React.useMemo(
-    () => data.enrolledCourses.map((c) => String(c.id)),
-    [data.enrolledCourses],
+  // Recomputed every render so a dismissal (a store change) hides it at once.
+  const reminders = visibleAlerts((overview?.reminders ?? []).map(reminderToAlert)) as Array<
+    StudentReminder & { notify?: boolean }
+  >;
+  const newSignatures = useMemo(
+    () =>
+      new Set(
+        (overview?.reminders ?? [])
+          .map(reminderToAlert)
+          .filter((a) => isImportant(a) && !isSeen(a))
+          .map(alertSignature),
+      ),
+    [overview],
   );
+  useEffect(() => {
+    if (!overview) return;
+    const t = window.setTimeout(() => markSeen(overview.reminders.map(reminderToAlert)), SEEN_AFTER_MS);
+    return () => window.clearTimeout(t);
+  }, [overview]);
 
-  const filteredAssignments = React.useMemo(
-    () => data.pendingAssignments.filter((a) => enrolledCourseIds.includes(String(a.course_id))),
-    [data.pendingAssignments, enrolledCourseIds],
-  );
+  useEffect(() => {
+    if (!overview || !location.hash) return;
+    document.getElementById(location.hash.slice(1))?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  }, [overview, location.hash]);
 
-  const filteredQuizzes = React.useMemo(
-    () => data.availableQuizzes.filter((q) => enrolledCourseIds.includes(String(q.course_id))),
-    [data.availableQuizzes, enrolledCourseIds],
-  );
-
-  const getUrgencyLevel = (dueDate: string) => {
-    const now = new Date();
-    const due = new Date(dueDate);
-    const hoursUntilDue = (due.getTime() - now.getTime()) / (1000 * 60 * 60);
-
-    if (hoursUntilDue <= 24) return "critical";
-    if (hoursUntilDue <= 48) return "urgent";
-    if (hoursUntilDue <= 72) return "soon";
-    return "normal";
+  const runAction = (a: { action?: { url: string } }) => {
+    if (!a.action) return;
+    if (a.action.url.startsWith("#")) {
+      document.getElementById(a.action.url.slice(1))?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+    } else navigate(a.action.url);
   };
 
+  const subjectStanding = useMemo(() => {
+    const m = new Map<string, SubjectStanding>();
+    for (const s of standing?.subjects ?? []) {
+      m.set(String(s.course_id), { score: s.score, class_average: s.class_average, status: s.status });
+    }
+    return m;
+  }, [standing]);
+
+  if (loading) return <Skeleton />;
+  if (!overview) {
+    return (
+      <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-8 text-center">
+        <AlertTriangle className="w-8 h-8 mx-auto text-amber-500 mb-2" />
+        <p className="text-text-primary-light dark:text-text-primary-dark font-medium">{error ?? "Couldn't load your dashboard."}</p>
+        <button
+          type="button"
+          onClick={() => {
+            setLoading(true);
+            load();
+          }}
+          className="mt-4 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium hover:bg-blue-700"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
+
+  const s = overview.summary;
+  const tasks = overview.tasks;
+  const focus =
+    tasks.find((t) => t.state === "in_progress") ??
+    tasks.find((t) => t.state === "due_today") ??
+    tasks.find((t) => t.state === "due_soon") ??
+    null;
+  const upcomingCount = tasks.filter((t) => TODO_STATES.includes(t.state) || t.state === "not_open").length;
+  const overall = standing?.overall;
+  const yearName = periodName(user?.currentAcademicYear);
+  const termName = periodName(user?.currentAcademicTerm);
+  const importantCount = reminders.filter((r) => isImportant(r)).length;
+  const hasTips = (standing?.suggestions?.length ?? 0) > 0;
+  const reportCard = (
+    <Panel id="report-card" title="My Report Cards" icon={<FileText className="w-4 h-4" />} iconColor="indigo">
+      <ReportCardPanel />
+    </Panel>
+  );
+
+  const headline: string[] = [];
+  if (s.in_progress) headline.push(`${s.in_progress} quiz in progress`);
+  if (s.due_today) headline.push(`${s.due_today} due today`);
+  if (s.due_this_week - s.due_today - s.in_progress > 0) headline.push(`${s.due_this_week - s.due_today - s.in_progress} more this week`);
+  if (s.new_results) headline.push(`${s.new_results} new mark${s.new_results === 1 ? "" : "s"}`);
+
   return (
-    <motion.div
-      variants={dashboardContainerVariants}
-      initial="hidden"
-      animate="visible"
-      className="space-y-6"
-    >
-      <motion.div variants={dashboardItemVariants}>
-        <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-1">
-          Welcome back, {data.user.first_name}!
-        </h2>
-        <p className="text-text-secondary-light dark:text-text-secondary-dark">
-          You have {data.stats.pendingSubmissions} assignment{data.stats.pendingSubmissions === 1 ? "" : "s"} due soon.
-        </p>
+    <motion.div variants={dashboardContainerVariants} initial="hidden" animate="visible" className="space-y-5" aria-busy={refreshing}>
+      {/* Header */}
+      <motion.div variants={dashboardItemVariants} className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
+        <div>
+          <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
+            {greeting()}, {user?.first_name || "there"}
+          </h2>
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1">
+            {headline.length ? `${headline.join(" · ")}.` : "You're all caught up."}
+            {(yearName || termName) && (
+              <span className="text-text-secondary-light/80 dark:text-text-secondary-dark/60"> {[yearName, termName].filter(Boolean).join(" · ")}</span>
+            )}
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          {s.next_deadline && (
+            <span className="hidden md:inline-flex items-center gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+              Next deadline <LiveCountdown to={s.next_deadline} kind="due" compact />
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => load()}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-card-light dark:bg-card-dark/40 shadow-sm hover:shadow text-text-primary-light dark:text-text-primary-dark disabled:opacity-60"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? "animate-spin" : ""}`} />
+            Refresh
+          </button>
+        </div>
       </motion.div>
 
-      {data?.stats && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          <StatCard
-            icon={<Award className="w-6 h-6" />}
-            value="View"
-            label="Global Report"
-            color="purple"
-            to="/reports"
-          />
-          <StatCard
-            icon={<BookOpen className="w-6 h-6" />}
-            value={(data.stats.totalCourses ?? 0).toLocaleString()}
-            label="Active Courses"
-            color="blue"
-          />
-          <StatCard
-            icon={<ListTodo className="w-6 h-6" />}
-            value={(data.stats.totalAssignments ?? 0).toLocaleString()}
-            label="Assignments"
-            color="emerald"
-          />
-          <StatCard
-            icon={<Clock className="w-6 h-6" />}
-            value={(data.stats.pendingSubmissions ?? 0).toLocaleString()}
-            label="Pending"
-            color="amber"
-          />
+      {staleError && (
+        <div role="status" className="flex items-center gap-2 rounded-xl border border-amber-200 bg-amber-50 dark:border-amber-900/40 dark:bg-amber-900/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-200">
+          <AlertTriangle className="w-4 h-4 shrink-0" />
+          Couldn't refresh ({staleError}). Showing your last loaded tasks.
         </div>
       )}
 
-      {filteredAssignments && filteredAssignments.length > 0 && (
-        <SectionCard
-          icon={<AlertTriangle className="w-5 h-5" />}
-          iconColor="amber"
-          title="Assignments Due"
-          subtitle="Tasks requiring your immediate attention"
-          action={<PillLink to="/assignments">View All</PillLink>}
-        >
-          <div className="space-y-3">
-            {filteredAssignments.slice(0, 3).map((assignment, index) => {
-              const urgency = getUrgencyLevel(assignment.due_date);
-              return (
-                <Link
-                  key={index + 1}
-                  to={`/assignments/${assignment.id}`}
-                  className={`block rounded-2xl p-1 border transition-colors ${
-                    urgency === "critical"
-                      ? "bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
-                      : urgency === "urgent"
-                        ? "bg-orange-50/50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-900/30"
-                        : "bg-surface-light dark:bg-surface-dark/50 border-border-light dark:border-border-dark/30"
-                  }`}
-                >
-                  <AssignmentCard assignment={assignment} compact={true} showSubmissions={false} />
-                </Link>
-              );
-            })}
+      {overview.subjects.length === 0 ? (
+        <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm p-10 text-center">
+          <BookOpen className="w-8 h-8 mx-auto text-text-secondary-light dark:text-text-secondary-dark mb-2" />
+          <p className="font-medium text-text-primary-light dark:text-text-primary-dark">You're not enrolled in any subject for this period</p>
+          <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1">
+            If that looks wrong, check the academic period in the top bar or ask your class teacher.
+          </p>
+        </div>
+      ) : (
+        <>
+          <div id="today" className="scroll-mt-24">
+            <FocusCard task={focus} nextCount={upcomingCount} />
           </div>
-        </SectionCard>
-      )}
 
-      {filteredQuizzes && filteredQuizzes.length > 0 && (
-        <SectionCard
-          icon={<CheckCircle className="w-5 h-5" />}
-          iconColor="emerald"
-          title="Available Quizzes"
-          subtitle="Assessments ready for you to take"
-          action={<PillLink to="/courses">Go to Courses</PillLink>}
-        >
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredQuizzes.slice(0, 3).map((quiz: any, index: number) => {
-              const deadline = quiz.deadline || quiz.end_date;
-              const isExpired = deadline && new Date(deadline) < new Date();
-
-              return (
-                <div
-                  key={quiz.id || index}
-                  className="flex flex-col justify-between bg-surface-light dark:bg-surface-dark/50 rounded-2xl p-4"
-                >
-                  <div>
-                    <div className="flex justify-between items-start mb-3">
-                      <span className="px-2.5 py-1 bg-emerald-100 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-medium">
-                        Quiz
-                      </span>
-                      {deadline && (
-                        <div className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 flex items-center gap-1">
-                          <Clock className="w-3.5 h-3.5" />
-                          <CountdownTimer deadline={deadline} showLabel={false} className="font-mono" />
-                        </div>
-                      )}
-                    </div>
-
-                    <h4 className="font-semibold text-text-primary-light dark:text-text-primary-dark mb-1 line-clamp-2">
-                      {quiz.title}
-                    </h4>
-                    <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 line-clamp-2 mb-3">
-                      {quiz.course_name || "General Knowledge"}
-                    </p>
-                  </div>
-
-                  <div className="pt-3 mt-1 flex flex-col gap-2">
-                    <div className="flex items-center justify-between text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-                      <span>{quiz.totalPoints || 100} pts</span>
-                      <span>{quiz.totalQuestions || 10} questions</span>
-                    </div>
-
-                    <Link
-                      to={`/quizzes/${quiz.id}/take`}
-                      className={`w-full py-2.5 rounded-full flex items-center justify-center text-sm font-medium transition-colors ${
-                        isExpired
-                          ? "bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-500 cursor-not-allowed"
-                          : "bg-emerald-600 hover:bg-emerald-700 text-white"
-                      }`}
-                      onClick={(e) => isExpired && e.preventDefault()}
-                    >
-                      {isExpired ? "Closed" : "Start Quiz"}
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
+          {/* KPIs */}
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+            <KpiTile
+              icon={<ListChecks className="w-4 h-4" />}
+              color="blue"
+              label="To do"
+              value={String(s.todo)}
+              hint={s.drafts ? `${s.drafts} draft${s.drafts === 1 ? "" : "s"} unsubmitted` : `${s.due_this_week} due this week`}
+              emphasis={s.due_today || s.in_progress ? "critical" : undefined}
+              onClick={() => document.getElementById("tasks")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+            />
+            <KpiTile
+              icon={<Timer className="w-4 h-4" />}
+              color="red"
+              label="Due today"
+              value={String(s.due_today + s.in_progress)}
+              hint={s.in_progress ? "quiz in progress" : s.due_today ? "don't leave it late" : "nothing today"}
+              emphasis={s.due_today + s.in_progress > 0 ? "critical" : undefined}
+            />
+            <KpiTile
+              icon={<Hourglass className="w-4 h-4" />}
+              color="violet"
+              label="Awaiting marks"
+              value={String(s.awaiting_grade)}
+              hint={s.new_results ? `${s.new_results} new this week` : undefined}
+            />
+            <KpiTile
+              icon={<CheckCircle2 className="w-4 h-4" />}
+              color="emerald"
+              label="Handed in"
+              value={s.completion_rate != null ? `${Math.round(s.completion_rate)}%` : "—"}
+              progress={s.completion_rate}
+              hint={s.missed ? `${s.missed} missed` : "of closed work"}
+              emphasis={s.missed > 0 ? "warning" : undefined}
+            />
+            <KpiTile
+              icon={<Target className="w-4 h-4" />}
+              color="indigo"
+              label={overall?.score != null ? "My average" : "Recent average"}
+              value={
+                overall?.score != null
+                  ? `${Math.round(overall.score)}%`
+                  : s.recent_average != null
+                    ? `${Math.round(s.recent_average)}%`
+                    : "—"
+              }
+              progress={overall?.score ?? s.recent_average}
+              hint={
+                overall?.class_average != null
+                  ? `class ${Math.round(overall.class_average)}%`
+                  : s.on_time_rate != null
+                    ? `${Math.round(s.on_time_rate)}% on time`
+                    : undefined
+              }
+            />
+            <KpiTile
+              icon={<Trophy className="w-4 h-4" />}
+              color="amber"
+              label="My standing"
+              value={overall?.rank ? ordinal(overall.rank) : "—"}
+              hint={overall?.rank ? `of ${overall.ranked_count}${overall.band ? ` · ${overall.band}` : ""}` : "no ranked marks yet"}
+              to="/ranking"
+            />
           </div>
-        </SectionCard>
-      )}
 
-      {data?.enrolledCourses && data.enrolledCourses.length > 0 && (
-        <SectionCard
-          icon={<BookOpen className="w-5 h-5" />}
-          iconColor="blue"
-          title="Course Deadlines"
-          subtitle="Upcoming assignments and quiz deadlines"
-          action={<PillLink to="/courses">View All</PillLink>}
-        >
-          <div className="space-y-3">
-            {data.enrolledCourses.slice(0, 3).map((course, index) => {
-              const nextDeadline = course.next_deadline || course.assignment_deadline || course.quiz_deadline;
-              const isExpired = nextDeadline && new Date(nextDeadline) < new Date();
-              const isUrgent =
-                nextDeadline &&
-                !isExpired &&
-                new Date(nextDeadline).getTime() - new Date().getTime() < 48 * 60 * 60 * 1000;
-
-              return (
-                <Link
-                  key={course.id || index}
-                  to={`/courses/${course.id}`}
-                  className={`block rounded-2xl p-4 border transition-colors ${
-                    isExpired
-                      ? "bg-red-50/50 dark:bg-red-900/10 border-red-100 dark:border-red-900/30"
-                      : isUrgent
-                        ? "bg-orange-50/50 dark:bg-orange-900/10 border-orange-100 dark:border-orange-900/30"
-                        : "bg-surface-light dark:bg-surface-dark/50 border-border-light dark:border-border-dark/30"
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-200 px-2 py-0.5 rounded-full text-xs font-medium">
-                          {course.code || course.subject}
-                        </span>
-                        <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-                          {course.instructor_name || course.teacher}
-                        </span>
-                      </div>
-                      <h4 className="font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
-                        {course.name || course.title}
-                      </h4>
-                      <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 line-clamp-2 mt-0.5">
-                        {course.description}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-                    <span>{course.next_item_type ? `Next: ${course.next_item_type}` : ""}</span>
-                    {nextDeadline && (
-                      <CountdownTimer
-                        deadline={nextDeadline}
-                        variant={isExpired ? "expired" : isUrgent ? "urgent" : "default"}
-                        showLabel={false}
-                        className="text-xs"
-                      />
-                    )}
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-        </SectionCard>
-      )}
-
-      <SectionCard
-        icon={<Clock className="w-5 h-5" />}
-        iconColor="violet"
-        title="Recent Activity"
-        subtitle="Your latest interactions and progress"
-        action={<PillLink to="/assignments">View All</PillLink>}
-      >
-        {data?.recentActivity && data.recentActivity.length > 0 ? (
-          <div className="space-y-1">
-            {data.recentActivity.slice(0, 4).map((activity) => (
-              <ActivityRow key={activity.id} activity={activity} />
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            icon={<Clock className="w-6 h-6 text-text-secondary-light dark:text-text-secondary-dark/60" />}
-            title="No recent activity yet"
-            description="Activity will appear here as you interact with courses and assignments."
-          />
-        )}
-      </SectionCard>
-
-      <SectionCard
-        icon={<FileText className="w-5 h-5" />}
-        iconColor="indigo"
-        title="My Report Cards"
-        subtitle={
-          currentTerm && currentAcademicYear ? `${currentTerm} · ${currentAcademicYear}` : "Current academic term"
-        }
-      >
-        <div className="flex flex-col gap-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 p-4 sm:p-5">
-          <div className="flex items-center gap-4 min-w-0">
-            <div className="w-11 h-11 bg-white dark:bg-gray-800 rounded-xl shadow-sm flex items-center justify-center shrink-0">
-              <FileText className="w-5 h-5 text-indigo-500" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-2 flex-wrap">
-                <p className="font-semibold text-text-primary-light dark:text-text-primary-dark text-sm">
-                  Academic Report Card
-                </p>
-                {reportCardAvailable === "yes" && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
-                    <CheckCircle className="w-3 h-3" />
-                    Ready
-                  </span>
-                )}
-                {reportCardAvailable === "no" && (
-                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300">
-                    <Clock3 className="w-3 h-3" />
-                    Not yet published
-                  </span>
-                )}
-              </div>
-              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">
-                {currentTerm ?? "—"} · {currentAcademicYear ?? "—"}
+          {/* Reminders + week */}
+          <div className="grid gap-5 lg:grid-cols-5">
+            <Panel
+              title="Reminders"
+              subtitle={importantCount ? `${importantCount} need${importantCount === 1 ? "s" : ""} your attention` : "Nothing urgent"}
+              icon={<BellRing className="w-4 h-4" />}
+              iconColor="amber"
+              className="lg:col-span-2"
+            >
+              <AlertsList
+                alerts={reminders}
+                onDismiss={(a) => dismissAlert(reminderToAlert(a as StudentReminder))}
+                onAction={runAction}
+                isNew={(a) => newSignatures.has(alertSignature(a))}
+                limit={4}
+              />
+            </Panel>
+            <Panel
+              id="week"
+              title="This week"
+              subtitle="Tap a day to see just that day"
+              icon={<CalendarDays className="w-4 h-4" />}
+              className="lg:col-span-3"
+            >
+              <WeekAgenda tasks={tasks} selected={day} onSelect={setDay} />
+              <WeekList tasks={tasks} day={day} onClear={() => setDay(null)} />
+              <p className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
+                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-blue-500" />Assignment due</span>
+                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-violet-500" />Quiz closes</span>
+                <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-gray-400" />Quiz opens</span>
               </p>
-            </div>
+            </Panel>
           </div>
 
-          {reportCardAvailable === "no" ? (
-            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 leading-relaxed">
-              Your class teacher hasn't published this term's report card yet. Check back once grading is
-              finalized — it'll appear here automatically.
-            </p>
-          ) : (
-            <div className="flex flex-col sm:flex-row gap-2">
-              <button
-                onClick={() => setShowPreview(true)}
-                disabled={reportCardAvailable !== "yes"}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {reportCardAvailable === "checking" ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Eye className="w-4 h-4" />
-                )}
-                View
-              </button>
+          {/* Tasks + results */}
+          <div className="grid gap-5 lg:grid-cols-5">
+            <Panel
+              id="tasks"
+              title="My tasks"
+              subtitle="Everything across your subjects, most urgent first"
+              icon={<ClipboardList className="w-4 h-4" />}
+              className="lg:col-span-3"
+            >
+              <TaskBoard tasks={tasks} />
+            </Panel>
+            <Panel
+              id="results"
+              title="Recent results"
+              subtitle="Your latest marks"
+              icon={<Award className="w-4 h-4" />}
+              iconColor="emerald"
+              className="lg:col-span-2"
+              action={
+                <Link to="/reports" className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                  All reports
+                </Link>
+              }
+            >
+              <ResultsList tasks={tasks} />
+            </Panel>
+          </div>
 
-              <button
-                onClick={handleDownloadPdf}
-                disabled={reportCardAvailable !== "yes" || downloadingPdf}
-                className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-emerald-600 hover:bg-emerald-700 text-white text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              >
-                {downloadingPdf ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                {downloadingPdf ? "Generating…" : "Download PDF"}
-              </button>
-
-              {currentAcademicYear && (
-                <button
-                  onClick={() => setShowAnnual(true)}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-white dark:bg-gray-800 text-indigo-600 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-50 dark:hover:bg-gray-700 text-sm font-medium transition-colors"
-                >
-                  <GraduationCap className="w-4 h-4" />
-                  Annual Summary
-                </button>
+          {/* Subjects + standing + report card */}
+          <div className="grid gap-5 lg:grid-cols-3">
+            <Panel
+              title="My subjects"
+              subtitle="Average, work handed in and what's next"
+              icon={<BookOpen className="w-4 h-4" />}
+              iconColor="indigo"
+              className="lg:col-span-2"
+            >
+              <SubjectCards subjects={overview.subjects} standing={subjectStanding} />
+            </Panel>
+            <div className="space-y-5">
+              {hasTips && standing?.suggestions && (
+                <Panel title="Tips for you" subtitle="Based on your marks" icon={<Trophy className="w-4 h-4" />} iconColor="amber">
+                  <ul className="space-y-2">
+                    {standing.suggestions.slice(0, 3).map((sg) => (
+                      <li key={sg.id} className="text-sm">
+                        <p className="font-medium text-text-primary-light dark:text-text-primary-dark">{sg.title}</p>
+                        <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{sg.detail}</p>
+                        {sg.action && (
+                          <Link to={sg.action.href} className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                            {sg.action.label}
+                          </Link>
+                        )}
+                      </li>
+                    ))}
+                  </ul>
+                </Panel>
               )}
+              {reportCard}
             </div>
-          )}
-        </div>
-      </SectionCard>
-
-      {showPreview && user?.id && (
-        <ReportCardPreview
-          studentId={parseInt(String(user.id), 10)}
-          studentName={`${data.user.first_name} ${data.user.last_name}`}
-          term={currentTerm}
-          academicYear={currentAcademicYear}
-          onClose={() => setShowPreview(false)}
-        />
+          </div>
+        </>
       )}
 
-      {showAnnual && user?.id && currentAcademicYear && (
-        <AnnualReportCardPreview
-          isOpen={showAnnual}
-          onClose={() => setShowAnnual(false)}
-          studentId={parseInt(String(user.id), 10)}
-          studentName={`${data.user.first_name} ${data.user.last_name}`}
-          academicYear={currentAcademicYear}
-          academicYearId={(user?.currentAcademicYear as any)?.academic_year_id}
-        />
-      )}
+      {overview.subjects.length === 0 && reportCard}
     </motion.div>
   );
 };
+
+const Skeleton: React.FC = () => (
+  <div className="space-y-5 animate-pulse" aria-busy="true" aria-label="Loading dashboard">
+    <div className="h-8 w-64 rounded-lg bg-gray-200 dark:bg-gray-700/50" />
+    <div className="h-28 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40" />
+    <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="h-28 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40" />
+      ))}
+    </div>
+    <div className="grid gap-5 lg:grid-cols-5">
+      <div className="h-64 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40 lg:col-span-2" />
+      <div className="h-64 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40 lg:col-span-3" />
+    </div>
+  </div>
+);
 
 export default StudentDashboard;

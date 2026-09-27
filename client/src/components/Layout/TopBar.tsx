@@ -7,6 +7,10 @@ import { getProfileImageUrl } from "../../utils/imageUrl";
 import { ThemeToggle } from "../ThemeToggle";
 import SystemsMenu from "./SystemsMenu";
 import AcademicPeriodSwitcher from "./AcademicPeriodSwitcher";
+import NotificationBell from "./NotificationBell";
+import { loadInstructorAlerts } from "../../services/instructorOverviewApi";
+import { loadStudentAlerts } from "../../services/studentOverviewApi";
+import { usePermissions } from "../../hooks/usePermissions";
 import Logo from "../Logo";
 import type { System } from "../../types/user.types";
 
@@ -16,6 +20,16 @@ interface TopBarProps {
 
 const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
   const { user, logoutUser } = useAuth();
+  const { can } = usePermissions();
+  // Same precedence as Dashboard.tsx: admin > instructor > student. Admins
+  // have no notification feed yet.
+  const bellFor = can("DASHBOARD_VIEW_ADMIN")
+    ? null
+    : can("DASHBOARD_VIEW_INSTRUCTOR")
+      ? "instructor"
+      : can("DASHBOARD_VIEW_STUDENT")
+        ? "student"
+        : null;
   const [isSystemsMenuOpen, setIsSystemsMenuOpen] = React.useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -65,6 +79,9 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
             <AcademicPeriodSwitcher />
           </div>
         )}
+
+        {bellFor === "instructor" && <NotificationBell loadAlerts={loadInstructorAlerts} />}
+        {bellFor === "student" && <NotificationBell loadAlerts={loadStudentAlerts} pollMs={2 * 60 * 1000} />}
 
         <ThemeToggle />
 
