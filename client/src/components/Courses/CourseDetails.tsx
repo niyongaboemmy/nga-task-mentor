@@ -23,6 +23,7 @@ import {
   PlusCircle,
   Search,
   SlidersHorizontal,
+  Trophy,
   Users,
 } from "lucide-react";
 import { usePermissions } from "../../hooks/usePermissions";
@@ -32,6 +33,7 @@ import RecordedAssessmentsPanel from "./RecordedAssessmentsPanel";
 import { useRecordedAssessments } from "./useRecordedAssessments";
 import CourseTabs, { type CourseTabAction, type CourseTabItem } from "./CourseTabs";
 import CourseOverviewPanel from "./CourseOverviewPanel";
+import CourseRankingPanel from "./CourseRankingPanel";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -62,6 +64,7 @@ const VALID_TABS = [
   "quizzes",
   "recorded",
   "students",
+  "ranking",
   "report-cards",
 ] as const;
 type TabId = (typeof VALID_TABS)[number];
@@ -189,6 +192,8 @@ const CourseDetails: React.FC = () => {
     if (isInstructorOrAdmin) {
       list.push({ id: "students", label: "Students", icon: <Users />, count: studentCount });
     }
+    // Everyone gets it: students see only their own place in this subject.
+    list.push({ id: "ranking", label: "Ranking", icon: <Trophy /> });
     if (canViewQuestionBank) {
       list.push({
         id: "question-bank",
@@ -450,6 +455,8 @@ const CourseDetails: React.FC = () => {
           {allowedTab === "students" && (
             <StudentsList students={course.enrolledStudents || []} periodLabel={periodLabel} />
           )}
+
+          {allowedTab === "ranking" && <CourseRankingPanel courseId={courseId!} />}
 
           {allowedTab === "report-cards" && (
             <CourseReportCardsPanel

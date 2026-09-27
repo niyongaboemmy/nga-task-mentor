@@ -25,7 +25,8 @@ import { resolveCurrentAcademicPeriodNames } from "./misUtils";
 export const fetchManualAssessments = async (
   req: Request,
   courseIds: Array<number | string>,
-  studentIds: Array<number | string>,
+  /** "all" loads every student's score (the ranking needs the whole cohort). */
+  studentIds: Array<number | string> | "all",
 ): Promise<{
   assessments: ManualAssessment[];
   /** manual_assessment_id -> student id -> score */
@@ -57,13 +58,14 @@ export const fetchManualAssessments = async (
   });
 
   const scoresByAssessment = new Map<number, Map<string, number>>();
-  const numericStudentIds = studentIds.map(Number).filter((n) => !isNaN(n));
+  const everyone = studentIds === "all";
+  const numericStudentIds = everyone ? [] : studentIds.map(Number).filter((n) => !isNaN(n));
 
-  if (assessments.length > 0 && numericStudentIds.length > 0) {
+  if (assessments.length > 0 && (everyone || numericStudentIds.length > 0)) {
     const scores = await ManualAssessmentScore.findAll({
       where: {
         manual_assessment_id: { [Op.in]: assessments.map((a) => a.id) },
-        student_id: { [Op.in]: Array.from(new Set(numericStudentIds)) },
+        ...(everyone ? {} : { student_id: { [Op.in]: Array.from(new Set(numericStudentIds)) } }),
       },
       attributes: ["manual_assessment_id", "student_id", "score"],
     });

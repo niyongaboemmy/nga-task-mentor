@@ -16,6 +16,7 @@ import {
   Radio,
   Award,
   Library,
+  Trophy,
 } from "lucide-react";
 
 import Dashboard from "../components/Dashboard/Dashboard";
@@ -61,6 +62,7 @@ import GradesPage from "../pages/GradesPage";
 import AssessmentMarksPage from "../pages/AssessmentMarksPage";
 import DatabaseManagementPage from "../pages/DatabaseManagementPage";
 import RolesPermissionsPage from "../pages/Admin/RolesPermissionsPage";
+import RankingPage from "../pages/RankingPage";
 
 // Wrapper components for routes that need useParams
 const QuizViewWrapper = () => {
@@ -127,6 +129,14 @@ export const appRoutes: AppRoute[] = [
     navItem: { label: "Dashboard", icon: LayoutDashboard, group: "General" },
   },
   { path: "/profile", element: <Profile /> },
+  {
+    // Everyone who can see courses; the server decides whether the caller gets
+    // their own position (students) or a leaderboard (teachers, admins).
+    path: "/ranking",
+    element: <RankingPage />,
+    permissions: ["COURSES_VIEW"],
+    navItem: { label: "Overall Ranking", icon: Trophy, group: "General" },
+  },
   {
     path: "/courses",
     element: <Courses />,
