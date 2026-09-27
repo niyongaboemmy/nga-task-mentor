@@ -67,14 +67,14 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onNavigate }
                   onClick={onNavigate}
                   title={collapsed ? navItem.label : undefined}
                   aria-current={isCurrent ? "page" : undefined}
-                  className={`group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all duration-150 ${
+                  className={`group flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
                     isCurrent
                       ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium"
                       : "font-light text-text-secondary-light dark:text-text-secondary-dark/70 hover:bg-surface-light dark:hover:bg-surface-dark hover:text-text-primary-light dark:hover:text-text-primary-dark"
                   } ${collapsed ? "justify-center" : ""}`}
                 >
-                  <motion.span whileHover={{ x: collapsed ? 0 : 2 }} className="flex items-center gap-3">
-                    <Icon className="w-5 h-5 shrink-0" />
+                  <motion.span whileHover={{ x: collapsed ? 0 : 2 }} className="flex items-center gap-2.5">
+                    <Icon className={`${collapsed ? "w-[18px] h-[18px]" : "w-4 h-4"} shrink-0`} strokeWidth={1.75} />
                     {!collapsed && <span>{navItem.label}</span>}
                   </motion.span>
                 </Link>

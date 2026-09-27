@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertTriangle, ArrowRight, ChevronDown, Lock, TrendingDown, TrendingUp, Trophy } from "lucide-react";
+import {
+  AlertTriangle,
+  ArrowRight,
+  ChevronDown,
+  Lock,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+} from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import {
   fetchRankingSummary,
@@ -88,7 +96,8 @@ export default function RankStandingChip() {
   useEffect(() => {
     if (!open) return;
     const onDown = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     };
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", onDown);
@@ -101,7 +110,12 @@ export default function RankStandingChip() {
 
   if (state === "hidden") return null;
   if (state === "loading" || !summary) {
-    return <div className="h-8 sm:h-9 w-14 sm:w-28 rounded-full bg-gray-100 dark:bg-white/5 animate-pulse" aria-hidden />;
+    return (
+      <div
+        className="h-8 sm:h-9 w-14 sm:w-28 rounded-full bg-gray-100 dark:bg-white/5 animate-pulse"
+        aria-hidden
+      />
+    );
   }
 
   const atRisk = summary.status === "at_risk";
@@ -130,7 +144,7 @@ export default function RankStandingChip() {
         aria-expanded={open}
         aria-label={label}
         title={label}
-        className={`relative inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-9 px-2 sm:pl-2.5 sm:pr-2.5 rounded-full border text-xs sm:text-sm font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
+        className={`relative inline-flex items-center gap-1 sm:gap-1.5 h-8 sm:h-8 px-2 sm:pl-2.5 sm:pr-2.5 rounded-full border text-xs sm:text-xs font-semibold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
           atRisk
             ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
             : "border-gray-200 bg-white text-text-primary-light hover:border-blue-300 dark:border-gray-700 dark:bg-gray-900 dark:text-text-primary-dark"
@@ -139,24 +153,39 @@ export default function RankStandingChip() {
         {atRisk ? (
           <AlertTriangle className="w-4 h-4 flex-shrink-0" aria-hidden />
         ) : (
-          <Trophy className="w-4 h-4 flex-shrink-0 text-blue-600 dark:text-blue-400" aria-hidden />
+          <Trophy
+            className="w-4 h-4 flex-shrink-0 text-blue-600 dark:text-blue-400"
+            aria-hidden
+          />
         )}
         {ranked ? (
           <span className="tabular-nums whitespace-nowrap">
             {ordinal(summary.rank!)}
-            <span className="hidden sm:inline font-normal opacity-60">/{summary.ranked_count}</span>
+            <span className="hidden sm:inline font-normal opacity-60">
+              /{summary.ranked_count}
+            </span>
           </span>
         ) : (
-          <span className="whitespace-nowrap text-xs font-medium">Not ranked</span>
+          <span className="whitespace-nowrap text-xs font-medium">
+            Not ranked
+          </span>
         )}
         {summary.score !== null && (
           <span className="hidden sm:inline-flex items-center gap-1 pl-1.5 ml-0.5 border-l border-current/20 tabular-nums">
-            <span style={{ color: atRisk ? undefined : meta.color }}>{summary.score}%</span>
+            <span style={{ color: atRisk ? undefined : meta.color }}>
+              {summary.score}%
+            </span>
           </span>
         )}
-        <ChevronDown className={`hidden sm:block w-3.5 h-3.5 opacity-60 transition-transform ${open ? "rotate-180" : ""}`} aria-hidden />
+        <ChevronDown
+          className={`hidden sm:block w-3.5 h-3.5 opacity-60 transition-transform ${open ? "rotate-180" : ""}`}
+          aria-hidden
+        />
         {alerting && (
-          <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5" aria-hidden>
+          <span
+            className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5"
+            aria-hidden
+          >
             <span className="absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75 animate-ping" />
             <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-900" />
           </span>
@@ -171,14 +200,21 @@ export default function RankStandingChip() {
         >
           <div className="p-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">
-              Overall standing · {summary.subject_count} subject{summary.subject_count === 1 ? "" : "s"}
+              Overall standing · {summary.subject_count} subject
+              {summary.subject_count === 1 ? "" : "s"}
             </p>
             <div className="mt-2 flex items-center gap-3">
-              <div className={`flex flex-col items-center justify-center w-16 h-16 rounded-2xl text-white flex-shrink-0 ${atRisk ? "bg-red-600" : "bg-blue-600"}`}>
+              <div
+                className={`flex flex-col items-center justify-center w-16 h-16 rounded-2xl text-white flex-shrink-0 ${atRisk ? "bg-red-600" : "bg-blue-600"}`}
+              >
                 {ranked ? (
                   <>
-                    <span className="text-xl font-extrabold tabular-nums leading-none">{ordinal(summary.rank!)}</span>
-                    <span className="mt-0.5 text-[10px] opacity-90">of {summary.ranked_count}</span>
+                    <span className="text-xl font-extrabold tabular-nums leading-none">
+                      {ordinal(summary.rank!)}
+                    </span>
+                    <span className="mt-0.5 text-[10px] opacity-90">
+                      of {summary.ranked_count}
+                    </span>
                   </>
                 ) : (
                   <Trophy className="w-6 h-6" />
@@ -190,9 +226,15 @@ export default function RankStandingChip() {
                 </p>
                 <span
                   className="mt-1 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold"
-                  style={{ color: meta.color, backgroundColor: `${meta.color}1a` }}
+                  style={{
+                    color: meta.color,
+                    backgroundColor: `${meta.color}1a`,
+                  }}
                 >
-                  <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: meta.color }} />
+                  <span
+                    className="w-1.5 h-1.5 rounded-full"
+                    style={{ backgroundColor: meta.color }}
+                  />
                   {meta.label}
                 </span>
               </div>
@@ -201,17 +243,30 @@ export default function RankStandingChip() {
             {summary.score !== null && (
               <dl className="mt-3 grid grid-cols-3 gap-2 text-center">
                 <div className="rounded-xl bg-gray-50 dark:bg-white/5 py-2">
-                  <dt className="text-[10px] uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark/60">You</dt>
-                  <dd className="text-sm font-bold tabular-nums" style={{ color: meta.color }}>{summary.score}%</dd>
-                </div>
-                <div className="rounded-xl bg-gray-50 dark:bg-white/5 py-2">
-                  <dt className="text-[10px] uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark/60">Class</dt>
-                  <dd className="text-sm font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark">
-                    {summary.class_average !== null ? `${summary.class_average}%` : "—"}
+                  <dt className="text-[10px] uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark/60">
+                    You
+                  </dt>
+                  <dd
+                    className="text-sm font-bold tabular-nums"
+                    style={{ color: meta.color }}
+                  >
+                    {summary.score}%
                   </dd>
                 </div>
                 <div className="rounded-xl bg-gray-50 dark:bg-white/5 py-2">
-                  <dt className="text-[10px] uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark/60">Gap</dt>
+                  <dt className="text-[10px] uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark/60">
+                    Class
+                  </dt>
+                  <dd className="text-sm font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark">
+                    {summary.class_average !== null
+                      ? `${summary.class_average}%`
+                      : "—"}
+                  </dd>
+                </div>
+                <div className="rounded-xl bg-gray-50 dark:bg-white/5 py-2">
+                  <dt className="text-[10px] uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark/60">
+                    Gap
+                  </dt>
                   <dd
                     className={`text-sm font-bold tabular-nums inline-flex items-center gap-0.5 ${
                       summary.gap === null
@@ -225,7 +280,11 @@ export default function RankStandingChip() {
                       "—"
                     ) : (
                       <>
-                        {summary.gap >= 0 ? <TrendingUp className="w-3.5 h-3.5" /> : <TrendingDown className="w-3.5 h-3.5" />}
+                        {summary.gap >= 0 ? (
+                          <TrendingUp className="w-3.5 h-3.5" />
+                        ) : (
+                          <TrendingDown className="w-3.5 h-3.5" />
+                        )}
                         {summary.gap > 0 ? "+" : ""}
                         {summary.gap}
                       </>
@@ -248,7 +307,8 @@ export default function RankStandingChip() {
               <div className="mt-3 rounded-xl border border-red-200 dark:border-red-500/30 bg-red-50 dark:bg-red-500/10 p-3">
                 <p className="flex items-center gap-1.5 text-xs font-semibold text-red-700 dark:text-red-300">
                   <AlertTriangle className="w-3.5 h-3.5" />
-                  Below 50% in {summary.at_risk_count} subject{summary.at_risk_count === 1 ? "" : "s"}
+                  Below 50% in {summary.at_risk_count} subject
+                  {summary.at_risk_count === 1 ? "" : "s"}
                 </p>
                 <ul className="mt-1.5 space-y-1">
                   {summary.at_risk_subjects.map((s) => (
@@ -259,7 +319,9 @@ export default function RankStandingChip() {
                         className="flex items-center gap-2 text-xs text-red-800 dark:text-red-200 hover:underline"
                       >
                         <span className="truncate flex-1">{s.name}</span>
-                        <span className="font-semibold tabular-nums">{s.score}%</span>
+                        <span className="font-semibold tabular-nums">
+                          {s.score}%
+                        </span>
                       </Link>
                     </li>
                   ))}
@@ -269,8 +331,12 @@ export default function RankStandingChip() {
 
             {summary.top_suggestion && (
               <div className="mt-3 rounded-xl border border-gray-100 dark:border-gray-800 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">Next step</p>
-                <p className="mt-0.5 text-xs font-semibold text-text-primary-light dark:text-text-primary-dark">{summary.top_suggestion.title}</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
+                  Next step
+                </p>
+                <p className="mt-0.5 text-xs font-semibold text-text-primary-light dark:text-text-primary-dark">
+                  {summary.top_suggestion.title}
+                </p>
                 {summary.top_suggestion.action && (
                   <Link
                     to={summary.top_suggestion.action.href}
