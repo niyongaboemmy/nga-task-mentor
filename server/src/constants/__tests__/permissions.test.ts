@@ -3,6 +3,7 @@ import {
   ALL_PERMISSION_KEYS,
   PERMISSION_CATEGORIES,
   DEFAULT_ROLE_PERMISSIONS,
+  TEACHER_ONLY_PERMISSIONS,
 } from "../permissions";
 
 describe("permission catalog", () => {
@@ -37,8 +38,15 @@ describe("default role -> permission mapping", () => {
     }
   });
 
-  it("grants admin every permission in the catalog", () => {
-    expect(new Set(DEFAULT_ROLE_PERMISSIONS.admin)).toEqual(validKeys);
+  it("grants admin every permission in the catalog except the teacher-only ones", () => {
+    const expected = new Set([...validKeys].filter((k) => !TEACHER_ONLY_PERMISSIONS.includes(k)));
+    expect(new Set(DEFAULT_ROLE_PERMISSIONS.admin)).toEqual(expected);
+  });
+
+  it("grants the Question Bank hub to instructors only", () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.instructor).toContain("QUESTION_BANK_HUB_VIEW");
+    expect(DEFAULT_ROLE_PERMISSIONS.admin).not.toContain("QUESTION_BANK_HUB_VIEW");
+    expect(DEFAULT_ROLE_PERMISSIONS.student).not.toContain("QUESTION_BANK_HUB_VIEW");
   });
 
   it("does not grant instructor admin-only management permissions", () => {

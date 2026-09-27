@@ -327,6 +327,9 @@ export interface QuestionBankEntry {
     size?: number;
   }> | null;
   created_by: number;
+  /** Set by the list endpoint: the caller created it / may edit or delete it. */
+  is_own?: boolean;
+  can_manage?: boolean;
   blooms_taxonomy_level_id?: number | null;
   tags?: string[] | null;
   difficulty_level?: DifficultyLevel | null;

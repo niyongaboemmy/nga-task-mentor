@@ -24,7 +24,7 @@ const SCHOOL_ONLY = { scopeable: false };
 export const TM_MANIFEST = defineManifest({
   app: "tm",
   name: "Task Mentor",
-  version: "2026.09.27",
+  version: "2026.09.27.1",
   capabilities: {
     USERS_VIEW_SELF: R("View own profile", "PEOPLE"),
     USERS_VIEW_ALL: R("View students and staff", "PEOPLE"),
@@ -73,6 +73,7 @@ export const TM_MANIFEST = defineManifest({
     QUESTION_BANK_EDIT: W("Edit the question bank", "CURRICULUM"),
     QUESTION_BANK_DELETE: W("Delete from the question bank", "CURRICULUM"),
     QUESTION_BANK_MANAGE_ANY: W("Curate anyone's questions", "CURRICULUM"),
+    QUESTION_BANK_HUB_VIEW: R("Question Bank hub (own subjects)", "CURRICULUM"),
 
     GRADING_MANUAL_ASSESS: W("Record manual assessments", "ASSESSMENT"),
     GRADING_OVERRIDE_SCORE: W("Override a score (audited)", "ASSESSMENT"),

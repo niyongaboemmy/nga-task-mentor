@@ -45,6 +45,7 @@ import dashboardRoutes from "./routes/dashboard";
 import quizRoutes from "./routes/quizzes";
 import proctoringRoutes from "./routes/proctoring";
 import questionBankRoutes from "./routes/questionBank";
+import questionBankHubRoutes from "./routes/questionBankHub";
 import academicsRoutes from "./routes/academics";
 import reportCardRoutes from "./routes/reportCards";
 import manualAssessmentRoutes from "./routes/manualAssessments";
@@ -272,6 +273,7 @@ const startServer = async (): Promise<void> => {
     app.use("/api/users", userRoutes);
     app.use("/api/courses", courseRoutes);
     app.use("/api/courses/:courseId/question-bank", questionBankRoutes);
+    app.use("/api/question-bank", questionBankHubRoutes);
     app.use("/api/assignments", assignmentRoutes);
     app.use("/api/submissions", submissionRoutes);
     app.use("/api/dashboard", dashboardRoutes);

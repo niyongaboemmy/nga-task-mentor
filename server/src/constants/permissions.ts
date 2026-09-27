@@ -98,6 +98,7 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
   { key: "QUESTION_BANK_EDIT", category: "QUESTION_BANK", description: "Edit question bank entries" },
   { key: "QUESTION_BANK_DELETE", category: "QUESTION_BANK", description: "Delete question bank entries" },
   { key: "QUESTION_BANK_MANAGE_ANY", category: "QUESTION_BANK", description: "Edit/delete any question bank entry regardless of ownership" },
+  { key: "QUESTION_BANK_HUB_VIEW", category: "QUESTION_BANK", description: "Open the Question Bank hub: cross-subject dashboard and list for the subjects you teach" },
 
   // GRADING
   { key: "GRADING_MANUAL_ASSESS", category: "GRADING", description: "Perform manual (paper-based) assessment scoring" },
@@ -161,11 +162,19 @@ export const PERMISSIONS_BY_CATEGORY: Record<PermissionCategory, PermissionDefin
   );
 
 /**
+ * Permissions that belong to the teaching role only and are deliberately NOT
+ * part of admin's "everything" default: the Question Bank hub is scoped to
+ * the caller's own assigned subjects, which an admin doesn't have. A custom
+ * role can still be granted them from Roles & Permissions.
+ */
+export const TEACHER_ONLY_PERMISSIONS: readonly string[] = ["QUESTION_BANK_HUB_VIEW"];
+
+/**
  * Default permission set granted to each of the 3 seeded system roles.
  * Mirrored (as a literal array) in the seed migration.
  */
 export const DEFAULT_ROLE_PERMISSIONS: Record<"admin" | "instructor" | "student", string[]> = {
-  admin: ALL_PERMISSION_KEYS.slice(),
+  admin: ALL_PERMISSION_KEYS.filter((k) => !TEACHER_ONLY_PERMISSIONS.includes(k)),
 
   instructor: [
     "COURSES_VIEW",
@@ -192,6 +201,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"admin" | "instructor" | "student"
     "QUESTION_BANK_CREATE",
     "QUESTION_BANK_EDIT",
     "QUESTION_BANK_DELETE",
+    "QUESTION_BANK_HUB_VIEW",
     "GRADING_MANUAL_ASSESS",
     "GRADING_OVERRIDE_SCORE",
     "PROCTORING_MANAGE_SETTINGS",

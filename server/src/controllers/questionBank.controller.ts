@@ -121,12 +121,19 @@ export const getCourseQuestions = async (req: Request, res: Response) => {
       offset,
     });
 
+    // Edit/delete are owner-only unless QUESTION_BANK_MANAGE_ANY (see
+    // update/deleteCourseQuestion), so tell the client which rows it may touch.
+    const manageAny = !!req.user?.permissions?.has("QUESTION_BANK_MANAGE_ANY");
     res.status(200).json({
       success: true,
       count,
       page: pageNum,
       total_pages: Math.ceil(count / limitNum),
-      data: rows,
+      data: rows.map((row) => ({
+        ...row.toJSON(),
+        is_own: row.created_by === req.user?.id,
+        can_manage: manageAny || row.created_by === req.user?.id,
+      })),
     });
   } catch (error) {
     console.error("Get course questions error:", error);

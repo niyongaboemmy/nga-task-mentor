@@ -73,8 +73,8 @@ describe("Task Mentor manifest", () => {
     expect(keys).toEqual(expect.arrayContaining(["REPORT_CARDS_COMMENT", "REPORT_CARDS_PUBLISH"]));
   });
 
-  it("had exactly two keys added to the pre-v2 catalog", () => {
-    const newKeys = ["REPORT_CARDS_COMMENT", "REPORT_CARDS_PUBLISH"];
+  it("had exactly the known keys added to the pre-v2 catalog", () => {
+    const newKeys = ["QUESTION_BANK_HUB_VIEW", "REPORT_CARDS_COMMENT", "REPORT_CARDS_PUBLISH"];
     const legacy = ALL_PERMISSION_KEYS.filter((k) => !newKeys.includes(k));
     expect(Object.keys(TM_MANIFEST.capabilities).filter((k) => !legacy.includes(k)).sort()).toEqual(newKeys);
     expect(TM_MANIFEST.app).toBe("tm");

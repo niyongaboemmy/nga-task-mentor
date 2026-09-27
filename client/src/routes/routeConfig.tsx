@@ -15,6 +15,7 @@ import {
   User as UserIcon,
   Radio,
   Award,
+  Library,
 } from "lucide-react";
 
 import Dashboard from "../components/Dashboard/Dashboard";
@@ -54,6 +55,7 @@ import SubjectAssessmentReportPage from "../pages/SubjectAssessmentReportPage";
 import GeneralAttributesPage from "../pages/GeneralAttributesPage";
 import BloomsTaxonomyManagementPage from "../components/Quizzes/BloomsTaxonomyManagementPage";
 import QuestionBankPage from "../pages/QuestionBankPage";
+import QuestionBankHubPage from "../pages/QuestionBankHubPage";
 import SubmissionDetailPage from "../pages/SubmissionDetailPage";
 import GradesPage from "../pages/GradesPage";
 import AssessmentMarksPage from "../pages/AssessmentMarksPage";
@@ -247,6 +249,14 @@ export const appRoutes: AppRoute[] = [
     path: "/quizzes/:id/results",
     element: <QuizResultsPage />,
     permissions: ["QUIZZES_VIEW_RESULTS_OWN"],
+  },
+  {
+    // Teacher-only hub: every assigned subject's bank in one place
+    // (cross-subject dashboard + per-subject question list).
+    path: "/question-bank",
+    element: <QuestionBankHubPage />,
+    permissions: ["QUESTION_BANK_HUB_VIEW"],
+    navItem: { label: "Question Bank", icon: Library, group: "Teaching" },
   },
   {
     path: "/proctoring/live",

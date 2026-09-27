@@ -1,5 +1,4 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { Link } from "react-router-dom";
 import {
   Search,
   Filter,
@@ -22,6 +21,9 @@ import {
   Clock,
   BookOpen,
   Sparkles,
+  Lock,
+  UserCheck,
+  RotateCcw,
 } from "lucide-react";
 import { QuestionBankApiService, QuizApiService } from "../../services/quizApi";
 import QuestionBankModal from "./QuestionBankModal";
@@ -29,7 +31,7 @@ import DocxUploadModal from "./DocxUploadModal";
 import AIGenerateModal from "./AIGenerateModal";
 import QuestionPreviewModal from "../Quizzes/QuestionPreviewModal";
 import RichTextDisplay from "../Common/RichTextDisplay";
-import { CourseApiService } from "../../services/courseApi";
+import ConfirmDialog from "../ui/ConfirmDialog";
 import type { Course } from "../../types/course.types";
 import { useSchemeOfWork } from "../../contexts/SchemeOfWorkContext";
 import { useCourseCache } from "../../contexts/CourseCacheContext";
@@ -117,9 +119,17 @@ const PillToggle: React.FC<{
 
 interface QuestionBankListProps {
   courseId: number;
+  /** Hide the subject card in the header (the host page already names it). */
+  hideCourseCard?: boolean;
+  /** Called after a question is created, imported, edited or deleted. */
+  onChanged?: () => void;
 }
 
-const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
+const QuestionBankList: React.FC<QuestionBankListProps> = ({
+  courseId,
+  hideCourseCard = false,
+  onChanged,
+}) => {
   const [questions, setQuestions] = useState<QuestionBankEntry[]>([]);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -149,6 +159,9 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewQuestion, setPreviewQuestion] =
     useState<QuestionBankEntry | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<QuestionBankEntry | null>(
+    null,
+  );
 
   // Scheme of Work Filter State
   const [schemeEntries, setSchemeEntries] = useState<SchemeOfWorkEntry[]>([]);
@@ -250,24 +263,91 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
     };
   }, [fetchQuestions]);
 
-  const handleDelete = async (id: number) => {
-    if (
-      window.confirm(
-        "Are you sure you want to delete this question? It cannot be deleted if it is assigned to any quizzes.",
-      )
-    ) {
-      try {
-        await QuestionBankApiService.deleteCourseQuestion(courseId, id);
-        toast.success("Question deleted successfully");
-        fetchQuestions();
-      } catch (err: any) {
-        toast.error(
-          err.response?.data?.message ||
-            "Cannot delete question. It might be assigned to a quiz.",
-        );
-      }
+  const handleChanged = () => {
+    fetchQuestions();
+    onChanged?.();
+  };
+
+  const confirmDelete = async () => {
+    const target = pendingDelete;
+    setPendingDelete(null);
+    if (!target) return;
+    try {
+      await QuestionBankApiService.deleteCourseQuestion(courseId, target.id);
+      toast.success("Question deleted");
+      // Stepping back keeps the user on a non-empty page after deleting the last row.
+      if (questions.length === 1 && page > 1) setPage(page - 1);
+      handleChanged();
+    } catch (err: any) {
+      toast.error(
+        err.response?.data?.message ||
+          "Cannot delete question. It might be assigned to a quiz.",
+      );
     }
   };
+
+  const activeFilterCount =
+    selectedTypes.length +
+    selectedDifficulties.length +
+    selectedBlooms.length +
+    selectedTags.length +
+    selectedSchemeEntryIds.length;
+
+  const clearFilters = () => {
+    setSearch("");
+    setSelectedTypes([]);
+    setSelectedDifficulties([]);
+    setSelectedBlooms([]);
+    setSelectedTags([]);
+    setSelectedSchemeEntryIds([]);
+    setPage(1);
+  };
+
+  const activeChips: { key: string; label: string; onRemove: () => void }[] = [
+    ...selectedTypes.map((t) => ({
+      key: `type-${t}`,
+      label: QUESTION_TYPES.find((q) => q.value === t)?.label ?? t,
+      onRemove: () => {
+        setSelectedTypes(selectedTypes.filter((x) => x !== t));
+        setPage(1);
+      },
+    })),
+    ...selectedDifficulties.map((d) => ({
+      key: `diff-${d}`,
+      label: DIFFICULTY_LEVELS.find((x) => x.value === d)?.label ?? d,
+      onRemove: () => {
+        setSelectedDifficulties(selectedDifficulties.filter((x) => x !== d));
+        setPage(1);
+      },
+    })),
+    ...selectedBlooms.map((id) => {
+      const bl = bloomsLevels.find((b) => b.id === id);
+      return {
+        key: `blooms-${id}`,
+        label: bl ? `L${bl.level_order} ${bl.name}` : `Bloom's #${id}`,
+        onRemove: () => {
+          setSelectedBlooms(selectedBlooms.filter((x) => x !== id));
+          setPage(1);
+        },
+      };
+    }),
+    ...selectedSchemeEntryIds.map((id) => ({
+      key: `sow-${id}`,
+      label: schemeEntries.find((e) => e.entry_id === id)?.topic ?? `Topic #${id}`,
+      onRemove: () => {
+        setSelectedSchemeEntryIds(selectedSchemeEntryIds.filter((x) => x !== id));
+        setPage(1);
+      },
+    })),
+    ...selectedTags.map((t) => ({
+      key: `tag-${t}`,
+      label: `#${t}`,
+      onRemove: () => {
+        setSelectedTags(selectedTags.filter((x) => x !== t));
+        setPage(1);
+      },
+    })),
+  ];
 
   const toggleInArray = <T,>(arr: T[], value: T): T[] =>
     arr.includes(value) ? arr.filter((v) => v !== value) : [...arr, value];
@@ -286,6 +366,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
   };
 
   const handleAdd = () => {
+    setSelectedQuestion(null);
     setIsModalOpen(true);
   };
   const handlePreview = (question: QuestionBankEntry) => {
@@ -299,7 +380,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
         {/* Header & Controls */}
         <div className="p-5 border-b border-gray-200/60 dark:border-gray-800 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-            {courseData && (
+            {courseData && !hideCourseCard && (
               <div className="flex items-center gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100/50 dark:border-blue-800/30 rounded-2xl">
                 <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
                   <BookOpen className="w-5 h-5" />
@@ -334,14 +415,33 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
               <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
                 Questions List
               </h2>
-              <p className="text-sm text-gray-400 dark:text-gray-400/60 font-light">
-                Manage all questions in the bank for this course.
+              <p className="text-sm text-slate-600 dark:text-slate-300">
+                {loading
+                  ? "Loading…"
+                  : `${totalQuestions} question${totalQuestions === 1 ? "" : "s"}${
+                      activeFilterCount > 0 || search.trim() ? " match your filters" : " in this bank"
+                    }`}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <input
+                type="search"
+                value={search}
+                onChange={(e) => {
+                  setSearch(e.target.value);
+                  setPage(1);
+                }}
+                placeholder="Search questions or tags…"
+                aria-label="Search questions"
+                className="w-64 max-w-full rounded-xl border border-gray-300 bg-white py-2 pl-9 pr-3 text-sm text-text-primary-light placeholder-slate-500 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700/50 dark:bg-gray-800/50 dark:text-text-primary-dark dark:placeholder-slate-400"
+              />
+            </div>
             <button
               onClick={() => setShowFilters(!showFilters)}
+              aria-expanded={showFilters}
               className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-xl border transition-colors ${
                 showFilters
                   ? "bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/40 dark:text-blue-400 dark:border-blue-800"
@@ -349,6 +449,11 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
               }`}
             >
               <Filter className="w-4 h-4" /> Filters{" "}
+              {activeFilterCount > 0 && (
+                <span className="rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                  {activeFilterCount}
+                </span>
+              )}
               {showFilters ? (
                 <ChevronUp className="w-4 h-4" />
               ) : (
@@ -382,26 +487,6 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
         {/* Advanced Filters */}
         {showFilters && (
           <div className="p-5 bg-surface-light dark:bg-surface-dark/30 border-b border-border-light dark:border-border-dark/30 space-y-5">
-            {/* Keyword Search */}
-            <div>
-              <label className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark/70 uppercase tracking-wide mb-2 flex items-center gap-1">
-                <Search className="w-3 h-3" /> Keyword Search
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={search}
-                  onChange={(e) => {
-                    setSearch(e.target.value);
-                    setPage(1);
-                  }}
-                  placeholder="Search question text..."
-                  className="w-full pl-10 pr-4 py-2.5 text-sm rounded-xl border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark placeholder-text-secondary-light dark:placeholder-text-secondary-dark/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
-                />
-                <Search className="absolute left-3.5 top-3 w-4 h-4 text-gray-400" />
-              </div>
-            </div>
-
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Question Types */}
               <div>
@@ -595,6 +680,45 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
           </div>
         )}
 
+        {/* Active filters */}
+        {(activeChips.length > 0 || search.trim()) && (
+          <div className="flex flex-wrap items-center gap-2 border-b border-border-light px-5 py-3 dark:border-border-dark/30">
+            <span className="text-xs font-medium text-slate-600 dark:text-slate-300">Filtered by:</span>
+            {search.trim() && (
+              <span className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300">
+                “{search.trim()}”
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setPage(1);
+                  }}
+                  aria-label="Clear search"
+                  className="hover:text-red-500"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {activeChips.map((c) => (
+              <span
+                key={c.key}
+                className="inline-flex max-w-[16rem] items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-2.5 py-1 text-xs text-blue-700 dark:border-blue-800 dark:bg-blue-900/30 dark:text-blue-300"
+              >
+                <span className="truncate">{c.label}</span>
+                <button onClick={c.onRemove} aria-label={`Remove filter ${c.label}`} className="hover:text-red-500">
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+            <button
+              onClick={clearFilters}
+              className="ml-1 inline-flex items-center gap-1 text-xs font-semibold text-slate-600 hover:text-blue-600 dark:text-slate-300 dark:hover:text-blue-400"
+            >
+              <RotateCcw className="h-3 w-3" /> Clear all
+            </button>
+          </div>
+        )}
+
         {/* Table */}
         <div className="overflow-x-auto min-h-[300px]">
           {loading ? (
@@ -608,12 +732,38 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                 <Search className="w-8 h-8 text-gray-400" />
               </div>
               <h3 className="text-lg font-medium text-text-primary-light dark:text-text-primary-dark mb-1">
-                No questions found
+                {activeFilterCount > 0 || search.trim()
+                  ? "No questions match"
+                  : "This bank is empty"}
               </h3>
-              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 max-w-sm mx-auto">
-                We couldn't find any questions matching your current filters.
-                Try adjusting your search criteria or adding a new question.
+              <p className="text-sm text-slate-600 dark:text-slate-300 max-w-sm mx-auto">
+                {activeFilterCount > 0 || search.trim()
+                  ? "Try removing a filter or searching for something else."
+                  : "Add your first question, import a Word/Excel file, or let AI draft some from your notes."}
               </p>
+              {activeFilterCount > 0 || search.trim() ? (
+                <button
+                  onClick={clearFilters}
+                  className="mt-4 inline-flex items-center gap-1.5 rounded-xl border border-gray-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-gray-50 dark:border-gray-700 dark:text-slate-200 dark:hover:bg-gray-800"
+                >
+                  <RotateCcw className="h-4 w-4" /> Clear filters
+                </button>
+              ) : (
+                <div className="mt-4 flex flex-wrap justify-center gap-2">
+                  <button
+                    onClick={handleAdd}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700"
+                  >
+                    <Plus className="h-4 w-4" /> Add question
+                  </button>
+                  <button
+                    onClick={() => setIsAIGenerateOpen(true)}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+                  >
+                    <Sparkles className="h-4 w-4" /> AI Generate
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <table className="w-full text-sm text-left">
@@ -653,12 +803,19 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                             content={question.question_text || ""}
                           />
                         </div>
-                        {question.explanation && (
-                          <div className="mt-1 text-xs text-blue-500 dark:text-blue-400 flex items-center gap-1">
-                            <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500"></span>{" "}
-                            Has Explanation
-                          </div>
-                        )}
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                          {question.explanation && (
+                            <span className="flex items-center gap-1 text-blue-600 dark:text-blue-400">
+                              <span className="shrink-0 w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                              Has explanation
+                            </span>
+                          )}
+                          {question.is_own && (
+                            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400">
+                              <UserCheck className="w-3 h-3" /> Yours
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col gap-1.5">
@@ -668,7 +825,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                           </span>
                           {question.tags && question.tags.length > 0 && (
                             <div className="flex flex-wrap gap-1">
-                              {question.tags.slice(0, 1).map((tag) => (
+                              {question.tags.slice(0, 2).map((tag) => (
                                 <span
                                   key={tag}
                                   className="text-[10px] px-2 py-0.5 bg-surface-light dark:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark rounded-xl truncate"
@@ -729,28 +886,42 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 group-focus-within:opacity-100">
                           <button
                             onClick={() => handlePreview(question)}
                             className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-colors"
-                            title="Preview Question"
+                            title="Preview question"
+                            aria-label="Preview question"
                           >
                             <Eye className="w-4 h-4" />
                           </button>
-                          <button
-                            onClick={() => handleEdit(question)}
-                            className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition-colors"
-                            title="Edit Question"
-                          >
-                            <Edit2 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(question.id)}
-                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
-                            title="Delete Question"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                          {question.can_manage === false ? (
+                            <span
+                              className="p-1.5 text-gray-400"
+                              title="Added by a colleague: only they can edit or delete it"
+                            >
+                              <Lock className="w-4 h-4" />
+                            </span>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => handleEdit(question)}
+                                className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded transition-colors"
+                                title="Edit question"
+                                aria-label="Edit question"
+                              >
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => setPendingDelete(question)}
+                                className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-colors"
+                                title="Delete question"
+                                aria-label="Delete question"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -808,21 +979,31 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({ courseId }) => {
         onClose={() => setIsModalOpen(false)}
         courseId={courseId}
         question={selectedQuestion}
-        onSuccess={fetchQuestions}
+        onSuccess={handleChanged}
       />
 
       <DocxUploadModal
         isOpen={isDocxModalOpen}
         onClose={() => setIsDocxModalOpen(false)}
         courseId={courseId}
-        onSuccess={fetchQuestions}
+        onSuccess={handleChanged}
       />
 
       <AIGenerateModal
         isOpen={isAIGenerateOpen}
         onClose={() => setIsAIGenerateOpen(false)}
         courseId={courseId}
-        onSuccess={fetchQuestions}
+        onSuccess={handleChanged}
+      />
+
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        danger
+        title="Delete this question?"
+        description="It will be removed from the bank for good. Questions already used in a quiz can't be deleted."
+        confirmLabel="Delete"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDelete(null)}
       />
 
       {isPreviewOpen && previewQuestion && (
