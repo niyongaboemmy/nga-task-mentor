@@ -61,4 +61,10 @@ export const QuestionBankHubApiService = {
     });
     return res.data.data;
   },
+
+  /** The same dashboard for one subject (its own question bank page). */
+  async getCourseOverview(courseId: number): Promise<QuestionBankOverview> {
+    const res = await axios.get(`/courses/${courseId}/question-bank/overview`);
+    return res.data.data;
+  },
 };

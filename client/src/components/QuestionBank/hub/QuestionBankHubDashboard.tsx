@@ -239,6 +239,37 @@ const QuestionBankHubDashboard: React.FC<Props> = ({ data, refreshing, onRefresh
 
   return (
     <div className="space-y-5 print:space-y-3">
+      {/* Toolbar: freshness + report actions (both views) */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className={`text-xs ${SECONDARY}`}>
+          {singleSubject ? "This subject's question bank" : `Across your ${subjects.length} subject${subjects.length === 1 ? "" : "s"}`}
+          {" · "}updated {formatDateTimeLocal(data.generated_at)}
+        </p>
+        <div className="flex items-center gap-2 print:hidden">
+          <button
+            type="button"
+            onClick={onRefresh}
+            disabled={refreshing}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} /> Refresh
+          </button>
+          <button
+            type="button"
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-gray-50 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+          >
+            <Printer className="h-3.5 w-3.5" /> Print
+          </button>
+          <button
+            type="button"
+            onClick={() => downloadCsv(subjects)}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
+          >
+            <Download className="h-3.5 w-3.5" /> Export CSV
+          </button>
+        </div>
+      </div>
       {/* Health summary + KPIs */}
       <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,22rem)_1fr] gap-5">
         <div className={`${CARD} p-5 flex items-center gap-4`}>
@@ -252,9 +283,6 @@ const QuestionBankHubDashboard: React.FC<Props> = ({ data, refreshing, onRefresh
               {totals.total === 0
                 ? "No questions yet. Your score grows as you add, explain and classify questions."
                 : "Combines explanations, Bloom's classification, difficulty spread and scheme-of-work links."}
-            </p>
-            <p className={`text-[11px] mt-2 ${SECONDARY}`}>
-              Updated {formatDateTimeLocal(data.generated_at)}
             </p>
           </div>
         </div>
@@ -370,32 +398,6 @@ const QuestionBankHubDashboard: React.FC<Props> = ({ data, refreshing, onRefresh
         <Section
           title="Subject report"
           icon={Layers}
-          aside={
-            <div className="flex items-center gap-2 print:hidden">
-              <button
-                type="button"
-                onClick={onRefresh}
-                disabled={refreshing}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
-              >
-                <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} /> Refresh
-              </button>
-              <button
-                type="button"
-                onClick={() => window.print()}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-gray-50 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
-              >
-                <Printer className="h-3.5 w-3.5" /> Print
-              </button>
-              <button
-                type="button"
-                onClick={() => downloadCsv(subjects)}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
-              >
-                <Download className="h-3.5 w-3.5" /> Export CSV
-              </button>
-            </div>
-          }
         >
           {subjects.length === 0 ? (
             <EmptyNote>You have no subjects assigned for the selected academic period.</EmptyNote>

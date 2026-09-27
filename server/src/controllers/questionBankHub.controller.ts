@@ -88,7 +88,13 @@ export function buildAlerts(subjects: SubjectBankStats[]): BankAlert[] {
   for (const s of subjects) {
     const label = s.subject_code ? `${s.subject_code} · ${s.subject_name}` : s.subject_name;
     const push = (kind: string, severity: AlertSeverity, title: string, message: string) =>
-      alerts.push({ id: `${kind}:${s.subject_id}`, severity, subject_id: s.subject_id, title, message });
+      alerts.push({
+        id: `${kind}:${s.subject_id}`,
+        severity,
+        subject_id: s.subject_id,
+        title: title.charAt(0).toUpperCase() + title.slice(1),
+        message,
+      });
 
     if (s.total === 0) {
       push("empty", "critical", `${label} has no questions`,
@@ -166,6 +172,168 @@ function sumTotals(rows: SubjectBankStats[]): Totals {
 const toIso = (v: unknown): string | null =>
   v == null ? null : new Date(v as string).toISOString();
 
+/**
+ * The dashboard payload for `focus` (the subjects whose questions are
+ * counted). `available` feeds the client's subject picker, and
+ * `focusedSubjectId` is set when the view is narrowed to one subject.
+ */
+async function buildOverview(
+  req: Request,
+  focus: ScopedSubject[],
+  available: ScopedSubject[],
+  focusedSubjectId: number | null,
+) {
+  const ids = focus.map((s) => s.id);
+  const userId = req.user.id;
+  const now = Date.now();
+  const since7 = new Date(now - 7 * DAY_MS);
+  const since30 = new Date(now - 30 * DAY_MS);
+  // Monday-aligned start of the trend window, so buckets are whole weeks.
+  const trendStart = new Date(now);
+  trendStart.setUTCHours(0, 0, 0, 0);
+  trendStart.setUTCDate(trendStart.getUTCDate() - ((trendStart.getUTCDay() + 6) % 7) - (TREND_WEEKS - 1) * 7);
+
+  const bySubject = new Map<number, SubjectBankStats>(focus.map((s) => [s.id, emptyStats(s)]));
+  let byType: { type: string; count: number }[] = [];
+  let byBlooms: { level_id: number | null; name: string; level_order: number | null; count: number }[] = [];
+  let topTopics: { title: string; count: number }[] = [];
+  let mostUsed: { id: number; subject_id: number; question_text: string; question_type: string; uses: number }[] = [];
+  const weekly = new Map<string, number>();
+
+  if (ids.length > 0) {
+    const base = { replacements: { ids, userId, since7, since30, trendStart, minOrder: HIGHER_ORDER_MIN_LEVEL }, type: QueryTypes.SELECT as const };
+
+    const [subjectRows, typeRows, bloomsRows, topicRows, usedRows, trendRows] = await Promise.all([
+      sequelize.query<any>(
+        `SELECT qb.course_id,
+                COUNT(*) AS total,
+                SUM(qb.created_by = :userId) AS mine,
+                SUM(qb.difficulty_level = 'EASY') AS easy,
+                SUM(qb.difficulty_level = 'MEDIUM') AS medium,
+                SUM(qb.difficulty_level = 'DIFFICULT') AS difficult,
+                SUM(qb.difficulty_level IS NULL) AS no_difficulty,
+                SUM(${HAS_EXPLANATION_SQL}) AS with_explanation,
+                SUM(qb.blooms_taxonomy_level_id IS NOT NULL) AS blooms_classified,
+                SUM(bl.level_order >= :minOrder) AS higher_order,
+                SUM(qb.scheme_of_work_entry_id IS NOT NULL) AS sow_linked,
+                COUNT(DISTINCT qb.scheme_of_work_entry_id) AS topics_covered,
+                SUM(qb.created_at >= :since7) AS added_7d,
+                SUM(qb.created_at >= :since30) AS added_30d,
+                MAX(qb.created_at) AS last_added_at
+           FROM question_bank qb
+           LEFT JOIN blooms_taxonomy_levels bl ON bl.id = qb.blooms_taxonomy_level_id
+          WHERE qb.course_id IN (:ids)
+          GROUP BY qb.course_id`,
+        base,
+      ),
+      sequelize.query<any>(
+        `SELECT question_type AS type, COUNT(*) AS count
+           FROM question_bank WHERE course_id IN (:ids)
+          GROUP BY question_type ORDER BY count DESC`,
+        base,
+      ),
+      sequelize.query<any>(
+        `SELECT bl.id AS level_id, bl.name, bl.level_order, COUNT(qb.id) AS count
+           FROM blooms_taxonomy_levels bl
+           LEFT JOIN question_bank qb
+             ON qb.blooms_taxonomy_level_id = bl.id AND qb.course_id IN (:ids)
+          GROUP BY bl.id, bl.name, bl.level_order
+          ORDER BY bl.level_order`,
+        base,
+      ),
+      sequelize.query<any>(
+        `SELECT scheme_of_work_entry_title AS title, COUNT(*) AS count
+           FROM question_bank
+          WHERE course_id IN (:ids) AND scheme_of_work_entry_title IS NOT NULL
+            AND scheme_of_work_entry_title <> ''
+          GROUP BY scheme_of_work_entry_title
+          ORDER BY count DESC, title ASC LIMIT 8`,
+        base,
+      ),
+      sequelize.query<any>(
+        `SELECT qb.id, qb.course_id, qb.question_text, qb.question_type,
+                COUNT(DISTINCT qq.quiz_id) AS uses
+           FROM question_bank qb
+           JOIN quiz_questions qq ON qq.question_id = qb.id
+          WHERE qb.course_id IN (:ids)
+          GROUP BY qb.id, qb.course_id, qb.question_text, qb.question_type`,
+        base,
+      ),
+      sequelize.query<any>(
+        `SELECT DATE(created_at) AS day, COUNT(*) AS count
+           FROM question_bank
+          WHERE course_id IN (:ids) AND created_at >= :trendStart
+          GROUP BY DATE(created_at)`,
+        base,
+      ),
+    ]);
+
+    for (const r of subjectRows) {
+      const s = bySubject.get(Number(r.course_id));
+      if (!s) continue;
+      for (const k of [
+        "total", "mine", "easy", "medium", "difficult", "no_difficulty", "with_explanation",
+        "blooms_classified", "higher_order", "sow_linked", "topics_covered", "added_7d", "added_30d",
+      ] as const) {
+        s[k] = Number(r[k] ?? 0);
+      }
+      s.last_added_at = toIso(r.last_added_at);
+    }
+    for (const r of usedRows) {
+      const s = bySubject.get(Number(r.course_id));
+      if (s) s.used_in_quizzes += 1;
+    }
+
+    byType = typeRows.map((r) => ({ type: String(r.type), count: Number(r.count) }));
+    const unclassified = [...bySubject.values()].reduce((n, s) => n + s.total - s.blooms_classified, 0);
+    byBlooms = bloomsRows.map((r) => ({
+      level_id: Number(r.level_id),
+      name: String(r.name),
+      level_order: Number(r.level_order),
+      count: Number(r.count),
+    }));
+    if (unclassified > 0) byBlooms.push({ level_id: null, name: "Unclassified", level_order: null, count: unclassified });
+    topTopics = topicRows.map((r) => ({ title: String(r.title), count: Number(r.count) }));
+    mostUsed = usedRows
+      .map((r) => ({
+        id: Number(r.id),
+        subject_id: Number(r.course_id),
+        question_text: String(r.question_text ?? ""),
+        question_type: String(r.question_type),
+        uses: Number(r.uses),
+      }))
+      .sort((a, b) => b.uses - a.uses || b.id - a.id)
+      .slice(0, 5);
+    for (const r of trendRows) {
+      const day = new Date(r.day);
+      const monday = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()));
+      monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+      const key = monday.toISOString().slice(0, 10);
+      weekly.set(key, (weekly.get(key) ?? 0) + Number(r.count));
+    }
+  }
+
+  const subjects = [...bySubject.values()].map((s) => ({ ...s, health_score: healthScore(s) }));
+  const trend = Array.from({ length: TREND_WEEKS }, (_, i) => {
+    const d = new Date(trendStart.getTime() + i * 7 * DAY_MS).toISOString().slice(0, 10);
+    return { week_start: d, count: weekly.get(d) ?? 0 };
+  });
+
+  return {
+    generated_at: new Date(now).toISOString(),
+    subject_id: focusedSubjectId,
+    available_subjects: available,
+    totals: sumTotals(subjects),
+    subjects: subjects.sort((a, b) => a.subject_name.localeCompare(b.subject_name)),
+    by_type: byType,
+    by_blooms: byBlooms,
+    top_topics: topTopics,
+    most_used: mostUsed,
+    trend,
+    alerts: buildAlerts(subjects),
+  };
+}
+
 // @desc    Cross-subject question bank dashboard for the caller's own subjects
 // @route   GET /api/question-bank/overview?subjectId=
 // @access  QUESTION_BANK_HUB_VIEW
@@ -180,158 +348,28 @@ export const getQuestionBankOverview = async (req: Request, res: Response) => {
       });
     }
     const focus = subjectIdParam != null ? scoped.filter((s) => s.id === subjectIdParam) : scoped;
-    const ids = focus.map((s) => s.id);
-    const userId = req.user.id;
-    const now = Date.now();
-    const since7 = new Date(now - 7 * DAY_MS);
-    const since30 = new Date(now - 30 * DAY_MS);
-    // Monday-aligned start of the trend window, so buckets are whole weeks.
-    const trendStart = new Date(now);
-    trendStart.setUTCHours(0, 0, 0, 0);
-    trendStart.setUTCDate(trendStart.getUTCDate() - ((trendStart.getUTCDay() + 6) % 7) - (TREND_WEEKS - 1) * 7);
+    const data = await buildOverview(req, focus, scoped, subjectIdParam);
+    res.status(200).json({ success: true, data });
+  } catch (error) {
+    return sendControllerError(res, error, "Failed to load the question bank overview");
+  }
+};
 
-    const bySubject = new Map<number, SubjectBankStats>(focus.map((s) => [s.id, emptyStats(s)]));
-    let byType: { type: string; count: number }[] = [];
-    let byBlooms: { level_id: number | null; name: string; level_order: number | null; count: number }[] = [];
-    let topTopics: { title: string; count: number }[] = [];
-    let mostUsed: { id: number; subject_id: number; question_text: string; question_type: string; uses: number }[] = [];
-    const weekly = new Map<string, number>();
-
-    if (ids.length > 0) {
-      const base = { replacements: { ids, userId, since7, since30, trendStart, minOrder: HIGHER_ORDER_MIN_LEVEL }, type: QueryTypes.SELECT as const };
-
-      const [subjectRows, typeRows, bloomsRows, topicRows, usedRows, trendRows] = await Promise.all([
-        sequelize.query<any>(
-          `SELECT qb.course_id,
-                  COUNT(*) AS total,
-                  SUM(qb.created_by = :userId) AS mine,
-                  SUM(qb.difficulty_level = 'EASY') AS easy,
-                  SUM(qb.difficulty_level = 'MEDIUM') AS medium,
-                  SUM(qb.difficulty_level = 'DIFFICULT') AS difficult,
-                  SUM(qb.difficulty_level IS NULL) AS no_difficulty,
-                  SUM(${HAS_EXPLANATION_SQL}) AS with_explanation,
-                  SUM(qb.blooms_taxonomy_level_id IS NOT NULL) AS blooms_classified,
-                  SUM(bl.level_order >= :minOrder) AS higher_order,
-                  SUM(qb.scheme_of_work_entry_id IS NOT NULL) AS sow_linked,
-                  COUNT(DISTINCT qb.scheme_of_work_entry_id) AS topics_covered,
-                  SUM(qb.created_at >= :since7) AS added_7d,
-                  SUM(qb.created_at >= :since30) AS added_30d,
-                  MAX(qb.created_at) AS last_added_at
-             FROM question_bank qb
-             LEFT JOIN blooms_taxonomy_levels bl ON bl.id = qb.blooms_taxonomy_level_id
-            WHERE qb.course_id IN (:ids)
-            GROUP BY qb.course_id`,
-          base,
-        ),
-        sequelize.query<any>(
-          `SELECT question_type AS type, COUNT(*) AS count
-             FROM question_bank WHERE course_id IN (:ids)
-            GROUP BY question_type ORDER BY count DESC`,
-          base,
-        ),
-        sequelize.query<any>(
-          `SELECT bl.id AS level_id, bl.name, bl.level_order, COUNT(qb.id) AS count
-             FROM blooms_taxonomy_levels bl
-             LEFT JOIN question_bank qb
-               ON qb.blooms_taxonomy_level_id = bl.id AND qb.course_id IN (:ids)
-            GROUP BY bl.id, bl.name, bl.level_order
-            ORDER BY bl.level_order`,
-          base,
-        ),
-        sequelize.query<any>(
-          `SELECT scheme_of_work_entry_title AS title, COUNT(*) AS count
-             FROM question_bank
-            WHERE course_id IN (:ids) AND scheme_of_work_entry_title IS NOT NULL
-              AND scheme_of_work_entry_title <> ''
-            GROUP BY scheme_of_work_entry_title
-            ORDER BY count DESC, title ASC LIMIT 8`,
-          base,
-        ),
-        sequelize.query<any>(
-          `SELECT qb.id, qb.course_id, qb.question_text, qb.question_type,
-                  COUNT(DISTINCT qq.quiz_id) AS uses
-             FROM question_bank qb
-             JOIN quiz_questions qq ON qq.question_id = qb.id
-            WHERE qb.course_id IN (:ids)
-            GROUP BY qb.id, qb.course_id, qb.question_text, qb.question_type`,
-          base,
-        ),
-        sequelize.query<any>(
-          `SELECT DATE(created_at) AS day, COUNT(*) AS count
-             FROM question_bank
-            WHERE course_id IN (:ids) AND created_at >= :trendStart
-            GROUP BY DATE(created_at)`,
-          base,
-        ),
-      ]);
-
-      for (const r of subjectRows) {
-        const s = bySubject.get(Number(r.course_id));
-        if (!s) continue;
-        for (const k of [
-          "total", "mine", "easy", "medium", "difficult", "no_difficulty", "with_explanation",
-          "blooms_classified", "higher_order", "sow_linked", "topics_covered", "added_7d", "added_30d",
-        ] as const) {
-          s[k] = Number(r[k] ?? 0);
-        }
-        s.last_added_at = toIso(r.last_added_at);
-      }
-      for (const r of usedRows) {
-        const s = bySubject.get(Number(r.course_id));
-        if (s) s.used_in_quizzes += 1;
-      }
-
-      byType = typeRows.map((r) => ({ type: String(r.type), count: Number(r.count) }));
-      const unclassified = [...bySubject.values()].reduce((n, s) => n + s.total - s.blooms_classified, 0);
-      byBlooms = bloomsRows.map((r) => ({
-        level_id: Number(r.level_id),
-        name: String(r.name),
-        level_order: Number(r.level_order),
-        count: Number(r.count),
-      }));
-      if (unclassified > 0) byBlooms.push({ level_id: null, name: "Unclassified", level_order: null, count: unclassified });
-      topTopics = topicRows.map((r) => ({ title: String(r.title), count: Number(r.count) }));
-      mostUsed = usedRows
-        .map((r) => ({
-          id: Number(r.id),
-          subject_id: Number(r.course_id),
-          question_text: String(r.question_text ?? ""),
-          question_type: String(r.question_type),
-          uses: Number(r.uses),
-        }))
-        .sort((a, b) => b.uses - a.uses || b.id - a.id)
-        .slice(0, 5);
-      for (const r of trendRows) {
-        const day = new Date(r.day);
-        const monday = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), day.getUTCDate()));
-        monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
-        const key = monday.toISOString().slice(0, 10);
-        weekly.set(key, (weekly.get(key) ?? 0) + Number(r.count));
-      }
+// @desc    The same dashboard for one subject, from its own question bank page
+// @route   GET /api/courses/:courseId/question-bank/overview
+// @access  QUESTION_BANK_VIEW (same gate as that subject's question list)
+export const getCourseQuestionBankOverview = async (req: Request, res: Response) => {
+  try {
+    const courseId = Number(req.params.courseId);
+    if (!Number.isInteger(courseId) || courseId <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid subject id" });
     }
-
-    const subjects = [...bySubject.values()].map((s) => ({ ...s, health_score: healthScore(s) }));
-    const trend = Array.from({ length: TREND_WEEKS }, (_, i) => {
-      const d = new Date(trendStart.getTime() + i * 7 * DAY_MS).toISOString().slice(0, 10);
-      return { week_start: d, count: weekly.get(d) ?? 0 };
-    });
-
-    res.status(200).json({
-      success: true,
-      data: {
-        generated_at: new Date(now).toISOString(),
-        subject_id: subjectIdParam,
-        available_subjects: scoped,
-        totals: sumTotals(subjects),
-        subjects: subjects.sort((a, b) => a.subject_name.localeCompare(b.subject_name)),
-        by_type: byType,
-        by_blooms: byBlooms,
-        top_topics: topTopics,
-        most_used: mostUsed,
-        trend,
-        alerts: buildAlerts(subjects),
-      },
-    });
+    // Only for the subject's display name in alerts; the figures don't depend on it.
+    const { subjects: scoped } = await getScopedSubjects(req);
+    const subject: ScopedSubject =
+      scoped.find((s) => s.id === courseId) ?? { id: courseId, name: "this subject", code: null };
+    const data = await buildOverview(req, [subject], [subject], courseId);
+    res.status(200).json({ success: true, data });
   } catch (error) {
     return sendControllerError(res, error, "Failed to load the question bank overview");
   }

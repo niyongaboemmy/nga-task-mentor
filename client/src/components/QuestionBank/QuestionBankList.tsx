@@ -5,8 +5,6 @@ import {
   Plus,
   Edit2,
   Trash2,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
   ChevronUp,
   Check,
@@ -45,6 +43,21 @@ import type {
 } from "../../types/quiz.types";
 import { toast } from "react-toastify";
 import { getQuestionTypeIcon } from "./questionTypeIcons";
+import { Skeleton, TopProgressBar, LoadingAnnouncer } from "../ui/Skeleton";
+import { QuestionRowsSkeleton } from "./hub/QuestionBankHubSkeleton";
+import Pagination from "../ui/Pagination";
+
+const PAGE_SIZE_KEY = "tm.questionBank.pageSize";
+const PAGE_SIZES = [10, 20, 50];
+// Per-viewer convenience only; storage can be unavailable (private mode).
+const loadPageSize = (): number => {
+  try {
+    const n = Number(localStorage.getItem(PAGE_SIZE_KEY));
+    return PAGE_SIZES.includes(n) ? n : 10;
+  } catch {
+    return 10;
+  }
+};
 
 // Question Types Map
 const QUESTION_TYPES: { value: QuestionType; label: string }[] = [
@@ -121,6 +134,8 @@ interface QuestionBankListProps {
   courseId: number;
   /** Hide the subject card in the header (the host page already names it). */
   hideCourseCard?: boolean;
+  /** Also drop the "Questions List" heading (the host page has its own). */
+  hideHeading?: boolean;
   /** Called after a question is created, imported, edited or deleted. */
   onChanged?: () => void;
 }
@@ -128,11 +143,17 @@ interface QuestionBankListProps {
 const QuestionBankList: React.FC<QuestionBankListProps> = ({
   courseId,
   hideCourseCard = false,
+  hideHeading = false,
   onChanged,
 }) => {
   const [questions, setQuestions] = useState<QuestionBankEntry[]>([]);
   const [totalQuestions, setTotalQuestions] = useState(0);
   const [loading, setLoading] = useState(true);
+  // First page not in yet -> skeleton rows; afterwards a refetch keeps the
+  // current rows (dimmed, with a progress bar) so the table doesn't flash.
+  const [hasLoaded, setHasLoaded] = useState(false);
+  const [deletingId, setDeletingId] = useState<number | null>(null);
+  const fetchSeq = useRef(0);
   const [bloomsLevels, setBloomsLevels] = useState<BloomsTaxonomyLevel[]>([]);
   const [showFilters, setShowFilters] = useState(false);
 
@@ -174,7 +195,25 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
   // Pagination
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const limit = 10;
+  const [limit, setLimit] = useState(loadPageSize);
+  const cardRef = useRef<HTMLDivElement>(null);
+
+  const changePageSize = (size: number) => {
+    setLimit(size);
+    setPage(1);
+    try {
+      localStorage.setItem(PAGE_SIZE_KEY, String(size));
+    } catch {
+      /* not persisted -- fine */
+    }
+  };
+
+  const goToPage = (next: number) => {
+    setPage(next);
+    // Bring the top of the list back into view when paging from the bottom.
+    const top = cardRef.current?.getBoundingClientRect().top ?? 0;
+    if (top < 0) cardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
 
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -214,6 +253,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
   }, [courseId, courseData, getEntries]);
 
   const fetchQuestions = useCallback(async () => {
+    const seq = ++fetchSeq.current;
     setLoading(true);
     try {
       const filters: any = { page, limit };
@@ -232,14 +272,17 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
         courseId,
         filters,
       );
+      if (seq !== fetchSeq.current) return;
       setQuestions(response.data);
       setTotalQuestions(response.count);
       setTotalPages(response.total_pages);
+      setHasLoaded(true);
     } catch (err) {
+      if (seq !== fetchSeq.current) return;
       console.error("Failed to load questions", err);
       toast.error("Failed to load question bank");
     } finally {
-      setLoading(false);
+      if (seq === fetchSeq.current) setLoading(false);
     }
   }, [
     courseId,
@@ -255,6 +298,8 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
   // Fetch when filters or page change
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    // Show the loading state straight away, not only after the debounce.
+    setLoading(true);
     debounceRef.current = setTimeout(() => {
       fetchQuestions();
     }, 400);
@@ -272,6 +317,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
     const target = pendingDelete;
     setPendingDelete(null);
     if (!target) return;
+    setDeletingId(target.id);
     try {
       await QuestionBankApiService.deleteCourseQuestion(courseId, target.id);
       toast.success("Question deleted");
@@ -283,6 +329,8 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
         err.response?.data?.message ||
           "Cannot delete question. It might be assigned to a quiz.",
       );
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -376,10 +424,22 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
 
   return (
     <>
-      <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden ">
+      <div
+        ref={cardRef}
+        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden scroll-mt-4"
+      >
         {/* Header & Controls */}
         <div className="p-5 border-b border-gray-200/60 dark:border-gray-800 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            {!courseData && !hideCourseCard && (
+              <div className="flex items-center gap-3 rounded-2xl border border-blue-100/50 p-3 dark:border-blue-800/30">
+                <Skeleton className="h-10 w-10 rounded-xl" />
+                <div className="space-y-2">
+                  <Skeleton className="h-3.5 w-44" />
+                  <Skeleton className="h-2.5 w-28" />
+                </div>
+              </div>
+            )}
             {courseData && !hideCourseCard && (
               <div className="flex items-center gap-3 p-3 bg-blue-50/50 dark:bg-blue-900/20 border border-blue-100/50 dark:border-blue-800/30 rounded-2xl">
                 <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 flex items-center justify-center text-blue-600 dark:text-blue-400">
@@ -412,16 +472,25 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
               </div>
             )}
             <div>
-              <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
-                Questions List
-              </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-300">
-                {loading
-                  ? "Loading…"
-                  : `${totalQuestions} question${totalQuestions === 1 ? "" : "s"}${
+              {!hideHeading && (
+                <h2 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
+                  Questions List
+                </h2>
+              )}
+              <div
+                className={`text-slate-600 dark:text-slate-300 ${hideHeading ? "text-sm font-medium" : "text-sm"}`}
+                aria-live="polite"
+              >
+                {loading && !hasLoaded ? (
+                  <Skeleton className="mt-1 h-3.5 w-36" />
+                ) : loading ? (
+                  <span className="inline-flex items-center gap-1.5">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin text-blue-500" /> Updating…
+                  </span>
+                ) : `${totalQuestions} question${totalQuestions === 1 ? "" : "s"}${
                       activeFilterCount > 0 || search.trim() ? " match your filters" : " in this bank"
                     }`}
-              </p>
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -464,8 +533,9 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
             <button
               className="flex items-center gap-2 px-4 py-2 bg-surface-light hover:bg-gray-200 dark:bg-surface-dark dark:hover:bg-gray-700 text-text-secondary-light dark:text-text-secondary-dark text-sm font-medium rounded-xl transition-colors border border-transparent"
               onClick={() => setIsDocxModalOpen(true)}
+              title="Import questions from a Word or Excel file"
             >
-              <FileText className="w-4 h-4" /> Import from Word
+              <FileText className="w-4 h-4" /> Import
             </button>
 
             <button
@@ -578,9 +648,13 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
                     <Brain className="w-3 h-3" /> Scheme of Work Topics
                   </label>
                   {isLoadingScheme ? (
-                    <div className="flex items-center gap-2 text-xs text-gray-500 py-2">
-                      <Loader2 className="w-3 h-3 animate-spin" /> Fetching
-                      entries...
+                    <div className="space-y-3" aria-busy="true" aria-label="Loading scheme of work topics">
+                      <Skeleton className="h-7 w-full rounded-lg" />
+                      <div className="flex flex-wrap gap-1.5">
+                        {[64, 96, 80, 120, 72, 104].map((w, i) => (
+                          <Skeleton key={i} className="h-7 rounded-2xl" style={{ width: w }} />
+                        ))}
+                      </div>
                     </div>
                   ) : (
                     <div className="space-y-3">
@@ -720,13 +794,17 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
         )}
 
         {/* Table */}
-        <div className="overflow-x-auto min-h-[300px]">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-64 space-y-4">
-              <Loader2 className="w-8 h-8 text-blue-500 animate-spin" />
-              <p className="text-sm text-gray-500">Loading questions...</p>
-            </div>
-          ) : questions.length === 0 ? (
+        <TopProgressBar active={loading && hasLoaded} label="Loading questions" />
+        <LoadingAnnouncer loading={loading} message="Loading questions…" />
+        <div
+          className={`overflow-x-auto min-h-[300px] transition-opacity duration-200 ${
+            loading && hasLoaded ? "opacity-60 pointer-events-none" : ""
+          }`}
+          aria-busy={loading}
+        >
+          {loading && !hasLoaded ? (
+            <QuestionRowsSkeleton rows={limit > 8 ? 8 : limit} />
+          ) : questions.length === 0 && !loading ? (
             <div className="flex flex-col items-center justify-center p-12 text-center">
               <div className="w-16 h-16 bg-surface-light dark:bg-surface-dark rounded-full flex items-center justify-center mb-4">
                 <Search className="w-8 h-8 text-gray-400" />
@@ -765,6 +843,8 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
                 </div>
               )}
             </div>
+          ) : questions.length === 0 ? (
+            <QuestionRowsSkeleton rows={4} />
           ) : (
             <table className="w-full text-sm text-left">
               <thead className="bg-surface-light dark:bg-surface-dark/50 text-text-secondary-light dark:text-text-secondary-dark font-medium border-b border-border-light dark:border-border-dark/30">
@@ -792,7 +872,12 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
                   return (
                     <tr
                       key={question.id}
-                      className="hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-colors group"
+                      aria-busy={deletingId === question.id}
+                      className={`hover:bg-gray-50/50 dark:hover:bg-gray-800/50 transition-all duration-300 group ${
+                        deletingId === question.id
+                          ? "opacity-40 pointer-events-none bg-red-50/40 dark:bg-red-950/20"
+                          : ""
+                      }`}
                     >
                       <td className="px-6 py-4">
                         <div
@@ -886,6 +971,11 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
                         </div>
                       </td>
                       <td className="px-6 py-4 text-right">
+                        {deletingId === question.id ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs font-medium text-red-600 dark:text-red-400">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Deleting…
+                          </span>
+                        ) : (
                         <div className="flex items-center justify-end gap-2 transition-opacity [@media(hover:hover)]:opacity-0 [@media(hover:hover)]:group-hover:opacity-100 group-focus-within:opacity-100">
                           <button
                             onClick={() => handlePreview(question)}
@@ -923,6 +1013,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
                             </>
                           )}
                         </div>
+                        )}
                       </td>
                     </tr>
                   );
@@ -933,44 +1024,17 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
         </div>
 
         {/* Pagination */}
-        {totalPages > 1 && (
-          <div className="px-6 py-4 border-t border-border-light dark:border-border-dark/30 flex items-center justify-between bg-surface-light dark:bg-surface-dark/30">
-            <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
-              Showing{" "}
-              <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-                {(page - 1) * limit + 1}
-              </span>{" "}
-              to{" "}
-              <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-                {Math.min(page * limit, totalQuestions)}
-              </span>{" "}
-              of{" "}
-              <span className="font-medium text-text-primary-light dark:text-text-primary-dark">
-                {totalQuestions}
-              </span>{" "}
-              questions
-            </p>
-            <div className="flex items-center gap-2">
-              <button
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page === 1}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark/70 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark px-2">
-                Page {page} of {totalPages}
-              </span>
-              <button
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                disabled={page === totalPages}
-                className="p-2 rounded-lg border border-gray-300 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark/70 hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          page={page}
+          totalPages={totalPages}
+          totalItems={totalQuestions}
+          pageSize={limit}
+          onPageChange={goToPage}
+          onPageSizeChange={changePageSize}
+          pageSizeOptions={PAGE_SIZES}
+          itemLabel={totalQuestions === 1 ? "question" : "questions"}
+          busy={loading}
+        />
       </div>
 
       {/* Question CRUD Modal */}

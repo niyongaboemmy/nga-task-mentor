@@ -10,6 +10,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import QuestionBankView from "../components/QuestionBank/QuestionBankView";
+import { Skeleton } from "../components/ui/Skeleton";
 import type { RootState } from "../store";
 
 const QuestionBankPage: React.FC = () => {
@@ -65,7 +66,7 @@ const QuestionBankPage: React.FC = () => {
                   className="hover:text-blue-600 cursor-pointer transition-colors"
                   onClick={() => navigate(`/courses/${courseId}`)}
                 >
-                  {course?.code || `Course ${courseId}`}
+                  {course?.code ?? <Skeleton inline className="h-3 w-16" />}
                 </span>
                 <ChevronRight className="w-3 h-3" />
                 <span className="text-text-primary-light dark:text-text-primary-dark">
@@ -75,6 +76,7 @@ const QuestionBankPage: React.FC = () => {
               <h1 className="text-xl md:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark flex items-center gap-2 truncate">
                 <Library className="w-6 h-6 text-blue-600 dark:text-blue-400 flex-shrink-0" />
                 <span className="truncate">Question Bank</span>
+                {!course && <Skeleton inline className="h-4 w-56" />}
                 {course && (
                   <div className="text-sm">
                     <span className="text-gray-300 dark:text-gray-700 font-light mx-1">

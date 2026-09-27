@@ -237,3 +237,41 @@ describe("healthScore / buildAlerts", () => {
     expect(buildAlerts([healthy])).toEqual([]);
   });
 });
+
+describe("GET /api/courses/:courseId/question-bank/overview (subject page dashboard)", () => {
+  const getCourse = (courseId: number | string, token = instructorToken) =>
+    request(app)
+      .get(`/api/courses/${courseId}/question-bank/overview`)
+      .set("Authorization", `Bearer ${token}`)
+      .set(MIS_HEADER);
+
+  it("returns the same figures as the hub, for that subject only", async () => {
+    const res = await getCourse(SUBJ_A);
+    expect(res.status).toBe(200);
+    const d = res.body.data;
+    expect(d.subject_id).toBe(SUBJ_A);
+    expect(d.available_subjects).toEqual([{ id: SUBJ_A, name: `Hub Subject ${SUBJ_A}`, code: `HUB${SUBJ_A}` }]);
+    expect(d.totals).toMatchObject({ total: 6, easy: 2, medium: 3, used_in_quizzes: 1 });
+    const hub = (await get(`?subjectId=${SUBJ_A}`)).body.data;
+    expect(d.totals).toEqual(hub.totals);
+    expect(d.alerts).toEqual(hub.alerts);
+  });
+
+  it("is open to anyone who may view a bank (admins too), not only the hub's teachers", async () => {
+    const res = await getCourse(SUBJ_A, adminToken);
+    expect(res.status).toBe(200);
+    expect(res.body.data.totals.total).toBe(6);
+  });
+
+  it("falls back to a neutral label when the subject isn't in the caller's MIS list", async () => {
+    assignedSubjects([]);
+    const res = await getCourse(SUBJ_B);
+    expect(res.status).toBe(200);
+    expect(res.body.data.alerts[0]).toMatchObject({ id: `empty:${SUBJ_B}`, title: "This subject has no questions" });
+  });
+
+  it("refuses students and bad ids", async () => {
+    expect((await getCourse(SUBJ_A, studentToken)).status).toBe(403);
+    expect((await getCourse("abc")).status).toBe(400);
+  });
+});

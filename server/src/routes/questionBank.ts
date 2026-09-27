@@ -13,6 +13,7 @@ import {
   getSchemeOfWorkEntries,
   generateQuestionsFromDocument,
 } from "../controllers/questionBank.controller";
+import { getCourseQuestionBankOverview } from "../controllers/questionBankHub.controller";
 
 import { protect, authorizePermission } from "../middleware/auth";
 
@@ -79,6 +80,13 @@ router.post(
   authorizePermission("QUESTION_BANK_CREATE"),
   aiGenerateUpload.single("file"),
   generateQuestionsFromDocument,
+);
+
+// Dashboard for this subject's bank (same payload as the teacher hub's)
+router.get(
+  "/overview",
+  authorizePermission("QUESTION_BANK_VIEW"),
+  getCourseQuestionBankOverview,
 );
 
 router

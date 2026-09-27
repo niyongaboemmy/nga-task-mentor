@@ -116,4 +116,53 @@ describe("QuestionBankHubPage", () => {
     await screen.findByText("Subject report");
     expect(lastSearch).not.toContain("subject=");
   });
+
+  it("shows a skeleton (not the previous subject's data) while switching subject", async () => {
+    renderAt("/question-bank");
+    await screen.findByText("Subject report");
+
+    let resolve!: (v: QuestionBankOverview) => void;
+    getOverview.mockImplementationOnce(() => new Promise((r) => (resolve = r)));
+    fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "9" } });
+
+    // stale dashboard gone, skeleton + busy select + progress bar instead
+    await waitFor(() => expect(screen.queryByText("Subject report")).not.toBeInTheDocument());
+    expect(screen.queryByText("C10 · Graphic Design has no questions")).not.toBeInTheDocument();
+    expect(document.querySelector('[aria-busy="true"]')).not.toBeNull();
+    expect(screen.getByLabelText("Subject")).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("progressbar", { name: "Loading question bank" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Loading Web UI…");
+
+    resolve(overview(9));
+    expect(await screen.findByText("Bank health")).toBeInTheDocument();
+    expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Subject")).toHaveAttribute("aria-busy", "false");
+  });
+
+  it("ignores a slow response for a subject the user already switched away from", async () => {
+    renderAt("/question-bank");
+    await screen.findByText("Subject report");
+
+    let resolveSlow!: (v: QuestionBankOverview) => void;
+    getOverview.mockImplementationOnce(() => new Promise((r) => (resolveSlow = r))); // subject 9
+    fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "9" } });
+    fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "" } }); // back to all
+    await screen.findByText("Subject report");
+
+    resolveSlow(overview(9)); // arrives late -- must not replace "all subjects"
+    await new Promise((r) => setTimeout(r, 20));
+    expect(screen.getByText("Subject report")).toBeInTheDocument();
+  });
+
+  it("keeps the dashboard visible (dimmed) during a manual refresh", async () => {
+    renderAt("/question-bank");
+    await screen.findByText("Subject report");
+    let resolve!: (v: QuestionBankOverview) => void;
+    getOverview.mockImplementationOnce(() => new Promise((r) => (resolve = r)));
+    fireEvent.click(screen.getByRole("button", { name: /Refresh/ }));
+    expect(screen.getByText("Subject report")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Loading question bank" })).toBeInTheDocument();
+    resolve(overview(null));
+    await waitFor(() => expect(screen.queryByRole("progressbar")).not.toBeInTheDocument());
+  });
 });

@@ -93,6 +93,15 @@ module.exports = {
           "0%": { width: "0%" },
           "100%": { width: "100%" },
         },
+        // Skeleton sheen sweeping left -> right
+        shimmer: {
+          "100%": { transform: "translateX(100%)" },
+        },
+        // Indeterminate top progress bar
+        indeterminate: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(250%)" },
+        },
       },
       animation: {
         fadeInUp: "fadeInUp 0.4s ease-out",
@@ -106,6 +115,8 @@ module.exports = {
         scaleIn: "scaleIn 0.3s ease-out",
         bounce: "bounce 1s infinite",
         pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+        shimmer: "shimmer 1.6s ease-in-out infinite",
+        indeterminate: "indeterminate 1.2s ease-in-out infinite",
       },
     },
   },
