@@ -1,5 +1,5 @@
 import { GoogleGenerativeAI, SchemaType } from "@google/generative-ai";
-import { AIProvider, GenerateJSONParams, JSONSchema } from "./types";
+import { AIProvider, GenerateJSONParams, GenerateTextOptions, JSONSchema } from "./types";
 
 // Ported from nga_central_mis/backend/src/services/aiProviders/geminiProvider.ts,
 // adapted to the @google/generative-ai SDK already used elsewhere in this app
@@ -50,11 +50,20 @@ export const geminiProvider: AIProvider = {
     return JSON.parse(result.response.text() || "{}") as T;
   },
 
-  async generateText(prompt: string, maxOutputTokens?: number): Promise<string> {
-    const model = getClient().getGenerativeModel({
-      model: getModelName(),
-      ...(maxOutputTokens ? { generationConfig: { maxOutputTokens } } : {}),
-    });
+  async generateText(prompt: string, maxOutputTokens?: number, opts?: GenerateTextOptions): Promise<string> {
+    const generationConfig: Record<string, unknown> = {};
+    if (maxOutputTokens) generationConfig.maxOutputTokens = maxOutputTokens;
+    if (opts?.json) {
+      // JSON mode stops the stray-quote / unterminated-object replies we saw in
+      // production, and gemini-2.5 "thinking" tokens count against
+      // maxOutputTokens — they were truncating long question arrays mid-object.
+      generationConfig.responseMimeType = "application/json";
+      generationConfig.thinkingConfig = { thinkingBudget: 0 };
+    }
+    const model = getClient().getGenerativeModel(
+      { model: getModelName(), generationConfig: generationConfig as any },
+      { timeout: 90_000 },
+    );
     const result = await model.generateContent(prompt);
     return result.response.text() || "";
   },

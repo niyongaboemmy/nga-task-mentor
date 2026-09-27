@@ -15,6 +15,7 @@ import { generateFreeformJSON } from "../services/aiProviders/generate";
 import { packParts, tiptapToText, htmlToText, weekText } from "../services/ai/misCourseResources";
 import { buildGenerateFromSourcePrompt } from "../services/ai/prompts/generateFromDocumentPrompt";
 import { clearContextsForTests } from "../services/ai/generationContextStore";
+import { clearJobsForTests } from "../services/ai/generationJobs";
 
 /**
  * AI Question Generator (prepare → generate batches) against the real dev DB
@@ -140,6 +141,7 @@ beforeEach(() => {
   mockedGet.mockReset();
   mockedAI.mockReset();
   clearContextsForTests();
+  clearJobsForTests();
   misRoutes();
 });
 
@@ -372,6 +374,41 @@ describe("POST /ai/generate", () => {
     expect((await gen({ context_id: id, plan })).status).toBe(429);
     mockedAI.mockRejectedValueOnce(new Error("AI generation is not configured. Add an API key"));
     expect((await gen({ context_id: id, plan })).status).toBe(503);
+  });
+});
+
+describe("async generation jobs", () => {
+  const plan = [{ question_type: "single_choice", EASY: 1 }];
+  async function ctxId(token = instructorToken) {
+    return (await prepareResources([{ kind: "sow_entry", id: 5001 }], token)).body.data.context_id as string;
+  }
+  const poll = (jobId: string, token = instructorToken) => auth(request(app).get(`${base}/ai/jobs/${jobId}`), token);
+
+  it("answers 202 at once, reports running, then hands back the batch", async () => {
+    let finish!: (v: any) => void;
+    mockedAI.mockReturnValue(new Promise((r) => (finish = r)));
+    const id = await ctxId();
+    const start = await auth(request(app).post(`${base}/ai/generate`)).send({ context_id: id, plan, async: true });
+    expect(start.status).toBe(202);
+    const jobId = start.body.job_id;
+    expect((await poll(jobId)).body).toMatchObject({ state: "running" });
+
+    finish({ providerUsed: "gemini", data: [goodSingle("Which part renders HTML?")] });
+    await new Promise((r) => setTimeout(r, 50));
+    const done = await poll(jobId);
+    expect(done.status).toBe(200);
+    expect(done.body).toMatchObject({ state: "done", success: true, meta: { returned: 1, provider_used: "gemini" } });
+  });
+
+  it("keeps the batch's own error status (e.g. 410) and hides jobs from other users", async () => {
+    const start = await auth(request(app).post(`${base}/ai/generate`)).send({ context_id: crypto.randomUUID(), plan, async: true });
+    expect(start.status).toBe(202);
+    await new Promise((r) => setTimeout(r, 20));
+    const res = await poll(start.body.job_id);
+    expect(res.status).toBe(410);
+    expect(res.body.code).toBe("CONTEXT_EXPIRED");
+    expect((await poll(start.body.job_id, otherToken)).status).toBe(404);
+    expect((await poll(crypto.randomUUID())).body.code).toBe("JOB_NOT_FOUND");
   });
 });
 

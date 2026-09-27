@@ -1,6 +1,14 @@
 import { GenerateJSONParams } from "./types";
 import { orderedProviders, isCoolingDown, markCoolingDown } from "./registry";
-import { isQuotaError, friendlyAIErrorMessage } from "./errors";
+import { isQuotaError, isDeadProviderError, friendlyAIErrorMessage } from "./errors";
+
+/** A bad key or an empty billing account won't recover in minutes. */
+const DEAD_PROVIDER_COOLDOWN_MS = 60 * 60 * 1000;
+
+function coolDownIfNeeded(name: string, err: any) {
+  if (isDeadProviderError(err)) markCoolingDown(name, DEAD_PROVIDER_COOLDOWN_MS);
+  else if (isQuotaError(err)) markCoolingDown(name);
+}
 
 export interface GenerateStructuredContentResult<T> {
   data: T;
@@ -44,9 +52,7 @@ export async function generateStructuredContent<T = any>(
     } catch (err: any) {
       lastErr = err;
       console.error(`[AI] Provider ${provider.name} failed:`, err?.message);
-      if (isQuotaError(err)) {
-        markCoolingDown(provider.name);
-      }
+      coolDownIfNeeded(provider.name, err);
     }
   }
 
@@ -58,7 +64,46 @@ export async function generateStructuredContent<T = any>(
   throw new Error(friendlyAIErrorMessage(lastErr));
 }
 
-const stripAndParseJson = (text: string): any => {
+/**
+ * Complete top-level `{…}` objects inside a (possibly truncated) JSON array.
+ * A reply cut off mid-question still yields the questions before it.
+ */
+function salvageObjects(text: string): any[] {
+  const start = text.indexOf("[");
+  if (start < 0) return [];
+  const out: any[] = [];
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  let objStart = -1;
+  for (let i = start + 1; i < text.length; i++) {
+    const c = text[i];
+    if (inString) {
+      if (escaped) escaped = false;
+      else if (c === "\\") escaped = true;
+      else if (c === '"') inString = false;
+      continue;
+    }
+    if (c === '"') inString = true;
+    else if (c === "{") {
+      if (depth === 0) objStart = i;
+      depth++;
+    } else if (c === "}") {
+      depth--;
+      if (depth === 0 && objStart >= 0) {
+        try {
+          out.push(JSON.parse(text.slice(objStart, i + 1)));
+        } catch {
+          /* skip the malformed one, keep going */
+        }
+        objStart = -1;
+      }
+    } else if (c === "]" && depth === 0) break;
+  }
+  return out;
+}
+
+export const parseLenientJson = (text: string): any => {
   const cleaned = text
     .replace(/^```(?:json)?\s*/m, "")
     .replace(/\s*```\s*$/m, "")
@@ -67,7 +112,15 @@ const stripAndParseJson = (text: string): any => {
     return JSON.parse(cleaned);
   } catch {
     const arrMatch = cleaned.match(/\[[\s\S]*\]/);
-    if (arrMatch) return JSON.parse(arrMatch[0]);
+    if (arrMatch) {
+      try {
+        return JSON.parse(arrMatch[0]);
+      } catch {
+        /* fall through to salvage */
+      }
+    }
+    const salvaged = salvageObjects(cleaned);
+    if (salvaged.length) return salvaged;
     const objMatch = cleaned.match(/\{[\s\S]*\}/);
     if (objMatch) return JSON.parse(objMatch[0]);
     throw new Error("AI response was not valid JSON");
@@ -100,15 +153,13 @@ export async function generateFreeformJSON<T = any>(
     attempted++;
     try {
       console.log(`[AI] Using ${provider.name} for freeform generation`);
-      const text = await provider.generateText(prompt, maxOutputTokens);
-      const data = stripAndParseJson(text) as T;
+      const text = await provider.generateText(prompt, maxOutputTokens, { json: true });
+      const data = parseLenientJson(text) as T;
       return { data, providerUsed: provider.name };
     } catch (err: any) {
       lastErr = err;
       console.error(`[AI] Provider ${provider.name} failed:`, err?.message);
-      if (isQuotaError(err)) {
-        markCoolingDown(provider.name);
-      }
+      coolDownIfNeeded(provider.name, err);
     }
   }
 

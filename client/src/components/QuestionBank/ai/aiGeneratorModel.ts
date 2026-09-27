@@ -64,8 +64,8 @@ export const mixTotal = (m: Mix) => m.EASY + m.MEDIUM + m.DIFFICULT;
 /** Per cell (type × difficulty) and per run — keeps a run to a few minutes. */
 export const MAX_PER_CELL = 10;
 export const MAX_TOTAL = 60;
-/** Questions per request; the server allows 12, a little headroom keeps answers reliable. */
-export const BATCH_SIZE = 8;
+/** Questions per request (server allows 12). Small batches answer faster and rarely get truncated. */
+export const BATCH_SIZE = 5;
 
 export const MIX_PRESETS: { id: string; label: string; description: string; mix: Mix }[] = [
   { id: "quick", label: "Quick check", description: "2 easy per type", mix: { EASY: 2, MEDIUM: 0, DIFFICULT: 0 } },

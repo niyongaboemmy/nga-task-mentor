@@ -142,6 +142,13 @@ export const AIQuestionGenerationApi = {
     return res.data.data as AIPreparedContext;
   },
 
+  /**
+   * Runs one batch as a server-side job and polls until it finishes. The AI
+   * provider chain can outlast the reverse proxy's 60 s read timeout, so the
+   * request that starts the job returns at once (202 + job_id). A non-2xx
+   * final state rejects like an axios error, so callers see the same shape
+   * (e.g. 410 CONTEXT_EXPIRED) either way.
+   */
   async generate(
     courseId: number,
     body: {
@@ -152,14 +159,49 @@ export const AIQuestionGenerationApi = {
       avoid_questions?: string[];
     },
     signal?: AbortSignal,
-  ) {
-    const res = await axios.post(`${root(courseId)}/generate`, body, {
-      timeout: 180_000,
-      signal,
-    });
-    return res.data as AIBatchResult;
+    opts: { pollMs?: number; maxWaitMs?: number } = {},
+  ): Promise<AIBatchResult> {
+    const pollMs = opts.pollMs ?? 2000;
+    const deadline = Date.now() + (opts.maxWaitMs ?? 6 * 60_000);
+    const start = await axios.post(`${root(courseId)}/generate`, { ...body, async: true }, { timeout: 30_000, signal });
+    if (start.status !== 202 || !start.data?.job_id) return start.data as AIBatchResult;
+
+    const jobUrl = `${root(courseId)}/jobs/${start.data.job_id}`;
+    let blips = 0;
+    for (;;) {
+      await wait(pollMs, signal);
+      if (Date.now() > deadline) {
+        throw Object.assign(new Error("The AI is taking unusually long. Try fewer questions, or another AI engine."), { code: "ECONNABORTED" });
+      }
+      try {
+        const res = await axios.get(jobUrl, { timeout: 30_000, signal });
+        blips = 0;
+        if (res.data?.state === "running") continue;
+        return res.data as AIBatchResult;
+      } catch (err) {
+        const e = err as HttpishError;
+        // A dropped poll (no response at all) is retried a few times; real answers are not.
+        if (!e?.response && e?.name !== "CanceledError" && e?.code !== "ERR_CANCELED" && ++blips <= 5) continue;
+        throw err;
+      }
+    }
   },
 };
+
+function wait(ms: number, signal?: AbortSignal) {
+  return new Promise<void>((resolve, reject) => {
+    if (signal?.aborted) return reject(Object.assign(new Error("canceled"), { name: "CanceledError", code: "ERR_CANCELED" }));
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener(
+      "abort",
+      () => {
+        clearTimeout(t);
+        reject(Object.assign(new Error("canceled"), { name: "CanceledError", code: "ERR_CANCELED" }));
+      },
+      { once: true },
+    );
+  });
+}
 
 interface HttpishError {
   code?: string;
@@ -172,7 +214,8 @@ interface HttpishError {
 export function aiErrorMessage(e: unknown, fallback = "Something went wrong. Please try again."): string {
   const err = e as HttpishError | undefined;
   if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return "Cancelled";
-  if (err?.code === "ECONNABORTED") return "The AI took too long to answer. Try fewer questions per run.";
+  if (err?.code === "ECONNABORTED") return err?.message && !/timeout of/i.test(err.message) ? err.message : "The AI took too long to answer. Try fewer questions per run.";
+  if (!err?.response && /network error/i.test(err?.message || "")) return "Lost connection to the server. Check your internet and try again.";
   return err?.response?.data?.message || err?.message || fallback;
 }
 

@@ -20,6 +20,7 @@ import {
   prepareDocumentContext,
   prepareResourcesContext,
   generateQuestionBatch,
+  getGenerationJob,
 } from "../controllers/aiQuestionGeneration.controller";
 import { validateBody } from "../middleware/validation.middleware";
 import {
@@ -117,6 +118,7 @@ router.post(
   validateBody(aiGenerateBatchSchema),
   generateQuestionBatch,
 );
+router.get("/ai/jobs/:jobId", authorizePermission("QUESTION_BANK_CREATE"), getGenerationJob);
 
 // Dashboard for this subject's bank (same payload as the teacher hub's)
 router.get(

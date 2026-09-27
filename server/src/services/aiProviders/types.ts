@@ -21,6 +21,11 @@ export interface GenerateJSONParams {
   maxOutputTokens?: number;
 }
 
+export interface GenerateTextOptions {
+  /** Caller will parse the reply as JSON — providers that support a JSON output mode should use it. */
+  json?: boolean;
+}
+
 export interface AIProvider {
   name: string;
   /** Whether this provider has the env vars it needs (an API key, etc). */
@@ -38,5 +43,5 @@ export interface AIProvider {
    * where question_data/correct_answer differ per question type). Callers parse the
    * result themselves (see generateFreeformJSON in generate.ts for the JSON case).
    */
-  generateText(prompt: string, maxOutputTokens?: number): Promise<string>;
+  generateText(prompt: string, maxOutputTokens?: number, opts?: GenerateTextOptions): Promise<string>;
 }

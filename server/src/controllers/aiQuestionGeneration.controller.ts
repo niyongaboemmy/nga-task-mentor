@@ -17,6 +17,7 @@ import {
   MisResourceError,
 } from "../services/ai/misCourseResources";
 import { getMisToken, handleMisError } from "../utils/misUtils";
+import { createJob, getJob } from "../services/ai/generationJobs";
 import { sendControllerError } from "../utils/controllerErrors";
 import type {
   AIGenerateBatchBody,
@@ -167,16 +168,19 @@ export const prepareResourcesContext = async (req: Request, res: Response) => {
 
 // @desc    Generate one batch of questions from a prepared context (preview only)
 // @route   POST /api/courses/:courseId/question-bank/ai/generate
-export const generateQuestionBatch = async (req: Request, res: Response) => {
-  const body = req.body as AIGenerateBatchBody;
-  const courseId = courseIdOf(req);
-  const ctx = getContext(body.context_id, req.user!.id, courseId);
+type BatchOutcome = { status: number; payload: Record<string, unknown> };
+
+async function runBatch(userId: number, courseId: number, body: AIGenerateBatchBody): Promise<BatchOutcome> {
+  const ctx = getContext(body.context_id, userId, courseId);
   if (!ctx) {
-    return res.status(410).json({
-      success: false,
-      code: "CONTEXT_EXPIRED",
-      message: "The prepared source expired. Preparing it again…",
-    });
+    return {
+      status: 410,
+      payload: {
+        success: false,
+        code: "CONTEXT_EXPIRED",
+        message: "The prepared source expired. Preparing it again…",
+      },
+    };
   }
 
   const plan = body.plan.filter((p) => p.EASY + p.MEDIUM + p.DIFFICULT > 0);
@@ -254,7 +258,9 @@ export const generateQuestionBatch = async (req: Request, res: Response) => {
       return false;
     });
 
-    res.json({
+    return {
+      status: 200,
+      payload: {
       success: true,
       data: kept,
       meta: {
@@ -267,14 +273,49 @@ export const generateQuestionBatch = async (req: Request, res: Response) => {
         duration_ms: Date.now() - startedAt,
         context_id: ctx.id,
       },
-    });
+      },
+    };
   } catch (error: any) {
     console.error("[AI Generate batch] Error:", error?.message);
     const msg = String(error?.message || "");
     const status = /not configured/i.test(msg) ? 503 : /rate-limited/i.test(msg) ? 429 : 502;
-    res.status(status).json({
+    return {
+      status,
+      payload: { success: false, message: msg || "AI generation failed. Please try again." },
+    };
+  }
+}
+
+// @route   POST /api/courses/:courseId/question-bank/ai/generate
+// With `async: true` the batch runs as a background job and the reply is a
+// 202 with job_id, polled via GET /ai/jobs/:jobId. A provider fallback chain can
+// take longer than the reverse proxy's 60 s read timeout; holding the request
+// open made the browser report a bare "Network Error" and lost the result.
+export const generateQuestionBatch = async (req: Request, res: Response) => {
+  const body = req.body as AIGenerateBatchBody;
+  const userId = req.user!.id;
+  const courseId = courseIdOf(req);
+  if (!body.async) {
+    const { status, payload } = await runBatch(userId, courseId, body);
+    return res.status(status).json(payload);
+  }
+  const job = createJob(userId, courseId, () => runBatch(userId, courseId, body));
+  res.status(202).json({ success: true, job_id: job.id, poll_after_ms: 2000 });
+};
+
+// @desc    Status / result of an async generation batch
+// @route   GET /api/courses/:courseId/question-bank/ai/jobs/:jobId
+export const getGenerationJob = async (req: Request, res: Response) => {
+  const job = getJob(String(req.params.jobId), req.user!.id, courseIdOf(req));
+  if (!job) {
+    return res.status(404).json({
       success: false,
-      message: msg || "AI generation failed. Please try again.",
+      code: "JOB_NOT_FOUND",
+      message: "This generation run is no longer available (the server may have restarted). Please generate again.",
     });
   }
+  if (job.state === "running") {
+    return res.json({ success: true, state: "running", elapsed_ms: Date.now() - job.createdAt });
+  }
+  res.status(job.outcome!.status).json({ ...job.outcome!.payload, state: "done" });
 };

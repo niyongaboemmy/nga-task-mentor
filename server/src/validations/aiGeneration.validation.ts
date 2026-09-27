@@ -36,6 +36,8 @@ export const aiGenerateBatchSchema = z
       .nullish()
       .transform((v) => v ?? null),
     avoid_questions: z.array(z.string().max(500)).max(60).optional().default([]),
+    /** Run as a background job (202 + job_id) instead of holding the request open. */
+    async: z.boolean().optional().default(false),
   })
   .superRefine((body, ctx) => {
     const seen = new Set<string>();

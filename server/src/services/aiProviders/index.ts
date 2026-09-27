@@ -1,4 +1,4 @@
-export { generateStructuredContent, generateFreeformJSON } from "./generate";
+export { generateStructuredContent, generateFreeformJSON, parseLenientJson } from "./generate";
 export type {
   GenerateStructuredContentResult,
   GenerateStructuredContentOptions,
@@ -10,5 +10,5 @@ export {
   preferredOrder,
 } from "./registry";
 export type { ProviderDescription } from "./registry";
-export { friendlyAIErrorMessage, isQuotaError } from "./errors";
+export { friendlyAIErrorMessage, isQuotaError, isDeadProviderError } from "./errors";
 export type { JSONSchema, AIProvider, GenerateJSONParams } from "./types";

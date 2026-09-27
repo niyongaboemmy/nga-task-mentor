@@ -49,7 +49,8 @@ describe("splitIntoBatches", () => {
   const sum = (bs: AIPlanItem[][]) => bs.reduce((n, b) => n + planTotal(b), 0);
 
   it("keeps a small plan in one request", () => {
-    const plan = buildPlan(["single_choice", "true_false"], "uniform", mix(1, 1, 1), {});
+    const plan = buildPlan(["single_choice", "true_false"], "uniform", mix(1, 1, 0), {});
+    expect(planTotal(plan)).toBeLessThanOrEqual(BATCH_SIZE);
     expect(splitIntoBatches(plan)).toEqual([plan]);
   });
 

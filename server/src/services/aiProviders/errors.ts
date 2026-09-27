@@ -14,6 +14,21 @@ export const isQuotaError = (err: any): boolean => {
   );
 };
 
+/**
+ * Errors that won't fix themselves in minutes: a wrong/revoked key or an
+ * account with no credits. Retrying these on every request only adds latency
+ * to the fallback chain, so they get a long cooldown (see generate.ts).
+ */
+export const isDeadProviderError = (err: any): boolean => {
+  const status = err?.status ?? err?.response?.status;
+  const raw = String(err?.message || err?.error?.message || "");
+  if (status === 401 || status === 403) return true;
+  return (
+    /invalid api key|incorrect api key|api key not valid|unauthori[sz]ed|permission denied/i.test(raw) ||
+    /no credits|insufficient_quota|exceeded your current quota|billing|payment required/i.test(raw)
+  );
+};
+
 const isSafetyBlock = (err: any): boolean => {
   const raw = String(err?.message || err?.error?.message || "");
   return raw.includes("SAFETY") || raw.includes("blockReason") || /content.?filter/i.test(raw);
