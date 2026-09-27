@@ -186,7 +186,7 @@ export default function StaffLeaderboardPanel({ data, onSelectSubject, scopedToS
       {!scopedToSubject && data.subjects.length > 1 && (
         <section className={`${CARD} p-4 sm:p-5`}>
           <h3 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark mb-3">Subject averages</h3>
-          <ul className="grid gap-2 sm:grid-cols-2">
+          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             {[...data.subjects]
               .filter((s) => s.ranked_count > 0)
               .sort((a, b) => (a.average ?? 0) - (b.average ?? 0))

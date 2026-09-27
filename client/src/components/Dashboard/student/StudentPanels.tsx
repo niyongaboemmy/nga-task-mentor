@@ -117,7 +117,7 @@ export const FocusCard: React.FC<{ task: StudentTask | null; nextDeadline: strin
   nextDeadline,
   upcoming,
 }) => {
-  const base = "rounded-2xl p-5 text-white shadow-sm bg-gradient-to-br from-blue-600 to-indigo-600";
+  const base = "rounded-2xl p-5 text-white shadow-sm bg-blue-600";
   if (!task) {
     return (
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} className={`${base} flex items-center gap-4`}>

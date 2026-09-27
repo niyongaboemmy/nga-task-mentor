@@ -6,10 +6,8 @@ import {
   CalendarClock,
   ChevronDown,
   Lightbulb,
-  Lock,
   Sparkles,
   Target,
-  TrendingDown,
   TrendingUp,
   Trophy,
 } from "lucide-react";
@@ -21,7 +19,8 @@ import {
   type StudentRanking,
   type Suggestion,
 } from "../../services/rankingApi";
-import { HowItWorks, StatTile, StatusChip } from "./rankingParts";
+import { HowItWorks, StatusChip } from "./rankingParts";
+import RankHero from "./RankHero";
 
 // What a student sees: their own position, how each subject is going, what's
 // outstanding and what to do next. Never anyone else's name or mark — the
@@ -48,7 +47,7 @@ const PENDING_STYLE: Record<PendingItem["status"], { label: string; className: s
   due_soon: { label: "Due soon", className: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" },
   missed: { label: "Missed", className: "bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300" },
   open: { label: "Open", className: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300" },
-  awaiting_mark: { label: "Awaiting mark", className: "bg-violet-50 text-violet-700 dark:bg-violet-500/10 dark:text-violet-300" },
+  awaiting_mark: { label: "Awaiting mark", className: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300" },
 };
 
 const pendingHref = (p: PendingItem) =>
@@ -65,92 +64,20 @@ interface Props {
 }
 
 export default function StudentRankingPanel({ data, onSelectSubject, scopedToSubject }: Props) {
-  const { overall, subjects, suggestions, pending } = data;
+  const { subjects, suggestions, pending } = data;
   const [showAllPending, setShowAllPending] = useState(false);
   const subjectName = scopedToSubject ? subjects[0]?.name : null;
   const nameOf = new Map(data.available_subjects.map((s) => [s.course_id, s.name]));
   const actionable = pending.filter((p) => p.status !== "awaiting_mark");
   const awaiting = pending.filter((p) => p.status === "awaiting_mark");
   const shownPending = showAllPending ? pending : pending.slice(0, 6);
-  const gap =
-    overall.score !== null && overall.class_average !== null
-      ? Math.round((overall.score - overall.class_average) * 10) / 10
-      : null;
 
   return (
     <div className="space-y-4">
       {/* Hero — the position */}
-      <section className={`${CARD} p-4 sm:p-6 overflow-hidden relative`}>
-        <div className="absolute -right-16 -top-16 w-56 h-56 rounded-full bg-gradient-to-br from-blue-500/10 to-violet-500/10 blur-2xl pointer-events-none" />
-        <div className="relative flex flex-col md:flex-row md:items-center gap-5">
-          <div className="flex items-center gap-4 sm:gap-6">
-            <div className="flex flex-col items-center justify-center w-28 h-28 sm:w-32 sm:h-32 rounded-3xl bg-gradient-to-br from-blue-600 to-violet-600 text-white shadow-lg shadow-blue-600/20 flex-shrink-0">
-              <Trophy className="w-5 h-5 opacity-80 mb-1" />
-              {overall.rank !== null ? (
-                <>
-                  <span className="text-3xl sm:text-4xl font-extrabold tabular-nums leading-none">{ordinal(overall.rank)}</span>
-                  <span className="mt-1 text-[11px] font-medium opacity-90">of {overall.ranked_count}</span>
-                </>
-              ) : (
-                <span className="text-sm font-semibold px-2 text-center">Not ranked yet</span>
-              )}
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">
-                {subjectName ? `Your position in ${subjectName}` : "Your overall position"}
-              </p>
-              <h2 className="mt-1 text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
-                {overall.rank !== null ? overall.band : "Get your first marks to be ranked"}
-              </h2>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <StatusChip status={overall.status} />
-                {overall.top_percent !== null && (
-                  <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-                    Top {overall.top_percent}% · {overall.marked_items} marked item{overall.marked_items === 1 ? "" : "s"}
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+      <RankHero data={data} subjectName={subjectName ?? null} />
 
-        <div className="relative mt-5 grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <StatTile label="Your average" value={<Pct value={overall.score} />} hint="Mean of your subject averages" />
-          <StatTile
-            label="Class average"
-            value={overall.class_average !== null ? `${overall.class_average}%` : "—"}
-            hint={overall.class_average === null ? "Hidden in small groups" : "Everyone ranked"}
-          />
-          <StatTile
-            label="Versus class"
-            value={
-              gap === null ? (
-                "—"
-              ) : (
-                <span className={`inline-flex items-center gap-1 ${gap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}`}>
-                  {gap >= 0 ? <TrendingUp className="w-5 h-5" /> : <TrendingDown className="w-5 h-5" />}
-                  {gap > 0 ? "+" : ""}
-                  {gap}
-                </span>
-              )
-            }
-            hint="Points above / below average"
-          />
-          <StatTile
-            label="To move up"
-            value={overall.rank === 1 ? "🏆" : overall.points_to_next !== null ? `+${overall.points_to_next}` : "—"}
-            hint={overall.rank === 1 ? "You're at the top" : "Points needed for the next place"}
-          />
-        </div>
-
-        <p className="relative mt-4 flex items-start gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
-          <Lock className="w-3.5 h-3.5 mt-0.5 flex-shrink-0" />
-          Only you can see your position. Other students' names and marks are never shown
-          {data.privacy.aggregates_hidden && `, and averages are hidden when fewer than ${data.privacy.min_cohort} students are ranked`}.
-        </p>
-      </section>
-
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         {/* Suggestions */}
         <section className={`${CARD} p-4 sm:p-5`}>
           <header className="flex items-center gap-2 mb-3">
@@ -253,7 +180,7 @@ export default function StudentRankingPanel({ data, onSelectSubject, scopedToSub
       {/* Subjects */}
       <section className={`${CARD} p-4 sm:p-5`}>
         <header className="flex items-center gap-2 mb-3">
-          <Target className="w-5 h-5 text-violet-500" />
+          <Target className="w-5 h-5 text-blue-500" />
           <h3 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
             {scopedToSubject ? "Subject breakdown" : "Your subjects"}
           </h3>
@@ -266,11 +193,11 @@ export default function StudentRankingPanel({ data, onSelectSubject, scopedToSub
             You aren't enrolled in any subject for the selected period.
           </EmptyState>
         ) : (
-          <div className="grid gap-3 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
             {[...subjects]
               .sort((a, b) => (a.score ?? 101) - (b.score ?? 101))
               .map((s) => (
-                <article key={s.course_id} className="rounded-xl border border-gray-100 dark:border-gray-800 p-3 sm:p-4">
+                <article key={s.course_id} className="min-w-0 rounded-xl border border-gray-100 dark:border-gray-800 p-3 sm:p-4">
                   <div className="flex items-start gap-3">
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">{s.name}</p>

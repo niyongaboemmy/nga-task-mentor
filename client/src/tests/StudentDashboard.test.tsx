@@ -150,8 +150,8 @@ describe("StudentDashboard", () => {
     );
     renderDash();
     const calm = (await screen.findByText("All caught up")).closest("#today")!.firstElementChild as HTMLElement;
-    expect(calm.className).toMatch(/from-blue-600/);
-    expect(calm.className).not.toMatch(/emerald|teal|green/);
+    expect(calm.className).toMatch(/\bbg-blue-600\b/);
+    expect(calm.className).not.toMatch(/gradient|indigo|violet|purple|emerald|teal|green/);
     expect(screen.getByText("Nothing to remind you about")).toBeInTheDocument();
   });
 

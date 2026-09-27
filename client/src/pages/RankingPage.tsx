@@ -49,7 +49,7 @@ export default function RankingPage() {
     <div className="space-y-4 min-w-0">
       <header className="flex flex-col sm:flex-row sm:items-center gap-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-500 flex items-center justify-center shadow-sm flex-shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-blue-600 flex items-center justify-center shadow-sm flex-shrink-0">
             <Trophy className="w-5 h-5 text-white" />
           </div>
           <div className="min-w-0">
