@@ -2,20 +2,36 @@ import React, { useState, useEffect, useMemo } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { motion } from "framer-motion";
-import axios from "../../utils/axiosConfig";
 import Assignments from "../Assignments/Assignments";
 import { QuizList } from "../Quizzes/QuizList";
 import { fetchCourse, fetchCourses } from "../../store/slices/courseSlice";
 import type { RootState, AppDispatch } from "../../store";
 import type { Course } from "../../types/course.types";
-import { Library, Search, Users, Mail, ChevronRight, SlidersHorizontal, ClipboardList } from "lucide-react";
+import {
+  ArrowLeft,
+  BarChart3,
+  BookOpen,
+  CalendarDays,
+  ChevronRight,
+  ClipboardCheck,
+  ClipboardList,
+  FileQuestion,
+  FileText,
+  Info,
+  Library,
+  Mail,
+  PlusCircle,
+  Search,
+  SlidersHorizontal,
+  Users,
+} from "lucide-react";
 import { usePermissions } from "../../hooks/usePermissions";
+import { useAuth } from "../../contexts/AuthContext";
 import CourseReportCardsPanel from "../ReportCard/CourseReportCardsPanel";
-import AcademicPeriodPicker, {
-  type SelectedPeriod,
-} from "../Common/AcademicPeriodPicker";
 import RecordedAssessmentsPanel from "./RecordedAssessmentsPanel";
 import { useRecordedAssessments } from "./useRecordedAssessments";
+import CourseTabs, { type CourseTabAction, type CourseTabItem } from "./CourseTabs";
+import CourseOverviewPanel from "./CourseOverviewPanel";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -61,6 +77,7 @@ const getStoredTab = (courseId: string): TabId => {
 const CourseDetails: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const dispatch = useDispatch<AppDispatch>();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string>("");
   const [activeTab, setActiveTab] = useState<TabId>(
@@ -76,8 +93,18 @@ const CourseDetails: React.FC = () => {
   const canViewAllMarks = can("COURSES_VIEW_GRADES");
   const canEditMarks = can("MANUAL_ASSESSMENTS_EDIT");
 
+  // Every tab shows the period picked in the app bar's academic switcher: the
+  // session carries it, so /courses/:id, /courses/:id/grades and the
+  // report-card endpoints are all scoped to it, and switching remounts this
+  // page (Layout's key={academicPeriodVersion}). No tab keeps its own picker.
+  const termName: string | undefined = user?.currentAcademicTerm?.name;
+  const academicYearName: string | undefined = user?.currentAcademicYear?.name;
+  const periodLabel =
+    termName && academicYearName ? `${academicYearName} · ${termName}` : null;
+
   // Marks recorded by hand for this subject. Loaded here rather than inside the
-  // tab so the tab label can carry the count before it is ever opened.
+  // tab so the tab label can carry the count before it is ever opened — and so
+  // the Overview can build its dashboard from the same report.
   const recordedAssessments = useRecordedAssessments(courseId);
 
   // Get courses and loading state from Redux store
@@ -94,45 +121,6 @@ const CourseDetails: React.FC = () => {
     }
     return courses.find((c) => String(c.id) === String(courseId)) || null;
   }, [currentCourse, courses, courseId]);
-
-  // Viewing a past academic year/term's roster (Students tab only) — a local,
-  // page-scoped override that does NOT touch the Redux `course` (which always
-  // reflects the requester's live current-term data used by other tabs).
-  const [viewPeriod, setViewPeriod] = useState<SelectedPeriod | null>(null);
-  const [historicalStudents, setHistoricalStudents] = useState<any[] | null>(null);
-  const [loadingHistoricalStudents, setLoadingHistoricalStudents] = useState(false);
-
-  useEffect(() => {
-    if (!viewPeriod || !courseId) {
-      setHistoricalStudents(null);
-      return;
-    }
-    let cancelled = false;
-    setLoadingHistoricalStudents(true);
-    axios
-      .get(`/courses/${courseId}`, {
-        params: { academicTermId: viewPeriod.academicTermId },
-      })
-      .then((res) => {
-        if (!cancelled) {
-          setHistoricalStudents(res.data?.data?.enrolledStudents || []);
-        }
-      })
-      .catch((err) => {
-        console.error("Error fetching historical roster:", err);
-        if (!cancelled) setHistoricalStudents([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingHistoricalStudents(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [viewPeriod, courseId]);
-
-  const displayedStudents = viewPeriod
-    ? historicalStudents ?? []
-    : course?.enrolledStudents || [];
 
   useEffect(() => {
     const initializeCourse = async () => {
@@ -165,6 +153,80 @@ const CourseDetails: React.FC = () => {
     initializeCourse();
   }, [courseId, dispatch]); // Removed courses.length as we handle it inside
 
+  const selectTab = (tabId: TabId) => {
+    setActiveTab(tabId);
+    try {
+      sessionStorage.setItem(`course-tab-${courseId}`, tabId);
+    } catch {
+      // Storage blocked (private mode) — the tab just won't be remembered.
+    }
+  };
+
+  // A tab the caller can't open (e.g. a remembered "students" tab after a
+  // permission change) falls back to the overview instead of a blank panel.
+  const allowedTab =
+    (activeTab === "students" && !isInstructorOrAdmin) ||
+    (activeTab === "report-cards" && !canViewReportCards)
+      ? "overview"
+      : activeTab;
+
+  const assignmentCount = course?.statistics?.assignments?.total || 0;
+  const quizCount = course?.statistics?.quizzes?.total || 0;
+  const studentCount = course?.enrolledStudents?.length || 0;
+
+  const tabs = useMemo<CourseTabItem[]>(() => {
+    const list: CourseTabItem[] = [
+      { id: "overview", label: "Overview", icon: <Info /> },
+      { id: "assignments", label: "Assignments", icon: <FileText />, count: assignmentCount },
+      { id: "quizzes", label: "Quizzes", icon: <FileQuestion />, count: quizCount },
+      {
+        id: "recorded",
+        label: "Recorded Assessments",
+        icon: <ClipboardCheck />,
+        count: recordedAssessments.loading ? undefined : recordedAssessments.recorded.length,
+      },
+    ];
+    if (isInstructorOrAdmin) {
+      list.push({ id: "students", label: "Students", icon: <Users />, count: studentCount });
+    }
+    if (canViewQuestionBank) {
+      list.push({
+        id: "question-bank",
+        label: "Question Bank",
+        icon: <Library />,
+        href: `/courses/${courseId}/question-bank`,
+      });
+    }
+    if (canViewReportCards) {
+      list.push({ id: "report-cards", label: "Report Cards", icon: <ClipboardList /> });
+    }
+    return list;
+  }, [
+    assignmentCount,
+    quizCount,
+    studentCount,
+    recordedAssessments.loading,
+    recordedAssessments.recorded.length,
+    isInstructorOrAdmin,
+    canViewQuestionBank,
+    canViewReportCards,
+    courseId,
+  ]);
+
+  const quickActions = useMemo<CourseTabAction[]>(() => {
+    const list: CourseTabAction[] = [
+      { id: "report", label: "Subject report", icon: <BarChart3 />, href: `/courses/${courseId}/reports` },
+    ];
+    if (canCreateQuizzes) {
+      list.push({ id: "new-quiz", label: "Create a quiz", icon: <PlusCircle />, href: `/courses/${courseId}/quizzes/create` });
+    }
+    if (canViewReportCards) {
+      list.push({ id: "builder", label: "Report card builder", icon: <ClipboardList />, href: `/grades/subjects/${courseId}` });
+    }
+    list.push({ id: "back", label: "All courses", icon: <ArrowLeft />, href: "/courses" });
+    return list;
+  }, [courseId, canCreateQuizzes, canViewReportCards]);
+
   if (isLoading || loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -180,7 +242,7 @@ const CourseDetails: React.FC = () => {
 
   if (errorMessage) {
     return (
-      <div className="text-center py-12">
+      <div className="text-center py-12 px-4">
         <svg
           className="mx-auto h-12 w-12 text-gray-400 dark:text-red-600"
           fill="none"
@@ -208,8 +270,8 @@ const CourseDetails: React.FC = () => {
 
   if (!course) {
     return (
-      <div className="text-center py-12">
-        <h3 className="text-lg font-medium text-gray-900">Course not found</h3>
+      <div className="text-center py-12 px-4">
+        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">Course not found</h3>
         <p className="mt-2 text-sm text-gray-500">
           The course you're looking for doesn't exist.
         </p>
@@ -223,9 +285,23 @@ const CourseDetails: React.FC = () => {
     );
   }
 
+  const stats: Array<{
+    id: TabId;
+    label: string;
+    value: number;
+    icon: React.ReactNode;
+    accent: string;
+  }> = [
+    { id: "assignments", label: "Assignments", value: assignmentCount, icon: <BookOpen className="h-4 w-4 text-white" />, accent: "bg-blue-500" },
+    { id: "quizzes", label: "Quizzes", value: quizCount, icon: <FileText className="h-4 w-4 text-white" />, accent: "bg-purple-500" },
+  ];
+  if (isInstructorOrAdmin) {
+    stats.push({ id: "students", label: "Students", value: studentCount, icon: <Users className="h-4 w-4 text-white" />, accent: "bg-green-500" });
+  }
+
   return (
     <motion.div
-      className="space-y-3 md:space-y-5"
+      className="space-y-3 md:space-y-5 min-w-0"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
@@ -233,311 +309,119 @@ const CourseDetails: React.FC = () => {
       {/* Header */}
       <motion.div
         variants={itemVariants}
-        className="bg-white/90 dark:bg-gray-900/80 dark:text-white backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/60 p-3 md:p-4"
+        className="bg-white/90 dark:bg-gray-900/80 dark:text-white backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/60 p-3 sm:p-4"
       >
-        <div className="flex items-center justify-between">
-          <div className="flex gap-3 md:gap-4 w-full">
-            <div className="flex-shrink-0">
-              <div className="h-16 w-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center">
-                <span className="text-white font-bold text-3xl">
-                  {course.code.substring(0, 2)}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+          <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+            <div className="h-12 w-12 sm:h-16 sm:w-16 flex-shrink-0 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center">
+              <span className="text-white font-bold text-xl sm:text-3xl">
+                {course.code.substring(0, 2)}
+              </span>
+            </div>
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold leading-tight text-text-primary-light dark:text-text-primary-dark break-words">
+                {course.title}
+              </h1>
+              <p className="text-sm text-gray-600 mt-1 dark:text-gray-400">
+                {course.code} • {course.credits} Credits
+              </p>
+              <div className="pt-2 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  Active
                 </span>
-              </div>
-            </div>
-            <div className="flex flex-row items-center justify-between gap-3 w-full">
-              <div className="text-sm">
-                <h1 className="text-xl md:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
-                  {course.title}
-                </h1>
-                <p className="text-gray-600 mt-1 dark:text-gray-400">
-                  {course.code} • {course.credits} Credits
-                </p>
-                <p className="pt-2">
-                  <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                    Active
+                {periodLabel && (
+                  <span
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium bg-gray-100 dark:bg-white/5 text-text-secondary-light dark:text-text-secondary-dark/80"
+                    title="Change the period from the academic year/term switcher in the top bar"
+                  >
+                    <CalendarDays className="w-3 h-3" />
+                    {periodLabel}
                   </span>
-                </p>
-              </div>
-              <div>
-                <div className="flex items-center justify-end gap-3">
-                  <Link
-                    to={`/courses/${courseId}/reports`}
-                    className="flex items-center justify-center gap-2 p-1.5 px-4 rounded-full border dark:border-2 border-blue-500 bg-white hover:bg-blue-500 hover:text-white dark:bg-blue-800/20 dark:border-blue-600 dark:hover:bg-blue-700 text-blue-600 dark:text-blue-400 dark:hover:text-white transition-all"
-                    title="View Course Reports"
-                  >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                        d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    <span>Report</span>
-                  </Link>
-                  <Link
-                    to="/courses"
-                    className="text-center inline-flex items-center px-5 py-2 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-orange-300 dark:hover:border-blue-700 dark:hover:bg-blue-700 dark:hover:text-white dark:text-orange-300 transition-all duration-200"
-                  >
-                    Back <span className="hidden md:block">to courses</span>
-                  </Link>
-                </div>
+                )}
               </div>
             </div>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3 sm:justify-end flex-shrink-0">
+            <Link
+              to={`/courses/${courseId}/reports`}
+              className="flex-1 sm:flex-none flex items-center justify-center gap-2 py-2 px-4 rounded-full border dark:border-2 border-blue-500 bg-white hover:bg-blue-500 hover:text-white dark:bg-blue-800/20 dark:border-blue-600 dark:hover:bg-blue-700 text-blue-600 dark:text-blue-400 dark:hover:text-white text-sm font-medium transition-all"
+              title="View Course Reports"
+            >
+              <BarChart3 className="w-4 h-4" />
+              <span>Report</span>
+            </Link>
+            <Link
+              to="/courses"
+              className="flex-1 sm:flex-none text-center inline-flex items-center justify-center gap-1.5 px-4 sm:px-5 py-2 border border-gray-300 text-sm font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 dark:bg-gray-800 dark:border-orange-300 dark:hover:border-blue-700 dark:hover:bg-blue-700 dark:hover:text-white dark:text-orange-300 transition-all duration-200"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Back <span className="hidden md:inline">to courses</span>
+            </Link>
           </div>
         </div>
       </motion.div>
 
-      {/* Course Stats */}
+      {/* Course Stats — each one opens its tab */}
       <motion.div
         variants={itemVariants}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 md:gap-6"
+        className={`grid gap-2 sm:gap-4 ${stats.length === 3 ? "grid-cols-3" : "grid-cols-2"} lg:max-w-4xl`}
       >
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 p-2 px-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="h-8 w-8 bg-blue-500 rounded-xl flex items-center justify-center">
-                <svg
-                  className="h-4 w-4 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                  />
-                </svg>
+        {stats.map((stat) => (
+          <button
+            key={stat.id}
+            type="button"
+            onClick={() => selectTab(stat.id)}
+            className={`text-left bg-white/90 backdrop-blur-xl rounded-2xl border dark:bg-gray-900/70 p-2.5 sm:p-3 sm:px-4 transition-colors hover:border-blue-400/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/50 ${
+              allowedTab === stat.id
+                ? "border-blue-400/70 dark:border-blue-500/50"
+                : "border-gray-200/80 dark:border-gray-800/70"
+            }`}
+          >
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1.5 sm:gap-0">
+              <div className={`h-8 w-8 flex-shrink-0 ${stat.accent} rounded-xl flex items-center justify-center`}>
+                {stat.icon}
               </div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
-                Assignments
-              </p>
-              <p className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {course.statistics?.assignments?.total || 0}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 p-2 px-4">
-          <div className="flex items-center">
-            <div className="flex-shrink-0">
-              <div className="h-8 w-8 bg-purple-500 rounded-xl flex items-center justify-center">
-                <svg
-                  className="h-4 w-4 text-white"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div className="ml-4">
-              <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
-                Quizzes
-              </p>
-              <p className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-                {course.statistics?.quizzes?.total || 0}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {isInstructorOrAdmin && (
-          <div className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 p-2 px-4">
-            <div className="flex items-center">
-              <div className="flex-shrink-0">
-                <div className="h-8 w-8 bg-green-500 rounded-lg flex items-center justify-center">
-                  <svg
-                    className="h-4 w-4 text-white"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z"
-                    />
-                  </svg>
-                </div>
-              </div>
-              <div className="ml-4">
-                <p className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70">
-                  Students
+              <div className="sm:ml-4 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark/70 truncate">
+                  {stat.label}
                 </p>
-                <p className="text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark">
-                  {course.enrolledStudents?.length || 0}
+                <p className="text-xl sm:text-2xl font-semibold text-text-primary-light dark:text-text-primary-dark tabular-nums">
+                  {stat.value}
                 </p>
               </div>
             </div>
-          </div>
-        )}
+          </button>
+        ))}
       </motion.div>
 
       {/* Tabs */}
       <motion.div
         variants={itemVariants}
-        className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70"
+        className="bg-white/90 backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/70 dark:bg-gray-900/70 min-w-0"
       >
-        <div className="border-b border-gray-200 dark:border-gray-800">
-          <nav
-            aria-label="Course sections"
-            className="-mb-px flex overflow-x-auto px-3 sm:px-6 [scrollbar-width:thin]"
-          >
-            {[
-              {
-                id: "overview",
-                label: "Overview",
-                icon: "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
-              },
-              {
-                id: "assignments",
-                label: `Assignments (${course.statistics?.assignments?.total || 0})`,
-                icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
-              },
-              {
-                id: "quizzes",
-                label: `Quizzes (${course.statistics?.quizzes?.total || 0})`,
-                icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
-              },
-              {
-                id: "recorded",
-                label: `Recorded Assessments${
-                  recordedAssessments.loading ? "" : ` (${recordedAssessments.recorded.length})`
-                }`,
-                icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
-              },
-              {
-                id: "students",
-                label: `Students (${course.enrolledStudents?.length || 0})`,
-                icon: "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0z",
-                restricted: true,
-              },
-            ]
-              .filter((tab: any) => {
-                if (tab.restricted) {
-                  return isInstructorOrAdmin;
-                }
-                return true;
-              })
-              .map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => {
-                    const tabId = tab.id as TabId;
-                    setActiveTab(tabId);
-                    try {
-                      sessionStorage.setItem(`course-tab-${courseId}`, tabId);
-                    } catch {}
-                  }}
-                  className={`${
-                    activeTab === tab.id
-                      ? "border-blue-500 text-blue-600 dark:text-blue-500"
-                      : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
-                  } whitespace-nowrap flex-shrink-0 py-3 sm:py-4 px-3 sm:px-5 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-2 transition-colors`}
-                >
-                  <svg
-                    className="h-4 w-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d={tab.icon}
-                    />
-                  </svg>
-                  {tab.label}
-                </button>
-              ))}
+        <CourseTabs
+          tabs={tabs}
+          activeId={allowedTab}
+          onSelect={(id) => selectTab(id as TabId)}
+          actions={quickActions}
+        />
 
-            {/* Question Bank Link */}
-            {canViewQuestionBank && (
-              <Link
-                to={`/courses/${courseId}/question-bank`}
-                className="border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300 whitespace-nowrap flex-shrink-0 py-3 sm:py-4 px-3 sm:px-5 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-2 transition-colors"
-              >
-                <Library className="h-4 w-4" />
-                Question Bank
-              </Link>
-            )}
-
-            {/* Report Cards tab — requires REPORT_CARDS_VIEW_ALL */}
-            {canViewReportCards && (
-              <button
-                onClick={() => {
-                  setActiveTab("report-cards");
-                  try { sessionStorage.setItem(`course-tab-${courseId}`, "report-cards"); } catch {}
-                }}
-                className={`${
-                  activeTab === "report-cards"
-                    ? "border-violet-500 text-violet-600 dark:text-violet-400"
-                    : "border-transparent text-text-secondary-light dark:text-text-secondary-dark/70 hover:text-gray-700 dark:hover:text-gray-300 hover:border-gray-300"
-                } whitespace-nowrap flex-shrink-0 py-3 sm:py-4 px-3 sm:px-5 border-b-2 font-medium text-xs sm:text-sm flex items-center gap-2 transition-colors`}
-              >
-                <ClipboardList className="h-4 w-4" />
-                Report Cards
-              </button>
-            )}
-          </nav>
-        </div>
-
-        <div className="p-2 md:p-4">
-          {activeTab === "overview" && (
-            <div className="space-y-8 p-3">
-              <div>
-                <div className="font-bold mb-2 text-xl">{course.title}</div>
-                <div className="text-sm font-light mb-1 opacity-60">
-                  {course.description || "No description available."}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div>
-                  <h4 className="text-lg font-bold mb-4 flex items-center gap-2">
-                    <span className="w-1.5 h-6 bg-blue-500 rounded-full"></span>
-                    Course Information
-                  </h4>
-                  <dl className="space-y-3">
-                    <div className="flex gap-2">
-                      <dt className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
-                        Course Code:
-                      </dt>
-                      <dd className="text-sm font-semibold">{course.code}</dd>
-                    </div>
-                    <div className="flex gap-2">
-                      <dt className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
-                        Credits:
-                      </dt>
-                      <dd className="text-sm font-semibold">
-                        {course.credits}
-                      </dd>
-                    </div>
-                    <div className="flex gap-2">
-                      <dt className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
-                        Enrollment:
-                      </dt>
-                      <dd className="text-sm font-semibold">
-                        {course.enrolledStudents?.length || 0} students enrolled
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </div>
-            </div>
+        <div className="p-2 md:p-4 min-w-0">
+          {allowedTab === "overview" && (
+            <CourseOverviewPanel
+              course={course}
+              courseId={courseId!}
+              state={recordedAssessments}
+              canViewAll={canViewAllMarks}
+              canViewReportCards={canViewReportCards}
+              periodLabel={periodLabel}
+              termName={termName}
+              academicYearName={academicYearName}
+              onNavigate={selectTab}
+            />
           )}
 
-          {activeTab === "assignments" && (
+          {allowedTab === "assignments" && (
             <Assignments
               courseId={courseId}
               courseData={course as any}
@@ -546,7 +430,7 @@ const CourseDetails: React.FC = () => {
             />
           )}
 
-          {activeTab === "quizzes" && (
+          {allowedTab === "quizzes" && (
             <QuizList
               courseId={parseInt(courseId!)}
               showCreateButton={canCreateQuizzes}
@@ -555,7 +439,7 @@ const CourseDetails: React.FC = () => {
             />
           )}
 
-          {activeTab === "recorded" && (
+          {allowedTab === "recorded" && (
             <RecordedAssessmentsPanel
               canViewAll={canViewAllMarks}
               canEdit={canEditMarks}
@@ -563,23 +447,11 @@ const CourseDetails: React.FC = () => {
             />
           )}
 
-          {activeTab === "students" && (
-            <div className="space-y-4">
-              {isInstructorOrAdmin && (
-                <div className="flex items-center justify-end">
-                  <AcademicPeriodPicker onChange={setViewPeriod} />
-                  {loadingHistoricalStudents && (
-                    <span className="ml-3 text-xs text-gray-400">
-                      Loading roster…
-                    </span>
-                  )}
-                </div>
-              )}
-              <StudentsList students={displayedStudents} />
-            </div>
+          {allowedTab === "students" && (
+            <StudentsList students={course.enrolledStudents || []} periodLabel={periodLabel} />
           )}
 
-          {activeTab === "report-cards" && canViewReportCards && (
+          {allowedTab === "report-cards" && (
             <CourseReportCardsPanel
               courseId={parseInt(courseId!)}
               courseName={course.title}
@@ -604,7 +476,8 @@ type SortKey = "name" | "email";
 
 const StudentsList: React.FC<{
   students: any[];
-}> = ({ students }) => {
+  periodLabel: string | null;
+}> = ({ students, periodLabel }) => {
   const [search, setSearch] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("name");
   const [showSort, setShowSort] = useState(false);
@@ -628,10 +501,10 @@ const StudentsList: React.FC<{
   }, [students, search, sortKey]);
 
   return (
-    <div className="p-4 space-y-4">
+    <div className="p-1 sm:p-4 space-y-4">
       {/* Header row */}
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-        <div className="flex items-center gap-2 flex-1">
+      <div className="flex flex-col md:flex-row md:items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
           <Users className="w-5 h-5 text-gray-400" />
           <h3 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
             Enrolled Students
@@ -639,10 +512,18 @@ const StudentsList: React.FC<{
           <span className="ml-1 px-2 py-0.5 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400 text-xs font-bold rounded-full">
             {students.length} active
           </span>
+          {periodLabel && (
+            <span className="inline-flex items-center gap-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
+              <CalendarDays className="w-3 h-3" />
+              {periodLabel}
+            </span>
+          )}
         </div>
 
+        <div className="flex items-center gap-2 md:contents">
+
         {/* Search */}
-        <div className="relative flex-1 sm:max-w-xs">
+        <div className="relative flex-1 md:flex-none md:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
           <input
             type="text"
@@ -657,10 +538,11 @@ const StudentsList: React.FC<{
         <div className="relative">
           <button
             onClick={() => setShowSort((v) => !v)}
-            className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full hover:border-gray-300 dark:hover:border-gray-600 transition-all"
+            aria-label={`Sort by ${sortKey}`}
+            className="flex items-center gap-2 px-3 py-2 text-sm font-medium whitespace-nowrap text-text-secondary-light dark:text-text-secondary-dark bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-full hover:border-gray-300 dark:hover:border-gray-600 transition-all"
           >
             <SlidersHorizontal className="w-4 h-4" />
-            Sort: {sortKey === "name" ? "Name" : "Email"}
+            <span className="hidden sm:inline">Sort:</span> {sortKey === "name" ? "Name" : "Email"}
           </button>
           {showSort && (
             <div className="absolute right-0 top-full mt-1 w-36 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-xl shadow-lg z-10 overflow-hidden">
@@ -680,6 +562,7 @@ const StudentsList: React.FC<{
             </div>
           )}
         </div>
+        </div>
       </div>
 
       {/* Count hint when filtered */}
@@ -693,7 +576,7 @@ const StudentsList: React.FC<{
       {filtered.length > 0 ? (
         <div className="rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden bg-white dark:bg-gray-900">
           {/* Table header */}
-          <div className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-4 px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
+          <div className="grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_1fr_auto] items-center gap-3 sm:gap-4 px-3 sm:px-4 py-2.5 bg-gray-50 dark:bg-gray-800/60 border-b border-gray-100 dark:border-gray-800">
             <span className="w-8" />
             <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">Name</span>
             <span className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60 hidden sm:block">Email</span>
@@ -714,7 +597,7 @@ const StudentsList: React.FC<{
               return (
                 <div
                   key={id}
-                  className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-4 px-4 py-3 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors group"
+                  className="grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_1fr_auto] items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors group"
                 >
                   <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
                     {initials}

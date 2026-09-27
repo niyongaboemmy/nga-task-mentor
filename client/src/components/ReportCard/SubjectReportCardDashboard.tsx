@@ -265,7 +265,7 @@ export default function SubjectReportCardDashboard({
 
       {/* Student roster */}
       <div className="rounded-2xl border border-white dark:border-border-dark/30 overflow-hidden bg-card-light dark:bg-card-dark/30">
-        <div className="px-5 py-3.5 border-b border-border-light dark:border-border-dark/30 flex items-center justify-between">
+        <div className="px-3 sm:px-5 py-3.5 border-b border-border-light dark:border-border-dark/30 flex items-center justify-between">
           <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Students</span>
           <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">{students.length}</span>
         </div>
@@ -292,7 +292,7 @@ export default function SubjectReportCardDashboard({
                     key={student.student_id}
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
-                    className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 hover:bg-surface-light dark:hover:bg-surface-dark/40 transition-colors"
+                    className="flex flex-wrap items-center justify-between gap-3 px-3 sm:px-5 py-3 hover:bg-surface-light dark:hover:bg-surface-dark/40 transition-colors"
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       <div className="w-9 h-9 rounded-xl bg-blue-600 flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
