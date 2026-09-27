@@ -13,6 +13,7 @@ import { sequelize } from "../config/database";
 import { AdvancedQuizGrader } from "../utils/quizGrader";
 import axios from "axios";
 import { getMisToken, resolveAcademicTermId } from "../utils/misUtils";
+import { canManageQuiz } from "../utils/ownership";
 
 // @desc    Get pending submissions for grading
 // @route   GET /api/quiz-submissions/pending
@@ -198,6 +199,8 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
         max_score: submission.max_score,
         percentage: submission.percentage,
         passed: submission.passed,
+        // Co-teachers may review; only the quiz's creator or a super admin grades.
+        can_grade: canManageQuiz(req.user, quiz),
         questions: questions.map((question) => {
           // Use the grader's normalizeCorrectAnswer so the frontend always
           // receives a consistent format regardless of how the question was saved.
@@ -264,14 +267,15 @@ export const gradeSubmission = async (req: Request, res: Response) => {
 
     const quiz = submission.quiz;
 
-    // Check authorization - only instructors or admins
+    // Manual grading: the quiz's creator or a super admin only
     if (
-      !req.user.permissions?.has("QUIZZES_GRADE")
+      !req.user.permissions?.has("QUIZZES_GRADE") ||
+      !canManageQuiz(req.user, quiz)
     ) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
-        message: "Not authorized to grade this submission",
+        message: "Only the quiz's creator or a super admin can grade this submission",
       });
     }
 
@@ -640,14 +644,15 @@ export const updateSubmissionFeedback = async (req: Request, res: Response) => {
 
     const quiz = submission.quiz;
 
-    // Check authorization - only instructors or admins
+    // Feedback is part of grading: the quiz's creator or a super admin only
     if (
-      !req.user.permissions?.has("QUIZZES_GRADE")
+      !req.user.permissions?.has("QUIZZES_GRADE") ||
+      !canManageQuiz(req.user, quiz)
     ) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
-        message: "Not authorized to update feedback for this submission",
+        message: "Only the quiz's creator or a super admin can update feedback",
       });
     }
 
@@ -698,10 +703,7 @@ export const initializeManualSubmission = async (req: Request, res: Response) =>
       return res.status(404).json({ success: false, message: "Quiz not found" });
     }
 
-    if (
-      quiz.created_by !== req.user.id &&
-      !req.user.permissions?.has("QUIZZES_MANAGE_ANY")
-    ) {
+    if (!canManageQuiz(req.user, quiz)) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,

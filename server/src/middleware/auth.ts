@@ -4,6 +4,7 @@ import { User } from "../models/User.model";
 import { Role } from "../models/Role.model";
 import { Permission } from "../models/Permission.model";
 import { accessMode } from "../access/mode";
+import { canManageAssignment } from "../utils/ownership";
 import {
   applyEnforcedPermissions,
   denyResponse,
@@ -310,11 +311,7 @@ export const isCourseInstructor = async (
         .json({ success: false, message: "Assignment not found" });
     }
 
-    const granted: Set<string> = req.user?.permissions ?? new Set();
-    if (
-      !granted.has("ASSIGNMENTS_MANAGE_ANY") &&
-      assignment.created_by !== req.user.id
-    ) {
+    if (!canManageAssignment(req.user, assignment)) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to modify this assignment",

@@ -99,6 +99,9 @@ function AssignmentRow({
     !a.my_submission &&
     new Date(a.due_date).getTime() < Date.now();
   const meta = STATUS_META[a.status] ?? STATUS_META.draft;
+  // Co-teachers see each other's assignments; only the creator (or a super
+  // admin) may change the status.
+  const canChangeStatus = canManage && a.can_manage === true;
 
   return (
     <motion.div
@@ -170,7 +173,7 @@ function AssignmentRow({
 
       {/* status */}
       <div className="shrink-0">
-        {canManage ? (
+        {canChangeStatus ? (
           <select
             value={a.status}
             onChange={(e) => onStatus(a.id, e.target.value as AssignmentStatus)}

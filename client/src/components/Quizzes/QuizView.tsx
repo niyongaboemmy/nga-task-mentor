@@ -37,6 +37,7 @@ import QuestionBankSelectorModal from "./QuestionBankSelectorModal";
 import QuestionBankModal from "../QuestionBank/QuestionBankModal";
 import type { QuestionBankEntry } from "../../types/quiz.types";
 import RichTextDisplay from "../Common/RichTextDisplay";
+import { usePermissions } from "../../hooks/usePermissions";
 
 interface QuizViewProps {
   quizId: number;
@@ -50,7 +51,9 @@ const QuizHeader: React.FC<{
   onEdit: () => void;
   onNavigate: (path: string) => void;
   onResetAllSubmissions?: () => void;
-}> = ({ quiz, questions, editing, onEdit, onNavigate, onResetAllSubmissions }) => {
+  /** Creator or super admin: settings, status, questions, resets. */
+  canManage: boolean;
+}> = ({ quiz, questions, editing, onEdit, onNavigate, onResetAllSubmissions, canManage }) => {
   const navigate = useNavigate();
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -104,6 +107,16 @@ const QuizHeader: React.FC<{
                     <h1 className="text-xl md:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
                       {quiz.title}
                     </h1>
+                    {!canManage && (
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-0.5 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                        title="Only the quiz's creator or a super admin can edit it or change its status"
+                      >
+                        View only
+                        {quiz.quizCreator &&
+                          ` · by ${quiz.quizCreator.first_name} ${quiz.quizCreator.last_name}`}
+                      </span>
+                    )}
                   </div>
 
                   <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm leading-relaxed mb-3">
@@ -286,6 +299,7 @@ const QuizHeader: React.FC<{
             <Edit3 className="w-4 h-4" />
             Edit Quiz
           </button> */}
+          {canManage && (
           <button
             onClick={() => onNavigate(`/quizzes/${quiz.id}/settings`)}
             className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium border border-gray-300 text-gray-700 dark:text-white dark:border-gray-600 dark:hover:bg-gray-700 rounded-2xl hover:bg-gray-50 transition-all duration-200 hover:scale-105 transform"
@@ -293,6 +307,8 @@ const QuizHeader: React.FC<{
             <Settings className="w-4 h-4" />
             Update Quiz Settings
           </button>
+          )}
+          {canManage && (
           <button
             onClick={() =>
               onNavigate(`/quizzes/${quiz.id}/proctoring/settings`)
@@ -302,6 +318,7 @@ const QuizHeader: React.FC<{
             <Shield className="w-4 h-4" />
             Proctoring Settings
           </button>
+          )}
           <button
             onClick={() =>
               onNavigate(`/quizzes/${quiz.id}/proctoring/monitoring`)
@@ -327,7 +344,7 @@ const QuizHeader: React.FC<{
             <Users className="w-4 h-4" />
             View Submissions
           </button>
-          {onResetAllSubmissions && (
+          {canManage && onResetAllSubmissions && (
             <button
               onClick={onResetAllSubmissions}
               className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium border border-red-300 text-red-700 dark:text-red-300 dark:border-red-600 dark:hover:bg-red-900/30 rounded-2xl hover:bg-red-50 transition-all duration-200 hover:scale-105 transform"
@@ -447,6 +464,8 @@ const QuestionCard: React.FC<{
   onDrop?: (e: React.DragEvent) => void;
   editing?: boolean;
   isReordering?: boolean;
+  /** Hide edit/delete/reorder for viewers who don't own the quiz. */
+  readOnly?: boolean;
 }> = ({
   question,
   index,
@@ -460,9 +479,12 @@ const QuestionCard: React.FC<{
   onDragOver,
   onDragLeave,
   onDrop,
-  editing = false,
+  editing: editingProp = false,
   isReordering = false,
+  readOnly = false,
 }) => {
+  // Read-only viewers get the same locked-down card as edit mode (no drag).
+  const editing = editingProp || readOnly;
   const getTypeIcon = (type: string) => {
     switch (type) {
       case "single_choice":
@@ -572,6 +594,8 @@ const QuestionCard: React.FC<{
           >
             <Eye className="w-4 h-4" />
           </button>
+          {!readOnly && (
+          <>
           <button
             onClick={onEdit}
             className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700 rounded-xl transition-all duration-200 hover:scale-110 transform"
@@ -587,6 +611,8 @@ const QuestionCard: React.FC<{
           >
             <Trash2 className="w-4 h-4" />
           </button>
+          </>
+          )}
         </div>
       </div>
     </div>
@@ -669,6 +695,13 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
   const [selectedBankQuestion, setSelectedBankQuestion] =
     useState<QuestionBankEntry | null>(null);
 
+  const { canManageOwned } = usePermissions();
+  // Co-teachers can open the quiz; only its creator or a super admin manages it.
+  const canManage =
+    !!currentQuiz &&
+    (currentQuiz.can_manage ??
+      canManageOwned(currentQuiz.created_by, "QUIZZES_MANAGE_ANY"));
+
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resettingAll, setResettingAll] = useState(false);
 
@@ -688,7 +721,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
   };
 
   const handleDragStart = (index: number) => {
-    if (editing || isReordering) return;
+    if (!canManage || editing || isReordering) return;
     setDraggedIndex(index);
   };
 
@@ -912,6 +945,7 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                 onEdit={handleEdit}
                 onNavigate={navigate}
                 onResetAllSubmissions={() => setShowResetConfirm(true)}
+                canManage={canManage}
               />
             </div>
           )}
@@ -937,13 +971,13 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                     <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full animate-pulse-glow">
                       Saving...
                     </span>
-                  ) : !editing && questions.length > 1 ? (
+                  ) : canManage && !editing && questions.length > 1 ? (
                     <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full">
                       Drag to reorder
                     </span>
                   ) : null}
                 </div>
-                {questions.length >= 0 && (
+                {canManage && (
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setBankSelectorOpen(true)}
@@ -1003,10 +1037,15 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
                         onDrop={(e) => handleDrop(e, index)}
                         editing={editing}
                         isReordering={isReordering}
+                        readOnly={!canManage}
                       />
                     ))}
                   </div>
                 </div>
+              ) : !canManage ? (
+                <p className="pb-8 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  This quiz has no questions yet.
+                </p>
               ) : (
                 <EmptyQuestionsState
                   onAddQuestion={() => {

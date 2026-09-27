@@ -6,6 +6,7 @@ import SubmissionMarking, {
 } from "./SubmissionMarking";
 import type { AssignmentInterface } from "./AssignmentCard";
 import FilePreviewModal from "../Submissions/FilePreviewModal";
+import ScoreRing from "../Common/ScoreRing";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   CheckCircle2,
@@ -29,7 +30,10 @@ interface SubmissionDetailsModalProps {
   submission: SubmissionItemInterface;
   formatDate: (dateString: string) => string;
   getSubmissionStatusColor: (status: string) => string;
+  /** Creator or super admin of the assignment: shows the grading console. */
   canManageAssignment: boolean;
+  /** Viewer can review but not grade (e.g. a co-teacher): explain why. */
+  showGradingLockedNotice?: boolean;
   onGradeSubmission: (
     submissionId: string,
     score: number,
@@ -58,6 +62,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
   assignment,
   getSubmissionStatusColor,
   canManageAssignment,
+  showGradingLockedNotice = false,
   onGradeSubmission,
 }) => {
   const [isDownloading, setIsDownloading] = React.useState<string | null>(null);
@@ -218,19 +223,16 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
             {/* Grade Highlight & Status */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-2 bg-white dark:bg-gray-900 rounded-2xl p-8 border border-gray-100 dark:border-gray-800 shadow-gray-200/50 dark:shadow-none flex items-center gap-6">
-                <div className="h-24 w-24 rounded-full border-[6px] border-blue-500/20 flex items-center justify-center relative">
-                  <div className="absolute inset-0 rounded-full border-[6px] border-blue-600 border-t-transparent animate-[spin_3s_linear_infinite]" />
-                  <span className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
-                    {submission.grade
-                      ? Math.round(
-                          (parseFloat(submission.grade.split("/")[0]) /
-                            (Number(assignment.max_score) || 1)) *
-                            100,
-                        )
-                      : 0}
-                    %
-                  </span>
-                </div>
+                <ScoreRing
+                  value={
+                    submission.grade
+                      ? parseFloat(submission.grade.split("/")[0])
+                      : null
+                  }
+                  max={Number(assignment.max_score) || 0}
+                  size={104}
+                  strokeWidth={9}
+                />
                 <div className="flex-1 space-y-1">
                   <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">
                     Final Assessment
@@ -476,6 +478,16 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   onGradeSubmission={onGradeSubmission}
                   onSuccess={onClose}
                 />
+              </div>
+            )}
+
+            {!canManageAssignment && showGradingLockedNotice && (
+              <div className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
+                <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
+                <p>
+                  Only this assignment's creator or a super admin can grade
+                  submissions. You can review the work and add comments.
+                </p>
               </div>
             )}
 

@@ -35,6 +35,8 @@ interface QuestionResult {
 
 interface SubmissionDetail {
   submission_id: number;
+  /** false when the viewer isn't the quiz's creator or a super admin */
+  can_grade?: boolean;
   quiz_id: number;
   quiz_title: string;
   student_name: string;
@@ -899,7 +901,7 @@ const SubmissionDetailPage: React.FC = () => {
       </div>
 
       {/* Grade button */}
-      {pendingCount > 0 && (
+      {pendingCount > 0 && detail?.can_grade !== false && (
         <div className="mt-6 p-4 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl flex items-center justify-between">
           <div className="flex items-center gap-2 text-sm text-amber-700 dark:text-amber-400">
             <AlertTriangle className="w-4 h-4" />

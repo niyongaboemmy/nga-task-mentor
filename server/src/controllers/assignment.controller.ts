@@ -19,6 +19,7 @@ import {
   handleMisError,
 } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
+import { canManageAssignment } from "../utils/ownership";
 
 // This controller manages all assignment-related operations, including creation, retrieval, updating, deletion, and submission handling. It also integrates with the NGA MIS to fetch enrolled students and manage assignment visibility based on course enrollment. The controller ensures that only authorized users can perform certain actions (e.g., only instructors can create assignments) and that students can only see and submit assignments for courses they are enrolled in. It also handles file uploads for assignments and submissions, storing metadata in the database and files on disk.
 // @desc    Get assignments for a specific course
@@ -305,6 +306,8 @@ export const getGroupedAssignments = async (req: Request, res: Response) => {
           status: a.status,
           course_id: a.course_id,
           creator: (a as any).creator ?? null,
+          created_by: a.created_by,
+          can_manage: canManageAssignment(req.user, a),
         };
         if (isStudent) {
           const mine = subs[0] ?? null;
@@ -377,7 +380,14 @@ export const getAssignment = async (req: Request, res: Response) => {
         .json({ success: false, message: "Assignment not found" });
     }
 
-    res.status(200).json({ success: true, data: assignment });
+    // can_manage drives the edit / status / grading controls on the detail page
+    res.status(200).json({
+      success: true,
+      data: {
+        ...assignment.toJSON(),
+        can_manage: canManageAssignment(req.user, assignment),
+      },
+    });
   } catch (error) {
     console.error("Get assignment error:", error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -1298,6 +1308,13 @@ export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
       return res
         .status(404)
         .json({ success: false, message: "Assignment not found" });
+    }
+
+    if (!canManageAssignment(req.user, assignment)) {
+      return res.status(403).json({
+        success: false,
+        message: "Only the assignment's creator or a super admin can grade it",
+      });
     }
 
     const maxScore = parseFloat(String(assignment.max_score));

@@ -182,7 +182,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
   canManage = false,
   onStatusChange,
 }) => {
-  const { can } = usePermissions();
+  const { can, canManageOwned } = usePermissions();
   const isStudent = can("SUBMISSIONS_CREATE");
 
   // Find the student's submission and its grade
@@ -264,7 +264,10 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
                 assignmentId={assignment.id}
                 currentStatus={currentStatus}
                 onStatusChange={handleStatusChange}
-                canManage={canManage}
+                canManage={
+                  canManage &&
+                  canManageOwned(assignment.created_by, "ASSIGNMENTS_MANAGE_ANY")
+                }
                 variant="select"
                 size={compact ? "sm" : "sm"}
               />

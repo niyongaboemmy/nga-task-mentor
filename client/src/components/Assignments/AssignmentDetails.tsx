@@ -54,6 +54,8 @@ interface Assignment {
   rubric: RubricCriterion[] | string | null;
   course_id: string;
   created_by: string;
+  /** server-computed: creator or super admin (see server utils/ownership.ts) */
+  can_manage?: boolean;
   attachments?: Attachment[];
   createdAt: string;
   updatedAt: string;
@@ -84,7 +86,7 @@ const AssignmentDetails = () => {
     "submissions",
   );
   const { user } = useAuth();
-  const { can } = usePermissions();
+  const { can, canManageOwned } = usePermissions();
   const { courses } = useSelector(
     (state: RootState) => state.course || { courses: [] },
   );
@@ -309,9 +311,14 @@ const AssignmentDetails = () => {
     !userSubmission() &&
     !!user &&
     assignment?.status === "published";
-  const canManageAssignment = !!(
-    can("ASSIGNMENTS_EDIT")
-  );
+  // Co-teachers can review every submission; only the assignment's creator
+  // or a super admin may edit it, change its status or grade.
+  const canViewAllSubmissions = can(["ASSIGNMENTS_VIEW_SUBMISSIONS", "SUBMISSIONS_VIEW_ALL"]);
+  const canManageAssignment =
+    can("ASSIGNMENTS_EDIT") &&
+    (assignment?.can_manage ??
+      canManageOwned(assignment?.created_by, "ASSIGNMENTS_MANAGE_ANY"));
+  const canGradeSubmissions = can("SUBMISSIONS_GRADE") && canManageAssignment;
 
   const handleStatusChange = useCallback(
     async (
@@ -636,7 +643,7 @@ const AssignmentDetails = () => {
                         status: assignment.status,
                       }}
                       canSubmit={canSubmit}
-                      canManageAssignment={canManageAssignment}
+                      canManageAssignment={canViewAllSubmissions}
                       isOverdue={isOverdue}
                       isStudent={isStudent}
                       userSubmission={userSubmission}
@@ -772,7 +779,8 @@ const AssignmentDetails = () => {
             assignment={assignment}
             formatDate={formatDate}
             getSubmissionStatusColor={getSubmissionStatusColor}
-            canManageAssignment={canManageAssignment}
+            canManageAssignment={canGradeSubmissions}
+            showGradingLockedNotice={canViewAllSubmissions && !canGradeSubmissions}
             onGradeSubmission={handleGradeSubmission}
           />
         )}

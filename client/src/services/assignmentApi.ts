@@ -11,6 +11,9 @@ export interface GroupedAssignment {
   status: AssignmentStatus;
   course_id: number;
   creator: { id: number; first_name: string; last_name: string } | null;
+  created_by?: number;
+  /** creator or super admin: may edit / change status / grade */
+  can_manage?: boolean;
   /** instructor / admin view */
   submission_count?: number;
   graded_count?: number;

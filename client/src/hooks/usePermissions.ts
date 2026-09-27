@@ -27,5 +27,26 @@ export function usePermissions() {
   const canAll = (permissions: string[]): boolean =>
     permissions.every((p) => permissionSet.has(p));
 
-  return { can, canAll, permissions: permissionSet, roleName: user?.roleName ?? null };
+  /**
+   * Creator-or-super-admin rule for quizzes/assignments: true when the caller
+   * holds `manageAnyKey` (QUIZZES_MANAGE_ANY / ASSIGNMENTS_MANAGE_ANY, admin
+   * only) or created the item. Mirrors server `utils/ownership.ts`; prefer the
+   * server's `can_manage` flag when a response carries one.
+   */
+  const canManageOwned = (
+    createdBy: number | string | null | undefined,
+    manageAnyKey: "QUIZZES_MANAGE_ANY" | "ASSIGNMENTS_MANAGE_ANY",
+  ): boolean => {
+    if (permissionSet.has(manageAnyKey)) return true;
+    if (createdBy === null || createdBy === undefined || !user?.id) return false;
+    return String(createdBy) === String(user.id);
+  };
+
+  return {
+    can,
+    canAll,
+    canManageOwned,
+    permissions: permissionSet,
+    roleName: user?.roleName ?? null,
+  };
 }

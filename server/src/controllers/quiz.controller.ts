@@ -26,6 +26,7 @@ import {
   handleMisError,
 } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
+import { canManageQuiz } from "../utils/ownership";
 
 // Deep equality comparison for objects
 
@@ -332,7 +333,9 @@ export const getGroupedQuizzes = async (req: Request, res: Response) => {
           // Subjects are already scoped to what the caller teaches, so any
           // editor may manage quizzes within them (co-teacher model, matching
           // getQuizzes). is_own flags the ones they personally created.
-          can_edit: canManageAnyQuiz || canEditQuizzes,
+          // Co-teachers see each other's quizzes but only the creator (or a
+          // super admin) may edit them or change their status.
+          can_edit: canEditQuizzes && canManageQuiz(req.user, q),
           is_own: q.created_by === req.user.id,
         });
         bySubject.set(q.course_id!, list);
@@ -552,7 +555,11 @@ export const getQuiz = async (req: Request, res: Response) => {
     // For students, don't include correct answers unless show_correct_answers is true
     // Note: This logic will be handled by the frontend for now
 
-    res.status(200).json({ success: true, data: quizData });
+    // can_manage drives the edit / status / grading controls on the detail page
+    res.status(200).json({
+      success: true,
+      data: { ...quizData, can_manage: canManageQuiz(req.user, quiz) },
+    });
   } catch (error) {
     console.error("Get quiz error:", error);
     res.status(500).json({ success: false, message: "Server error" });
@@ -697,7 +704,7 @@ export const updateQuiz = async (req: Request, res: Response) => {
     }
 
     // Check if user is quiz creator or admin
-    if (quiz.created_by !== req.user.id && !req.user.permissions?.has("QUIZZES_MANAGE_ANY")) {
+    if (!canManageQuiz(req.user, quiz)) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -832,7 +839,7 @@ export const deleteQuiz = async (req: Request, res: Response) => {
     }
 
     // Check if user is quiz creator or admin
-    if (quiz.created_by !== req.user.id && !req.user.permissions?.has("QUIZZES_MANAGE_ANY")) {
+    if (!canManageQuiz(req.user, quiz)) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -879,7 +886,7 @@ export const getQuizStats = async (req: Request, res: Response) => {
     }
 
     // Check authorization
-    if (quiz.created_by !== req.user.id && !req.user.permissions?.has("QUIZZES_MANAGE_ANY")) {
+    if (!canManageQuiz(req.user, quiz)) {
       return res.status(403).json({
         success: false,
         message: "Not authorized to view quiz statistics",
@@ -1905,7 +1912,10 @@ export const updateQuizSubmission = async (req: Request, res: Response) => {
     const { time_taken, status } = req.body;
 
     // Find the submission
-    const submission = await QuizSubmission.findByPk(id, { transaction });
+    const submission = await QuizSubmission.findByPk(id, {
+      include: [{ model: Quiz, as: "quiz", attributes: ["id", "created_by"] }],
+      transaction,
+    });
     if (!submission) {
       await transaction.rollback();
       return res
@@ -1913,11 +1923,13 @@ export const updateQuizSubmission = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz submission not found" });
     }
 
+    const isOwnSubmission = submission.student_id === req.user.id;
+    const canGrade =
+      !!req.user.permissions?.has("QUIZZES_GRADE") &&
+      canManageQuiz(req.user, (submission as any).quiz);
+
     // Check authorization
-    if (
-      submission.student_id !== req.user.id &&
-      !req.user.permissions?.has("QUIZZES_GRADE")
-    ) {
+    if (!isOwnSubmission && !canGrade) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
@@ -1930,7 +1942,7 @@ export const updateQuizSubmission = async (req: Request, res: Response) => {
       submission.time_taken = time_taken;
     }
 
-    if (status && req.user.permissions?.has("QUIZZES_GRADE")) {
+    if (status && canGrade) {
       submission.status = status;
       if (status === "completed") {
         submission.completed_at = new Date();
@@ -1960,13 +1972,24 @@ export const resetQuizSubmission = async (req: Request, res: Response) => {
 
   try {
     // Find the submission
-    const submission = await QuizSubmission.findByPk(id, { transaction });
+    const submission = await QuizSubmission.findByPk(id, {
+      include: [{ model: Quiz, as: "quiz", attributes: ["id", "created_by"] }],
+      transaction,
+    });
 
     if (!submission) {
       await transaction.rollback();
       return res.status(404).json({
         success: false,
         message: "Quiz submission not found",
+      });
+    }
+
+    if (!canManageQuiz(req.user, (submission as any).quiz)) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Only the quiz's creator or a super admin can reset submissions",
       });
     }
 
@@ -2207,10 +2230,21 @@ export const deleteQuizSubmission = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
 
   try {
-    const submission = await QuizSubmission.findByPk(submissionId, { transaction });
+    const submission = await QuizSubmission.findByPk(submissionId, {
+      include: [{ model: Quiz, as: "quiz", attributes: ["id", "created_by"] }],
+      transaction,
+    });
     if (!submission) {
       await transaction.rollback();
       return res.status(404).json({ success: false, message: "Submission not found" });
+    }
+
+    if (!canManageQuiz(req.user, (submission as any).quiz)) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Only the quiz's creator or a super admin can delete submissions",
+      });
     }
 
     const quizId = submission.quiz_id;
@@ -2255,6 +2289,14 @@ export const deleteAllQuizSubmissions = async (req: Request, res: Response) => {
     if (!quiz) {
       await transaction.rollback();
       return res.status(404).json({ success: false, message: "Quiz not found" });
+    }
+
+    if (!canManageQuiz(req.user, quiz)) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        message: "Only the quiz's creator or a super admin can delete submissions",
+      });
     }
 
     // Delete all proctoring events for this quiz's sessions

@@ -4,6 +4,7 @@ import { Op } from "sequelize";
 import { isPastDate } from "../utils/dateUtils";
 import { resolveAcademicTermId, getCurrentTermId } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
+import { canManageAssignment } from "../utils/ownership";
 import fs from "fs";
 import path from "path";
 import fileServer from "../utils/fileServer";
@@ -827,7 +828,7 @@ export const gradeSubmission = async (req: Request, res: Response) => {
       include: [
         {
           model: Assignment,
-          attributes: ["id", "title", "course_id", "max_score"],
+          attributes: ["id", "title", "course_id", "max_score", "created_by"],
         },
       ],
     })) as any;
@@ -838,10 +839,13 @@ export const gradeSubmission = async (req: Request, res: Response) => {
         .json({ success: false, message: "Submission not found" });
     }
 
-    if (!(req as any).user.permissions?.has("SUBMISSIONS_GRADE")) {
+    if (
+      !(req as any).user.permissions?.has("SUBMISSIONS_GRADE") ||
+      !canManageAssignment((req as any).user, submission.Assignment)
+    ) {
       return res.status(403).json({
         success: false,
-        message: "Not authorized to grade submissions",
+        message: "Only the assignment's creator or a super admin can grade this submission",
       });
     }
 

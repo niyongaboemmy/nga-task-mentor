@@ -291,6 +291,9 @@ export interface Quiz {
   end_date?: string | null;
   course_id: number;
   created_by: number;
+  /** From GET /quizzes/:id: the caller created it or is a super admin. */
+  can_manage?: boolean;
+  quizCreator?: { id: number; first_name: string; last_name: string; email?: string };
   created_at: string;
   updated_at: string;
   course?: {

@@ -2,7 +2,8 @@ import React from "react";
 import { toast } from "react-toastify";
 import type { AssignmentInterface } from "./AssignmentCard";
 import { motion } from "framer-motion";
-import { CheckCircle2, MessageSquare, Star, Award, Zap } from "lucide-react";
+import { MessageSquare, Star, Award } from "lucide-react";
+import ScoreRing from "../Common/ScoreRing";
 
 export interface SubmissionItemInterface {
   id: string;
@@ -91,38 +92,62 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
     const parts = submission.grade.toString().split("/");
     return parts[0] || "";
   });
+  const scoreInputRef = React.useRef<HTMLInputElement>(null);
 
-  // Calculate total from rubric
-  React.useEffect(() => {
-    if (rubric.length > 0) {
-      const total = Object.values(rubricScores).reduce(
-        (acc, curr) => acc + curr,
-        0,
-      );
-      setScore(total.toString());
-    }
-  }, [rubricScores, rubric.length]);
+  const maxScore = Number(assignment.max_score) || 0;
+  const rubricTotal = (scores: Record<number, number>) =>
+    Object.values(scores).reduce((acc, curr) => acc + (Number(curr) || 0), 0);
 
+  // The rubric fills the marks as the teacher scores each criterion. It only
+  // writes on interaction, so an existing grade without rubric scores is kept.
   const handleRubricScoreChange = (index: number, value: number) => {
-    setRubricScores((prev) => ({
-      ...prev,
-      [index]: value,
-    }));
+    setRubricScores((prev) => {
+      const next = { ...prev, [index]: value };
+      setScore(String(rubricTotal(next)));
+      return next;
+    });
   };
 
+  const trimmed = score.trim();
+  const numericScore = trimmed === "" ? null : Number(trimmed);
+  const scoreError =
+    numericScore === null
+      ? null
+      : Number.isNaN(numericScore)
+        ? "Enter a number."
+        : numericScore < 0
+          ? "Marks can't be negative."
+          : numericScore > maxScore
+            ? `Marks can't exceed ${maxScore}.`
+            : null;
+  const canSave = numericScore !== null && !scoreError && !isSubmitting;
+  const isOverridingRubric =
+    rubric.length > 0 &&
+    numericScore !== null &&
+    Object.keys(rubricScores).length > 0 &&
+    numericScore !== rubricTotal(rubricScores);
+
+  const quickFills = [
+    { label: "0", value: 0 },
+    { label: "½", value: maxScore / 2 },
+    { label: "¾", value: (maxScore * 3) / 4 },
+    { label: "Full", value: maxScore },
+  ].map((q) => ({ ...q, value: Math.round(q.value * 100) / 100 }));
+
   const handleSubmit = async () => {
-    if (!score || isNaN(Number(score))) {
-      toast.error("Please enter a valid score.");
+    if (numericScore === null) {
+      toast.error("Enter the marks awarded before saving.");
+      scoreInputRef.current?.focus();
       return;
     }
-    const numScore = Number(score);
-    if (numScore < 0 || numScore > Number(assignment.max_score)) {
-      toast.error(`Score must be between 0 and ${assignment.max_score}.`);
+    if (scoreError) {
+      toast.error(scoreError);
+      scoreInputRef.current?.focus();
       return;
     }
     setIsSubmitting(true);
     try {
-      await onGradeSubmission(submission.id, numScore, feedback, rubricScores);
+      await onGradeSubmission(submission.id, numericScore, feedback, rubricScores);
       toast.success(
         submission.grade ? "Assessment updated!" : "Assessment finalized!",
       );
@@ -131,7 +156,9 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
         onSuccess();
       }
     } catch (error: any) {
-      toast.error("Failed to save grade.");
+      toast.error(
+        error?.response?.data?.message || "Failed to save grade.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -141,114 +168,117 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
 
   return (
     <div className="mt-8 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      {/* Grade Header / Dial */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 flex items-center gap-6 p-8 bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 shadow-xl shadow-gray-200/50 dark:shadow-none relative overflow-hidden group">
-          <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/5 rounded-full blur-3xl -mr-16 -mt-16 group-hover:bg-blue-500/10 transition-colors duration-700" />
+      {/* Marks entry: live ring preview + the one field that sets the grade */}
+      <section
+        aria-labelledby="marks-heading"
+        className="rounded-2xl border-2 border-blue-200 bg-white p-6 shadow-sm dark:border-blue-900/60 dark:bg-gray-900 sm:p-8"
+      >
+        <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:gap-8">
+          <ScoreRing
+            value={scoreError ? null : numericScore}
+            max={maxScore}
+            size={120}
+            caption={`${numericScore ?? 0} / ${maxScore}`}
+          />
 
-          <div className="relative w-32 h-32 flex-shrink-0">
-            <svg className="w-full h-full transform -rotate-90">
-              <circle
-                cx="64"
-                cy="64"
-                r="56"
-                fill="transparent"
-                stroke="currentColor"
-                strokeWidth="12"
-                className="text-gray-100 dark:text-gray-800"
-              />
-              <motion.circle
-                cx="64"
-                cy="64"
-                r="56"
-                fill="transparent"
-                stroke="currentColor"
-                strokeWidth="12"
-                strokeDasharray={2 * Math.PI * 56}
-                initial={{ strokeDashoffset: 2 * Math.PI * 56 }}
-                animate={{
-                  strokeDashoffset:
-                    2 *
-                    Math.PI *
-                    56 *
-                    (1 -
-                      (parseFloat(score) || 0) /
-                        (Number(assignment.max_score) || 100)),
-                }}
-                transition={{ duration: 1, ease: "easeOut" }}
-                strokeLinecap="round"
-                className="text-blue-600 dark:text-blue-500"
-              />
-            </svg>
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-              <span className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
-                {Math.round(
-                  ((parseFloat(score) || 0) /
-                    (Number(assignment.max_score) || 1)) *
-                    100,
-                )}
-                %
-              </span>
+          <div className="min-w-0 flex-1 space-y-3">
+            <div>
+              <label
+                id="marks-heading"
+                htmlFor="marks-awarded"
+                className="flex items-center gap-2 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark"
+              >
+                <Award className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+                Marks awarded
+              </label>
+              <p className="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
+                {rubric.length > 0
+                  ? "Filled from the rubric below. Type a value to override it."
+                  : `Type the marks for this submission, from 0 to ${maxScore}.`}
+              </p>
             </div>
-          </div>
 
-          <div className="flex-1 space-y-1">
-            <h4 className="text-xs font-bold text-blue-600 dark:text-blue-400 uppercase tracking-widest flex items-center gap-2">
-              <Award className="w-3 h-3" />
-              Comprehensive Grade
-            </h4>
-            <div className="flex items-baseline gap-2">
-              <span className="text-5xl font-bold text-text-primary-light dark:text-text-primary-dark tabular-nums">
-                {score || 0}
-              </span>
-              <span className="text-xl font-bold text-gray-400 dark:text-gray-600 uppercase tracking-tighter">
-                / {assignment.max_score} Pts
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="bg-gradient-to-br from-indigo-600 to-blue-700 rounded-2xl p-8 text-white flex flex-col justify-between shadow-xl shadow-blue-500/20 relative overflow-hidden">
-          <Zap className="absolute top-4 right-4 w-24 h-24 text-white/10" />
-          <div className="relative">
-            <h5 className="text-lg font-bold mb-1 italic opacity-90">
-              Submission Insights
-            </h5>
-            <p className="text-xs text-blue-100/70 mb-4 uppercase tracking-wider font-bold">
-              Based on {rubric.length} Criteria
-            </p>
-            <div className="space-y-2">
-              <div className="flex justify-between text-xs font-bold">
-                <span>Performance</span>
-                <span>
-                  {((percentage) =>
-                    percentage > 80
-                      ? "Excellent"
-                      : percentage > 60
-                        ? "Good"
-                        : "Needs Work")(
-                    ((parseFloat(score) || 0) /
-                      (Number(assignment.max_score) || 1)) *
-                      100,
-                  )}
+            <div className="flex flex-wrap items-center gap-3">
+              <div
+                className={`flex items-center rounded-xl border-2 bg-white transition-colors focus-within:ring-4 dark:bg-gray-950 ${
+                  scoreError
+                    ? "border-red-400 focus-within:ring-red-500/15 dark:border-red-500"
+                    : "border-gray-300 focus-within:border-blue-600 focus-within:ring-blue-500/15 dark:border-gray-600 dark:focus-within:border-blue-500"
+                }`}
+              >
+                <input
+                  ref={scoreInputRef}
+                  id="marks-awarded"
+                  type="number"
+                  inputMode="decimal"
+                  min={0}
+                  max={maxScore}
+                  step="any"
+                  value={score}
+                  autoFocus={!isGraded}
+                  placeholder="0"
+                  aria-invalid={!!scoreError}
+                  aria-describedby={scoreError ? "marks-error" : undefined}
+                  onChange={(e) => setScore(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && canSave) handleSubmit();
+                  }}
+                  className="w-28 rounded-l-xl bg-transparent px-4 py-3 text-3xl font-bold tabular-nums text-text-primary-light placeholder:text-gray-300 focus:outline-none dark:text-text-primary-dark dark:placeholder:text-gray-600 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                />
+                <span className="select-none border-l border-gray-200 px-4 py-3 text-lg font-semibold tabular-nums text-gray-500 dark:border-gray-700 dark:text-gray-400">
+                  / {maxScore}
                 </span>
               </div>
-              <div className="h-1.5 w-full bg-white/20 rounded-full overflow-hidden">
-                <motion.div
-                  className="h-full bg-white"
-                  animate={{
-                    width: `${((parseFloat(score) || 0) / (Number(assignment.max_score) || 1)) * 100}%`,
-                  }}
-                />
+
+              <div
+                className="flex flex-wrap gap-1.5"
+                role="group"
+                aria-label="Quick fill marks"
+              >
+                {quickFills.map((q) => (
+                  <button
+                    key={q.label}
+                    type="button"
+                    onClick={() => {
+                      setScore(String(q.value));
+                      scoreInputRef.current?.focus();
+                    }}
+                    className={`rounded-lg border px-3 py-2 text-xs font-semibold transition-colors ${
+                      numericScore === q.value
+                        ? "border-blue-600 bg-blue-600 text-white"
+                        : "border-gray-200 bg-gray-50 text-gray-600 hover:border-blue-300 hover:text-blue-700 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:border-blue-700 dark:hover:text-blue-300"
+                    }`}
+                    title={`${q.value} / ${maxScore}`}
+                  >
+                    {q.label}
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
-          <div className="mt-4 flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-blue-100/50">
-            <CheckCircle2 className="w-3 h-3" />
-            Real-time Calibration Active
+
+            {scoreError ? (
+              <p id="marks-error" className="text-xs font-medium text-red-600 dark:text-red-400">
+                {scoreError}
+              </p>
+            ) : isOverridingRubric ? (
+              <p className="flex flex-wrap items-center gap-2 text-xs text-amber-700 dark:text-amber-400">
+                Overriding the rubric total ({rubricTotal(rubricScores)}).
+                <button
+                  type="button"
+                  onClick={() => setScore(String(rubricTotal(rubricScores)))}
+                  className="font-semibold underline underline-offset-2"
+                >
+                  Use rubric total
+                </button>
+              </p>
+            ) : numericScore === null ? (
+              <p className="text-xs font-medium text-blue-700 dark:text-blue-300">
+                Not graded yet. Enter marks to grade this submission.
+              </p>
+            ) : null}
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Interactive Rubric Section */}
       {rubric && rubric.length > 0 && (
@@ -355,57 +385,35 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
         </div>
       )}
 
-      {/* Manual Grade & Overall Feedback */}
+      {/* Feedback + save */}
       <div className="space-y-6">
-        <div className="flex items-center gap-4">
-          <h6 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-[0.2em]">
-            Overall Assessment
-          </h6>
-          <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-800" />
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="md:col-span-1 space-y-3">
-            <div className="p-6 bg-blue-50/50 dark:bg-blue-900/10 rounded-2xl border border-blue-100/50 dark:border-blue-900/30">
-              <label className="block text-[10px] font-bold text-blue-600 dark:text-blue-400 mb-2 uppercase tracking-widest">
-                Override Grade
-              </label>
-              <input
-                type="number"
-                value={score}
-                onChange={(e) => setScore(e.target.value)}
-                className="w-full bg-transparent text-3xl font-bold text-text-primary-light dark:text-text-primary-dark focus:outline-none tabular-nums"
-              />
-              <div className="mt-1 h-1 w-8 bg-blue-600 rounded-full" />
-            </div>
-            <p className="text-[10px] text-gray-400 dark:text-gray-500 px-4 italic leading-tight">
-              Setting a manual score will ignore auto-calculations from the
-              rubric.
-            </p>
-          </div>
-
-          <div className="md:col-span-3">
-            <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 p-6 focus-within:ring-4 focus-within:ring-blue-500/5 transition-all">
-              <div className="flex items-center gap-2 mb-4 text-gray-400 dark:text-gray-500">
-                <MessageSquare className="w-4 h-4" />
-                <span className="text-[10px] font-bold uppercase tracking-widest">
-                  Private Feedback
-                </span>
-              </div>
-              <textarea
-                value={feedback}
-                onChange={(e) => setFeedback(e.target.value)}
-                placeholder="Write detailed observations, encouragement, and areas for improvement..."
-                className="w-full bg-transparent text-sm resize-none focus:outline-none min-h-[120px] dark:text-white leading-relaxed"
-              />
-            </div>
-          </div>
+        <div className="rounded-2xl border border-gray-200 bg-white p-6 transition-all focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-500/10 dark:border-gray-700 dark:bg-gray-900">
+          <label
+            htmlFor="grading-feedback"
+            className="mb-3 flex items-center gap-2 text-gray-500 dark:text-gray-400"
+          >
+            <MessageSquare className="h-4 w-4" />
+            <span className="text-[10px] font-bold uppercase tracking-widest">
+              Feedback
+            </span>
+            <span className="text-[10px] font-medium normal-case tracking-normal text-gray-400">
+              · visible to the student
+            </span>
+          </label>
+          <textarea
+            id="grading-feedback"
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            placeholder="Write detailed observations, encouragement, and areas for improvement..."
+            className="min-h-[120px] w-full resize-none bg-transparent text-sm leading-relaxed focus:outline-none dark:text-white"
+          />
         </div>
 
         <div className="flex justify-end pt-4">
           <button
             onClick={handleSubmit}
-            disabled={isSubmitting}
+            disabled={!canSave}
+            title={numericScore === null ? "Enter the marks awarded first" : undefined}
             className="group relative overflow-hidden px-6 py-3 bg-blue-600 dark:bg-blue-700 text-white rounded-full font-bold text-sm uppercase tracking-[0.2em] shadow-2xl hover:scale-[1.03] active:scale-[0.98] transition-all disabled:opacity-50"
           >
             <div className="relative flex items-center gap-3">

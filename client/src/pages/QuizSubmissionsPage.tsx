@@ -34,6 +34,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
+import { usePermissions } from "../hooks/usePermissions";
 import { QuizApiService } from "../services/quizApi";
 import type { QuizQuestion } from "../types/quiz.types";
 
@@ -61,12 +62,21 @@ interface Quiz {
   total_points: number;
   time_limit?: number;
   max_attempts?: number;
+  created_by?: number;
+  /** creator or super admin (GET /quizzes/:id) */
+  can_manage?: boolean;
 }
 
 const QuizSubmissionsPage: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const { canManageOwned } = usePermissions();
+  // Co-teachers can review submissions; grading, manual marks and deletes are
+  // reserved for the quiz's creator or a super admin (enforced server-side too).
+  const canGrade =
+    !!quiz &&
+    (quiz.can_manage ?? canManageOwned(quiz.created_by, "QUIZZES_MANAGE_ANY"));
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -414,6 +424,7 @@ const QuizSubmissionsPage: React.FC = () => {
               <ArrowLeft className="w-3 h-3" />
               <span className="text-xs font-medium">Back</span>
             </button>
+            {canGrade ? (
             <div className="flex items-center gap-2">
               <button
                 onClick={handleOpenManualModal}
@@ -433,6 +444,14 @@ const QuizSubmissionsPage: React.FC = () => {
                 </button>
               )}
             </div>
+            ) : quiz ? (
+              <span
+                className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
+                title="Only the quiz's creator or a super admin can grade, record marks or delete submissions"
+              >
+                View only
+              </span>
+            ) : null}
           </div>
 
           <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl p-4 sm:p-6 animate-in slide-in-from-bottom duration-500">
@@ -701,7 +720,7 @@ const QuizSubmissionsPage: React.FC = () => {
                       <Eye className="w-3 h-3 mr-1" />
                       View
                     </button>
-                    {submission.grade_status !== "pending" && (
+                    {canGrade && submission.grade_status !== "pending" && (
                       <button
                         onClick={() =>
                           setAdjustingSubmissionId(submission.submission_id)
@@ -712,6 +731,7 @@ const QuizSubmissionsPage: React.FC = () => {
                         Adjust
                       </button>
                     )}
+                    {canGrade && (
                     <button
                       onClick={() =>
                         setConfirmDelete({
@@ -726,6 +746,7 @@ const QuizSubmissionsPage: React.FC = () => {
                     >
                       <Trash2 className="w-3 h-3" />
                     </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -824,7 +845,7 @@ const QuizSubmissionsPage: React.FC = () => {
                               <Eye className="w-3 h-3 mr-1" />
                               View
                             </button>
-                            {submission.grade_status !== "pending" && (
+                            {canGrade && submission.grade_status !== "pending" && (
                               <button
                                 onClick={() =>
                                   setAdjustingSubmissionId(
@@ -837,6 +858,7 @@ const QuizSubmissionsPage: React.FC = () => {
                                 Adjust
                               </button>
                             )}
+                            {canGrade && (
                             <button
                               onClick={() =>
                                 setConfirmDelete({
@@ -851,6 +873,7 @@ const QuizSubmissionsPage: React.FC = () => {
                             >
                               <Trash2 className="w-3 h-3" />
                             </button>
+                            )}
                           </div>
                         </td>
                       </tr>
