@@ -9,12 +9,14 @@ import {
   handleMisError,
   resolveAcademicYearId,
   resolveAcademicTermId,
+  fetchEnrolledStudents,
 } from "../utils/misUtils";
 import { Submission, Assignment, QuizSubmission, Quiz, User } from "../models";
 import {
   buildManualAssessmentRow,
   fetchManualAssessments,
 } from "../utils/manualAssessments";
+import { buildStandingPayload } from "../utils/studentStanding";
 
 // MIS role IDs (see nga_central_mis Role table) — used to filter the generic
 // /users/ endpoint via its `userRole` query param.
@@ -931,7 +933,9 @@ export const getStudentQuizzes = async (req: Request, res: Response) => {
     const quizzes = await Quiz.findAll({
       where: {
         course_id: { [Op.in]: courseIds },
-        // status: { [Op.in]: ["published", "completed"] },
+        // A draft quiz isn't work the student can do — counting it made the
+        // profile report quizzes nobody had ever been shown.
+        status: { [Op.in]: ["published", "completed"] },
         ...studentQuizzesTermWhere,
       },
       include: [
@@ -1077,6 +1081,168 @@ export const getStudentRecordedAssessments = async (
     res.status(200).json({ success: true, data });
   } catch (error: any) {
     console.error("Get student recorded assessments error:", error.message);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// @desc    Where one student stands among their classmates, per subject
+// @route   GET /api/users/:userId/standing
+// @access  Private (USERS_VIEW_OTHERS_ACTIVITY)
+//
+// Returns every classmate's per-subject, per-kind mark tallies — anonymised,
+// see utils/studentStanding — so the profile can rank the student overall or
+// within one subject / one kind of work without a round trip per filter.
+export const getStudentStanding = async (req: Request, res: Response) => {
+  try {
+    const { userId } = req.params;
+    const token = getMisToken(req);
+    if (!token) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Authentication required" });
+    }
+
+    const targetMisId = Number(userId);
+    const localUser = await User.findOne({
+      where: { mis_user_id: targetMisId },
+      attributes: ["id"],
+    });
+
+    let subjects: any[] = [];
+    try {
+      const yearId = await resolveAcademicYearId(req);
+      const misResponse = await axios.get(
+        `${process.env.NGA_MIS_BASE_URL}/academics/students/${userId}/enrolled-subjects`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          params: yearId ? { academic_year_id: yearId } : {},
+        },
+      );
+      subjects = misResponse.data?.success ? misResponse.data.data || [] : [];
+    } catch (error: any) {
+      console.warn(
+        `Could not fetch enrolled subjects for student ${userId}:`,
+        error.message,
+      );
+    }
+
+    const courses = subjects
+      .map((s: any) => ({
+        course_id: Number(s.subject_id ?? s.id),
+        subject_name: s.subject_name ?? s.name ?? "",
+        subject_code: s.subject_code ?? s.code ?? "",
+      }))
+      .filter((s) => !isNaN(s.course_id) && s.course_id > 0);
+
+    if (courses.length === 0) {
+      return res
+        .status(200)
+        .json({ success: true, data: { me: "me", subjects: [], members: [] } });
+    }
+
+    const courseIds = courses.map((c) => c.course_id);
+    const termId = await resolveAcademicTermId(req);
+    const termWhere = termId
+      ? { [Op.or]: [{ academic_term_id: termId }, { academic_term_id: null }] }
+      : undefined;
+
+    const rosters = await Promise.all(
+      courseIds.map((id) => fetchEnrolledStudents(token, id, termId)),
+    );
+    const rosterIds = rosters.map((roster) =>
+      roster
+        .map((st: any) => Number(st.id ?? st.user_id))
+        .filter((id: number) => !isNaN(id) && id > 0),
+    );
+    const allMisIds = Array.from(new Set([targetMisId, ...rosterIds.flat()]));
+
+    const localUsers = await User.findAll({
+      where: { mis_user_id: { [Op.in]: allMisIds } },
+      attributes: ["id", "mis_user_id"],
+    });
+    const localIdByMisId = new Map<number, number>(
+      localUsers.map((u) => [Number(u.mis_user_id), u.id]),
+    );
+
+    const [assignments, quizzes] = await Promise.all([
+      Assignment.findAll({
+        where: {
+          course_id: { [Op.in]: courseIds },
+          status: { [Op.in]: ["published", "completed"] },
+          ...termWhere,
+        },
+        attributes: ["id", "course_id", "max_score"],
+      }),
+      Quiz.findAll({
+        where: {
+          course_id: { [Op.in]: courseIds },
+          status: { [Op.in]: ["published", "completed"] },
+          ...termWhere,
+        },
+        attributes: ["id", "course_id"],
+      }),
+    ]);
+
+    const studentInclude = {
+      model: User,
+      as: "student",
+      attributes: ["id", "mis_user_id"],
+    };
+    const [submissions, quizSubmissions] = await Promise.all([
+      assignments.length
+        ? Submission.findAll({
+            where: {
+              assignment_id: { [Op.in]: assignments.map((a) => a.id) },
+              status: { [Op.ne]: "draft" },
+            },
+            attributes: ["assignment_id", "grade", "status", "student_id"],
+            include: [studentInclude],
+          })
+        : [],
+      quizzes.length
+        ? QuizSubmission.findAll({
+            where: {
+              quiz_id: { [Op.in]: quizzes.map((q) => q.id) },
+              status: "completed",
+            },
+            attributes: ["quiz_id", "percentage", "total_score", "student_id"],
+            include: [studentInclude],
+          })
+        : [],
+    ]);
+
+    const { assessments: manual, scoresByAssessment } =
+      await fetchManualAssessments(req, courseIds, [
+        ...allMisIds,
+        ...localUsers.map((u) => u.id),
+      ]);
+
+    const payload = buildStandingPayload({
+      target: { mis_user_id: targetMisId, user_id: localUser?.id ?? null },
+      subjects: courses.map((c, i) => ({ ...c, roster: rosterIds[i] })),
+      localIdByMisId,
+      assignments: assignments.map((a: any) => a.toJSON()),
+      submissions: submissions.map((s: any) => s.toJSON()),
+      quizzes: quizzes.map((q: any) => q.toJSON()),
+      quizSubmissions: quizSubmissions.map((s: any) => s.toJSON()),
+      recorded: manual.map((a) => ({
+        course_id: a.course_id,
+        counts_to_final: a.add_to_final_grade !== false,
+        max_score: Number(a.max_score) || 0,
+        percentageFor: (ids) =>
+          buildManualAssessmentRow(a, scoresByAssessment, [
+            ids.mis_user_id,
+            ids.user_id,
+          ]).percentage,
+      })),
+    });
+
+    res.status(200).json({ success: true, data: payload });
+  } catch (error: any) {
+    console.error("Get student standing error:", error.message);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

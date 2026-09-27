@@ -20,13 +20,18 @@ export interface CourseTabItem {
   count?: number;
   /** A tab that is really a link to another page (e.g. Question Bank). */
   href?: string;
+  /** Items in this section needing attention — shows a red dot. */
+  alert?: number;
 }
 
 export interface CourseTabAction {
   id: string;
   label: string;
   icon: React.ReactNode;
-  href: string;
+  /** Either a link… */
+  href?: string;
+  /** …or an in-page action (e.g. open a modal). */
+  onClick?: () => void;
 }
 
 interface CourseTabsProps {
@@ -34,6 +39,7 @@ interface CourseTabsProps {
   activeId: string;
   onSelect: (id: string) => void;
   actions?: CourseTabAction[];
+  ariaLabel?: string;
 }
 
 const tabClass = (active: boolean) =>
@@ -63,11 +69,29 @@ function TabContent({ tab, active }: { tab: CourseTabItem; active: boolean }) {
       <span className="w-4 h-4 flex items-center justify-center [&>svg]:w-4 [&>svg]:h-4">{tab.icon}</span>
       {tab.label}
       {typeof tab.count === "number" && <CountPill value={tab.count} active={active} />}
+      {!!tab.alert && <AlertDot count={tab.alert} />}
     </>
   );
 }
 
-export default function CourseTabs({ tabs, activeId, onSelect, actions = [] }: CourseTabsProps) {
+function AlertDot({ count }: { count: number }) {
+  return (
+    <span
+      role="status"
+      aria-label={`${count} need${count === 1 ? "s" : ""} attention`}
+      title={`${count} need${count === 1 ? "s" : ""} attention`}
+      className="w-2 h-2 rounded-full bg-red-500 ring-2 ring-white dark:ring-gray-900 flex-shrink-0"
+    />
+  );
+}
+
+export default function CourseTabs({
+  tabs,
+  activeId,
+  onSelect,
+  actions = [],
+  ariaLabel = "Course sections",
+}: CourseTabsProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const measureRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -78,7 +102,7 @@ export default function CourseTabs({ tabs, activeId, onSelect, actions = [] }: C
   const activeIndex = Math.max(0, tabs.findIndex((t) => t.id === activeId));
   // A stable key for "the set of tab labels", so re-measuring happens when a
   // count arrives (the label gets wider) but not on every parent render.
-  const labelsKey = tabs.map((t) => `${t.id}:${t.label}:${t.count ?? ""}`).join("|");
+  const labelsKey = tabs.map((t) => `${t.id}:${t.label}:${t.count ?? ""}:${t.alert ? 1 : 0}`).join("|");
 
   const recompute = useCallback(() => {
     const container = containerRef.current;
@@ -164,7 +188,7 @@ export default function CourseTabs({ tabs, activeId, onSelect, actions = [] }: C
       </div>
 
       <div ref={containerRef} className="flex items-stretch px-2 sm:px-4">
-        <div role="tablist" aria-label="Course sections" className="flex items-stretch min-w-0 flex-1">
+        <div role="tablist" aria-label={ariaLabel} className="flex items-stretch min-w-0 flex-1">
           {visible.map((index, position) => {
             const tab = tabs[index];
             const active = tab.id === activeId;
@@ -269,6 +293,7 @@ export default function CourseTabs({ tabs, activeId, onSelect, actions = [] }: C
                           </span>
                           <span className="flex-1 truncate">{tab.label}</span>
                           {typeof tab.count === "number" && <CountPill value={tab.count} active={active} />}
+                          {!!tab.alert && <AlertDot count={tab.alert} />}
                           {active && <Check className="w-4 h-4" />}
                         </>
                       );
@@ -291,20 +316,42 @@ export default function CourseTabs({ tabs, activeId, onSelect, actions = [] }: C
                     <p className="px-3 pt-1.5 pb-1 text-[10px] font-bold uppercase tracking-widest text-text-secondary-light dark:text-text-secondary-dark/50">
                       Quick actions
                     </p>
-                    {actions.map((action) => (
-                      <Link
-                        key={action.id}
-                        role="menuitem"
-                        to={action.href}
-                        onClick={() => setMenuOpen(false)}
-                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-text-primary-light dark:text-text-primary-dark hover:bg-gray-50 dark:hover:bg-white/5 transition-colors"
-                      >
-                        <span className="w-4 h-4 flex items-center justify-center text-gray-400 [&>svg]:w-4 [&>svg]:h-4">
-                          {action.icon}
-                        </span>
-                        <span className="flex-1 truncate">{action.label}</span>
-                      </Link>
-                    ))}
+                    {actions.map((action) => {
+                      const cls =
+                        "w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm text-left text-text-primary-light dark:text-text-primary-dark hover:bg-gray-50 dark:hover:bg-white/5 transition-colors";
+                      const inner = (
+                        <>
+                          <span className="w-4 h-4 flex items-center justify-center text-gray-400 [&>svg]:w-4 [&>svg]:h-4">
+                            {action.icon}
+                          </span>
+                          <span className="flex-1 truncate">{action.label}</span>
+                        </>
+                      );
+                      return action.href ? (
+                        <Link
+                          key={action.id}
+                          role="menuitem"
+                          to={action.href}
+                          onClick={() => setMenuOpen(false)}
+                          className={cls}
+                        >
+                          {inner}
+                        </Link>
+                      ) : (
+                        <button
+                          key={action.id}
+                          type="button"
+                          role="menuitem"
+                          onClick={() => {
+                            setMenuOpen(false);
+                            action.onClick?.();
+                          }}
+                          className={cls}
+                        >
+                          {inner}
+                        </button>
+                      );
+                    })}
                   </>
                 )}
               </motion.div>

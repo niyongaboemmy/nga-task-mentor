@@ -62,6 +62,11 @@ export interface MarkInput {
   marked: boolean;
   /** 0–100, or null when not marked. */
   percentage: number | null;
+  /**
+   * Marked but kept out of every average — a recorded mark the teacher
+   * flagged "not in final grade". Still counted as marked work.
+   */
+  excluded?: boolean;
 }
 
 export interface KindTally {
@@ -81,7 +86,11 @@ export interface CourseMarks {
 }
 
 export interface MarksSummary {
-  /** Null, not 0, when the student has no marks anywhere. */
+  /**
+   * Mean of the subject averages — every subject weighs the same, so one
+   * subject with twenty quizzes can't drown out the rest. Null, not 0, when
+   * the student has no marks anywhere.
+   */
   overallAverage: number | null;
   markedCount: number;
   pendingCount: number;
@@ -128,7 +137,7 @@ export const summariseMarks = (marks: MarkInput[]): MarksSummary => {
     if (mark.marked && mark.percentage !== null) {
       tally.marked += 1;
       entry.markedCount += 1;
-      courseScores[key].push(mark.percentage);
+      if (!mark.excluded) courseScores[key].push(mark.percentage);
     }
   }
 
@@ -136,14 +145,15 @@ export const summariseMarks = (marks: MarkInput[]): MarksSummary => {
     byCourse[key].average = average(courseScores[key]);
   }
 
-  const allScores = marks
-    .filter((m) => m.marked && m.percentage !== null)
-    .map((m) => m.percentage as number);
+  const subjectAverages = Object.values(byCourse)
+    .map((c) => c.average)
+    .filter((a): a is number => a !== null);
+  const markedCount = marks.filter((m) => m.marked && m.percentage !== null).length;
 
   return {
-    overallAverage: average(allScores),
-    markedCount: allScores.length,
-    pendingCount: marks.length - allScores.length,
+    overallAverage: average(subjectAverages),
+    markedCount,
+    pendingCount: marks.length - markedCount,
     totalCount: marks.length,
     byCourse,
   };

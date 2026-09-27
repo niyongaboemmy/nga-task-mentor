@@ -7,10 +7,10 @@ import {
   GraduationCap,
   BookOpen,
   Award,
+  CalendarDays,
 } from "lucide-react";
 import { toast } from "react-toastify";
-import { useTermYearSelector } from "../../hooks/useTermYearSelector";
-import TermYearSelect from "./TermYearSelect";
+import { useAuth } from "../../contexts/AuthContext";
 import ReportCardPreview from "./ReportCardPreview";
 import AnnualReportCardPreview from "./AnnualReportCardPreview";
 import {
@@ -22,9 +22,12 @@ import {
 
 // ─── Student Details → "Report Cards" tab ─────────────────────────────────────
 // The per-student counterpart to SubjectReportCardDashboard: one student,
-// every enrolled subject, for a selected term/year. Reuses
-// getStudentReportCard (already returns grades: SubjectGrade[] across every
-// subject the student has a mapping for) — no backend change needed.
+// every enrolled subject. Reuses getStudentReportCard (already returns
+// grades: SubjectGrade[] across every subject the student has a mapping for).
+//
+// The period is the one picked in the app bar (AcademicPeriodSwitcher) —
+// switching it remounts the page, so there's no local term/year picker here
+// to drift out of sync with the rest of the profile.
 
 const CATEGORY_ORDER: AssessmentCategory[] = ["CW", "HW", "MD", "EOT"];
 const CATEGORY_META: Record<AssessmentCategory, { label: string; color: string }> = {
@@ -43,10 +46,9 @@ export default function StudentReportCardDashboard({
   studentId,
   studentName,
 }: StudentReportCardDashboardProps) {
-  const {
-    years, terms, academicYear, term,
-    setAcademicYear, setTerm,
-  } = useTermYearSelector();
+  const { user } = useAuth();
+  const academicYear: string = user?.currentAcademicYear?.name ?? "";
+  const term: string = user?.currentAcademicTerm?.name ?? "";
 
   const [data, setData] = useState<ReportCardData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -56,7 +58,10 @@ export default function StudentReportCardDashboard({
   const [showAnnual, setShowAnnual] = useState(false);
 
   const fetchData = useCallback(async () => {
-    if (!term || !academicYear) return;
+    if (!term || !academicYear) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setNotFound(false);
     try {
@@ -93,17 +98,28 @@ export default function StudentReportCardDashboard({
           <GraduationCap className="w-4 h-4 text-blue-600 dark:text-blue-400" />
           Report Card — All Enrolled Subjects
         </h3>
-        <TermYearSelect
-          years={years}
-          terms={terms}
-          academicYear={academicYear}
-          term={term}
-          onAcademicYearChange={setAcademicYear}
-          onTermChange={setTerm}
-        />
+        {term && academicYear && (
+          <span
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-50 dark:bg-white/5 border border-blue-200 dark:border-blue-500/30 text-blue-700 dark:text-blue-300"
+            title="Change the period from the academic year/term switcher in the top bar"
+          >
+            <CalendarDays className="w-3.5 h-3.5" />
+            {academicYear} · {term}
+          </span>
+        )}
       </div>
 
-      {loading ? (
+      {!term || !academicYear ? (
+        <div className="text-center py-14 rounded-2xl border-2 border-dashed border-gray-200 dark:border-gray-800">
+          <AlertCircle className="w-9 h-9 text-gray-300 dark:text-gray-700 mx-auto mb-3" />
+          <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
+            No academic period selected
+          </p>
+          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60 mt-1">
+            Pick a year and term from the switcher in the top bar.
+          </p>
+        </div>
+      ) : loading ? (
         <div className="flex items-center justify-center py-16">
           <Loader2 className="w-7 h-7 animate-spin text-blue-500" />
         </div>
@@ -114,7 +130,7 @@ export default function StudentReportCardDashboard({
             No report card yet for {term} · {academicYear}
           </p>
           <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60 mt-1">
-            Try a different term, or check back once instructors have mapped assessments.
+            Switch the period in the top bar, or check back once instructors have mapped assessments.
           </p>
         </div>
       ) : data ? (

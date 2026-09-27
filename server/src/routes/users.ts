@@ -12,6 +12,7 @@ import {
   getStudentAssignments,
   getStudentQuizzes,
   getStudentRecordedAssessments,
+  getStudentStanding,
   getProfilePicture,
 } from "../controllers/user.controller";
 import { protect, authorizePermission, selfOrPermission } from "../middleware/auth";
@@ -69,6 +70,14 @@ router.get(
   "/:userId/recorded-assessments",
   selfOrPermission("userId", "USERS_VIEW_OTHERS_ACTIVITY"),
   getStudentRecordedAssessments,
+);
+// Ranking against classmates — teacher-facing only: a student viewing their
+// own profile has no business seeing (even anonymised) classmates' marks, and
+// can't read the MIS rosters it needs anyway.
+router.get(
+  "/:userId/standing",
+  authorizePermission("USERS_VIEW_OTHERS_ACTIVITY"),
+  getStudentStanding,
 );
 router.get(
   "/:userId/courses",
