@@ -1,0 +1,51 @@
+name: Run DB Migrations on EC2
+
+# Same policy as nga_central_mis/.github/workflows/migrate.yml: schema changes
+# are a deliberate, human-triggered action, never part of every deploy. Run it
+# (Actions tab -> Run workflow) after deploying the code that adds a
+# migration. It backs the database up first, then runs every pending
+# Sequelize migration in server/migrations.
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "migrate" to apply all pending migrations to production'
+        required: true
+        type: string
+
+jobs:
+  migrate:
+    if: ${{ inputs.confirm == 'migrate' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Back up and migrate over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            set -e
+            set -o pipefail
+            cd /opt/apps/nga-task-mentor/server
+
+            # Read only the DB values out of .env (the deploy writes it).
+            env_val() { grep -E "^$1=" .env | tail -1 | cut -d= -f2- | sed -e 's/^"//' -e 's/"$//' -e "s/^'//" -e "s/'$//"; }
+            DB_HOST_VAL=$(env_val DB_HOST)
+            DB_USER_VAL=$(env_val DB_USER)
+            DB_PASS_VAL=$(env_val DB_PASS)
+            DB_NAME_VAL=$(env_val DB_NAME)
+
+            echo "Pending migrations:"
+            npx sequelize-cli db:migrate:status | grep -E "^down" || echo "  (none)"
+
+            BACKUP_DIR="$HOME/db-backups/nga-task-mentor"
+            mkdir -p "$BACKUP_DIR"
+            BACKUP_FILE="$BACKUP_DIR/$(date -u +%Y%m%dT%H%M%SZ)-before-migrate.sql.gz"
+            mysqldump --single-transaction --no-tablespaces -h "$DB_HOST_VAL" -u "$DB_USER_VAL" -p"$DB_PASS_VAL" "$DB_NAME_VAL" | gzip > "$BACKUP_FILE"
+            test -s "$BACKUP_FILE" || { echo "Backup is empty -- not migrating."; exit 1; }
+            echo "Backup written: $BACKUP_FILE ($(du -h "$BACKUP_FILE" | cut -f1))"
+
+            npx sequelize-cli db:migrate
+            echo "Migrations applied."
+            npx sequelize-cli db:migrate:status | tail -5
