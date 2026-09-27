@@ -14,6 +14,18 @@ import {
   generateQuestionsFromDocument,
 } from "../controllers/questionBank.controller";
 import { getCourseQuestionBankOverview } from "../controllers/questionBankHub.controller";
+import {
+  getAIProviders,
+  getAISources,
+  prepareDocumentContext,
+  prepareResourcesContext,
+  generateQuestionBatch,
+} from "../controllers/aiQuestionGeneration.controller";
+import { validateBody } from "../middleware/validation.middleware";
+import {
+  aiGenerateBatchSchema,
+  aiResolveSourcesSchema,
+} from "../validations/aiGeneration.validation";
 
 import { protect, authorizePermission } from "../middleware/auth";
 
@@ -29,6 +41,7 @@ const aiGenerateUpload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
+    // Rejected files leave req.file unset; the handler answers with a clear 400.
     const allowed =
       file.mimetype === DOCX_MIME ||
       file.mimetype === PDF_MIME ||
@@ -80,6 +93,29 @@ router.post(
   authorizePermission("QUESTION_BANK_CREATE"),
   aiGenerateUpload.single("file"),
   generateQuestionsFromDocument,
+);
+
+// AI Question Generator (two-step: prepare a source, then generate batches).
+// Nothing is saved until the teacher confirms through POST /bulk.
+router.get("/ai/providers", authorizePermission("QUESTION_BANK_CREATE"), getAIProviders);
+router.get("/ai/sources", authorizePermission("QUESTION_BANK_CREATE"), getAISources);
+router.post(
+  "/ai/prepare/document",
+  authorizePermission("QUESTION_BANK_CREATE"),
+  aiGenerateUpload.single("file"),
+  prepareDocumentContext,
+);
+router.post(
+  "/ai/prepare/resources",
+  authorizePermission("QUESTION_BANK_CREATE"),
+  validateBody(aiResolveSourcesSchema),
+  prepareResourcesContext,
+);
+router.post(
+  "/ai/generate",
+  authorizePermission("QUESTION_BANK_CREATE"),
+  validateBody(aiGenerateBatchSchema),
+  generateQuestionBatch,
 );
 
 // Dashboard for this subject's bank (same payload as the teacher hub's)

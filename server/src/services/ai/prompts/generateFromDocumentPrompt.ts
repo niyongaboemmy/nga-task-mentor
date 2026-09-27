@@ -1,4 +1,8 @@
-import { AIGenerateFromDocumentParams } from "../types";
+import {
+  AIGenerateFromDocumentParams,
+  AIGenerationPlanItem,
+  AIGenerateFromSourceParams,
+} from "../types";
 
 const TYPE_SCHEMAS: Record<string, string> = {
   single_choice: `TYPE: single_choice
@@ -67,50 +71,89 @@ correct_answer: { "expression": "A AND B OR NOT C" }
 RULES: variables must use boolean type. Operators: AND, OR, NOT, XOR.`,
 };
 
-export function buildGenerateFromDocumentPrompt(
-  params: AIGenerateFromDocumentParams,
-): string {
-  const { documentText, questionTypes, countPerType, difficulty, additionalContext } =
-    params;
+export const SUPPORTED_AI_QUESTION_TYPES = Object.keys(TYPE_SCHEMAS);
 
-  const requestedSchemas = questionTypes
+const DIFFICULTY_GUIDE = `DIFFICULTY GUIDE:
+- EASY: recall and recognition of facts stated directly in the source (Bloom's remember/understand).
+- MEDIUM: apply or explain an idea from the source in a new but familiar situation (apply/analyse).
+- DIFFICULT: multi-step reasoning, comparing/evaluating ideas, or transferring them to an unfamiliar scenario (analyse/evaluate/create).`;
+
+export function planTotal(plan: AIGenerationPlanItem[]): number {
+  return plan.reduce((n, p) => n + p.EASY + p.MEDIUM + p.DIFFICULT, 0);
+}
+
+/** "single_choice: 2 EASY, 1 MEDIUM" — one line per type, zero counts omitted. */
+function describePlan(plan: AIGenerationPlanItem[]): string {
+  return plan
+    .map((p) => {
+      const parts = (["EASY", "MEDIUM", "DIFFICULT"] as const)
+        .filter((d) => p[d] > 0)
+        .map((d) => `${p[d]} ${d}`);
+      return parts.length ? `- ${p.question_type}: ${parts.join(", ")}` : null;
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
+export function buildGenerateFromSourcePrompt(params: AIGenerateFromSourceParams): string {
+  const { sourceText, sourceLabel, plan, additionalContext, avoidQuestions } = params;
+  const types = plan.filter((p) => p.EASY + p.MEDIUM + p.DIFFICULT > 0).map((p) => p.question_type);
+  const requestedSchemas = types
     .filter((t) => TYPE_SCHEMAS[t])
     .map((t) => TYPE_SCHEMAS[t])
     .join("\n\n");
+  const total = planTotal(plan);
+  const avoid = (avoidQuestions || []).filter(Boolean).slice(0, 40);
 
-  const totalCount = questionTypes.length * countPerType;
+  return `You are an expert educational question designer. Generate quiz questions strictly based on the provided source material${sourceLabel ? ` (${sourceLabel})` : ""}.
 
-  return `You are an expert educational question designer. Generate quiz questions strictly based on the provided document content.
-
-DOCUMENT CONTENT:
+SOURCE MATERIAL:
 ---
-${documentText}
+${sourceText}
 ---
 
 TASK:
-- Difficulty level: ${difficulty}
-- Generate exactly ${countPerType} question(s) for EACH of these types: ${questionTypes.join(", ")}
-- Total questions to generate: ${totalCount}${additionalContext ? `\n- Additional instructions: ${additionalContext}` : ""}
-- Base ALL questions on information present in the document above
+Generate exactly ${total} question(s), with this exact breakdown by type and difficulty:
+${describePlan(plan)}
+- Base ALL questions on information present in the source material above
+- Every question must set "difficulty_level" to the level it was planned for
 - question_text must be plain text (no HTML tags)
+- Vary the sub-topics covered; do not ask the same thing twice${additionalContext ? `\n- Teacher's instructions (follow them unless they contradict the rules above): ${additionalContext}` : ""}${avoid.length ? `\n- These questions already exist; do NOT repeat or paraphrase them:\n${avoid.map((q) => `  * ${q.slice(0, 200)}`).join("\n")}` : ""}
+
+${DIFFICULTY_GUIDE}
 
 OUTPUT FORMAT:
 Respond ONLY with a valid JSON array. No markdown, no code fences, no explanation text.
 Every element must follow this root schema:
 {
-  "question_type": "<one of: ${questionTypes.join("|")}>",
+  "question_type": "<one of: ${types.join("|")}>",
   "question_text": "<the question as plain text>",
   "question_data": { <type-specific object per schemas below> },
   "correct_answer": <type-specific object or null>,
   "explanation": "<brief explanation of the correct answer>",
-  "difficulty_level": "${difficulty}",
-  "tags": ["<1-3 lowercase topic tags from the document>"],
-  "time_limit_seconds": <number between 30 and 300>
+  "difficulty_level": "<EASY|MEDIUM|DIFFICULT, as planned>",
+  "tags": ["<1-3 lowercase topic tags from the source>"],
+  "time_limit_seconds": <number between 30 and 300; harder questions get more time>
 }
 
 TYPE-SPECIFIC SCHEMAS (only these types are requested):
 
 ${requestedSchemas}
 
-Generate the ${totalCount} questions now. Return ONLY the JSON array, nothing else.`;
+Generate the ${total} questions now. Return ONLY the JSON array, nothing else.`;
+}
+
+/** Legacy single-difficulty request, expressed as a plan. */
+export function buildGenerateFromDocumentPrompt(params: AIGenerateFromDocumentParams): string {
+  const { documentText, questionTypes, countPerType, difficulty, additionalContext } = params;
+  return buildGenerateFromSourcePrompt({
+    sourceText: documentText,
+    plan: questionTypes.map((t) => ({
+      question_type: t,
+      EASY: difficulty === "EASY" ? countPerType : 0,
+      MEDIUM: difficulty === "MEDIUM" ? countPerType : 0,
+      DIFFICULT: difficulty === "DIFFICULT" ? countPerType : 0,
+    })),
+    additionalContext,
+  });
 }

@@ -47,6 +47,26 @@ export interface AIGenerateFromDocumentParams {
   additionalContext?: string;
 }
 
+export type AIDifficulty = "EASY" | "MEDIUM" | "DIFFICULT";
+
+/** How many questions of one type to generate at each difficulty. */
+export interface AIGenerationPlanItem {
+  question_type: string;
+  EASY: number;
+  MEDIUM: number;
+  DIFFICULT: number;
+}
+
+export interface AIGenerateFromSourceParams {
+  sourceText: string;
+  /** Short human description of where the text came from, e.g. "Week 3 lesson plan". */
+  sourceLabel?: string;
+  plan: AIGenerationPlanItem[];
+  additionalContext?: string;
+  /** Question texts to steer away from (earlier batches, existing bank questions). */
+  avoidQuestions?: string[];
+}
+
 export interface AIGeneratedQuestion {
   question_type: string;
   question_text: string;

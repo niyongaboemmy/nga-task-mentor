@@ -52,3 +52,49 @@ export function isCoolingDown(providerName: string): boolean {
 export function markCoolingDown(providerName: string, ms: number = COOLDOWN_MS): void {
   cooldownUntil.set(providerName, Date.now() + ms);
 }
+
+// --- Catalogue for pickers ---------------------------------------------------------
+// What the teacher-facing "which AI" picker shows. Models mirror the defaults each
+// provider adapter falls back to when its *_MODEL env var is unset.
+const PROVIDER_META: Record<string, { label: string; model: () => string }> = {
+  gemini: { label: "Google Gemini", model: () => process.env.GEMINI_MODEL || "gemini-2.5-flash" },
+  groq: { label: "Groq", model: () => process.env.GROQ_MODEL || "openai/gpt-oss-20b" },
+  glm: { label: "Zhipu GLM", model: () => process.env.GLM_MODEL || "glm-4.5-flash" },
+  openai: { label: "OpenAI", model: () => process.env.OPENAI_MODEL || "gpt-4o" },
+};
+
+export interface ProviderDescription {
+  name: string;
+  label: string;
+  model: string;
+  configured: boolean;
+  cooling_down: boolean;
+  /** Position in AI_PROVIDER_ORDER (0 = tried first), null when not in the order at all. */
+  order: number | null;
+}
+
+export function describeProviders(): ProviderDescription[] {
+  const order = orderedProviders().map((p) => p.name);
+  return Object.entries(ALL_PROVIDERS)
+    .map(([name, p]) => ({
+      name,
+      label: PROVIDER_META[name]?.label ?? name,
+      model: PROVIDER_META[name]?.model() ?? "",
+      configured: p.isConfigured(),
+      cooling_down: isCoolingDown(name),
+      order: order.includes(name) ? order.indexOf(name) : null,
+    }))
+    .sort((a, b) => (a.order ?? 99) - (b.order ?? 99));
+}
+
+/**
+ * Order that tries `preferred` first and then falls through to the normal
+ * AI_PROVIDER_ORDER, so picking a provider never removes the safety net.
+ */
+export function preferredOrder(preferred?: string | null): string[] | undefined {
+  if (!preferred || !ALL_PROVIDERS[preferred]) return undefined;
+  const rest = orderedProviders()
+    .map((p) => p.name)
+    .filter((n) => n !== preferred);
+  return [preferred, ...rest];
+}

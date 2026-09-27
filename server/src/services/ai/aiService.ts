@@ -3,8 +3,16 @@ import {
   generateFreeformJSON,
   JSONSchema,
 } from "../aiProviders";
-import { getProviderStatus } from "../aiProviders/registry";
-import { buildGenerateFromDocumentPrompt } from "./prompts/generateFromDocumentPrompt";
+import {
+  getProviderStatus,
+  describeProviders,
+  preferredOrder,
+} from "../aiProviders/registry";
+import {
+  buildGenerateFromDocumentPrompt,
+  buildGenerateFromSourcePrompt,
+  planTotal,
+} from "./prompts/generateFromDocumentPrompt";
 import {
   AIGradingResult,
   AICodingGradingResult,
@@ -14,6 +22,7 @@ import {
   AITestCase,
   AIGenerateFromDocumentParams,
   AIGeneratedQuestion,
+  AIGenerateFromSourceParams,
   AISqlQueryContext,
   AISqlQueryResult,
 } from "./types";
@@ -329,6 +338,25 @@ Content: ${lessonContent.slice(0, 3000)}`,
     return this.normalizeGeneratedQuestions(arr, params.difficulty);
   }
 
+  /**
+   * Plan-based generation (type × difficulty counts) from any source text — an
+   * uploaded document or course resources pulled from the MIS. `provider` is tried
+   * first; the rest of AI_PROVIDER_ORDER still backs it up.
+   */
+  async generateQuestionsFromSource(
+    params: AIGenerateFromSourceParams,
+    options: { provider?: string | null } = {},
+  ): Promise<{ questions: AIGeneratedQuestion[]; providerUsed: string }> {
+    const prompt = buildGenerateFromSourcePrompt(params);
+    // ~450 output tokens per question plus headroom; reasoning models (gpt-oss) eat into it too.
+    const budget = Math.min(16000, Math.max(4000, planTotal(params.plan) * 700));
+    const { data, providerUsed } = await generateFreeformJSON<any>(prompt, budget, {
+      providerOrder: preferredOrder(options.provider),
+    });
+    const arr = Array.isArray(data) ? data : data.questions || data.data || [];
+    return { questions: this.normalizeGeneratedQuestions(arr, "MEDIUM"), providerUsed };
+  }
+
   async generateSqlQuery(
     prompt: string,
     context: AISqlQueryContext,
@@ -392,14 +420,27 @@ semicolon.`,
         question_data: q.question_data,
         correct_answer: q.correct_answer ?? null,
         explanation: q.explanation || "",
-        difficulty_level: q.difficulty_level || difficulty,
-        tags: Array.isArray(q.tags) ? q.tags : [],
-        time_limit_seconds: Number(q.time_limit_seconds) || 60,
+        difficulty_level: ["EASY", "MEDIUM", "DIFFICULT"].includes(
+          String(q.difficulty_level).toUpperCase(),
+        )
+          ? String(q.difficulty_level).toUpperCase()
+          : difficulty,
+        tags: Array.isArray(q.tags)
+          ? q.tags.map((t: any) => String(t).trim().toLowerCase()).filter(Boolean).slice(0, 5)
+          : [],
+        time_limit_seconds: Math.min(
+          600,
+          Math.max(10, Math.round(Number(q.time_limit_seconds) || 60)),
+        ),
       }));
   }
 
   getProviderStatus() {
     return getProviderStatus();
+  }
+
+  describeProviders() {
+    return describeProviders();
   }
 }
 
