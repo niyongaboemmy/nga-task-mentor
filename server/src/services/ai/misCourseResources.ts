@@ -127,6 +127,13 @@ export function tiptapToText(node: any): string {
   return block.includes(node.type) ? `${inner}\n` : inner;
 }
 
+/** MIS week_number is free text: "7", "1-2" or already "Week 7". */
+export const weekText = (week: any) => {
+  const w = clean(week);
+  if (!w) return "Week ?";
+  return /^week\b/i.test(w) ? w.replace(/^week\s*/i, "Week ") : `Week ${w}`;
+};
+
 const line = (label: string, value: any) => {
   const v = clean(value);
   return v ? `${label}: ${v}` : "";
@@ -256,7 +263,7 @@ function competencyText(c: any): string {
 
 function sowEntryText(e: any): string {
   return joinLines(
-    `SCHEME OF WORK — Week ${clean(e.week_number) || "?"}: ${clean(e.topic)}`,
+    `SCHEME OF WORK — ${weekText(e.week_number)}: ${clean(e.topic)}`,
     line("Learning outcome", e.competency?.title),
     line("Sub-topic", e.sub_topic),
     line("Objective", e.objective),
@@ -287,7 +294,7 @@ function lessonPlanText(p: any): string {
     ),
   );
   return joinLines(
-    `LESSON PLAN — Week ${p.week ?? "?"}${p.module_name ? ` (${clean(p.module_name)})` : ""}`,
+    `LESSON PLAN — ${weekText(p.week)}${p.module_name ? ` (${clean(p.module_name)})` : ""}`,
     line("Big question", p.big_question),
     outcomes.length ? `Learning outcomes:\n${outcomes.join("\n")}` : "",
     asArray(p.indicativeContent).length
@@ -538,7 +545,7 @@ export async function resolveCourseResources(
     for (const id of entryIds) {
       const e = byId.get(id);
       if (!e) miss("sow_entry", id, "Not in this subject's scheme of work");
-      else parts.push({ kind: "sow_entry", id, title: `Week ${clean(e.week_number) || "?"} · ${clean(e.topic)}`, chars: 0, text: sowEntryText(e) });
+      else parts.push({ kind: "sow_entry", id, title: `${weekText(e.week_number)} · ${clean(e.topic)}`, chars: 0, text: sowEntryText(e) });
     }
     const plansByEntry = new Map<string, string[]>();
     for (const id of planIds) {

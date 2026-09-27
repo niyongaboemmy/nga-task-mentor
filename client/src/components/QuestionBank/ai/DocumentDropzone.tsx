@@ -38,12 +38,12 @@ const DocumentDropzone: React.FC<Props> = ({ file, onFile, onReject }) => {
           setDragging(false);
           take(e.dataTransfer.files?.[0]);
         }}
-        className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+        className={`relative cursor-pointer rounded-2xl border-2 border-dashed p-8 sm:p-10 text-center transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
           dragging
-            ? "border-violet-500 bg-violet-50 dark:bg-violet-900/25 scale-[1.01]"
+            ? "border-blue-500 bg-blue-50 dark:bg-blue-900/25 scale-[1.01]"
             : file
-              ? "border-violet-300 dark:border-violet-800 bg-violet-50/60 dark:bg-violet-950/30"
-              : "border-gray-300 dark:border-gray-700 hover:border-violet-400 hover:bg-violet-50/40 dark:hover:bg-violet-900/10"
+              ? "border-blue-300 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-950/30"
+              : "border-gray-300 dark:border-gray-700 hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-900/10"
         }`}
       >
         <input
@@ -54,7 +54,7 @@ const DocumentDropzone: React.FC<Props> = ({ file, onFile, onReject }) => {
           onChange={(e) => take(e.target.files?.[0])}
           className="hidden"
         />
-        <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-500 to-indigo-500 flex items-center justify-center shadow-lg shadow-violet-500/25">
+        <div className="mx-auto w-14 h-14 rounded-2xl bg-gradient-to-br from-blue-500 to-blue-500 flex items-center justify-center shadow-lg shadow-blue-500/25">
           <UploadCloud className="w-7 h-7 text-white" />
         </div>
         <p className="mt-4 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
@@ -67,8 +67,8 @@ const DocumentDropzone: React.FC<Props> = ({ file, onFile, onReject }) => {
 
       {file && (
         <div className="flex items-center gap-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/50 px-3 py-2.5">
-          <div className="w-9 h-9 rounded-lg bg-violet-100 dark:bg-violet-900/40 flex items-center justify-center">
-            <FileText className="w-4.5 h-4.5 text-violet-600 dark:text-violet-300" />
+          <div className="w-9 h-9 rounded-lg bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center">
+            <FileText className="w-4.5 h-4.5 text-blue-600 dark:text-blue-300" />
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium truncate text-text-primary-light dark:text-text-primary-dark">{file.name}</p>

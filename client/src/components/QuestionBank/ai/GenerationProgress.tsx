@@ -41,8 +41,8 @@ const GenerationProgress: React.FC<Props> = ({ phase, sourceLabel, batches, late
     <div className="max-w-2xl mx-auto py-6 sm:py-10 space-y-6" aria-live="polite">
       <div className="text-center">
         <div className="relative mx-auto w-20 h-20">
-          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-violet-500 to-indigo-500 opacity-20 animate-ping" />
-          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center shadow-xl shadow-violet-500/30">
+          <div className="absolute inset-0 rounded-3xl bg-gradient-to-br from-blue-500 to-blue-500 opacity-20 animate-ping" />
+          <div className="relative w-20 h-20 rounded-3xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-xl shadow-blue-500/30">
             <Sparkles className="w-9 h-9 text-white" />
           </div>
         </div>
@@ -55,7 +55,7 @@ const GenerationProgress: React.FC<Props> = ({ phase, sourceLabel, batches, late
       <div>
         <div className="h-2.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden">
           <motion.div
-            className="h-full rounded-full bg-gradient-to-r from-violet-500 to-indigo-500"
+            className="h-full rounded-full bg-gradient-to-r from-blue-500 to-blue-500"
             animate={{ width: `${pct}%` }}
             transition={{ ease: "easeOut", duration: 0.6 }}
           />
@@ -77,7 +77,7 @@ const GenerationProgress: React.FC<Props> = ({ phase, sourceLabel, batches, late
               key={b.index}
               className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-sm ${
                 b.status === "running"
-                  ? "border-violet-300 dark:border-violet-800 bg-violet-50/70 dark:bg-violet-950/30"
+                  ? "border-blue-300 dark:border-blue-800 bg-blue-50/70 dark:bg-blue-950/30"
                   : "border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40"
               }`}
             >
@@ -143,7 +143,7 @@ const GenerationProgress: React.FC<Props> = ({ phase, sourceLabel, batches, late
 };
 
 const BatchIcon: React.FC<{ status: BatchState["status"] }> = ({ status }) => {
-  if (status === "running") return <Loader2 className="w-4 h-4 shrink-0 text-violet-600 animate-spin" />;
+  if (status === "running") return <Loader2 className="w-4 h-4 shrink-0 text-blue-600 animate-spin" />;
   if (status === "done") return <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />;
   if (status === "failed") return <AlertTriangle className="w-4 h-4 shrink-0 text-rose-500" />;
   if (status === "cancelled") return <XCircle className="w-4 h-4 shrink-0 text-gray-400" />;

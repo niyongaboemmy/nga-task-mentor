@@ -172,6 +172,13 @@ export const KIND_LABELS: Record<AISourceKind, string> = {
   elearning_item: "E-learning",
 };
 
+/** MIS week_number is free text: "7", "1-2" or already "Week 7". */
+export function weekLabel(week?: string | null) {
+  const w = String(week ?? "").trim();
+  if (!w) return "";
+  return /^week\b/i.test(w) ? w.replace(/^week\s*/i, "Week ") : `Week ${w}`;
+}
+
 /** "3" < "10" < "1-2"-style ranges sort by their first number; unknown weeks last. */
 export function weekSortValue(week?: string | null) {
   const m = String(week ?? "").match(/\d+/);
@@ -248,9 +255,10 @@ export function suggestPrompts(ctx: {
   const out: PromptSuggestion[] = [];
   const weeks = [...new Set(ctx.weeks.filter(Boolean))].sort((a, b) => weekSortValue(a) - weekSortValue(b));
   if (weeks.length === 1) {
-    out.push({ id: "week-focus", category: "Focus", label: `Only week ${weeks[0]}`, text: `Only ask about what is taught in week ${weeks[0]}.` });
+    const w = weekLabel(weeks[0]);
+    out.push({ id: "week-focus", category: "Focus", label: `Only ${w.toLowerCase()}`, text: `Only ask about what is taught in ${w.toLowerCase()}.` });
   } else if (weeks.length > 1) {
-    out.push({ id: "spread-weeks", category: "Focus", label: `Spread across ${weeks.length} weeks`, text: `Spread the questions evenly across weeks ${weeks.join(", ")}.` });
+    out.push({ id: "spread-weeks", category: "Focus", label: `Spread across ${weeks.length} weeks`, text: `Spread the questions evenly across ${weeks.map((w) => weekLabel(w).toLowerCase()).join(", ")}.` });
   }
   if (ctx.sourceTitles.length === 1) {
     const t = ctx.sourceTitles[0].slice(0, 60);

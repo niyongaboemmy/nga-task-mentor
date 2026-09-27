@@ -14,6 +14,10 @@ interface ModalProps {
   closeOnBackdropClick?: boolean;
   closeOnEscape?: boolean;
   className?: string;
+  /** Rendered below the scrolling body, always flush with the modal's bottom edge. */
+  footer?: React.ReactNode;
+  /** Replaces the body's default padding/scroll classes. */
+  bodyClassName?: string;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -27,6 +31,8 @@ const Modal: React.FC<ModalProps> = ({
   closeOnBackdropClick = true,
   closeOnEscape = true,
   className = "",
+  footer,
+  bodyClassName = "overflow-y-auto p-4",
 }) => {
   // Handle escape key press
   useEffect(() => {
@@ -160,7 +166,8 @@ const Modal: React.FC<ModalProps> = ({
             )}
 
             {/* Content */}
-            <div className="flex-1 overflow-y-auto min-h-0 p-4">{children}</div>
+            <div className={`flex-1 min-h-0 ${bodyClassName}`}>{children}</div>
+            {footer && <div className="flex-shrink-0">{footer}</div>}
           </div>
         </motion.div>
       </motion.div>

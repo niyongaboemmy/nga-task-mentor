@@ -80,7 +80,7 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange }) => {
           </select>
         )}
         <div className="ml-auto flex items-center gap-3 text-xs">
-          <button type="button" onClick={() => setVisibleSelected(selectedVisible < visible.length)} className="font-medium text-violet-600 dark:text-violet-300 hover:underline">
+          <button type="button" onClick={() => setVisibleSelected(selectedVisible < visible.length)} className="font-medium text-blue-600 dark:text-blue-300 hover:underline">
             {selectedVisible < visible.length ? "Select all" : "Select none"}
           </button>
           <button
@@ -114,7 +114,7 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange }) => {
                   aria-pressed={q.selected}
                   onClick={() => update(q.uid, { selected: !q.selected })}
                   className={`mt-0.5 w-5 h-5 shrink-0 rounded-md border flex items-center justify-center ${
-                    q.selected ? "bg-violet-600 border-violet-600" : "border-gray-300 dark:border-gray-600"
+                    q.selected ? "bg-blue-600 border-blue-600" : "border-gray-300 dark:border-gray-600"
                   }`}
                 >
                   {q.selected && <Check className="w-3.5 h-3.5 text-white" strokeWidth={3} />}
@@ -240,7 +240,7 @@ const LevelChip: React.FC<{ active: boolean; onClick: () => void; label: string;
 
 export const LinkToggle: React.FC<{ title: string; on: boolean; onChange: (v: boolean) => void }> = ({ title, on, onChange }) => (
   <label className="inline-flex items-center gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark cursor-pointer">
-    <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} className="rounded border-gray-300 text-violet-600 focus:ring-violet-500" />
+    <input type="checkbox" checked={on} onChange={(e) => onChange(e.target.checked)} className="rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
     <Link2 className="w-3.5 h-3.5" /> Link to scheme-of-work topic <b className="truncate max-w-[220px]">{title}</b>
   </label>
 );

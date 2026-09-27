@@ -9,6 +9,7 @@ import {
   splitIntoBatches,
   suggestPrompts,
   toggleSuggestion,
+  weekLabel,
 } from "../components/QuestionBank/ai/aiGeneratorModel";
 import { runGeneration, type BatchState } from "../components/QuestionBank/ai/runGeneration";
 import { checkFile } from "../components/QuestionBank/ai/documentFile";
@@ -116,7 +117,16 @@ describe("prompts", () => {
     expect(ids.slice(0, 5)).toEqual(["week-focus", "title-focus", "multi-step", "python", "units"]);
     expect(ids).toContain("misconceptions");
     const spread = suggestPrompts({ origin: "resources", sourceTitles: [], weeks: ["10", "2"], types: [], hasDifficult: false });
-    expect(spread[0].text).toBe("Spread the questions evenly across weeks 2, 10.");
+    expect(spread[0].text).toBe("Spread the questions evenly across week 2, week 10.");
+  });
+
+  it("never doubles the word Week (MIS week_number can already contain it)", () => {
+    expect(weekLabel("7")).toBe("Week 7");
+    expect(weekLabel("Week 7")).toBe("Week 7");
+    expect(weekLabel("week   1-2")).toBe("Week 1-2");
+    expect(weekLabel("")).toBe("");
+    const s = suggestPrompts({ origin: "resources", sourceTitles: [], weeks: ["Week 7"], types: [], hasDifficult: false });
+    expect(s[0]).toMatchObject({ label: "Only week 7", text: "Only ask about what is taught in week 7." });
   });
 
   it("toggles a suggestion in and out of the instructions", () => {

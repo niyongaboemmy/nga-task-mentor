@@ -35,7 +35,7 @@ export const Stepper: React.FC<{
   size?: "sm" | "md";
 }> = ({ value, onChange, label, size = "md" }) => {
   const btn =
-    "flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-violet-400 hover:text-violet-600 disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:text-gray-600 transition-colors";
+    "flex items-center justify-center rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:border-blue-400 hover:text-blue-600 disabled:opacity-40 disabled:hover:border-gray-200 disabled:hover:text-gray-600 transition-colors";
   const dim = size === "sm" ? "w-6 h-6" : "w-8 h-8";
   return (
     <div className="inline-flex items-center gap-1">
@@ -48,7 +48,7 @@ export const Stepper: React.FC<{
         value={value}
         onChange={(e) => onChange(clampCell(Number(e.target.value.replace(/\D/g, "") || 0)))}
         onFocus={(e) => e.target.select()}
-        className={`${size === "sm" ? "w-8 h-6 text-xs" : "w-10 h-8 text-sm"} text-center font-semibold tabular-nums rounded-lg border border-transparent bg-transparent text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:border-violet-400`}
+        className={`${size === "sm" ? "w-8 h-6 text-xs" : "w-10 h-8 text-sm"} text-center font-semibold tabular-nums rounded-lg border border-transparent bg-transparent text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:border-blue-400`}
       />
       <button type="button" aria-label={`More ${label}`} className={`${btn} ${dim}`} disabled={value >= MAX_PER_CELL} onClick={() => onChange(clampCell(value + 1))}>
         <Plus className="w-3.5 h-3.5" />
@@ -87,7 +87,7 @@ const PlanBuilder: React.FC<Props> = ({
             Question types <span className="font-normal text-gray-400">({types.length} selected)</span>
           </h4>
           {types.length > 0 && (
-            <button type="button" onClick={() => onTypesChange([])} className="text-xs text-gray-500 hover:text-violet-600">
+            <button type="button" onClick={() => onTypesChange([])} className="text-xs text-gray-500 hover:text-blue-600">
               Clear
             </button>
           )}
@@ -104,8 +104,8 @@ const PlanBuilder: React.FC<Props> = ({
                 onClick={() => toggleType(qt.value)}
                 className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-medium border transition-all ${
                   on
-                    ? "bg-violet-600 text-white border-violet-600 shadow-sm shadow-violet-500/30"
-                    : "bg-white dark:bg-gray-800/60 text-text-secondary-light dark:text-text-secondary-dark border-gray-200 dark:border-gray-700 hover:border-violet-400"
+                    ? "bg-blue-600 text-white border-blue-600 shadow-sm shadow-blue-500/30"
+                    : "bg-white dark:bg-gray-800/60 text-text-secondary-light dark:text-text-secondary-dark border-gray-200 dark:border-gray-700 hover:border-blue-400"
                 }`}
               >
                 <Icon className="w-3.5 h-3.5" />
@@ -136,7 +136,7 @@ const PlanBuilder: React.FC<Props> = ({
                 aria-checked={mode === m}
                 onClick={() => onModeChange(m)}
                 className={`px-3 py-1 rounded-lg font-medium transition-colors ${
-                  mode === m ? "bg-white dark:bg-gray-700 text-violet-700 dark:text-violet-200 shadow-sm" : "text-gray-500"
+                  mode === m ? "bg-white dark:bg-gray-700 text-blue-700 dark:text-blue-200 shadow-sm" : "text-gray-500"
                 }`}
               >
                 {m === "uniform" ? "Same for every type" : "Per type"}
@@ -156,8 +156,8 @@ const PlanBuilder: React.FC<Props> = ({
                   title={p.description}
                   className={`shrink-0 px-2.5 py-1 rounded-full text-[11px] font-medium border transition-colors ${
                     activePreset?.id === p.id
-                      ? "border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-200"
-                      : "border-gray-200 dark:border-gray-700 text-gray-500 hover:border-violet-300"
+                      ? "border-blue-500 bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-200"
+                      : "border-gray-200 dark:border-gray-700 text-gray-500 hover:border-blue-300"
                   }`}
                 >
                   {p.label} <span className="text-gray-400">· {p.description}</span>
@@ -218,7 +218,7 @@ const PlanBuilder: React.FC<Props> = ({
                     <tr key={t} className="border-t border-gray-100 dark:border-gray-800">
                       <td className="px-3 py-1.5">
                         <span className="inline-flex items-center gap-1.5 text-xs font-medium text-text-primary-light dark:text-text-primary-dark">
-                          <Icon className="w-3.5 h-3.5 text-violet-500" />
+                          <Icon className="w-3.5 h-3.5 text-blue-500" />
                           {QUESTION_TYPES.find((q) => q.value === t)?.label}
                         </span>
                       </td>

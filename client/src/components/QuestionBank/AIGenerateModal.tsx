@@ -34,12 +34,15 @@ import ProviderPicker from "./ai/ProviderPicker";
 import GenerationProgress from "./ai/GenerationProgress";
 import AIReviewList, { LinkToggle, type ReviewQuestion } from "./ai/AIReviewList";
 import { runGeneration, type BatchState } from "./ai/runGeneration";
+import StepIndicator from "./ai/StepIndicator";
 import {
   MAX_TOTAL,
+  DIFFICULTIES,
   buildPlan,
   estimateSeconds,
   formatDuration,
   linkedSchemeEntry,
+  planByDifficulty,
   planTotal,
   sourceKey,
   splitIntoBatches,
@@ -409,51 +412,112 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
   const hasSource = tab === "document" ? !!file : selected.size > 0;
   const stepIndex = stage === "setup" ? (hasSource ? 1 : 0) : stage === "working" ? 1 : 2;
   const eta = estimateSeconds(total, batchPlan.length);
+  const byLevel = planByDifficulty(plan);
   const sourceSummary =
     tab === "document" ? file?.name ?? "No file yet" : selected.size ? `${selected.size} resource${selected.size === 1 ? "" : "s"}` : "No resources yet";
+
+  const footerShell =
+    "border-t border-gray-200 dark:border-gray-800 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md shadow-[0_-10px_30px_-18px_rgba(15,23,42,0.35)] px-4 sm:px-6 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] flex flex-col sm:flex-row sm:items-center gap-3";
+
+  const setupFooter = (
+    <div className={footerShell}>
+      <div className="flex-1 min-w-0 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+        {canGenerate ? (
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+            <span className="font-semibold text-sm text-text-primary-light dark:text-text-primary-dark">{total} questions</span>
+            <span className="inline-flex items-center gap-2">
+              {DIFFICULTIES.map((d) =>
+                byLevel[d.value] ? (
+                  <span key={d.value} className="inline-flex items-center gap-1">
+                    <span className={`w-2 h-2 rounded-full ${d.dot}`} /> {byLevel[d.value]} {d.label.toLowerCase()}
+                  </span>
+                ) : null,
+              )}
+            </span>
+            <span className="hidden md:inline text-gray-400">•</span>
+            <span className="truncate">
+              from <b className="font-medium text-text-primary-light dark:text-text-primary-dark">{sourceSummary}</b>
+              {batchPlan.length > 1 ? ` · ${batchPlan.length} batches` : ""} · ~{formatDuration(eta)}
+            </span>
+          </div>
+        ) : (
+          <p className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+            <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {blockers[0]}
+          </p>
+        )}
+      </div>
+      <div className="flex gap-2">
+        {review.length > 0 && (
+          <button type="button" onClick={() => setStage("review")} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-400 hover:text-blue-600">
+            Review {review.length}
+          </button>
+        )}
+        <button
+          type="button"
+          onClick={handleGenerate}
+          disabled={!canGenerate}
+          title={canGenerate ? "Ctrl/⌘ + Enter" : blockers.join(" · ")}
+          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-lg shadow-violet-500/25 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all"
+        >
+          <Sparkles className="w-4 h-4" /> Generate {total > 0 ? total : ""} question{total === 1 ? "" : "s"}
+        </button>
+      </div>
+    </div>
+  );
+
+  const reviewFooter = (
+    <div className={footerShell}>
+      <div className="flex-1 min-w-0">
+        {link ? (
+          <LinkToggle title={link.title} on={linkEntry} onChange={setLinkEntry} />
+        ) : (
+          <p className="text-xs text-gray-500">
+            <b className="text-text-primary-light dark:text-text-primary-dark">{chosen.length}</b> of {review.length} selected
+          </p>
+        )}
+      </div>
+      <div className="flex gap-2">
+        <button type="button" onClick={() => setStage("setup")} className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-200 hover:border-blue-400 hover:text-blue-600">
+          <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Generate</span> more
+        </button>
+        <button
+          type="button"
+          onClick={handleSave}
+          disabled={!chosen.length || saving}
+          className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none"
+        >
+          {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+          Save {chosen.length} to question bank
+        </button>
+      </div>
+    </div>
+  );
 
   return (
     <Modal
       isOpen={isOpen}
       onClose={requestClose}
       title={
-        <span className="flex items-center gap-2">
-          <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-violet-500 to-indigo-600 flex items-center justify-center">
+        <span className="flex items-center gap-2.5">
+          <span className="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm shadow-blue-500/30">
             <Sparkles className="w-4 h-4 text-white" />
           </span>
           AI Question Generator
         </span>
       }
-      subtitle={
-        <ol className="flex items-center gap-1.5 text-xs mt-1 overflow-x-auto" aria-label="Progress">
-          {steps.map((s, i) => (
-            <li key={s} className="flex items-center gap-1.5 shrink-0">
-              <span
-                className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${
-                  i < stepIndex || stage === "saved"
-                    ? "bg-violet-600 text-white"
-                    : i === stepIndex
-                      ? "bg-violet-100 text-violet-700 dark:bg-violet-900/50 dark:text-violet-200 ring-2 ring-violet-500/40"
-                      : "bg-gray-100 dark:bg-gray-800 text-gray-400"
-                }`}
-              >
-                {i < stepIndex || stage === "saved" ? "✓" : i + 1}
-              </span>
-              <span className={i === stepIndex ? "font-semibold text-text-primary-light dark:text-text-primary-dark" : "text-gray-400"}>{s}</span>
-              {i < steps.length - 1 && <span className="w-4 h-px bg-gray-300 dark:bg-gray-700" />}
-            </li>
-          ))}
-        </ol>
-      }
+      subtitle={<StepIndicator steps={steps} current={stage === "saved" ? steps.length : stepIndex} />}
       size="full"
+      className="h-full"
+      bodyClassName={stage === "setup" ? "overflow-y-auto lg:overflow-hidden p-3 sm:p-4" : "overflow-y-auto p-3 sm:p-4"}
+      footer={stage === "setup" ? setupFooter : stage === "review" ? reviewFooter : undefined}
       closeOnBackdropClick={false}
       closeOnEscape={stage !== "working"}
     >
       <AnimatePresence mode="wait">
         {stage === "setup" && (
-          <motion.div key="setup" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex flex-col min-h-full">
+          <motion.div key="setup" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="flex flex-col gap-3 lg:h-full">
             {runError && (
-              <div role="alert" className="mb-4 flex items-start gap-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-900/15 px-3 py-2.5 text-sm text-rose-700 dark:text-rose-300">
+              <div role="alert" className="flex items-start gap-2 rounded-xl border border-rose-200 dark:border-rose-900/50 bg-rose-50 dark:bg-rose-900/15 px-3 py-2.5 text-sm text-rose-700 dark:text-rose-300">
                 <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
                 <span className="flex-1">{runError}</span>
                 <button type="button" onClick={() => setRunError(null)} className="text-xs underline">
@@ -462,60 +526,64 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
               </div>
             )}
 
-            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] gap-5 flex-1">
-              {/* Source */}
-              <section className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 flex flex-col min-h-0">
-                <div className="grid grid-cols-2 gap-1 p-1 rounded-2xl bg-gray-100 dark:bg-gray-800/70 mb-4" role="tablist" aria-label="Source">
-                  {([
-                    { id: "resources", label: "From course resources", short: "Course resources", icon: Library },
-                    { id: "document", label: "Upload a document", short: "Upload", icon: FileUp },
-                  ] as const).map((t) => (
-                    <button
-                      key={t.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={tab === t.id}
-                      onClick={() => setTab(t.id)}
-                      className={`flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all ${
-                        tab === t.id
-                          ? "bg-white text-violet-700 shadow-sm dark:bg-violet-600/30 dark:text-white dark:ring-1 dark:ring-violet-500/60"
-                          : "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                      }`}
-                    >
-                      <t.icon className="w-4 h-4" />
-                      <span className="hidden sm:inline">{t.label}</span>
-                      <span className="sm:hidden whitespace-nowrap">{t.short}</span>
-                    </button>
-                  ))}
+            <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)] gap-3 sm:gap-4 lg:flex-1 lg:min-h-0">
+              {/* Source: fixed header, list scrolls on its own on large screens */}
+              <section className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 flex flex-col lg:min-h-0 overflow-hidden">
+                <div className="p-3 sm:p-4 pb-3 border-b border-gray-100 dark:border-gray-800">
+                  <div className="grid grid-cols-2 gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800/70" role="tablist" aria-label="Source">
+                    {([
+                      { id: "resources", label: "From course resources", short: "Course resources", icon: Library },
+                      { id: "document", label: "Upload a document", short: "Upload", icon: FileUp },
+                    ] as const).map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="tab"
+                        aria-selected={tab === t.id}
+                        onClick={() => setTab(t.id)}
+                        className={`flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-semibold transition-colors ${
+                          tab === t.id
+                            ? "bg-white text-blue-700 shadow-sm dark:bg-blue-600 dark:text-white"
+                            : "text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200"
+                        }`}
+                      >
+                        <t.icon className="w-4 h-4 shrink-0" />
+                        <span className="hidden sm:inline whitespace-nowrap">{t.label}</span>
+                        <span className="sm:hidden whitespace-nowrap">{t.short}</span>
+                      </button>
+                    ))}
+                  </div>
+                  <p className="mt-2.5 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                    {tab === "resources"
+                      ? "Pick curriculum outcomes, scheme-of-work weeks, lesson plans, your notes, shared materials or e-learning pages — the AI writes questions from exactly these."
+                      : "Upload course notes, a chapter or a handout. The AI writes questions only from what's in the file."}
+                  </p>
                 </div>
-                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mb-3">
-                  {tab === "resources"
-                    ? "Pick curriculum outcomes, scheme-of-work weeks, lesson plans, your notes, shared materials or e-learning pages — the AI writes questions from exactly these."
-                    : "Upload course notes, a chapter or a handout. The AI writes questions only from what's in the file."}
-                </p>
-                {tab === "resources" ? (
-                  <SourcePicker
-                    data={sources}
-                    loading={sourcesLoading}
-                    error={sourcesError}
-                    onRetry={() => loadSources(classGroupId)}
-                    selected={selected}
-                    onToggle={toggleSource}
-                    onSetMany={setMany}
-                    onClear={() => setSelected(new Map())}
-                    classGroupId={classGroupId}
-                    onClassGroupChange={(id) => {
-                      setSelected(new Map());
-                      loadSources(id);
-                    }}
-                  />
-                ) : (
-                  <DocumentDropzone file={file} onFile={setFile} onReject={(r) => toast.error(r)} />
-                )}
+                <div className="p-3 sm:p-4 lg:flex-1 lg:min-h-0 lg:overflow-y-auto overscroll-contain">
+                  {tab === "resources" ? (
+                    <SourcePicker
+                      data={sources}
+                      loading={sourcesLoading}
+                      error={sourcesError}
+                      onRetry={() => loadSources(classGroupId)}
+                      selected={selected}
+                      onToggle={toggleSource}
+                      onSetMany={setMany}
+                      onClear={() => setSelected(new Map())}
+                      classGroupId={classGroupId}
+                      onClassGroupChange={(id) => {
+                        setSelected(new Map());
+                        loadSources(id);
+                      }}
+                    />
+                  ) : (
+                    <DocumentDropzone file={file} onFile={setFile} onReject={(r) => toast.error(r)} />
+                  )}
+                </div>
               </section>
 
               {/* Configure */}
-              <section className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-4 space-y-6">
+              <section className="rounded-2xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-900/40 p-3 sm:p-4 space-y-6 lg:min-h-0 lg:overflow-y-auto overscroll-contain">
                 <PlanBuilder
                   types={types}
                   onTypesChange={setTypes}
@@ -530,39 +598,6 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
                 <PromptComposer value={instructions} onChange={setInstructions} suggestions={suggestions} />
                 <ProviderPicker providers={providers} value={provider} onChange={setProvider} />
               </section>
-            </div>
-
-            {/* Action bar */}
-            <div className="sticky bottom-0 -mx-4 -mb-4 mt-5 px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex-1 min-w-0 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-                {canGenerate ? (
-                  <p>
-                    <b className="text-text-primary-light dark:text-text-primary-dark">{total} questions</b> from <b>{sourceSummary}</b>
-                    {batchPlan.length > 1 ? ` · ${batchPlan.length} batches` : ""} · about {formatDuration(eta)}
-                    {review.length ? ` · adds to the ${review.length} waiting for review` : ""}
-                  </p>
-                ) : (
-                  <p className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                    <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {blockers[0]}
-                  </p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                {review.length > 0 && (
-                  <button type="button" onClick={() => setStage("review")} className="px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-violet-300">
-                    Review {review.length}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={handleGenerate}
-                  disabled={!canGenerate}
-                  title={canGenerate ? "Ctrl/⌘ + Enter" : blockers.join(" · ")}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-lg shadow-violet-500/25 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed"
-                >
-                  <Sparkles className="w-4 h-4" /> Generate {total > 0 ? total : ""} question{total === 1 ? "" : "s"}
-                </button>
-              </div>
             </div>
           </motion.div>
         )}
@@ -583,7 +618,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
         )}
 
         {stage === "review" && (
-          <motion.div key="review" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="flex flex-col min-h-full max-w-5xl mx-auto w-full">
+          <motion.div key="review" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="max-w-5xl mx-auto w-full">
             <div className="flex flex-wrap items-center gap-3 mb-3">
               <button type="button" onClick={() => setStage("setup")} className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 dark:hover:text-gray-200">
                 <ArrowLeft className="w-4 h-4" /> Settings
@@ -597,7 +632,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
             {prepared && (
               <div className="mb-3 rounded-xl border border-gray-200 dark:border-gray-800 text-xs">
                 <button type="button" onClick={() => setShowSource((v) => !v)} className="w-full flex items-center gap-2 px-3 py-2 text-left text-gray-600 dark:text-gray-300" aria-expanded={showSource}>
-                  <Library className="w-3.5 h-3.5 text-violet-500" />
+                  <Library className="w-3.5 h-3.5 text-blue-500" />
                   <span className="flex-1 truncate">
                     Source: <b>{prepared.ctx.label}</b> · {Math.round(prepared.ctx.char_count / 1000)}k characters{prepared.ctx.truncated ? " (shortened)" : ""}
                   </span>
@@ -622,30 +657,6 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
             )}
 
             <AIReviewList questions={review} onChange={setReview} />
-
-            <div className="sticky bottom-0 -mx-4 -mb-4 mt-5 px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur flex flex-col sm:flex-row sm:items-center gap-3">
-              <div className="flex-1 min-w-0">
-                {link ? (
-                  <LinkToggle title={link.title} on={linkEntry} onChange={setLinkEntry} />
-                ) : (
-                  <p className="text-xs text-gray-500">{chosen.length} of {review.length} selected</p>
-                )}
-              </div>
-              <div className="flex gap-2">
-                <button type="button" onClick={() => setStage("setup")} className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-medium border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-violet-300">
-                  <Plus className="w-4 h-4" /> Generate more
-                </button>
-                <button
-                  type="button"
-                  onClick={handleSave}
-                  disabled={!chosen.length || saving}
-                  className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none"
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Save {chosen.length} to question bank
-                </button>
-              </div>
-            </div>
           </motion.div>
         )}
 
@@ -668,7 +679,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
                   Back to review
                 </button>
               )}
-              <button type="button" onClick={() => setStage("setup")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-violet-300 text-violet-700 dark:text-violet-200">
+              <button type="button" onClick={() => setStage("setup")} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium border border-blue-300 text-blue-700 dark:text-blue-200">
                 <Sparkles className="w-4 h-4" /> Generate more
               </button>
               <button

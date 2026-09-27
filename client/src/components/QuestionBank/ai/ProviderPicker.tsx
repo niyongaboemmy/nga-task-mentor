@@ -25,23 +25,23 @@ const ProviderPicker: React.FC<Props> = ({ providers, value, onChange }) => {
   }
 
   const card = (active: boolean, disabled = false) =>
-    `text-left rounded-xl border px-3 py-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+    `text-left rounded-xl border px-3 py-2 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
       disabled
         ? "opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-800"
         : active
-          ? "border-violet-500 bg-violet-50 dark:bg-violet-900/25"
-          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 hover:border-violet-300"
+          ? "border-blue-500 bg-blue-50 dark:bg-blue-900/25"
+          : "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/40 hover:border-blue-300"
     }`;
 
   return (
     <section className="space-y-2">
       <h4 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark flex items-center gap-1.5">
-        <Cpu className="w-4 h-4 text-violet-500" /> AI engine
+        <Cpu className="w-4 h-4 text-blue-500" /> AI engine
       </h4>
       <div className="grid grid-cols-2 lg:grid-cols-3 gap-2" role="radiogroup" aria-label="AI engine">
         <button type="button" role="radio" aria-checked={value === null} onClick={() => onChange(null)} className={card(value === null)}>
           <span className="flex items-center gap-1.5 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
-            <Sparkles className="w-3.5 h-3.5 text-violet-500" /> Auto
+            <Sparkles className="w-3.5 h-3.5 text-blue-500" /> Auto
           </span>
           <span className="block text-[11px] text-gray-500 truncate">{first ? `Starts with ${first.label}` : "Best available"}</span>
         </button>

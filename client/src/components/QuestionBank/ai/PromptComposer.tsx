@@ -25,7 +25,7 @@ const PromptComposer: React.FC<Props> = ({ value, onChange, suggestions }) => {
           Instructions for the AI <span className="font-normal text-gray-400">(optional)</span>
         </label>
         {value && (
-          <button type="button" onClick={() => onChange("")} className="text-xs text-gray-500 hover:text-violet-600">
+          <button type="button" onClick={() => onChange("")} className="text-xs text-gray-500 hover:text-blue-600">
             Clear
           </button>
         )}
@@ -38,7 +38,7 @@ const PromptComposer: React.FC<Props> = ({ value, onChange, suggestions }) => {
           onChange={(e) => onChange(e.target.value)}
           rows={3}
           placeholder="e.g. Focus on how browsers talk to servers; use real-world scenarios; avoid trick questions…"
-          className="w-full px-3 py-2.5 pb-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-sm text-text-primary-light dark:text-text-primary-dark placeholder:text-gray-400 resize-y min-h-[84px] focus:outline-none focus:ring-2 focus:ring-violet-500"
+          className="w-full px-3 py-2.5 pb-6 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-sm text-text-primary-light dark:text-text-primary-dark placeholder:text-gray-400 resize-y min-h-[84px] focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <span className={`absolute right-3 bottom-2 text-[10px] tabular-nums ${left < 100 ? "text-amber-500" : "text-gray-400"}`}>
           {value.length}/{INSTRUCTIONS_MAX}
@@ -63,8 +63,8 @@ const PromptComposer: React.FC<Props> = ({ value, onChange, suggestions }) => {
                   onClick={() => onChange(toggleSuggestion(value, s.text).slice(0, INSTRUCTIONS_MAX))}
                   className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-medium border transition-colors ${
                     on
-                      ? "bg-violet-600 border-violet-600 text-white"
-                      : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-violet-400"
+                      ? "bg-blue-600 border-blue-600 text-white"
+                      : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-blue-400"
                   }`}
                 >
                   {on ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />}
@@ -75,7 +75,7 @@ const PromptComposer: React.FC<Props> = ({ value, onChange, suggestions }) => {
           </div>
         ))}
         {suggestions.length > 8 && (
-          <button type="button" onClick={() => setShowAll((v) => !v)} className="text-[11px] font-medium text-violet-600 dark:text-violet-300 hover:underline">
+          <button type="button" onClick={() => setShowAll((v) => !v)} className="text-[11px] font-medium text-blue-600 dark:text-blue-300 hover:underline">
             {showAll ? "Show fewer" : `Show ${suggestions.length - 8} more`}
           </button>
         )}

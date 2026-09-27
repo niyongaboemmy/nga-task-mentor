@@ -12,7 +12,7 @@ import {
 import { sequelize } from "../config/database";
 import { QuestionBank } from "../models";
 import { generateFreeformJSON } from "../services/aiProviders/generate";
-import { packParts, tiptapToText, htmlToText } from "../services/ai/misCourseResources";
+import { packParts, tiptapToText, htmlToText, weekText } from "../services/ai/misCourseResources";
 import { buildGenerateFromSourcePrompt } from "../services/ai/prompts/generateFromDocumentPrompt";
 import { clearContextsForTests } from "../services/ai/generationContextStore";
 
@@ -388,6 +388,12 @@ describe("helpers", () => {
     expect(parts[0].chars).toBe(1000);
     expect(Math.abs(parts[1].chars - parts[2].chars)).toBeLessThanOrEqual(1);
     expect(packParts([{ text: "short", chars: 0 }], 20_000)).toEqual({ text: "short", truncated: false });
+  });
+
+  it("labels weeks without doubling 'Week'", () => {
+    expect(weekText("3")).toBe("Week 3");
+    expect(weekText("Week 7")).toBe("Week 7");
+    expect(weekText(null)).toBe("Week ?");
   });
 
   it("reads Tiptap JSON and HTML as plain text", () => {

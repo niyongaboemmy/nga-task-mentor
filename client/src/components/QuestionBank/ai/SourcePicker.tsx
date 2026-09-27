@@ -20,7 +20,7 @@ import type {
   AISourceItem,
   AISourcesResponse,
 } from "../../../services/aiQuestionGenerationApi";
-import { groupByWeek, matchesQuery, sourceKey } from "./aiGeneratorModel";
+import { groupByWeek, matchesQuery, sourceKey, weekLabel } from "./aiGeneratorModel";
 
 const GROUP_ICONS: Record<AISourceGroupKey, LucideIcon> = {
   curriculum: GraduationCap,
@@ -106,7 +106,7 @@ const SourcePicker: React.FC<Props> = ({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search topics, weeks, files…"
-            className="w-full pl-9 pr-8 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-sm text-text-primary-light dark:text-text-primary-dark placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="w-full pl-9 pr-8 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-sm text-text-primary-light dark:text-text-primary-dark placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           {query && (
             <button
@@ -124,7 +124,7 @@ const SourcePicker: React.FC<Props> = ({
             aria-label="Class group"
             value={classGroupId ?? ""}
             onChange={(e) => onClassGroupChange(Number(e.target.value))}
-            className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-violet-500"
+            className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {data!.scope.class_groups.map((c) => (
               <option key={c.id} value={c.id}>
@@ -154,24 +154,24 @@ const SourcePicker: React.FC<Props> = ({
 
       {/* Selection summary */}
       <div>
-        <div className="rounded-2xl border border-violet-200 dark:border-violet-900/60 bg-violet-50/80 dark:bg-violet-950/40 px-3 py-2.5">
+        <div className="rounded-2xl border border-blue-200 dark:border-blue-900/60 bg-blue-50/80 dark:bg-blue-950/40 px-3 py-2.5">
           <div className="flex items-center justify-between gap-2 text-xs">
-            <span className="font-semibold text-violet-800 dark:text-violet-200" aria-live="polite">
+            <span className="font-semibold text-blue-800 dark:text-blue-200" aria-live="polite">
               {selected.size ? `${selected.size} resource${selected.size === 1 ? "" : "s"} selected` : "Nothing selected yet"}
             </span>
             {selected.size > 0 && (
-              <button type="button" onClick={onClear} className="text-violet-600 dark:text-violet-300 hover:underline">
+              <button type="button" onClick={onClear} className="text-blue-600 dark:text-blue-300 hover:underline">
                 Clear
               </button>
             )}
           </div>
-          <div className="mt-2 h-1.5 rounded-full bg-violet-100 dark:bg-violet-900/50 overflow-hidden" aria-hidden>
+          <div className="mt-2 h-1.5 rounded-full bg-blue-100 dark:bg-blue-900/50 overflow-hidden" aria-hidden>
             <div
-              className={`h-full rounded-full transition-all ${budgetPct >= 100 ? "bg-amber-500" : "bg-violet-500"}`}
+              className={`h-full rounded-full transition-all ${budgetPct >= 100 ? "bg-amber-500" : "bg-blue-500"}`}
               style={{ width: `${Math.max(selected.size ? 3 : 0, budgetPct)}%` }}
             />
           </div>
-          <p className="mt-1 text-[11px] text-violet-700/80 dark:text-violet-300/80">
+          <p className="mt-1 text-[11px] text-blue-700/80 dark:text-blue-300/80">
             ~{Math.round(selectedChars / 1000)}k of {SOURCE_CHAR_BUDGET / 1000}k characters
             {unknownSized ? ` + ${unknownSized} file${unknownSized === 1 ? "" : "s"}/note${unknownSized === 1 ? "" : "s"} measured when read` : ""}
             {budgetPct >= 100 ? " — long items will be shortened evenly" : ""}
@@ -179,7 +179,7 @@ const SourcePicker: React.FC<Props> = ({
         </div>
       </div>
       {loading && (
-        <p className="text-xs text-violet-600 dark:text-violet-300 flex items-center gap-1.5">
+        <p className="text-xs text-blue-600 dark:text-blue-300 flex items-center gap-1.5">
           <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Refreshing from the MIS…
         </p>
       )}
@@ -229,15 +229,15 @@ const FilterChip: React.FC<{
     onClick={onClick}
     className={`shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors ${
       active
-        ? "bg-violet-600 border-violet-600 text-white"
-        : "bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark hover:border-violet-400"
+        ? "bg-blue-600 border-blue-600 text-white"
+        : "bg-white dark:bg-gray-800/60 border-gray-200 dark:border-gray-700 text-text-secondary-light dark:text-text-secondary-dark hover:border-blue-400"
     }`}
   >
     <Icon className="w-3.5 h-3.5" />
     {label}
     <span className={`tabular-nums ${active ? "text-white/80" : "text-gray-400"}`}>{count}</span>
     {!!selectedCount && (
-      <span className={`ml-0.5 px-1.5 rounded-full text-[10px] font-bold ${active ? "bg-white/25" : "bg-violet-100 text-violet-700 dark:bg-violet-900/60 dark:text-violet-200"}`}>
+      <span className={`ml-0.5 px-1.5 rounded-full text-[10px] font-bold ${active ? "bg-white/25" : "bg-blue-100 text-blue-700 dark:bg-blue-900/60 dark:text-blue-200"}`}>
         {selectedCount}✓
       </span>
     )}
@@ -296,14 +296,14 @@ const GroupSection: React.FC<{
         return (
           <div key={week || "none"} className="space-y-2">
             <div className="flex items-center justify-between">
-              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-violet-700 dark:text-violet-300 bg-violet-50 dark:bg-violet-900/30 px-2 py-0.5 rounded-full">
-                <CalendarRange className="w-3 h-3" /> {week ? `Week ${week}` : "No week set"}
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-900/30 px-2 py-0.5 rounded-full">
+                <CalendarRange className="w-3 h-3" /> {week ? weekLabel(week) : "No week set"}
               </span>
               {pickable.length > 1 && (
                 <button
                   type="button"
                   onClick={() => onSetMany(pickable, !allOn)}
-                  className="text-[11px] font-medium text-violet-600 dark:text-violet-300 hover:underline"
+                  className="text-[11px] font-medium text-blue-600 dark:text-blue-300 hover:underline"
                 >
                   {allOn ? "Deselect week" : `Select all ${pickable.length}`}
                 </button>
@@ -322,7 +322,7 @@ const ItemGrid: React.FC<{
   selected: Map<string, AISourceItem>;
   onToggle: (item: AISourceItem) => void;
 }> = ({ items, selected, onToggle }) => (
-  <div className="grid grid-cols-1 xl:grid-cols-2 gap-2">
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-2">
     {items.map((item) => {
       const on = selected.has(sourceKey(item));
       return (
@@ -333,17 +333,17 @@ const ItemGrid: React.FC<{
           aria-pressed={on}
           onClick={() => onToggle(item)}
           title={item.supported ? undefined : item.reason}
-          className={`group text-left flex gap-3 rounded-xl border p-3 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${
+          className={`group text-left flex gap-3 rounded-xl border p-3 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 ${
             !item.supported
               ? "opacity-50 cursor-not-allowed border-gray-200 dark:border-gray-800"
               : on
-                ? "border-violet-500 bg-violet-50 dark:bg-violet-900/25 shadow-sm shadow-violet-500/10"
-                : "border-gray-200 dark:border-gray-700/70 bg-white dark:bg-gray-800/40 hover:border-violet-300 dark:hover:border-violet-700"
+                ? "border-blue-500 bg-blue-50 dark:bg-blue-900/25 shadow-sm shadow-blue-500/10"
+                : "border-gray-200 dark:border-gray-700/70 bg-white dark:bg-gray-800/40 hover:border-blue-300 dark:hover:border-blue-700"
           }`}
         >
           <span
             className={`mt-0.5 w-4 h-4 shrink-0 rounded-md border flex items-center justify-center transition-colors ${
-              on ? "bg-violet-600 border-violet-600" : "border-gray-300 dark:border-gray-600 group-hover:border-violet-400"
+              on ? "bg-blue-600 border-blue-600" : "border-gray-300 dark:border-gray-600 group-hover:border-blue-400"
             }`}
           >
             {on && <Check className="w-3 h-3 text-white" strokeWidth={3} />}
