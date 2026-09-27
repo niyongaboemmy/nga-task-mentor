@@ -135,6 +135,50 @@ describe("buildSubjectReport", () => {
   });
 });
 
+describe("buildSubjectReport with API-shaped values", () => {
+  // DECIMAL columns reach the client as strings ("9.00"), and a recorded
+  // assessment's max_score can too; percentages must still be exact.
+  const row = (id: number, score: string | null, total: number) => ({
+    student: { id, name: `S${id}`, email: `s${id}@x` },
+    quizzes: [{ quiz_id: 7, score: score as unknown as number, submitted: score !== null, max_score: 10 }],
+    assignments: [],
+    assessments: [
+      { assessment_id: 5, score: null, recorded: false, max_score: "5" as unknown as number },
+    ],
+    summary: {
+      total_points_earned: 0,
+      total_max_points: 10,
+      total_percentage: total,
+      assignment_percentage: 0,
+      quiz_percentage: total,
+    },
+  });
+  const report = buildSubjectReport({
+    course_id: 9,
+    quizzes: [{ id: 7, title: "Quiz 1", max_score: 10 }],
+    assignments: [],
+    assessments: [{ id: 5, title: "Class Work", max_score: "5", counts_to_final: true }],
+    students: [row(1, "9.00", 90), row(2, "6.50", 65), row(3, "3.00", 30), row(4, null, 0)],
+  });
+
+  it("keeps each student's own quiz mark and the spread between them", () => {
+    expect(report.students.map((s) => s.marks["quiz-7"])).toEqual([90, 65, 30, null]);
+    const quiz = report.assessments.find((a) => a.key === "quiz-7")!;
+    expect(quiz).toMatchObject({ markedCount: 3, highestPct: 90, lowestPct: 30, failingCount: 1 });
+    expect(quiz.averagePct).toBe(61.7);
+  });
+
+  it("derives the KPI cards from the marked students only", () => {
+    expect(report.classAverage).toBe(61.7);
+    expect(report.medianPct).toBe(65);
+    expect(report.passRate).toBe(67);
+    expect(report.atRiskCount).toBe(1);
+    expect(report.bandCounts).toEqual({ excellent: 1, good: 1, fair: 0, at_risk: 1 });
+    // Quiz: 1 of 4 missing; Class Work: all 4 missing.
+    expect(report.outstandingMarks).toBe(5);
+  });
+});
+
 describe("bandOf", () => {
   it("maps a percentage onto the band that drives every chart color", () => {
     expect(bandOf(92)).toBe("excellent");

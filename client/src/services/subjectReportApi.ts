@@ -230,7 +230,7 @@ export const buildSubjectReport = (
       markOf: (s: RawStudentGrade) => {
         const row = s.assessments?.find((r) => r.assessment_id === m.id);
         const score = toNumber(row?.score ?? null);
-        return row?.recorded && score !== null ? pct(score, m.max_score as number) : null;
+        return row?.recorded && score !== null ? pct(score, toNumber(m.max_score) ?? 0) : null;
       },
     })),
   ];

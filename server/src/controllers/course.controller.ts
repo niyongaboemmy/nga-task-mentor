@@ -17,6 +17,7 @@ import {
   User,
 } from "../models";
 import { Op } from "sequelize";
+import { bestBySubmissionScore, submissionBelongsTo } from "../utils/gradeMatching";
 import {
   buildManualAssessmentRow,
   fetchManualAssessments,
@@ -945,14 +946,10 @@ export const getCourseGrades = async (req: Request, res: Response) => {
 
     // 7. Aggregate Data
     const studentsWithGrades = finalStudents.map((student) => {
-      const studentId = student.id;
       // A student is known by their MIS id on the roster and by the local
-      // users.id on their submissions; either may be missing, so match on both.
-      const ownsSubmission = (sub: any) =>
-        (sub.student?.mis_user_id &&
-          String(sub.student.mis_user_id) === String(student.mis_user_id ?? studentId)) ||
-        (sub.student_id !== undefined &&
-          String(sub.student_id) === String(student.user_id ?? sub.student?.id ?? ""));
+      // users.id on their submissions; either may be missing, so match on
+      // whichever ids this row actually has (see utils/gradeMatching).
+      const ownsSubmission = (sub: any) => submissionBelongsTo(sub, student);
       const studentAssessments = manualAssessments.map((a) =>
         buildManualAssessmentRow(a, scoresByAssessment, [
           student.id,
@@ -984,21 +981,15 @@ export const getCourseGrades = async (req: Request, res: Response) => {
           (s: any) => s.quiz_id === quiz.id && ownsSubmission(s),
         );
         // Take best score
-        const bestSub =
-          subs.length > 0
-            ? subs.reduce((prev, current) =>
-                prev.total_score > current.total_score ? prev : current,
-              )
-            : null;
+        const bestSub = bestBySubmissionScore(subs);
 
         return {
           quiz_id: quiz.id,
           title: quiz.title,
           max_score: quiz.max_score,
           submitted: !!bestSub,
-          score:
-            bestSub?.total_score !== undefined ? bestSub.total_score : null,
-          percentage: bestSub?.percentage || null,
+          score: bestSub ? Number(bestSub.total_score) : null,
+          percentage: bestSub ? Number(bestSub.percentage) : null,
           passed: bestSub?.passed || null,
         };
       });
