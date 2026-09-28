@@ -11,7 +11,7 @@ function getClient(): OpenAI {
     client = new OpenAI({
       apiKey: process.env.GLM_API_KEY,
       baseURL: "https://api.z.ai/api/paas/v4",
-      timeout: 150_000,
+      timeout: 90_000,
     });
   }
   return client;

@@ -197,7 +197,10 @@ async function runBatch(userId: number, courseId: number, body: AIGenerateBatchB
       raw: true,
     });
     const existingTexts = existing.map((q: any) => String(q.question_text || ""));
-    const avoid = [...body.avoid_questions, ...existingTexts];
+    // The prompt lists at most 40: this run's newest questions first (the likeliest
+    // repeats), then the bank's latest. Duplicate filtering below still uses all.
+    const fromRun = body.avoid_questions.slice(-25).reverse();
+    const avoid = [...fromRun, ...existingTexts.slice(0, Math.max(15, 40 - fromRun.length))];
 
     const { questions, providerUsed } = await aiService.generateQuestionsFromSource(
       {

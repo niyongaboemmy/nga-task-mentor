@@ -91,7 +91,9 @@ const GenerationProgress: React.FC<Props> = ({ phase, sourceLabel, batches, late
                     ? `${b.returned}/${b.requested} ready${b.skipped ? ` · ${b.skipped} rejected by checks` : ""} · ${labelOf(b.provider)}${b.durationMs ? ` · ${formatDuration(b.durationMs / 1000)}` : ""}`
                     : b.status === "failed" || b.status === "cancelled"
                       ? b.error || (b.status === "cancelled" ? "Cancelled" : "Failed")
-                      : `${b.requested} question${b.requested === 1 ? "" : "s"}`}
+                      : b.retrying
+                        ? "AI busy — trying the next available engine…"
+                        : `${b.requested} question${b.requested === 1 ? "" : "s"}`}
                 </span>
               </span>
               {b.fellBack && (

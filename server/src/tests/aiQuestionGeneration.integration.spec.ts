@@ -335,7 +335,18 @@ describe("POST /ai/generate", () => {
     expect(prompt).toContain(`Which layer carries web pages ${RUN}?`); // told to avoid it
   });
 
-  it("410s on an unknown context and on someone else's context", async () => {
+  it("accepts long previous questions (the production 400 that stopped every batch after the first)", async () => {
+    const id = await contextId();
+    mockedAI.mockResolvedValue({ providerUsed: "gemini", data: [goodSingle("Short new one?")] });
+    const longOnes = Array.from({ length: 80 }, (_, i) => `Scenario ${i}: ${"a learner opens a site ".repeat(40)}`);
+    const res = await gen({ context_id: id, plan: [{ question_type: "single_choice", EASY: 1 }], avoid_questions: longOnes });
+    expect(res.status).toBe(200);
+    const prompt: string = mockedAI.mock.calls[0][0];
+    expect(prompt).not.toContain("Scenario 0:"); // trimmed to the most recent ones
+    expect(prompt).toContain("Scenario 79:");
+  });
+
+    it("410s on an unknown context and on someone else's context", async () => {
     const theirs = await contextId(otherToken);
     const plan = [{ question_type: "true_false", EASY: 1 }];
     const unknown = await gen({ context_id: crypto.randomUUID(), plan });
@@ -383,6 +394,15 @@ describe("async generation jobs", () => {
     return (await prepareResources([{ kind: "sow_entry", id: 5001 }], token)).body.data.context_id as string;
   }
   const poll = (jobId: string, token = instructorToken) => auth(request(app).get(`${base}/ai/jobs/${jobId}`), token);
+  /** Poll like the client does, instead of guessing how long the job takes under load. */
+  async function untilDone(jobId: string) {
+    for (let i = 0; i < 100; i++) {
+      const res = await poll(jobId);
+      if (res.body.state !== "running") return res;
+      await new Promise((r) => setTimeout(r, 30));
+    }
+    throw new Error("job never finished");
+  }
 
   it("answers 202 at once, reports running, then hands back the batch", async () => {
     let finish!: (v: any) => void;
@@ -394,8 +414,7 @@ describe("async generation jobs", () => {
     expect((await poll(jobId)).body).toMatchObject({ state: "running" });
 
     finish({ providerUsed: "gemini", data: [goodSingle("Which part renders HTML?")] });
-    await new Promise((r) => setTimeout(r, 50));
-    const done = await poll(jobId);
+    const done = await untilDone(jobId);
     expect(done.status).toBe(200);
     expect(done.body).toMatchObject({ state: "done", success: true, meta: { returned: 1, provider_used: "gemini" } });
   });
@@ -403,8 +422,7 @@ describe("async generation jobs", () => {
   it("keeps the batch's own error status (e.g. 410) and hides jobs from other users", async () => {
     const start = await auth(request(app).post(`${base}/ai/generate`)).send({ context_id: crypto.randomUUID(), plan, async: true });
     expect(start.status).toBe(202);
-    await new Promise((r) => setTimeout(r, 20));
-    const res = await poll(start.body.job_id);
+    const res = await untilDone(start.body.job_id);
     expect(res.status).toBe(410);
     expect(res.body.code).toBe("CONTEXT_EXPIRED");
     expect((await poll(start.body.job_id, otherToken)).status).toBe(404);

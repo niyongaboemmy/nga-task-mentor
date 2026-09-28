@@ -198,7 +198,7 @@ describe("AIGenerateModal", () => {
     expect(onSuccess).toHaveBeenCalled();
   });
 
-  it("keeps the teacher on setup with a clear message when nothing comes back", async () => {
+  it("keeps the teacher on setup with a clear message when nothing comes back", { timeout: 15000 }, async () => {
     api.prepareResources.mockResolvedValue({
       context_id: "c", origin: "resources", label: "x", char_count: 600, truncated: false, parts: [], preview: "", expires_in_seconds: 1,
     });
@@ -209,7 +209,9 @@ describe("AIGenerateModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /Internet vs the Web/ }));
     fireEvent.click(screen.getByRole("button", { name: /Generate 4 questions/ }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("temporarily rate-limited");
+    // 429 is retried once after a short pause before giving up.
+    expect(await screen.findByRole("alert", {}, { timeout: 8000 })).toHaveTextContent("temporarily rate-limited");
+    expect(api.generate).toHaveBeenCalledTimes(2);
     expect(screen.getByRole("tab", { name: /From course resources/ })).toBeInTheDocument();
   });
 });

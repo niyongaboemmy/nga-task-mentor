@@ -19,6 +19,8 @@ export interface BatchState {
   fellBack?: boolean;
   error?: string;
   durationMs?: number;
+  /** A transient failure is being retried once. */
+  retrying?: boolean;
 }
 
 export interface RunCallbacks {
@@ -34,7 +36,25 @@ export interface RunOptions {
   generate: (body: { context_id: string; plan: AIPlanItem[]; avoid_questions: string[] }, signal: AbortSignal) => Promise<AIBatchResult>;
   /** Prepares the same source again when the server forgot it (restart / expiry). */
   reprepare: () => Promise<string>;
+  /** Wait before the single retry of a transient failure (default 4 s). */
+  retryDelayMs?: number;
 }
+
+/** Worth one retry: rate limits, gateway/proxy hiccups, dropped connections. */
+const isTransient = (err: unknown) => {
+  const s = httpStatus(err);
+  if (s === undefined) return (err as { name?: string })?.name !== "CanceledError";
+  return s === 429 || s === 502 || s === 504;
+};
+
+const sleep = (ms: number, signal: AbortSignal) =>
+  new Promise<void>((resolve) => {
+    const t = setTimeout(resolve, ms);
+    signal.addEventListener("abort", () => {
+      clearTimeout(t);
+      resolve();
+    }, { once: true });
+  });
 
 /** Errors after which the next batch would fail the same way. */
 const isFatal = (err: unknown) => {
@@ -71,19 +91,32 @@ export async function runGeneration(opts: RunOptions, cb: RunCallbacks) {
     cb.onBatch({ ...state });
     const started = Date.now();
 
+    // Short excerpts are enough to steer the AI away from repeats.
     const attempt = () =>
-      opts.generate({ context_id: contextId, plan: state.plan, avoid_questions: produced.slice(-40) }, opts.signal);
+      opts.generate(
+        { context_id: contextId, plan: state.plan, avoid_questions: produced.slice(-40).map((q) => q.slice(0, 200)) },
+        opts.signal,
+      );
 
     try {
       let res: AIBatchResult;
       try {
         res = await attempt();
       } catch (err) {
-        if (!isContextExpired(err) || refreshed) throw err;
-        refreshed = true;
-        contextId = await opts.reprepare();
-        cb.onContextRefreshed?.(contextId);
-        res = await attempt();
+        if (isContextExpired(err) && !refreshed) {
+          refreshed = true;
+          contextId = await opts.reprepare();
+          cb.onContextRefreshed?.(contextId);
+          res = await attempt();
+        } else if (isTransient(err) && !opts.signal.aborted) {
+          // Every AI was busy / a connection dropped: give it a moment, try once more.
+          Object.assign(state, { retrying: true });
+          cb.onBatch({ ...state });
+          await sleep(opts.retryDelayMs ?? 4000, opts.signal);
+          res = await attempt();
+        } else {
+          throw err;
+        }
       }
       produced.push(...res.data.map((q) => q.question_text));
       Object.assign(state, {

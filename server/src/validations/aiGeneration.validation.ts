@@ -35,7 +35,14 @@ export const aiGenerateBatchSchema = z
       .enum(["gemini", "groq", "glm", "openai"])
       .nullish()
       .transform((v) => v ?? null),
-    avoid_questions: z.array(z.string().max(500)).max(60).optional().default([]),
+    // Only a steering hint for the prompt, so never a reason to reject a batch:
+    // AI-written questions can be long (a single scenario question passed 500
+    // chars in production and every later batch got a 400). Trim instead.
+    avoid_questions: z
+      .array(z.string())
+      .optional()
+      .default([])
+      .transform((list) => list.slice(-60).map((q) => q.slice(0, 300))),
     /** Run as a background job (202 + job_id) instead of holding the request open. */
     async: z.boolean().optional().default(false),
   })

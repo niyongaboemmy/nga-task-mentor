@@ -175,9 +175,14 @@ describe("runGeneration", () => {
   });
 
   it("keeps going after an ordinary failure but stops on one every batch would hit", async () => {
-    const soft = vi.fn().mockRejectedValueOnce(httpErr(502, "AI generation failed")).mockResolvedValueOnce(ok(["B"]));
+    // 502 is retried once; failing twice gives up on that batch only.
+    const soft = vi
+      .fn()
+      .mockRejectedValueOnce(httpErr(502, "AI generation failed"))
+      .mockRejectedValueOnce(httpErr(502, "AI generation failed"))
+      .mockResolvedValueOnce(ok(["B"]));
     const r1 = await runGeneration(
-      { batches: [plan(1), plan(1)], contextId: "c", signal: new AbortController().signal, generate: soft, reprepare: vi.fn() },
+      { batches: [plan(1), plan(1)], contextId: "c", signal: new AbortController().signal, generate: soft, reprepare: vi.fn(), retryDelayMs: 1 },
       { onBatch: () => {}, onQuestions: () => {} },
     );
     expect(r1.states.map((s) => s.status)).toEqual(["failed", "done"]);
@@ -192,7 +197,32 @@ describe("runGeneration", () => {
     expect(r2.states.map((s) => s.status)).toEqual(["failed", "cancelled", "cancelled"]);
   });
 
-  it("stops after cancel, keeping what already came back", async () => {
+  it("retries a batch once when every AI was busy or the connection dropped", async () => {
+    const generate = vi
+      .fn()
+      .mockRejectedValueOnce(httpErr(429, "The AI is temporarily rate-limited."))
+      .mockResolvedValueOnce(ok(["A"]))
+      .mockRejectedValueOnce(Object.assign(new Error("Network Error"), { code: "ERR_NETWORK" }))
+      .mockRejectedValueOnce(Object.assign(new Error("Network Error"), { code: "ERR_NETWORK" }));
+    const res = await runGeneration(
+      { batches: [plan(1), plan(1)], contextId: "c", signal: new AbortController().signal, generate, reprepare: vi.fn(), retryDelayMs: 1 },
+      { onBatch: () => {}, onQuestions: () => {} },
+    );
+    expect(generate).toHaveBeenCalledTimes(4);
+    expect(res.states.map((s) => s.status)).toEqual(["done", "failed"]);
+  });
+
+  it("sends short excerpts of earlier questions, never whole long ones", async () => {
+    const long = "L".repeat(900);
+    const generate = vi.fn().mockResolvedValueOnce(ok([long])).mockResolvedValueOnce(ok(["B"]));
+    await runGeneration(
+      { batches: [plan(1), plan(1)], contextId: "c", signal: new AbortController().signal, generate, reprepare: vi.fn() },
+      { onBatch: () => {}, onQuestions: () => {} },
+    );
+    expect(generate.mock.calls[1][0].avoid_questions[0]).toHaveLength(200);
+  });
+
+    it("stops after cancel, keeping what already came back", async () => {
     const ctrl = new AbortController();
     const generate = vi.fn().mockImplementationOnce(async () => {
       ctrl.abort();
