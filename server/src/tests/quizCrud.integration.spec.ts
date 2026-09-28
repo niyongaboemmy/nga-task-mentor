@@ -123,11 +123,17 @@ describe("POST /api/courses/:courseId/quizzes", () => {
     expect(q.time_limit ?? null).toBeNull();
   });
 
-  it("ignores a quiz-level time_limit even if a stale client sends one", async () => {
+  it("stores an optional overall duration (time_limit, minutes)", async () => {
     const res = await post({ ...validQuiz, time_limit: 90 });
     expect(res.status).toBe(201);
     createdQuizIds.push(res.body.data.id);
-    expect(res.body.data.time_limit ?? null).toBeNull();
+    expect(res.body.data.time_limit).toBe(90);
+  });
+
+  it("rejects an out-of-range duration with a field error", async () => {
+    const res = await post({ ...validQuiz, time_limit: 0 });
+    expect(res.status).toBe(400);
+    expect(res.body.errors.map((e: any) => e.field)).toContain("time_limit");
   });
 
   it("returns 400 (not 500) with field errors for the legacy 'practice' type", async () => {
@@ -243,6 +249,19 @@ describe("PUT /api/quizzes/:id", () => {
     expect(res.body.data.max_attempts).toBe(2);
     expect(res.body.data.is_public).toBe(true);
     expect(res.body.data.start_date).not.toBeNull();
+  });
+
+  it("sets, keeps and clears the overall duration", async () => {
+    const set = await put({ time_limit: 45 });
+    expect(set.status).toBe(200);
+    expect(set.body.data.time_limit).toBe(45);
+
+    const untouched = await put({ title: "Still timed" });
+    expect(untouched.body.data.time_limit).toBe(45);
+
+    const cleared = await put({ time_limit: null });
+    expect(cleared.status).toBe(200);
+    expect(cleared.body.data.time_limit ?? null).toBeNull();
   });
 
   it("clears nullable fields when null is sent explicitly", async () => {

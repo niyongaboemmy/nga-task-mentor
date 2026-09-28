@@ -17,6 +17,11 @@ import {
   Check,
   Trophy,
   Dumbbell,
+  Flag,
+  CloudOff,
+  Cloud,
+  RotateCcw,
+  ListChecks,
 } from "lucide-react";
 import QuestionTimer from "../components/ui/QuestionTimer";
 import { toast } from "react-toastify";
@@ -35,6 +40,16 @@ import type {
 } from "../types/quiz.types";
 import RichTextDisplay from "../components/Common/RichTextDisplay";
 import { liveSocketAuth } from "../utils/liveSocketAuth";
+import {
+  BACKGROUND_SAVE_TYPES,
+  formatClock,
+  hasAnswerValue,
+  mergeAnswers,
+  quizTimingMode,
+  resolveDeadline,
+  secondsUntil,
+} from "../utils/quizTimer";
+import { formatDuration } from "../utils/quizFormValidation";
 
 interface QuizTakingQuiz extends Quiz {
   quiz_completed?: boolean;
@@ -53,8 +68,18 @@ interface QuizSubmission {
   status: string;
   time_taken: number;
   started_at: string;
+  end_time?: string | null;
+  /** Server-computed seconds left on a timed attempt (null = untimed). */
+  time_remaining_seconds?: number | null;
   answers?: any[];
 }
+
+/** Background-save status shown in the footer (overall-duration mode). */
+type SyncState = "idle" | "saving" | "saved" | "offline";
+
+const isTimeExpiredError = (error: any) =>
+  error?.response?.status === 409 &&
+  error?.response?.data?.code === "ATTEMPT_TIME_EXPIRED";
 
 const QuizTakingPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -66,10 +91,26 @@ const QuizTakingPage: React.FC = () => {
   const quizQuestions = quiz?.questions || [];
   const currentQuestion = quizQuestions[currentQuestionIndex] || null;
   const totalQuestions = quizQuestions.length;
-  const answeredQuestions = answers.length;
+  const answeredQuestions = answers.filter((a) => hasAnswerValue(a.answer)).length;
   const progress =
     totalQuestions > 0 ? (answeredQuestions / totalQuestions) * 100 : 0;
+  // Overall-duration mode: one countdown for the whole attempt, anchored to
+  // the server deadline. Per-question mode: each question has its own timer.
+  const timingMode = quizTimingMode(quiz);
+  const isOverallTimed = timingMode === "overall";
+  const overallTotalSeconds = isOverallTimed ? Number(quiz?.time_limit) * 60 : 0;
+  const [deadline, setDeadline] = useState<number | null>(null);
   const [timeLeft, setTimeLeft] = useState<number>(0);
+  const [timeUpState, setTimeUpState] = useState<
+    null | "submitting" | "failed"
+  >(null);
+  const [syncState, setSyncState] = useState<SyncState>("idle");
+  const [flaggedQuestions, setFlaggedQuestions] = useState<Set<number>>(
+    () => new Set(),
+  );
+  const autoSubmitStartedRef = useRef(false);
+  const submitInFlightRef = useRef(false);
+  const warnedAtRef = useRef<Set<number>>(new Set());
   const [quizStartTime, setQuizStartTime] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCurrentSaved, setIsCurrentSaved] = useState(true);
@@ -161,7 +202,9 @@ const QuizTakingPage: React.FC = () => {
   } | null>(null);
   const socketRef = useRef<any>(null);
   // Stable ref to submitQuiz — avoids stale closures inside timer/socket callbacks
-  const submitQuizRef = useRef<() => Promise<void>>(async () => {});
+  const submitQuizRef = useRef<(opts?: { auto?: boolean }) => Promise<boolean>>(
+    async () => false,
+  );
 
   // Volume check state
   const [showVolumeCheck, setShowVolumeCheck] = useState(false);
@@ -185,15 +228,18 @@ const QuizTakingPage: React.FC = () => {
     {
       icon: <Timer className="h-8 w-8 text-amber-600" />,
       title: "Manage Your Time",
-      description: `You have ${
-        quiz?.time_limit || 0
-      } minutes to complete this quiz. The timer will start once you begin.`,
+      description: isOverallTimed
+        ? `You have ${formatDuration(
+            Number(quiz?.time_limit),
+          )} for the whole quiz. The timer starts when you begin and keeps running even if you leave the page. When it reaches zero, the quiz is submitted automatically with the answers you have given.`
+        : "Each question has its own time limit, shown at the top. When a question's time runs out you move on to the next one automatically and can't go back to it.",
     },
     {
       icon: <Target className="h-8 w-8 text-blue-600" />,
       title: "Answer All Questions",
-      description:
-        "Make sure to answer all questions. You can navigate between questions using the buttons at the bottom.",
+      description: isOverallTimed
+        ? "Move freely between questions with Previous / Next or the numbered buttons, change any answer until time runs out, and flag questions you want to come back to."
+        : "Make sure to answer all questions. You can navigate between questions using the buttons at the bottom.",
     },
     {
       icon: <Zap className="h-8 w-8 text-green-600" />,
@@ -258,19 +304,17 @@ const QuizTakingPage: React.FC = () => {
         }
       }
 
-      // Load saved timer state
-      const savedTimerState = localStorage.getItem(timerSessionKey);
-      if (savedTimerState) {
-        try {
-          const { timeLeft: savedTimeLeft, quizStartTime: savedStartTime } =
-            JSON.parse(savedTimerState);
-          if (savedTimeLeft > 0 && savedStartTime) {
-            setTimeLeft(savedTimeLeft);
-            setQuizStartTime(new Date(savedStartTime));
-          }
-        } catch (error) {
-          localStorage.removeItem(timerSessionKey);
-        }
+      // The old client-side timer snapshot is obsolete: the attempt deadline
+      // now always comes from the server.
+      localStorage.removeItem(timerSessionKey);
+
+      try {
+        const flagged = JSON.parse(
+          localStorage.getItem(`quiz_${id}_flagged`) || "[]",
+        );
+        if (Array.isArray(flagged)) setFlaggedQuestions(new Set(flagged.map(Number)));
+      } catch {
+        localStorage.removeItem(`quiz_${id}_flagged`);
       }
 
       // Clear any stale locked indices from localStorage
@@ -292,38 +336,66 @@ const QuizTakingPage: React.FC = () => {
     };
   }, []);
 
+  // Overall countdown. Recomputed from the deadline on every tick (and when
+  // the tab becomes visible again) instead of decrementing a counter, so it
+  // can't drift from the server. It deliberately keeps running during an
+  // instructor pause: the server deadline doesn't pause either.
   useEffect(() => {
-    if (!quizStartTime || showInstructions) return;
+    if (!isOverallTimed || deadline === null) return;
+    const tick = () => setTimeLeft(secondsUntil(deadline));
+    tick();
+    const interval = window.setInterval(tick, 500);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [isOverallTimed, deadline]);
 
-    // timeLeft === -1 means unlimited (no time limit) — never auto-submit
-    if (timeLeft === -1) return;
-
-    // Time expired — auto-submit
-    if (timeLeft <= 0) {
-      submitQuizRef.current();
-      return;
+  // Heads-up toasts at 5 and 1 minute(s) left.
+  useEffect(() => {
+    if (!isOverallTimed || deadline === null || showInstructions) return;
+    for (const mark of [300, 60]) {
+      if (
+        timeLeft > 0 &&
+        timeLeft <= mark &&
+        overallTotalSeconds > mark &&
+        !warnedAtRef.current.has(mark)
+      ) {
+        warnedAtRef.current.add(mark);
+        toast.warn(
+          mark === 60
+            ? "1 minute left — the quiz will submit automatically."
+            : "5 minutes left. Review any flagged or unanswered questions.",
+          { position: "top-center", autoClose: 5000 },
+        );
+      }
     }
+  }, [timeLeft, isOverallTimed, deadline, showInstructions, overallTotalSeconds]);
 
-    if (isExamPaused) return;
+  // Time's up → submit the whole quiz once, with every answer given so far.
+  useEffect(() => {
+    if (!isOverallTimed || deadline === null) return;
+    if (!existingSubmission || autoSubmitStartedRef.current) return;
+    if (secondsUntil(deadline) > 0) return;
+    autoSubmitStartedRef.current = true;
+    setTimeUpState("submitting");
+    submitQuizRef.current({ auto: true }).then((ok) => {
+      if (!ok) setTimeUpState("failed");
+    });
+  }, [timeLeft, isOverallTimed, deadline, existingSubmission]);
 
-    const timer = setTimeout(() => {
-      setTimeLeft((prev) => {
-        if (prev === -1) return -1; // unlimited guard
-        const newTimeLeft = Math.max(0, prev - 1);
-        if (id) {
-          try {
-            localStorage.setItem(
-              `quiz_${id}_timer`,
-              JSON.stringify({ timeLeft: newTimeLeft, quizStartTime: quizStartTime.toISOString() }),
-            );
-          } catch (_) {}
-        }
-        return newTimeLeft;
-      });
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [timeLeft, quizStartTime, showInstructions, isExamPaused, id]);
+  // Leaving mid-attempt doesn't stop the clock — say so before unloading.
+  useEffect(() => {
+    if (!isOverallTimed || !existingSubmission || showInstructions) return;
+    const warn = (e: BeforeUnloadEvent) => {
+      if (submitInFlightRef.current) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", warn);
+    return () => window.removeEventListener("beforeunload", warn);
+  }, [isOverallTimed, existingSubmission, showInstructions]);
 
   // Initialize socket connection for audio confirmation when proctoring session is active
   useEffect(() => {
@@ -452,10 +524,19 @@ const QuizTakingPage: React.FC = () => {
                   }
                 }
               }
-              // Reset quiz state
+              // Reset quiz state (the server restarted the attempt clock too)
               setAnswers([]);
               setCurrentQuestionIndex(0);
-              setTimeLeft((quiz?.time_limit || 0) * 60);
+              setFlaggedQuestions(new Set());
+              autoSubmitStartedRef.current = false;
+              warnedAtRef.current = new Set();
+              setTimeUpState(null);
+              setDeadline(
+                resolveDeadline({
+                  startedAt: new Date().toISOString(),
+                  timeLimitMinutes: quiz?.time_limit,
+                }),
+              );
               setQuizStartTime(new Date());
               setIsExamPaused(false);
               setShowWarning(false);
@@ -566,107 +647,84 @@ const QuizTakingPage: React.FC = () => {
     }
   };
 
+  /** Answers saved on the server for an attempt, in the page's Answer shape. */
+  const serverAnswersOf = (submission: QuizSubmission): Answer[] =>
+    (submission.answers || [])
+      .map((a: any) => ({
+        question_id: Number(a.question_id),
+        answer: a.answer_data ?? a.user_answer,
+        time_taken: a.time_taken || 0,
+      }))
+      .filter((a) => a.answer !== undefined && a.answer !== null);
+
+  /** Adopt an in-progress attempt from the server (fresh start or resume). */
+  const adoptSubmission = (submission: QuizSubmission) => {
+    setExistingSubmission(submission);
+    const serverAnswers = serverAnswersOf(submission);
+    if (serverAnswers.length) {
+      setAnswers((prev) => {
+        const merged = mergeAnswers(prev, serverAnswers);
+        try {
+          localStorage.setItem(`quiz_${id}_answers`, JSON.stringify(merged));
+        } catch {
+          // Storage full or blocked: state still holds it.
+        }
+        return merged;
+      });
+    }
+    if (isOverallTimed) {
+      setDeadline(
+        resolveDeadline({
+          timeRemainingSeconds: submission.time_remaining_seconds,
+          endTime: submission.end_time,
+          startedAt: submission.started_at,
+          timeLimitMinutes: quiz?.time_limit,
+        }),
+      );
+    }
+  };
+
+  /** The server closed an attempt whose time had already run out. */
+  const goToFinalizedResults = (data: any, message?: string) => {
+    clearLocalQuizState();
+    toast.info(
+      message ||
+        "Time ran out on this attempt. It was submitted with your saved answers.",
+      { autoClose: 6000 },
+    );
+    navigate(`/quizzes/${id}/results`, {
+      state: { submissionId: data?.submission_id },
+      replace: true,
+    });
+  };
+
   const checkExistingSubmission = async () => {
     try {
       const response = await axios.get(
         `/quizzes/submissions?quiz_id=${id}&status=in_progress`,
       );
-      const submissions = response.data.data;
+      const submissions: QuizSubmission[] = response.data.data;
+      if (!submissions || submissions.length === 0) return;
 
-      if (submissions && submissions.length > 0) {
-        const submission = submissions[0];
-        setExistingSubmission(submission);
+      const submission = submissions[0];
+      adoptSubmission(submission);
 
-        // Resume from existing submission
-        if (submission.answers && submission.answers.length > 0) {
-          const answeredQuestionIds = new Set(
-            submission.answers.map((a: any) => a.question_id),
-          );
+      // Start at the first question without an answer.
+      const answeredIds = new Set([
+        ...serverAnswersOf(submission).map((a) => a.question_id),
+        ...latestAnswersRef.current.map((a) => Number(a.question_id)),
+      ]);
+      const firstOpen = quizQuestions.findIndex((q) => !answeredIds.has(q.id));
+      if (firstOpen > 0) setCurrentQuestionIndex(firstOpen);
 
-          setAnswers(
-            submission.answers.map((answer: any) => ({
-              question_id: answer.question_id,
-              answer: answer.answer_data || answer.user_answer,
-              time_taken: answer.time_taken || 0,
-            })),
-          );
-
-          // Find first unanswered question to start at
-          let firstUnsubmittedIndex = -1;
-          quizQuestions.forEach((q, idx) => {
-            if (!answeredQuestionIds.has(q.id) && firstUnsubmittedIndex === -1) {
-              firstUnsubmittedIndex = idx;
-            }
-          });
-
-          // Start at first unanswered question if found
-          if (firstUnsubmittedIndex !== -1) {
-            setCurrentQuestionIndex(firstUnsubmittedIndex);
-          }
-        }
-
-        // Calculate remaining time
-        const startedAt = new Date(submission.started_at);
-        const hasTimeLimit = quiz?.time_limit && quiz.time_limit > 0;
-        const totalTimeInSeconds = hasTimeLimit ? (quiz!.time_limit ?? 0) * 60 : -1;
-        const elapsed = Math.floor((Date.now() - startedAt.getTime()) / 1000);
-
-        // If time limit exists and has fully elapsed, don't restore — let it auto-submit
-        // gracefully by not setting quizStartTime with timeLeft=0 (which would fire immediately)
-        let remainingTime: number;
-        if (totalTimeInSeconds === -1) {
-          remainingTime = -1; // unlimited
-        } else {
-          remainingTime = Math.max(0, totalTimeInSeconds - elapsed);
-          // If time already expired, submit immediately but with existing answers
-          if (remainingTime === 0) {
-            setExistingSubmission(submission);
-            if (submission.answers && submission.answers.length > 0) {
-              setAnswers(
-                submission.answers.map((answer: any) => ({
-                  question_id: answer.question_id,
-                  answer: answer.answer_data || answer.user_answer,
-                  time_taken: answer.time_taken || 0,
-                })),
-              );
-            }
-            setTimeLeft(0);
-            setQuizStartTime(startedAt);
-            setShowInstructions(false);
-            return;
-          }
-        }
-
-        setTimeLeft(remainingTime);
-        setQuizStartTime(startedAt);
-
-        if (id) {
-          const timerSessionKey = `quiz_${id}_timer`;
-          localStorage.setItem(
-            timerSessionKey,
-            JSON.stringify({
-              timeLeft: remainingTime,
-              quizStartTime: startedAt.toISOString(),
-            }),
-          );
-        }
-
-        // Hide instructions since we're resuming an existing quiz
-        setShowInstructions(false);
-      }
-    } catch (error: any) {
-      // console.error("Error checking existing submission:", error);
-      // Don't show error for this check, just log it
+      // Instructions stay up so the student re-enters through "Start" (and
+      // proctoring set-up, when enabled); the countdown shown there is live.
+    } catch {
+      // Not fatal: "Start" creates or resumes the attempt anyway.
     }
   };
 
   const startQuizAttempt = async () => {
-    // If we already have an existing submission, don't create a new one
-    if (existingSubmission) {
-      setShowInstructions(false);
-      return;
-    }
-
     try {
       setError(null);
       await proceedWithQuizStart();
@@ -712,39 +770,33 @@ const QuizTakingPage: React.FC = () => {
       // No proctoring, start quiz normally
       await startQuizNormally();
     } catch (error: any) {
-      // console.error("Error proceeding with quiz start:", error);
-      setError("Failed to start quiz. Please try again.");
+      setError(
+        error?.response?.data?.message || "Failed to start quiz. Please try again.",
+      );
     }
   };
 
   const startQuizNormally = async () => {
-    const response = await axios.post(`/quizzes/submissions`, {
-      quiz_id: parseInt(id!),
-      status: "in_progress",
-      started_at: new Date().toISOString(),
-    });
-
-    const submission = response.data.data;
-    setExistingSubmission(submission);
-    setQuizStartTime(new Date());
-    // -1 = unlimited (no time limit); otherwise convert minutes → seconds
-    const timeLimitSecs = quiz?.time_limit && quiz.time_limit > 0
-      ? quiz.time_limit * 60
-      : -1;
-    setTimeLeft(timeLimitSecs);
-
-    // Save initial timer state to localStorage
-    if (id) {
-      const timerSessionKey = `quiz_${id}_timer`;
-      localStorage.setItem(
-        timerSessionKey,
-        JSON.stringify({
-          timeLeft: timeLimitSecs,
-          quizStartTime: new Date().toISOString(),
-        }),
-      );
+    let submission: QuizSubmission;
+    try {
+      // Creates the attempt, or returns the one already in progress (resume).
+      const response = await axios.post(`/quizzes/submissions`, {
+        quiz_id: parseInt(id!),
+        status: "in_progress",
+      });
+      submission = response.data.data;
+    } catch (error: any) {
+      if (isTimeExpiredError(error)) {
+        goToFinalizedResults(error.response.data.data, error.response.data.message);
+        return;
+      }
+      throw error;
     }
 
+    adoptSubmission(submission);
+    setQuizStartTime(
+      submission.started_at ? new Date(submission.started_at) : new Date(),
+    );
     setShowInstructions(false);
     setError(null); // Clear any errors on successful start
   };
@@ -1411,8 +1463,14 @@ const QuizTakingPage: React.FC = () => {
             setIsCurrentSaved(true);
           }
         } catch (error: any) {
-          if (forceSave) toast.error("Failed to save answer.");
-          // console.error("Error saving answer to database:", error);
+          if (isTimeExpiredError(error)) {
+            // The deadline passed: stop editing; the countdown effect submits.
+            setDeadline((d) => (d === null ? d : Math.min(d, Date.now())));
+          } else if (forceSave) {
+            toast.error(
+              "Couldn't save this answer to the server — it's kept on this device and will be sent when you submit.",
+            );
+          }
         } finally {
           if (forceSave) setIsSubmitting(false);
         }
@@ -1421,105 +1479,109 @@ const QuizTakingPage: React.FC = () => {
     [quizQuestions, quizStartTime, existingSubmission, id],
   );
 
-  const handleAutoSubmit = async () => {
-    setIsSubmitting(true);
-    try {
-      await submitQuiz();
-    } catch (error) {
-      // console.error("Error auto-submitting quiz:", error);
-    } finally {
-      setIsSubmitting(false);
+  /** Forget this attempt's local copies — only after the server has it. */
+  const clearLocalQuizState = useCallback(() => {
+    if (!id) return;
+    const prefix = `quiz_${id}_`;
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const key = localStorage.key(i);
+      if (key && key.startsWith(prefix)) localStorage.removeItem(key);
     }
-  };
+  }, [id]);
 
-  const submitQuiz = useCallback(async () => {
-    if (!quiz) return;
-
-    try {
+  /**
+   * Submit the whole quiz with every answer given so far. Returns true on
+   * success. Local copies of the answers are kept until the server confirms,
+   * so a failed (auto-)submit never loses work — it can simply be retried.
+   * Timed auto-submits retry a few times on network errors by themselves.
+   */
+  const submitQuiz = useCallback(
+    async (opts: { auto?: boolean } = {}): Promise<boolean> => {
+      if (!quiz || submitInFlightRef.current) return false;
+      submitInFlightRef.current = true;
       setIsSubmitting(true);
-      setError(null); // Clear any previous errors
-      const submissionData = {
+      setError(null);
+
+      const payload = () => ({
         quiz_id: quiz.id,
-        answers: answers,
+        answers: latestAnswersRef.current.filter((a) => hasAnswerValue(a.answer)),
         time_taken: quizStartTime
           ? Math.floor((Date.now() - quizStartTime.getTime()) / 1000)
-          : 0, // Convert to seconds
+          : 0,
         submitted_at: new Date().toISOString(),
-      };
+      });
 
-      // Update submission status to completed
-      if (existingSubmission) {
-        await axios.patch(`/quizzes/submissions/${existingSubmission.id}`, {
-          status: "completed",
-          completed_at: new Date().toISOString(),
-          answers: answers,
-          time_taken: submissionData.time_taken,
-        });
-      }
+      const attempts = opts.auto ? 4 : 1;
+      try {
+        for (let attempt = 1; attempt <= attempts; attempt++) {
+          try {
+            const response = await axios.post(`/quizzes/${quiz.id}/submit`, payload());
+            const result = response.data.data;
 
-      // Submit the quiz
-      const response = await axios.post(
-        `/quizzes/${quiz.id}/submit`,
-        submissionData,
-      );
-      const submissionResult = response.data.data;
+            clearLocalQuizState();
+            if (result?.timed_out) {
+              toast.info(
+                response.data.message ||
+                  "Time was up — your quiz was submitted with your saved answers.",
+                { autoClose: 6000 },
+              );
+            } else if (opts.auto) {
+              toast.success("Time's up — your quiz was submitted.", {
+                autoClose: 4000,
+              });
+            }
+            navigate(`/quizzes/${quiz.id}/results`, {
+              state: { submissionId: result?.submission_id ?? existingSubmission?.id },
+              replace: true,
+            });
+            return true;
+          } catch (error: any) {
+            const status = error?.response?.status;
+            const serverMessage: string = error?.response?.data?.message || "";
 
-      // Clear saved answers and timer state from localStorage after successful submission
-      if (id) {
-        const quizSessionKey = `quiz_${id}_answers`;
-        const timerSessionKey = `quiz_${id}_timer`;
-        const lockedIndicesKey = `quiz_${id}_locked_indices`;
-        const questionStartPrefix = `quiz_${id}_question_`;
+            // Another tab/device already finished this attempt.
+            if (status === 400 && /No active quiz session/i.test(serverMessage)) {
+              clearLocalQuizState();
+              navigate(`/quizzes/${quiz.id}/results`, {
+                state: { submissionId: existingSubmission?.id },
+                replace: true,
+              });
+              return true;
+            }
 
-        localStorage.removeItem(quizSessionKey);
-        localStorage.removeItem(timerSessionKey);
-        localStorage.removeItem(lockedIndicesKey);
+            const retriable = !error?.response || status >= 500;
+            if (retriable && attempt < attempts) {
+              await new Promise((r) => setTimeout(r, 1000 * 2 ** (attempt - 1)));
+              continue;
+            }
 
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith(questionStartPrefix)) {
-            localStorage.removeItem(key);
+            let errorMessage = "Failed to submit quiz. Please try again.";
+            if (serverMessage) {
+              if (serverMessage.includes("Quiz is not currently available")) {
+                errorMessage =
+                  "This quiz is no longer available for submission. It may have expired or been completed.";
+              } else if (serverMessage.includes("not authorized")) {
+                errorMessage =
+                  "You are not authorized to submit this quiz. Please make sure you're logged in.";
+              } else {
+                errorMessage = serverMessage;
+              }
+            } else if (!error?.response) {
+              errorMessage =
+                "Couldn't reach the server. Your answers are kept on this device — check your connection and try again.";
+            }
+            setError(errorMessage);
+            return false;
           }
         }
+        return false;
+      } finally {
+        submitInFlightRef.current = false;
+        setIsSubmitting(false);
       }
-
-      // Navigate to results page; backend is the source of truth for scores/grades.
-      navigate(`/quizzes/${quiz.id}/results`, {
-        state: {
-          submissionId:
-            submissionResult.submission_id ?? existingSubmission?.id,
-        },
-      });
-    } catch (error: any) {
-      // console.error("Error submitting quiz:", error);
-
-      // Extract error message from response
-      let errorMessage = "Failed to submit quiz. Please try again.";
-
-      if (error.response?.data?.message) {
-        const serverMessage = error.response.data.message;
-
-        if (serverMessage.includes("Quiz is not currently available")) {
-          errorMessage =
-            "This quiz is no longer available for submission. It may have expired or been completed.";
-        } else if (serverMessage.includes("not found")) {
-          errorMessage =
-            "The quiz submission could not be found. Please try starting the quiz again.";
-        } else if (serverMessage.includes("not authorized")) {
-          errorMessage =
-            "You are not authorized to submit this quiz. Please make sure you're logged in.";
-        } else {
-          errorMessage = serverMessage;
-        }
-      } else if (error.message) {
-        errorMessage = error.message;
-      }
-
-      setError(errorMessage);
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [quiz, answers, quizStartTime, existingSubmission, id, navigate]);
+    },
+    [quiz, quizStartTime, existingSubmission, navigate, clearLocalQuizState],
+  );
 
   // Keep ref in sync so timer/socket callbacks always call the latest version
   useEffect(() => {
@@ -1680,6 +1742,11 @@ const QuizTakingPage: React.FC = () => {
     quizStartTime,
   ]);
 
+  const answeringDisabled =
+    isExamPaused ||
+    timeUpState !== null ||
+    (!isOverallTimed && lockedQuestionIndices.has(currentQuestionIndex));
+
   const renderQuestion = (
     question: QuizQuestion,
     extraProps: Partial<QuestionComponentProps> = {},
@@ -1692,8 +1759,10 @@ const QuizTakingPage: React.FC = () => {
         onAnswerChange={(answer, forceSave) =>
           updateAnswer(question.id, answer, forceSave)
         }
-        disabled={isExamPaused || lockedQuestionIndices.has(currentQuestionIndex)}
-        timeRemaining={perQuestionTimeLeft || undefined}
+        disabled={answeringDisabled}
+        timeRemaining={
+          isOverallTimed ? timeLeft : (perQuestionTimeLeft ?? undefined)
+        }
         onStart={() => setIsCodingFullscreen(true)}
         onNext={handleNext}
         onToggleFullscreen={(isFullscreen) => {
@@ -1712,6 +1781,97 @@ const QuizTakingPage: React.FC = () => {
       />
     );
   };
+
+  /**
+   * Quietly save one answer to the server (overall-duration mode). Failures
+   * aren't fatal: the answer stays in state + localStorage and goes with the
+   * final submit.
+   */
+  const persistAnswerSilently = useCallback(
+    async (questionId: number, answer: AnswerDataType) => {
+      if (!existingSubmission || !hasAnswerValue(answer)) return;
+      setSyncState("saving");
+      try {
+        await QuizApiService.submitQuestionAnswer(
+          existingSubmission.id,
+          questionId,
+          answer,
+          Math.max(0, Math.floor((Date.now() - questionStartTimeRef.current) / 1000)),
+        );
+        setSyncState("saved");
+      } catch (error: any) {
+        if (isTimeExpiredError(error)) {
+          setDeadline((d) => (d === null ? d : Math.min(d, Date.now())));
+        }
+        setSyncState("offline");
+      }
+    },
+    [existingSubmission],
+  );
+
+  // Overall mode: auto-save cheap-to-grade answers shortly after they change.
+  const currentAnswerValue = currentQuestion
+    ? answers.find((a) => a.question_id === currentQuestion.id)?.answer
+    : undefined;
+  const currentAnswerKey = JSON.stringify(currentAnswerValue ?? null);
+  useEffect(() => {
+    if (!isOverallTimed || !currentQuestion || timeUpState) return;
+    if (currentAnswerValue === undefined) return;
+    const qType = (
+      currentQuestion.question_type ||
+      currentQuestion.questionBank?.question_type ||
+      ""
+    ).toLowerCase();
+    if (!BACKGROUND_SAVE_TYPES.has(qType)) return;
+    const t = window.setTimeout(
+      () => persistAnswerSilently(currentQuestion.id, currentAnswerValue),
+      1200,
+    );
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAnswerKey, currentQuestion?.id, isOverallTimed, timeUpState]);
+
+  /**
+   * Overall mode navigation: any question, any direction. The answer being
+   * left is saved in the background (never blocks the move).
+   */
+  const goToQuestion = useCallback(
+    (index: number) => {
+      if (index < 0 || index >= totalQuestions || index === currentQuestionIndex) return;
+      if (currentQuestion) {
+        const answer = latestAnswersRef.current.find(
+          (a) => a.question_id === currentQuestion.id,
+        )?.answer;
+        if (answer !== undefined) void persistAnswerSilently(currentQuestion.id, answer);
+      }
+      setCurrentQuestionIndex(index);
+    },
+    [totalQuestions, currentQuestionIndex, currentQuestion, persistAnswerSilently],
+  );
+
+  const toggleFlag = useCallback(
+    (questionId: number) => {
+      setFlaggedQuestions((prev) => {
+        const next = new Set(prev);
+        if (next.has(questionId)) next.delete(questionId);
+        else next.add(questionId);
+        try {
+          localStorage.setItem(`quiz_${id}_flagged`, JSON.stringify([...next]));
+        } catch {
+          // Storage full or blocked: state still holds it.
+        }
+        return next;
+      });
+    },
+    [id],
+  );
+
+  const answeredIds = new Set(
+    answers.filter((a) => hasAnswerValue(a.answer)).map((a) => a.question_id),
+  );
+  const unansweredIndices = quizQuestions
+    .map((q, i) => (answeredIds.has(q.id) ? -1 : i))
+    .filter((i) => i >= 0);
 
   const handlePerQuestionTimeout = useCallback(() => {
     if (!currentQuestion) return;
@@ -1748,13 +1908,16 @@ const QuizTakingPage: React.FC = () => {
   ]);
 
   useEffect(() => {
-    const qLimit = currentQuestion?.questionBank?.time_limit_seconds;
+    // With an overall duration, question durations don't apply.
+    const qLimit = isOverallTimed
+      ? null
+      : currentQuestion?.questionBank?.time_limit_seconds;
     if (qLimit) {
       setPerQuestionTimeLeft(qLimit);
     } else {
       setPerQuestionTimeLeft(null);
     }
-  }, [currentQuestionIndex, currentQuestion?.id]);
+  }, [currentQuestionIndex, currentQuestion?.id, isOverallTimed]);
 
   useEffect(() => {
     if (perQuestionTimeLeft === null) return;
@@ -1793,6 +1956,10 @@ const QuizTakingPage: React.FC = () => {
   }, [currentQuestion, updateAnswer]);
 
   const handleNext = useCallback(async () => {
+    if (isOverallTimed) {
+      goToQuestion(currentQuestionIndex + 1);
+      return;
+    }
     // Cancel per-question timer immediately to prevent race with auto-advance
     setPerQuestionTimeLeft(null);
     setIsSubmitting(true);
@@ -1805,6 +1972,9 @@ const QuizTakingPage: React.FC = () => {
   }, [
     submitCurrentAnswer,
     totalQuestions,
+    isOverallTimed,
+    goToQuestion,
+    currentQuestionIndex,
   ]);
 
   if (loading) {
@@ -2125,6 +2295,63 @@ const QuizTakingPage: React.FC = () => {
     );
   }
 
+  const timeUpOverlay = timeUpState && (
+    <div
+      className="fixed inset-0 z-[9998] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="time-up-title"
+    >
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-gray-900">
+        <div
+          className={`mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full ${
+            timeUpState === "failed"
+              ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+              : "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400"
+          }`}
+        >
+          {timeUpState === "failed" ? (
+            <CloudOff className="h-7 w-7" />
+          ) : (
+            <Timer className="h-7 w-7" />
+          )}
+        </div>
+        <h3
+          id="time-up-title"
+          className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark"
+        >
+          Time's up!
+        </h3>
+        {timeUpState === "submitting" ? (
+          <p className="mt-2 flex items-center justify-center gap-2 text-sm text-gray-600 dark:text-gray-300">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Submitting your answers…
+          </p>
+        ) : (
+          <>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              {error || "We couldn't submit your quiz."} Your{" "}
+              {answeredQuestions} answer{answeredQuestions === 1 ? " is" : "s are"}{" "}
+              kept on this device.
+            </p>
+            <button
+              onClick={async () => {
+                setTimeUpState("submitting");
+                const ok = await submitQuiz({ auto: true });
+                if (!ok) setTimeUpState("failed");
+              }}
+              disabled={isSubmitting}
+              className="mt-5 inline-flex items-center gap-2 rounded-full bg-blue-600 px-5 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Try again
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+
   // Show instructions modal if needed
   if (showInstructions) {
     const currentInstruction = instructions[currentInstructionStep];
@@ -2163,10 +2390,31 @@ const QuizTakingPage: React.FC = () => {
             </div>
           )}
 
+          {timeUpOverlay}
+          {existingSubmission && (
+            <div className="mb-6 flex flex-col gap-2 rounded-2xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-800 sm:flex-row sm:items-center sm:justify-between dark:border-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+              <span className="flex items-center gap-2">
+                <RotateCcw className="h-4 w-4 flex-shrink-0" />
+                You have an attempt in progress with {answeredQuestions} of{" "}
+                {totalQuestions} answered.
+              </span>
+              {isOverallTimed && deadline !== null && (
+                <span className="font-mono font-semibold tabular-nums">
+                  {formatClock(timeLeft)} left
+                </span>
+              )}
+            </div>
+          )}
           <div className="text-center mb-8">
             <h2 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark mb-3">
               Quiz Instructions
             </h2>
+            {isOverallTimed && (
+              <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                <Timer className="h-3.5 w-3.5" />
+                {formatDuration(Number(quiz.time_limit))} for the whole quiz
+              </span>
+            )}
             <p className="text-gray-600 dark:text-gray-200">
               Step {currentInstructionStep + 1} of {instructions.length}
             </p>
@@ -2218,7 +2466,7 @@ const QuizTakingPage: React.FC = () => {
                 disabled={!!error}
                 className="inline-flex items-center px-6 py-2 bg-gradient-to-r from-blue-600 to-blue-600 text-white rounded-full hover:from-blue-700 hover:to-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 shadow-lg hover:shadow-xl"
               >
-                Start Quiz
+                {existingSubmission ? "Resume Quiz" : "Start Quiz"}
                 <ArrowRight className="h-4 w-4 ml-2" />
               </button>
             ) : (
@@ -2256,6 +2504,8 @@ const QuizTakingPage: React.FC = () => {
 
       {/* Pause Overlay - When exam is paused */}
       <PauseOverlay isVisible={isExamPaused} reason={pauseReason} />
+
+      {timeUpOverlay}
 
       {/* Main quiz content container */}
       <div>
@@ -2393,73 +2643,95 @@ const QuizTakingPage: React.FC = () => {
 
       {/* Header */}
       {!isCodingFullscreen && (
-        <div className="border-b border-gray-200 dark:border-gray-700 px-6 py-4">
-          <div className="w-full flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-3">
-                <div>
-                  <BookOpen className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <h1 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
-                    {quiz.title}
-                  </h1>
-                  <p className="text-sm text-gray-600 dark:text-gray-200">
-                    Question {currentQuestionIndex + 1} of {totalQuestions}
-                  </p>
-                </div>
+        <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-gray-700 dark:bg-gray-900/90">
+          <div className="flex w-full flex-wrap items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-3">
+              <BookOpen className="h-6 w-6 flex-shrink-0 text-blue-600" />
+              <div className="min-w-0">
+                <h1 className="truncate text-lg font-bold text-text-primary-light sm:text-xl dark:text-text-primary-dark">
+                  {quiz.title}
+                </h1>
+                <p className="text-sm text-gray-600 dark:text-gray-200">
+                  Question {currentQuestionIndex + 1} of {totalQuestions}
+                  {isOverallTimed && flaggedQuestions.size > 0 && (
+                    <span className="ml-2 inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
+                      <Flag className="h-3 w-3" /> {flaggedQuestions.size} flagged
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
 
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 sm:gap-4">
               {/* Progress Indicator */}
-              <div className="hidden sm:flex items-center gap-3">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                  Progress
-                </span>
-                <div className="w-32 h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+              <div className="hidden items-center gap-3 md:flex">
+                <div
+                  className="h-2 w-32 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700"
+                  role="progressbar"
+                  aria-label="Questions answered"
+                  aria-valuemin={0}
+                  aria-valuemax={totalQuestions}
+                  aria-valuenow={answeredQuestions}
+                >
                   <div
-                    className="h-full bg-blue-500 rounded-full transition-all duration-500"
+                    className="h-full rounded-full bg-blue-500 transition-all duration-500"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-200 min-w-[3rem]">
+                <span className="min-w-[3rem] text-sm font-medium text-gray-700 dark:text-gray-200">
                   {answeredQuestions}/{totalQuestions}
                 </span>
               </div>
 
-              {/* Question Timer */}
-              {currentQuestion?.questionBank?.time_limit_seconds && (
+              {/* Timer: whole quiz, or the current question. The page owns the
+                  countdown and the timeout; the timer only displays it. */}
+              {isOverallTimed && deadline !== null ? (
                 <QuestionTimer
-                  key={`question-timer-${currentQuestionIndex}`} // Force re-mount on question change
-                  timeLeft={currentQuestion.questionBank.time_limit_seconds}
-                  currentTime={perQuestionTimeLeft || undefined}
-                  onTimeout={handlePerQuestionTimeout}
+                  variant="quiz"
+                  label="Quiz time left"
+                  timeLeft={overallTotalSeconds}
+                  totalTime={overallTotalSeconds}
+                  currentTime={timeLeft}
                 />
+              ) : (
+                !isOverallTimed &&
+                currentQuestion?.questionBank?.time_limit_seconds && (
+                  <QuestionTimer
+                    key={`question-timer-${currentQuestionIndex}`}
+                    variant="question"
+                    label="Question"
+                    timeLeft={currentQuestion.questionBank.time_limit_seconds}
+                    currentTime={
+                      perQuestionTimeLeft ??
+                      currentQuestion.questionBank.time_limit_seconds
+                    }
+                    paused={isExamPaused || showViolationWarning}
+                  />
+                )
               )}
 
               {/* Submit Button */}
               <button
                 onClick={async () => {
-                  await submitCurrentAnswer();
+                  if (!isOverallTimed) await submitCurrentAnswer();
                   setShowConfirmSubmit(true);
                 }}
                 disabled={
-                  isSubmitting || answeredQuestions === 0 || isExamPaused
+                  isSubmitting ||
+                  answeredQuestions === 0 ||
+                  isExamPaused ||
+                  timeUpState !== null
                 }
-                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed z-10"
+                className="z-10 inline-flex items-center rounded-full bg-green-600 px-4 py-2 font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin inline" />
-                    Submitting...
-                  </>
+                  <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
                 ) : (
-                  <>
-                    <CheckCircle className="h-4 w-4 mr-2 inline" />
-                    Submit Quiz
-                  </>
+                  <CheckCircle className="h-4 w-4 sm:mr-2" />
                 )}
+                <span className="hidden sm:inline">
+                  {isSubmitting ? "Submitting..." : "Submit Quiz"}
+                </span>
               </button>
             </div>
           </div>
@@ -2593,7 +2865,7 @@ const QuizTakingPage: React.FC = () => {
                   renderQuestion(currentQuestion, {
                     submissionId: existingSubmission?.id,
                     isFullscreen: isCodingFullscreen,
-                    disabled: isExamPaused || lockedQuestionIndices.has(currentQuestionIndex),
+                    disabled: answeringDisabled,
                   })}
               </div>
             </div>
@@ -2603,57 +2875,115 @@ const QuizTakingPage: React.FC = () => {
 
       {/* Navigation Footer */}
       {!isCodingFullscreen && (
-        <div className="border-t border-gray-200 dark:border-gray-700 px-4 sm:px-6 py-4">
-          {!isCurrentSaved && (
-            <div className="flex items-center justify-center gap-2 text-amber-600 dark:text-amber-400 animate-pulse mb-2 text-sm font-bold">
+        <div className="border-t border-gray-200 px-3 py-3 sm:px-6 dark:border-gray-700">
+          {!isOverallTimed && !isCurrentSaved && (
+            <div className="mb-2 flex animate-pulse items-center justify-center gap-2 text-sm font-bold text-amber-600 dark:text-amber-400">
               <AlertCircle className="h-4 w-4 flex-shrink-0" />
               <span>Please save your answer before proceeding.</span>
             </div>
           )}
-          <div className="max-w-8xl mx-auto flex items-center gap-3">
+          {isOverallTimed && (
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <button
+                type="button"
+                onClick={() => currentQuestion && toggleFlag(currentQuestion.id)}
+                disabled={!currentQuestion || timeUpState !== null}
+                aria-pressed={!!currentQuestion && flaggedQuestions.has(currentQuestion.id)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-medium transition-colors disabled:opacity-50 ${
+                  currentQuestion && flaggedQuestions.has(currentQuestion.id)
+                    ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+                    : "border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+                }`}
+              >
+                <Flag className="h-3.5 w-3.5" />
+                {currentQuestion && flaggedQuestions.has(currentQuestion.id)
+                  ? "Flagged for review"
+                  : "Flag for review"}
+              </button>
+              <span
+                className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400"
+                aria-live="polite"
+              >
+                {syncState === "saving" && (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
+                  </>
+                )}
+                {syncState === "saved" && (
+                  <>
+                    <Cloud className="h-3.5 w-3.5 text-emerald-500" /> Answers saved
+                  </>
+                )}
+                {syncState === "offline" && (
+                  <>
+                    <CloudOff className="h-3.5 w-3.5 text-amber-500" /> Saved on this
+                    device — will be sent on submit
+                  </>
+                )}
+              </span>
+            </div>
+          )}
+          <div className="max-w-8xl mx-auto flex items-center gap-2 sm:gap-3">
             <button
               onClick={() =>
-                setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))
+                isOverallTimed
+                  ? goToQuestion(currentQuestionIndex - 1)
+                  : setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))
               }
               disabled={
                 currentQuestionIndex === 0 ||
                 isExamPaused ||
-                !isCurrentSaved
+                timeUpState !== null ||
+                (!isOverallTimed && !isCurrentSaved)
               }
-              className="flex-shrink-0 px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              aria-label="Previous question"
+              className="inline-flex flex-shrink-0 items-center rounded-full border border-gray-300 px-3 py-2 text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
             >
-              <ArrowLeft className="h-4 w-4 mr-2 inline" />
-              Previous
+              <ArrowLeft className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Previous</span>
             </button>
 
-            <div className="flex-1 min-w-0 overflow-x-auto">
-              <div className="flex items-center gap-2 py-1">
+            <div className="min-w-0 flex-1 overflow-x-auto">
+              <div className="flex items-center gap-2 px-1 py-1.5">
                 {quizQuestions.map((question, index) => {
-                  const isAnswered = answers.find(
-                    (a) => a.question_id === question.id,
-                  );
+                  const isAnswered = answeredIds.has(question.id);
+                  const isFlagged = isOverallTimed && flaggedQuestions.has(question.id);
+                  const isCurrent = index === currentQuestionIndex;
                   return (
                     <button
-                      key={index}
-                      onClick={() => setCurrentQuestionIndex(index)}
-                      disabled={isExamPaused || !isCurrentSaved}
-                      title={
-                        isAnswered
-                          ? "Question answered"
-                          : "Question not answered"
+                      key={question.id ?? index}
+                      onClick={() =>
+                        isOverallTimed
+                          ? goToQuestion(index)
+                          : setCurrentQuestionIndex(index)
                       }
-                      className={`relative flex-shrink-0 w-10 h-10 rounded-xl text-sm font-bold flex items-center justify-center transition-all ${
-                        index === currentQuestionIndex
-                          ? "bg-blue-600 text-white shadow-lg shadow-blue-500/30 scale-110 z-10"
+                      disabled={
+                        isExamPaused ||
+                        timeUpState !== null ||
+                        (!isOverallTimed && !isCurrentSaved)
+                      }
+                      aria-current={isCurrent ? "step" : undefined}
+                      aria-label={`Question ${index + 1}${
+                        isAnswered ? ", answered" : ", not answered"
+                      }${isFlagged ? ", flagged" : ""}`}
+                      title={`${isAnswered ? "Answered" : "Not answered"}${
+                        isFlagged ? " · flagged" : ""
+                      }`}
+                      className={`relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-all disabled:cursor-not-allowed ${
+                        isCurrent
+                          ? "z-10 scale-110 bg-blue-600 text-white shadow-lg shadow-blue-500/30"
                           : isAnswered
                             ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600"
                             : "bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
-                      }`}
+                      } ${isFlagged ? "ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-gray-900" : ""}`}
                     >
                       {isAnswered && (
-                        <div className="absolute -top-1.5 -right-1.5 bg-white dark:bg-gray-900 rounded-full p-0.5 border-2 border-emerald-500 shadow-sm">
-                          <Check className="h-2.5 w-2.5 text-emerald-500 stroke-[4px]" />
+                        <div className="absolute -right-1.5 -top-1.5 rounded-full border-2 border-emerald-500 bg-white p-0.5 shadow-sm dark:bg-gray-900">
+                          <Check className="h-2.5 w-2.5 stroke-[4px] text-emerald-500" />
                         </div>
+                      )}
+                      {isFlagged && (
+                        <Flag className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 fill-amber-400 text-amber-500" />
                       )}
                       {index + 1}
                     </button>
@@ -2662,67 +2992,161 @@ const QuizTakingPage: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={handleNext}
-              disabled={
-                currentQuestionIndex === totalQuestions - 1 ||
-                isExamPaused ||
-                !isCurrentSaved ||
-                isSubmitting
-              }
-              className="flex-shrink-0 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin inline" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  Next
-                  <ArrowRight className="h-4 w-4 ml-2 inline" />
-                </>
-              )}
-            </button>
+            {isOverallTimed && currentQuestionIndex === totalQuestions - 1 ? (
+              <button
+                onClick={() => setShowConfirmSubmit(true)}
+                disabled={isExamPaused || isSubmitting || timeUpState !== null}
+                className="inline-flex flex-shrink-0 items-center rounded-full bg-green-600 px-3 py-2 font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+              >
+                <ListChecks className="h-4 w-4 sm:mr-2" />
+                <span className="hidden sm:inline">Review &amp; Submit</span>
+              </button>
+            ) : (
+              <button
+                onClick={handleNext}
+                disabled={
+                  currentQuestionIndex === totalQuestions - 1 ||
+                  isExamPaused ||
+                  timeUpState !== null ||
+                  (!isOverallTimed && (!isCurrentSaved || isSubmitting))
+                }
+                aria-label="Next question"
+                className="inline-flex flex-shrink-0 items-center rounded-full bg-blue-600 px-3 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+              >
+                {!isOverallTimed && isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+                    <span className="hidden sm:inline">Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="hidden sm:inline">Next</span>
+                    <ArrowRight className="h-4 w-4 sm:ml-2" />
+                  </>
+                )}
+              </button>
+            )}
           </div>
         </div>
       )}
 
       {/* Submit Confirmation Modal */}
       {showConfirmSubmit && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-900 rounded-2xl max-w-md w-full p-6">
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="confirm-submit-title"
+        >
+          <div className="w-full max-w-md rounded-t-2xl bg-white p-6 sm:rounded-2xl dark:bg-gray-900">
             <div className="text-center">
-              <AlertCircle className="h-12 w-12 text-blue-600 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
+              <ListChecks className="mx-auto mb-3 h-11 w-11 text-blue-600" />
+              <h3
+                id="confirm-submit-title"
+                className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark"
+              >
                 Ready to Submit?
               </h3>
-              <p className="text-gray-600 dark:text-gray-200 mb-6 text-sm">
-                You have answered {answeredQuestions} out of {totalQuestions}{" "}
-                questions.
-                <br />
-                This action cannot be undone.
+              <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                <div className="rounded-xl bg-emerald-50 p-2 dark:bg-emerald-900/20">
+                  <div className="text-lg font-bold text-emerald-600">{answeredQuestions}</div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Answered</div>
+                </div>
+                <div className="rounded-xl bg-gray-100 p-2 dark:bg-gray-800">
+                  <div className="text-lg font-bold text-gray-700 dark:text-gray-200">
+                    {totalQuestions - answeredQuestions}
+                  </div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Unanswered</div>
+                </div>
+                <div className="rounded-xl bg-amber-50 p-2 dark:bg-amber-900/20">
+                  <div className="text-lg font-bold text-amber-600">
+                    {isOverallTimed ? formatClock(timeLeft) : flaggedQuestions.size}
+                  </div>
+                  <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                    {isOverallTimed ? "Time left" : "Flagged"}
+                  </div>
+                </div>
+              </div>
+
+              {isOverallTimed &&
+                (unansweredIndices.length > 0 || flaggedQuestions.size > 0) && (
+                  <div className="mt-4 space-y-2 text-left text-xs">
+                    {unansweredIndices.length > 0 && (
+                      <div>
+                        <p className="mb-1 font-medium text-gray-600 dark:text-gray-300">
+                          Not answered yet — tap to go back:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {unansweredIndices.map((i) => (
+                            <button
+                              key={`u-${i}`}
+                              onClick={() => {
+                                setShowConfirmSubmit(false);
+                                goToQuestion(i);
+                              }}
+                              className="h-7 min-w-[1.75rem] rounded-lg bg-gray-100 px-2 font-semibold text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                            >
+                              {i + 1}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {flaggedQuestions.size > 0 && (
+                      <div>
+                        <p className="mb-1 font-medium text-gray-600 dark:text-gray-300">
+                          Flagged for review:
+                        </p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {quizQuestions.map((q, i) =>
+                            flaggedQuestions.has(q.id) ? (
+                              <button
+                                key={`f-${q.id}`}
+                                onClick={() => {
+                                  setShowConfirmSubmit(false);
+                                  goToQuestion(i);
+                                }}
+                                className="inline-flex h-7 items-center gap-1 rounded-lg bg-amber-100 px-2 font-semibold text-amber-800 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300"
+                              >
+                                <Flag className="h-3 w-3" />
+                                {i + 1}
+                              </button>
+                            ) : null,
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+              <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">
+                {isOverallTimed
+                  ? "You can still go back and change answers until you submit or time runs out. Submitting is final."
+                  : "This action cannot be undone."}
               </p>
-              <div className="flex gap-3 justify-center">
+              <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
                 <button
                   onClick={() => setShowConfirmSubmit(false)}
-                  className="px-4 py-2 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200 rounded-full hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  className="rounded-full border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
                 >
                   Continue Quiz
                 </button>
                 <button
-                  onClick={submitQuiz}
+                  onClick={async () => {
+                    const ok = await submitQuiz();
+                    if (!ok) setShowConfirmSubmit(false);
+                  }}
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-full font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="inline-flex items-center justify-center rounded-full bg-green-600 px-4 py-2 font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin inline" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Submitting...
                     </>
                   ) : (
                     <>
-                      <CheckCircle className="h-4 w-4 mr-2 inline" />
+                      <CheckCircle className="mr-2 h-4 w-4" />
                       Submit Quiz
                     </>
                   )}

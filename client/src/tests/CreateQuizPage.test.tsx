@@ -71,7 +71,8 @@ describe("CreateQuizPage", () => {
     const [courseId, payload] = mockedCreate.mock.calls[0];
     expect(courseId).toBe(12);
     expect(payload).toMatchObject({ title: "Algebra", type: "Assessment" });
-    expect(payload).not.toHaveProperty("time_limit");
+    // No overall duration chosen → per-question timing.
+    expect(payload.time_limit).toBeNull();
 
     expect(toast.success).toHaveBeenCalledWith('Quiz "Algebra" created successfully');
     expect(await screen.findByText("course-page")).toBeInTheDocument();

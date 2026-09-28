@@ -278,7 +278,10 @@ export interface Quiz {
   instructions?: string | null;
   status: QuizStatus;
   type: QuizType;
-  /** Legacy quiz-level limit; no longer editable — timing is per question. */
+  /**
+   * Optional overall duration in minutes. When set, the whole attempt runs on
+   * one countdown (per-question durations are ignored); null = per-question.
+   */
   time_limit?: number | null;
   max_attempts?: number | null;
   passing_score?: number | null;
@@ -434,8 +437,7 @@ export interface QuizSubmission {
 // API Request/Response interfaces
 /**
  * Payload for POST /courses/:courseId/quizzes. Mirrors
- * server/src/validations/quiz.validation.ts — note there is deliberately no
- * quiz-level `time_limit`: each question carries its own duration.
+ * server/src/validations/quiz.validation.ts.
  */
 export interface CreateQuizRequest {
   title: string;
@@ -445,6 +447,8 @@ export interface CreateQuizRequest {
   type: QuizType;
   status?: QuizStatus;
   max_attempts?: number | null;
+  /** Overall duration in minutes; null = each question uses its own. */
+  time_limit?: number | null;
   passing_score?: number | null;
   show_results_immediately: boolean;
   randomize_questions: boolean;

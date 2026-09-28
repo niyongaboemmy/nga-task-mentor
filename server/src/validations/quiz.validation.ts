@@ -9,9 +9,10 @@ import { z } from "zod";
  * "practice"/"graded"/"archived", none of which exist in the ENUMs) surfaced
  * as an opaque 500 "Server error".
  *
- * Deliberately NOT accepted: `time_limit`. Timing is per-question
- * (`QuestionBank.time_limit_seconds`), so a quiz-level limit is stripped if a
- * stale client still sends it.
+ * `time_limit` (minutes) is optional. When set, the whole attempt runs on one
+ * countdown (`QuizSubmission.end_time`) and the per-question durations
+ * (`QuestionBank.time_limit_seconds`) are ignored; when null/absent, each
+ * question keeps its own duration.
  */
 export const QUIZ_TYPES = ["Assessment", "Homework", "Quiz", "Exam"] as const;
 export const QUIZ_STATUSES = ["draft", "published", "completed"] as const;
@@ -20,6 +21,8 @@ export const QUIZ_TITLE_MAX = 200;
 export const QUIZ_DESCRIPTION_MAX = 5000;
 export const QUIZ_INSTRUCTIONS_MAX = 10000;
 export const QUIZ_MAX_ATTEMPTS_MAX = 50;
+/** Mirrors the `quizzes.time_limit` model validator (minutes). */
+export const QUIZ_TIME_LIMIT_MAX = 480;
 
 /**
  * "" → null (an emptied form input), numeric strings → numbers; `undefined`
@@ -84,6 +87,16 @@ const baseQuizFields = {
       .max(
         QUIZ_MAX_ATTEMPTS_MAX,
         `Maximum attempts cannot exceed ${QUIZ_MAX_ATTEMPTS_MAX}`,
+      ),
+  ),
+  time_limit: optionalNumber(
+    z
+      .number({ message: "Duration must be a number of minutes" })
+      .int("Duration must be a whole number of minutes")
+      .min(1, "Duration must be at least 1 minute")
+      .max(
+        QUIZ_TIME_LIMIT_MAX,
+        `Duration cannot exceed ${QUIZ_TIME_LIMIT_MAX} minutes (8 hours)`,
       ),
   ),
   passing_score: optionalNumber(
@@ -154,6 +167,7 @@ export const updateQuizSchema = z
     type: baseQuizFields.type.optional(),
     status: baseQuizFields.status.optional(),
     max_attempts: baseQuizFields.max_attempts,
+    time_limit: baseQuizFields.time_limit,
     passing_score: baseQuizFields.passing_score,
     show_results_immediately: baseQuizFields.show_results_immediately.optional(),
     randomize_questions: baseQuizFields.randomize_questions.optional(),

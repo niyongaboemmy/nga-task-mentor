@@ -12,6 +12,12 @@ import { sequelize } from "../config/database";
 import { AnswerDataType, GradingResult } from "../types/quiz.types";
 import { AdvancedQuizGrader } from "../utils/quizGrader";
 import { resolveAcademicTermId } from "../utils/misUtils";
+import {
+  computeAttemptEndTime,
+  hasOverallDuration,
+  isPastDeadline,
+  secondsRemaining,
+} from "../utils/quizTiming";
 
 const computeAttemptGrading = async (params: {
   submission: any;
@@ -28,7 +34,10 @@ const computeAttemptGrading = async (params: {
   const enableAutoGrading = quiz?.enable_automatic_grading !== false;
   const requireManualGrading = quiz?.require_manual_grading === true;
 
+  // With an overall quiz duration the student may revisit questions, so
+  // per-question durations don't apply — only the attempt deadline does.
   const questionTimedOut =
+    !hasOverallDuration(quiz) &&
     !!question?.time_limit_seconds &&
     typeof timeTakenSeconds === "number" &&
     timeTakenSeconds > Number(question.time_limit_seconds);
@@ -148,9 +157,7 @@ export const startQuizAttempt = async (req: Request, res: Response) => {
 
     // Calculate end time based on quiz time limit
     const startTime = new Date();
-    const endTime = quiz.time_limit
-      ? new Date(startTime.getTime() + quiz.time_limit * 60 * 1000)
-      : undefined;
+    const endTime = computeAttemptEndTime(quiz, startTime);
 
     // Create quiz submission
     const submission = await QuizSubmission.create(
@@ -237,6 +244,17 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
       return res.status(400).json({
         success: false,
         message: "Quiz submission is no longer in progress",
+      });
+    }
+
+    // The attempt's time is up: answers can no longer be changed. What was
+    // saved before the deadline is kept and graded on final submission.
+    if (isPastDeadline(submission)) {
+      await transaction.rollback();
+      return res.status(409).json({
+        success: false,
+        code: "ATTEMPT_TIME_EXPIRED",
+        message: "Time is up for this quiz — answers can no longer be changed.",
       });
     }
 
@@ -626,10 +644,8 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
 
     if (submission.end_time) {
       // Use stored end_time for more accurate calculation
-      const now = new Date();
-      const remainingMs = submission.end_time.getTime() - now.getTime();
-      timeRemaining = Math.max(0, Math.floor(remainingMs / 1000));
-      isTimeExpired = remainingMs <= 0;
+      timeRemaining = secondsRemaining(submission);
+      isTimeExpired = timeRemaining === 0;
     } else if (quiz?.time_limit) {
       // Fallback to elapsed time calculation
       const timeLimitSeconds = quiz.time_limit * 60;

@@ -86,8 +86,26 @@ describe("validateQuizForm", () => {
     ).toEqual({});
   });
 
-  it("has no time_limit field at all", () => {
-    expect("time_limit" in EMPTY_QUIZ_FORM).toBe(false);
+  it("treats an empty duration as per-question timing", () => {
+    expect(EMPTY_QUIZ_FORM.time_limit).toBe("");
+    expect(validateQuizForm({ ...valid, time_limit: "" })).toEqual({});
+    expect(validateQuizForm({ ...valid, time_limit: "   " })).toEqual({});
+  });
+
+  it.each([
+    ["0", "at least 1 minute"],
+    ["-3", "at least 1 minute"],
+    ["12.5", "whole number"],
+    ["481", "cannot exceed 480"],
+    ["abc", "number of minutes"],
+  ])("rejects duration %p", (value, msg) => {
+    expect(validateQuizForm({ ...valid, time_limit: value }).time_limit).toContain(msg);
+  });
+
+  it("accepts a whole-minute duration within range", () => {
+    for (const v of ["1", "45", "480"]) {
+      expect(validateQuizForm({ ...valid, time_limit: v })).toEqual({});
+    }
   });
 });
 
@@ -111,7 +129,8 @@ describe("toQuizPayload", () => {
     expect(new Date(payload.start_date!).getTime()).toBe(
       new Date("2026-09-21T10:00").getTime(),
     );
-    expect("time_limit" in payload).toBe(false);
+    expect(payload.time_limit).toBeNull();
+    expect(toQuizPayload({ ...valid, time_limit: "45" }).time_limit).toBe(45);
   });
 
   it("only includes status in edit mode", () => {

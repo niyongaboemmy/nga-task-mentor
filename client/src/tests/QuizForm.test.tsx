@@ -16,7 +16,7 @@ describe("QuizForm", () => {
     vi.clearAllMocks();
   });
 
-  it("renders every capturable field and no quiz-level time limit", () => {
+  it("renders every capturable field, including the optional overall duration", () => {
     render(<QuizForm mode="create" onSubmit={onSubmit} onCancel={onCancel} />);
 
     for (const label of [
@@ -37,8 +37,58 @@ describe("QuizForm", () => {
     ]) {
       expect(screen.getByLabelText(label)).toBeInTheDocument();
     }
-    expect(screen.queryByLabelText(/Time Limit/i)).not.toBeInTheDocument();
+    const duration = screen.getByLabelText(/Overall Duration \(Optional\)/i);
+    expect(duration).toHaveValue(null);
+    expect(screen.getByText(/time each question on its own duration/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/Quiz Status/i)).not.toBeInTheDocument();
+  });
+
+  it("sets the overall duration from a preset, explains it, and clears it", async () => {
+    const user = userEvent.setup();
+    render(<QuizForm mode="create" onSubmit={onSubmit} onCancel={onCancel} />);
+
+    await user.click(screen.getByRole("button", { name: "45 min" }));
+    expect(screen.getByLabelText(/Overall Duration \(Optional\)/i)).toHaveValue(45);
+    expect(screen.getByRole("button", { name: "45 min" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText(/Students get 45 min for the whole quiz/i)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Remove overall duration/i }));
+    expect(screen.getByLabelText(/Overall Duration \(Optional\)/i)).toHaveValue(null);
+    expect(screen.getByText(/time each question on its own duration/i)).toBeInTheDocument();
+  });
+
+  it("validates the duration inline and submits it as minutes", async () => {
+    const user = userEvent.setup();
+    render(<QuizForm mode="create" onSubmit={onSubmit} onCancel={onCancel} />);
+    await fillRequired(user);
+
+    const duration = screen.getByLabelText(/Overall Duration \(Optional\)/i);
+    await user.type(duration, "500");
+    await user.tab();
+    expect(await screen.findByText(/cannot exceed 480 minutes/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Create Quiz/i }));
+    expect(onSubmit).not.toHaveBeenCalled();
+
+    await user.clear(duration);
+    await user.type(duration, "90");
+    expect(screen.queryByText(/cannot exceed 480 minutes/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/Students get 1 h 30 min/i)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /Create Quiz/i }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit.mock.calls[0][0].time_limit).toBe(90);
+  });
+
+  it("pre-fills the duration when editing a timed quiz", () => {
+    render(
+      <QuizForm
+        mode="edit"
+        initialValues={{ title: "T", description: "D", time_limit: "30" }}
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+      />,
+    );
+    expect(screen.getByLabelText(/Overall Duration \(Optional\)/i)).toHaveValue(30);
+    expect(screen.getByRole("button", { name: "30 min" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("offers only DB-valid quiz types (not practice/graded)", () => {
@@ -108,6 +158,7 @@ describe("QuizForm", () => {
     await user.type(screen.getByLabelText(/Instructions/i), "Read carefully");
     await user.type(screen.getByLabelText(/Maximum Attempts/i), "2");
     await user.type(screen.getByLabelText(/Passing Score/i), "65.5");
+    await user.type(screen.getByLabelText(/Overall Duration \(Optional\)/i), "20");
     await user.click(screen.getByLabelText(/Randomize question order/i));
     await user.click(screen.getByLabelText(/Require instructor manual grading/i));
     await user.click(screen.getByLabelText(/publicly accessible/i));
@@ -121,6 +172,7 @@ describe("QuizForm", () => {
       instructions: "Read carefully",
       type: "Exam",
       max_attempts: 2,
+      time_limit: 20,
       passing_score: 65.5,
       show_results_immediately: true,
       randomize_questions: true,

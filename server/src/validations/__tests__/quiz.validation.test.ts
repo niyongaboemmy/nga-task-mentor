@@ -83,11 +83,35 @@ describe("createQuizSchema", () => {
     expect(fieldsOf(result)).toEqual(["status"]);
   });
 
-  it("strips the quiz-level time_limit (timing is per question)", () => {
-    const result = createQuizSchema.safeParse({ ...valid, time_limit: 45 });
-    expect(result.success).toBe(true);
-    if (!result.success) return;
-    expect((result.data as any).time_limit).toBeUndefined();
+  describe("time_limit (overall duration, minutes)", () => {
+    it("is optional: empty string / null / absent mean per-question timing", () => {
+      for (const v of ["", null, undefined]) {
+        const result = createQuizSchema.safeParse({ ...valid, time_limit: v });
+        expect(result.success).toBe(true);
+        if (result.success) expect(result.data.time_limit ?? null).toBeNull();
+      }
+    });
+
+    it("accepts whole minutes and coerces numeric strings", () => {
+      const a = createQuizSchema.safeParse({ ...valid, time_limit: 45 });
+      const b = createQuizSchema.safeParse({ ...valid, time_limit: "90" });
+      expect(a.success && a.data.time_limit).toBe(45);
+      expect(b.success && b.data.time_limit).toBe(90);
+    });
+
+    it.each([
+      [0, "at least 1 minute"],
+      [-5, "at least 1 minute"],
+      [12.5, "whole number"],
+      [481, "cannot exceed 480"],
+      ["abc", "number of minutes"],
+    ])("rejects %p", (v, msg) => {
+      const result = createQuizSchema.safeParse({ ...valid, time_limit: v });
+      expect(result.success).toBe(false);
+      if (result.success) return;
+      const issue = result.error.issues.find((i) => i.path[0] === "time_limit");
+      expect(issue?.message).toContain(msg);
+    });
   });
 
   describe("max_attempts", () => {
@@ -206,9 +230,13 @@ describe("updateQuizSchema", () => {
     }
   });
 
-  it("strips time_limit", () => {
-    const result = updateQuizSchema.safeParse({ time_limit: 30 });
-    expect(result.success).toBe(true);
-    if (result.success) expect((result.data as any).time_limit).toBeUndefined();
+  it("accepts, clears and validates time_limit", () => {
+    const set = updateQuizSchema.safeParse({ time_limit: 30 });
+    expect(set.success && set.data.time_limit).toBe(30);
+    const cleared = updateQuizSchema.safeParse({ time_limit: "" });
+    expect(cleared.success && cleared.data.time_limit).toBeNull();
+    const untouched = updateQuizSchema.safeParse({ title: "x" });
+    expect(untouched.success && untouched.data.time_limit).toBeUndefined();
+    expect(updateQuizSchema.safeParse({ time_limit: 0 }).success).toBe(false);
   });
 });

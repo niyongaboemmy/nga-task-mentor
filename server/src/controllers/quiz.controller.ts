@@ -27,6 +27,13 @@ import {
 } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { canManageQuiz } from "../utils/ownership";
+import {
+  SUBMIT_GRACE_SECONDS,
+  computeAttemptEndTime,
+  finalizeFromSavedAttempts,
+  isPastDeadline,
+  secondsRemaining,
+} from "../utils/quizTiming";
 
 // Deep equality comparison for objects
 
@@ -635,9 +642,8 @@ export const createQuiz = async (req: Request, res: Response) => {
         status: quizData.status,
         type: quizData.type,
         instructions: quizData.instructions ?? undefined,
-        // Quiz-level time limits are no longer used: each question carries its
-        // own duration (QuestionBank.time_limit_seconds).
-        time_limit: undefined,
+        // Optional overall duration (minutes). Null = per-question timing.
+        time_limit: quizData.time_limit ?? undefined,
         max_attempts: quizData.max_attempts ?? undefined,
         passing_score: quizData.passing_score ?? undefined,
         show_results_immediately: quizData.show_results_immediately,
@@ -776,6 +782,8 @@ export const updateQuiz = async (req: Request, res: Response) => {
       changes.max_attempts = updateData.max_attempts ?? (null as any);
     if (updateData.passing_score !== undefined)
       changes.passing_score = updateData.passing_score ?? (null as any);
+    if (updateData.time_limit !== undefined)
+      changes.time_limit = updateData.time_limit ?? (null as any);
     if (updateData.show_results_immediately !== undefined)
       changes.show_results_immediately = updateData.show_results_immediately;
     if (updateData.randomize_questions !== undefined)
@@ -1308,15 +1316,6 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       });
     }
 
-    // Check deadline
-    if (quiz.end_date && new Date(quiz.end_date) < new Date()) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Quiz deadline has passed",
-      });
-    }
-
     // Check if student already has an in-progress submission
     const existingSubmission = await QuizSubmission.findOne({
       where: {
@@ -1327,29 +1326,37 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       transaction,
     });
 
+    const now = new Date();
+    const quizClosed =
+      !!quiz.end_date &&
+      now.getTime() >
+        new Date(quiz.end_date).getTime() + SUBMIT_GRACE_SECONDS * 1000;
+
     if (!existingSubmission) {
       await transaction.rollback();
       return res.status(400).json({
         success: false,
-        message: "No active quiz session found. Please start the quiz first.",
+        message: quizClosed
+          ? "Quiz deadline has passed"
+          : "No active quiz session found. Please start the quiz first.",
       });
     }
 
-    // Check if the submission has expired
-    if (
-      existingSubmission.end_time &&
-      new Date() > existingSubmission.end_time
-    ) {
-      // Mark as timed_out and return error
-      await existingSubmission.update(
-        { status: "timed_out", completed_at: new Date() },
-        { transaction },
+    // Time is up (attempt duration or the quiz window, beyond the grace
+    // period): don't throw the attempt away — close it with the answers that
+    // were saved on the server before the deadline.
+    if (isPastDeadline(existingSubmission, now) || quizClosed) {
+      const summary = await finalizeFromSavedAttempts(
+        existingSubmission,
+        quiz,
+        transaction,
       );
       await transaction.commit();
-      return res.status(400).json({
-        success: false,
+      return res.status(200).json({
+        success: true,
         message:
-          "Your quiz session has expired. Please contact your instructor to restart.",
+          "Time was up — your quiz was submitted with the answers saved before the deadline.",
+        data: summary,
       });
     }
 
@@ -1741,7 +1748,7 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
 export const createQuizSubmission = async (req: Request, res: Response) => {
   const transaction = await sequelize.transaction();
   try {
-    const { quiz_id, status = "in_progress", started_at } = req.body;
+    const { quiz_id, status = "in_progress" } = req.body;
 
     if (!req.user.permissions?.has("QUIZZES_ATTEMPT")) {
       await transaction.rollback();
@@ -1780,28 +1787,32 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
     });
 
     if (existingSubmission) {
-      // Check if the existing submission has expired
-      if (
-        existingSubmission.end_time &&
-        new Date() > existingSubmission.end_time
-      ) {
-        // Mark as timed_out and return error
-        await existingSubmission.update(
-          { status: "timed_out", completed_at: new Date() },
-          { transaction },
+      // Time already ran out on the attempt: submit it with what was saved
+      // rather than discarding it, and tell the client where the results are.
+      if (isPastDeadline(existingSubmission)) {
+        const summary = await finalizeFromSavedAttempts(
+          existingSubmission,
+          quiz,
+          transaction,
         );
         await transaction.commit();
-        return res.status(400).json({
+        return res.status(409).json({
           success: false,
+          code: "ATTEMPT_TIME_EXPIRED",
           message:
-            "Your quiz session has expired. Please contact your instructor to restart.",
+            "Time ran out on your previous attempt. It was submitted with the answers you had saved.",
+          data: summary,
         });
       }
 
       await transaction.rollback();
       return res.status(200).json({
         success: true,
-        data: existingSubmission,
+        data: {
+          ...existingSubmission.toJSON(),
+          time_limit: quiz.time_limit ?? null,
+          time_remaining_seconds: secondsRemaining(existingSubmission),
+        },
         message: "Resuming existing submission",
       });
     }
@@ -1816,12 +1827,10 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
       transaction,
     });
 
-    // Calculate end_time based on quiz duration
-    const startTime = started_at ? new Date(started_at) : new Date();
-    let endTime: Date | undefined = undefined;
-    if (quiz.time_limit && quiz.time_limit > 0) {
-      endTime = new Date(startTime.getTime() + quiz.time_limit * 60 * 1000);
-    }
+    // The attempt clock always starts on the server: a client-supplied
+    // started_at could otherwise push the deadline out.
+    const startTime = new Date();
+    const endTime = computeAttemptEndTime(quiz, startTime);
 
     // Create submission record
     const submission = await QuizSubmission.create(
@@ -1846,7 +1855,11 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
 
     res.status(201).json({
       success: true,
-      data: submission,
+      data: {
+        ...submission.toJSON(),
+        time_limit: quiz.time_limit ?? null,
+        time_remaining_seconds: secondsRemaining(submission),
+      },
     });
   } catch (error) {
     await transaction.rollback();
@@ -1879,14 +1892,28 @@ export const getQuizSubmissions = async (req: Request, res: Response) => {
       whereClause.status = status;
     }
 
+    // An in-progress lookup is how the taking page resumes an attempt, so it
+    // also gets the deadline and the answers already saved on the server
+    // (lets a student carry on from another device without losing work).
+    const resuming = status === "in_progress";
+
     const submissions = await QuizSubmission.findAll({
       where: whereClause,
       include: [
         {
           model: Quiz,
           as: "quiz",
-          attributes: ["id", "title", "description", "type"],
+          attributes: ["id", "title", "description", "type", "time_limit"],
         },
+        ...(resuming
+          ? [
+              {
+                model: QuizAttempt,
+                as: "attempts",
+                attributes: ["question_id", "submitted_answer", "time_taken"],
+              },
+            ]
+          : []),
       ],
       order: [["started_at", "DESC"]],
     });
@@ -1894,7 +1921,19 @@ export const getQuizSubmissions = async (req: Request, res: Response) => {
     res.status(200).json({
       success: true,
       count: submissions.length,
-      data: submissions,
+      data: submissions.map((submission) => {
+        const json: any = submission.toJSON();
+        json.time_remaining_seconds = secondsRemaining(submission);
+        if (resuming) {
+          json.answers = (json.attempts || []).map((a: any) => ({
+            question_id: a.question_id,
+            answer_data: a.submitted_answer,
+            time_taken: a.time_taken,
+          }));
+          delete json.attempts;
+        }
+        return json;
+      }),
     });
   } catch (error) {
     console.error("Get quiz submissions error:", error);
@@ -1973,7 +2012,7 @@ export const resetQuizSubmission = async (req: Request, res: Response) => {
   try {
     // Find the submission
     const submission = await QuizSubmission.findByPk(id, {
-      include: [{ model: Quiz, as: "quiz", attributes: ["id", "created_by"] }],
+      include: [{ model: Quiz, as: "quiz", attributes: ["id", "created_by", "time_limit", "end_date"] }],
       transaction,
     });
 
@@ -2006,6 +2045,10 @@ export const resetQuizSubmission = async (req: Request, res: Response) => {
     submission.grade_status = "pending" as any;
     submission.time_taken = 0;
     submission.started_at = new Date();
+    // A restarted attempt gets a fresh clock (null when the quiz is untimed).
+    submission.end_time =
+      computeAttemptEndTime((submission as any).quiz, submission.started_at) ??
+      (null as any);
     submission.completed_at = undefined;
     submission.passed = false;
 

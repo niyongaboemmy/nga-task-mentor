@@ -1,9 +1,13 @@
 import React, { useEffect, useState } from "react";
 import {
   EMPTY_QUIZ_FORM,
+  formatDuration,
   QUIZ_INSTRUCTIONS_MAX,
   QUIZ_MAX_ATTEMPTS_MAX,
   QUIZ_STATUSES,
+  QUIZ_TIME_LIMIT_MAX,
+  QUIZ_TIME_LIMIT_MIN,
+  QUIZ_TIME_LIMIT_PRESETS,
   QUIZ_TITLE_MAX,
   QUIZ_TYPES,
   serverErrorsToFormErrors,
@@ -14,6 +18,7 @@ import {
   type QuizFormValues,
 } from "../../utils/quizFormValidation";
 import type { CreateQuizRequest, QuizStatus } from "../../types/quiz.types";
+import { Timer, X } from "lucide-react";
 
 export interface QuizFormProps {
   mode: "create" | "edit";
@@ -59,8 +64,9 @@ const FieldErrorText: React.FC<{ id: string; message?: string }> = ({
  * the parent owns the API call and passes back server-side field errors so
  * they show inline next to the right input.
  *
- * There is intentionally no quiz-level time limit here: every question has
- * its own `time_limit_seconds`.
+ * Timing: the optional overall duration (`time_limit`, minutes) puts the
+ * whole attempt on one countdown; left empty, every question keeps its own
+ * `time_limit_seconds`.
  */
 export const QuizForm: React.FC<QuizFormProps> = ({
   mode,
@@ -149,6 +155,15 @@ export const QuizForm: React.FC<QuizFormProps> = ({
   });
 
   const errorCount = Object.keys(errors).length;
+
+  const parsedDuration = Number(values.time_limit);
+  const durationMinutes =
+    values.time_limit.trim() !== "" &&
+    Number.isInteger(parsedDuration) &&
+    parsedDuration >= QUIZ_TIME_LIMIT_MIN &&
+    parsedDuration <= QUIZ_TIME_LIMIT_MAX
+      ? parsedDuration
+      : null;
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
@@ -324,10 +339,93 @@ export const QuizForm: React.FC<QuizFormProps> = ({
           </div>
         </div>
 
-        <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-          Timing is set per question when you add questions — there is no
-          quiz-wide time limit.
-        </p>
+        {/* Overall duration */}
+        <div
+          className={`rounded-2xl border p-4 transition-colors ${
+            durationMinutes
+              ? "border-blue-200 bg-blue-50/60 dark:border-blue-500/30 dark:bg-blue-500/5"
+              : "border-gray-200 dark:border-gray-800"
+          }`}
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <label
+                htmlFor="quiz-time_limit"
+                className="flex items-center gap-2 text-sm font-medium text-text-primary-light dark:text-text-primary-dark"
+              >
+                <Timer className="h-4 w-4 text-blue-600 dark:text-blue-400" aria-hidden />
+                Overall Duration (Optional)
+              </label>
+              <p
+                id="quiz-time_limit-hint"
+                className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70"
+              >
+                {durationMinutes
+                  ? `Students get ${formatDuration(durationMinutes)} for the whole quiz, can move back and forth between questions, and the quiz submits itself when time runs out. Per-question durations are ignored.`
+                  : "Leave empty to time each question on its own duration (questions advance automatically when their time ends)."}
+              </p>
+            </div>
+            <div className="flex items-center gap-2 sm:flex-shrink-0">
+              <div className="relative">
+                <input
+                  type="number"
+                  id="quiz-time_limit"
+                  name="time_limit"
+                  inputMode="numeric"
+                  value={values.time_limit}
+                  onChange={(e) => setField("time_limit", e.target.value)}
+                  onBlur={() => handleBlur("time_limit")}
+                  placeholder="None"
+                  min={QUIZ_TIME_LIMIT_MIN}
+                  max={QUIZ_TIME_LIMIT_MAX}
+                  step={1}
+                  className={`${inputClass(Boolean(errors.time_limit))} w-32 pr-12`}
+                  {...ariaProps("time_limit")}
+                  aria-describedby={
+                    errors.time_limit
+                      ? `${errorId("time_limit")} quiz-time_limit-hint`
+                      : "quiz-time_limit-hint"
+                  }
+                />
+                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                  min
+                </span>
+              </div>
+              {values.time_limit !== "" && (
+                <button
+                  type="button"
+                  onClick={() => setField("time_limit", "")}
+                  className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-gray-300 text-text-secondary-light hover:bg-gray-100 dark:border-gray-700 dark:text-text-secondary-dark dark:hover:bg-gray-800"
+                  aria-label="Remove overall duration"
+                  title="Remove overall duration"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              )}
+            </div>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Duration presets">
+            {QUIZ_TIME_LIMIT_PRESETS.map((m) => {
+              const active = durationMinutes === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  aria-pressed={active}
+                  onClick={() => setField("time_limit", active ? "" : String(m))}
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    active
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-gray-100 text-text-secondary-light hover:bg-gray-200 dark:bg-gray-800 dark:text-text-secondary-dark dark:hover:bg-gray-700"
+                  }`}
+                >
+                  {formatDuration(m)}
+                </button>
+              );
+            })}
+          </div>
+          <FieldErrorText id={errorId("time_limit")} message={errors.time_limit} />
+        </div>
 
         {/* Availability window */}
         <div className="grid gap-4 md:grid-cols-2">

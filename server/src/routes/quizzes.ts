@@ -106,6 +106,13 @@ router.get(
   authorizePermission("QUIZZES_VIEW_RESULTS_OWN"),
   getStudentQuizHistory,
 );
+// The student's own submissions (the taking page resumes an in-progress
+// attempt through ?quiz_id=&status=in_progress). Must precede "/:id".
+router.get(
+  "/submissions",
+  authorizePermission("QUIZZES_ATTEMPT", "QUIZZES_VIEW_RESULTS_OWN"),
+  getQuizSubmissions,
+);
 router.post("/:id/submit", authorizePermission("QUIZZES_ATTEMPT"), submitQuizAttempt);
 router.get(
   "/:id/results",

@@ -28,6 +28,18 @@ export const QUIZ_TITLE_MAX = 200;
 export const QUIZ_DESCRIPTION_MAX = 5000;
 export const QUIZ_INSTRUCTIONS_MAX = 10000;
 export const QUIZ_MAX_ATTEMPTS_MAX = 50;
+/** Overall duration bounds, minutes (mirrors the server schema). */
+export const QUIZ_TIME_LIMIT_MIN = 1;
+export const QUIZ_TIME_LIMIT_MAX = 480;
+export const QUIZ_TIME_LIMIT_PRESETS = [15, 30, 45, 60, 90, 120] as const;
+
+/** 45 → "45 min", 90 → "1 h 30 min", 120 → "2 h". */
+export const formatDuration = (minutes: number): string => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (!h) return `${m} min`;
+  return m ? `${h} h ${m} min` : `${h} h`;
+};
 
 /** What the form holds: strings for every free-text/numeric input. */
 export interface QuizFormValues {
@@ -37,6 +49,8 @@ export interface QuizFormValues {
   type: QuizType;
   status: QuizStatus;
   max_attempts: string;
+  /** Overall duration in minutes; "" = per-question timing. */
+  time_limit: string;
   passing_score: string;
   show_results_immediately: boolean;
   randomize_questions: boolean;
@@ -63,6 +77,7 @@ export const EMPTY_QUIZ_FORM: QuizFormValues = {
   type: "Quiz",
   status: "draft",
   max_attempts: "",
+  time_limit: "",
   passing_score: "",
   show_results_immediately: true,
   randomize_questions: false,
@@ -95,6 +110,10 @@ export function quizToFormValues(quiz: Quiz): QuizFormValues {
       quiz.max_attempts === null || quiz.max_attempts === undefined
         ? ""
         : String(quiz.max_attempts),
+    time_limit:
+      quiz.time_limit === null || quiz.time_limit === undefined || quiz.time_limit <= 0
+        ? ""
+        : String(quiz.time_limit),
     passing_score:
       quiz.passing_score === null || quiz.passing_score === undefined
         ? ""
@@ -158,6 +177,19 @@ export function validateQuizForm(
     }
   }
 
+  const duration = asNumber(values.time_limit);
+  if (duration !== null) {
+    if (Number.isNaN(duration)) {
+      errors.time_limit = "Duration must be a number of minutes";
+    } else if (!Number.isInteger(duration)) {
+      errors.time_limit = "Duration must be a whole number of minutes";
+    } else if (duration < QUIZ_TIME_LIMIT_MIN) {
+      errors.time_limit = `Duration must be at least ${QUIZ_TIME_LIMIT_MIN} minute`;
+    } else if (duration > QUIZ_TIME_LIMIT_MAX) {
+      errors.time_limit = `Duration cannot exceed ${QUIZ_TIME_LIMIT_MAX} minutes (8 hours)`;
+    }
+  }
+
   const score = asNumber(values.passing_score);
   if (score !== null) {
     if (Number.isNaN(score)) {
@@ -201,6 +233,7 @@ export function toQuizPayload(
     instructions: isBlank(values.instructions) ? null : values.instructions.trim(),
     type: values.type,
     max_attempts: asNumber(values.max_attempts),
+    time_limit: asNumber(values.time_limit),
     passing_score: asNumber(values.passing_score),
     show_results_immediately: values.show_results_immediately,
     randomize_questions: values.randomize_questions,
