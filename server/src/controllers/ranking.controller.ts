@@ -1,9 +1,9 @@
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import { z } from "zod";
-import { Assignment, Quiz, QuizSubmission, Submission, User } from "../models";
+import { User } from "../models";
 import { sendControllerError } from "../utils/controllerErrors";
-import { fetchManualAssessments } from "../utils/manualAssessments";
+import { loadMarkSources } from "../utils/markSources";
 import { fetchEnrolledStudents, getMisToken, resolveAcademicTermId } from "../utils/misUtils";
 import { getScopedSubjects, type ScopedSubject } from "../utils/scopedSubjects";
 import {
@@ -13,7 +13,6 @@ import {
   collectMarks,
   collectPending,
   studentKey,
-  type MarkSources,
   type RosterEntry,
   type SubjectInfo,
 } from "../utils/overallRanking";
@@ -49,93 +48,6 @@ const toInfo = (s: ScopedSubject): SubjectInfo => ({
   name: s.name,
   code: s.code,
 });
-
-/** Assignments, quizzes and recorded marks for the courses, for everyone. */
-async function loadSources(
-  req: Request,
-  courseIds: number[],
-  termId: number | null,
-  knownMisIds: number[] = [],
-): Promise<MarkSources> {
-  const termWhere = termId
-    ? { [Op.or]: [{ academic_term_id: termId }, { academic_term_id: null }] }
-    : {};
-
-  const [assignments, quizzes] = await Promise.all([
-    Assignment.findAll({
-      where: {
-        course_id: { [Op.in]: courseIds },
-        status: { [Op.in]: ["published", "completed"] },
-        ...termWhere,
-      },
-      attributes: ["id", "course_id", "title", "max_score", "due_date", "status"],
-    }),
-    Quiz.findAll({
-      where: {
-        course_id: { [Op.in]: courseIds },
-        status: { [Op.in]: ["published", "completed"] },
-        ...termWhere,
-      },
-      attributes: ["id", "course_id", "title", "status", "start_date", "end_date"],
-    }),
-  ]);
-
-  const studentInclude = { model: User, as: "student", attributes: ["id", "mis_user_id"] };
-  const [submissions, quizSubmissions, manual] = await Promise.all([
-    assignments.length
-      ? Submission.findAll({
-          where: {
-            assignment_id: { [Op.in]: assignments.map((a) => a.id!) },
-            status: { [Op.ne]: "draft" },
-          },
-          attributes: ["assignment_id", "grade", "status", "student_id", "submitted_at"],
-          include: [studentInclude],
-        })
-      : [],
-    quizzes.length
-      ? QuizSubmission.findAll({
-          where: { quiz_id: { [Op.in]: quizzes.map((q) => q.id) }, status: "completed" },
-          attributes: ["quiz_id", "percentage", "total_score", "student_id", "completed_at"],
-          include: [studentInclude],
-        })
-      : [],
-    fetchManualAssessments(req, courseIds, "all"),
-  ]);
-
-  const manualScores: MarkSources["manualScores"] = [];
-  for (const [assessmentId, bucket] of manual.scoresByAssessment) {
-    for (const [studentId, score] of bucket) {
-      manualScores.push({ manual_assessment_id: assessmentId, student_id: Number(studentId), score });
-    }
-  }
-  const scoreIds = Array.from(new Set(manualScores.map((s) => s.student_id)));
-  const localUsers = scoreIds.length
-    ? await User.findAll({
-        where: {
-          [Op.or]: [{ id: { [Op.in]: scoreIds } }, { mis_user_id: { [Op.in]: scoreIds } }],
-        },
-        attributes: ["id", "mis_user_id"],
-      })
-    : [];
-
-  return {
-    assignments: assignments.map((a: any) => a.toJSON()),
-    submissions: submissions.map((s: any) => s.toJSON()),
-    quizzes: quizzes.map((q: any) => q.toJSON()),
-    quizSubmissions: quizSubmissions.map((s: any) => s.toJSON()),
-    manual: manual.assessments.map((a) => ({
-      id: a.id!,
-      course_id: a.course_id,
-      title: a.title,
-      counts_to_final: a.add_to_final_grade !== false,
-      max_score: Number(a.max_score) || 0,
-      date: a.assessment_date ?? null,
-    })),
-    manualScores,
-    localUsers: localUsers.map((u) => ({ id: u.id, mis_user_id: u.mis_user_id ?? null })),
-    knownMisIds,
-  };
-}
 
 async function mapLimited<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const out: R[] = new Array(items.length);
@@ -222,7 +134,7 @@ export const getRanking = async (req: Request, res: Response) => {
         user_id: req.user?.id ? Number(req.user.id) : null,
       };
       const sources = courseIds.length
-        ? await loadSources(req, courseIds, termId, me.mis_user_id ? [me.mis_user_id] : [])
+        ? await loadMarkSources(req, courseIds, termId, me.mis_user_id ? [me.mis_user_id] : [])
         : null;
       const marks = sources ? collectMarks(sources) : [];
       const pending = sources
@@ -243,7 +155,7 @@ export const getRanking = async (req: Request, res: Response) => {
     }
 
     // Staff: teachers (assigned) and admins (all).
-    const sources = courseIds.length ? await loadSources(req, courseIds, termId) : null;
+    const sources = courseIds.length ? await loadMarkSources(req, courseIds, termId) : null;
     let marks = sources ? collectMarks(sources) : [];
 
     // Roster for names/class groups: the selected subject, or every subject

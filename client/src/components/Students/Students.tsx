@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
 import { usePermissions } from "../../hooks/usePermissions";
+import AdminStudentsDirectory from "./AdminStudentsDirectory";
 import {
   Users,
   BookOpen,
@@ -687,8 +688,11 @@ const AllStudentsView: React.FC = () => {
 
 const Students: React.FC = () => {
   const { can } = usePermissions();
-  // Instructor-like: can see students but is not a user administrator. Admins
-  // (USERS_CREATE) get the flat, cross-subject directory instead.
+  // School-wide viewers get the full directory with class, subjects and
+  // performance (server-paged). Instructor-like (can see students but is not
+  // a user administrator) get their own students; any other user
+  // administrator keeps the plain MIS directory.
+  if (can("DASHBOARD_VIEW_ADMIN")) return <AdminStudentsDirectory />;
   const isInstructorLike = can("USERS_VIEW_ALL") && !can("USERS_CREATE");
   return isInstructorLike ? <MyStudentsView /> : <AllStudentsView />;
 };

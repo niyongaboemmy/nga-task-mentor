@@ -35,6 +35,8 @@ export interface SubjectSummary {
   subject_name: string;
   subject_code: string | null;
   class_groups: string[];
+  /** Filled for school-wide (admin) views. */
+  teachers?: string[];
   students: number | null;
   assignments: number;
   quizzes: number;
@@ -164,9 +166,9 @@ export function overviewToCsv(o: InstructorOverview): string {
   };
   const row = (xs: unknown[]) => xs.map(esc).join(",");
   const lines = [
-    row(["Subject code", "Subject", "Status", "Students", "Assignments", "Quizzes", "Submissions", "To grade", "Class average %", "Pass rate %", "Participation %", "Missing", "Needs support"]),
+    row(["Subject code", "Subject", "Teachers", "Status", "Students", "Assignments", "Quizzes", "Submissions", "To grade", "Class average %", "Pass rate %", "Participation %", "Missing", "Needs support"]),
     ...o.subjects.map((s) =>
-      row([s.subject_code, s.subject_name, s.health, s.students, s.assignments, s.quizzes, s.submissions, s.pending, s.avg_score, s.pass_rate, s.participation, s.missing, s.at_risk]),
+      row([s.subject_code, s.subject_name, (s.teachers ?? []).join("; "), s.health, s.students, s.assignments, s.quizzes, s.submissions, s.pending, s.avg_score, s.pass_rate, s.participation, s.missing, s.at_risk]),
     ),
     "",
     row(["Student", "Class", "Average %", "Graded items", "Missing", "Subjects", "Reasons"]),

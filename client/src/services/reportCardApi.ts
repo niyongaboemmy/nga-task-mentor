@@ -190,6 +190,50 @@ export interface ReportCardResponse {
   data: ReportCardData;
 }
 
+// ─── Provisional preview (GET /report-cards/preview/:studentId) ─────────────
+// Mirrors server/src/services/reportCardPreview.service.ts.
+
+export type PreviewSource = "report_card" | "subject_mapping" | "suggested" | "none";
+
+export interface PreviewSubject {
+  subject_id: number;
+  name: string;
+  source: PreviewSource;
+  expected: number;
+  recorded: number;
+  completeness: number | null;
+  weight_covered: number;
+  total_so_far: number | null;
+  running_percentage: number | null;
+  categories: Partial<Record<AssessmentCategory, { expected: number; recorded: number; weight: number }>>;
+  pending: Array<{ title: string; kind: AssessmentType; category: AssessmentCategory }>;
+  pending_total: number;
+}
+
+export interface ReportCardPreviewMeta {
+  is_provisional: true;
+  card_exists: boolean;
+  overall: {
+    subjects: number;
+    subjects_with_marks: number;
+    expected: number;
+    recorded: number;
+    completeness: number | null;
+    average_so_far: number | null;
+    running_average: number | null;
+  };
+  subjects: PreviewSubject[];
+}
+
+export interface ReportCardPreviewData extends Omit<ReportCardData, "report_card"> {
+  report_card: Omit<ReportCardMeta, "id" | "uuid" | "status"> & {
+    id: number | null;
+    uuid: string | null;
+    status: ReportCardStatus | null;
+  };
+  preview: ReportCardPreviewMeta;
+}
+
 // ─── Helper: letter grade from total score ───────────────────────────────────
 
 export function scoreToLetterGrade(score: number): { letter: string; remark: string } {
@@ -382,6 +426,15 @@ export class ReportCardApiService {
     params?: { term?: string; academic_year?: string },
   ): Promise<ReportCardResponse> {
     const response = await axios.get(`/report-cards/student/${studentId}`, { params });
+    return response.data;
+  }
+
+  /** Staff-only provisional card: works before the card exists or every mark is in. */
+  static async getReportCardPreview(
+    studentId: number,
+    params?: { term?: string; academic_year?: string },
+  ): Promise<{ success: boolean; data: ReportCardPreviewData }> {
+    const response = await axios.get(`/report-cards/preview/${studentId}`, { params });
     return response.data;
   }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Loader2,
@@ -8,6 +8,7 @@ import {
   BookOpen,
   Award,
   CalendarDays,
+  FileSearch,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { useAuth } from "../../contexts/AuthContext";
@@ -17,6 +18,7 @@ import {
   ReportCardApiService,
   scoreToLetterGrade,
   type ReportCardData,
+  type ReportCardPreviewMeta,
   type AssessmentCategory,
 } from "../../services/reportCardApi";
 
@@ -55,6 +57,11 @@ export default function StudentReportCardDashboard({
   const [notFound, setNotFound] = useState(false);
 
   const [showPreview, setShowPreview] = useState(false);
+  const [showProvisional, setShowProvisional] = useState(false);
+  // The provisional view (what the card would show today) is optional: the
+  // tab still works if it fails.
+  const [preview, setPreview] = useState<ReportCardPreviewMeta | null>(null);
+  const previewSeq = useRef(0);
   const [showAnnual, setShowAnnual] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -64,6 +71,17 @@ export default function StudentReportCardDashboard({
     }
     setLoading(true);
     setNotFound(false);
+    setPreview(null);
+    // Only the latest period's preview may land (a slow earlier one mustn't
+    // overwrite it after a period switch).
+    const seq = ++previewSeq.current;
+    ReportCardApiService.getReportCardPreview(studentId, { term, academic_year: academicYear })
+      .then((res) => {
+        if (seq === previewSeq.current) setPreview(res.data.preview);
+      })
+      .catch(() => {
+        if (seq === previewSeq.current) setPreview(null);
+      });
     try {
       const res = await ReportCardApiService.getStudentReportCard(studentId, {
         term,
@@ -130,8 +148,14 @@ export default function StudentReportCardDashboard({
             No report card yet for {term} · {academicYear}
           </p>
           <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60 mt-1">
-            Switch the period in the top bar, or check back once instructors have mapped assessments.
+            You can still preview what it would show today from the marks recorded so far.
           </p>
+          <button
+            onClick={() => setShowProvisional(true)}
+            className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+          >
+            <FileSearch className="w-3.5 h-3.5" /> Preview provisional card
+          </button>
         </div>
       ) : data ? (
         <>
@@ -152,7 +176,22 @@ export default function StudentReportCardDashboard({
                 <strong className="font-semibold text-text-primary-light dark:text-text-primary-dark">{data.grades.length}</strong> subject{data.grades.length !== 1 ? "s" : ""} graded
               </span>
             </div>
-            <div className="ml-auto flex items-center gap-2">
+            {preview && preview.overall.expected > 0 && (
+              <div className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/15 border border-amber-100 dark:border-amber-800/40">
+                <span className="text-sm text-amber-800 dark:text-amber-200">
+                  <strong className="font-semibold">{preview.overall.recorded}/{preview.overall.expected}</strong> mapped marks recorded
+                </span>
+              </div>
+            )}
+            <div className="ml-auto flex items-center gap-2 flex-wrap">
+              {preview && (preview.overall.completeness ?? 0) < 100 && (
+                <button
+                  onClick={() => setShowProvisional(true)}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+                >
+                  <FileSearch className="w-3.5 h-3.5" /> Provisional preview
+                </button>
+              )}
               <button
                 onClick={() => setShowPreview(true)}
                 className="flex items-center gap-1.5 px-3.5 py-2 rounded-full text-xs font-semibold bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -238,6 +277,10 @@ export default function StudentReportCardDashboard({
         </>
       ) : null}
 
+      {preview && preview.subjects.length > 0 && term && academicYear && !loading && (
+        <MarksCompleteness preview={preview} />
+      )}
+
       {/* Modals */}
       {showPreview && (
         <ReportCardPreview
@@ -246,6 +289,16 @@ export default function StudentReportCardDashboard({
           term={term}
           academicYear={academicYear}
           onClose={() => setShowPreview(false)}
+        />
+      )}
+      {showProvisional && (
+        <ReportCardPreview
+          mode="provisional"
+          studentId={studentId}
+          studentName={studentName}
+          term={term}
+          academicYear={academicYear}
+          onClose={() => setShowProvisional(false)}
         />
       )}
       {showAnnual && (
@@ -258,5 +311,59 @@ export default function StudentReportCardDashboard({
         />
       )}
     </div>
+  );
+}
+
+const SOURCE_LABEL: Record<ReportCardPreviewMeta["subjects"][number]["source"], { label: string; cls: string }> = {
+  report_card: { label: "On the card", cls: "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300" },
+  subject_mapping: { label: "Mapped", cls: "bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-300" },
+  suggested: { label: "Not mapped: marks placed by type", cls: "bg-amber-50 text-amber-800 dark:bg-amber-900/20 dark:text-amber-200" },
+  none: { label: "Nothing mapped", cls: "bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400" },
+};
+
+/** Which marks each subject still needs before its report-card line is final. */
+function MarksCompleteness({ preview }: { preview: ReportCardPreviewMeta }) {
+  return (
+    <section className="rounded-2xl border border-white dark:border-border-dark/30 bg-card-light dark:bg-card-dark/30 p-4">
+      <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
+        <h4 className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Marks recorded per subject</h4>
+        <span className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+          {preview.overall.completeness != null ? `${preview.overall.completeness}% complete` : "Nothing mapped yet"}
+          {preview.overall.running_average != null && ` · currently ${preview.overall.running_average}%`}
+        </span>
+      </div>
+      <ul className="divide-y divide-gray-100 dark:divide-gray-800">
+        {preview.subjects.map((s) => {
+          const pctDone = s.expected ? Math.round((s.recorded / s.expected) * 100) : 0;
+          return (
+            <li key={s.subject_id} className="py-2.5 grid gap-1.5 sm:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)_auto] sm:items-center">
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark truncate">{s.name}</span>
+                  <span className={`px-1.5 py-0.5 rounded-md text-[10px] font-medium ${SOURCE_LABEL[s.source].cls}`}>{SOURCE_LABEL[s.source].label}</span>
+                </div>
+                {s.pending.length > 0 && (
+                  <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60 truncate" title={s.pending.map((p) => `${p.category}: ${p.title}`).join("\n")}>
+                    Waiting for {s.pending.slice(0, 2).map((p) => `${p.title} (${p.category})`).join(", ")}
+                    {s.pending_total > 2 && ` and ${s.pending_total - 2} more`}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="flex-1 h-1.5 rounded-full bg-gray-100 dark:bg-gray-800 overflow-hidden" title={`${s.recorded} of ${s.expected} recorded`}>
+                  <div className="h-full rounded-full bg-blue-500" style={{ width: `${pctDone}%` }} />
+                </div>
+                <span className="text-xs tabular-nums text-text-secondary-light dark:text-text-secondary-dark w-12 text-right">
+                  {s.expected ? `${s.recorded}/${s.expected}` : "—"}
+                </span>
+              </div>
+              <span className="text-sm font-semibold tabular-nums text-text-primary-light dark:text-text-primary-dark sm:w-16 sm:text-right">
+                {s.running_percentage != null ? `${s.running_percentage}%` : "—"}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
   );
 }

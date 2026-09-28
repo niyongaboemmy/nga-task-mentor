@@ -6,6 +6,7 @@ import {
   saveAttributes,
   getStudentReportCard,
   getAnnualReportCard,
+  getReportCardPreview,
   getCourseOverview,
   getSubjectOverview,
   updateStatus,
@@ -122,6 +123,16 @@ router.get(
   "/student/:studentId",
   authorizePermission("REPORT_CARDS_VIEW_OWN", "REPORT_CARDS_VIEW_ALL"),
   getStudentReportCard,
+);
+
+// ── Provisional preview (staff) ───────────────────────────────────────────────
+// What the card would show today, before it exists or every mark is in.
+// Computed on demand, never stored; the controller also requires view-all
+// access over the student.
+router.get(
+  "/preview/:studentId",
+  authorizePermission("REPORT_CARDS_VIEW_ALL"),
+  getReportCardPreview,
 );
 
 // ── Annual (combined-terms) summary ───────────────────────────────────────────

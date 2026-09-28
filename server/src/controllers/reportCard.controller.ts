@@ -5,17 +5,25 @@ import { ReportCard } from "../models/ReportCard.model";
 import { ReportCardAttribute } from "../models/ReportCardAttribute.model";
 import { ReportCardAssessment } from "../models/ReportCardAssessment.model";
 import { SubjectAssessmentMapping } from "../models/SubjectAssessmentMapping.model";
-import { QuizSubmission } from "../models/QuizSubmission.model";
-import { Submission } from "../models/Submission.model";
 import { ManualAssessment } from "../models/ManualAssessment.model";
 import { ManualAssessmentScore } from "../models/ManualAssessmentScore.model";
 import { User } from "../models/User.model";
 import {
   calculateSubjectGrade,
-  parseAssignmentGrade,
   combineAnnualSubjectGrades,
   AssessmentScore,
 } from "../services/reportCardGrader.service";
+import { loadStudentScores, resolveCardStudent } from "../utils/reportCardScores";
+import {
+  buildProvisionalCard,
+  suggestedCategory,
+  type ItemKind,
+  type PreviewSource,
+  type PreviewSubjectInput,
+} from "../services/reportCardPreview.service";
+import type { AssessmentCategory } from "../services/reportCardGrader.service";
+import { Quiz } from "../models/Quiz.model";
+import { Assignment } from "../models/Assignment.model";
 import {
   generateReportCardPdf,
   generateAnnualReportCardPdf,
@@ -32,6 +40,7 @@ import {
   resolveCurrentAcademicPeriodNames,
   resolveAcademicTermIdByName,
   resolveAcademicTermId,
+  resolveAcademicYearId,
   getMisToken,
   fetchEnrolledStudents,
 } from "../utils/misUtils";
@@ -755,113 +764,34 @@ export const updateStatus = async (req: Request, res: Response) => {
 // ─── Shared aggregation helper ────────────────────────────────────────────────
 
 async function aggregateReportCardData(reportCard: ReportCard) {
-  const studentId = reportCard.student_id;
-
-  const assessmentMappings = await ReportCardAssessment.findAll({
-    where: { report_card_id: reportCard.id },
-  });
-
-  const quizIds       = assessmentMappings.filter((m) => m.assessment_type === "quiz").map((m) => m.assessment_id);
-  const assignmentIds = assessmentMappings.filter((m) => m.assessment_type === "assignment").map((m) => m.assessment_id);
-  const manualIds     = assessmentMappings.filter((m) => m.assessment_type === "manual").map((m) => m.assessment_id);
-
-  const [quizSubmissions, assignmentSubmissions, manualAssessments, manualScores, attributes] = await Promise.all([
-    quizIds.length > 0
-      ? QuizSubmission.findAll({
-          where: { student_id: studentId, quiz_id: { [Op.in]: quizIds } },
-          attributes: ["quiz_id", "total_score", "max_score", "percentage"],
-        })
-      : [],
-    assignmentIds.length > 0
-      ? Submission.findAll({
-          where: { student_id: studentId, assignment_id: { [Op.in]: assignmentIds } },
-          attributes: ["assignment_id", "grade"],
-        })
-      : [],
-    manualIds.length > 0
-      ? ManualAssessment.findAll({
-          where: { id: { [Op.in]: manualIds } },
-          attributes: ["id", "max_score"],
-        })
-      : [],
-    manualIds.length > 0
-      ? ManualAssessmentScore.findAll({
-          where: { student_id: studentId, manual_assessment_id: { [Op.in]: manualIds } },
-          attributes: ["manual_assessment_id", "score"],
-        })
-      : [],
+  const [assessmentMappings, attributes, identity] = await Promise.all([
+    ReportCardAssessment.findAll({ where: { report_card_id: reportCard.id } }),
     ReportCardAttribute.findAll({
       where: { report_card_id: reportCard.id },
       attributes: ["id", "attribute_name", "rating"],
     }),
+    resolveCardStudent(reportCard.student_id),
   ]);
-
-  const quizScoreMap = new Map(
-    (quizSubmissions as QuizSubmission[]).map((s) => [s.quiz_id, s]),
-  );
-  const assignmentScoreMap = new Map(
-    (assignmentSubmissions as Submission[]).map((s) => [s.assignment_id, s]),
-  );
-  const manualMaxScoreMap = new Map(
-    (manualAssessments as ManualAssessment[]).map((a) => [a.id, parseFloat(String(a.max_score))]),
-  );
-  const manualScoreMap = new Map(
-    (manualScores as ManualAssessmentScore[]).map((s) => [s.manual_assessment_id, parseFloat(String(s.score))]),
-  );
+  const scores = await loadStudentScores(identity, assessmentMappings);
 
   const subjectMap = new Map<number, AssessmentScore[]>();
-
   for (const mapping of assessmentMappings) {
-    let entry: AssessmentScore | null = null;
-
-    if (mapping.assessment_type === "quiz") {
-      const sub = quizScoreMap.get(mapping.assessment_id);
-      if (sub) {
-        entry = {
-          assessment_id: mapping.assessment_id,
-          assessment_type: "quiz",
-          category: mapping.category as any,
-          raw_score: parseFloat(String(sub.total_score)),
-          max_score: parseFloat(String(sub.max_score)),
-        };
-      }
-    } else if (mapping.assessment_type === "assignment") {
-      const sub = assignmentScoreMap.get(mapping.assessment_id);
-      if (sub) {
-        const parsed = parseAssignmentGrade(sub.grade ?? null);
-        if (parsed) {
-          entry = {
-            assessment_id: mapping.assessment_id,
-            assessment_type: "assignment",
-            category: mapping.category as any,
-            raw_score: parsed.raw_score,
-            max_score: parsed.max_score,
-          };
-        }
-      }
-    } else if (mapping.assessment_type === "manual") {
-      const score    = manualScoreMap.get(mapping.assessment_id);
-      const maxScore = manualMaxScoreMap.get(mapping.assessment_id);
-      if (score !== undefined && maxScore !== undefined && maxScore > 0) {
-        entry = {
-          assessment_id: mapping.assessment_id,
-          assessment_type: "manual",
-          category: mapping.category as any,
-          raw_score: score,
-          max_score: maxScore,
-        };
-      }
-    }
-
-    if (entry) {
-      const list = subjectMap.get(mapping.subject_id) ?? [];
-      list.push(entry);
-      subjectMap.set(mapping.subject_id, list);
-    }
+    const type = mapping.assessment_type as AssessmentScore["assessment_type"];
+    const score = scores.get(`${type}:${mapping.assessment_id}`);
+    if (!score) continue;
+    const list = subjectMap.get(mapping.subject_id) ?? [];
+    list.push({
+      assessment_id: mapping.assessment_id,
+      assessment_type: type,
+      category: mapping.category as AssessmentScore["category"],
+      raw_score: score.raw_score,
+      max_score: score.max_score,
+    });
+    subjectMap.set(mapping.subject_id, list);
   }
 
-  const grades = Array.from(subjectMap.entries()).map(([subject_id, scores]) =>
-    calculateSubjectGrade(subject_id, scores),
+  const grades = Array.from(subjectMap.entries()).map(([subject_id, list]) =>
+    calculateSubjectGrade(subject_id, list),
   );
 
   return { grades, attributes, rawMappings: assessmentMappings };
@@ -958,6 +888,196 @@ export const getStudentReportCard = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error("getStudentReportCard error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+// ─── GET /api/report-cards/preview/:studentId ────────────────────────────────
+// Staff-only provisional card for the period: works before the card exists
+// and before every mark is recorded (services/reportCardPreview for the
+// rules). Same shape as /student/:id plus a `preview` block with per-subject
+// completeness and the marks still pending. Never persisted.
+
+const MAX_PENDING_PER_SUBJECT = 12;
+
+export const getReportCardPreview = async (req: Request, res: Response) => {
+  try {
+    const studentId = parseInt(req.params.studentId, 10);
+    if (isNaN(studentId) || studentId <= 0) {
+      return res.status(400).json({ success: false, message: "Invalid studentId" });
+    }
+    const access = await reportCardReadAccess(req, studentId);
+    if (!access.allowed || !access.canViewAll) {
+      return denyResponse(req, res, "Not authorized to preview this student's report card");
+    }
+
+    let { term, academic_year } = req.query as { term?: string; academic_year?: string };
+    if (!term || !academic_year) {
+      const current = await resolveCurrentAcademicPeriodNames(req);
+      term = term || current.term || undefined;
+      academic_year = academic_year || current.academicYear || undefined;
+    }
+    if (!term || !academic_year) {
+      return res.status(400).json({ success: false, message: "term and academic_year are required" });
+    }
+
+    // Cards exist under both conventions: the subject-mapping fan-out keys
+    // them on the MIS id, older builder saves on the local users.id. Take
+    // the card under the id asked for first, then any linked local id.
+    const identity = await resolveCardStudent(studentId);
+    const candidateIds = [...new Set([studentId, ...identity.localIds])];
+    const cards = await ReportCard.findAll({
+      where: { student_id: { [Op.in]: candidateIds }, term, academic_year },
+      order: [["createdAt", "DESC"]],
+    });
+    const reportCard = cards.find((c) => c.student_id === studentId) ?? cards[0] ?? null;
+    const cardMappings = reportCard
+      ? await ReportCardAssessment.findAll({ where: { report_card_id: reportCard.id } })
+      : [];
+
+    // Subjects: the student's MIS enrolment for the year, plus any subject
+    // already on the card (so a mapping never silently disappears).
+    const names = new Map<number, string>();
+    const token = getMisToken(req, { quiet: true });
+    const yearId = await resolveAcademicYearId(req);
+    if (token) {
+      try {
+        const enrolled = await axios.get(
+          `${process.env.NGA_MIS_BASE_URL}/academics/students/${studentId}/enrolled-subjects`,
+          { headers: { Authorization: `Bearer ${token}` }, params: yearId ? { academic_year_id: yearId } : {} },
+        );
+        for (const e of enrolled.data?.data ?? []) {
+          const id = Number(e.subject_id ?? e.id);
+          if (Number.isFinite(id)) names.set(id, e.subject_name ?? e.name ?? `Subject #${id}`);
+        }
+      } catch (e: any) {
+        console.warn(`getReportCardPreview: enrolled subjects for ${studentId} failed:`, e.message);
+      }
+    }
+    for (const m of cardMappings) if (!names.has(m.subject_id)) names.set(m.subject_id, "");
+    const subjectIds = [...names.keys()];
+
+    const [subjectMappings, manualForPeriod] = subjectIds.length
+      ? await Promise.all([
+          SubjectAssessmentMapping.findAll({
+            where: { subject_id: { [Op.in]: subjectIds }, term, academic_year },
+          }),
+          ManualAssessment.findAll({
+            where: { course_id: { [Op.in]: subjectIds }, term, academic_year },
+            attributes: ["id", "course_id", "title", "assessment_type", "add_to_final_grade"],
+          }),
+        ])
+      : [[], []];
+
+    const bySubject = <T extends { subject_id: number }>(rows: T[]) => {
+      const m = new Map<number, T[]>();
+      for (const r of rows) m.set(r.subject_id, [...(m.get(r.subject_id) ?? []), r]);
+      return m;
+    };
+    const cardBySubject = bySubject(cardMappings);
+    const subjectBySubject = bySubject(subjectMappings);
+
+    type Chosen = { source: PreviewSource; rows: Array<{ assessment_type: string; assessment_id: number; category: string }> };
+    const chosen = new Map<number, Chosen>();
+    for (const id of subjectIds) {
+      const own = cardBySubject.get(id);
+      const shared = subjectBySubject.get(id);
+      if (own?.length) chosen.set(id, { source: "report_card", rows: own });
+      else if (shared?.length) chosen.set(id, { source: "subject_mapping", rows: shared });
+      else {
+        const suggested = manualForPeriod
+          .filter((a) => a.course_id === id && a.add_to_final_grade !== false)
+          .map((a) => ({ assessment_type: "manual", assessment_id: a.id!, category: suggestedCategory(a.assessment_type) }))
+          .filter((r): r is { assessment_type: string; assessment_id: number; category: AssessmentCategory } => r.category != null);
+        chosen.set(id, { source: suggested.length ? "suggested" : "none", rows: suggested });
+      }
+    }
+
+    // Titles for the pending list.
+    const allRows = [...chosen.values()].flatMap((c) => c.rows);
+    const idsOf = (type: string) => [...new Set(allRows.filter((r) => r.assessment_type === type).map((r) => r.assessment_id))];
+    const [quizzes, assignments, manuals] = await Promise.all([
+      idsOf("quiz").length ? Quiz.findAll({ where: { id: { [Op.in]: idsOf("quiz") } }, attributes: ["id", "title"], raw: true }) : [],
+      idsOf("assignment").length
+        ? Assignment.findAll({ where: { id: { [Op.in]: idsOf("assignment") } }, attributes: ["id", "title"], raw: true })
+        : [],
+      idsOf("manual").length
+        ? ManualAssessment.findAll({ where: { id: { [Op.in]: idsOf("manual") } }, attributes: ["id", "title"], raw: true })
+        : [],
+    ]);
+    const titles = new Map<string, string>();
+    for (const q of quizzes as any[]) titles.set(`quiz:${q.id}`, q.title);
+    for (const a of assignments as any[]) titles.set(`assignment:${a.id}`, a.title);
+    for (const m of manuals as any[]) titles.set(`manual:${m.id}`, m.title);
+
+    const scores = await loadStudentScores(identity, allRows);
+
+    // Names for subjects only known from the card come from the catalogue.
+    const missingNames = subjectIds.filter((id) => !names.get(id));
+    if (missingNames.length) {
+      const resolved = await resolveSubjectNames(req, missingNames);
+      for (const id of missingNames) names.set(id, resolved[id] ?? `Subject #${id}`);
+    }
+
+    const inputs: PreviewSubjectInput[] = subjectIds
+      .map((id) => {
+        const c = chosen.get(id)!;
+        return {
+          subject_id: id,
+          name: names.get(id) || `Subject #${id}`,
+          source: c.source,
+          items: c.rows.map((r) => ({
+            assessment_type: r.assessment_type as ItemKind,
+            assessment_id: r.assessment_id,
+            category: r.category as AssessmentCategory,
+            title: titles.get(`${r.assessment_type}:${r.assessment_id}`) ?? `${r.assessment_type} #${r.assessment_id}`,
+          })),
+        };
+      })
+      .sort((a, b) => a.name.localeCompare(b.name));
+    const card = buildProvisionalCard(inputs, scores);
+
+    const attributes = reportCard
+      ? await ReportCardAttribute.findAll({
+          where: { report_card_id: reportCard.id },
+          attributes: ["id", "attribute_name", "rating"],
+        })
+      : [];
+
+    const present = reportCard?.attendance_present ?? 0;
+    const absent = reportCard?.attendance_absent ?? 0;
+    const late = reportCard?.attendance_late ?? 0;
+    res.status(200).json({
+      success: true,
+      data: {
+        report_card: {
+          id: reportCard?.id ?? null,
+          uuid: reportCard?.uuid ?? null,
+          student_id: studentId,
+          term,
+          academic_year,
+          status: reportCard?.status ?? null,
+          class_teacher_comment: reportCard?.class_teacher_comment ?? null,
+          attendance: { present, absent, late, total_days: present + absent + late },
+        },
+        grades: card.grades,
+        attributes,
+        subject_names: Object.fromEntries(inputs.map((i) => [i.subject_id, i.name])),
+        raw_assessments: [],
+        preview: {
+          is_provisional: true,
+          card_exists: reportCard != null,
+          overall: card.overall,
+          subjects: card.subjects.map((s) => ({
+            ...s,
+            pending_total: s.pending.length,
+            pending: s.pending.slice(0, MAX_PENDING_PER_SUBJECT),
+          })),
+        },
+      },
+    });
+  } catch (error) {
+    console.error("getReportCardPreview error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };

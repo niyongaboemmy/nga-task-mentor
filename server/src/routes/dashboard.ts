@@ -12,6 +12,7 @@ import {
 } from "../controllers/dashboardController";
 import { getInstructorOverview } from "../controllers/instructorOverview.controller";
 import { getStudentOverview } from "../controllers/studentOverview.controller";
+import { getAdminInsights, getAdminStudents, getAdminSubjects } from "../controllers/adminReports.controller";
 import { protect, authorizePermission } from "../middleware/auth";
 
 const router = Router();
@@ -66,6 +67,12 @@ router.get(
   authorizePermission("DASHBOARD_VIEW_ADMIN"),
   getAdminGradingSummary,
 );
+
+// School-wide reports: the teacher dashboard over every subject, plus the
+// subject and student directories behind it (controllers/adminReports).
+router.get("/admin/insights", authorizePermission("DASHBOARD_VIEW_ADMIN"), getAdminInsights);
+router.get("/admin/subjects", authorizePermission("DASHBOARD_VIEW_ADMIN"), getAdminSubjects);
+router.get("/admin/students", authorizePermission("DASHBOARD_VIEW_ADMIN"), getAdminStudents);
 
 // Common endpoints (accessible by all authenticated users)
 router.get("/activity", getRecentActivity);

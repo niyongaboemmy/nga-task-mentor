@@ -63,6 +63,14 @@ import AssessmentMarksPage from "../pages/AssessmentMarksPage";
 import DatabaseManagementPage from "../pages/DatabaseManagementPage";
 import RolesPermissionsPage from "../pages/Admin/RolesPermissionsPage";
 import RankingPage from "../pages/RankingPage";
+import AdminSubjectsPage from "../pages/AdminSubjectsPage";
+import { usePermissions } from "../hooks/usePermissions";
+
+// School-wide viewers get the subjects report; everyone else their course grid.
+const CoursesEntry = () => {
+  const { can } = usePermissions();
+  return can("DASHBOARD_VIEW_ADMIN") ? <AdminSubjectsPage /> : <Courses />;
+};
 
 // Wrapper components for routes that need useParams
 const QuizViewWrapper = () => {
@@ -139,7 +147,7 @@ export const appRoutes: AppRoute[] = [
   },
   {
     path: "/courses",
-    element: <Courses />,
+    element: <CoursesEntry />,
     permissions: ["COURSES_VIEW"],
     navItem: { label: "Courses", icon: BookOpen, group: "General" },
   },

@@ -8,6 +8,8 @@ import {
   ReportCardApiService,
   scoreToLetterGrade,
   type ReportCardData,
+  type ReportCardPreviewMeta,
+  type PreviewSubject,
   type SubjectGrade,
 } from "../../services/reportCardApi";
 
@@ -38,6 +40,11 @@ export interface ReportCardPreviewProps {
   onClose: () => void;
   /** Base URL for QR verification link */
   verificationBaseUrl?: string;
+  /**
+   * "provisional": what the card would show today, before it exists or every
+   * mark is recorded (GET /report-cards/preview). Watermarked, no QR, no PDF.
+   */
+  mode?: "official" | "provisional";
 }
 
 // ─── Small helpers ────────────────────────────────────────────────────────────
@@ -105,6 +112,59 @@ function SubjectRow({
       </td>
       <td style={{ ...tdStyle, textAlign: "center", color: "#6b7280", fontSize: 12 }}>
         {remark}
+      </td>
+    </tr>
+  );
+}
+
+/** A subject on the provisional card: recorded marks only, pending ones flagged. */
+function ProvisionalSubjectRow({
+  subject,
+  grade,
+  index,
+}: {
+  subject: PreviewSubject;
+  grade: SubjectGrade | undefined;
+  index: number;
+}) {
+  const running = subject.running_percentage;
+  const letter = running != null ? scoreToLetterGrade(running).letter : "—";
+  return (
+    <tr style={{ background: index % 2 === 0 ? "#f9fafb" : "#ffffff", borderBottom: "1px solid #e5e7eb" }}>
+      <td style={tdStyle}>
+        {subject.name}
+        {subject.source === "suggested" && (
+          <div style={{ fontSize: 10, color: "#b45309" }}>Not mapped yet: recorded marks placed by type</div>
+        )}
+        {subject.source === "none" && <div style={{ fontSize: 10, color: "#9ca3af" }}>No assessments mapped yet</div>}
+      </td>
+      {CATEGORY_ORDER.map((cat) => {
+        const res = grade?.categories[cat];
+        const c = subject.categories[cat];
+        const pendingHere = c ? c.expected - c.recorded : 0;
+        return (
+          <td key={cat} style={{ ...tdStyle, textAlign: "center" }}>
+            {res ? fmt(res.scaled_score) : c ? <span style={{ color: "#b45309", fontStyle: "italic", fontSize: 11 }}>pending</span> : "—"}
+            {res && pendingHere > 0 && (
+              <div style={{ fontSize: 9, color: "#b45309" }}>
+                {c!.recorded}/{c!.expected} in
+              </div>
+            )}
+          </td>
+        );
+      })}
+      <td style={{ ...tdStyle, textAlign: "center", fontWeight: 700 }}>
+        {subject.total_so_far != null ? fmt(subject.total_so_far) : "—"}
+        {subject.total_so_far != null && subject.weight_covered < 100 && (
+          <div style={{ fontSize: 9, color: "#6b7280", fontWeight: 400 }}>of {subject.weight_covered}</div>
+        )}
+      </td>
+      <td style={{ ...tdStyle, textAlign: "center", fontWeight: 700, color: running != null ? gradeColor(running) : "#9ca3af" }}>
+        {running != null ? `${running.toFixed(1)}%` : "—"}
+      </td>
+      <td style={{ ...tdStyle, textAlign: "center", fontWeight: 700, color: running != null ? gradeColor(running) : "#9ca3af" }}>{letter}</td>
+      <td style={{ ...tdStyle, textAlign: "center", fontSize: 12, color: subject.recorded < subject.expected ? "#b45309" : "#374151" }}>
+        {subject.expected ? `${subject.recorded}/${subject.expected}` : "—"}
       </td>
     </tr>
   );
@@ -301,11 +361,13 @@ function ReportCardDocument({
   studentName,
   subjectNames,
   verificationUrl,
+  preview,
 }: {
   data: ReportCardData;
   studentName: string;
   subjectNames: Record<number, string>;
   verificationUrl: string;
+  preview?: ReportCardPreviewMeta;
 }) {
   const rc = data.report_card;
   const att = rc.attendance;
@@ -426,6 +488,49 @@ function ReportCardDocument({
         <InfoField label="Academic Year" value={rc.academic_year} />
       </div>
 
+      {preview && (
+        <>
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: 420,
+              left: 0,
+              right: 0,
+              textAlign: "center",
+              fontSize: 110,
+              fontWeight: 900,
+              color: "rgba(180, 83, 9, 0.07)",
+              transform: "rotate(-24deg)",
+              pointerEvents: "none",
+              letterSpacing: "0.08em",
+            }}
+          >
+            PROVISIONAL
+          </div>
+          <div
+            role="note"
+            style={{
+              border: "1px solid #fcd34d",
+              background: "#fffbeb",
+              color: "#92400e",
+              borderRadius: 8,
+              padding: "10px 14px",
+              fontSize: 12,
+              marginBottom: 18,
+              lineHeight: 1.5,
+            }}
+          >
+            <strong>Provisional preview, not an official report.</strong>{" "}
+            {preview.overall.expected > 0
+              ? `${preview.overall.recorded} of ${preview.overall.expected} mapped marks recorded (${preview.overall.completeness ?? 0}%). `
+              : "No assessments are mapped to the report card yet. "}
+            Totals count only the marks recorded so far; "Current %" rescales them to 100.
+            {!preview.card_exists && " The card itself hasn't been started."}
+          </div>
+        </>
+      )}
+
       {/* ── Grades Table ── */}
       <SectionTitle>Academic Performance</SectionTitle>
       <table style={{ width: "100%", borderCollapse: "collapse", marginBottom: 24 }}>
@@ -441,13 +546,32 @@ function ReportCardDocument({
                 </span>
               </th>
             ))}
-            <th style={thStyle}>Total<br /><span style={{ fontSize: 10, fontWeight: 400 }}>/100</span></th>
-            <th style={thStyle}>Grade</th>
-            <th style={thStyle}>Remark</th>
+            {preview ? (
+              <>
+                <th style={thStyle}>Total<br /><span style={{ fontSize: 10, fontWeight: 400 }}>so far</span></th>
+                <th style={thStyle}>Current<br /><span style={{ fontSize: 10, fontWeight: 400 }}>%</span></th>
+                <th style={thStyle}>Grade</th>
+                <th style={thStyle}>Marks<br /><span style={{ fontSize: 10, fontWeight: 400 }}>in</span></th>
+              </>
+            ) : (
+              <>
+                <th style={thStyle}>Total<br /><span style={{ fontSize: 10, fontWeight: 400 }}>/100</span></th>
+                <th style={thStyle}>Grade</th>
+                <th style={thStyle}>Remark</th>
+              </>
+            )}
           </tr>
         </thead>
         <tbody>
-          {data.grades.map((g, i) => (
+          {preview && preview.subjects.map((sub, i) => (
+            <ProvisionalSubjectRow
+              key={sub.subject_id}
+              subject={sub}
+              grade={data.grades.find((g) => g.subject_id === sub.subject_id)}
+              index={i}
+            />
+          ))}
+          {!preview && data.grades.map((g, i) => (
             <SubjectRow
               key={g.subject_id}
               grade={g}
@@ -455,10 +579,10 @@ function ReportCardDocument({
               index={i}
             />
           ))}
-          {data.grades.length === 0 && (
+          {(preview ? preview.subjects.length === 0 : data.grades.length === 0) && (
             <tr>
               <td
-                colSpan={8}
+                colSpan={preview ? 9 : 8}
                 style={{
                   ...tdStyle,
                   textAlign: "center",
@@ -472,7 +596,29 @@ function ReportCardDocument({
             </tr>
           )}
         </tbody>
-        {data.grades.length > 0 && (
+        {preview && preview.overall.subjects_with_marks > 0 && (
+          <tfoot>
+            <tr style={{ background: "#1e3a5f", color: "#fff", fontWeight: 700 }}>
+              <td style={{ ...tdStyle, color: "#fff", fontWeight: 700 }}>Average so far</td>
+              {CATEGORY_ORDER.map((cat) => (
+                <td key={cat} style={{ ...tdStyle, textAlign: "center", color: "#d1d5db" }}>—</td>
+              ))}
+              <td style={{ ...tdStyle, textAlign: "center", color: "#fcd34d" }}>
+                {preview.overall.average_so_far != null ? fmt(preview.overall.average_so_far) : "—"}
+              </td>
+              <td style={{ ...tdStyle, textAlign: "center", color: "#fcd34d", fontSize: 15 }}>
+                {preview.overall.running_average != null ? `${preview.overall.running_average.toFixed(1)}%` : "—"}
+              </td>
+              <td style={{ ...tdStyle, textAlign: "center", color: "#fcd34d", fontSize: 15 }}>
+                {preview.overall.running_average != null ? scoreToLetterGrade(preview.overall.running_average).letter : "—"}
+              </td>
+              <td style={{ ...tdStyle, textAlign: "center", color: "#93c5fd", fontSize: 12 }}>
+                {preview.overall.recorded}/{preview.overall.expected}
+              </td>
+            </tr>
+          </tfoot>
+        )}
+        {!preview && data.grades.length > 0 && (
           <tfoot>
             <tr
               style={{
@@ -684,6 +830,11 @@ function ReportCardDocument({
         <SignatureLine label="Class Teacher" />
         <SignatureLine label="Head Teacher / Principal" />
 
+        {preview ? (
+          <div style={{ textAlign: "center", width: 100, fontSize: 10, color: "#b45309", border: "1px dashed #fcd34d", borderRadius: 6, padding: "10px 6px" }}>
+            Provisional: not verifiable
+          </div>
+        ) : (
         <div style={{ textAlign: "center" }}>
           <QRCodeSVG
             value={verificationUrl}
@@ -707,6 +858,7 @@ function ReportCardDocument({
             UUID: {rc.uuid.slice(0, 8)}…
           </div>
         </div>
+        )}
       </div>
 
       {/* Watermark stripe */}
@@ -794,8 +946,11 @@ export default function ReportCardPreview({
   subjectNames = {},
   onClose,
   verificationBaseUrl = window.location.origin,
+  mode = "official",
 }: ReportCardPreviewProps) {
+  const provisional = mode === "provisional";
   const [data, setData]       = useState<ReportCardData | null>(null);
+  const [previewMeta, setPreviewMeta] = useState<ReportCardPreviewMeta | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState<string | null>(null);
   const [downloading, setDownloading] = useState(false);
@@ -812,6 +967,16 @@ export default function ReportCardPreview({
     setLoading(true);
     setError(null);
     try {
+      if (provisional) {
+        const res = await ReportCardApiService.getReportCardPreview(studentId, { term, academic_year: academicYear });
+        const rc = res.data.report_card;
+        setPreviewMeta(res.data.preview);
+        setData({
+          ...res.data,
+          report_card: { ...rc, id: rc.id ?? 0, uuid: rc.uuid ?? "", status: rc.status ?? "draft" },
+        });
+        return;
+      }
       const res = await ReportCardApiService.getStudentReportCard(studentId, {
         term,
         academic_year: academicYear,
@@ -822,11 +987,11 @@ export default function ReportCardPreview({
         setError("Report card not found for the selected term.");
       }
     } catch {
-      setError("Failed to load report card. Please try again.");
+      setError(provisional ? "Failed to build the provisional report card. Please try again." : "Failed to load report card. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [studentId, term, academicYear]);
+  }, [studentId, term, academicYear, provisional]);
 
   useEffect(() => {
     fetchData();
@@ -883,7 +1048,10 @@ export default function ReportCardPreview({
           >
             {/* Left: title */}
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-white font-semibold text-sm hidden xs:inline">Report Card</span>
+              <span className="text-white font-semibold text-sm hidden xs:inline">{provisional ? "Provisional Report Card" : "Report Card"}</span>
+              {provisional && (
+                <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 text-[11px] font-semibold">Not final</span>
+              )}
               {data && (
                 <span className="text-xs text-slate-400 truncate max-w-[160px] sm:max-w-none">
                   <span className="hidden sm:inline">{studentName} · </span>
@@ -939,6 +1107,7 @@ export default function ReportCardPreview({
                 <span className="hidden sm:inline">Print</span>
               </button>
 
+              {!provisional && (
               <button
                 onClick={handleDownloadPdf}
                 disabled={!data || downloading}
@@ -951,6 +1120,7 @@ export default function ReportCardPreview({
                 )}
                 <span className="hidden sm:inline">{downloading ? "Generating…" : "Download PDF"}</span>
               </button>
+              )}
 
               <Tooltip label="Close preview">
                 <button
@@ -1007,6 +1177,7 @@ export default function ReportCardPreview({
                   studentName={studentName}
                   subjectNames={{ ...subjectNames, ...data.subject_names }}
                   verificationUrl={verificationUrl}
+                  preview={provisional ? previewMeta : undefined}
                 />
               </div>
             </div>

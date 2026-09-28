@@ -18,6 +18,7 @@ import {
   RefreshCw,
   Target,
   TrendingUp,
+  Trophy,
   UserCheck,
   Users,
 } from "lucide-react";
@@ -43,6 +44,9 @@ import {
   visibleAlerts,
 } from "../../services/alertStore";
 import { ActivityTrendChart, ScoreDistributionChart, SubjectComparisonChart } from "./instructor/InstructorCharts";
+import SchoolInsights from "./admin/SchoolInsights";
+import BulkExportReportCards from "../ReportCard/BulkExportReportCards";
+import { getAdminInsights, type AdminInsights } from "../../services/adminReportsApi";
 import {
   AlertsList,
   GradingQueue,
@@ -76,7 +80,21 @@ function greeting(d = new Date()) {
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
 }
 
-const InstructorDashboard: React.FC = () => {
+/** More subjects than this and the focus chips become a picker. */
+const MAX_FOCUS_CHIPS = 12;
+/** The comparison chart shows at most this many (the weakest) subjects. */
+const MAX_COMPARED = 12;
+
+export interface InstructorDashboardProps {
+  /**
+   * "admin": the same board over every subject in the school, plus the
+   * school-wide layer (teachers, classes, report-card readiness, coverage).
+   */
+  variant?: "teacher" | "admin";
+}
+
+const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ variant = "teacher" }) => {
+  const isAdmin = variant === "admin";
   const { user } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -88,6 +106,7 @@ const InstructorDashboard: React.FC = () => {
   // The unfiltered subject list keeps the filter chips stable while focused.
   const [allSubjects, setAllSubjects] = useState<InstructorOverview["subjects"]>([]);
   const [activity, setActivity] = useState<RecentActivity[]>([]);
+  const [insights, setInsights] = useState<AdminInsights | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   /** Fatal: nothing to show yet. */
@@ -98,6 +117,9 @@ const InstructorDashboard: React.FC = () => {
   useSyncExternalStore(subscribeAlerts, getAlertsVersion);
   // Only the latest request may write state (fast subject switching).
   const requestSeq = useRef(0);
+  // Strings, not the period objects, so a re-created user object doesn't refetch.
+  const termLabel = periodName(user?.currentAcademicTerm);
+  const yearLabel = periodName(user?.currentAcademicYear);
   const hasData = useRef(false);
 
   const load = useCallback(
@@ -105,14 +127,20 @@ const InstructorDashboard: React.FC = () => {
       const seq = ++requestSeq.current;
       if (hasData.current) setRefreshing(true);
       try {
-        const [o, act] = await Promise.all([
+        const period = { term: termLabel, academic_year: yearLabel };
+        const [o, act, ins] = await Promise.all([
           getInstructorOverview(subjectId, { fresh: mode === "refresh" }),
           axios
             .get("/dashboard/activity")
             .then((r) => (r.data?.data ?? []) as RecentActivity[])
             .catch(() => [] as RecentActivity[]),
+          // The school-wide layer is optional: the board still renders without it.
+          isAdmin && subjectId == null
+            ? getAdminInsights(period, mode === "refresh").catch(() => null)
+            : Promise.resolve(null),
         ]);
         if (seq !== requestSeq.current) return;
+        if (isAdmin && subjectId == null) setInsights(ins);
         hasData.current = true;
         setOverview(o);
         if (subjectId == null) {
@@ -144,7 +172,7 @@ const InstructorDashboard: React.FC = () => {
         }
       }
     },
-    [subjectId, setParams],
+    [subjectId, setParams, isAdmin, termLabel, yearLabel],
   );
 
   useEffect(() => {
@@ -221,7 +249,7 @@ const InstructorDashboard: React.FC = () => {
     const a = document.createElement("a");
     const term = periodName(user?.currentAcademicTerm) ?? "term";
     a.href = url;
-    a.download = `teaching-summary-${String(term).replace(/\s+/g, "-").toLowerCase()}.csv`;
+    a.download = `${isAdmin ? "school" : "teaching"}-summary-${String(term).replace(/\s+/g, "-").toLowerCase()}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -253,6 +281,11 @@ const InstructorDashboard: React.FC = () => {
   const yearName = periodName(user?.currentAcademicYear);
   const termName = periodName(user?.currentAcademicTerm);
   const updatedMins = Math.floor((Date.now() - new Date(overview.generated_at).getTime()) / 60000);
+  const withAverage = overview.subjects.filter((s) => s.avg_score != null);
+  const compared =
+    withAverage.length > MAX_COMPARED
+      ? [...withAverage].sort((a, b) => a.avg_score! - b.avg_score!).slice(0, MAX_COMPARED)
+      : overview.subjects;
 
   const headline: string[] = [];
   if (t.pending_grading > 0) headline.push(`${t.pending_grading} submission${t.pending_grading === 1 ? "" : "s"} to grade`);
@@ -274,7 +307,8 @@ const InstructorDashboard: React.FC = () => {
             {greeting()}, {user?.first_name || "Teacher"}
           </h2>
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark mt-1">
-            {headline.length > 0 ? `Today: ${headline.join(" · ")}.` : "You're all caught up."}
+            {isAdmin && <span className="font-medium">School overview. </span>}
+            {headline.length > 0 ? `Today: ${headline.join(" · ")}.` : isAdmin ? "Nothing outstanding across the school." : "You're all caught up."}
             {(yearName || termName) && (
               <span className="text-text-secondary-light/80 dark:text-text-secondary-dark/60">
                 {" "}Showing {[yearName, termName].filter(Boolean).join(" · ")}.
@@ -303,13 +337,23 @@ const InstructorDashboard: React.FC = () => {
             <Download className="w-4 h-4" />
             Export
           </button>
-          <Link
-            to="/assignments/create"
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
-          >
-            <FilePlus2 className="w-4 h-4" />
-            New assignment
-          </Link>
+          {isAdmin ? (
+            <Link
+              to="/courses"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+            >
+              <BookOpen className="w-4 h-4" />
+              Subjects report
+            </Link>
+          ) : (
+            <Link
+              to="/assignments/create"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-blue-600 text-white hover:bg-blue-700 shadow-sm"
+            >
+              <FilePlus2 className="w-4 h-4" />
+              New assignment
+            </Link>
+          )}
         </div>
       </motion.div>
 
@@ -325,7 +369,12 @@ const InstructorDashboard: React.FC = () => {
       )}
 
       {/* Subject focus */}
-      {allSubjects.length > 1 && (
+      {allSubjects.length > MAX_FOCUS_CHIPS && (
+        <motion.div variants={dashboardItemVariants}>
+          <SubjectFocusPicker subjects={allSubjects} selected={subjectId} onSelect={selectSubject} />
+        </motion.div>
+      )}
+      {allSubjects.length > 1 && allSubjects.length <= MAX_FOCUS_CHIPS && (
         <motion.div variants={dashboardItemVariants} className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1" role="tablist" aria-label="Focus on a subject">
           <Chip active={subjectId == null} onClick={() => selectSubject(null)}>
             All subjects ({allSubjects.length})
@@ -343,8 +392,12 @@ const InstructorDashboard: React.FC = () => {
         <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm">
           <EmptyState
             icon={<BookOpen className="w-6 h-6 text-text-secondary-light dark:text-text-secondary-dark/60" />}
-            title="No subjects assigned for this period"
-            description="Subjects you're assigned to teach in the MIS for the selected term will appear here. Try switching the academic period in the top bar."
+            title={isAdmin ? "No subjects found" : "No subjects assigned for this period"}
+            description={
+              isAdmin
+                ? "The MIS subject catalogue returned no subjects. Check the MIS connection or switch the academic period in the top bar."
+                : "Subjects you're assigned to teach in the MIS for the selected term will appear here. Try switching the academic period in the top bar."
+            }
           />
         </div>
       ) : (
@@ -473,6 +526,8 @@ const InstructorDashboard: React.FC = () => {
             )}
           </div>
 
+          {isAdmin && !focused && insights && <SchoolInsights insights={insights} />}
+
           {/* Trend + distribution */}
           <div className="grid gap-5 lg:grid-cols-3">
             <Panel
@@ -512,7 +567,12 @@ const InstructorDashboard: React.FC = () => {
             icon={<BookOpen className="w-4 h-4" />}
             iconColor="emerald"
           >
-            <SubjectScorecards subjects={allSubjects.length ? allSubjects : overview.subjects} selected={subjectId} onSelect={selectSubject} />
+            <SubjectScorecards
+              subjects={allSubjects.length ? allSubjects : overview.subjects}
+              selected={subjectId}
+              onSelect={selectSubject}
+              pageSize={isAdmin || allSubjects.length > 15 ? 10 : undefined}
+            />
           </Panel>
 
           {/* Work queues */}
@@ -523,7 +583,20 @@ const InstructorDashboard: React.FC = () => {
             <Panel id="upcoming" title="Upcoming deadlines" subtitle="Next 14 days, with submissions so far" icon={<CalendarClock className="w-4 h-4" />} iconColor="purple">
               <UpcomingList items={overview.upcoming} />
             </Panel>
-            <Panel id="students" title="Students" subtitle={`Below 50% or with 2+ missing submissions`} icon={<Users className="w-4 h-4" />} iconColor="red">
+            <Panel
+              id="students"
+              title="Students"
+              subtitle={`Below 50% or with 2+ missing submissions`}
+              icon={<Users className="w-4 h-4" />}
+              iconColor="red"
+              action={
+                isAdmin ? (
+                  <Link to="/students?attention=1" className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline whitespace-nowrap">
+                    See all
+                  </Link>
+                ) : undefined
+              }
+            >
               <StudentWatchlist atRisk={overview.students.at_risk} top={overview.students.top} />
             </Panel>
           </div>
@@ -531,8 +604,16 @@ const InstructorDashboard: React.FC = () => {
           {/* Comparison + assessment performance */}
           <div className="grid gap-5 lg:grid-cols-3">
             {!focused && overview.subjects.some((s) => s.avg_score != null) && (
-              <Panel title="Subject comparison" subtitle="Class average against the pass mark" icon={<BarChart3 className="w-4 h-4" />}>
-                <SubjectComparisonChart subjects={overview.subjects} onSelect={selectSubject} />
+              <Panel
+                title="Subject comparison"
+                subtitle={
+                  compared.length < overview.subjects.filter((s) => s.avg_score != null).length
+                    ? `The ${compared.length} lowest class averages against the pass mark`
+                    : "Class average against the pass mark"
+                }
+                icon={<BarChart3 className="w-4 h-4" />}
+              >
+                <SubjectComparisonChart subjects={compared} onSelect={selectSubject} />
               </Panel>
             )}
             <Panel
@@ -552,18 +633,29 @@ const InstructorDashboard: React.FC = () => {
       {/* Quick actions + activity */}
       <div className="grid gap-5 lg:grid-cols-3">
         <Panel title="Quick actions" icon={<FilePlus2 className="w-4 h-4" />}>
-          <div className="grid grid-cols-2 gap-2">
-            <QuickAction to="/assignments/create" icon={<FilePlus2 className="w-4 h-4" />} label="New assignment" />
-            <QuickAction to="/quizzes" icon={<ListChecks className="w-4 h-4" />} label="Quizzes" />
-            <QuickAction to="/submissions" icon={<ClipboardList className="w-4 h-4" />} label="Submissions" />
-            <QuickAction to="/question-bank" icon={<Library className="w-4 h-4" />} label="Question bank" />
-            <QuickAction to="/students" icon={<Users className="w-4 h-4" />} label="My students" />
-            <QuickAction to="/reports" icon={<BarChart3 className="w-4 h-4" />} label="Reports" />
-          </div>
+          {isAdmin ? (
+            <div className="grid grid-cols-2 gap-2">
+              <QuickAction to="/courses" icon={<BookOpen className="w-4 h-4" />} label="All subjects" />
+              <QuickAction to="/students" icon={<Users className="w-4 h-4" />} label="All students" />
+              <QuickAction to="/ranking" icon={<Trophy className="w-4 h-4" />} label="Ranking" />
+              <QuickAction to="/submissions?status=needs_grading" icon={<ClipboardList className="w-4 h-4" />} label="Needs grading" />
+              <QuickAction to="/quizzes" icon={<ListChecks className="w-4 h-4" />} label="Quizzes" />
+              <QuickAction to="/grades" icon={<GraduationCap className="w-4 h-4" />} label="Grades" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-2">
+              <QuickAction to="/assignments/create" icon={<FilePlus2 className="w-4 h-4" />} label="New assignment" />
+              <QuickAction to="/quizzes" icon={<ListChecks className="w-4 h-4" />} label="Quizzes" />
+              <QuickAction to="/submissions" icon={<ClipboardList className="w-4 h-4" />} label="Submissions" />
+              <QuickAction to="/question-bank" icon={<Library className="w-4 h-4" />} label="Question bank" />
+              <QuickAction to="/students" icon={<Users className="w-4 h-4" />} label="My students" />
+              <QuickAction to="/reports" icon={<BarChart3 className="w-4 h-4" />} label="Reports" />
+            </div>
+          )}
         </Panel>
         <Panel
           title="Recent activity"
-          subtitle="Latest across your subjects"
+          subtitle={isAdmin ? "Latest across the school" : "Latest across your subjects"}
           icon={<Activity className="w-4 h-4" />}
           iconColor="violet"
           className="lg:col-span-2"
@@ -579,6 +671,8 @@ const InstructorDashboard: React.FC = () => {
           )}
         </Panel>
       </div>
+
+      {isAdmin && <BulkExportReportCards />}
     </motion.div>
   );
 };
@@ -606,6 +700,47 @@ const Chip: React.FC<{ active: boolean; onClick: () => void; title?: string; chi
     {children}
   </button>
 );
+
+/** A searchable picker for schools with too many subjects for chips. */
+const SubjectFocusPicker: React.FC<{
+  subjects: InstructorOverview["subjects"];
+  selected: number | null;
+  onSelect: (id: number | null) => void;
+}> = ({ subjects, selected, onSelect }) => {
+  const sorted = useMemo(() => [...subjects].sort((a, b) => a.subject_name.localeCompare(b.subject_name)), [subjects]);
+  const atRisk = subjects.filter((s) => s.health === "at_risk").slice(0, 6);
+  return (
+    <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+      <label className="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
+        <span className="shrink-0">Focus</span>
+        <select
+          value={selected ?? ""}
+          onChange={(e) => onSelect(e.target.value ? Number(e.target.value) : null)}
+          className="min-w-0 w-full sm:w-80 rounded-full border border-border-light dark:border-border-dark/50 bg-card-light dark:bg-card-dark/40 px-3 py-1.5 text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+          aria-label="Focus on a subject"
+        >
+          <option value="">All subjects ({subjects.length})</option>
+          {sorted.map((s) => (
+            <option key={s.subject_id} value={s.subject_id}>
+              {s.subject_code ? `${s.subject_code} · ${s.subject_name}` : s.subject_name}
+              {s.health === "at_risk" ? " (at risk)" : ""}
+            </option>
+          ))}
+        </select>
+      </label>
+      {atRisk.length > 0 && (
+        <div className="flex gap-1.5 overflow-x-auto" aria-label="Subjects at risk">
+          {atRisk.map((s) => (
+            <Chip key={s.subject_id} active={selected === s.subject_id} onClick={() => onSelect(s.subject_id)} title={s.subject_name}>
+              <HealthDot health={s.health} />
+              {subjectLabel(s)}
+            </Chip>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
 
 const HealthDot: React.FC<{ health: InstructorOverview["subjects"][number]["health"] }> = ({ health }) => (
   <span

@@ -317,8 +317,11 @@ export const SubjectScorecards: React.FC<{
   subjects: SubjectSummary[];
   selected: number | null;
   onSelect: (id: number | null) => void;
-}> = ({ subjects, selected, onSelect }) => {
+  /** Rows per page; omitted = every row (a teacher's handful of subjects). */
+  pageSize?: number;
+}> = ({ subjects, selected, onSelect, pageSize }) => {
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: "health", dir: 1 });
+  const [page, setPage] = useState(1);
   const rows = useMemo(() => {
     const val = (s: SubjectSummary): number | string => {
       switch (sort.key) {
@@ -343,11 +346,18 @@ export const SubjectScorecards: React.FC<{
     });
   }, [subjects, sort]);
 
+  const pages = pageSize ? Math.max(1, Math.ceil(rows.length / pageSize)) : 1;
+  const current = Math.min(page, pages);
+  const shown = pageSize ? rows.slice((current - 1) * pageSize, current * pageSize) : rows;
+
   const Th: React.FC<{ k: SortKey; children: React.ReactNode; className?: string }> = ({ k, children, className = "" }) => (
     <th scope="col" className={`px-3 py-2 font-medium ${className}`}>
       <button
         type="button"
-        onClick={() => setSort((s) => ({ key: k, dir: s.key === k ? ((-s.dir) as 1 | -1) : k === "subject" || k === "health" ? 1 : -1 }))}
+        onClick={() => {
+          setPage(1);
+          setSort((s) => ({ key: k, dir: s.key === k ? ((-s.dir) as 1 | -1) : k === "subject" || k === "health" ? 1 : -1 }));
+        }}
         className="inline-flex items-center gap-1 hover:text-text-primary-light dark:hover:text-text-primary-dark"
       >
         {children}
@@ -372,7 +382,7 @@ export const SubjectScorecards: React.FC<{
           </tr>
         </thead>
         <tbody>
-          {rows.map((s) => {
+          {shown.map((s) => {
             const active = selected === s.subject_id;
             return (
               <tr
@@ -388,6 +398,9 @@ export const SubjectScorecards: React.FC<{
                     {s.subject_code ? s.subject_name : ""}
                     {s.class_groups.length > 0 && ` · ${s.class_groups.join(", ")}`}
                   </div>
+                  {s.teachers && s.teachers.length > 0 && (
+                    <div className={`text-xs ${ink.muted} line-clamp-1`}>{s.teachers.join(", ")}</div>
+                  )}
                 </td>
                 <td className="px-3 py-3">
                   <HealthPill health={s.health} title={s.health_reasons.join("\n")} />
@@ -448,6 +461,34 @@ export const SubjectScorecards: React.FC<{
           })}
         </tbody>
       </table>
+      {pages > 1 && (
+        <div className={`flex items-center justify-between gap-3 px-5 pt-3 text-xs ${ink.secondary}`}>
+          <span>
+            {(current - 1) * pageSize! + 1}–{Math.min(current * pageSize!, rows.length)} of {rows.length} subjects
+          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setPage(current - 1)}
+              disabled={current <= 1}
+              className="px-3 py-1.5 rounded-full border border-border-light dark:border-border-dark/50 disabled:opacity-40 hover:bg-surface-light dark:hover:bg-surface-dark/50"
+            >
+              Previous
+            </button>
+            <span className="tabular-nums">
+              {current} / {pages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage(current + 1)}
+              disabled={current >= pages}
+              className="px-3 py-1.5 rounded-full border border-border-light dark:border-border-dark/50 disabled:opacity-40 hover:bg-surface-light dark:hover:bg-surface-dark/50"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

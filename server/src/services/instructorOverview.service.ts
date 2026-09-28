@@ -39,6 +39,8 @@ export interface OverviewSubject {
   name: string;
   code: string | null;
   class_groups: string[];
+  /** Who teaches it (school-wide views); omitted for a teacher's own view. */
+  teachers?: string[];
 }
 
 export interface RosterStudent {
@@ -120,6 +122,8 @@ export interface OverviewInput {
   quizSubmissions: QuizSubmissionRow[];
   proctoring: ProctoringRow[];
   users: LocalUserRow[];
+  /** Also return every student's summary (students.all) — the admin directory. */
+  include_all_students?: boolean;
 }
 
 // ─── Output ───────────────────────────────────────────────────────────────────
@@ -155,6 +159,7 @@ export interface SubjectSummary {
   subject_name: string;
   subject_code: string | null;
   class_groups: string[];
+  teachers: string[];
   students: number | null;
   assignments: number;
   quizzes: number;
@@ -252,7 +257,7 @@ export interface InstructorOverview {
   grading_queue: GradingQueueItem[];
   upcoming: AssessmentSummary[];
   assessments: AssessmentSummary[];
-  students: { at_risk: StudentSummary[]; top: StudentSummary[] };
+  students: { at_risk: StudentSummary[]; top: StudentSummary[]; all?: StudentSummary[] };
   alerts: DashboardAlert[];
 }
 
@@ -607,6 +612,7 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
       subject_name: subject.name,
       subject_code: subject.code,
       class_groups: subject.class_groups,
+      teachers: subject.teachers ?? [],
       students: roster ? roster.size : null,
       assignments: mine.filter((a) => a.summary.kind === "assignment").length,
       quizzes: mine.filter((a) => a.summary.kind === "quiz").length,
@@ -791,7 +797,11 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
     grading_queue: grading_queue.slice(0, 25),
     upcoming: upcoming.slice(0, 20),
     assessments: assessments.slice(0, 40),
-    students: { at_risk: atRisk.slice(0, 12), top: top.slice(0, 8) },
+    students: {
+      at_risk: atRisk.slice(0, 12),
+      top: top.slice(0, 8),
+      ...(input.include_all_students ? { all: studentSummaries } : {}),
+    },
     alerts: buildAlerts({ totals, subjects, grading_queue, upcoming, assessments, nowMs }),
   };
 }
