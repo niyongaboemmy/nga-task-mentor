@@ -3,6 +3,7 @@ import {
   AIGenerationPlanItem,
   AIGenerateFromSourceParams,
 } from "../types";
+import { bloomPromptSection } from "../bloomsAlignment";
 
 const TYPE_SCHEMAS: Record<string, string> = {
   single_choice: `TYPE: single_choice
@@ -122,6 +123,8 @@ ${describePlan(plan)}
 
 ${DIFFICULTY_GUIDE}
 
+${bloomPromptSection()}
+
 OUTPUT FORMAT:
 Respond ONLY with a valid JSON array. No markdown, no code fences, no explanation text.
 Every element must follow this root schema:
@@ -132,6 +135,7 @@ Every element must follow this root schema:
   "correct_answer": <type-specific object or null>,
   "explanation": "<brief explanation of the correct answer>",
   "difficulty_level": "<EASY|MEDIUM|DIFFICULT, as planned>",
+  "blooms_level": <1-6, the Bloom's level this question actually demands, within its difficulty band>,
   "tags": ["<1-3 lowercase topic tags from the source>"],
   "time_limit_seconds": <number between 30 and 300; harder questions get more time>
 }

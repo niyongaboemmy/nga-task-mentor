@@ -76,6 +76,12 @@ export interface AIGeneratedQuestion {
   difficulty_level: string;
   tags?: string[];
   time_limit_seconds?: number;
+  /** 1-6 as the AI reported it (before alignment); see bloomsAlignment.ts. */
+  blooms_level?: number | null;
+  blooms_taxonomy_level_id?: number | null;
+  blooms_level_name?: string | null;
+  /** True when the AI's level didn't fit the difficulty and was moved into its band. */
+  blooms_adjusted?: boolean;
 }
 
 export interface AISqlQueryContext {

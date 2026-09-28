@@ -10,6 +10,8 @@ import {
   suggestPrompts,
   toggleSuggestion,
   weekLabel,
+  isBloomAligned,
+  nearestBloomInBand,
 } from "../components/QuestionBank/ai/aiGeneratorModel";
 import { runGeneration, type BatchState } from "../components/QuestionBank/ai/runGeneration";
 import { checkFile } from "../components/QuestionBank/ai/documentFile";
@@ -108,6 +110,23 @@ describe("sources", () => {
     expect(checkFile(new File(["x"], "a.txt", { type: "text/plain" }))).toMatch(/Only PDF and DOCX/);
     expect(checkFile(new File(["x"], "a.pdf", { type: "application/pdf" }))).toBeNull();
     expect(checkFile(new File([], "a.docx"))).toMatch(/empty/);
+  });
+});
+
+describe("Bloom's alignment", () => {
+  it("knows which levels fit each difficulty", () => {
+    expect(isBloomAligned(2, "EASY")).toBe(true);
+    expect(isBloomAligned(3, "EASY")).toBe(false);
+    expect(isBloomAligned(4, "MEDIUM")).toBe(true);
+    expect(isBloomAligned(4, "DIFFICULT")).toBe(true);
+    expect(isBloomAligned(null, "EASY")).toBe(false);
+  });
+
+  it("moves to the nearest level inside the band", () => {
+    expect(nearestBloomInBand(1, "DIFFICULT")).toBe(4);
+    expect(nearestBloomInBand(6, "EASY")).toBe(2);
+    expect(nearestBloomInBand(5, "MEDIUM")).toBe(4);
+    expect(nearestBloomInBand(null, "MEDIUM")).toBe(3);
   });
 });
 

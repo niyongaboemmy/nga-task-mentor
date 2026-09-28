@@ -21,6 +21,7 @@ import {
   aiErrorMessage,
   type AIPreparedContext,
   type AIProviderInfo,
+  type AIBloomLevel,
   type AIProviderName,
   type AISourceItem,
   type AISourcesResponse,
@@ -130,6 +131,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
 
   // Review / save
   const [review, setReview] = useState<ReviewQuestion[]>([]);
+  const [bloomLevels, setBloomLevels] = useState<AIBloomLevel[]>([]);
   const [linkEntry, setLinkEntry] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
@@ -302,6 +304,9 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
           next[b.index] = b;
           return next;
         }),
+        onMeta: (meta) => {
+          if (meta.blooms_levels?.length) setBloomLevels(meta.blooms_levels);
+        },
         onQuestions: (qs, b) => {
           const mapped = qs.map((q) => ({ ...q, uid: nextUid(), selected: true, provider: b.provider }));
           added.push(...mapped);
@@ -368,6 +373,9 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
           difficulty_level: q.difficulty_level,
           tags: q.tags ?? [],
           time_limit_seconds: q.time_limit_seconds ?? 60,
+          blooms_taxonomy_level_id: q.blooms_taxonomy_level_id ?? null,
+          // Fallback for a school whose level rows the server couldn't map: bulk save matches by name.
+          ...(q.blooms_taxonomy_level_id ? {} : q.blooms_level_name ? { blooms_level_name: q.blooms_level_name } : {}),
           ...(link && linkEntry ? { scheme_of_work_entry_id: link.id, scheme_of_work_entry_title: link.title } : {}),
         })),
       );
@@ -656,7 +664,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
               </div>
             )}
 
-            <AIReviewList questions={review} onChange={setReview} />
+            <AIReviewList questions={review} onChange={setReview} bloomLevels={bloomLevels} />
           </motion.div>
         )}
 

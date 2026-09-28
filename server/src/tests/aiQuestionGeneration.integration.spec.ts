@@ -10,7 +10,8 @@ import {
   signTokenFor,
 } from "./testApp";
 import { sequelize } from "../config/database";
-import { QuestionBank } from "../models";
+import { QuestionBank, BloomsTaxonomyLevel } from "../models";
+import { clearBloomCacheForTests, loadBloomLevels } from "../services/ai/bloomsAlignment";
 import { generateFreeformJSON } from "../services/aiProviders/generate";
 import { packParts, tiptapToText, htmlToText, weekText } from "../services/ai/misCourseResources";
 import { buildGenerateFromSourcePrompt } from "../services/ai/prompts/generateFromDocumentPrompt";
@@ -46,6 +47,7 @@ let instructorToken: string;
 let otherToken: string;
 let studentToken: string;
 const bankIds: number[] = [];
+const bloomIds: number[] = [];
 
 const ENTRY = {
   entry_id: 5001,
@@ -135,6 +137,12 @@ beforeAll(async () => {
     created_by: instructor.id,
   } as any);
   bankIds.push(q.id);
+  // Bloom levels by level_order; the dev DB may have none (or its own) — ours only fill gaps.
+  for (let order = 1; order <= 6; order++) {
+    const lvl = await BloomsTaxonomyLevel.create({ name: `AI Bloom ${order} ${RUN}`, level_order: order } as any);
+    bloomIds.push(lvl.id);
+  }
+  clearBloomCacheForTests();
 });
 
 beforeEach(() => {
@@ -147,6 +155,7 @@ beforeEach(() => {
 
 afterAll(async () => {
   if (bankIds.length) await QuestionBank.destroy({ where: { id: bankIds } });
+  if (bloomIds.length) await BloomsTaxonomyLevel.destroy({ where: { id: bloomIds } });
   await sequelize.close();
 });
 
@@ -346,7 +355,33 @@ describe("POST /ai/generate", () => {
     expect(prompt).toContain("Scenario 79:");
   });
 
-    it("410s on an unknown context and on someone else's context", async () => {
+    it("classifies every question on Bloom's taxonomy, aligned to its difficulty", async () => {
+    const id = await contextId();
+    mockedAI.mockResolvedValue({
+      providerUsed: "gemini",
+      data: [
+        { ...goodSingle("Name the protocol browsers use.", "EASY"), blooms_level: "L1" },
+        { ...goodSingle("Explain why DNS runs first.", "EASY"), blooms_level: 5 }, // slip: EASY can't be L5
+        { ...goodSingle("Which request fixes this broken fetch?", "MEDIUM"), blooms_level: "Applying" },
+        { ...goodSingle("Judge which caching plan is better.", "DIFFICULT") }, // missing level
+      ],
+    });
+    const res = await gen({ context_id: id, plan: [{ question_type: "single_choice", EASY: 2, MEDIUM: 1, DIFFICULT: 1 }] });
+    expect(res.status).toBe(200);
+    const levels = await loadBloomLevels();
+    const idFor = (order: number) => levels.find((l) => l.level_order === order)!.id;
+    expect(res.body.data.map((q: any) => [q.blooms_level, q.blooms_adjusted, q.blooms_taxonomy_level_id])).toEqual([
+      [1, false, idFor(1)],
+      [2, true, idFor(2)],
+      [3, false, idFor(3)],
+      [4, true, idFor(4)],
+    ]);
+    expect(res.body.meta.blooms_adjusted).toBe(2);
+    expect(res.body.meta.blooms_levels.map((l: any) => l.level_order)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(mockedAI.mock.calls[0][0]).toContain("BLOOM'S TAXONOMY");
+  });
+
+  it("410s on an unknown context and on someone else's context", async () => {
     const theirs = await contextId(otherToken);
     const plan = [{ question_type: "true_false", EASY: 1 }];
     const unknown = await gen({ context_id: crypto.randomUUID(), plan });

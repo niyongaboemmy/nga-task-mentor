@@ -13,6 +13,7 @@ import {
   buildGenerateFromSourcePrompt,
   planTotal,
 } from "./prompts/generateFromDocumentPrompt";
+import { parseBloomLevel } from "./bloomsAlignment";
 import {
   AIGradingResult,
   AICodingGradingResult,
@@ -432,6 +433,7 @@ semicolon.`,
           600,
           Math.max(10, Math.round(Number(q.time_limit_seconds) || 60)),
         ),
+        blooms_level: parseBloomLevel(q.blooms_level ?? q.bloom_level ?? q.blooms_taxonomy_level),
       }));
   }
 

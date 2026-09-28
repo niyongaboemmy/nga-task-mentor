@@ -18,6 +18,8 @@ import {
 } from "../services/ai/misCourseResources";
 import { getMisToken, handleMisError } from "../utils/misUtils";
 import { createJob, getJob } from "../services/ai/generationJobs";
+import { BLOOM_GUIDE, alignBloomLevel, loadBloomLevels } from "../services/ai/bloomsAlignment";
+import type { AIDifficulty } from "../services/ai/types";
 import { sendControllerError } from "../utils/controllerErrors";
 import type {
   AIGenerateBatchBody,
@@ -261,6 +263,21 @@ async function runBatch(userId: number, courseId: number, body: AIGenerateBatchB
       return false;
     });
 
+    // Bloom's: keep the AI's level when it fits the difficulty, else the nearest
+    // level in the band; then attach the school's real level row.
+    const bloomLevels = await loadBloomLevels();
+    const byOrder = new Map(bloomLevels.map((l) => [l.level_order, l]));
+    let bloomsAdjusted = 0;
+    for (const q of kept) {
+      const { level, adjusted } = alignBloomLevel(q.blooms_level ?? null, q.difficulty_level as AIDifficulty);
+      if (adjusted) bloomsAdjusted++;
+      const row = byOrder.get(level);
+      q.blooms_level = level;
+      q.blooms_adjusted = adjusted;
+      q.blooms_taxonomy_level_id = row?.id ?? null;
+      q.blooms_level_name = row?.name ?? BLOOM_GUIDE[level - 1]?.name ?? null;
+    }
+
     return {
       status: 200,
       payload: {
@@ -274,6 +291,8 @@ async function runBatch(userId: number, courseId: number, body: AIGenerateBatchB
         provider_requested: body.provider,
         fell_back: !!body.provider && body.provider !== providerUsed,
         duration_ms: Date.now() - startedAt,
+        blooms_adjusted: bloomsAdjusted,
+        blooms_levels: bloomLevels,
         context_id: ctx.id,
       },
       },

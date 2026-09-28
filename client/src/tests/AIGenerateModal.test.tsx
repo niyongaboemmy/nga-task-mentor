@@ -146,9 +146,13 @@ describe("AIGenerateModal", () => {
       expires_in_seconds: 2700,
       missing: [],
     });
+    const levels = [1, 2, 3, 4, 5, 6].map((o) => ({ id: 100 + o, name: ["Remembering", "Understanding", "Applying", "Analyzing", "Evaluating", "Creating"][o - 1], level_order: o }));
     api.generate.mockResolvedValue({
-      data: [q("What sends the HTTP request?", "EASY"), q("Why is DNS needed first?", "MEDIUM")],
-      meta: { requested: 2, returned: 2, skipped: [], provider_used: "groq", provider_requested: "groq", fell_back: false, duration_ms: 900, context_id: "c" },
+      data: [
+        { ...q("What sends the HTTP request?", "EASY"), blooms_level: 1, blooms_taxonomy_level_id: 101, blooms_level_name: "Remembering" },
+        { ...q("Why is DNS needed first?", "MEDIUM"), blooms_level: 3, blooms_taxonomy_level_id: 103, blooms_level_name: "Applying" },
+      ],
+      meta: { requested: 2, returned: 2, skipped: [], provider_used: "groq", provider_requested: "groq", fell_back: false, duration_ms: 900, context_id: "c", blooms_levels: levels },
     });
     bulk.mockResolvedValue({ success: true, data: [] });
 
@@ -177,7 +181,15 @@ describe("AIGenerateModal", () => {
     // Exclude the second, bump the first to Difficult, keep the topic link
     const cards = within(screen.getByRole("list", { name: "Generated questions" })).getAllByRole("listitem");
     fireEvent.click(within(cards[1]).getByRole("button", { name: "Exclude question" }));
+    expect(screen.getByLabelText("Bloom's taxonomy spread")).toHaveTextContent("L1 Remember 1");
+    expect(within(cards[0]).getByLabelText("Bloom's level")).toHaveValue("1");
+    // Moving to Difficult pulls the Bloom's level into L4–L6 so the pair stays consistent.
     fireEvent.change(within(cards[0]).getByLabelText("Difficulty"), { target: { value: "DIFFICULT" } });
+    expect(within(cards[0]).getByLabelText("Bloom's level")).toHaveValue("4");
+    // A hand-picked level outside the band is allowed but flagged.
+    fireEvent.change(within(cards[0]).getByLabelText("Bloom's level"), { target: { value: "2" } });
+    expect(within(cards[0]).getByText(/L2 is unusual for difficult/)).toBeInTheDocument();
+    fireEvent.change(within(cards[0]).getByLabelText("Bloom's level"), { target: { value: "5" } });
     expect(screen.getByLabelText(/Link to scheme-of-work topic/)).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: /Save 1 to question bank/ }));
 
@@ -188,6 +200,7 @@ describe("AIGenerateModal", () => {
       expect.objectContaining({
         question_text: "What sends the HTTP request?",
         difficulty_level: "DIFFICULT",
+        blooms_taxonomy_level_id: 105,
         scheme_of_work_entry_id: 5001,
         scheme_of_work_entry_title: "Internet vs the Web",
       }),

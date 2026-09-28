@@ -90,6 +90,17 @@ export interface AIGeneratedQuestion {
   difficulty_level: DifficultyLevel;
   tags?: string[];
   time_limit_seconds?: number;
+  /** Bloom's level 1-6, already aligned to the difficulty by the server. */
+  blooms_level?: number | null;
+  blooms_taxonomy_level_id?: number | null;
+  blooms_level_name?: string | null;
+  blooms_adjusted?: boolean;
+}
+
+export interface AIBloomLevel {
+  id: number;
+  name: string;
+  level_order: number;
 }
 
 export interface AIBatchResult {
@@ -103,6 +114,8 @@ export interface AIBatchResult {
     fell_back: boolean;
     duration_ms: number;
     context_id: string;
+    blooms_adjusted?: number;
+    blooms_levels?: AIBloomLevel[];
   };
 }
 

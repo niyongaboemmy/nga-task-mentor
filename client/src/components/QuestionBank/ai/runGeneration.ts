@@ -26,6 +26,8 @@ export interface BatchState {
 export interface RunCallbacks {
   onBatch: (b: BatchState) => void;
   onQuestions: (qs: AIGeneratedQuestion[], batch: BatchState) => void;
+  /** Batch metadata (e.g. the school's Bloom levels) as each batch lands. */
+  onMeta?: (meta: AIBatchResult["meta"]) => void;
   onContextRefreshed?: (contextId: string) => void;
 }
 
@@ -127,6 +129,7 @@ export async function runGeneration(opts: RunOptions, cb: RunCallbacks) {
         fellBack: res.meta.fell_back,
         durationMs: Date.now() - started,
       });
+      cb.onMeta?.(res.meta);
       cb.onQuestions(res.data, { ...state });
       cb.onBatch({ ...state });
     } catch (err) {

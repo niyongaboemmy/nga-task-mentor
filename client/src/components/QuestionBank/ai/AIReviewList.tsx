@@ -4,7 +4,15 @@ import QuizQuestion from "../../Quizzes/QuizQuestion";
 import { QuestionServiceFactory } from "../../../services/questions/QuestionServiceFactory";
 import type { DifficultyLevel, QuestionType, QuizQuestion as QuizQuestionType } from "../../../types/quiz.types";
 import { getQuestionTypeIcon } from "../questionTypeIcons";
-import { DIFFICULTIES, typeLabel } from "./aiGeneratorModel";
+import {
+  BLOOM_LEVELS,
+  DIFFICULTIES,
+  DIFFICULTY_BLOOM_BANDS,
+  isBloomAligned,
+  nearestBloomInBand,
+  typeLabel,
+} from "./aiGeneratorModel";
+import type { AIBloomLevel } from "../../../services/aiQuestionGenerationApi";
 
 export interface ReviewQuestion {
   uid: string;
@@ -16,6 +24,10 @@ export interface ReviewQuestion {
   difficulty_level: DifficultyLevel;
   tags?: string[];
   time_limit_seconds?: number;
+  blooms_level?: number | null;
+  blooms_taxonomy_level_id?: number | null;
+  blooms_level_name?: string | null;
+  blooms_adjusted?: boolean;
   selected: boolean;
   provider?: string;
 }
@@ -23,15 +35,35 @@ export interface ReviewQuestion {
 interface Props {
   questions: ReviewQuestion[];
   onChange: (qs: ReviewQuestion[]) => void;
+  /** The school's Bloom levels (id per level_order), from the generation meta. */
+  bloomLevels?: AIBloomLevel[];
 }
 
-const AIReviewList: React.FC<Props> = ({ questions, onChange }) => {
+const AIReviewList: React.FC<Props> = ({ questions, onChange, bloomLevels = [] }) => {
   const [level, setLevel] = useState<DifficultyLevel | "ALL">("ALL");
   const [type, setType] = useState<QuestionType | "ALL">("ALL");
+  const [bloom, setBloom] = useState<number | "ALL">("ALL");
+
+  /** Level fields for a 1-6 order, using the school's own row when there is one. */
+  const bloomFields = (order: number) => {
+    const row = bloomLevels.find((l) => l.level_order === order);
+    return {
+      blooms_level: order,
+      blooms_taxonomy_level_id: row?.id ?? null,
+      blooms_level_name: row?.name ?? BLOOM_LEVELS[order - 1]?.name ?? null,
+      blooms_adjusted: false,
+    };
+  };
+  const bloomCounts = BLOOM_LEVELS.map((l) => ({ ...l, count: questions.filter((q) => q.blooms_level === l.order).length }));
   const [open, setOpen] = useState<Set<string>>(() => new Set(questions.slice(0, 2).map((q) => q.uid)));
 
   const types = useMemo(() => [...new Set(questions.map((q) => q.question_type))], [questions]);
-  const visible = questions.filter((q) => (level === "ALL" || q.difficulty_level === level) && (type === "ALL" || q.question_type === type));
+  const visible = questions.filter(
+    (q) =>
+      (level === "ALL" || q.difficulty_level === level) &&
+      (type === "ALL" || q.question_type === type) &&
+      (bloom === "ALL" || q.blooms_level === bloom),
+  );
   const selectedVisible = visible.filter((q) => q.selected).length;
   const update = (uid: string, patch: Partial<ReviewQuestion>) =>
     onChange(questions.map((q) => (q.uid === uid ? { ...q, ...patch } : q)));
@@ -79,6 +111,19 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange }) => {
             ))}
           </select>
         )}
+        <select
+          aria-label="Filter by Bloom's level"
+          value={bloom}
+          onChange={(e) => setBloom(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
+          className="px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-xs text-text-primary-light dark:text-text-primary-dark"
+        >
+          <option value="ALL">All Bloom's levels</option>
+          {bloomCounts.filter((l) => l.count).map((l) => (
+            <option key={l.order} value={l.order}>
+              L{l.order} · {l.name} ({l.count})
+            </option>
+          ))}
+        </select>
         <div className="ml-auto flex items-center gap-3 text-xs">
           <button type="button" onClick={() => setVisibleSelected(selectedVisible < visible.length)} className="font-medium text-blue-600 dark:text-blue-300 hover:underline">
             {selectedVisible < visible.length ? "Select all" : "Select none"}
@@ -91,6 +136,20 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange }) => {
             {open.size >= visible.length ? "Collapse all" : "Expand all"}
           </button>
         </div>
+      </div>
+
+      {/* Bloom's spread */}
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]" aria-label="Bloom's taxonomy spread">
+        <span className="font-semibold text-gray-500 mr-1">Bloom's:</span>
+        {bloomCounts.map((l) => (
+          <span
+            key={l.order}
+            title={l.name}
+            className={`px-1.5 py-0.5 rounded-md border ${l.count ? l.chip : "border-gray-200 dark:border-gray-700 text-gray-400"}`}
+          >
+            L{l.order} {l.short} <b className="tabular-nums">{l.count}</b>
+          </span>
+        ))}
       </div>
 
       {/* Cards */}
@@ -107,7 +166,7 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange }) => {
                 q.selected ? "border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900" : "border-dashed border-gray-300 dark:border-gray-700 bg-gray-50/60 dark:bg-gray-900/30 opacity-70"
               }`}
             >
-              <div className="flex items-start gap-3 p-3">
+              <div className="flex flex-wrap sm:flex-nowrap items-start gap-x-3 gap-y-2 p-3">
                 <button
                   type="button"
                   aria-label={q.selected ? "Exclude question" : "Include question"}
@@ -136,6 +195,11 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange }) => {
                         {t}
                       </span>
                     ))}
+                    {q.blooms_level && !isBloomAligned(q.blooms_level, q.difficulty_level) && (
+                      <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-600" title={`${DIFFICULTIES.find((d) => d.value === q.difficulty_level)?.label} usually means L${DIFFICULTY_BLOOM_BANDS[q.difficulty_level].join("–L")}`}>
+                        <AlertTriangle className="w-3 h-3" /> L{q.blooms_level} is unusual for {q.difficulty_level.toLowerCase()}
+                      </span>
+                    )}
                     {v.errors.length + v.warnings.length > 0 && (
                       <span className="inline-flex items-center gap-0.5 text-[10px] font-medium text-amber-600">
                         <AlertTriangle className="w-3 h-3" /> check
@@ -146,11 +210,34 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange }) => {
                     {q.question_text}
                   </span>
                 </button>
-                <div className="flex items-center gap-1 shrink-0">
+                {/* Phones: controls get their own line under the text instead of squeezing it. */}
+                <div className="flex items-center gap-1 shrink-0 w-full sm:w-auto pl-8 sm:pl-0 sm:justify-end">
+                  <select
+                    aria-label="Bloom's level"
+                    title={q.blooms_level ? BLOOM_LEVELS[q.blooms_level - 1]?.name : "Not classified"}
+                    value={q.blooms_level ?? ""}
+                    onChange={(e) => update(q.uid, bloomFields(Number(e.target.value)))}
+                    className={`text-[11px] font-semibold rounded-lg border px-1.5 py-1 ${
+                      q.blooms_level ? BLOOM_LEVELS[q.blooms_level - 1]?.chip : "border-gray-200 text-gray-400"
+                    }`}
+                  >
+                    {!q.blooms_level && <option value="">Bloom's…</option>}
+                    {BLOOM_LEVELS.map((l) => (
+                      <option key={l.order} value={l.order}>
+                        L{l.order} · {l.short}
+                      </option>
+                    ))}
+                  </select>
                   <select
                     aria-label="Difficulty"
                     value={q.difficulty_level}
-                    onChange={(e) => update(q.uid, { difficulty_level: e.target.value as DifficultyLevel })}
+                    onChange={(e) => {
+                      const d = e.target.value as DifficultyLevel;
+                      // Keep the pair consistent: pull the Bloom's level into the new difficulty's band.
+                      const patch: Partial<ReviewQuestion> = { difficulty_level: d };
+                      if (!isBloomAligned(q.blooms_level, d)) Object.assign(patch, bloomFields(nearestBloomInBand(q.blooms_level, d)));
+                      update(q.uid, patch);
+                    }}
                     className={`text-[11px] font-semibold rounded-lg border px-1.5 py-1 ${DIFFICULTIES.find((d) => d.value === q.difficulty_level)?.chip ?? ""}`}
                   >
                     {DIFFICULTIES.map((d) => (

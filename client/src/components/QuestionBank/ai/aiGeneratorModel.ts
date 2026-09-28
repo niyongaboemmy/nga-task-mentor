@@ -37,25 +37,52 @@ export const DIFFICULTIES: {
   {
     value: "EASY",
     label: "Easy",
-    hint: "Recall & understanding",
+    hint: "Bloom's L1–L2 · remember, understand",
     dot: "bg-emerald-500",
     chip: "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-900/25 dark:text-emerald-300 dark:border-emerald-800",
   },
   {
     value: "MEDIUM",
     label: "Medium",
-    hint: "Apply & explain",
+    hint: "Bloom's L3–L4 · apply, analyse",
     dot: "bg-amber-500",
     chip: "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/25 dark:text-amber-300 dark:border-amber-800",
   },
   {
     value: "DIFFICULT",
     label: "Difficult",
-    hint: "Analyse & evaluate",
+    hint: "Bloom's L4–L6 · analyse, evaluate, create",
     dot: "bg-rose-500",
     chip: "bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-900/25 dark:text-rose-300 dark:border-rose-800",
   },
 ];
+
+// Keep in sync with server/src/services/ai/bloomsAlignment.ts.
+export const BLOOM_LEVELS: { order: number; name: string; short: string; chip: string }[] = [
+  { order: 1, name: "Remembering", short: "Remember", chip: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/25 dark:text-sky-300 dark:border-sky-800" },
+  { order: 2, name: "Understanding", short: "Understand", chip: "bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-900/25 dark:text-sky-300 dark:border-sky-800" },
+  { order: 3, name: "Applying", short: "Apply", chip: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/25 dark:text-blue-300 dark:border-blue-800" },
+  { order: 4, name: "Analyzing", short: "Analyse", chip: "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/25 dark:text-blue-300 dark:border-blue-800" },
+  { order: 5, name: "Evaluating", short: "Evaluate", chip: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/25 dark:text-indigo-300 dark:border-indigo-800" },
+  { order: 6, name: "Creating", short: "Create", chip: "bg-indigo-50 text-indigo-700 border-indigo-200 dark:bg-indigo-900/25 dark:text-indigo-300 dark:border-indigo-800" },
+];
+
+/** Bloom's levels that fit each difficulty (same bands the server enforces). */
+export const DIFFICULTY_BLOOM_BANDS: Record<DifficultyLevel, number[]> = {
+  EASY: [1, 2],
+  MEDIUM: [3, 4],
+  DIFFICULT: [4, 5, 6],
+};
+
+export const isBloomAligned = (level: number | null | undefined, difficulty: DifficultyLevel) =>
+  !!level && DIFFICULTY_BLOOM_BANDS[difficulty].includes(level);
+
+/** Nearest level inside the difficulty's band (used when the teacher changes difficulty). */
+export function nearestBloomInBand(level: number | null | undefined, difficulty: DifficultyLevel): number {
+  const band = DIFFICULTY_BLOOM_BANDS[difficulty];
+  if (!level) return band[0];
+  return band.reduce((best, b) => (Math.abs(b - level) < Math.abs(best - level) ? b : best), band[0]);
+}
 
 export type Mix = Record<DifficultyLevel, number>;
 export const EMPTY_MIX: Mix = { EASY: 0, MEDIUM: 0, DIFFICULT: 0 };
