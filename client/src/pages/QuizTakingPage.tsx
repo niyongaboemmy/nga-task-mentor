@@ -50,6 +50,7 @@ import {
   secondsUntil,
 } from "../utils/quizTimer";
 import { formatDuration } from "../utils/quizFormValidation";
+import { releaseProctoringMedia, streamHasCamera } from "../utils/proctoringMedia";
 
 interface QuizTakingQuiz extends Quiz {
   quiz_completed?: boolean;
@@ -155,6 +156,17 @@ const QuizTakingPage: React.FC = () => {
     null,
   );
   const [proctoringMonitorActive, setProctoringMonitorActive] = useState(false);
+  const hasProctoringCamera = streamHasCamera(proctoringStream);
+  // Latest stream for cleanup/socket callbacks that outlive a render.
+  const proctoringStreamRef = useRef<MediaStream | null>(null);
+  useEffect(() => {
+    proctoringStreamRef.current = proctoringStream;
+  }, [proctoringStream]);
+  // Leaving the page (submitted, navigated away, closed) turns the camera
+  // and microphone off and drops the live proctoring connection.
+  useEffect(() => {
+    return () => releaseProctoringMedia([proctoringStreamRef.current]);
+  }, []);
   const [proctoringError, setProctoringError] = useState<string | null>(null);
   const [showWarning, setShowWarning] = useState(false);
   const [warningMessage, setWarningMessage] = useState("");
@@ -870,6 +882,8 @@ const QuizTakingPage: React.FC = () => {
   // Accept optional socket parameter to avoid closure issues
   const captureAndSendCameraScreenshot = async (socket?: any) => {
     const activeSocket = socket || socketRef.current;
+    // Microphone-only session: there is no camera picture to send.
+    if (!streamHasCamera(proctoringStreamRef.current)) return;
 
     console.log("captureAndSendCameraScreenshot called:", {
       hasVideoElement: !!proctoringVideoElement,
@@ -1541,6 +1555,8 @@ const QuizTakingPage: React.FC = () => {
             const result = response.data.data;
 
             clearLocalQuizState();
+            releaseProctoringMedia([proctoringStreamRef.current]);
+            setProctoringStream(null);
             if (result?.timed_out) {
               toast.info(
                 response.data.message ||
@@ -2664,7 +2680,18 @@ const QuizTakingPage: React.FC = () => {
           <ProctoringMonitorComponent
             sessionToken={proctoringSession.session_token}
             quizId={id!}
-            settings={proctoringSettings}
+            settings={
+              hasProctoringCamera
+                ? proctoringSettings
+                : {
+                    // Microphone-only session: no camera-based checks, which
+                    // would otherwise flag violations nobody can fix.
+                    ...proctoringSettings,
+                    enable_face_detection: false,
+                    enable_object_detection: false,
+                    min_camera_level: 0,
+                  }
+            }
             videoElement={proctoringVideoElement}
             stream={proctoringStream}
             isActive={proctoringMonitorActive}
@@ -2676,10 +2703,11 @@ const QuizTakingPage: React.FC = () => {
           />
         )}
 
-      {/* Floating Camera Component */}
+      {/* Floating Camera Component (only when there is a camera) */}
       {proctoringSession &&
         proctoringSettings &&
         proctoringVideoElement &&
+        hasProctoringCamera &&
         proctoringStream && (
           <FloatingCameraComponent
             videoElement={proctoringVideoElement}

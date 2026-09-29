@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { getProctoringStream } from "../../utils/proctoringMedia";
 import axios from "../../utils/axiosConfig";
 import { Button } from "../ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
@@ -371,17 +372,9 @@ const ProctoringSetup: React.FC<ProctoringSetupProps> = ({
   const startWebRTCStream = async (sessionToken: string) => {
     sessionTokenRef.current = sessionToken;
     try {
-      // Try camera+audio first; fall back to audio-only if no camera is available
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { width: 640, height: 480 },
-          audio: true,
-        });
-      } catch {
-        // No camera — continue with audio only
-        stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      }
+      // Camera + microphone, or microphone only when the student has no
+      // camera (then the browser is never asked for the camera).
+      const stream = await getProctoringStream(noCameraMode);
 
       // Notify parent component that video and stream are ready
       if (onVideoReady) {
@@ -1356,13 +1349,23 @@ const IdentityVerificationStep: React.FC<{
     isDetecting: false,
   });
   const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
+    // The camera must be released when this step closes. The cleanup reads a
+    // ref (the `stream` state it closed over is always the initial null), and
+    // a camera that opens after the step closed is stopped straight away.
+    let cancelled = false;
     const startCamera = async () => {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 480 },
         });
+        if (cancelled) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        cameraStreamRef.current = mediaStream;
         setStream(mediaStream);
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -1376,9 +1379,9 @@ const IdentityVerificationStep: React.FC<{
     startCamera();
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
+      cancelled = true;
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
       if (detectionIntervalRef.current) {
         clearInterval(detectionIntervalRef.current);
       }
@@ -1709,13 +1712,23 @@ const FaceVerificationStep: React.FC<{
     isDetecting: false,
   });
   const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
+    // The camera must be released when this step closes. The cleanup reads a
+    // ref (the `stream` state it closed over is always the initial null), and
+    // a camera that opens after the step closed is stopped straight away.
+    let cancelled = false;
     const startCamera = async () => {
       try {
         const mediaStream = await navigator.mediaDevices.getUserMedia({
           video: { width: 640, height: 480, facingMode: "user" },
         });
+        if (cancelled) {
+          mediaStream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+        cameraStreamRef.current = mediaStream;
         setStream(mediaStream);
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
@@ -1732,9 +1745,9 @@ const FaceVerificationStep: React.FC<{
     startCamera();
 
     return () => {
-      if (stream) {
-        stream.getTracks().forEach((track) => track.stop());
-      }
+      cancelled = true;
+      cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+      cameraStreamRef.current = null;
       if (detectionIntervalRef.current) {
         clearInterval(detectionIntervalRef.current);
       }

@@ -243,6 +243,11 @@ describe("QuizTakingPage — overall quiz duration", () => {
   });
 
   it("auto-submits the whole quiz with every answer when time runs out", async () => {
+    const cameraTrack = { kind: "video", readyState: "live", stop: vi.fn() };
+    (window as any).proctoringStream = {
+      getTracks: () => [cameraTrack],
+      getVideoTracks: () => [cameraTrack],
+    };
     quizApi.getQuiz.mockResolvedValue({ success: true, data: makeQuiz(2) });
     mockStart(120);
     await startQuiz();
@@ -268,6 +273,9 @@ describe("QuizTakingPage — overall quiz duration", () => {
     ]);
     expect(screen.getByText(`results-page ${SUBMISSION_ID}`)).toBeInTheDocument();
     expect(localStorage.getItem(`quiz_${QUIZ_ID}_answers`)).toBeNull();
+    // The proctoring camera/mic is switched off once the quiz is submitted.
+    expect(cameraTrack.stop).toHaveBeenCalled();
+    expect((window as any).proctoringStream).toBeNull();
   });
 
   it("keeps the answers and offers a retry when the auto-submit can't reach the server", async () => {
