@@ -20,6 +20,7 @@ import {
 } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { canManageAssignment } from "../utils/ownership";
+import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
 import { assignmentStatusScope, isAssignmentStudentView, termScope } from "../utils/courseItemScope";
 
 // This controller manages all assignment-related operations, including creation, retrieval, updating, deletion, and submission handling. It also integrates with the NGA MIS to fetch enrolled students and manage assignment visibility based on course enrollment. The controller ensures that only authorized users can perform certain actions (e.g., only instructors can create assignments) and that students can only see and submit assignments for courses they are enrolled in. It also handles file uploads for assignments and submissions, storing metadata in the database and files on disk.
@@ -374,12 +375,17 @@ export const getAssignment = async (req: Request, res: Response) => {
         .json({ success: false, message: "Assignment not found" });
     }
 
-    // can_manage drives the edit / status / grading controls on the detail page
+    // can_manage drives the edit / status controls on the detail page;
+    // can_grade the marking controls (any teacher of the subject)
+    const canGrade =
+      !!req.user?.permissions?.has("SUBMISSIONS_GRADE") &&
+      (await canGradeAssignment(req, assignment));
     res.status(200).json({
       success: true,
       data: {
         ...assignment.toJSON(),
         can_manage: canManageAssignment(req.user, assignment),
+        can_grade: canGrade,
       },
     });
   } catch (error) {
@@ -1304,10 +1310,10 @@ export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
         .json({ success: false, message: "Assignment not found" });
     }
 
-    if (!canManageAssignment(req.user, assignment)) {
+    if (!(await canGradeAssignment(req, assignment))) {
       return res.status(403).json({
         success: false,
-        message: "Only the assignment's creator or a super admin can grade it",
+        message: GRADE_DENIED_MESSAGE,
       });
     }
 

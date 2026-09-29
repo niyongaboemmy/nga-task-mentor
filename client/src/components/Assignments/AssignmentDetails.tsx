@@ -56,6 +56,8 @@ interface Assignment {
   created_by: string;
   /** server-computed: creator or super admin (see server utils/ownership.ts) */
   can_manage?: boolean;
+  /** server-computed: any teacher of the subject, the creator or a super admin (server utils/gradingAccess.ts) */
+  can_grade?: boolean;
   attachments?: Attachment[];
   createdAt: string;
   updatedAt: string;
@@ -311,14 +313,17 @@ const AssignmentDetails = () => {
     !userSubmission() &&
     !!user &&
     assignment?.status === "published";
-  // Co-teachers can review every submission; only the assignment's creator
-  // or a super admin may edit it, change its status or grade.
+  // Only the assignment's creator or a super admin may edit it or change its
+  // status; any teacher of its subject may grade its submissions.
   const canViewAllSubmissions = can(["ASSIGNMENTS_VIEW_SUBMISSIONS", "SUBMISSIONS_VIEW_ALL"]);
   const canManageAssignment =
     can("ASSIGNMENTS_EDIT") &&
     (assignment?.can_manage ??
       canManageOwned(assignment?.created_by, "ASSIGNMENTS_MANAGE_ANY"));
-  const canGradeSubmissions = can("SUBMISSIONS_GRADE") && canManageAssignment;
+  const canGradeSubmissions =
+    can("SUBMISSIONS_GRADE") &&
+    (assignment?.can_grade ??
+      canManageOwned(assignment?.created_by, "ASSIGNMENTS_MANAGE_ANY"));
 
   const handleStatusChange = useCallback(
     async (

@@ -14,7 +14,7 @@ import { AdvancedQuizGrader } from "../utils/quizGrader";
 import axios from "axios";
 import { getMisToken, resolveAcademicTermId } from "../utils/misUtils";
 import { isPassed } from "../utils/quizStudentView";
-import { canManageQuiz } from "../utils/ownership";
+import { canGradeQuiz, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
 
 // @desc    Get pending submissions for grading
 // @route   GET /api/quiz-submissions/pending
@@ -200,8 +200,8 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
         max_score: submission.max_score,
         percentage: submission.percentage,
         passed: submission.passed,
-        // Co-teachers may review; only the quiz's creator or a super admin grades.
-        can_grade: canManageQuiz(req.user, quiz),
+        // Any teacher of the quiz's subject grades (plus its creator / a super admin).
+        can_grade: await canGradeQuiz(req, quiz),
         questions: questions.map((question) => {
           // Use the grader's normalizeCorrectAnswer so the frontend always
           // receives a consistent format regardless of how the question was saved.
@@ -271,12 +271,12 @@ export const gradeSubmission = async (req: Request, res: Response) => {
     // Manual grading: the quiz's creator or a super admin only
     if (
       !req.user.permissions?.has("QUIZZES_GRADE") ||
-      !canManageQuiz(req.user, quiz)
+      !(await canGradeQuiz(req, quiz))
     ) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
-        message: "Only the quiz's creator or a super admin can grade this submission",
+        message: GRADE_DENIED_MESSAGE,
       });
     }
 
@@ -646,12 +646,12 @@ export const updateSubmissionFeedback = async (req: Request, res: Response) => {
     // Feedback is part of grading: the quiz's creator or a super admin only
     if (
       !req.user.permissions?.has("QUIZZES_GRADE") ||
-      !canManageQuiz(req.user, quiz)
+      !(await canGradeQuiz(req, quiz))
     ) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,
-        message: "Only the quiz's creator or a super admin can update feedback",
+        message: "Only a teacher of this subject, the creator or a super admin can update feedback",
       });
     }
 
@@ -702,7 +702,7 @@ export const initializeManualSubmission = async (req: Request, res: Response) =>
       return res.status(404).json({ success: false, message: "Quiz not found" });
     }
 
-    if (!canManageQuiz(req.user, quiz)) {
+    if (!(await canGradeQuiz(req, quiz))) {
       await transaction.rollback();
       return res.status(403).json({
         success: false,

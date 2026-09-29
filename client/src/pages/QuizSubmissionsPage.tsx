@@ -65,6 +65,8 @@ interface Quiz {
   created_by?: number;
   /** creator or super admin (GET /quizzes/:id) */
   can_manage?: boolean;
+  /** any teacher of the quiz's subject, the creator or a super admin */
+  can_grade?: boolean;
 }
 
 const QuizSubmissionsPage: React.FC = () => {
@@ -72,11 +74,13 @@ const QuizSubmissionsPage: React.FC = () => {
   const navigate = useNavigate();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const { canManageOwned } = usePermissions();
-  // Co-teachers can review submissions; grading, manual marks and deletes are
-  // reserved for the quiz's creator or a super admin (enforced server-side too).
-  const canGrade =
+  // Any teacher of the quiz's subject grades and records manual marks;
+  // deleting / resetting submissions stays with the quiz's creator or a
+  // super admin (both enforced server-side too).
+  const canManage =
     !!quiz &&
     (quiz.can_manage ?? canManageOwned(quiz.created_by, "QUIZZES_MANAGE_ANY"));
+  const canGrade = !!quiz && (quiz.can_grade ?? canManage);
   const [submissions, setSubmissions] = useState<QuizSubmission[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -433,7 +437,7 @@ const QuizSubmissionsPage: React.FC = () => {
                 <ClipboardList className="w-3 h-3" />
                 Record Manual Marks
               </button>
-              {submissions.length > 0 && (
+              {canManage && submissions.length > 0 && (
                 <button
                   onClick={() => setConfirmDelete({ type: "all" })}
                   disabled={resettingAll}
@@ -447,7 +451,7 @@ const QuizSubmissionsPage: React.FC = () => {
             ) : quiz ? (
               <span
                 className="rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300"
-                title="Only the quiz's creator or a super admin can grade, record marks or delete submissions"
+                title="Only a teacher of this quiz's subject, its creator or a super admin can grade or record marks"
               >
                 View only
               </span>
@@ -731,7 +735,7 @@ const QuizSubmissionsPage: React.FC = () => {
                         Adjust
                       </button>
                     )}
-                    {canGrade && (
+                    {canManage && (
                     <button
                       onClick={() =>
                         setConfirmDelete({
@@ -858,7 +862,7 @@ const QuizSubmissionsPage: React.FC = () => {
                                 Adjust
                               </button>
                             )}
-                            {canGrade && (
+                            {canManage && (
                             <button
                               onClick={() =>
                                 setConfirmDelete({

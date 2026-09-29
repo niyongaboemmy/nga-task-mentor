@@ -27,6 +27,7 @@ import {
 } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { canManageQuiz } from "../utils/ownership";
+import { canGradeQuiz } from "../utils/gradingAccess";
 import {
   attemptSeed,
   buildStudentResults,
@@ -448,7 +449,14 @@ export const getQuiz = async (req: Request, res: Response) => {
       // can_manage drives the edit / status / grading controls on the detail page
       return res.status(200).json({
         success: true,
-        data: { ...quiz.toJSON(), can_manage: canManageQuiz(req.user, quiz) },
+        data: {
+          ...quiz.toJSON(),
+          can_manage: canManageQuiz(req.user, quiz),
+          // marking is wider than managing: any teacher of the quiz's subject
+          can_grade:
+            !!req.user?.permissions?.has("QUIZZES_GRADE") &&
+            (await canGradeQuiz(req, quiz)),
+        },
       });
     }
 
@@ -1891,7 +1899,7 @@ export const updateQuizSubmission = async (req: Request, res: Response) => {
 
     // Find the submission
     const submission = await QuizSubmission.findByPk(id, {
-      include: [{ model: Quiz, as: "quiz", attributes: ["id", "created_by"] }],
+      include: [{ model: Quiz, as: "quiz", attributes: ["id", "created_by", "course_id", "academic_term_id"] }],
       transaction,
     });
     if (!submission) {
@@ -1903,8 +1911,9 @@ export const updateQuizSubmission = async (req: Request, res: Response) => {
 
     const isOwnSubmission = submission.student_id === req.user.id;
     const canGrade =
+      !isOwnSubmission &&
       !!req.user.permissions?.has("QUIZZES_GRADE") &&
-      canManageQuiz(req.user, (submission as any).quiz);
+      (await canGradeQuiz(req, (submission as any).quiz));
 
     // Check authorization
     if (!isOwnSubmission && !canGrade) {
