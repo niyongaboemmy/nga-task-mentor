@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   EMPTY_QUIZ_FORM,
+  quizSettingsWarnings,
   quizToFormValues,
   serverErrorsToFormErrors,
   toQuizPayload,
@@ -198,5 +199,43 @@ describe("serverErrorsToFormErrors", () => {
   it("handles null/undefined", () => {
     expect(serverErrorsToFormErrors(null)).toEqual({});
     expect(serverErrorsToFormErrors(undefined)).toEqual({});
+  });
+});
+
+describe("quizSettingsWarnings", () => {
+  const base = {
+    ...EMPTY_QUIZ_FORM,
+    title: "T",
+    description: "D",
+  };
+
+  it("is quiet for ordinary settings", () => {
+    expect(quizSettingsWarnings(base)).toEqual([]);
+  });
+
+  it("warns when the window closes in the past", () => {
+    expect(quizSettingsWarnings({ ...base, end_date: "2000-01-01T10:00" })[0]).toMatch(
+      /in the past/,
+    );
+  });
+
+  it("warns when the window is shorter than the duration", () => {
+    const w = quizSettingsWarnings({
+      ...base,
+      time_limit: "90",
+      start_date: "2099-01-01T10:00",
+      end_date: "2099-01-01T11:00",
+    });
+    expect(w[0]).toMatch(/shorter than the 1 h 30 min duration/);
+  });
+
+  it("warns when correct answers would show before manual grading", () => {
+    const w = quizSettingsWarnings({
+      ...base,
+      require_manual_grading: true,
+      show_results_immediately: true,
+      show_correct_answers: true,
+    });
+    expect(w[0]).toMatch(/before you finish manual grading/);
   });
 });

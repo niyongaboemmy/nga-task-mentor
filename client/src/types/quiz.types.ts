@@ -316,6 +316,9 @@ export interface Quiz {
   is_available?: boolean;
   is_active?: boolean;
   is_public?: boolean;
+  /** Student view only (GET /quizzes/:id without edit rights). */
+  student_state?: StudentQuizState;
+  question_count?: number;
 }
 
 export interface QuestionBankEntry {
@@ -373,6 +376,26 @@ export interface QuizQuestion {
   questionBank?: QuestionBankEntry;
   quiz?: Quiz;
   attempts?: QuizAttempt[];
+}
+
+export interface StudentQuizState {
+  availability: {
+    state: "open" | "not_open" | "closed" | "unpublished";
+    opens_at: string | null;
+    closes_at: string | null;
+  };
+  attempts: {
+    max_attempts: number | null;
+    attempts_used: number;
+    attempts_left: number | null;
+    in_progress_submission_id: number | null;
+    current_attempt_number: number;
+    can_start_new_attempt: boolean;
+    last_finished_submission_id: number | null;
+  };
+  enrolled: boolean;
+  can_start: boolean;
+  blocked_reason: string | null;
 }
 
 export interface QuizAttempt {

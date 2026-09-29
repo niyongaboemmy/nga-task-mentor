@@ -78,6 +78,51 @@ describe("QuizForm", () => {
     expect(onSubmit.mock.calls[0][0].time_limit).toBe(90);
   });
 
+  it("steps the duration with − / + in 5-minute steps within bounds", async () => {
+    const user = userEvent.setup();
+    render(<QuizForm mode="create" onSubmit={onSubmit} onCancel={onCancel} />);
+    const input = screen.getByLabelText(/Overall Duration \(Optional\)/i);
+    expect(screen.getByRole("button", { name: /Decrease duration/i })).toBeDisabled();
+
+    await user.click(screen.getByRole("button", { name: /Increase duration/i }));
+    expect(input).toHaveValue(5);
+    await user.click(screen.getByRole("button", { name: /Increase duration/i }));
+    expect(input).toHaveValue(10);
+    await user.click(screen.getByRole("button", { name: /Decrease duration/i }));
+    expect(input).toHaveValue(5);
+    await user.click(screen.getByRole("button", { name: /Decrease duration/i }));
+    expect(input).toHaveValue(1);
+  });
+
+  it("explains each option and locks 'show grades' while manual grading is required", async () => {
+    const user = userEvent.setup();
+    render(<QuizForm mode="create" onSubmit={onSubmit} onCancel={onCancel} />);
+    expect(screen.getByText(/Empty = unlimited/i)).toBeInTheDocument();
+    expect(screen.getByText(/in the order you arranged them/i)).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(/Randomize question order/i));
+    expect(screen.getByText(/Each student gets their own order/i)).toBeInTheDocument();
+
+    await user.click(screen.getByLabelText(/Show results immediately/i));
+    expect(screen.getByText(/only after you grade their attempt/i)).toBeInTheDocument();
+
+    const showGrades = screen.getByLabelText(/Show grades to students immediately/i);
+    expect(showGrades).toBeEnabled();
+    await user.click(screen.getByLabelText(/Require instructor manual grading/i));
+    expect(showGrades).toBeDisabled();
+    expect(showGrades).not.toBeChecked();
+  });
+
+  it("shows non-blocking warnings for conflicting settings", async () => {
+    const user = userEvent.setup();
+    render(<QuizForm mode="create" onSubmit={onSubmit} onCancel={onCancel} />);
+    await user.click(screen.getByLabelText(/Show correct answers/i));
+    await user.click(screen.getByLabelText(/Require instructor manual grading/i));
+    expect(
+      screen.getByRole("list", { name: /Settings to double-check/i }),
+    ).toHaveTextContent(/before you finish manual grading/);
+  });
+
   it("pre-fills the duration when editing a timed quiz", () => {
     render(
       <QuizForm

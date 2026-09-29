@@ -1,5 +1,6 @@
 import { Transaction } from "sequelize";
 import { QuizAttempt, QuizQuestion } from "../models";
+import { gradeStatusOnSubmit, isPassed } from "./quizStudentView";
 
 /**
  * Quiz timing rules shared by the submission/attempt controllers.
@@ -106,12 +107,7 @@ export async function finalizeFromSavedAttempts(
     0,
   );
   const percentage = maxScore > 0 ? (totalScore / maxScore) * 100 : 0;
-  const enableAutoGrading = quiz?.enable_automatic_grading !== false;
-  const requireManualGrading = quiz?.require_manual_grading === true;
-  const passed =
-    enableAutoGrading && !requireManualGrading
-      ? percentage >= Number(quiz?.passing_score || 60)
-      : false;
+  const passed = isPassed(percentage, quiz);
 
   const now = new Date();
   const startedAt = submission.started_at
@@ -130,7 +126,7 @@ export async function finalizeFromSavedAttempts(
       status: "completed",
       completed_at: now,
       time_taken: Math.max(0, Math.floor((endAt - startedAt) / 1000)),
-      grade_status: requireManualGrading ? "pending" : "auto_graded",
+      grade_status: gradeStatusOnSubmit(quiz),
     },
     { transaction },
   );

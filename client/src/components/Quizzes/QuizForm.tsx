@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import {
   EMPTY_QUIZ_FORM,
   formatDuration,
+  quizSettingsWarnings,
   QUIZ_INSTRUCTIONS_MAX,
   QUIZ_MAX_ATTEMPTS_MAX,
   QUIZ_STATUSES,
@@ -165,6 +166,18 @@ export const QuizForm: React.FC<QuizFormProps> = ({
       ? parsedDuration
       : null;
 
+  /** −/+ buttons: 5-minute steps, clamped; from empty "+" starts at 5. */
+  const stepDuration = (delta: number) => {
+    const current = durationMinutes ?? 0;
+    const next = Math.min(
+      QUIZ_TIME_LIMIT_MAX,
+      Math.max(QUIZ_TIME_LIMIT_MIN, current + delta),
+    );
+    setField("time_limit", String(next));
+  };
+
+  const warnings = quizSettingsWarnings(values, mode);
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6" noValidate>
       {(serverMessage || (attemptedSubmit && errorCount > 0)) && (
@@ -315,6 +328,13 @@ export const QuizForm: React.FC<QuizFormProps> = ({
               {...ariaProps("max_attempts")}
             />
             <FieldErrorText id={errorId("max_attempts")} message={errors.max_attempts} />
+            <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+              {values.max_attempts.trim() === ""
+                ? "Empty = unlimited. Students can retake the quiz as often as they like."
+                : Number(values.max_attempts) === 1
+                  ? "Students get a single attempt."
+                  : `Students can take the quiz up to ${values.max_attempts} times; each attempt is scored separately.`}
+            </p>
           </div>
 
           <div>
@@ -336,6 +356,9 @@ export const QuizForm: React.FC<QuizFormProps> = ({
               {...ariaProps("passing_score")}
             />
             <FieldErrorText id={errorId("passing_score")} message={errors.passing_score} />
+            <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+              Empty = 60%. Decides the Passed / Not passed shown with the grade.
+            </p>
           </div>
         </div>
 
@@ -366,7 +389,22 @@ export const QuizForm: React.FC<QuizFormProps> = ({
               </p>
             </div>
             <div className="flex items-center gap-2 sm:flex-shrink-0">
-              <div className="relative">
+              <div
+                className={`flex items-stretch overflow-hidden rounded-xl border bg-white dark:bg-gray-800/30 ${
+                  errors.time_limit
+                    ? "border-red-400 dark:border-red-500/70"
+                    : "border-gray-300 dark:border-gray-700/40"
+                } focus-within:ring-2 ${errors.time_limit ? "focus-within:ring-red-500" : "focus-within:ring-blue-500"}`}
+              >
+                <button
+                  type="button"
+                  onClick={() => stepDuration(-5)}
+                  disabled={!durationMinutes || durationMinutes <= QUIZ_TIME_LIMIT_MIN}
+                  className="px-2.5 text-lg leading-none text-text-secondary-light hover:bg-gray-100 disabled:opacity-40 dark:text-text-secondary-dark dark:hover:bg-gray-800"
+                  aria-label="Decrease duration by 5 minutes"
+                >
+                  −
+                </button>
                 <input
                   type="number"
                   id="quiz-time_limit"
@@ -379,7 +417,7 @@ export const QuizForm: React.FC<QuizFormProps> = ({
                   min={QUIZ_TIME_LIMIT_MIN}
                   max={QUIZ_TIME_LIMIT_MAX}
                   step={1}
-                  className={`${inputClass(Boolean(errors.time_limit))} w-32 pr-12`}
+                  className="w-16 bg-transparent py-2 text-center text-sm focus:outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                   {...ariaProps("time_limit")}
                   aria-describedby={
                     errors.time_limit
@@ -387,9 +425,18 @@ export const QuizForm: React.FC<QuizFormProps> = ({
                       : "quiz-time_limit-hint"
                   }
                 />
-                <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                <span className="flex items-center pr-1 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                   min
                 </span>
+                <button
+                  type="button"
+                  onClick={() => stepDuration(5)}
+                  disabled={durationMinutes !== null && durationMinutes >= QUIZ_TIME_LIMIT_MAX}
+                  className="px-2.5 text-lg leading-none text-text-secondary-light hover:bg-gray-100 disabled:opacity-40 dark:text-text-secondary-dark dark:hover:bg-gray-800"
+                  aria-label="Increase duration by 5 minutes"
+                >
+                  +
+                </button>
               </div>
               {values.time_limit !== "" && (
                 <button
@@ -465,29 +512,58 @@ export const QuizForm: React.FC<QuizFormProps> = ({
         </div>
 
         {/* Options */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           {(
             [
-              ["show_results_immediately", "Show results immediately after completion"],
-              ["randomize_questions", "Randomize question order"],
-              ["show_correct_answers", "Show correct answers after completion"],
+              [
+                "show_results_immediately",
+                "Show results immediately after completion",
+                values.show_results_immediately
+                  ? "Students can open their results as soon as they submit."
+                  : "Students see their results only after you grade their attempt.",
+              ],
+              [
+                "randomize_questions",
+                "Randomize question order",
+                values.randomize_questions
+                  ? "Each student gets their own order, which stays the same if they reload; a new attempt gets a new order."
+                  : "Questions appear in the order you arranged them.",
+              ],
+              [
+                "show_correct_answers",
+                "Show correct answers after completion",
+                values.show_correct_answers
+                  ? values.show_results_immediately
+                    ? "Correct answers and explanations appear on the results page."
+                    : "Correct answers and explanations appear once you release results by grading."
+                  : "Students see their own answers only, never the correct ones.",
+              ],
             ] as const
-          ).map(([field, label]) => (
-            <div key={field} className="flex items-center">
+          ).map(([field, label, hint]) => (
+            <div key={field} className="flex items-start">
               <input
                 type="checkbox"
                 id={`quiz-${field}`}
                 name={field}
                 checked={values[field]}
                 onChange={(e) => setField(field, e.target.checked)}
-                className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+                aria-describedby={`quiz-${field}-hint`}
+                className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
               />
-              <label
-                htmlFor={`quiz-${field}`}
-                className="ml-2 text-sm text-text-secondary-light dark:text-text-secondary-dark"
-              >
-                {label}
-              </label>
+              <div className="ml-2">
+                <label
+                  htmlFor={`quiz-${field}`}
+                  className="text-sm text-text-secondary-light dark:text-text-secondary-dark"
+                >
+                  {label}
+                </label>
+                <p
+                  id={`quiz-${field}-hint`}
+                  className="text-xs text-text-secondary-light/80 dark:text-text-secondary-dark/60"
+                >
+                  {hint}
+                </p>
+              </div>
             </div>
           ))}
         </div>
@@ -502,15 +578,21 @@ export const QuizForm: React.FC<QuizFormProps> = ({
               type="checkbox"
               id="quiz-enable_automatic_grading"
               name="enable_automatic_grading"
-              checked={values.enable_automatic_grading}
+              checked={values.enable_automatic_grading && !values.require_manual_grading}
+              disabled={values.require_manual_grading}
               onChange={(e) => setField("enable_automatic_grading", e.target.checked)}
-              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded disabled:opacity-50"
             />
             <label
               htmlFor="quiz-enable_automatic_grading"
-              className="ml-2 text-sm text-text-secondary-light dark:text-text-secondary-dark"
+              className={`ml-2 text-sm text-text-secondary-light dark:text-text-secondary-dark ${
+                values.require_manual_grading ? "opacity-60" : ""
+              }`}
             >
               Show grades to students immediately after quiz completion
+              {values.require_manual_grading && (
+                <span className="ml-1 text-xs">(not while manual grading is required)</span>
+              )}
             </label>
           </div>
           <div className="flex items-center">
@@ -556,6 +638,20 @@ export const QuizForm: React.FC<QuizFormProps> = ({
           </label>
         </div>
       </div>
+
+      {warnings.length > 0 && (
+        <ul
+          aria-label="Settings to double-check"
+          className="space-y-1 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs text-amber-800 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-300"
+        >
+          {warnings.map((w) => (
+            <li key={w} className="flex gap-2">
+              <span aria-hidden>⚠</span>
+              <span>{w}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {children}
 

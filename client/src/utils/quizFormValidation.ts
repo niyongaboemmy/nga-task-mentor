@@ -222,6 +222,45 @@ export function validateQuizForm(
   return errors;
 }
 
+/**
+ * Non-blocking advice about settings that are valid on their own but
+ * probably not what the author means together.
+ */
+export function quizSettingsWarnings(
+  values: QuizFormValues,
+  mode: "create" | "edit" = "create",
+): string[] {
+  const out: string[] = [];
+  const duration = asNumber(values.time_limit);
+  const start = isBlank(values.start_date) ? null : new Date(values.start_date);
+  const end = isBlank(values.end_date) ? null : new Date(values.end_date);
+  const validEnd = end && !Number.isNaN(end.getTime()) ? end : null;
+  const validStart = start && !Number.isNaN(start.getTime()) ? start : null;
+
+  if (validEnd && validEnd.getTime() < Date.now() && (mode === "create" || values.status === "published")) {
+    out.push("“Available Until” is in the past, so students won't be able to start this quiz.");
+  }
+  if (
+    duration !== null &&
+    Number.isInteger(duration) &&
+    duration > 0 &&
+    validStart &&
+    validEnd &&
+    validEnd.getTime() > validStart.getTime() &&
+    (validEnd.getTime() - validStart.getTime()) / 60_000 < duration
+  ) {
+    out.push(
+      `The availability window is shorter than the ${formatDuration(duration)} duration. Attempts end when the window closes, so students get less time.`,
+    );
+  }
+  if (values.require_manual_grading && values.show_results_immediately && values.show_correct_answers) {
+    out.push(
+      "Correct answers will be visible right after submitting, before you finish manual grading.",
+    );
+  }
+  return out;
+}
+
 /** Convert form values into the API payload (numbers, nulls, ISO dates). */
 export function toQuizPayload(
   values: QuizFormValues,

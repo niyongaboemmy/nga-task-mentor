@@ -13,6 +13,11 @@ import { AnswerDataType, GradingResult } from "../types/quiz.types";
 import { AdvancedQuizGrader } from "../utils/quizGrader";
 import { resolveAcademicTermId } from "../utils/misUtils";
 import {
+  buildStudentResults,
+  needsManualReview,
+  resultVisibility,
+} from "../utils/quizStudentView";
+import {
   computeAttemptEndTime,
   hasOverallDuration,
   isPastDeadline,
@@ -53,16 +58,10 @@ const computeAttemptGrading = async (params: {
     };
   }
 
-  if (!enableAutoGrading || requireManualGrading) {
-    return {
-      gradingResult: {
-        is_correct: false,
-        points_earned: 0,
-        feedback: "Pending manual grading",
-      },
-      status: "completed",
-    };
-  }
+  // The automatic grade is always computed and stored; the result settings
+  // decide when the student sees it (utils/quizStudentView).
+  void enableAutoGrading;
+  void requireManualGrading;
 
   const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
     question,
@@ -367,18 +366,33 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
 
     await transaction.commit();
 
+    // While the attempt is running the student only learns that the answer
+    // was saved — never whether it is right (they could otherwise probe
+    // options and change answers). Coding questions keep their test-run
+    // output, which is part of the question itself; their score shows only
+    // when the quiz releases grades immediately.
+    const questionType = question.questionBank?.question_type;
+    const isCodeRun = questionType === "coding" || questionType === "algorithmic";
+    const revealScore =
+      isCodeRun &&
+      quiz.show_results_immediately !== false &&
+      !needsManualReview(quiz);
+
     res.status(201).json({
       success: true,
       data: {
         attempt_id: attempt.id,
+        saved: true,
         grading_result: {
-          is_correct: isCorrect,
-          points_earned: pointsEarned,
-          feedback:
-            gradingResult.feedback || (isCorrect ? "Correct!" : "Incorrect"),
+          is_correct: revealScore ? isCorrect : null,
+          points_earned: revealScore ? pointsEarned : null,
+          feedback: isCodeRun
+            ? gradingResult.feedback || "Answer saved"
+            : "Answer saved",
         },
-        // Pass detailed coding test results back to the student's IDE
-        grading_details: (gradingResult as any).detailed_feedback ?? null,
+        grading_details: isCodeRun
+          ? ((gradingResult as any).detailed_feedback ?? null)
+          : null,
         question_completed: true,
       },
     });
@@ -612,10 +626,12 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
 
     const quiz = submission.quiz;
 
-    const enableAutoGrading = quiz?.enable_automatic_grading !== false;
-    const requireManualGrading = quiz?.require_manual_grading === true;
-    const showGrades = enableAutoGrading && !requireManualGrading;
-    const showCorrectAnswers = quiz?.show_correct_answers === true;
+    // Nothing about correctness while the attempt is still running; after
+    // that, the quiz's result settings decide.
+    const finished = submission.status !== "in_progress";
+    const visibility = resultVisibility(quiz, submission);
+    const showGrades = finished && visibility.show_score;
+    const showCorrectAnswers = finished && visibility.show_correct_answers;
     const questions = quiz?.questions || [];
 
     // Calculate progress
@@ -661,7 +677,7 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
       question_data: showCorrectAnswers
         ? attempt.attemptQuestion?.questionBank?.question_data
         : null,
-      is_correct: showCorrectAnswers ? attempt.is_correct : null,
+      is_correct: showGrades ? attempt.is_correct : null,
       points_earned: showGrades ? attempt.points_earned : null,
       max_points: attempt.attemptQuestion?.points,
       time_taken: attempt.time_taken,
@@ -679,7 +695,7 @@ export const getQuizAttemptStatus = async (req: Request, res: Response) => {
         quiz_title: quiz?.title,
         status: submission.status,
         progress,
-        current_score: totalEarned,
+        current_score: showGrades ? totalEarned : null,
         max_score: maxPossible,
         attempts: results,
         time_elapsed: timeElapsed,
@@ -822,85 +838,9 @@ export const getSubmissionResults = async (req: Request, res: Response) => {
       });
     }
 
-    const enableAutoGrading =
-      submission.quiz?.enable_automatic_grading !== false;
-    const requireManualGrading =
-      submission.quiz?.require_manual_grading === true;
-    const showGrades = enableAutoGrading && !requireManualGrading;
-    const showCorrectAnswers = submission.quiz?.show_correct_answers === true;
-
-    const results = (submission.attempts || []).map((attempt: any) => {
-      const rawQuestionData =
-        attempt.attemptQuestion?.questionBank?.question_data as any;
-
-      // Parse question_data if stored as a JSON string in the database
-      let parsedQuestionData: any = rawQuestionData;
-      if (typeof rawQuestionData === "string") {
-        try {
-          parsedQuestionData = JSON.parse(rawQuestionData);
-        } catch {
-          parsedQuestionData = {};
-        }
-      }
-
-      let questionData: any = null;
-      if (parsedQuestionData) {
-        if (showCorrectAnswers) {
-          questionData = parsedQuestionData;
-        } else {
-          const {
-            correct_option_index,
-            correct_option_indices,
-            correct_answer: _ca,
-            correct_matches,
-            ...safe
-          } = parsedQuestionData;
-          questionData = safe;
-        }
-      }
-
-      return {
-        question_id: attempt.question_id,
-        question_text: attempt.attemptQuestion?.questionBank?.question_text,
-        question_type: attempt.attemptQuestion?.questionBank?.question_type,
-        question_data: questionData,
-        user_answer: attempt.submitted_answer,
-        correct_answer: showCorrectAnswers ? attempt.correct_answer : null,
-        is_correct: showGrades ? attempt.is_correct : null,
-        points_earned: showGrades ? attempt.points_earned : null,
-        max_points: attempt.attemptQuestion?.points,
-        explanation: showCorrectAnswers
-          ? attempt.attemptQuestion?.questionBank?.explanation
-          : null,
-        time_taken: attempt.time_taken,
-      };
-    });
-
     return res.status(200).json({
       success: true,
-      data: {
-        submission_id: submission.id,
-        quiz_title: submission.quiz?.title,
-        final_score: submission.total_score,
-        max_score: submission.max_score,
-        percentage: submission.percentage,
-        grade: showGrades
-          ? getGradeFromPercentage(parseFloat(String(submission.percentage)))
-          : "N/A",
-        passed: showGrades ? submission.passed : null,
-        grade_status: submission.grade_status,
-        results_available: true,
-        results,
-        submitted_at: submission.completed_at,
-        time_taken: (submission.time_taken || 0) * 1000,
-        feedback: submission.feedback,
-        grading_settings: {
-          enable_automatic_grading: enableAutoGrading,
-          require_manual_grading: requireManualGrading,
-          show_grades: showGrades,
-          show_correct_answers: showCorrectAnswers,
-        },
-      },
+      data: buildStudentResults(submission, submission.quiz),
     });
   } catch (error) {
     console.error("Get submission results error:", error);

@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
 import RichTextDisplay from "../components/Common/RichTextDisplay";
+import type { StudentQuizState } from "../types/quiz.types";
 
 interface Quiz {
   id: number;
@@ -138,6 +139,9 @@ const QuizResultsPage: React.FC = () => {
   const [result, setResult] = useState<QuizResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  /** Set when the quiz's settings hold results back (not released yet). */
+  const [pendingMessage, setPendingMessage] = useState<string | null>(null);
+  const [studentState, setStudentState] = useState<StudentQuizState | null>(null);
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set());
   const [submissionData] = useState<SubmissionData | null>(
@@ -156,10 +160,26 @@ const QuizResultsPage: React.FC = () => {
   }, [result]);
 
   useEffect(() => {
+    if (completedResults?.student_state) {
+      setStudentState(completedResults.student_state);
+    }
     if (id) {
       if (!completedResults) {
         fetchQuiz();
         fetchResults();
+      } else if (completedResults.results_available === false) {
+        // Handed over by the taking page: results are held back for now.
+        setStudentState(completedResults.student_state ?? null);
+        setQuiz({
+          ...completedResults,
+          id: completedResults.quiz_id,
+          title: completedResults.quiz_title,
+        });
+        setPendingMessage(
+          completedResults.message ||
+            "Results will be available after your instructor reviews your quiz.",
+        );
+        setLoading(false);
       } else {
         setQuiz({
           id: parseInt(id),
@@ -212,7 +232,15 @@ const QuizResultsPage: React.FC = () => {
   const fetchQuiz = async () => {
     try {
       const response = await axios.get(`/quizzes/${id}`);
-      setQuiz(response.data.data);
+      const d = response.data.data;
+      setStudentState(d?.student_state ?? null);
+      // When no attempt is left, GET /quizzes/:id returns the latest results
+      // instead of the quiz; keep the fields this page reads.
+      setQuiz(
+        d?.quiz_completed
+          ? { ...d, id: d.quiz_id, title: d.quiz_title, passing_score: d.passing_score }
+          : d,
+      );
     } catch (error) {
       console.error("Error fetching quiz:", error);
     }
@@ -225,6 +253,15 @@ const QuizResultsPage: React.FC = () => {
       setFetchError(null);
       const response = await axios.get(`/quizzes/${id}/results`);
       const apiData = response.data.data;
+
+      if (apiData?.results_available === false) {
+        setPendingMessage(
+          apiData.message || "Results will be available after your instructor reviews your quiz.",
+        );
+        setResult(null);
+        return;
+      }
+      setPendingMessage(null);
 
       const gradingSettings = apiData.grading_settings || {
         enable_automatic_grading: true,
@@ -422,6 +459,52 @@ const QuizResultsPage: React.FC = () => {
               className="inline-flex items-center px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full hover:from-blue-600 hover:to-blue-700 transition-all duration-300 shadow-lg"
             >
               <ArrowLeft className="h-5 w-5 mr-2" />
+              Back to Quizzes
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const retake = studentState?.can_start
+    ? {
+        label: studentState.attempts.in_progress_submission_id
+          ? "Resume attempt"
+          : `Take again${
+              studentState.attempts.attempts_left !== null
+                ? ` (${studentState.attempts.attempts_left} left)`
+                : ""
+            }`,
+        to: `/quizzes/${id}/take`,
+      }
+    : null;
+
+  if (!result && pendingMessage) {
+    return (
+      <div className="min-h-[60vh] flex items-center justify-center p-4">
+        <div className="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm rounded-2xl p-8 border border-gray-200 dark:border-gray-700/40 max-w-md text-center">
+          <CheckCircle className="h-14 w-14 text-emerald-500 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-text-primary-light dark:text-text-primary-dark mb-2">
+            Quiz submitted
+          </h2>
+          <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">
+            {pendingMessage}
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            {retake && (
+              <Link
+                to={retake.to}
+                className="inline-flex items-center justify-center px-5 py-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700"
+              >
+                {retake.label}
+              </Link>
+            )}
+            <Link
+              to="/my-quizzes"
+              className="inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-full text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-800"
+            >
+              <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Quizzes
             </Link>
           </div>
@@ -846,6 +929,14 @@ const QuizResultsPage: React.FC = () => {
               What would you like to do next?
             </h3>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              {retake && (
+                <Link
+                  to={retake.to}
+                  className="inline-flex items-center justify-center whitespace-nowrap px-6 py-3 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-all duration-300 hover:scale-105"
+                >
+                  {retake.label}
+                </Link>
+              )}
               <Link
                 to="/my-quizzes"
                 className="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all duration-300 hover:scale-105"

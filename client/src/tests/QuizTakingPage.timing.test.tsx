@@ -349,3 +349,100 @@ describe("QuizTakingPage — per-question durations (no overall duration)", () =
     expect(submitCalls()).toHaveLength(0);
   });
 });
+
+describe("QuizTakingPage — quiz settings on the instructions screen", () => {
+  const state = (over: Record<string, any> = {}) => ({
+    availability: { state: "open", opens_at: null, closes_at: null },
+    attempts: {
+      max_attempts: 3,
+      attempts_used: 1,
+      attempts_left: 2,
+      in_progress_submission_id: null,
+      current_attempt_number: 2,
+      can_start_new_attempt: true,
+      last_finished_submission_id: 900,
+    },
+    enrolled: true,
+    can_start: true,
+    blocked_reason: null,
+    ...over,
+  });
+
+  const goToLastStep = () => {
+    let next = screen.queryByRole("button", { name: /^Next/ });
+    while (next) {
+      fireEvent.click(next);
+      next = screen.queryByRole("button", { name: /^Next/ });
+    }
+  };
+
+  it("shows the teacher's instructions first and summarises the settings", async () => {
+    quizApi.getQuiz.mockResolvedValue({
+      success: true,
+      data: {
+        ...makeQuiz(null),
+        instructions: "Show your working on paper.",
+        passing_score: 70,
+        question_count: 3,
+        randomize_questions: true,
+        student_state: state({
+          availability: { state: "open", opens_at: null, closes_at: "2026-10-01T10:00:00Z" },
+        }),
+      },
+    });
+    renderPage();
+    await flush();
+
+    expect(screen.getByText("From your teacher")).toBeInTheDocument();
+    expect(screen.getByText("Show your working on paper.")).toBeInTheDocument();
+    expect(screen.getByText("2 of 3")).toBeInTheDocument();
+    expect(screen.getByText("70%")).toBeInTheDocument();
+    expect(screen.getByText("Per question")).toBeInTheDocument();
+    expect(screen.getByText(/questions are shuffled for you/)).toBeInTheDocument();
+
+    goToLastStep();
+    expect(screen.getByRole("button", { name: /Start Quiz/ })).toBeEnabled();
+  });
+
+  it("explains why it can't start and links to results when attempts are used up", async () => {
+    quizApi.getQuiz.mockResolvedValue({
+      success: true,
+      data: {
+        ...makeQuiz(null),
+        student_state: state({
+          can_start: false,
+          blocked_reason: "You have used all 3 attempts for this quiz.",
+        }),
+      },
+    });
+    renderPage();
+    await flush();
+
+    expect(screen.getByRole("alert")).toHaveTextContent(/used all 3 attempts/);
+    expect(screen.getByRole("link", { name: /View my results/ })).toHaveAttribute(
+      "href",
+      `/quizzes/${QUIZ_ID}/results`,
+    );
+    goToLastStep();
+    expect(screen.getByRole("button", { name: /Start Quiz/ })).toBeDisabled();
+  });
+
+  it("shows when a not-yet-open quiz opens", async () => {
+    quizApi.getQuiz.mockResolvedValue({
+      success: true,
+      data: {
+        ...makeQuiz(null),
+        student_state: state({
+          can_start: false,
+          blocked_reason: "This quiz opens on 2026-10-05T08:00:00.000Z.",
+          availability: { state: "not_open", opens_at: "2026-10-05T08:00:00.000Z", closes_at: null },
+          attempts: { ...state().attempts, last_finished_submission_id: null, attempts_used: 0 },
+        }),
+      },
+    });
+    renderPage();
+    await flush();
+    expect(screen.getByRole("alert")).toHaveTextContent(/This quiz opens on/);
+    expect(screen.queryByRole("link", { name: /View my results/ })).not.toBeInTheDocument();
+  });
+});

@@ -185,7 +185,7 @@ describe("timed quiz attempt", () => {
       { question_id: questions[1].id, answer: { answer: false } },
     ]);
     expect(res.status).toBe(201);
-    expect(res.body.data.answers).toHaveLength(2);
+    expect(res.body.data.answered).toBe(2);
     const fresh = await QuizSubmission.findByPk(sub.id);
     expect(fresh?.status).toBe("completed");
   });
@@ -248,6 +248,11 @@ describe("untimed quiz attempt (per-question durations)", () => {
 
     const slow = await saveAnswer(res.body.data.id, questions[0].id, { answer: true }, 60);
     expect(slow.status).toBe(201);
-    expect(slow.body.data.grading_result.feedback).toBe("Question timed out");
+    // The student isn't told (no correctness leaks mid-quiz), but it's recorded.
+    expect(slow.body.data.grading_result.is_correct).toBeNull();
+    const attempt = await QuizAttempt.findOne({
+      where: { submission_id: res.body.data.id, question_id: questions[0].id },
+    });
+    expect(attempt?.status).toBe("timed_out");
   });
 });

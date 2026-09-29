@@ -13,6 +13,7 @@ import { sequelize } from "../config/database";
 import { AdvancedQuizGrader } from "../utils/quizGrader";
 import axios from "axios";
 import { getMisToken, resolveAcademicTermId } from "../utils/misUtils";
+import { isPassed } from "../utils/quizStudentView";
 import { canManageQuiz } from "../utils/ownership";
 
 // @desc    Get pending submissions for grading
@@ -301,9 +302,7 @@ export const gradeSubmission = async (req: Request, res: Response) => {
     const maxPossible =
       quiz?.questions?.reduce((sum, q) => sum + (parseFloat(String(q.points)) || 0), 0) || 0;
     const percentage = maxPossible > 0 ? (totalEarned / maxPossible) * 100 : 0;
-    const passed = quiz?.passing_score
-      ? percentage >= quiz.passing_score
-      : true;
+    const passed = isPassed(percentage, quiz);
 
     // Update submission
     await submission.update(

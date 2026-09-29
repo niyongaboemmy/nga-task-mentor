@@ -28,6 +28,18 @@ import {
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { canManageQuiz } from "../utils/ownership";
 import {
+  attemptSeed,
+  buildStudentResults,
+  gradeStatusOnSubmit,
+  isPassed,
+  quizAvailability,
+  availabilityMessage,
+  sanitizeQuestionForStudent,
+  seededShuffle,
+  studentAttemptSummary,
+} from "../utils/quizStudentView";
+import { studentMayTakeQuiz } from "../utils/studentEnrollment";
+import {
   SUBMIT_GRACE_SECONDS,
   computeAttemptEndTime,
   finalizeFromSavedAttempts,
@@ -390,6 +402,9 @@ export const getGroupedQuizzes = async (req: Request, res: Response) => {
 // @access  Private (instructor, admin, enrolled students)
 export const getQuiz = async (req: Request, res: Response) => {
   try {
+    // Students (no edit rights) get a separate, answer-free view.
+    const isStudentView = !req.user.permissions?.has("QUIZZES_EDIT");
+
     const quiz = await Quiz.findByPk(req.params.id, {
       include: [
         {
@@ -400,22 +415,27 @@ export const getQuiz = async (req: Request, res: Response) => {
         {
           model: QuizQuestion,
           include: [
-            {
-              model: QuizAttempt,
-              where: { student_id: req.user.id },
-              required: false,
-              attributes: [
-                "id",
-                "submitted_answer",
-                "is_correct",
-                "points_earned",
-              ],
-            },
+            ...(isStudentView
+              ? []
+              : [
+                  {
+                    model: QuizAttempt,
+                    where: { student_id: req.user.id },
+                    required: false,
+                    attributes: [
+                      "id",
+                      "submitted_answer",
+                      "is_correct",
+                      "points_earned",
+                    ],
+                  },
+                ]),
             ...getQuestionBankInclude(),
           ],
-          order: [["order", "ASC"]],
         },
       ],
+      // Nested `order` inside an include is ignored by Sequelize — order here.
+      order: [[{ model: QuizQuestion, as: "questions" }, "order", "ASC"]],
     });
 
     if (!quiz) {
@@ -424,38 +444,82 @@ export const getQuiz = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check if user can access this quiz
-    // Allow all authenticated users to access quizzes
-    // Enrollment checks can be added later based on requirements
-    // Note: Following the same pattern as assignments controller
-
-    // If quiz is not published and user is not instructor/admin, deny access
-    // Exception: public quizzes can be accessed by anyone
-    if (
-      quiz.status !== "published" &&
-      !quiz.is_public &&
-      !req.user.permissions?.has("QUIZZES_MANAGE_ANY") &&
-      req.user.id !== quiz.created_by
-    ) {
-      return res.status(403).json({
-        success: false,
-        message: "Quiz is not available",
+    if (!isStudentView) {
+      // can_manage drives the edit / status / grading controls on the detail page
+      return res.status(200).json({
+        success: true,
+        data: { ...quiz.toJSON(), can_manage: canManageQuiz(req.user, quiz) },
       });
     }
 
-    // For students, check if they have already completed this quiz
-    if (!req.user.permissions?.has("QUIZZES_EDIT")) {
-      const completedSubmission = await QuizSubmission.findOne({
-        where: {
-          quiz_id: req.params.id,
-          student_id: req.user.id,
-          status: "completed",
-        },
+    return res.status(200).json({
+      success: true,
+      data: await buildStudentQuizView(req, quiz),
+    });
+  } catch (error: any) {
+    if (error?.status === 403) {
+      return res.status(403).json({ success: false, message: error.message });
+    }
+    if (error?.response?.status === 401) {
+      return handleMisError(error, res, "MIS session expired");
+    }
+    console.error("Get quiz error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
+/**
+ * GET /quizzes/:id for a student. Drafts are never shown; when the student
+ * can't (or no longer) take the quiz and has a finished attempt, their
+ * results come back instead (`quiz_completed`), filtered by the quiz's
+ * result settings. Otherwise the quiz comes back with:
+ *  - questions without correct answers/explanations, in a per-attempt random
+ *    order when `randomize_questions` is on;
+ *  - `student_state`: availability window + attempt counts, so the page can
+ *    explain why it can't start instead of failing on "Start".
+ */
+async function buildStudentQuizView(req: Request, quiz: Quiz) {
+  if (!["published", "completed"].includes(quiz.status)) {
+    const err: any = new Error("Quiz is not available");
+    err.status = 403;
+    throw err;
+  }
+
+  const [attempts, enrolled] = await Promise.all([
+    studentAttemptSummary(quiz, req.user.id),
+    studentMayTakeQuiz(req, quiz),
+  ]);
+  const availability = quizAvailability(quiz);
+
+  const canStart =
+    enrolled &&
+    (attempts.in_progress_submission_id !== null ||
+      (availability.state === "open" && attempts.can_start_new_attempt));
+
+  const blocked_reason = !enrolled
+    ? "You are not enrolled in this quiz's subject."
+    : attempts.in_progress_submission_id !== null
+      ? null
+      : availability.state !== "open"
+        ? availabilityMessage(availability)
+        : !attempts.can_start_new_attempt
+          ? `You have used all ${attempts.max_attempts} attempt${attempts.max_attempts === 1 ? "" : "s"} for this quiz.`
+          : null;
+
+  const student_state = {
+    availability,
+    attempts,
+    enrolled,
+    can_start: canStart,
+    blocked_reason,
+  };
+
+  // Nothing left to take: show the latest results instead.
+  if (!canStart && attempts.last_finished_submission_id) {
+    const submission = await QuizSubmission.findByPk(
+      attempts.last_finished_submission_id,
+      {
         include: [
-          {
-            model: Quiz,
-            as: "quiz",
-          },
           {
             model: QuizAttempt,
             as: "attempts",
@@ -481,97 +545,36 @@ export const getQuiz = async (req: Request, res: Response) => {
             ],
           },
         ],
-        order: [["completed_at", "DESC"]],
-      });
-
-      if (completedSubmission) {
-        // Student has already completed this quiz, return results instead
-        const attempts = completedSubmission.attempts || [];
-
-        // Check if results should be shown immediately
-        if (
-          !completedSubmission.quiz?.show_results_immediately &&
-          !completedSubmission.quiz?.show_correct_answers
-        ) {
-          return res.status(200).json({
-            success: true,
-            data: {
-              quiz_completed: true,
-              submission_id: completedSubmission.id,
-              final_score: completedSubmission.total_score,
-              max_score: completedSubmission.max_score,
-              percentage: completedSubmission.percentage,
-              passed: completedSubmission.passed,
-              results_available: false,
-              message:
-                "You have already completed this quiz. Results will be available after grading.",
-              completed_at: completedSubmission.completed_at,
-            },
-          });
-        }
-
-        // Build results array
-        const results = attempts.map((attempt) => ({
-          question_id: attempt.question_id,
-          question_text: attempt.attemptQuestion?.questionBank?.question_text,
-          question_type: attempt.attemptQuestion?.questionBank?.question_type,
-          question_data: attempt.attemptQuestion?.questionBank?.question_data,
-          user_answer: attempt.submitted_answer,
-          correct_answer: attempt.correct_answer,
-          is_correct: attempt.is_correct,
-          points_earned: attempt.points_earned,
-          max_points: attempt.attemptQuestion?.points,
-          explanation: attempt.attemptQuestion?.questionBank?.explanation,
-          time_taken: attempt.time_taken,
-        }));
-
-        return res.status(200).json({
-          success: true,
-          data: {
-            quiz_completed: true,
-            submission_id: completedSubmission.id,
-            quiz_title: completedSubmission.quiz?.title,
-            final_score: completedSubmission.total_score,
-            max_score: completedSubmission.max_score,
-            percentage: completedSubmission.percentage,
-            grade: getGradeFromScore(completedSubmission.percentage),
-            passed: completedSubmission.passed,
-            grade_status: completedSubmission.grade_status,
-            results_available: true,
-            results,
-            submitted_at: completedSubmission.completed_at,
-            feedback: completedSubmission.feedback,
-            grading_settings: {
-              enable_automatic_grading:
-                completedSubmission.quiz?.enable_automatic_grading !== false,
-              require_manual_grading:
-                completedSubmission.quiz?.require_manual_grading === true,
-              show_grades:
-                completedSubmission.quiz?.enable_automatic_grading !== false &&
-                completedSubmission.quiz?.require_manual_grading !== true,
-              show_correct_answers:
-                completedSubmission.quiz?.show_correct_answers === true,
-            },
-          },
-        });
-      }
+      },
+    );
+    if (submission) {
+      return {
+        quiz_completed: true,
+        ...buildStudentResults(submission, quiz),
+        student_state,
+      };
     }
-
-    const quizData = quiz.toJSON();
-
-    // For students, don't include correct answers unless show_correct_answers is true
-    // Note: This logic will be handled by the frontend for now
-
-    // can_manage drives the edit / status / grading controls on the detail page
-    res.status(200).json({
-      success: true,
-      data: { ...quizData, can_manage: canManageQuiz(req.user, quiz) },
-    });
-  } catch (error) {
-    console.error("Get quiz error:", error);
-    res.status(500).json({ success: false, message: "Server error" });
   }
-};
+
+  const json: any = quiz.toJSON();
+  const seed = attemptSeed(quiz.id, req.user.id, attempts.current_attempt_number);
+  let questions: any[] = canStart
+    ? (json.questions || []).map((q: any) => sanitizeQuestionForStudent(q, seed))
+    : [];
+  if (quiz.randomize_questions) questions = seededShuffle(questions, seed);
+
+  return {
+    ...json,
+    questions,
+    question_count: (json.questions || []).length,
+    total_points: (json.questions || []).reduce(
+      (sum: number, q: any) => sum + (Number(q.points) || 0),
+      0,
+    ),
+    can_manage: false,
+    student_state,
+  };
+}
 
 // @desc    Create quiz
 // @route   POST /api/courses/:courseId/quizzes
@@ -1415,11 +1418,10 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         // If question timed out, no points awarded
         isCorrect = false;
         pointsEarned = 0;
-      } else if (!enableAutoGrading || requireManualGrading) {
-        // Manual grading required - don't auto-grade
-        isCorrect = false; // Will be determined by manual grading
-        pointsEarned = 0; // Will be set by instructor
       } else {
+        // Always compute the automatic grade. Whether the student sees it is
+        // decided by the result settings (see utils/quizStudentView); with
+        // manual review it is the instructor's starting point.
         // Use advanced grading for all question types for consistency and to trigger AI grading
         try {
           gradingResult = await AdvancedQuizGrader.gradeWithConfig(
@@ -1510,10 +1512,6 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       calculatedMaxScore > 0
         ? (calculatedTotalScore / calculatedMaxScore) * 100
         : 0;
-    const finalGrade =
-      enableAutoGrading && !requireManualGrading
-        ? getGradeFromScore(finalPercentage, quiz.passing_score || 60)
-        : "N/A";
 
     // Update submission with final scores
     await submission.update(
@@ -1524,29 +1522,32 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         time_taken: time_taken || 0,
         status: "completed",
         completed_at: new Date(),
-        grade_status: requireManualGrading ? "pending" : "auto_graded",
-        passed:
-          enableAutoGrading && !requireManualGrading
-            ? finalPercentage >= (quiz.passing_score || 60)
-            : false,
+        grade_status: gradeStatusOnSubmit(quiz),
+        passed: isPassed(finalPercentage, quiz),
       },
       { transaction },
     );
 
     await transaction.commit();
 
+    // Only what the quiz's result settings allow; the results page loads
+    // the details from GET /quizzes/:id/results.
+    const visible = buildStudentResults(submission, quiz);
     res.status(201).json({
       success: true,
       data: {
         submission_id: submission.id,
-        final_score: calculatedTotalScore,
-        max_score: calculatedMaxScore,
-        percentage: finalPercentage,
-        grade: finalGrade,
-        passed:
-          parseFloat(finalPercentage as any) >=
-          parseFloat((quiz.passing_score || 60) as any),
-        answers: results,
+        answered: results.length,
+        results_available: visible.results_available,
+        message: visible.message,
+        ...(visible.grading_settings.show_grades
+          ? {
+              final_score: calculatedTotalScore,
+              max_score: calculatedMaxScore,
+              percentage: finalPercentage,
+              passed: isPassed(finalPercentage, quiz),
+            }
+          : {}),
       },
     });
   } catch (error) {
@@ -1593,12 +1594,14 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
       });
     }
 
-    // Find the latest completed submission for this quiz
+    // Latest finished attempt, or a specific one via ?submission_id=
+    const requestedId = Number(req.query.submission_id);
     const submission = await QuizSubmission.findOne({
       where: {
         quiz_id: id,
         student_id: req.user.id,
-        status: "completed",
+        status: { [Op.in]: ["completed", "timed_out"] },
+        ...(Number.isInteger(requestedId) && requestedId > 0 ? { id: requestedId } : {}),
       },
       include: [
         {
@@ -1640,101 +1643,9 @@ export const getQuizResultsById = async (req: Request, res: Response) => {
       });
     }
 
-    // Check if results should be shown immediately
-    if (
-      !submission.quiz?.show_results_immediately &&
-      !submission.quiz?.show_correct_answers
-    ) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          submission_id: submission.id,
-          final_score: submission.total_score,
-          max_score: submission.max_score,
-          percentage: submission.percentage,
-          passed: submission.passed,
-          results_available: false,
-          message: "Results will be available after grading",
-        },
-      });
-    }
-
-    const attempts = submission.attempts || [];
-
-    // Check if grades should be shown
-    const enableAutoGrading =
-      submission.quiz?.enable_automatic_grading !== false;
-    const requireManualGrading =
-      submission.quiz?.require_manual_grading === true;
-    const showGrades = enableAutoGrading && !requireManualGrading;
-    const showCorrectAnswers = submission.quiz?.show_correct_answers === true;
-
-    const results = attempts.map((attempt) => {
-      const rawQuestionData = attempt.attemptQuestion?.questionBank?.question_data as any;
-      // Parse question_data if stored as a JSON string in the database
-      let parsedQuestionData: any = rawQuestionData;
-      if (typeof rawQuestionData === "string") {
-        try {
-          parsedQuestionData = JSON.parse(rawQuestionData);
-        } catch {
-          parsedQuestionData = {};
-        }
-      }
-
-      // Always return question_data so the "Your Answer" panel can render options,
-      // but strip correct-answer fields when show_correct_answers is false.
-      let questionData: any = null;
-      if (parsedQuestionData) {
-        if (showCorrectAnswers) {
-          questionData = parsedQuestionData;
-        } else {
-          // Return a copy without fields that reveal the correct answer
-          const { correct_option_index, correct_option_indices, correct_answer: _ca, correct_matches, ...safe } = parsedQuestionData;
-          questionData = safe;
-        }
-      }
-
-      const result = {
-        question_id: attempt.question_id,
-        question_text: attempt.attemptQuestion?.questionBank?.question_text,
-        question_type: attempt.attemptQuestion?.questionBank?.question_type,
-        question_data: questionData,
-        user_answer: attempt.submitted_answer,
-        correct_answer: showCorrectAnswers ? attempt.correct_answer : null,
-        is_correct: showCorrectAnswers ? attempt.is_correct : null,
-        points_earned: showGrades ? attempt.points_earned : null,
-        max_points: attempt.attemptQuestion?.points,
-        explanation: showCorrectAnswers
-          ? attempt.attemptQuestion?.questionBank?.explanation
-          : null,
-        time_taken: attempt.time_taken,
-      };
-      return result;
-    });
-
     res.status(200).json({
       success: true,
-      data: {
-        submission_id: submission.id,
-        quiz_title: submission.quiz?.title,
-        final_score: submission.total_score,
-        max_score: submission.max_score,
-        percentage: submission.percentage,
-        grade: showGrades ? getGradeFromScore(submission.percentage) : "N/A",
-        passed: showGrades ? submission.passed : null,
-        grade_status: submission.grade_status,
-        results_available: true,
-        results,
-        submitted_at: submission.completed_at,
-        time_taken: (submission.time_taken || 0) * 1000,
-        feedback: submission.feedback,
-        grading_settings: {
-          enable_automatic_grading: enableAutoGrading,
-          require_manual_grading: requireManualGrading,
-          show_grades: showGrades,
-          show_correct_answers: showCorrectAnswers,
-        },
-      },
+      data: buildStudentResults(submission, submission.quiz),
     });
   } catch (error) {
     console.error("Get quiz results by ID error:", error);
@@ -1767,15 +1678,6 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check if quiz is available
-    if (!quiz.is_available) {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        message: "Quiz is not currently available",
-      });
-    }
-
     // Check if student already has an in-progress submission
     const existingSubmission = await QuizSubmission.findOne({
       where: {
@@ -1789,7 +1691,8 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
     if (existingSubmission) {
       // Time already ran out on the attempt: submit it with what was saved
       // rather than discarding it, and tell the client where the results are.
-      if (isPastDeadline(existingSubmission)) {
+      const closedMeanwhile = quizAvailability(quiz).state === "closed";
+      if (isPastDeadline(existingSubmission) || closedMeanwhile) {
         const summary = await finalizeFromSavedAttempts(
           existingSubmission,
           quiz,
@@ -1817,6 +1720,27 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
       });
     }
 
+    // Published and inside its availability window
+    const availability = quizAvailability(quiz);
+    if (availability.state !== "open") {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        code: "QUIZ_NOT_AVAILABLE",
+        message: `Quiz is not currently available. ${availabilityMessage(availability)}`.trim(),
+        data: { availability },
+      });
+    }
+
+    if (!(await studentMayTakeQuiz(req, quiz))) {
+      await transaction.rollback();
+      return res.status(403).json({
+        success: false,
+        code: "NOT_ENROLLED",
+        message: "You are not enrolled in this quiz's subject.",
+      });
+    }
+
     // Calculate attempt number
     const previousSubmissions = await QuizSubmission.count({
       where: {
@@ -1826,6 +1750,18 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
       },
       transaction,
     });
+
+    // max_attempts (null = unlimited)
+    const maxAttempts = Number(quiz.max_attempts) > 0 ? Number(quiz.max_attempts) : null;
+    if (maxAttempts !== null && previousSubmissions >= maxAttempts) {
+      await transaction.rollback();
+      return res.status(409).json({
+        success: false,
+        code: "MAX_ATTEMPTS_REACHED",
+        message: `You have used all ${maxAttempts} attempt${maxAttempts === 1 ? "" : "s"} for this quiz.`,
+        data: { max_attempts: maxAttempts, attempts_used: previousSubmissions },
+      });
+    }
 
     // The attempt clock always starts on the server: a client-supplied
     // started_at could otherwise push the deadline out.
@@ -1861,8 +1797,11 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
         time_remaining_seconds: secondsRemaining(submission),
       },
     });
-  } catch (error) {
+  } catch (error: any) {
     await transaction.rollback();
+    if (error?.response?.status === 401) {
+      return handleMisError(error, res, "MIS session expired");
+    }
     console.error("Create quiz submission error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
