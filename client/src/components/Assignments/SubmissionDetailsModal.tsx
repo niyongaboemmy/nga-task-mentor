@@ -19,8 +19,9 @@ import {
   ChevronUp,
   Star,
   Info,
-  Plus,
-  ChevronRight,
+  X,
+  Send,
+  Clock,
 } from "lucide-react";
 import axios from "../../utils/axiosConfig";
 
@@ -60,6 +61,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
   onClose,
   submission,
   assignment,
+  formatDate,
   getSubmissionStatusColor,
   canManageAssignment,
   showGradingLockedNotice = false,
@@ -153,143 +155,152 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
     return submission.file_submissions;
   }, [submission.file_submissions]);
 
+  // Escape closes the dialog (unless the file preview on top of it is open).
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && !selectedFile) onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isOpen, onClose, selectedFile]);
+
   if (!isOpen) return null;
 
+  const fileKey = (file: any) => file.path?.split(/[/\\]/).pop() || file.filename;
+  const subjectLabel = assignment.course
+    ? [assignment.course.code, assignment.course.title].filter(Boolean).join(" · ")
+    : null;
+  const submittedBy = (submission as any).submittedByUser;
+  const isGraded = !!submission.grade;
+  const statusNote = isGraded
+    ? "Graded"
+    : submission.status === "draft"
+      ? "Not submitted yet"
+      : "Awaiting a grade";
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <motion.div
-        initial={{ opacity: 0, scale: 0.9, y: 20 }}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="submission-dialog-title"
+        initial={{ opacity: 0, scale: 0.96, y: 12 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-5xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl overflow-hidden dark:border dark:border-gray-800 flex flex-col"
+        className="w-full max-w-5xl max-h-[95vh] bg-white dark:bg-background-dark rounded-2xl shadow-2xl overflow-hidden border border-transparent dark:border-border-dark/60 flex flex-col"
       >
-        {/* Premium Header */}
-        <div className="px-8 py-6 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 dark:from-black dark:via-gray-900 dark:to-black text-white relative">
-          <div className="absolute top-0 right-0 p-8 opacity-10">
-            <FileText className="w-32 h-32" />
-          </div>
-          <div className="flex items-center justify-between relative z-10">
-            <div className="flex items-center gap-5">
+        {/* Header */}
+        <div className="px-5 sm:px-8 py-5 sm:py-6 bg-gradient-to-r from-blue-600 via-blue-500 to-blue-700 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 dark:border-b dark:border-border-dark/60 text-white relative">
+          <div className="flex items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-4 sm:gap-5 min-w-0">
               {submission.student.profile_image ? (
                 <img
-                  src={
-                    getProfileImageUrl(submission.student.profile_image) ||
-                    undefined
-                  }
-                  alt={submission.student.first_name}
-                  className="h-14 w-14 rounded-2xl object-cover transform -rotate-3 ring-2 ring-white/20"
+                  src={getProfileImageUrl(submission.student.profile_image) || undefined}
+                  alt=""
+                  className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 rounded-2xl object-cover ring-2 ring-white/20"
                 />
               ) : (
-                <div className="h-14 w-14 bg-blue-500 rounded-2xl flex items-center justify-center transform -rotate-3">
-                  <FileText className="w-7 h-7 text-white" />
+                <div className="h-12 w-12 sm:h-14 sm:w-14 shrink-0 bg-white/15 dark:bg-blue-600 rounded-2xl flex items-center justify-center">
+                  <FileText className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                 </div>
               )}
-              <div>
-                <h2 className="text-2xl font-bold tracking-tight">
-                  {submission.student.first_name}'s Submission
+              <div className="min-w-0">
+                <h2 id="submission-dialog-title" className="text-xl sm:text-2xl font-bold tracking-tight truncate">
+                  {submission.student.first_name} {submission.student.last_name}
                 </h2>
-                <div className="flex items-center gap-2 mt-1 opacity-70">
-                  <span className="text-xs font-bold uppercase tracking-widest">
-                    {assignment.title}
-                  </span>
-                  <div className="w-1 h-1 bg-white rounded-full" />
-                  <span className="text-xs font-bold uppercase tracking-widest">
-                    {assignment.course_id || "CS101"}
-                  </span>
-                </div>
-                {(submission as any).submittedByUser && (
-                  <div className="flex items-center gap-1.5 mt-2 px-2.5 py-1 bg-white/15 rounded-full w-fit">
-                    <svg className="w-3 h-3 text-white/80 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                    </svg>
-                    <span className="text-xs font-semibold text-white/90">
-                      Submitted by {(submission as any).submittedByUser.first_name} {(submission as any).submittedByUser.last_name}
+                <p className="mt-0.5 text-sm text-blue-100 dark:text-slate-300 truncate">
+                  {assignment.title}
+                  {subjectLabel && <span className="text-blue-200/90 dark:text-slate-400"> · {subjectLabel}</span>}
+                </p>
+                <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                  {submission.submitted_at && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/15 text-white">
+                      <Clock className="w-3 h-3" aria-hidden />
+                      Submitted {formatDate(submission.submitted_at)}
                     </span>
-                  </div>
-                )}
+                  )}
+                  {submission.is_late && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-amber-400 text-amber-950">Late</span>
+                  )}
+                  {submittedBy && (
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-medium bg-white/15 text-white">
+                      Submitted by {submittedBy.first_name} {submittedBy.last_name}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
             <button
+              type="button"
               onClick={onClose}
-              className="p-3 bg-white/10 hover:bg-white/20 rounded-2xl transition-all hover:rotate-90"
+              aria-label="Close submission"
+              className="p-2.5 shrink-0 bg-white/10 hover:bg-white/20 rounded-xl transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white"
             >
-              <Plus className="w-6 h-6 rotate-45" />
+              <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Scrollable Content Container */}
-        <div className="flex-1 overflow-y-auto bg-gray-100/60 dark:bg-gray-950 p-8 pt-6">
+        {/* Scrollable content */}
+        <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-background-dark p-4 sm:p-8 sm:pt-6">
           <div className="w-full space-y-6">
-            {/* Grade Highlight & Status */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="md:col-span-2 bg-white dark:bg-gray-900 rounded-2xl p-8 border border-gray-100 dark:border-gray-800 shadow-gray-200/50 dark:shadow-none flex items-center gap-6">
+            {/* Grade & status */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6">
+              <div className="md:col-span-2 bg-white dark:bg-surface-dark rounded-2xl p-6 sm:p-8 border border-slate-200 dark:border-border-dark/60 flex items-center gap-6">
                 <ScoreRing
-                  value={
-                    submission.grade
-                      ? parseFloat(submission.grade.split("/")[0])
-                      : null
-                  }
+                  value={submission.grade ? parseFloat(submission.grade.split("/")[0]) : null}
                   max={Number(assignment.max_score) || 0}
                   size={104}
                   strokeWidth={9}
                 />
                 <div className="flex-1 space-y-1">
-                  <p className="text-[10px] font-bold text-blue-600 dark:text-blue-400 uppercase tracking-[0.2em]">
-                    Final Assessment
-                  </p>
+                  <p className="text-xs font-semibold text-blue-600 dark:text-blue-300 uppercase tracking-wider">Grade</p>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-bold text-text-primary-light dark:text-text-primary-dark">
-                      {submission.grade || "Ungraded"}
+                    <span className="text-3xl sm:text-4xl font-bold text-text-primary-light dark:text-text-primary-dark">
+                      {submission.grade || "Not graded"}
                     </span>
                     {submission.grade && (
-                      <span className="text-sm font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tighter">
-                        Points
-                      </span>
+                      <span className="text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark">points</span>
                     )}
                   </div>
                 </div>
               </div>
 
               <div
-                className={`rounded-2xl p-8 flex flex-col justify-center items-center text-center gap-2 border ${getSubmissionStatusColor(submission.status)}`}
+                className={`rounded-2xl p-6 sm:p-8 flex flex-col justify-center items-center text-center gap-2 border ${getSubmissionStatusColor(submission.status)}`}
               >
-                <div className="w-12 h-12 rounded-2xl bg-current/20 flex items-center justify-center">
+                <div className="w-12 h-12 rounded-2xl bg-current/10 flex items-center justify-center">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
-                <h5 className="text-lg font-bold uppercase tracking-tight">
-                  {submission.status}
-                </h5>
-                <p className="text-[10px] font-bold opacity-60 uppercase tracking-widest">
-                  Marked by Instructor
-                </p>
+                <h5 className="text-lg font-bold capitalize">{submission.status}</h5>
+                <p className="text-xs font-medium opacity-80">{statusNote}</p>
               </div>
             </div>
 
-            {/* Rubric Breakdown for Student */}
+            {/* Rubric breakdown */}
             {submission.grade && rubric.length > 0 && (
-              <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-100 dark:border-gray-800 overflow-hidden shadow-gray-200/30">
+              <div className="bg-white dark:bg-surface-dark rounded-2xl border border-slate-200 dark:border-border-dark/60 overflow-hidden">
                 <button
+                  type="button"
                   onClick={() => setShowBreakdown(!showBreakdown)}
-                  className="w-full px-8 py-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
+                  aria-expanded={showBreakdown}
+                  className="w-full px-5 sm:px-8 py-3 flex items-center justify-between hover:bg-slate-50 dark:hover:bg-slate-700/40 transition-colors text-text-primary-light dark:text-text-primary-dark"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/30 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+                    <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-500/15 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-300">
                       <Award className="w-6 h-6" />
                     </div>
                     <div className="text-left">
-                      <h4 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
-                        Grade Breakdown
-                      </h4>
-                      <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">
-                        Evaluation based on specific criteria
-                      </p>
+                      <h4 className="text-lg font-bold">Grade breakdown</h4>
+                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">Score per rubric criterion</p>
                     </div>
                   </div>
-                  {showBreakdown ? (
-                    <ChevronUp className="w-5 h-5" />
-                  ) : (
-                    <ChevronDown className="w-5 h-5" />
-                  )}
+                  {showBreakdown ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
                 </button>
 
                 <AnimatePresence>
@@ -298,43 +309,36 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
-                      className="border-t border-gray-100 dark:border-gray-800"
+                      className="border-t border-slate-200 dark:border-border-dark/60"
                     >
-                      <div className="p-8 space-y-6">
+                      <div className="p-5 sm:p-8 space-y-6">
                         {rubric.map((criterion: any, index: number) => {
                           const parsedRubricScores = safeParse(submission.rubric_scores, {});
                           const scoreValue = parsedRubricScores?.[index] || 0;
-                          const ratio = scoreValue / criterion.max_score;
-
+                          const ratio = criterion.max_score ? scoreValue / criterion.max_score : 0;
                           return (
                             <div key={index} className="space-y-3">
-                              <div className="flex items-center justify-between">
+                              <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3">
-                                  <div className="w-2 h-2 rounded-full bg-blue-600 shadow-[0_0_10px_rgba(37,99,235,0.5)]" />
-                                  <span className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
+                                  <div className="w-2 h-2 rounded-full bg-blue-600 dark:bg-blue-400" aria-hidden />
+                                  <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                                     {criterion.criteria}
                                   </span>
                                 </div>
-                                <span className="text-xs font-bold text-gray-500 dark:text-gray-400">
-                                  <span className="text-blue-600 dark:text-blue-400 text-sm font-bold mr-1">
-                                    {scoreValue}
-                                  </span>
-                                  / {criterion.max_score}
+                                <span className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark tabular-nums">
+                                  <span className="text-blue-600 dark:text-blue-300 text-sm font-bold mr-1">{scoreValue}</span>/ {criterion.max_score}
                                 </span>
                               </div>
-                              <div className="h-2 w-full bg-surface-light dark:bg-surface-dark rounded-full overflow-hidden">
+                              <div className="h-2 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                                 <motion.div
                                   initial={{ width: 0 }}
                                   animate={{ width: `${ratio * 100}%` }}
-                                  transition={{
-                                    duration: 1,
-                                    delay: 0.2 + index * 0.1,
-                                  }}
+                                  transition={{ duration: 1, delay: 0.2 + index * 0.1 }}
                                   className={`h-full rounded-full ${ratio > 0.8 ? "bg-green-500" : ratio > 0.5 ? "bg-blue-500" : "bg-orange-500"}`}
                                 />
                               </div>
                               {criterion.description && (
-                                <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/70 ml-5 italic leading-relaxed">
+                                <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark ml-5 leading-relaxed">
                                   {criterion.description}
                                 </p>
                               )}
@@ -348,129 +352,100 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
               </div>
             )}
 
-            {/* Content Display: Files & Text */}
-            <div className="space-y-6">
+            {/* Submission materials */}
+            <section className="space-y-4" aria-labelledby="materials-heading">
               <div className="flex items-center gap-4">
-                <h6 className="text-[10px] font-bold text-gray-400 dark:text-gray-600 uppercase tracking-[0.3em]">
-                  Submission Materials
-                </h6>
-                <div className="h-px flex-1 bg-gray-200 dark:bg-gray-800" />
+                <h3 id="materials-heading" className="text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider">
+                  Submitted work
+                </h3>
+                <div className="h-px flex-1 bg-slate-200 dark:bg-border-dark/60" />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-1 gap-0">
-                {/* File List */}
-                {fileSubmissions && fileSubmissions.length > 0 && (
-                  <div
-                    className={`bg-white dark:bg-gray-900/50 ${submission.text_submission ? "rounded-t-2xl" : "rounded-2xl"} border border-gray-100 dark:border-gray-900 p-6 space-y-4`}
-                  >
-                    <h4 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-gray-400 dark:text-gray-500">
-                      <Download className="w-3 h-3" /> Sent Files
-                    </h4>
-                    <div className="space-y-3">
-                      {fileSubmissions.map(
-                        (file: any, idx: number) => (
-                          <div
-                            key={idx}
-                            className="flex items-center justify-between p-3 bg-gray-50/50 dark:bg-gray-800/30 rounded-2xl border border-gray-100 dark:border-gray-800 group hover:border-blue-500/30 transition-colors"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="text-sm font-bold truncate dark:text-white">
-                                {file.originalname || file.filename}
-                              </p>
-                              <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase">
-                                {(file.size / 1024).toFixed(1)} KB
-                              </p>
-                            </div>
-                            <div className="flex gap-1">
-                              <button
-                                onClick={() => {
-                                  const fileName =
-                                    file.path.split(/[\/\\]/).pop() ||
-                                    file.filename;
-                                  setSelectedFile({
-                                    url: `${import.meta.env.VITE_API_BASE_URL || ""}/uploads/${fileName}`,
-                                    name: file.originalname || fileName,
-                                  });
-                                }}
-                                className="p-2 text-gray-400 dark:text-gray-500 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
-                              >
-                                <Eye className="w-4 h-4" />
-                              </button>
-                              <button
-                                onClick={() =>
-                                  handleDownloadFile(
-                                    file.path.split(/[\/\\]/).pop() ||
-                                      file.filename,
-                                    file.originalname || file.filename,
-                                  )
-                                }
-                                disabled={
-                                  isDownloading ===
-                                  (file.path.split(/[\/\\]/).pop() ||
-                                    file.filename)
-                                }
-                                className="p-2 text-gray-400 dark:text-gray-500 hover:text-green-600 dark:hover:text-green-400 transition-colors disabled:opacity-50"
-                              >
-                                {isDownloading ===
-                                (file.path.split(/[\/\\]/).pop() ||
-                                  file.filename) ? (
-                                  <div className="w-4 h-4 border-2 border-green-500 border-t-transparent animate-spin rounded-full" />
-                                ) : (
-                                  <Download className="w-4 h-4" />
-                                )}
-                              </button>
-                            </div>
+              {fileSubmissions.length === 0 && !submission.text_submission && (
+                <p className="rounded-2xl border border-dashed border-slate-300 dark:border-border-dark p-6 text-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                  Nothing was attached to this submission.
+                </p>
+              )}
+
+              {fileSubmissions.length > 0 && (
+                <div className="bg-white dark:bg-surface-dark rounded-2xl border border-slate-200 dark:border-border-dark/60 p-4 sm:p-6 space-y-3">
+                  <h4 className="text-xs font-semibold flex items-center gap-2 text-text-secondary-light dark:text-text-secondary-dark">
+                    <Download className="w-3.5 h-3.5" /> Files ({fileSubmissions.length})
+                  </h4>
+                  <ul className="space-y-2">
+                    {fileSubmissions.map((file: any, idx: number) => {
+                      const key = fileKey(file);
+                      const name = file.originalname || file.filename;
+                      return (
+                        <li
+                          key={idx}
+                          className="flex items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-800/70 rounded-xl border border-slate-200 dark:border-border-dark/60 hover:border-blue-400/60 dark:hover:border-blue-500/50 transition-colors"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-semibold truncate text-text-primary-light dark:text-text-primary-dark">{name}</p>
+                            <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                              {(file.size / 1024).toFixed(1)} KB
+                            </p>
                           </div>
-                        ),
-                      )}
-                    </div>
-                  </div>
-                )}
+                          <div className="flex gap-1">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setSelectedFile({ url: `${import.meta.env.VITE_API_BASE_URL || ""}/uploads/${key}`, name: file.originalname || key })
+                              }
+                              aria-label={`Preview ${name}`}
+                              className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:bg-blue-50 hover:text-blue-600 dark:hover:bg-blue-500/15 dark:hover:text-blue-300 transition-colors"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleDownloadFile(key, name)}
+                              disabled={isDownloading === key}
+                              aria-label={`Download ${name}`}
+                              className="p-2 rounded-lg text-slate-500 dark:text-slate-300 hover:bg-green-50 hover:text-green-600 dark:hover:bg-green-500/15 dark:hover:text-green-300 transition-colors disabled:opacity-50"
+                            >
+                              {isDownloading === key ? (
+                                <div className="w-4 h-4 border-2 border-green-500 border-t-transparent animate-spin rounded-full" />
+                              ) : (
+                                <Download className="w-4 h-4" />
+                              )}
+                            </button>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
+              )}
 
-                {/* Secondary: Text Submission Full */}
-                {submission.text_submission && (
-                  <div
-                    className={
-                      `bg-white dark:bg-gray-900/50 border border-gray-100 dark:border-gray-900 p-5 space-y-4` +
-                      (fileSubmissions.length > 0 ? " rounded-b-2xl" : " rounded-2xl")
-                    }
-                  >
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-gray-400 dark:text-gray-500">
-                      Written Response
-                    </h4>
-                    <div className="prose prose-sm dark:prose-invert max-w-none">
-                      {submission.text_submission}
-                    </div>
+              {submission.text_submission && (
+                <div className="bg-white dark:bg-surface-dark rounded-2xl border border-slate-200 dark:border-border-dark/60 p-4 sm:p-6 space-y-3">
+                  <h4 className="text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark">Written response</h4>
+                  <div className="text-sm leading-relaxed whitespace-pre-wrap break-words text-text-primary-light dark:text-text-primary-dark">
+                    {submission.text_submission}
                   </div>
-                )}
+                </div>
+              )}
 
-                {/* Instructor Feedback */}
-                {submission.feedback && (
-                  <div
-                    className={
-                      `bg-blue-600 rounded-2xl p-6 text-white space-y-4 shadow-blue-600/20` +
-                      (submission.file_submissions ? " rounded-t-2xl" : "")
-                    }
-                  >
-                    <h4 className="text-xs font-bold uppercase tracking-widest flex items-center gap-2 text-blue-100">
-                      <Star className="w-3 h-3" /> Instructor Notes
-                    </h4>
-                    <p className="text-sm font-medium leading-relaxed opacity-90 italic">
-                      "{submission.feedback}"
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
+              {submission.feedback && (
+                <div className="rounded-2xl p-4 sm:p-6 space-y-2 bg-blue-600 text-white dark:bg-blue-500/10 dark:text-blue-50 dark:border dark:border-blue-400/30">
+                  <h4 className="text-xs font-semibold flex items-center gap-2 text-blue-100 dark:text-blue-300">
+                    <Star className="w-3.5 h-3.5" /> Teacher's feedback
+                  </h4>
+                  <p className="text-sm leading-relaxed whitespace-pre-wrap">{submission.feedback}</p>
+                </div>
+              )}
+            </section>
 
-            {/* Grading System (For Instructor) */}
+            {/* Grading console (creator or super admin) */}
             {canManageAssignment && submission.status !== "draft" && submission.status !== undefined && (
-              <div className="relative pt-12">
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 flex flex-col items-center">
-                  <div className="h-12 w-px bg-gradient-to-t from-gray-200 to-transparent dark:from-gray-800" />
-                  <div className="px-4 py-1.5 bg-surface-light dark:bg-surface-dark rounded-full text-[9px] font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
-                    Grading Console
-                  </div>
+              <section className="pt-4" aria-label="Grading">
+                <div className="flex items-center gap-4">
+                  <h3 className="text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider">
+                    Grading
+                  </h3>
+                  <div className="h-px flex-1 bg-slate-200 dark:bg-border-dark/60" />
                 </div>
                 <SubmissionMarking
                   submission={submission}
@@ -478,57 +453,51 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   onGradeSubmission={onGradeSubmission}
                   onSuccess={onClose}
                 />
-              </div>
+              </section>
             )}
 
             {!canManageAssignment && showGradingLockedNotice && (
-              <div className="flex items-start gap-3 rounded-2xl border border-gray-200 bg-white p-4 text-sm text-gray-600 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-300">
-                <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-gray-400" />
-                <p>
-                  Only this assignment's creator or a super admin can grade
-                  submissions. You can review the work and add comments.
-                </p>
+              <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-border-dark/60 dark:bg-surface-dark dark:text-slate-300">
+                <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
+                <p>Only this assignment's creator or a super admin can grade submissions. You can review the work and add comments.</p>
               </div>
             )}
 
-            {/* Real-time Threaded Comments */}
-            <div className="space-y-6 pt-12">
+            {/* Comments */}
+            <section className="space-y-4 pt-4" aria-labelledby="comments-heading">
               <div className="flex items-center gap-4">
-                <h6 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark uppercase tracking-[0.2em]">
-                  Conversation Thread
-                </h6>
-                <div className="h-px flex-1 bg-gradient-to-r from-gray-200 to-transparent dark:from-gray-800" />
+                <h3 id="comments-heading" className="text-xs font-bold text-text-secondary-light dark:text-text-secondary-dark uppercase tracking-wider">
+                  Comments{localComments.length > 0 ? ` (${localComments.length})` : ""}
+                </h3>
+                <div className="h-px flex-1 bg-slate-200 dark:bg-border-dark/60" />
               </div>
 
-              <div className="bg-white dark:bg-gray-900 rounded-2xl p-4 border border-gray-100 dark:border-gray-800 shadow-sm">
-                <div className="max-h-[400px] overflow-y-auto px-6 py-4 space-y-6">
+              <div className="bg-white dark:bg-surface-dark rounded-2xl p-3 sm:p-4 border border-slate-200 dark:border-border-dark/60">
+                <div className="max-h-[400px] overflow-y-auto px-2 sm:px-4 py-3 space-y-5" aria-live="polite">
                   {localComments.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-12 text-center space-y-3 opacity-30">
-                      <MessageSquare className="w-12 h-12" />
-                      <p className="text-sm font-bold italic uppercase tracking-widest">
-                        Digital Void
+                    <div className="flex flex-col items-center justify-center py-10 text-center gap-2">
+                      <MessageSquare className="w-10 h-10 text-slate-300 dark:text-slate-500" aria-hidden />
+                      <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">No comments yet</p>
+                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                        Ask a question or leave a note about this submission.
                       </p>
                     </div>
                   ) : (
                     localComments.map((comment: any, idx: number) => (
-                      <div
-                        key={idx}
-                        className={`flex ${comment.isInstructor ? "justify-end" : "justify-start"}`}
-                      >
-                        <div
-                          className={`max-w-[80%] space-y-1 ${comment.isInstructor ? "items-end text-right" : "items-start text-left"}`}
-                        >
+                      <div key={idx} className={`flex ${comment.isInstructor ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[85%] sm:max-w-[80%] ${comment.isInstructor ? "text-right" : "text-left"}`}>
                           <span
-                            className={`text-[10px] font-bold uppercase tracking-widest block mb-1 ${comment.isInstructor ? "text-blue-500 dark:text-blue-400" : "text-gray-400 dark:text-gray-500"}`}
+                            className={`text-xs font-semibold block mb-1 ${
+                              comment.isInstructor ? "text-blue-600 dark:text-blue-300" : "text-text-secondary-light dark:text-text-secondary-dark"
+                            }`}
                           >
-                            {comment.isInstructor ? "Instructor" : "Student"} •{" "}
-                            {new Date(comment.createdAt).toLocaleDateString()}
+                            {comment.isInstructor ? "Teacher" : "Student"} · {new Date(comment.createdAt).toLocaleDateString()}
                           </span>
                           <div
-                            className={`px-5 py-3 rounded-2xl text-sm font-medium leading-relaxed ${
+                            className={`inline-block px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words text-left ${
                               comment.isInstructor
-                                ? "bg-blue-600 text-white rounded-tr-none shadow-blue-500/20"
-                                : "bg-surface-light dark:bg-surface-dark text-gray-700 dark:text-gray-200 rounded-tl-none"
+                                ? "bg-blue-600 text-white rounded-tr-md"
+                                : "bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-100 rounded-tl-md"
                             }`}
                           >
                             {comment.content}
@@ -539,36 +508,54 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
                   )}
                 </div>
 
-                <div className="p-4 bg-surface-light dark:bg-surface-dark/50/50 rounded-2xl mt-4 flex items-center gap-4 border border-gray-200 dark:border-gray-700">
+                <div className="mt-3 flex items-end gap-3 rounded-xl border border-slate-300 bg-slate-50 p-2 pl-3 transition-colors focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/20 dark:border-border-dark dark:bg-slate-900/60 dark:focus-within:border-blue-400">
+                  <label htmlFor="submission-comment" className="sr-only">
+                    Write a comment
+                  </label>
                   <textarea
+                    id="submission-comment"
                     value={newComment}
                     onChange={(e) => setNewComment(e.target.value)}
-                    placeholder="Type a premium message..."
-                    className="flex-1 bg-transparent border-none focus:ring-0 text-sm py-2 px-2 dark:text-white resize-none h-10 scrollbar-hide"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                        e.preventDefault();
+                        if (!isSubmittingComment && newComment.trim()) handleAddComment();
+                      }
+                    }}
+                    rows={1}
+                    placeholder="Write a comment… (Enter to send, Shift+Enter for a new line)"
+                    className="flex-1 min-h-[2.5rem] max-h-40 bg-transparent border-none focus:ring-0 focus:outline-none text-sm py-2 resize-y text-text-primary-light placeholder:text-slate-400 dark:text-text-primary-dark dark:placeholder:text-slate-400"
                   />
                   <button
+                    type="button"
                     disabled={isSubmittingComment || !newComment.trim()}
                     onClick={handleAddComment}
-                    className="h-10 w-10 bg-gray-900 dark:bg-white rounded-full flex items-center justify-center text-white dark:text-gray-900 hover:scale-110 active:scale-90 transition-all disabled:opacity-20"
+                    aria-label="Send comment"
+                    className="h-10 w-10 shrink-0 bg-blue-600 hover:bg-blue-700 rounded-full flex items-center justify-center text-white transition-colors disabled:bg-slate-300 disabled:text-slate-500 dark:disabled:bg-slate-700 dark:disabled:text-slate-400"
                   >
-                    <ChevronRight className="w-5 h-5" />
+                    {isSubmittingComment ? (
+                      <div className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
                   </button>
                 </div>
               </div>
-            </div>
+            </section>
           </div>
         </div>
 
-        {/* Action Footer */}
-        <div className="px-12 py-3 bg-white dark:bg-gray-900 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between">
-          <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 dark:text-gray-500">
-            <Info className="w-3 h-3" /> Encrypted Session
-          </div>
+        {/* Footer */}
+        <div className="px-4 sm:px-8 py-3 bg-white dark:bg-slate-900 border-t border-slate-200 dark:border-border-dark/60 flex items-center justify-between gap-3">
+          <p className="flex items-center gap-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+            <Info className="w-3.5 h-3.5 shrink-0" /> Comments are visible to the student and their teachers.
+          </p>
           <button
+            type="button"
             onClick={onClose}
-            className="px-8 py-3 bg-surface-light dark:bg-surface-dark text-text-primary-light dark:text-text-primary-dark rounded-2xl font-bold text-[10px] uppercase tracking-widest hover:bg-gray-200 dark:hover:bg-gray-700 transition-all"
+            className="px-5 py-2 shrink-0 bg-slate-100 dark:bg-slate-700 text-text-primary-light dark:text-text-primary-dark rounded-xl font-semibold text-sm hover:bg-slate-200 dark:hover:bg-slate-600 transition-colors"
           >
-            Exit Console
+            Close
           </button>
         </div>
       </motion.div>
