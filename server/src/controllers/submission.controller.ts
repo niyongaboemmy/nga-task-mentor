@@ -828,10 +828,15 @@ export const gradeSubmission = async (req: Request, res: Response) => {
       include: [
         {
           model: Assignment,
+          as: "assignment",
           attributes: ["id", "title", "course_id", "academic_term_id", "max_score", "created_by"],
         },
       ],
     })) as any;
+    // The association is `Submission.assignment` (lowercase, from the model's
+    // @BelongsTo property). Reading `submission.Assignment` was always
+    // undefined, so every non-admin was refused grading -- creators included.
+    const assignment = submission?.assignment;
 
     if (!submission) {
       return res
@@ -841,7 +846,7 @@ export const gradeSubmission = async (req: Request, res: Response) => {
 
     if (
       !(req as any).user.permissions?.has("SUBMISSIONS_GRADE") ||
-      !(await canGradeAssignment(req, submission.Assignment))
+      !(await canGradeAssignment(req, assignment))
     ) {
       return res.status(403).json({
         success: false,
@@ -852,8 +857,8 @@ export const gradeSubmission = async (req: Request, res: Response) => {
     // Get maxScore from assignment if not provided in request
     const finalMaxScore =
       maxScore ||
-      (submission.Assignment?.max_score
-        ? parseInt(submission.Assignment.max_score)
+      (assignment?.max_score
+        ? parseFloat(assignment.max_score)
         : null);
 
     // Validate grade data

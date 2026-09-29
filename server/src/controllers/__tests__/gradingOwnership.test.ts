@@ -68,7 +68,7 @@ describe("assignment submission grading (PATCH /submissions/:id/grade)", () => {
     m.Submission.findByPk.mockResolvedValue({
       id: 5,
       feedback: null,
-      Assignment: { id: 2, max_score: "10", created_by: OWNER, course_id: SUBJECT, academic_term_id: 3 },
+      assignment: { id: 2, max_score: "10", created_by: OWNER, course_id: SUBJECT, academic_term_id: 3 },
     });
     m.Submission.update.mockResolvedValue([1]);
   });
