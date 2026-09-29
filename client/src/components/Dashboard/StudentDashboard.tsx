@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import { dashboardContainerVariants, dashboardItemVariants } from "./dashboardUi";
 import { Panel } from "./instructor/InstructorPanels";
 import {
@@ -57,7 +58,9 @@ import {
  *   4. every task grouped by what it needs (the donut opens a group),
  *   5. marks over time, my subjects against the class, report card.
  * Data: GET /dashboard/student/overview; averages including teacher-recorded
- * marks and the rank come from GET /rankings (optional).
+ * marks and the rank come from GET /rankings (optional, and only asked for
+ * while the role holds RANKINGS_VIEW_OWN: without it there is no Standing
+ * card, class average or ranking suggestions).
  */
 
 const REFRESH_MS = 60 * 1000;
@@ -89,6 +92,8 @@ const DONUT_TO_TAB: Record<StatusKey, BoardTab> = { todo: "todo", missed: "misse
 
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { can } = usePermissions();
+  const canSeeRanking = can("RANKINGS_VIEW_OWN");
   const navigate = useNavigate();
   const location = useLocation();
   const [overview, setOverview] = useState<StudentOverview | null>(null);
@@ -109,10 +114,12 @@ const StudentDashboard: React.FC = () => {
     try {
       const [o, st] = await Promise.all([
         getStudentOverview(),
-        axios
-          .get("/rankings")
-          .then((r) => (r.data?.data ?? null) as StandingResponse | null)
-          .catch(() => null),
+        canSeeRanking
+          ? axios
+              .get("/rankings")
+              .then((r) => (r.data?.data ?? null) as StandingResponse | null)
+              .catch(() => null)
+          : Promise.resolve(null),
       ]);
       if (mine !== seq.current) return;
       hasData.current = true;
@@ -133,7 +140,7 @@ const StudentDashboard: React.FC = () => {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [canSeeRanking]);
 
   useEffect(() => {
     load();
@@ -298,7 +305,10 @@ const StudentDashboard: React.FC = () => {
           </div>
 
           {/* Snapshot */}
-          <section aria-label="My progress" className="grid gap-3 grid-cols-2 xl:grid-cols-4">
+          <section
+            aria-label="My progress"
+            className={`grid gap-3 grid-cols-2 ${canSeeRanking ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}
+          >
             <SnapCard title="My tasks" icon={<PieChart className="w-4 h-4" />} className="col-span-2 xl:col-span-1">
               <StatusDonut
                 counts={counts}
@@ -357,11 +367,13 @@ const StudentDashboard: React.FC = () => {
                 }
               />
             </SnapCard>
-            <Link to="/ranking" className="block col-span-2 xl:col-span-1" aria-label="Open my ranking">
-              <SnapCard title="Standing" icon={<Trophy className="w-4 h-4" />}>
-                <RankTrack rank={overall?.rank ?? null} of={overall?.ranked_count ?? 0} band={overall?.band ?? null} />
-              </SnapCard>
-            </Link>
+            {canSeeRanking && (
+              <Link to="/ranking" className="block col-span-2 xl:col-span-1" aria-label="Open my ranking">
+                <SnapCard title="Standing" icon={<Trophy className="w-4 h-4" />}>
+                  <RankTrack rank={overall?.rank ?? null} of={overall?.ranked_count ?? 0} band={overall?.band ?? null} />
+                </SnapCard>
+              </Link>
+            )}
           </section>
 
           {/* Reminders + week */}

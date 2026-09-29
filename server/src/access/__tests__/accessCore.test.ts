@@ -74,7 +74,13 @@ describe("Task Mentor manifest", () => {
   });
 
   it("had exactly the known keys added to the pre-v2 catalog", () => {
-    const newKeys = ["QUESTION_BANK_HUB_VIEW", "REPORT_CARDS_COMMENT", "REPORT_CARDS_PUBLISH"];
+    const newKeys = [
+      "QUESTION_BANK_HUB_VIEW",
+      "RANKINGS_VIEW_ALL",
+      "RANKINGS_VIEW_OWN",
+      "REPORT_CARDS_COMMENT",
+      "REPORT_CARDS_PUBLISH",
+    ];
     const legacy = ALL_PERMISSION_KEYS.filter((k) => !newKeys.includes(k));
     expect(Object.keys(TM_MANIFEST.capabilities).filter((k) => !legacy.includes(k)).sort()).toEqual(newKeys);
     expect(TM_MANIFEST.app).toBe("tm");

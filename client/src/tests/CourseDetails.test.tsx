@@ -206,5 +206,22 @@ describe("CourseDetails", () => {
     expect(screen.getAllByText("90%").length).toBeGreaterThan(0);
     expect(screen.queryByText("Needs your attention")).not.toBeInTheDocument();
     expect(screen.queryByRole("tab", { name: /Students/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: /Ranking/ })).toBeInTheDocument();
+  });
+
+  it("drops the Ranking tab when the student's role has it switched off", async () => {
+    const off = new Set(["COURSES_VIEW_GRADES", "COURSES_VIEW_STUDENTS", "RANKINGS_VIEW_OWN"]);
+    can.mockImplementation((p: string) => !off.has(p));
+    fetchSubjectGrades.mockResolvedValue({ ...payload, students: [payload.students[0]] });
+    await renderPage();
+    expect(await screen.findByText("Your standing")).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Ranking/ })).not.toBeInTheDocument();
+  });
+
+  it("drops the Ranking tab for staff without RANKINGS_VIEW_ALL", async () => {
+    can.mockImplementation((p: string) => p !== "RANKINGS_VIEW_ALL");
+    await renderPage();
+    expect(await screen.findByRole("tab", { name: /Students/ })).toBeInTheDocument();
+    expect(screen.queryByRole("tab", { name: /Ranking/ })).not.toBeInTheDocument();
   });
 });

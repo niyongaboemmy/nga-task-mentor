@@ -19,16 +19,20 @@ import {
 
 // @desc    Overall ranking on assignments, quizzes and recorded marks
 // @route   GET /api/rankings?subjectId=&kind=&classGroupId=&summary=
-// @access  Private — the view is decided by the caller's subject scope
-//          (utils/scopedSubjects), never by a query parameter:
-//   - enrolled (students): their own position, per-subject standing,
-//     outstanding work and suggestions. No other student's name, key or
-//     score is ever returned; averages are hidden in small cohorts.
-//   - assigned / all (teachers, admins): a named leaderboard over the
-//     subjects they teach / every subject.
-//   - none: 403.
+// @access  Private (COURSES_VIEW + RANKINGS_VIEW_OWN or RANKINGS_VIEW_ALL) —
+//          the view is decided by the caller's subject scope
+//          (utils/scopedSubjects), never by a query parameter, and each view
+//          needs its own permission:
+//   - enrolled (students), RANKINGS_VIEW_OWN: their own position,
+//     per-subject standing, outstanding work and suggestions. No other
+//     student's name, key or score is ever returned; averages are hidden in
+//     small cohorts.
+//   - assigned / all (teachers, admins), RANKINGS_VIEW_ALL: a named
+//     leaderboard over the subjects they teach / every subject.
+//   - none, or the view's permission missing: 403.
 // ?summary=1 is the top-bar chip: a student gets their overall standing only
-// (StudentSummary); anyone else gets { view: "none" } without any work done.
+// (StudentSummary); staff get { view: "none" } without any work done. A role
+// holding neither ranking key is refused by the route before it gets here.
 // A subjectId outside the caller's scope is a 403, not an empty result.
 
 export const rankingQuerySchema = z.object({
@@ -105,7 +109,13 @@ export const getRanking = async (req: Request, res: Response) => {
     const subjectId = summary ? undefined : parsed.data.subjectId;
 
     const { scope, subjects } = await getScopedSubjects(req);
-    if (scope === "none") {
+    const permissions: Set<string> = req.user?.permissions ?? new Set();
+    const viewPermission = scope === "enrolled" ? "RANKINGS_VIEW_OWN" : "RANKINGS_VIEW_ALL";
+    if (summary && (scope !== "enrolled" || !permissions.has(viewPermission))) {
+      // The chip asks on every page; nothing to show is not an error.
+      return res.status(200).json({ success: true, data: { view: "none" } });
+    }
+    if (scope === "none" || !permissions.has(viewPermission)) {
       return res.status(403).json({ success: false, message: "You don't have access to rankings" });
     }
     if (subjectId !== undefined && !subjects.some((s) => s.id === subjectId)) {
@@ -113,13 +123,6 @@ export const getRanking = async (req: Request, res: Response) => {
         success: false,
         message: "You don't have access to this subject's ranking",
       });
-    }
-
-    // The top bar asks everyone; only students have a standing to show, and a
-    // staff leaderboard (an admin's covers every subject) is far too heavy to
-    // compute on every page load for nothing.
-    if (summary && scope !== "enrolled") {
-      return res.status(200).json({ success: true, data: { view: "none" } });
     }
 
     const available = subjects.map(toInfo);

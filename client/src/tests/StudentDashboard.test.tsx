@@ -3,9 +3,18 @@ import { render, screen, fireEvent, within, waitFor } from "@testing-library/rea
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { StudentOverview, StudentTask } from "../services/studentOverviewApi";
 
+// The student's role permissions; RANKINGS_VIEW_OWN is the ranking switch.
+const auth = vi.hoisted(() => ({ permissions: ["RANKINGS_VIEW_OWN"] as string[] }));
 vi.mock("../contexts/AuthContext", () => ({
   useAuth: () => ({
-    user: { id: "2", first_name: "Aline", last_name: "Uwase", currentAcademicYear: { name: "2026 - 2027" }, currentAcademicTerm: { name: "Term 1" } },
+    user: {
+      id: "2",
+      first_name: "Aline",
+      last_name: "Uwase",
+      currentAcademicYear: { name: "2026 - 2027" },
+      currentAcademicTerm: { name: "Term 1" },
+      localPermissions: auth.permissions,
+    },
   }),
 }));
 vi.mock("../contexts/ThemeContext", () => ({ useTheme: () => ({ theme: "light" }) }));
@@ -118,6 +127,7 @@ const RANKING = {
 const section = (heading: string) => screen.getByRole("heading", { name: heading }).closest("section")!;
 
 beforeEach(() => {
+  auth.permissions = ["RANKINGS_VIEW_OWN"];
   store.clear();
   resetAlertState();
   getOverview.mockReset();
@@ -237,6 +247,15 @@ describe("StudentDashboard", () => {
     expect(screen.getByText("after your first marks")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "bar JS - vs -" })).toBeInTheDocument();
     expect(screen.queryByText("Tips for you")).toBeNull();
+  });
+
+  it("neither asks for nor shows the ranking when the role has it switched off", async () => {
+    auth.permissions = [];
+    renderDash();
+    expect(await screen.findByRole("img", { name: "Recent average: 60%" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open my ranking" })).toBeNull();
+    expect(screen.queryByText("Tips for you")).toBeNull();
+    expect(getRanking).not.toHaveBeenCalled();
   });
 
   it("explains an empty enrolment but still offers the report card", async () => {

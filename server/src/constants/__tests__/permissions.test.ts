@@ -49,6 +49,13 @@ describe("default role -> permission mapping", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.student).not.toContain("QUESTION_BANK_HUB_VIEW");
   });
 
+  it("splits the Overall Ranking into own position and the staff leaderboard", () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.student).toContain("RANKINGS_VIEW_OWN");
+    expect(DEFAULT_ROLE_PERMISSIONS.student).not.toContain("RANKINGS_VIEW_ALL");
+    expect(DEFAULT_ROLE_PERMISSIONS.instructor).toContain("RANKINGS_VIEW_ALL");
+    expect(DEFAULT_ROLE_PERMISSIONS.admin).toEqual(expect.arrayContaining(["RANKINGS_VIEW_OWN", "RANKINGS_VIEW_ALL"]));
+  });
+
   it("does not grant instructor admin-only management permissions", () => {
     const adminOnly = [
       "USERS_CREATE",

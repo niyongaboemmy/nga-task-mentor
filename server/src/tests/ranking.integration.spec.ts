@@ -8,7 +8,7 @@ import {
   signTokenFor,
 } from "./testApp";
 import { sequelize } from "../config/database";
-import { Assignment, Submission, User } from "../models";
+import { Assignment, Permission, Role, RolePermission, Submission, User } from "../models";
 
 /**
  * GET /api/rankings against the real dev DB and middleware chain, with MIS
@@ -117,7 +117,36 @@ beforeEach(() => {
   mockMis();
 });
 
+// Roles with the ranking switched off (cloned from student / instructor minus
+// one key), and one user on each; removed in afterAll.
+const tempRoleIds: number[] = [];
+const tempUserIds: number[] = [];
+
+async function userWithRoleMinus(base: "student" | "instructor", minus: string, misId: number) {
+  const baseRole = await Role.findOne({ where: { name: base }, include: [Permission] });
+  const role = await Role.create({ name: `Rank ${base} no-${minus} ${RUN}`, is_system: false } as any);
+  tempRoleIds.push(role.id);
+  const keep = (baseRole?.permissions ?? []).filter((p) => p.key !== minus);
+  await RolePermission.bulkCreate(keep.map((p) => ({ role_id: role.id, permission_id: p.id })) as any);
+  const user = await User.create({
+    email: `rank.${base}.${RUN}@local.test`,
+    password: "MIS_AUTH",
+    first_name: "Switched",
+    last_name: "Off",
+    role: base,
+    role_id: role.id,
+    mis_user_id: misId,
+  } as any);
+  tempUserIds.push(user.id);
+  return signTokenFor(user.id);
+}
+
 afterAll(async () => {
+  if (tempUserIds.length) await User.destroy({ where: { id: tempUserIds } });
+  if (tempRoleIds.length) {
+    await RolePermission.destroy({ where: { role_id: tempRoleIds } });
+    await Role.destroy({ where: { id: tempRoleIds } });
+  }
   if (submissionIds.length) await Submission.destroy({ where: { id: submissionIds } });
   if (assignmentId) await Assignment.destroy({ where: { id: assignmentId } });
   if (classmate?.email?.includes(RUN)) await classmate.destroy();
@@ -213,6 +242,41 @@ describe("GET /api/rankings — teacher", () => {
 
   it("refuses a subject the teacher doesn't teach", async () => {
     const res = await get(`?subjectId=${SUBJ_B}`, instructorToken);
+    expect(res.status).toBe(403);
+  });
+});
+
+describe("GET /api/rankings — switched off in Roles & Permissions", () => {
+  let studentOff: string;
+  let teacherOff: string;
+
+  beforeAll(async () => {
+    studentOff = await userWithRoleMinus("student", "RANKINGS_VIEW_OWN", 990297);
+    teacherOff = await userWithRoleMinus("instructor", "RANKINGS_VIEW_ALL", 990296);
+  });
+
+  it("refuses a student's own position without RANKINGS_VIEW_OWN", async () => {
+    expect((await get("", studentOff)).status).toBe(403);
+    expect((await get(`?subjectId=${SUBJ_A}`, studentOff)).status).toBe(403);
+  });
+
+  it("refuses the top-bar summary too (the client doesn't ask without the key)", async () => {
+    const res = await get("?summary=1", studentOff);
+    expect(res.status).toBe(403);
+    expect(res.body.data).toBeUndefined();
+  });
+
+  it("refuses the leaderboard without RANKINGS_VIEW_ALL", async () => {
+    const res = await get(`?subjectId=${SUBJ_A}`, teacherOff);
+    expect(res.status).toBe(403);
+    expect(JSON.stringify(res.body)).not.toContain("Classmate");
+  });
+
+  it("hides a student's class standing on the profile without RANKINGS_VIEW_ALL", async () => {
+    const res = await request(app)
+      .get(`/api/users/${student.mis_user_id}/standing`)
+      .set("Authorization", `Bearer ${teacherOff}`)
+      .set(MIS_HEADER);
     expect(res.status).toBe(403);
   });
 });

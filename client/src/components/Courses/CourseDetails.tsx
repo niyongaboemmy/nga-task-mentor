@@ -92,6 +92,9 @@ const CourseDetails: React.FC = () => {
   const canCreateQuizzes = can("QUIZZES_CREATE");
   const canViewQuestionBank = can("QUESTION_BANK_VIEW");
   const canViewReportCards = can("REPORT_CARDS_VIEW_ALL");
+  // Staff get the subject leaderboard, students their own place in it; each
+  // is its own switch in Roles & Permissions (the server checks the same).
+  const canViewRanking = can(isInstructorOrAdmin ? "RANKINGS_VIEW_ALL" : "RANKINGS_VIEW_OWN");
   // The grade endpoint decides what a caller may see; this only picks the view.
   const canViewAllMarks = can("COURSES_VIEW_GRADES");
   const canEditMarks = can("MANUAL_ASSESSMENTS_EDIT");
@@ -169,7 +172,8 @@ const CourseDetails: React.FC = () => {
   // permission change) falls back to the overview instead of a blank panel.
   const allowedTab =
     (activeTab === "students" && !isInstructorOrAdmin) ||
-    (activeTab === "report-cards" && !canViewReportCards)
+    (activeTab === "report-cards" && !canViewReportCards) ||
+    (activeTab === "ranking" && !canViewRanking)
       ? "overview"
       : activeTab;
 
@@ -192,8 +196,9 @@ const CourseDetails: React.FC = () => {
     if (isInstructorOrAdmin) {
       list.push({ id: "students", label: "Students", icon: <Users />, count: studentCount });
     }
-    // Everyone gets it: students see only their own place in this subject.
-    list.push({ id: "ranking", label: "Ranking", icon: <Trophy /> });
+    if (canViewRanking) {
+      list.push({ id: "ranking", label: "Ranking", icon: <Trophy /> });
+    }
     if (canViewQuestionBank) {
       list.push({
         id: "question-bank",
@@ -215,6 +220,7 @@ const CourseDetails: React.FC = () => {
     isInstructorOrAdmin,
     canViewQuestionBank,
     canViewReportCards,
+    canViewRanking,
     courseId,
   ]);
 
