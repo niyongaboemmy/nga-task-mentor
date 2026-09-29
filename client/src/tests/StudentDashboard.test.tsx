@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { StudentOverview, StudentTask } from "../services/studentOverviewApi";
 
@@ -10,30 +10,6 @@ vi.mock("../contexts/AuthContext", () => ({
 }));
 vi.mock("../contexts/ThemeContext", () => ({ useTheme: () => ({ theme: "light" }) }));
 vi.mock("../components/Dashboard/student/ReportCardPanel", () => ({ default: () => <div data-testid="report-card" /> }));
-// Canvas charts (jsdom has no canvas): stand-ins that expose their data and
-// clicks. RingGauge and RankTrack are SVG/DOM and are tested for real.
-vi.mock("../components/Dashboard/student/StudentCharts", async (orig) => {
-  const real = await orig<typeof import("../components/Dashboard/student/StudentCharts")>();
-  return {
-    ...real,
-    StatusDonut: ({ counts, onSelect }: { counts: Record<string, number>; onSelect: (k: string) => void }) => (
-      <div data-testid="donut">
-        {Object.entries(counts).map(([k, n]) => (
-          <button key={k} type="button" onClick={() => onSelect(k)}>{`donut ${k} ${n}`}</button>
-        ))}
-      </div>
-    ),
-    SubjectBars: ({ rows, onSelect }: { rows: Array<{ id: number; label: string; me: number | null; classAvg: number | null }>; onSelect: (id: number) => void }) => (
-      <div data-testid="subject-bars">
-        {rows.map((r) => (
-          <button key={r.id} type="button" onClick={() => onSelect(r.id)}>{`bar ${r.label} ${r.me ?? "-"} vs ${r.classAvg ?? "-"}`}</button>
-        ))}
-      </div>
-    ),
-    MarksTrend: ({ points }: { points: unknown[] }) => <div data-testid="trend">{`trend ${points.length}`}</div>,
-  };
-});
-
 const getRanking = vi.fn();
 vi.mock("../utils/axiosConfig", () => ({ default: { get: (...a: unknown[]) => getRanking(...a) } }));
 const getOverview = vi.fn();
@@ -115,8 +91,6 @@ const RANKING = {
   suggestions: [{ id: "s1", priority: "high", title: "Revise loops", detail: "Your weakest topic.", action: { label: "Practice", href: "/quizzes/22/take" } }],
 };
 
-const section = (heading: string) => screen.getByRole("heading", { name: heading }).closest("section")!;
-
 beforeEach(() => {
   store.clear();
   resetAlertState();
@@ -127,116 +101,72 @@ beforeEach(() => {
 });
 
 describe("StudentDashboard", () => {
-  it("leads with the one thing to do first, with a live countdown", async () => {
+  it("says what to do next, in order, with the action to start", async () => {
     renderDash();
-    const heading = await screen.findByRole("heading", { name: "JS basics" });
-    const focus = heading.closest("#today")!;
-    expect(within(focus as HTMLElement).getByText("In progress · finish first")).toBeInTheDocument();
-    expect(within(focus as HTMLElement).getByRole("timer")).toHaveTextContent(/1[45]:\d\d left/);
-    // icon chips instead of a sentence
-    expect(within(focus as HTMLElement).getByLabelText("10 questions")).toBeInTheDocument();
-    expect(within(focus as HTMLElement).getByLabelText("About 20 minutes")).toBeInTheDocument();
-    fireEvent.click(within(focus as HTMLElement).getByRole("link", { name: /Resume/ }));
+    const hero = await screen.findByRole("region", { name: "What to do next" });
+    expect(within(hero).getByRole("heading", { level: 2 })).toHaveTextContent("Finish your JS basics quiz, then Landing page.");
+    expect(within(hero).getByText(/JS basics time left 1[45]:\d\d/)).toBeInTheDocument();
+    fireEvent.click(within(hero).getByRole("link", { name: /Resume/ }));
     expect(await screen.findByText("quiz page")).toBeInTheDocument();
   });
 
-  it("uses blue for the focus card, even when all is calm", async () => {
-    getOverview.mockResolvedValue(
-      overview({
-        tasks: [task({ id: 30, title: "Essay", state: "upcoming", due_at: inHours(200), countdown_to: inHours(200) })],
-        summary: { ...overview().summary, in_progress: 0, due_today: 0, due_this_week: 0, new_results: 0, missed: 0, drafts: 0, next_deadline: inHours(200) },
-        reminders: [{ id: "all-clear", severity: "success", title: "You're on top of things", message: "", countdown_to: null, subject_id: null }],
-      }),
-    );
+  it("says all caught up when nothing needs doing", async () => {
+    getOverview.mockResolvedValue(overview({ tasks: TASKS.filter((t) => ["graded", "submitted", "missed"].includes(t.state)) }));
     renderDash();
-    const calm = (await screen.findByText("All caught up")).closest("#today")!.firstElementChild as HTMLElement;
-    expect(calm.className).toMatch(/\bbg-blue-600\b/);
-    expect(calm.className).not.toMatch(/gradient|indigo|violet|purple|emerald|teal|green/);
-    expect(screen.getByText("Nothing to remind you about")).toBeInTheDocument();
+    const hero = await screen.findByRole("region", { name: "What to do next" });
+    expect(within(hero).getByRole("heading", { level: 2 })).toHaveTextContent("You're all caught up.");
+    expect(within(hero).queryByRole("link", { name: /Resume|Submit/ })).toBeNull();
   });
 
-  it("summarises the day as clickable chips", async () => {
+  it("shows the week's progress, the average and the class rank", async () => {
     renderDash();
-    expect(await screen.findByRole("button", { name: "1 in progress" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "1 due today" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "3 this week" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "1 new mark" })).toBeInTheDocument();
-  });
-
-  it("shows progress as visuals: donut, rings and rank track", async () => {
-    renderDash();
-    expect(await screen.findByRole("button", { name: "donut todo 4" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "donut missed 1" })).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Work handed in: 75%" })).toBeInTheDocument();
-    // ranking average (with teacher-recorded marks) and its class tick
-    expect(screen.getByRole("img", { name: "My average: 71%, class 64%" })).toBeInTheDocument();
-    expect(screen.getByText("class 64%")).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /of \d+ done this week/ })).toBeInTheDocument();
+    expect(screen.getByText("71%")).toBeInTheDocument();
     const rank = screen.getByRole("link", { name: "Open my ranking" });
-    expect(within(rank).getByText("/ 36")).toBeInTheDocument();
-    expect(within(rank).getByText("Top quarter")).toBeInTheDocument();
+    expect(within(rank).getByText("#4")).toBeInTheDocument();
+    expect(within(rank).getByText("of 36 in class")).toBeInTheDocument();
   });
 
-  it("opens the matching task group from the donut and the missed link", async () => {
+  it("gives each subject its own next step and opens it on click", async () => {
     renderDash();
-    await screen.findByRole("heading", { name: "My tasks" });
-    const board = section("My tasks");
-    fireEvent.click(screen.getByRole("button", { name: "donut awaiting 1" }));
-    expect(within(board).getByRole("tab", { name: /Awaiting marks/ })).toHaveAttribute("aria-selected", "true");
-    expect(within(board).getByText("Wireframe")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "1 missed" }));
-    expect(within(board).getByRole("tab", { name: /Missed/ })).toHaveAttribute("aria-selected", "true");
-    expect(within(board).getByText("CSS lab")).toBeInTheDocument();
+    const web = await screen.findByRole("link", { name: "Open Web UI" });
+    expect(within(web).getByText("78%")).toBeInTheDocument(); // the ranking's score wins over the online-only one
+    expect(within(web).getByText("class 66%")).toBeInTheDocument();
+    expect(within(web).getByText("Landing page")).toBeInTheDocument();
+    const js = screen.getByRole("link", { name: "Open JavaScript" });
+    expect(within(js).getByText(/in progress now/)).toBeInTheDocument();
+    fireEvent.click(web);
+    expect(await screen.findByText("course page")).toBeInTheDocument();
   });
 
-  it("keeps reminders to one line and reveals the detail on tap", async () => {
+  it("lists what's coming up with the running quiz first and the missed work last", async () => {
     renderDash();
-    const title = await screen.findByText("Assignment due in 5h: Landing page");
-    const row = title.closest("li")!;
-    expect(within(row).getByText("New")).toBeInTheDocument();
-    expect(within(row).queryByText("Late submissions are not accepted.")).toBeNull();
-    fireEvent.click(title);
-    expect(await within(row).findByText("Late submissions are not accepted.")).toBeInTheDocument();
+    const list = (await screen.findByRole("heading", { name: "Coming up" })).closest("section")!;
+    const rows = within(list).getAllByRole("listitem").map((li) => li.textContent);
+    expect(rows[0]).toMatch(/In progress.*JS basics/);
+    expect(rows[rows.length - 1]).toMatch(/Missed.*CSS lab/);
+  });
+
+  it("charts recent marks and keeps the report card", async () => {
+    renderDash();
+    expect(await screen.findByRole("img", { name: /Recent marks: .*HTML basics 80%/ })).toBeInTheDocument();
+    expect(screen.getByTestId("report-card")).toBeInTheDocument();
+  });
+
+  it("sends reminders to the notification bell", async () => {
+    renderDash();
+    await screen.findByRole("region", { name: "What to do next" });
     expect(unreadImportant(latestAlerts()!).map((a) => a.id)).toEqual(
       expect.arrayContaining(["running-20", "due-today-assignment-10", "result-assignment-14", "opens-21"]),
     );
   });
 
-  it("dismisses a reminder", async () => {
-    renderDash();
-    fireEvent.click(await screen.findByRole("button", { name: "Dismiss: Exam opens in 1 day: Loops" }));
-    await waitFor(() => expect(screen.queryByText("Exam opens in 1 day: Loops")).toBeNull());
-  });
-
-  it("lists the week's work and filters it by day", async () => {
-    renderDash();
-    await screen.findByRole("heading", { name: "This week" });
-    const week = section("This week");
-    expect(within(week).getAllByRole("tab")).toHaveLength(7);
-    expect(within(week).getByText(/Next 7 days · 4/)).toBeInTheDocument();
-    fireEvent.click(within(week).getAllByRole("tab")[6]);
-    expect(within(week).getByText(/On this day · 0/)).toBeInTheDocument();
-    fireEvent.click(within(week).getByRole("button", { name: "Whole week" }));
-    expect(within(week).getByText(/Next 7 days · 4/)).toBeInTheDocument();
-  });
-
-  it("charts marks over time and subjects against the class", async () => {
-    renderDash();
-    expect(await screen.findByTestId("trend")).toHaveTextContent("trend 2");
-    const results = section("My marks");
-    expect(within(results).getByText("HTML basics")).toBeInTheDocument();
-    expect(within(results).getByLabelText("Has feedback")).toBeInTheDocument();
-    // the ranking's per-subject score wins over the online-only one
-    fireEvent.click(screen.getByRole("button", { name: "bar WEB 78 vs 66" }));
-    expect(await screen.findByText("course page")).toBeInTheDocument();
-  });
-
   it("works without the ranking endpoint", async () => {
     getRanking.mockRejectedValue(new Error("down"));
     renderDash();
-    expect(await screen.findByRole("img", { name: "Recent average: 60%" })).toBeInTheDocument();
-    expect(screen.getByText("after your first marks")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "bar JS - vs -" })).toBeInTheDocument();
-    expect(screen.queryByText("Tips for you")).toBeNull();
+    const hero = await screen.findByRole("region", { name: "What to do next" });
+    expect(within(hero).getByText("60%")).toBeInTheDocument(); // the online-only average
+    expect(within(hero).getByText("ranked after first marks")).toBeInTheDocument();
   });
 
   it("explains an empty enrolment but still offers the report card", async () => {
@@ -248,10 +178,10 @@ describe("StudentDashboard", () => {
 
   it("keeps the last tasks when a refresh fails", async () => {
     renderDash();
-    await screen.findByRole("heading", { name: "My tasks" });
+    await screen.findByRole("heading", { name: "Coming up" });
     getOverview.mockRejectedValueOnce({ response: { data: { message: "Network error" } } });
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     expect(await screen.findByText(/Couldn't refresh \(Network error\)/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "My tasks" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Coming up" })).toBeInTheDocument();
   });
 });
