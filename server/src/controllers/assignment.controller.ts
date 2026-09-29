@@ -20,6 +20,7 @@ import {
 } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { canManageAssignment } from "../utils/ownership";
+import { assignmentStatusScope, isAssignmentStudentView, termScope } from "../utils/courseItemScope";
 
 // This controller manages all assignment-related operations, including creation, retrieval, updating, deletion, and submission handling. It also integrates with the NGA MIS to fetch enrolled students and manage assignment visibility based on course enrollment. The controller ensures that only authorized users can perform certain actions (e.g., only instructors can create assignments) and that students can only see and submit assignments for courses they are enrolled in. It also handles file uploads for assignments and submissions, storing metadata in the database and files on disk.
 // @desc    Get assignments for a specific course
@@ -29,7 +30,7 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
   try {
     const { courseId } = req.params;
 
-    const isStudent = !req.user.permissions?.has("ASSIGNMENTS_VIEW_SUBMISSIONS");
+    const isStudent = isAssignmentStudentView(req);
 
     // Scope to academic term: prefer explicit query param, fall back to current term from JWT
     const termIdParam = req.query.academic_term_id
@@ -37,17 +38,10 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
       : null;
     const resolvedTermId = termIdParam ?? (await getCurrentTermId(req));
 
-    const termWhere = resolvedTermId
-      ? {
-          [Op.or]: [
-            { academic_term_id: resolvedTermId },
-            { academic_term_id: null }, // include legacy records without a term
-          ],
-        }
-      : {};
-
+    // Same scope as the course page's tab counter (utils/courseItemScope):
+    // students never receive drafts or removed work, not even to filter out.
     const assignments = await Assignment.findAll({
-      where: { course_id: courseId, ...termWhere },
+      where: { course_id: courseId, ...termScope(resolvedTermId), ...assignmentStatusScope(req) },
       include: [
         {
           model: User,

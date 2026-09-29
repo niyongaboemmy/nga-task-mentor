@@ -8,10 +8,11 @@ import { usePermissions } from "../../hooks/usePermissions";
 import AssignmentCard, { type AssignmentInterface } from "./AssignmentCard";
 import { onAcademicPeriodChanged } from "../../utils/academicPeriodEvents";
 
-// Module-level cache: keyed by courseId, holds the last fetched assignments list.
-// The server scopes /assignments to the caller's current academic term, so this
-// cache is implicitly term-scoped too -- it must be dropped when the viewed
-// term changes, since it lives outside the React tree Layout remounts on switch.
+// Module-level cache: keyed by courseId, holds the last fetched assignments list
+// so revisiting a tab paints instantly. It is only a first paint: the list is
+// always re-fetched on mount (an assignment created elsewhere must show up, or
+// the tab badge says "1" over an empty list). The server scopes the list to
+// the viewed term, so the cache is dropped when the term changes too.
 const assignmentsCache: Map<string, AssignmentInterface[]> = new Map();
 onAcademicPeriodChanged(() => assignmentsCache.clear());
 
@@ -53,14 +54,16 @@ const Assignments: React.FC<AssignmentsProps> = ({
   const [searchQuery, setSearchQuery] = useState("");
   const { user } = useAuth();
   const { can } = usePermissions();
-  const isStudentView = can("SUBMISSIONS_CREATE");
+  // Same rule as the server (utils/courseItemScope): whoever can see other
+  // people's submissions is staff. Admins also hold SUBMISSIONS_CREATE, so
+  // keying on that alone gave them the student view (drafts hidden).
+  const isStudentView = can("SUBMISSIONS_CREATE") && !can("ASSIGNMENTS_VIEW_SUBMISSIONS");
+  const termName =
+    user?.currentAcademicTerm && typeof user.currentAcademicTerm === "object"
+      ? (user.currentAcademicTerm as { name?: string }).name
+      : undefined;
 
-  const fetchAssignments = useCallback(async (force = false) => {
-    // Skip network request if we have cached data and this isn't a forced refresh
-    if (!force && assignmentsCache.has(cacheKey)) {
-      setIsLoading(false);
-      return;
-    }
+  const fetchAssignments = useCallback(async () => {
     try {
       let endpoint: string;
 
@@ -130,7 +133,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
   }, [currentCourseId, isStudentView, user?.id]);
 
   useEffect(() => {
-    // fetchAssignments skips the network if cache is warm
+    // A warm cache paints first; the fetch still runs to pick up changes.
     fetchAssignments();
     // Only fetch course if it wasn't provided or if ID changed
     if (
@@ -143,7 +146,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
 
   const handleRefresh = useCallback(async () => {
     setIsRefreshing(true);
-    await fetchAssignments(true);
+    await fetchAssignments();
   }, [fetchAssignments]);
 
   const handleStatusChange = useCallback(
@@ -155,8 +158,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
         await axios.patch(`/assignments/${assignmentId}/status`, {
           status,
         });
-        // Force-refresh after a mutation so cache is up to date
-        fetchAssignments(true);
+        fetchAssignments();
       } catch (error) {
         console.error("Error updating assignment status:", error);
       }
@@ -173,7 +175,8 @@ const Assignments: React.FC<AssignmentsProps> = ({
         );
       }
 
-      if (filter !== "all" && assignment.status !== filter) {
+      // "All" means everything still in use; removed work has its own filter.
+      if (filter === "all" ? assignment.status === "removed" : assignment.status !== filter) {
         return false;
       }
 
@@ -294,7 +297,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                       onChange={(e) => setFilter(e.target.value as any)}
                       className="text-sm rounded-2xl px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-transparent dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
-                      <option value="all">All Status</option>
+                      <option value="all">All (not removed)</option>
                       <option value="published">Published</option>
                       <option value="completed">Completed</option>
                       {/* Only show removed filter for instructors/admins */}
@@ -387,20 +390,24 @@ const Assignments: React.FC<AssignmentsProps> = ({
                 />
               </svg>
               <h3 className="mt-2 text-base font-medium text-text-primary-light dark:text-text-primary-dark">
-                {isStudentView
-                  ? "No assignments available"
-                  : filter === "all"
+                {searchQuery
+                  ? "No assignments match your search"
+                  : isStudentView
                     ? "No assignments yet"
-                    : `No ${filter} assignments`}
+                    : filter === "all"
+                      ? "No assignments yet"
+                      : `No ${filter} assignments`}
               </h3>
               <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
-                {isStudentView
-                  ? "You need to be enrolled in courses to see assignments."
-                  : filter === "all"
-                    ? "Assignments will appear here once they're created."
-                    : `${filter} assignments will appear here.`}
+                {searchQuery
+                  ? "Try a different title, or clear the search."
+                  : isStudentView
+                    ? `Your teacher hasn't published any assignments${currentCourseId ? " for this subject" : ""}${termName ? ` in ${termName}` : ""} yet.`
+                    : filter === "all"
+                      ? `No assignments${currentCourseId ? " for this subject" : ""}${termName ? ` in ${termName}` : ""}. Switch the term in the top bar to see other terms.`
+                      : `${filter[0].toUpperCase()}${filter.slice(1)} assignments will appear here.`}
               </p>
-              {filter === "all" && showCreateButton && canManageAssignments && (
+              {filter === "all" && !searchQuery && showCreateButton && canManageAssignments && (
                 <div className="mt-4">
                   <Link
                     to={`/assignments/create?courseId=${currentCourseId}`}

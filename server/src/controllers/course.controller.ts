@@ -18,6 +18,7 @@ import {
 } from "../models";
 import { Op } from "sequelize";
 import { bestBySubmissionScore, submissionBelongsTo } from "../utils/gradeMatching";
+import { assignmentStatusScope, quizStatusScope, termScope } from "../utils/courseItemScope";
 import {
   buildManualAssessmentRow,
   fetchManualAssessments,
@@ -249,7 +250,7 @@ export const getCourse = async (req: Request, res: Response) => {
     }
 
     // Get local statistics (assignments, quizzes)
-    const statistics = await getCourseLocalStatistics(courseId);
+    const statistics = await getCourseLocalStatistics(courseId, req, termId);
 
     // Map enrolled students to match UserFullData structure expected by frontend
     const mappedStudents = enrolledStudents.map((s: any) => ({
@@ -312,7 +313,7 @@ export const getCourse = async (req: Request, res: Response) => {
           .status(400)
           .json({ success: false, message: "Invalid course ID" });
       }
-      const statistics = await getCourseLocalStatistics(id);
+      const statistics = await getCourseLocalStatistics(id, req, await resolveAcademicTermId(req));
 
       // Return course data with local statistics since MIS access failed
       const course = {
@@ -340,9 +341,12 @@ export const getCourse = async (req: Request, res: Response) => {
 };
 
 /**
- * Helper to calculate local statistics for a course
+ * Local statistics for a course page. The counts feed the tab badges, so they
+ * follow the same scope as the lists behind the tabs (utils/courseItemScope):
+ * the selected term, and only what this caller may see. Removed assignments
+ * are reported in by_status but not in the total.
  */
-async function getCourseLocalStatistics(courseId: number) {
+async function getCourseLocalStatistics(courseId: number, req: Request, termId: number | null) {
   // Get assignments statistics for this course
   let assignmentsStats = {
     total: 0,
@@ -354,7 +358,7 @@ async function getCourseLocalStatistics(courseId: number) {
   try {
     // Get all assignments for this course
     const assignments = await Assignment.findAll({
-      where: { course_id: courseId },
+      where: { course_id: courseId, ...termScope(termId), ...assignmentStatusScope(req) },
       include: [
         {
           model: Submission,
@@ -363,7 +367,8 @@ async function getCourseLocalStatistics(courseId: number) {
       ],
     });
 
-    assignmentsStats.total = assignments.length;
+    const live = assignments.filter((a) => a.status !== "removed");
+    assignmentsStats.total = live.length;
 
     // Count assignments by status
     assignments.forEach((assignment) => {
@@ -372,7 +377,7 @@ async function getCourseLocalStatistics(courseId: number) {
     });
 
     // Calculate total submissions
-    assignmentsStats.total_submissions = assignments.reduce(
+    assignmentsStats.total_submissions = live.reduce(
       (total, assignment) => total + (assignment.submissions?.length || 0),
       0,
     );
@@ -404,7 +409,7 @@ async function getCourseLocalStatistics(courseId: number) {
   try {
     // Get all quizzes for this course
     const quizzes = await Quiz.findAll({
-      where: { course_id: courseId },
+      where: { course_id: courseId, ...termScope(termId), ...quizStatusScope(req) },
     });
 
     quizzesStats.total = quizzes.length;
