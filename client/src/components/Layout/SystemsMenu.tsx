@@ -2,7 +2,7 @@ import React, { useRef, useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Search, X, LayoutGrid, ArrowRight } from "lucide-react";
 import { authorizeSSO } from "../../services/authService";
-import { toast } from "react-toastify";
+import { appLinkProps, useLaunchLinks } from "../../pwa/ngaLaunch";
 import type { System } from "../../types/user.types";
 
 interface SystemsMenuProps {
@@ -52,68 +52,21 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
     import.meta.env.VITE_MIS_LOGIN_URL || "https://nga.ac.rw/mis/login"
   ).replace(/\/login\/?$/, "");
 
-  const handleSystemClick = async (system: System) => {
-    const callbacks = system.allowed_redirect_uris
-      ? system.allowed_redirect_uris.split(",").map((s) => s.trim())
-      : [];
-
-    const currentOrigin = window.location.origin;
-    const matchingCallback = callbacks.find((cb) =>
-      cb.startsWith(currentOrigin),
-    );
-    const redirectUri = matchingCallback || callbacks[0] || system.home_url;
-
-    if (!redirectUri) {
-      toast.error("No callback or home URL configured for this system");
-      return;
-    }
-
-    const newWindow = window.open("about:blank", "_blank");
-    if (!newWindow) {
-      toast.error("Popup blocked! Please allow popups for this site.");
-      return;
-    }
-
-    if (!system.client_id) {
-      newWindow.location.href = redirectUri;
-      return;
-    }
-
-    const state = Math.random().toString(36).substring(2, 15);
-
-    try {
-      toast.info(`Authenticating with ${system.name}...`);
-      const result = await authorizeSSO(
-        system.client_id!,
-        redirectUri,
-        "code",
-        state,
-      );
-      if (result && result.code) {
-        const targetUrl = new URL(redirectUri);
-        targetUrl.searchParams.append("code", result.code);
-        if (result.state) {
-          targetUrl.searchParams.append("state", result.state);
-        }
-        newWindow.location.href = targetUrl.toString();
-      } else {
-        newWindow.location.href = redirectUri;
-      }
-    } catch (error: any) {
-      if (error.response?.status === 401) {
-        newWindow.close();
-        const loginUrl = new URL("/mis/login", window.location.origin);
-        loginUrl.searchParams.set("client_id", system.client_id!);
-        loginUrl.searchParams.set("redirect_uri", redirectUri);
-        loginUrl.searchParams.set("response_type", "code");
-        loginUrl.searchParams.set("state", state);
-        window.location.href = loginUrl.toString();
-        return;
-      }
-      toast.error(error.response?.data?.message || "SSO Authentication failed");
-      newWindow.location.href = redirectUri;
-    }
-  };
+  // Tiles are real links so Chrome can open each app in its installed
+  // window (see src/pwa/ngaLaunch.ts).
+  const { tileProps } = useLaunchLinks(
+    filteredSystems,
+    isOpen,
+    (clientId, redirectUri, state) => authorizeSSO(clientId, redirectUri, "code", state),
+    (system, redirectUri, state) => {
+      const loginUrl = new URL("/mis/login", window.location.origin);
+      loginUrl.searchParams.set("client_id", system.client_id!);
+      loginUrl.searchParams.set("redirect_uri", redirectUri);
+      loginUrl.searchParams.set("response_type", "code");
+      loginUrl.searchParams.set("state", state);
+      return loginUrl.toString();
+    },
+  );
 
   return (
     <AnimatePresence>
@@ -172,11 +125,12 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
               {/* Static MIS Redirect - Always visible unless searching specifically for something else */}
               {(!searchQuery ||
                 "back to mis".includes(searchQuery.toLowerCase())) && (
-                <motion.button
+                <motion.a
                   key="mis-back"
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  onClick={() => window.open(misHomeUrl, "_blank")}
+                  {...appLinkProps(misHomeUrl, onClose)}
+                  title="Open NGA MIS"
                   className="group relative flex flex-col items-center p-1.5 pt-2 rounded-xl hover:bg-orange-50 dark:hover:bg-orange-600/10 transition-all duration-200 text-center"
                 >
                   <div className="relative mb-1.5">
@@ -190,16 +144,17 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                   <span className="text-[10px] font-bold text-text-secondary-light dark:text-text-secondary-dark group-hover:text-orange-600 dark:group-hover:text-orange-400 truncate w-full px-0.5">
                     Back to MIS
                   </span>
-                </motion.button>
+                </motion.a>
               )}
 
               {filteredSystems.map((system, idx) => (
-                <motion.button
+                <motion.a
                   key={system.system_id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.03 }}
-                  onClick={() => handleSystemClick(system)}
+                  {...tileProps(system, onClose)}
+                  title={`Open ${system.name}`}
                   className="group relative flex flex-col items-center p-1.5 pt-2 rounded-xl hover:bg-blue-50 dark:hover:bg-blue-600/10 transition-all duration-200 text-center"
                 >
                   <div className="relative mb-1.5">
@@ -222,7 +177,7 @@ const SystemsMenu: React.FC<SystemsMenuProps> = ({
                   <span className="text-[10px] font-bold text-text-secondary-light dark:text-text-secondary-dark group-hover:text-blue-600 dark:group-hover:text-blue-400 truncate w-full px-0.5">
                     {system.name}
                   </span>
-                </motion.button>
+                </motion.a>
               ))}
             </div>
 
