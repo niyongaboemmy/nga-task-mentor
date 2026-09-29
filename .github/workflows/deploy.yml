@@ -164,7 +164,17 @@ jobs:
 
             cd client
             npm ci --legacy-peer-deps
-            npm run build
+            # A truncated package from the npm cache once failed this build
+            # (2026-09-29: typescript/lib/lib.es2023.d.ts missing, same lockfile
+            # that built fine an hour earlier). Retry once from a verified cache
+            # with a clean node_modules; a real build error fails the retry too.
+            if [ ! -f node_modules/typescript/lib/lib.es2023.d.ts ] || ! npm run build; then
+              echo "Client build failed; verifying the npm cache and reinstalling once"
+              npm cache verify
+              rm -rf node_modules
+              npm ci --legacy-peer-deps
+              npm run build
+            fi
             cd ..
 
             pm2 restart taskmentor-server --update-env || pm2 start server/dist/index.js --name taskmentor-server --update-env
