@@ -55,6 +55,7 @@ import rolesPermissionsRoutes from "./routes/rolesPermissions";
 import accessRoutes from "./routes/access";
 import integrationRoutes from "./routes/integration";
 import aiService from "./services/ai/aiService";
+import { startReminderSweep } from "./services/reminderSync";
 import { verifyReportCard } from "./controllers/reportCard.controller";
 
 import cookieParser from "cookie-parser";
@@ -331,6 +332,8 @@ const startServer = async (): Promise<void> => {
       console.log(
         `Note: Socket functionality moved to live-server (port 5002)`,
       );
+      // Backstop for the per-request pushes to the MIS Reminder Hub.
+      startReminderSweep();
     });
 
     // Handle unhandled promise rejections
