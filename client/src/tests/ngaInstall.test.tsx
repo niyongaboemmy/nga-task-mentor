@@ -362,4 +362,22 @@ describe("NgaInstallPrompt — installed app visited in a browser tab", () => {
     expect(localStorage.getItem("nga.appInstalled")).toBeNull();
     expect(m.getLiveCheck()).toBe("no");
   });
+
+  it("synced to the Chrome account but not on this device: the browser's install offer wins", async () => {
+    (navigator as any).getInstalledRelatedApps = vi.fn().mockResolvedValue([{ platform: "webapp", id: "https://taskmentor.amashuri.com/" }]);
+    const m = await load();
+    m.initNgaInstall();
+    act(() => {
+      window.dispatchEvent(
+        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+          prompt: vi.fn().mockResolvedValue(undefined),
+          userChoice: Promise.resolve({ outcome: "dismissed" }),
+        }),
+      );
+    });
+    expect(await m.refreshLiveCheck()).toBe("no");
+    render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    expect(await screen.findByRole("button", { name: "Install & open Task Mentor" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Open in the Task Mentor app/ })).toBeNull();
+  });
 });
