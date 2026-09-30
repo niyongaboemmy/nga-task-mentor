@@ -21,6 +21,7 @@ import {
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { canManageAssignment } from "../utils/ownership";
 import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
+import { cancelAssignment, syncAssignment } from "../services/reminderSync";
 import { assignmentStatusScope, isAssignmentStudentView, termScope } from "../utils/courseItemScope";
 
 // This controller manages all assignment-related operations, including creation, retrieval, updating, deletion, and submission handling. It also integrates with the NGA MIS to fetch enrolled students and manage assignment visibility based on course enrollment. The controller ensures that only authorized users can perform certain actions (e.g., only instructors can create assignments) and that students can only see and submit assignments for courses they are enrolled in. It also handles file uploads for assignments and submissions, storing metadata in the database and files on disk.
@@ -600,6 +601,9 @@ export const createAssignment = async (req: Request, res: Response) => {
       })(),
     } as any);
 
+    // Fire-and-forget: push the due-date reminder to the MIS Reminder Hub.
+    void syncAssignment(assignment.id);
+
     res.status(201).json({
       success: true,
       message: "Assignment created successfully",
@@ -856,6 +860,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
     }
 
     await assignment.save();
+    void syncAssignment(assignment.id);
 
     // Fetch updated assignment with course info
     const updatedAssignment = await Assignment.findByPk(req.params.id);
@@ -881,6 +886,7 @@ export const deleteAssignment = async (req: Request, res: Response) => {
     }
 
     await assignment.destroy();
+    void cancelAssignment(assignment.id);
 
     res.status(200).json({ success: true, data: {} });
   } catch (error) {
@@ -1171,6 +1177,8 @@ export const updateAssignmentStatus = async (req: Request, res: Response) => {
     // Update the status
     assignment.status = status;
     await assignment.save();
+    // Published -> send the due reminder; draft/completed/removed -> cancel it.
+    void syncAssignment(assignment.id);
 
     res.status(200).json({ success: true, data: assignment });
   } catch (error) {

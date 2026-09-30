@@ -77,6 +77,29 @@ page and back. For the proctoring module also run `npm run live-server`
 | server | `npm run migrate` | apply pending Sequelize migrations (`migrations/`) |
 | client | `npm test` / `npm run lint` / `npm run test:e2e` | client checks |
 
+## MIS Reminder Hub
+
+Students get reminders (Web Push / in-app / calendar) from the NGA MIS Reminder
+Hub before a quiz opens, before it closes and before an assignment is due.
+Task Mentor pushes the items; MIS decides who and how
+(`server/src/services/reminderSync.ts`).
+
+- **When:** after every quiz/assignment create, update, status change and
+  delete (fire-and-forget: a slow or down MIS never fails the request), plus a
+  sweep ~30 s after boot and every 30 min that re-sends everything published
+  and due in the next 14 days (`PUT /reminders/sources/batch`, 200 per call).
+- **What:** `quiz-<id>-open` (`quiz_open`, at `start_date`),
+  `quiz-<id>-close` (`quiz_close`, at `end_date`, critical) and
+  `assignment-<id>-due` (`assignment_due`, at `due_date`, critical). Only
+  `published` items with a future time are sent; draft/completed/removed,
+  deleted, or a cleared date → `DELETE /reminders/sources/taskmentor/<type>/<id>`.
+- **Who:** `audience_subject_id` = the item's `course_id` (Task Mentor courses
+  are MIS subjects); MIS expands it to the subject's active enrolled students.
+- **Links:** `<FRONTEND_URL>/quizzes/<id>/take` and `<FRONTEND_URL>/assignments/<id>`.
+- **Auth/config:** HTTP Basic with `SSO_CLIENT_ID`/`SSO_CLIENT_SECRET` against
+  `NGA_MIS_BASE_URL`. Off when `REMINDERS_SYNC=false`, under `NODE_ENV=test`,
+  or when those credentials are missing.
+
 ## Branching and deployment
 
 **Every push to `main` deploys to production** (`.github/workflows/deploy.yml`).

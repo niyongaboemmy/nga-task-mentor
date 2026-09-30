@@ -40,6 +40,7 @@ import {
   studentAttemptSummary,
 } from "../utils/quizStudentView";
 import { studentMayTakeQuiz } from "../utils/studentEnrollment";
+import { cancelQuiz, syncQuiz } from "../services/reminderSync";
 import {
   SUBMIT_GRACE_SECONDS,
   computeAttemptEndTime,
@@ -673,6 +674,8 @@ export const createQuiz = async (req: Request, res: Response) => {
     );
 
     await transaction.commit();
+    // Fire-and-forget: push open/close reminders to the MIS Reminder Hub.
+    void syncQuiz(quiz.id);
 
     // Fetch the created quiz with associations
     const createdQuiz = await Quiz.findByPk(quiz.id, {
@@ -813,6 +816,8 @@ export const updateQuiz = async (req: Request, res: Response) => {
 
     await quiz.update(changes, { transaction });
     await transaction.commit();
+    // Re-send (or cancel, e.g. back to draft) the MIS reminders.
+    void syncQuiz(quiz.id);
 
     // Fetch updated quiz
     const updatedQuiz = await Quiz.findByPk(quiz.id, {
@@ -882,6 +887,7 @@ export const deleteQuiz = async (req: Request, res: Response) => {
 
     await quiz.destroy({ transaction });
     await transaction.commit();
+    void cancelQuiz(quizId);
 
     res
       .status(200)
