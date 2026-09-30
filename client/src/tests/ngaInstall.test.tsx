@@ -112,6 +112,42 @@ describe("NgaInstallPrompt — asks on load until the app is installed", () => {
     expect(localStorage.getItem("nga.appInstalled")).toBe("1");
   });
 
+  it("a stale 'installed' note is dropped when the browser says the app is installable", async () => {
+    localStorage.setItem("nga.appInstalled", "1"); // installed once, uninstalled later
+    const m = await load();
+    m.initNgaInstall();
+    render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    await act(async () => undefined);
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    const event = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+      prompt: vi.fn().mockResolvedValue(undefined),
+      userChoice: Promise.resolve({ outcome: "dismissed" }),
+    });
+    act(() => {
+      window.dispatchEvent(event);
+    });
+    expect(localStorage.getItem("nga.appInstalled")).toBeNull();
+    expect(await screen.findByRole("button", { name: "Install Task Mentor" })).toBeInTheDocument();
+  });
+
+  it("the late browser signal still respects 'Not now'", async () => {
+    localStorage.setItem("nga.installSnoozedUntil", String(Date.now() + 3_600_000));
+    const m = await load();
+    m.initNgaInstall();
+    render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    act(() => {
+      window.dispatchEvent(
+        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+          prompt: vi.fn(),
+          userChoice: Promise.resolve({ outcome: "dismissed" }),
+        }),
+      );
+    });
+    await act(async () => undefined);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("decides purely from the inputs", async () => {
     const { shouldOffer } = await load();
     const base = { standalone: false, knownInstalled: false, platform: "chromium" as const, forced: false, snoozedUntil: 0, now: 1000 };
