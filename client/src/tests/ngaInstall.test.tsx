@@ -58,21 +58,48 @@ describe("NgaInstallPrompt — asks on load until the app is installed", () => {
     expect(localStorage.getItem("nga.appInstalled")).toBe("1");
   });
 
-  it("'Not now' snoozes it for a day", async () => {
+  it("'Not now' hides the card for this browser session only", async () => {
     const m = await load();
     m.initNgaInstall();
     const { unmount } = render(<m.NgaInstallPrompt appName="Task Mentor" />);
     fireEvent.click(await screen.findByRole("button", { name: "Not now" }));
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(Number(localStorage.getItem("nga.installSnoozedUntil"))).toBeGreaterThan(Date.now() + 23 * 3_600_000);
+    expect(sessionStorage.getItem("nga.installDismissedThisSession")).toBe("1");
     unmount();
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
     await act(async () => undefined);
     expect(screen.queryByRole("dialog")).toBeNull();
   });
 
-  it("the NGA installer overrides the snooze and gets a safe way back", async () => {
-    localStorage.setItem("nga.installSnoozedUntil", String(Date.now() + 10 * 3_600_000));
+  it("clears an old 24-hour snooze so the card comes back", async () => {
+    localStorage.setItem("nga.installSnoozedUntil", String(Date.now() + 20 * 3_600_000));
+    const m = await load();
+    m.initNgaInstall();
+    expect(localStorage.getItem("nga.installSnoozedUntil")).toBeNull();
+    render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("after 'Not now' the corner Install button stays, and reopens the card", async () => {
+    const m = await load();
+    m.initNgaInstall();
+    render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    act(() => {
+      window.dispatchEvent(
+        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+          prompt: vi.fn().mockResolvedValue(undefined),
+          userChoice: Promise.resolve({ outcome: "dismissed" }),
+        }),
+      );
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Not now" }));
+    const corner = await screen.findByRole("button", { name: /Install Task Mentor/ });
+    fireEvent.click(corner);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("the NGA installer overrides 'Not now' and gets a safe way back", async () => {
+    sessionStorage.setItem("nga.installDismissedThisSession", "1");
     setUrl("/?nga_install=1&return=" + encodeURIComponent("https://mis.amashuri.com/apps?step=2"));
     const m = await load();
     m.initNgaInstall();
@@ -131,8 +158,8 @@ describe("NgaInstallPrompt — asks on load until the app is installed", () => {
     expect(await screen.findByRole("button", { name: "Install Task Mentor" })).toBeInTheDocument();
   });
 
-  it("the late browser signal still respects 'Not now'", async () => {
-    localStorage.setItem("nga.installSnoozedUntil", String(Date.now() + 3_600_000));
+  it("the late browser signal still respects 'Not now' (but offers the corner button)", async () => {
+    sessionStorage.setItem("nga.installDismissedThisSession", "1");
     const m = await load();
     m.initNgaInstall();
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
@@ -146,16 +173,25 @@ describe("NgaInstallPrompt — asks on load until the app is installed", () => {
     });
     await act(async () => undefined);
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("button", { name: /Install Task Mentor/ })).toBeInTheDocument();
   });
 
   it("decides purely from the inputs", async () => {
-    const { shouldOffer } = await load();
-    const base = { standalone: false, knownInstalled: false, platform: "chromium" as const, forced: false, snoozedUntil: 0, now: 1000 };
+    const { shouldOffer, shouldShowInstallButton } = await load();
+    const base = { standalone: false, knownInstalled: false, platform: "chromium" as const, forced: false, dismissedThisSession: false };
     expect(shouldOffer(base)).toBe(true);
     expect(shouldOffer({ ...base, standalone: true })).toBe(false);
     expect(shouldOffer({ ...base, knownInstalled: true, forced: true })).toBe(false);
     expect(shouldOffer({ ...base, platform: "firefox-other" })).toBe(false);
-    expect(shouldOffer({ ...base, snoozedUntil: 5000 })).toBe(false);
-    expect(shouldOffer({ ...base, snoozedUntil: 5000, forced: true })).toBe(true);
+    expect(shouldOffer({ ...base, dismissedThisSession: true })).toBe(false);
+    expect(shouldOffer({ ...base, dismissedThisSession: true, forced: true })).toBe(true);
+
+    const btn = { standalone: false, installed: false, platform: "chromium" as const, canPrompt: true, cardOpen: false, hidden: false };
+    expect(shouldShowInstallButton(btn)).toBe(true);
+    expect(shouldShowInstallButton({ ...btn, canPrompt: false })).toBe(false); // Chromium: installed or not installable
+    expect(shouldShowInstallButton({ ...btn, canPrompt: false, platform: "ios" })).toBe(true);
+    expect(shouldShowInstallButton({ ...btn, standalone: true })).toBe(false);
+    expect(shouldShowInstallButton({ ...btn, cardOpen: true })).toBe(false);
+    expect(shouldShowInstallButton({ ...btn, hidden: true })).toBe(false);
   });
 });
