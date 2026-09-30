@@ -5,6 +5,8 @@ import { Role } from "../models/Role.model";
 import { Permission } from "../models/Permission.model";
 import { accessMode } from "../access/mode";
 import { canManageAssignment } from "../utils/ownership";
+import { issuedBeforeRevocation } from "../utils/ssoLogout";
+import { getRevokedAt } from "../services/sessionRevocation";
 import {
   applyEnforcedPermissions,
   denyResponse,
@@ -81,6 +83,16 @@ export const protect = async (
         return res
           .status(401)
           .json({ success: false, message: "User not found" });
+      }
+
+      // Single sign-out: this person signed out of NGA MIS after this token
+      // was issued (back-channel logout) -- the session is over everywhere.
+      if (issuedBeforeRevocation(decoded.iat, await getRevokedAt(user.id))) {
+        return res.status(401).json({
+          success: false,
+          code: "SESSION_ENDED",
+          message: "You signed out of NGA. Please sign in again.",
+        });
       }
 
       const permissionKeys = (user.roleRecord?.permissions ?? []).map(
