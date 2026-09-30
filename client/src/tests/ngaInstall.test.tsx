@@ -132,7 +132,7 @@ describe("NgaInstallPrompt — asks on load until the app is installed", () => {
     });
     expect(event.defaultPrevented).toBe(true);
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Install Task Mentor" }));
+      fireEvent.click(screen.getByRole("button", { name: "Install & open Task Mentor" }));
     });
     expect(prompt).toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -155,7 +155,7 @@ describe("NgaInstallPrompt — asks on load until the app is installed", () => {
       window.dispatchEvent(event);
     });
     expect(localStorage.getItem("nga.appInstalled")).toBeNull();
-    expect(await screen.findByRole("button", { name: "Install Task Mentor" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Install & open Task Mentor" })).toBeInTheDocument();
   });
 
   it("the late browser signal still respects 'Not now' (but offers the corner button)", async () => {
@@ -228,7 +228,7 @@ describe("NgaInstallPrompt — reports back to the NGA installer", () => {
       );
     });
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Install Task Mentor" }));
+      fireEvent.click(screen.getByRole("button", { name: "Install & open Task Mentor" }));
     });
     expect(opener.postMessage).toHaveBeenCalledWith({ type: "nga-install", app: "taskmentor", status: "installed" }, "https://mis.amashuri.com");
     expect(screen.getByRole("heading", { name: "Task Mentor is installed" })).toBeInTheDocument();
@@ -251,7 +251,7 @@ describe("NgaInstallPrompt — reports back to the NGA installer", () => {
     const m = await load();
     m.initNgaInstall();
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
-    expect(await screen.findByRole("heading", { name: "Task Mentor is already installed" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Task Mentor is installed" })).toBeInTheDocument();
     expect(opener.postMessage).toHaveBeenCalledWith({ type: "nga-install", app: "taskmentor", status: "already" }, "https://mis.amashuri.com");
   });
 
@@ -260,7 +260,7 @@ describe("NgaInstallPrompt — reports back to the NGA installer", () => {
     const m = await load();
     m.initNgaInstall();
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
-    await screen.findByRole("heading", { name: "Task Mentor is already installed" });
+    await screen.findByRole("heading", { name: "Task Mentor is installed" });
     act(() => {
       window.dispatchEvent(
         Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
@@ -269,7 +269,7 @@ describe("NgaInstallPrompt — reports back to the NGA installer", () => {
         }),
       );
     });
-    expect(await screen.findByRole("button", { name: "Install Task Mentor" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Install & open Task Mentor" })).toBeInTheDocument();
   });
 
   it("without an opener it falls back to the return link", async () => {
@@ -278,5 +278,72 @@ describe("NgaInstallPrompt — reports back to the NGA installer", () => {
     expect(m.notifyInstaller("installed", RETURN)).toBe(false);
     expect(m.installerKeyFrom(RETURN)).toBe("taskmentor");
     expect(m.skipReturnUrl(RETURN)).toBe("https://mis.amashuri.com/apps?skipped=taskmentor");
+  });
+
+  it("already installed: one click opens the app window (a real link, which Chrome sends to the app)", async () => {
+    localStorage.setItem("nga.appInstalled", "1");
+    const m = await load();
+    m.initNgaInstall();
+    render(<m.NgaInstallPrompt appName="Task Mentor" startPath="/dashboard?source=pwa" />);
+    const open = await screen.findByRole("link", { name: "Open the Task Mentor app" });
+    expect(open).toHaveAttribute("href", `${window.location.origin}/dashboard?source=pwa`);
+    expect(open).toHaveAttribute("target", "_blank");
+    vi.useFakeTimers();
+    const close = vi.spyOn(window, "close").mockImplementation(() => undefined);
+    fireEvent.click(open);
+    vi.advanceTimersByTime(700);
+    vi.useRealTimers();
+    expect(close).toHaveBeenCalled();
+    expect(opener.postMessage).toHaveBeenCalledWith({ type: "nga-install", app: "taskmentor", status: "already" }, "https://mis.amashuri.com");
+  });
+
+  it("running as the installed app: no card at all, just a quiet report to the installer", async () => {
+    const original = window.matchMedia;
+    Object.defineProperty(window, "matchMedia", {
+      configurable: true,
+      writable: true,
+      value: (q: string) => ({ matches: q.includes("standalone"), media: q, addEventListener: vi.fn(), removeEventListener: vi.fn() }) as unknown as MediaQueryList,
+    });
+    try {
+      const m = await load();
+      m.initNgaInstall();
+      render(<m.NgaInstallPrompt appName="Task Mentor" />);
+      await act(async () => undefined);
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(opener.postMessage).toHaveBeenCalledWith({ type: "nga-install", app: "taskmentor", status: "already" }, "https://mis.amashuri.com");
+    } finally {
+      Object.defineProperty(window, "matchMedia", { configurable: true, writable: true, value: original });
+    }
+  });
+});
+
+describe("NgaInstallPrompt — installed app visited in a browser tab", () => {
+  beforeEach(() => {
+    vi.stubGlobal("localStorage", memoryStorage());
+    vi.stubGlobal("sessionStorage", memoryStorage());
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(CHROME_UA);
+    setUrl("/");
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it("offers 'Open in the app' instead of 'Install'", async () => {
+    localStorage.setItem("nga.appInstalled", "1");
+    const m = await load();
+    m.initNgaInstall();
+    render(<m.NgaInstallPrompt appName="Task Mentor" startPath="/dashboard?source=pwa" />);
+    const link = await screen.findByRole("link", { name: /Open in the Task Mentor app/ });
+    expect(link).toHaveAttribute("href", `${window.location.origin}/dashboard?source=pwa`);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("also leaves a short report cookie on .amashuri.com (reaches the installer without an opener)", async () => {
+    const m = await load();
+    const set: string[] = [];
+    const spy = vi.spyOn(document, "cookie", "set").mockImplementation((v: string) => void set.push(v));
+    m.writeReportCookie("taskmentor", "installed", "taskmentor.amashuri.com", 1700000000000);
+    m.writeReportCookie("tupo", "already", "localhost", 1700000000000);
+    spy.mockRestore();
+    expect(set[0]).toBe("nga_inst_taskmentor=installed.1700000000000; path=/; max-age=900; samesite=lax; domain=.amashuri.com; secure");
+    expect(set[1]).toBe("nga_inst_tupo=already.1700000000000; path=/; max-age=900; samesite=lax");
   });
 });

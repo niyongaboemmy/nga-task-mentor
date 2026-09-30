@@ -19,7 +19,7 @@ createRoot(document.getElementById("root")!).render(
         <CourseCacheProvider>
           <SchemeOfWorkProvider>
             <App />
-            <NgaInstallPrompt appName="Task Mentor" accent="#3b82f6" />
+            <NgaInstallPrompt appName="Task Mentor" accent="#3b82f6" startPath="/dashboard?source=pwa" />
           </SchemeOfWorkProvider>
         </CourseCacheProvider>
       </AuthProvider>
