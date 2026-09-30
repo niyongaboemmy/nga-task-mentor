@@ -363,8 +363,8 @@ describe("NgaInstallPrompt — installed app visited in a browser tab", () => {
     expect(m.getLiveCheck()).toBe("no");
   });
 
-  it("synced to the Chrome account but not on this device: the browser's install offer wins", async () => {
-    (navigator as any).getInstalledRelatedApps = vi.fn().mockResolvedValue([{ platform: "webapp", id: "https://taskmentor.amashuri.com/" }]);
+  it("installed from Chrome's menu after the page offered it: the live answer wins", async () => {
+    (navigator as any).getInstalledRelatedApps = vi.fn().mockResolvedValue([]);
     const m = await load();
     m.initNgaInstall();
     act(() => {
@@ -376,8 +376,9 @@ describe("NgaInstallPrompt — installed app visited in a browser tab", () => {
       );
     });
     expect(await m.refreshLiveCheck()).toBe("no");
+    (navigator as any).getInstalledRelatedApps = vi.fn().mockResolvedValue([{ platform: "webapp", id: "https://taskmentor.amashuri.com/" }]);
+    expect(await m.refreshLiveCheck()).toBe("yes");
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
-    expect(await screen.findByRole("button", { name: "Install & open Task Mentor" })).toBeInTheDocument();
-    expect(screen.queryByRole("link", { name: /Open in the Task Mentor app/ })).toBeNull();
+    expect(await screen.findByRole("link", { name: /Open in the Task Mentor app/ })).toBeInTheDocument();
   });
 });
