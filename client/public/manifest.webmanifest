@@ -33,9 +33,6 @@
     }
   ],
   "related_applications": [
-    {
-      "platform": "webapp",
-      "url": "/manifest.webmanifest"
-    }
+    { "platform": "webapp", "url": "/manifest.webmanifest", "id": "https://taskmentor.amashuri.com/" }
   ]
 }

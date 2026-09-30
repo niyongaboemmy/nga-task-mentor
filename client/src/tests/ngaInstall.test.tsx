@@ -326,8 +326,12 @@ describe("NgaInstallPrompt — installed app visited in a browser tab", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it("offers 'Open in the app' instead of 'Install'", async () => {
-    localStorage.setItem("nga.appInstalled", "1");
+  afterEach(() => {
+    delete (navigator as any).getInstalledRelatedApps;
+  });
+
+  it("offers 'Open in the app' instead of 'Install' -- when the browser confirms it's installed", async () => {
+    (navigator as any).getInstalledRelatedApps = vi.fn().mockResolvedValue([{ platform: "webapp", id: "https://taskmentor.amashuri.com/" }]);
     const m = await load();
     m.initNgaInstall();
     render(<m.NgaInstallPrompt appName="Task Mentor" startPath="/dashboard?source=pwa" />);
@@ -345,5 +349,17 @@ describe("NgaInstallPrompt — installed app visited in a browser tab", () => {
     spy.mockRestore();
     expect(set[0]).toBe("nga_inst_taskmentor=installed.1700000000000; path=/; max-age=900; samesite=lax; domain=.amashuri.com; secure");
     expect(set[1]).toBe("nga_inst_tupo=already.1700000000000; path=/; max-age=900; samesite=lax");
+  });
+
+  it("a removed app is not 'installed', whatever an old note says: no 'Open' button, the install card returns", async () => {
+    localStorage.setItem("nga.appInstalled", "1");
+    (navigator as any).getInstalledRelatedApps = vi.fn().mockResolvedValue([]);
+    const m = await load();
+    m.initNgaInstall();
+    render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    expect(await screen.findByRole("dialog", { name: "Install Task Mentor as an app" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Open in the Task Mentor app/ })).toBeNull();
+    expect(localStorage.getItem("nga.appInstalled")).toBeNull();
+    expect(m.getLiveCheck()).toBe("no");
   });
 });
