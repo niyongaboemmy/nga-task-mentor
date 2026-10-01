@@ -541,6 +541,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
             <button
               className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-xl transition-colors"
               onClick={() => setIsAIGenerateOpen(true)}
+              data-track="tm.ai_generator.open"
             >
               <Sparkles className="w-4 h-4" /> AI Generate
             </button>
@@ -836,6 +837,7 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
                   </button>
                   <button
                     onClick={() => setIsAIGenerateOpen(true)}
+                    data-track="tm.ai_generator.open"
                     className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
                   >
                     <Sparkles className="h-4 w-4" /> AI Generate

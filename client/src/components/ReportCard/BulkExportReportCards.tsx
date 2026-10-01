@@ -540,6 +540,7 @@ export default function BulkExportReportCards() {
 
                 <button
                   onClick={handleDownloadAll}
+                  data-track="tm.report_card.bulk_export"
                   disabled={isExporting || studentsLoading || students.length === 0}
                   className="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold text-sm
                     bg-gradient-to-r from-blue-600 to-blue-600 text-white

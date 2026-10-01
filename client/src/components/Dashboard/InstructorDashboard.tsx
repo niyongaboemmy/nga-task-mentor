@@ -334,6 +334,7 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ variant = "te
           <button
             type="button"
             onClick={exportCsv}
+            data-track="tm.dashboard.export_csv"
             className="inline-flex items-center gap-1.5 px-3 py-2 rounded-full text-sm font-medium bg-card-light dark:bg-card-dark/40 shadow-sm hover:shadow text-text-primary-light dark:text-text-primary-dark"
           >
             <Download className="w-4 h-4" />

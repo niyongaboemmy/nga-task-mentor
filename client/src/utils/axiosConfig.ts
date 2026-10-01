@@ -5,7 +5,7 @@ export { isAxiosError };
 
 // Configure axios base URL for backend API
 const BASE = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
-const API_BASE_URL = BASE.endsWith("/api") ? BASE : `${BASE}/api`;
+export const API_BASE_URL = BASE.endsWith("/api") ? BASE : `${BASE}/api`;
 
 // Create a dedicated instance
 const api = axios.create({

@@ -11,6 +11,7 @@ import {
   addComment,
 } from "../controllers/submission.controller";
 import { protect, authorizePermission, checkEnrollment } from "../middleware/auth";
+import { intOrNull, trackOnSuccess } from "../activity/keyEvents";
 import { uploadSubmission } from "../middleware/submissionUpload";
 
 const router = Router();
@@ -24,6 +25,9 @@ router.post(
   authorizePermission("SUBMISSIONS_CREATE"),
   checkEnrollment(),
   uploadSubmission.single("file_submission"),
+  trackOnSuccess("tm.assignment.submit", (req) => ({
+    assignment_id: intOrNull(req.params.assignmentId),
+  })),
   createSubmission,
 );
 
@@ -66,7 +70,15 @@ router.get(
 );
 
 // Grade submission (instructor/admin only)
-router.patch("/:id/grade", authorizePermission("SUBMISSIONS_GRADE"), gradeSubmission);
+router.patch(
+  "/:id/grade",
+  authorizePermission("SUBMISSIONS_GRADE"),
+  trackOnSuccess("tm.grade.save", (req) => ({
+    kind: "assignment",
+    submission_id: intOrNull(req.params.id),
+  })),
+  gradeSubmission,
+);
 
 // Add comment to submission
 router.post(

@@ -8,9 +8,13 @@ import { store } from "./store";
 import "./index.css";
 import App from "./App.tsx";
 import { initNgaInstall, NgaInstallPrompt } from "./pwa/ngaInstall";
+import { startActivity } from "./activity";
 
 // Installable app + "install this too" when opened from the installed NGA app.
 initNgaInstall();
+
+// Platform usage analytics (page views, engagement, live presence) via /api/activity.
+startActivity();
 
 createRoot(document.getElementById("root")!).render(
   <Provider store={store}>

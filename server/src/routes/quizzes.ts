@@ -57,6 +57,7 @@ import {
   deleteBloomsTaxonomyLevel,
 } from "../controllers/bloomsTaxonomy.controller";
 import { protect, authorizePermission } from "../middleware/auth";
+import { intOrNull, trackOnSuccess } from "../activity/keyEvents";
 import { validateBody } from "../middleware/validation.middleware";
 import {
   createQuizSchema,
@@ -113,7 +114,12 @@ router.get(
   authorizePermission("QUIZZES_ATTEMPT", "QUIZZES_VIEW_RESULTS_OWN"),
   getQuizSubmissions,
 );
-router.post("/:id/submit", authorizePermission("QUIZZES_ATTEMPT"), submitQuizAttempt);
+router.post(
+  "/:id/submit",
+  authorizePermission("QUIZZES_ATTEMPT"),
+  trackOnSuccess("tm.quiz.submit", (req) => ({ quiz_id: intOrNull(req.params.id) })),
+  submitQuizAttempt,
+);
 router.get(
   "/:id/results",
   authorizePermission("QUIZZES_VIEW_RESULTS_OWN"),
@@ -245,6 +251,10 @@ router.get(
 router.post(
   "/submissions/:submissionId/grade",
   authorizePermission("QUIZZES_GRADE"),
+  trackOnSuccess("tm.grade.save", (req) => ({
+    kind: "quiz",
+    submission_id: intOrNull(req.params.submissionId),
+  })),
   gradeSubmission,
 );
 router.put(

@@ -1,0 +1,74 @@
+{
+  "app": "tm",
+  "version": "2026.10.01",
+  "features": [
+    { "key": "tm.landing", "label": "Start page", "module": "Public", "patterns": ["/"], "public": true },
+    { "key": "tm.login", "label": "Sign-in page", "module": "Public", "patterns": ["/login"], "public": true },
+    { "key": "tm.sso_callback", "label": "Signing in from NGA MIS", "module": "Public", "patterns": ["/sso/callback"], "public": true },
+
+    { "key": "tm.dashboard", "label": "Dashboard", "module": "Home", "patterns": ["/dashboard"] },
+    { "key": "tm.profile", "label": "Profile", "module": "Account", "patterns": ["/profile"] },
+    { "key": "tm.ranking", "label": "Overall ranking", "module": "Results", "patterns": ["/ranking"] },
+    { "key": "tm.my_reports", "label": "My reports", "module": "Results", "patterns": ["/reports"] },
+
+    { "key": "tm.courses", "label": "Courses", "module": "Courses", "patterns": ["/courses"] },
+    { "key": "tm.course", "label": "Course details", "module": "Courses", "patterns": ["/courses/:courseId"] },
+    { "key": "tm.course.reports", "label": "Course report cards", "module": "Report cards", "patterns": ["/courses/:courseId/reports"] },
+    { "key": "tm.course.report_attributes", "label": "Report card general attributes", "module": "Report cards", "patterns": ["/courses/:courseId/report-card-attributes"] },
+    { "key": "tm.course.question_bank", "label": "Course question bank", "module": "Question bank", "patterns": ["/courses/:courseId/question-bank"] },
+    { "key": "tm.course.quizzes", "label": "Course quizzes", "module": "Quizzes", "patterns": ["/courses/:courseId/quizzes"] },
+    { "key": "tm.quiz.create", "label": "Create a quiz", "module": "Quizzes", "patterns": ["/courses/:courseId/quizzes/create"] },
+
+    { "key": "tm.assignments", "label": "Assignments", "module": "Assignments", "patterns": ["/assignments"] },
+    { "key": "tm.assignment.create", "label": "Create an assignment", "module": "Assignments", "patterns": ["/assignments/create"] },
+    { "key": "tm.assignment", "label": "Assignment details", "module": "Assignments", "patterns": ["/assignments/:assignmentId"] },
+    { "key": "tm.assignment.edit", "label": "Edit an assignment", "module": "Assignments", "patterns": ["/assignments/:assignmentId/edit"] },
+    { "key": "tm.submissions", "label": "Submissions", "module": "Assignments", "patterns": ["/submissions"] },
+
+    { "key": "tm.students", "label": "Students", "module": "Students", "patterns": ["/students"] },
+    { "key": "tm.student", "label": "Student profile", "module": "Students", "patterns": ["/students/:studentId"] },
+
+    { "key": "tm.quizzes", "label": "Quizzes (manage)", "module": "Quizzes", "patterns": ["/quizzes", "/quizzes/public"] },
+    { "key": "tm.quiz", "label": "Quiz overview", "module": "Quizzes", "patterns": ["/quizzes/:quizId"] },
+    { "key": "tm.quiz.settings", "label": "Quiz settings", "module": "Quizzes", "patterns": ["/quizzes/:quizId/settings"] },
+    { "key": "tm.quiz.question_create", "label": "Add a quiz question", "module": "Quizzes", "patterns": ["/quizzes/:quizId/questions/create"] },
+    { "key": "tm.quiz.question_edit", "label": "Edit a quiz question", "module": "Quizzes", "patterns": ["/quizzes/:quizId/questions/:questionId/edit"] },
+    { "key": "tm.quiz.analytics", "label": "Quiz analytics", "module": "Quizzes", "patterns": ["/quizzes/:quizId/analytics"] },
+    { "key": "tm.quiz.submissions", "label": "Quiz submissions (grading)", "module": "Quizzes", "patterns": ["/quizzes/:quizId/submissions"] },
+    { "key": "tm.quiz.submission", "label": "Grading a quiz submission", "module": "Quizzes", "patterns": ["/quizzes/:quizId/submissions/:submissionId"] },
+    { "key": "tm.my_quizzes", "label": "My quizzes", "module": "Quizzes", "patterns": ["/my-quizzes"] },
+    { "key": "tm.quiz.take", "label": "Taking a quiz", "module": "Quizzes", "patterns": ["/quizzes/:id/take", "/quiz/:submissionId"] },
+    { "key": "tm.quiz.results", "label": "Quiz results", "module": "Quizzes", "patterns": ["/quizzes/:id/results", "/quiz/:submissionId/results"] },
+
+    { "key": "tm.proctoring.live", "label": "Live proctoring", "module": "Proctoring", "patterns": ["/proctoring/live"] },
+    { "key": "tm.quiz.proctoring", "label": "Quiz proctoring setup", "module": "Proctoring", "patterns": ["/quizzes/:quizId/proctoring", "/quizzes/:quizId/proctoring/settings"] },
+    { "key": "tm.quiz.proctoring_monitoring", "label": "Proctoring monitoring", "module": "Proctoring", "patterns": ["/quizzes/:quizId/proctoring/monitoring"] },
+    { "key": "tm.quiz.proctoring_analytics", "label": "Proctoring analytics", "module": "Proctoring", "patterns": ["/quizzes/:quizId/proctoring/analytics"] },
+
+    { "key": "tm.question_bank", "label": "Question bank", "module": "Question bank", "patterns": ["/question-bank"] },
+
+    { "key": "tm.grades", "label": "Grades", "module": "Grades", "patterns": ["/grades"] },
+    { "key": "tm.grades.subject", "label": "Subject grades", "module": "Grades", "patterns": ["/grades/subjects/:courseId"] },
+    { "key": "tm.grades.subject_report", "label": "Subject assessment report", "module": "Grades", "patterns": ["/grades/subjects/:courseId/report"] },
+    { "key": "tm.grades.marks", "label": "Entering marks", "module": "Grades", "patterns": ["/grades/:assessmentId/marks"] },
+
+    { "key": "tm.admin.blooms", "label": "Bloom's taxonomy", "module": "Administration", "patterns": ["/admin/blooms-taxonomy"] },
+    { "key": "tm.admin.database", "label": "Database management", "module": "Administration", "patterns": ["/admin/database-management"] },
+    { "key": "tm.admin.roles", "label": "Roles & permissions", "module": "Administration", "patterns": ["/admin/roles-permissions"] },
+
+    { "key": "tm.quiz.submit", "label": "Quiz submitted", "module": "Quizzes", "event": true, "key_event": true },
+    { "key": "tm.assignment.submit", "label": "Assignment submitted", "module": "Assignments", "event": true, "key_event": true },
+    { "key": "tm.grade.save", "label": "Grade saved", "module": "Grades", "event": true, "key_event": true },
+    { "key": "tm.question.generate", "label": "AI questions generated", "module": "Question bank", "event": true, "key_event": true },
+
+    { "key": "tm.quiz.submit_click", "label": "Clicked \"Submit quiz\"", "module": "Quizzes", "event": true },
+    { "key": "tm.assignment.submit_click", "label": "Clicked \"Submit assignment\"", "module": "Assignments", "event": true },
+    { "key": "tm.ai_generator.open", "label": "Opened the AI question generator", "module": "Question bank", "event": true },
+    { "key": "tm.ai_generator.generate", "label": "Clicked \"Generate questions\"", "module": "Question bank", "event": true },
+    { "key": "tm.question_bank.export_csv", "label": "Question bank exported (CSV)", "module": "Question bank", "event": true },
+    { "key": "tm.dashboard.export_csv", "label": "Dashboard exported (CSV)", "module": "Home", "event": true },
+    { "key": "tm.report_card.download_pdf", "label": "Report card downloaded (PDF)", "module": "Report cards", "event": true },
+    { "key": "tm.report_card.print", "label": "Report card printed", "module": "Report cards", "event": true },
+    { "key": "tm.report_card.bulk_export", "label": "Report cards bulk-exported", "module": "Report cards", "event": true }
+  ]
+}

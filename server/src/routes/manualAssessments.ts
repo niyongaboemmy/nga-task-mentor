@@ -8,6 +8,7 @@ import {
   upsertScores,
 } from "../controllers/manualAssessment.controller";
 import { protect, authorizePermission } from "../middleware/auth";
+import { intOrNull, trackOnSuccess } from "../activity/keyEvents";
 import { validate } from "../middleware/validation.middleware";
 import {
   createManualAssessmentSchema,
@@ -55,6 +56,11 @@ router.post(
   "/:id/scores",
   authorizePermission("MANUAL_ASSESSMENTS_EDIT"),
   validate(upsertScoresSchema),
+  trackOnSuccess("tm.grade.save", (req) => ({
+    kind: "manual",
+    assessment_id: intOrNull(req.params.id),
+    count: Array.isArray(req.body?.scores) ? req.body.scores.length : null,
+  })),
   upsertScores,
 );
 

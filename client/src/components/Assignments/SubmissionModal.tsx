@@ -392,6 +392,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                     Cancel
                   </button>
                   <button
+                    data-track="tm.assignment.submit_click"
                     onClick={handleSubmitAssignment}
                     disabled={
                       isSubmitting ||

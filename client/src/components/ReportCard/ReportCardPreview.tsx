@@ -1101,6 +1101,7 @@ export default function ReportCardPreview({
               <button
                 onClick={handleBrowserPrint}
                 disabled={!data}
+                data-track="tm.report_card.print"
                 className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-white text-xs font-medium transition-colors disabled:opacity-40"
               >
                 <Printer className="w-3.5 h-3.5" />
@@ -1111,6 +1112,7 @@ export default function ReportCardPreview({
               <button
                 onClick={handleDownloadPdf}
                 disabled={!data || downloading}
+                data-track="tm.report_card.download_pdf"
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-colors disabled:opacity-40 shadow-sm shadow-blue-500/20"
               >
                 {downloading ? (

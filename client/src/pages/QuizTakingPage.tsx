@@ -3256,6 +3256,7 @@ const QuizTakingPage: React.FC = () => {
                   Continue Quiz
                 </button>
                 <button
+                  data-track="tm.quiz.submit_click"
                   onClick={async () => {
                     const ok = await submitQuiz();
                     if (!ok) setShowConfirmSubmit(false);

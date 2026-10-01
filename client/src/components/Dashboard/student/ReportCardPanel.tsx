@@ -110,6 +110,7 @@ const ReportCardPanel: React.FC = () => {
             type="button"
             onClick={download}
             disabled={available !== "yes" || downloading}
+            data-track="tm.report_card.download_pdf"
             className="flex items-center justify-center gap-2 px-3 py-2 rounded-full border border-blue-200 dark:border-blue-800 text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {downloading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}

@@ -17,6 +17,7 @@ import {
   getCurrentTermId,
   handleMisError,
 } from "../utils/misUtils";
+import { intOrNull, trackKeyEvent } from "../activity/keyEvents";
 
 // @desc    Get all questions in a course's question bank
 // @route   GET /api/courses/:courseId/question-bank
@@ -829,6 +830,10 @@ export const generateQuestionsFromDocument = async (
       });
     }
 
+    trackKeyEvent(req, "tm.question.generate", {
+      course_id: intOrNull(req.params.courseId),
+      count: valid.length,
+    });
     res.status(200).json({
       success: true,
       count: valid.length,
