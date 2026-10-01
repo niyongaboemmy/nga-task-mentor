@@ -54,6 +54,9 @@ import databaseRoutes from "./routes/database.routes";
 import rolesPermissionsRoutes from "./routes/rolesPermissions";
 import accessRoutes from "./routes/access";
 import integrationRoutes from "./routes/integration";
+import activityRoutes from "./routes/activity";
+import { activityRelay } from "./activity/relay";
+import activityCatalog from "./activity/catalog.json";
 import aiService from "./services/ai/aiService";
 import { startReminderSweep } from "./services/reminderSync";
 import { verifyReportCard } from "./controllers/reportCard.controller";
@@ -128,6 +131,11 @@ app.use(
     ],
   }),
 );
+
+// Platform usage analytics relay. Mounted before the global body parser: it
+// has its own 256 kB JSON/text parser (sendBeacon posts text/plain) and no
+// auth middleware -- a request without a valid session is a public visitor.
+app.use("/api/activity", activityRoutes);
 
 // Body parser middleware
 app.use(express.json());
@@ -334,6 +342,8 @@ const startServer = async (): Promise<void> => {
       );
       // Backstop for the per-request pushes to the MIS Reminder Hub.
       startReminderSweep();
+      // Publish the page -> feature catalog to the MIS analytics console (non-fatal).
+      void activityRelay.pushCatalog(activityCatalog);
     });
 
     // Handle unhandled promise rejections

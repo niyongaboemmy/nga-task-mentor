@@ -21,6 +21,7 @@ import { createJob, getJob } from "../services/ai/generationJobs";
 import { BLOOM_GUIDE, alignBloomLevel, loadBloomLevels } from "../services/ai/bloomsAlignment";
 import type { AIDifficulty } from "../services/ai/types";
 import { sendControllerError } from "../utils/controllerErrors";
+import { intOrNull, keyEventIdentity, trackAs } from "../activity/keyEvents";
 import type {
   AIGenerateBatchBody,
   AIResolveSourcesBody,
@@ -317,11 +318,25 @@ export const generateQuestionBatch = async (req: Request, res: Response) => {
   const body = req.body as AIGenerateBatchBody;
   const userId = req.user!.id;
   const courseId = courseIdOf(req);
+  // Usage analytics: count a batch that produced questions (also when it runs as a background job).
+  const who = keyEventIdentity(req);
+  const run = async () => {
+    const outcome = await runBatch(userId, courseId, body);
+    if (outcome.status === 200) {
+      const meta = (outcome.payload as any)?.meta;
+      trackAs(who, "tm.question.generate", {
+        course_id: intOrNull(courseId),
+        count: Number(meta?.returned) || 0,
+        requested: Number(meta?.requested) || null,
+      });
+    }
+    return outcome;
+  };
   if (!body.async) {
-    const { status, payload } = await runBatch(userId, courseId, body);
+    const { status, payload } = await run();
     return res.status(status).json(payload);
   }
-  const job = createJob(userId, courseId, () => runBatch(userId, courseId, body));
+  const job = createJob(userId, courseId, run);
   res.status(202).json({ success: true, job_id: job.id, poll_after_ms: 2000 });
 };
 

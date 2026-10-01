@@ -464,6 +464,7 @@ const AIGenerateModal: React.FC<AIGenerateModalProps> = ({ isOpen, onClose, cour
           type="button"
           onClick={handleGenerate}
           disabled={!canGenerate}
+          data-track="tm.ai_generator.generate"
           title={canGenerate ? "Ctrl/⌘ + Enter" : blockers.join(" · ")}
           className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-700 hover:to-indigo-700 shadow-lg shadow-violet-500/25 disabled:opacity-50 disabled:shadow-none disabled:cursor-not-allowed transition-all"
         >

@@ -14,6 +14,7 @@ import {
   gradeUnsubmittedStudent,
 } from "../controllers/assignment.controller";
 import { protect, authorizePermission, isCourseInstructor } from "../middleware/auth";
+import { intOrNull, trackOnSuccess } from "../activity/keyEvents";
 import { timezoneMiddleware } from "../utils/dateUtils";
 import { uploadAssignmentAttachment } from "../middleware/assignmentUpload";
 import { uploadSubmission } from "../middleware/submissionUpload";
@@ -77,6 +78,7 @@ router.post(
   "/:id/submit",
   uploadSubmission.single("file_submission"),
   authorizePermission("SUBMISSIONS_CREATE"),
+  trackOnSuccess("tm.assignment.submit", (req) => ({ assignment_id: intOrNull(req.params.id) })),
   submitAssignment,
 );
 
@@ -92,6 +94,10 @@ router.get(
 router.post(
   "/:assignmentId/grade-student",
   authorizePermission("SUBMISSIONS_GRADE"),
+  trackOnSuccess("tm.grade.save", (req) => ({
+    kind: "assignment",
+    assignment_id: intOrNull(req.params.assignmentId),
+  })),
   gradeUnsubmittedStudent,
 );
 

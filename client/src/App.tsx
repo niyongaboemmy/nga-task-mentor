@@ -9,6 +9,7 @@ import Callback from "./components/Auth/Callback";
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 import { appRoutes } from "./routes/routeConfig";
 import { useTheme } from "./contexts/ThemeContext";
+import { ActivityRouterTracker } from "./vendor/nga-activity/react";
 
 function AppContent() {
   const { theme } = useTheme();
@@ -16,6 +17,8 @@ function AppContent() {
   return (
     <ErrorBoundary>
       <Router basename={import.meta.env.BASE_URL}>
+        {/* Usage analytics: one page view per route change, public and protected routes alike. */}
+        <ActivityRouterTracker />
         <div className="min-h-screen bg-gray-100 dark:bg-black text-text-primary-light dark:text-text-primary-dark">
           <Routes>
             {/* Public routes */}

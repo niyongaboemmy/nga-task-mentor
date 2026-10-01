@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report"
+    "test:e2e:report": "playwright show-report",
+    "sync:activity-catalog": "node -e \"require('fs').copyFileSync('../server/src/activity/catalog.json', 'src/activity/tm.catalog.json')\""
   },
   "dependencies": {
     "@aarkue/tiptap-math-extension": "^1.4.0",

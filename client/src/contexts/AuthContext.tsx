@@ -17,6 +17,7 @@ import type {
 } from "../types/user.types";
 import { switchAcademicPeriod as switchAcademicPeriodApi } from "../services/authService";
 import { emitAcademicPeriodChanged } from "../utils/academicPeriodEvents";
+import { endActivity } from "../vendor/nga-activity";
 
 const apiAxios = api;
 
@@ -452,6 +453,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const logoutUser = async () => {
     console.log("Logging out user...");
+    // Usage analytics: send what's queued and mark this tab gone while the
+    // session token (and cookie) still identify the user.
+    void endActivity();
     try {
       await apiAxios.post("/auth/logout");
     } catch (err) {
