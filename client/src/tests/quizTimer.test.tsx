@@ -9,6 +9,11 @@ import {
   resolveDeadline,
   secondsUntil,
   timerTone,
+  isQuestionLocked,
+  loadTimeBank,
+  nextAfterTimeout,
+  secondsLeftOn,
+  secondsSpentOn,
 } from "../utils/quizTimer";
 
 describe("quizTimer utils", () => {
@@ -136,5 +141,46 @@ describe("QuestionTimer", () => {
     expect(screen.getByRole("timer").className).toContain("bg-blue-50");
     rerender(<QuestionTimer variant="quiz" timeLeft={1800} currentTime={45} />);
     expect(screen.getByRole("timer").className).toContain("bg-red-50");
+  });
+});
+
+describe("per-question time bank (skip and come back)", () => {
+  it("reads a stored bank defensively", () => {
+    expect(loadTimeBank(null)).toEqual({});
+    expect(loadTimeBank("not json")).toEqual({});
+    expect(loadTimeBank("[1,2]")).toEqual({});
+    expect(loadTimeBank('{"101": 7.9, "102": -3, "x": "nope"}')).toEqual({ 101: 7, 102: 0 });
+  });
+
+  it("gives an unopened question its full time and never reports more than the limit", () => {
+    expect(secondsLeftOn({}, 101, 30)).toBe(30);
+    expect(secondsLeftOn({ 101: 12 }, 101, 30)).toBe(12);
+    expect(secondsLeftOn({ 101: 99 }, 101, 30)).toBe(30);
+    expect(secondsSpentOn({ 101: 12 }, 101, 30)).toBe(18);
+    expect(secondsSpentOn({}, 101, 30)).toBe(0);
+  });
+
+  it("locks only a timed question whose clock reached 0", () => {
+    expect(isQuestionLocked({ 101: 0 }, 101, 30)).toBe(true);
+    expect(isQuestionLocked({ 101: 1 }, 101, 30)).toBe(false);
+    expect(isQuestionLocked({ 101: 0 }, 101, null)).toBe(false);
+  });
+
+  it("after a timeout goes to the next open, unanswered question, wrapping round", () => {
+    const locked = new Set([1]);
+    const answered = new Set([2]);
+    const go = (current: number) =>
+      nextAfterTimeout({ current, total: 5, isLocked: (i) => locked.has(i), isAnswered: (i) => answered.has(i) });
+    expect(go(0)).toEqual({ kind: "goto", index: 3 });
+    expect(go(4)).toEqual({ kind: "goto", index: 0 });
+  });
+
+  it("opens the review when only answered questions are left, and submits when all are locked", () => {
+    expect(
+      nextAfterTimeout({ current: 2, total: 3, isLocked: (i) => i === 2, isAnswered: () => true }),
+    ).toEqual({ kind: "review" });
+    expect(
+      nextAfterTimeout({ current: 2, total: 3, isLocked: () => true, isAnswered: () => false }),
+    ).toEqual({ kind: "submit" });
   });
 });
