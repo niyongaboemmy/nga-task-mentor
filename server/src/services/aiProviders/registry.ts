@@ -4,6 +4,7 @@ import { groqProvider } from "./groqProvider";
 import { glmProvider } from "./glmProvider";
 import { openaiProvider } from "./openaiProvider";
 import { deepseekProvider } from "./deepseekProvider";
+import { openrouterProvider, freeModels } from "./openrouterProvider";
 
 // Ported from nga_central_mis/backend/src/services/aiProviders/registry.ts
 const ALL_PROVIDERS: Record<string, AIProvider> = {
@@ -12,9 +13,10 @@ const ALL_PROVIDERS: Record<string, AIProvider> = {
   glm: glmProvider,
   openai: openaiProvider,
   deepseek: deepseekProvider,
+  openrouter: openrouterProvider,
 };
 
-const DEFAULT_ORDER = "gemini,groq,deepseek,glm";
+const DEFAULT_ORDER = "gemini,groq,deepseek,openrouter,glm";
 
 /**
  * Providers to try, in order. Defaults to AI_PROVIDER_ORDER (comma-separated env var,
@@ -64,6 +66,7 @@ const PROVIDER_META: Record<string, { label: string; model: () => string }> = {
   glm: { label: "Zhipu GLM", model: () => process.env.GLM_MODEL || "glm-4.5-flash" },
   openai: { label: "OpenAI", model: () => process.env.OPENAI_MODEL || "gpt-4o" },
   deepseek: { label: "DeepSeek", model: () => process.env.DEEPSEEK_MODEL || "deepseek-chat" },
+  openrouter: { label: "OpenRouter (free)", model: () => freeModels()[0] },
 };
 
 export interface ProviderDescription {
