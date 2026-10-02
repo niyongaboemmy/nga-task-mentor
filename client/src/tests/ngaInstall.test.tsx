@@ -330,14 +330,19 @@ describe("NgaInstallPrompt — installed app visited in a browser tab", () => {
     delete (navigator as any).getInstalledRelatedApps;
   });
 
-  it("offers 'Open in the app' instead of 'Install' -- when the browser confirms it's installed", async () => {
+  it("shows nothing in a browser tab once the browser confirms it's installed (no 'Open in the app' button)", async () => {
     (navigator as any).getInstalledRelatedApps = vi.fn().mockResolvedValue([{ platform: "webapp", id: "https://taskmentor.amashuri.com/" }]);
     const m = await load();
     m.initNgaInstall();
-    render(<m.NgaInstallPrompt appName="Task Mentor" startPath="/dashboard?source=pwa" />);
-    const link = await screen.findByRole("link", { name: /Open in the Task Mentor app/ });
-    expect(link).toHaveAttribute("href", `${window.location.origin}/dashboard?source=pwa`);
+    const { container } = render(<m.NgaInstallPrompt appName="Task Mentor" startPath="/dashboard?source=pwa" />);
+    await act(async () => {
+      await m.refreshLiveCheck();
+    });
+    expect(m.getLiveCheck()).toBe("yes");
+    expect(screen.queryByRole("link", { name: /Open in the Task Mentor app/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Install/ })).toBeNull();
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("also leaves a short report cookie on .amashuri.com (reaches the installer without an opener)", async () => {
@@ -378,8 +383,10 @@ describe("NgaInstallPrompt — installed app visited in a browser tab", () => {
     expect(await m.refreshLiveCheck()).toBe("no");
     (navigator as any).getInstalledRelatedApps = vi.fn().mockResolvedValue([{ platform: "webapp", id: "https://taskmentor.amashuri.com/" }]);
     expect(await m.refreshLiveCheck()).toBe("yes");
-    render(<m.NgaInstallPrompt appName="Task Mentor" />);
-    expect(await screen.findByRole("link", { name: /Open in the Task Mentor app/ })).toBeInTheDocument();
+    const { container } = render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    await act(async () => {});
+    expect(screen.queryByRole("link", { name: /Open in the Task Mentor app/ })).toBeNull();
+    expect(container).toBeEmptyDOMElement();
   });
 
   it("a leftover record (listed, but Chrome offers to install here) is NOT installed", async () => {
