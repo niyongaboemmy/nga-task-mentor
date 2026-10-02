@@ -44,6 +44,8 @@ export interface StudentTask {
   has_feedback: boolean;
   graded_at: string | null;
   is_new: boolean;
+  /** Teacher made it publicly accessible; only these raise reminders. */
+  is_public?: boolean;
   action: { label: string; url: string } | null;
 }
 

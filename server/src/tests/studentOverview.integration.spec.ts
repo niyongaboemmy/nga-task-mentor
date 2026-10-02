@@ -73,8 +73,15 @@ beforeAll(async () => {
     title: `Running ${RUN}`, description: "fixture", status: "published", type: "Quiz", course_id: SUBJ_A,
     academic_term_id: null, created_by: instructor.id, end_date: hours(24), show_results_immediately: true,
     randomize_questions: false, show_correct_answers: false, enable_automatic_grading: true, require_manual_grading: false,
+    is_public: true,
   } as any);
   quizIds.push(quiz.id!);
+  // Published but not publicly accessible: listed, never reminded about.
+  const hidden = await Quiz.create({
+    title: `Private ${RUN}`, description: "fixture", status: "published", type: "Quiz", course_id: SUBJ_A,
+    academic_term_id: null, created_by: instructor.id, end_date: hours(6), is_public: false,
+  } as any);
+  quizIds.push(hidden.id!);
   await QuizSubmission.create({
     quiz_id: quiz.id!, student_id: studentId, total_score: 0, max_score: 10, percentage: 0, status: "in_progress",
     grade_status: "pending", time_taken: 0, started_at: new Date(), end_time: hours(0.5), passed: false, attempt_number: 1,
@@ -106,6 +113,10 @@ describe("GET /api/dashboard/student/overview", () => {
     expect(byTitle("Due today").state).toBe("due_today"); // other user's submission ignored
     expect(byTitle("Graded")).toMatchObject({ state: "graded", score_pct: 75, has_feedback: true });
     expect(d.reminders[0]).toMatchObject({ severity: "critical", action: { label: "Resume" } });
+    expect(byTitle("Private")).toMatchObject({ state: "due_today", is_public: false });
+    const hiddenId = byTitle("Private").id;
+    expect(JSON.stringify(d.reminders)).not.toContain(`Private ${RUN}`);
+    expect(d.reminders.some((r: any) => r.action?.url?.includes(`/quizzes/${hiddenId}`))).toBe(false);
     expect(d.subjects.map((s: any) => s.subject_id)).toEqual([SUBJ_A]);
   });
 
