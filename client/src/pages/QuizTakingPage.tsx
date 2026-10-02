@@ -2049,8 +2049,9 @@ const QuizTakingPage: React.FC = () => {
       void handlePerQuestionTimeout();
       return;
     }
-    // Paused with the exam, a violation banner or the review sheet open.
-    if (showInstructions || isExamPaused || showViolationWarning || showConfirmSubmit) return;
+    // Paused with the exam or a violation banner. It keeps running behind the
+    // review sheet, so opening it can't be used to stop the clock.
+    if (showInstructions || isExamPaused || showViolationWarning) return;
 
     const timer = setTimeout(() => {
       setQuestionClock((c) => (c ? { ...c, left: Math.max(0, c.left - 1) } : c));
@@ -2061,7 +2062,6 @@ const QuizTakingPage: React.FC = () => {
     showInstructions,
     isExamPaused,
     showViolationWarning,
-    showConfirmSubmit,
     handlePerQuestionTimeout,
   ]);
 
@@ -2938,7 +2938,7 @@ const QuizTakingPage: React.FC = () => {
                       perQuestionTimeLeft ??
                       currentQuestion.questionBank.time_limit_seconds
                     }
-                    paused={isExamPaused || showViolationWarning || showConfirmSubmit}
+                    paused={isExamPaused || showViolationWarning}
                   />
                 ))
               )}
