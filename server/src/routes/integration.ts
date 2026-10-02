@@ -2,6 +2,8 @@ import { Router, Request, Response } from "express";
 import { misBearerAuth } from "../middleware/misBearerAuth";
 import { integrationLimiter } from "../middleware/rateLimiter.middleware";
 import { buildHomeSummary, emptySummary } from "../integration/homeSummary";
+import { computeOverview } from "../controllers/instructorOverview.controller";
+import { PASS_MARK } from "../services/instructorOverview.service";
 
 /**
  * /api/integration/* -- server-to-server reads for the NGA Central MIS,
@@ -44,7 +46,46 @@ const homeSummary = async (req: Request, res: Response) => {
   }
 };
 
+/**
+ * GET /api/integration/student-standing: how each student the caller teaches
+ * is doing in Task Mentor (average, graded work, missing work, reasons), for
+ * the MIS office-hours "Suggested students" list. Same scope and numbers as
+ * the teacher dashboard (computeOverview); keyed by MIS user id so the MIS
+ * needs no subject-id mapping. Read-only; the term is always the current one.
+ */
+const studentStanding = async (req: Request, res: Response) => {
+  try {
+    if (!(req as any).misProvisioned || !req.user) {
+      return res.status(200).json({ success: true, data: { provisioned: false, pass_mark: PASS_MARK, students: [] } });
+    }
+    if ((req as any).accessUnavailable) {
+      return res.status(503).json({ success: false, code: "ACCESS_UNAVAILABLE", message: "Access check unavailable -- please try again shortly" });
+    }
+    req.body = {};
+    req.query = {};
+    const { overview } = await computeOverview(req, { includeAllStudents: true });
+    const all = overview.students.all ?? [...overview.students.at_risk, ...overview.students.top];
+    const seen = new Set<number>();
+    const students = all
+      .filter((s) => s.mis_user_id != null && !seen.has(s.mis_user_id) && seen.add(s.mis_user_id))
+      .map((s) => ({
+        mis_user_id: s.mis_user_id as number,
+        avg_score: s.avg_score,
+        graded_count: s.graded_count,
+        missing: s.missing,
+        subjects: s.subjects,
+        reasons: s.reasons,
+        below_pass: s.avg_score != null && s.avg_score < PASS_MARK,
+      }));
+    res.status(200).json({ success: true, data: { provisioned: true, pass_mark: PASS_MARK, students } });
+  } catch (error) {
+    console.error("Student standing error:", error);
+    res.status(500).json({ success: false, message: "Server error" });
+  }
+};
+
 router.post("/home-summary", misBearerAuth, integrationLimiter, homeSummary);
+router.get("/student-standing", misBearerAuth, integrationLimiter, studentStanding);
 router.get("/home-summary", misBearerAuth, integrationLimiter, homeSummary);
 
 export default router;

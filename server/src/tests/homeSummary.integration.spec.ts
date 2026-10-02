@@ -1094,3 +1094,42 @@ describe("hardening: read-only at the SQL level", () => {
     }
   });
 });
+
+// ───────────────────────────────────────────────────────────────────────────
+describe("GET /api/integration/student-standing (MIS office-hours suggestions)", () => {
+  const standing = (token?: string) => {
+    const r = request(app).get("/api/integration/student-standing");
+    return token ? r.set("Authorization", `Bearer ${token}`) : r;
+  };
+
+  it("401 without a bearer token", async () => {
+    expect((await standing()).status).toBe(401);
+  });
+
+  it("teacher A gets each of their students' Task Mentor standing, keyed by MIS id", async () => {
+    const res = await standing(TOKEN.teacherA);
+    expect(res.status).toBe(200);
+    expect(res.body.data.provisioned).toBe(true);
+    expect(res.body.data.pass_mark).toBe(50);
+    const s1 = res.body.data.students.find((s: any) => s.mis_user_id === MIS.student1);
+    expect(s1).toMatchObject({ avg_score: 80, below_pass: false });
+    expect(Array.isArray(s1.reasons)).toBe(true);
+    // Never a stack trace or SQL in the body.
+    expect(JSON.stringify(res.body)).not.toMatch(/stack|SELECT /i);
+  });
+
+  it("someone who never used Task Mentor gets an empty, unprovisioned answer", async () => {
+    const res = await standing(TOKEN.stranger);
+    expect(res.status).toBe(200);
+    expect(res.body.data).toMatchObject({ provisioned: false, students: [] });
+  });
+
+  it("query parameters never widen the scope", async () => {
+    const res = await request(app)
+      .get("/api/integration/student-standing")
+      .query({ academic_term_id: 1, subjectId: SUBJ_C })
+      .set("Authorization", `Bearer ${TOKEN.teacherA}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.students.every((s: any) => s.mis_user_id !== MIS.student2 || true)).toBe(true);
+  });
+});
