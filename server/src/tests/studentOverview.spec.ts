@@ -25,11 +25,11 @@ function input(over: Partial<StudentOverviewInput> = {}): StudentOverviewInput {
       { id: 99, title: "Other class", course_id: 42, status: "published", due_date: days(1), max_score: 20 },
     ],
     quizzes: [
-      { id: 20, title: "JS basics", course_id: 2, status: "published", type: "Quiz", end_date: days(1.5), max_attempts: 2 }, // running
-      { id: 21, title: "Loops", course_id: 2, status: "published", type: "Exam", start_date: days(1), end_date: days(2) }, // opens tomorrow
-      { id: 22, title: "Arrays", course_id: 2, status: "published", end_date: days(4), max_attempts: 3 }, // failed, retake
-      { id: 23, title: "Closures", course_id: 2, status: "published", end_date: days(-3) }, // missed
-      { id: 24, title: "Timed", course_id: 2, status: "published", time_limit: 30, end_date: days(6) }, // upcoming
+      { id: 20, title: "JS basics", course_id: 2, status: "published", is_public: true, type: "Quiz", end_date: days(1.5), max_attempts: 2 }, // running
+      { id: 21, title: "Loops", course_id: 2, status: "published", is_public: true, type: "Exam", start_date: days(1), end_date: days(2) }, // opens tomorrow
+      { id: 22, title: "Arrays", course_id: 2, status: "published", is_public: true, end_date: days(4), max_attempts: 3 }, // failed, retake
+      { id: 23, title: "Closures", course_id: 2, status: "published", is_public: true, end_date: days(-3) }, // missed
+      { id: 24, title: "Timed", course_id: 2, status: "published", is_public: true, time_limit: 30, end_date: days(6) }, // upcoming
     ],
     quizStats: [
       { quiz_id: 21, question_count: 12, total_points: 24, total_seconds: 1500 },
@@ -193,6 +193,35 @@ describe("student overview: reminders", () => {
     const n = buildStudentOverview(input({ assignments: many, quizzes: [], submissions: [], attempts: [] }));
     expect(n.reminders.filter((r) => r.id.startsWith("due-today-assignment-"))).toHaveLength(3);
     expect(n.reminders.find((r) => r.id === "due-today-more")?.title).toBe("2 more tasks due in the next 24 hours");
+  });
+
+  it("raises reminders only for publicly accessible quizzes, but still lists private ones", () => {
+    const priv = (q: StudentOverviewInput["quizzes"][number]) => ({ ...q, is_public: false });
+    const n = buildStudentOverview(input({ quizzes: input().quizzes.map(priv) }));
+    expect(n.reminders.map((r) => r.id)).not.toEqual(expect.arrayContaining(["running-20"]));
+    expect(n.reminders.some((r) => /^(running|retake|opens)-2\d$/.test(r.id))).toBe(false);
+    expect(n.reminders.find((r) => r.id === "due-today-assignment-10")).toBeDefined();
+    expect(n.tasks.find((t) => t.kind === "quiz" && t.id === 20)).toMatchObject({ state: "in_progress", is_public: false });
+    expect(task("quiz", 20).is_public).toBe(true);
+    expect(task("assignment", 10).is_public).toBe(true);
+  });
+
+  it("drops a private quiz's result and new-quiz reminders, and the coming-up count", () => {
+    const quiz = { id: 40, title: "Hidden", course_id: 2, status: "published", end_date: days(9), created_at: days(-1) };
+    const graded = { id: 41, title: "Marked", course_id: 2, status: "published", end_date: days(-1) };
+    const attempts = [{
+      id: 9, quiz_id: 41, status: "completed", grade_status: "graded", percentage: "100.00",
+      total_score: 10, max_score: 10, passed: true, completed_at: days(-2), graded_at: days(-1),
+    }];
+    const base = { assignments: [], submissions: [], attempts };
+    const pub = buildStudentOverview(input({ ...base, quizzes: [quiz, graded].map((q) => ({ ...q, is_public: true })) }));
+    expect(pub.reminders.map((r) => r.id)).toEqual(expect.arrayContaining(["result-quiz-41"]));
+    expect(pub.reminders.some((r) => /new/.test(r.id))).toBe(true);
+
+    const hidden = buildStudentOverview(input({ ...base, quizzes: [quiz, graded] }));
+    expect(hidden.reminders).toEqual([expect.objectContaining({ id: "all-clear" })]);
+    expect(hidden.reminders[0].message).not.toMatch(/coming up later/);
+    expect(hidden.tasks).toHaveLength(2);
   });
 
   it("says all is well when nothing is pressing", () => {

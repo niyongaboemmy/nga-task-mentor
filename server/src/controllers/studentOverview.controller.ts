@@ -16,7 +16,8 @@ import { buildStudentOverview, QuizStatsRow } from "../services/studentOverview.
  * The student's own work across their enrolled subjects this term: every
  * published assignment and quiz with its state and timing (running attempt,
  * due today, opens later, awaiting a mark, graded, missed) plus the reminders
- * built from them. Subjects come from getScopedSubjects (MIS enrolment), and
+ * built from them. Reminders only cover publicly accessible work: published
+ * assignments and quizzes whose "publicly accessible" switch is on. Subjects come from getScopedSubjects (MIS enrolment), and
  * only the caller's own submissions/attempts are read.
  */
 export const getStudentOverview = async (req: Request, res: Response) => {
@@ -40,7 +41,7 @@ export const getStudentOverview = async (req: Request, res: Response) => {
             where: { course_id: { [Op.in]: ids }, status: { [Op.in]: ["published", "completed"] }, ...termWhere },
             attributes: [
               "id", "title", "course_id", "status", "type", "start_date", "end_date",
-              "time_limit", "max_attempts", "passing_score", "created_at",
+              "time_limit", "max_attempts", "passing_score", "is_public", "created_at",
             ],
             raw: true,
           }),

@@ -57,6 +57,8 @@ export interface QuizRow {
   time_limit?: number | null;
   max_attempts?: number | null;
   passing_score?: number | null;
+  /** The teacher's "publicly accessible" switch; private quizzes raise no reminders. */
+  is_public?: boolean | number | null;
   created_at?: Date | string | null;
 }
 
@@ -150,6 +152,12 @@ export interface StudentTask {
   has_feedback: boolean;
   graded_at: string | null;
   is_new: boolean;
+  /**
+   * Whether the teacher has made this task publicly accessible to students:
+   * a published/completed assignment always is, a quiz only when its
+   * "publicly accessible" switch is on. Only these tasks raise reminders.
+   */
+  is_public: boolean;
   action: { label: string; url: string } | null;
 }
 
@@ -299,6 +307,7 @@ export function buildStudentOverview(input: StudentOverviewInput): StudentOvervi
     passed: null as boolean | null,
     has_feedback: false,
     graded_at: null as string | null,
+    is_public: true,
     created: toDate(row.created_at),
   });
 
@@ -382,6 +391,7 @@ export function buildStudentOverview(input: StudentOverviewInput): StudentOvervi
     const running = attempts.find((x) => x.status === "in_progress");
 
     const t = base("quiz", q, subject);
+    t.is_public = !!Number(q.is_public ?? 0);
     t.quiz_type = q.type ?? null;
     t.opens_at = iso(opens);
     t.question_count = stats?.question_count ?? null;
@@ -571,7 +581,7 @@ export function buildStudentOverview(input: StudentOverviewInput): StudentOvervi
     summary,
     tasks: visible,
     subjects,
-    reminders: buildStudentReminders(tasks, input.now),
+    reminders: buildStudentReminders(tasks.filter((t) => t.is_public), input.now),
   };
 }
 
