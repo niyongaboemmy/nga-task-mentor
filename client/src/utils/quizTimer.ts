@@ -120,3 +120,66 @@ export function mergeAnswers<T extends { question_id: number }>(local: T[], serv
   for (const a of local) byId.set(Number(a.question_id), a);
   return Array.from(byId.values());
 }
+
+// ─── Per-question timing: skip now, come back later ─────────────────────────
+
+/**
+ * Seconds left on each per-question clock, by question id. A question's clock
+ * only runs while it is on screen: leaving it (skip, Next, Previous, the grid)
+ * pauses it and coming back resumes it. A question whose clock reached 0 is
+ * locked for good. Missing entries mean "not opened yet" (full time).
+ */
+export type QuestionTimeBank = Record<number, number>;
+
+export const timeBankKey = (quizId: string | number) => `quiz_${quizId}_qtime`;
+
+export function loadTimeBank(raw: string | null): QuestionTimeBank {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return {};
+    const out: QuestionTimeBank = {};
+    for (const [k, v] of Object.entries(parsed)) {
+      const id = Number(k);
+      const left = Number(v);
+      if (Number.isFinite(id) && Number.isFinite(left)) out[id] = Math.max(0, Math.floor(left));
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+/** Seconds still available on a question (its full limit if never opened). */
+export const secondsLeftOn = (bank: QuestionTimeBank, questionId: number, limit: number): number =>
+  Math.min(limit, Math.max(0, bank[questionId] ?? limit));
+
+/** Time actually spent on a question, across every visit — never above its limit. */
+export const secondsSpentOn = (bank: QuestionTimeBank, questionId: number, limit: number): number =>
+  limit - secondsLeftOn(bank, questionId, limit);
+
+export const isQuestionLocked = (bank: QuestionTimeBank, questionId: number, limit: number | null | undefined) =>
+  !!limit && limit > 0 && secondsLeftOn(bank, questionId, limit) <= 0;
+
+/**
+ * Where to go when the current question's clock runs out: the next question
+ * (wrapping round) that is still open and unanswered; failing that "review"
+ * while any question can still be changed, or "submit" once every question is
+ * locked.
+ */
+export function nextAfterTimeout(opts: {
+  current: number;
+  total: number;
+  isLocked: (index: number) => boolean;
+  isAnswered: (index: number) => boolean;
+}): { kind: "goto"; index: number } | { kind: "review" } | { kind: "submit" } {
+  const { current, total, isLocked, isAnswered } = opts;
+  for (let step = 1; step < total; step++) {
+    const i = (current + step) % total;
+    if (!isLocked(i) && !isAnswered(i)) return { kind: "goto", index: i };
+  }
+  for (let i = 0; i < total; i++) {
+    if (i !== current && !isLocked(i)) return { kind: "review" };
+  }
+  return { kind: "submit" };
+}

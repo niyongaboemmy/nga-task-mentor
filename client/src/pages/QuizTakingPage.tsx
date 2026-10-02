@@ -22,6 +22,8 @@ import {
   Cloud,
   RotateCcw,
   ListChecks,
+  SkipForward,
+  Lock,
 } from "lucide-react";
 import QuestionTimer from "../components/ui/QuestionTimer";
 import { toast } from "react-toastify";
@@ -48,7 +50,15 @@ import {
   quizTimingMode,
   resolveDeadline,
   secondsUntil,
+  isQuestionLocked,
+  loadTimeBank,
+  nextAfterTimeout,
+  secondsLeftOn,
+  secondsSpentOn,
+  timeBankKey,
+  type QuestionTimeBank,
 } from "../utils/quizTimer";
+import { useFocusMode } from "../utils/focusMode";
 import { formatDuration } from "../utils/quizFormValidation";
 import { releaseProctoringMedia, streamHasCamera } from "../utils/proctoringMedia";
 
@@ -82,9 +92,25 @@ const isTimeExpiredError = (error: any) =>
   error?.response?.status === 409 &&
   error?.response?.data?.code === "ATTEMPT_TIME_EXPIRED";
 
+/** localStorage read that never throws (private mode, blocked storage). */
+const safeGet = (key: string): string | null => {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const questionLimit = (q: QuizQuestion | null | undefined): number | null => {
+  const limit = Number(q?.questionBank?.time_limit_seconds);
+  return Number.isFinite(limit) && limit > 0 ? limit : null;
+};
+
 const QuizTakingPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  // Nothing floats over a quiz in progress (install prompts and the like).
+  useFocusMode();
   const [quiz, setQuiz] = useState<QuizTakingQuiz | null>(null);
   const [loading, setLoading] = useState(true);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
@@ -114,7 +140,7 @@ const QuizTakingPage: React.FC = () => {
   const warnedAtRef = useRef<Set<number>>(new Set());
   const [quizStartTime, setQuizStartTime] = useState<Date | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isCurrentSaved, setIsCurrentSaved] = useState(true);
+  const [, setIsCurrentSaved] = useState(true);
   const AUTO_SAVE_TYPES: string[] = [
     "single_choice",
     "multiple_choice",
@@ -180,18 +206,29 @@ const QuizTakingPage: React.FC = () => {
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const [isFullscreenMode, setIsFullscreenMode] = useState(false);
   const [isCodingFullscreen, setIsCodingFullscreen] = useState(false);
-  const [perQuestionTimeLeft, setPerQuestionTimeLeft] = useState<number | null>(
-    null,
+  // Per-question timing: the clock of the question on screen, and every
+  // question's remaining seconds (paused while away, so a skipped question
+  // can be finished later). See QuestionTimeBank in utils/quizTimer.
+  const [questionClock, setQuestionClock] = useState<{
+    questionId: number;
+    left: number;
+  } | null>(null);
+  const [timeBank, setTimeBank] = useState<QuestionTimeBank>(() =>
+    id ? loadTimeBank(safeGet(timeBankKey(id))) : {},
   );
+  const timeBankRef = useRef<QuestionTimeBank>(timeBank);
+  const timedOutRef = useRef<Set<number>>(new Set());
+  // Questions the student has opened (unanswered + visited = skipped).
+  const [visitedIds, setVisitedIds] = useState<Set<number>>(new Set());
+  // Last answer sent to the server per question, so moving on only saves changes.
+  const lastSavedRef = useRef<Map<number, string>>(new Map());
+  const [ackUnanswered, setAckUnanswered] = useState(false);
   const questionStartTimeRef = React.useRef<number>(Date.now());
 
   const getQuestionStartKey = useCallback(
     (questionId: number) => `quiz_${id}_question_${questionId}_started_at`,
     [id],
   );
-  const [lockedQuestionIndices, setLockedQuestionIndices] = useState<
-    Set<number>
-  >(new Set());
   const [explicitlySavedQuestions, setExplicitlySavedQuestions] = useState<
     Set<string>
   >(new Set());
@@ -1435,10 +1472,12 @@ const QuizTakingPage: React.FC = () => {
         justSavedQuestionRef.current = String(questionId);
       }
 
-      const timeTakenSeconds = Math.max(
-        0,
-        Math.floor((Date.now() - questionStartTimeRef.current) / 1000),
-      );
+      // Per-question timing counts only the time the question was on screen
+      // (across visits), so a skipped question isn't graded as timed out.
+      const limit = isOverallTimed ? null : questionLimit(question);
+      const timeTakenSeconds = limit
+        ? secondsSpentOn(timeBankRef.current, questionId, limit)
+        : Math.max(0, Math.floor((Date.now() - questionStartTimeRef.current) / 1000));
 
       const newAnswer: Answer = {
         question_id: questionId,
@@ -1470,7 +1509,10 @@ const QuizTakingPage: React.FC = () => {
 
       if (existingSubmission && (!autoSaveEnabled || forceSave)) {
         try {
-          if (forceSave) setIsSubmitting(true);
+          if (forceSave) {
+            setIsSubmitting(true);
+            setSyncState("saving");
+          }
           await QuizApiService.submitQuestionAnswer(
             existingSubmission.id,
             questionId,
@@ -1478,22 +1520,15 @@ const QuizTakingPage: React.FC = () => {
             timeTakenSeconds,
           );
           if (forceSave) {
+            lastSavedRef.current.set(questionId, JSON.stringify(answer));
+            setSyncState("saved");
             setIsCurrentSaved(true);
             setExplicitlySavedQuestions((prev) => {
               const next = new Set(prev);
               next.add(String(questionId));
               return next;
             });
-
-            toast.success("Answer saved!", {
-              position: "bottom-right",
-              autoClose: 1500,
-              hideProgressBar: true,
-              closeOnClick: true,
-              pauseOnHover: false,
-              draggable: false,
-              theme: "colored",
-            });
+            // No toast: it covered the navigation. The footer shows "saved".
           } else if (autoSaveEnabled) {
             // For auto-save types, also enable Next button after API success
             setIsCurrentSaved(true);
@@ -1503,16 +1538,14 @@ const QuizTakingPage: React.FC = () => {
             // The deadline passed: stop editing; the countdown effect submits.
             setDeadline((d) => (d === null ? d : Math.min(d, Date.now())));
           } else if (forceSave) {
-            toast.error(
-              "Couldn't save this answer to the server — it's kept on this device and will be sent when you submit.",
-            );
+            setSyncState("offline");
           }
         } finally {
           if (forceSave) setIsSubmitting(false);
         }
       }
     },
-    [quizQuestions, quizStartTime, existingSubmission, id],
+    [quizQuestions, quizStartTime, existingSubmission, id, isOverallTimed],
   );
 
   /** Forget this attempt's local copies — only after the server has it. */
@@ -1780,10 +1813,18 @@ const QuizTakingPage: React.FC = () => {
     quizStartTime,
   ]);
 
-  const answeringDisabled =
-    isExamPaused ||
-    timeUpState !== null ||
-    (!isOverallTimed && lockedQuestionIndices.has(currentQuestionIndex));
+  // Per-question mode: a question is locked once its own clock ran out.
+  const isLockedAt = (index: number) =>
+    !isOverallTimed &&
+    !!quizQuestions[index] &&
+    isQuestionLocked(timeBank, quizQuestions[index].id, questionLimit(quizQuestions[index]));
+  const currentLocked = isLockedAt(currentQuestionIndex);
+  const perQuestionTimeLeft =
+    questionClock && currentQuestion && questionClock.questionId === currentQuestion.id
+      ? questionClock.left
+      : null;
+
+  const answeringDisabled = isExamPaused || timeUpState !== null || currentLocked;
 
   const renderQuestion = (
     question: QuizQuestion,
@@ -1911,109 +1952,169 @@ const QuizTakingPage: React.FC = () => {
     .map((q, i) => (answeredIds.has(q.id) ? -1 : i))
     .filter((i) => i >= 0);
 
-  const handlePerQuestionTimeout = useCallback(() => {
+  // ── Per-question timing ──────────────────────────────────────────────────
+  // Each question's clock runs only while it is on screen; its remaining
+  // seconds are banked (and kept on this device) when the student moves away,
+  // so a skipped question can be finished later with the time it had left.
+
+  const writeBank = useCallback(
+    (questionId: number, left: number) => {
+      const next = { ...timeBankRef.current, [questionId]: left };
+      timeBankRef.current = next;
+      setTimeBank(next);
+      if (id) {
+        try {
+          localStorage.setItem(timeBankKey(id), JSON.stringify(next));
+        } catch {
+          // Storage blocked: the in-memory bank still applies.
+        }
+      }
+    },
+    [id],
+  );
+
+  // Opening a question: resume its own clock (or none if it's locked/untimed),
+  // and remember it was visited.
+  useEffect(() => {
     if (!currentQuestion) return;
-
-    // Nullify immediately so the timer useEffect does not re-fire this callback
-    // while state updates from setLockedQuestionIndices/setCurrentQuestionIndex
-    // are still propagating, which was causing infinite save+submit loops.
-    setPerQuestionTimeLeft(null);
-
-    const currentAnswer = answers.find(
-      (a) => a.question_id === currentQuestion.id,
-    )?.answer;
-
-    if (currentAnswer) {
-      updateAnswer(currentQuestion.id, currentAnswer, true);
-    }
-
-    // Track timed-out question (prevents re-answering after timer expires)
-    setLockedQuestionIndices((prev) => new Set(prev).add(currentQuestionIndex));
-
-    if (currentQuestionIndex < totalQuestions - 1) {
-      setCurrentQuestionIndex((prev) => prev + 1);
-    } else {
-      // Use the stable ref so we always call the latest submitQuiz closure
-      // and avoid a double-submit if the callback dep list is stale.
-      submitQuizRef.current();
-    }
-  }, [
-    currentQuestion,
-    currentQuestionIndex,
-    totalQuestions,
-    answers,
-    updateAnswer,
-  ]);
-
-  useEffect(() => {
-    // With an overall duration, question durations don't apply.
-    const qLimit = isOverallTimed
-      ? null
-      : currentQuestion?.questionBank?.time_limit_seconds;
-    if (qLimit) {
-      setPerQuestionTimeLeft(qLimit);
-    } else {
-      setPerQuestionTimeLeft(null);
-    }
-  }, [currentQuestionIndex, currentQuestion?.id, isOverallTimed]);
-
-  useEffect(() => {
-    if (perQuestionTimeLeft === null) return;
-
-    if (perQuestionTimeLeft <= 0) {
-      handlePerQuestionTimeout();
+    setVisitedIds((prev) =>
+      prev.has(currentQuestion.id) ? prev : new Set(prev).add(currentQuestion.id),
+    );
+    const limit = isOverallTimed ? null : questionLimit(currentQuestion);
+    if (!limit) {
+      setQuestionClock(null);
       return;
     }
+    const left = secondsLeftOn(timeBankRef.current, currentQuestion.id, limit);
+    setQuestionClock(left > 0 ? { questionId: currentQuestion.id, left } : null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentQuestionIndex, currentQuestion?.id, isOverallTimed]);
 
-    // Pause per-question timer when exam is paused or a violation banner is showing
+  /** Save the answer on screen if it changed since the last save. */
+  const saveCurrentIfChanged = useCallback(async () => {
+    if (!currentQuestion || currentLocked) return;
+    const answer = latestAnswersRef.current.find(
+      (a) => a.question_id === currentQuestion.id,
+    )?.answer;
+    if (!hasAnswerValue(answer)) return;
+    const key = JSON.stringify(answer);
+    if (lastSavedRef.current.get(currentQuestion.id) === key) return;
+    await updateAnswer(currentQuestion.id, answer as AnswerDataType, true);
+  }, [currentQuestion, currentLocked, updateAnswer]);
+
+  const handlePerQuestionTimeout = useCallback(async () => {
+    if (!currentQuestion || timedOutRef.current.has(currentQuestion.id)) return;
+    timedOutRef.current.add(currentQuestion.id);
+    setQuestionClock(null);
+    writeBank(currentQuestion.id, 0);
+
+    // Keep whatever was answered before the clock ran out.
+    const answer = latestAnswersRef.current.find(
+      (a) => a.question_id === currentQuestion.id,
+    )?.answer;
+    if (hasAnswerValue(answer) && lastSavedRef.current.get(currentQuestion.id) !== JSON.stringify(answer)) {
+      await updateAnswer(currentQuestion.id, answer as AnswerDataType, true);
+    }
+
+    const answered = new Set(
+      latestAnswersRef.current.filter((a) => hasAnswerValue(a.answer)).map((a) => a.question_id),
+    );
+    const next = nextAfterTimeout({
+      current: currentQuestionIndex,
+      total: totalQuestions,
+      isLocked: (i) =>
+        isQuestionLocked(timeBankRef.current, quizQuestions[i].id, questionLimit(quizQuestions[i])),
+      isAnswered: (i) => answered.has(quizQuestions[i].id),
+    });
+    if (next.kind === "goto") {
+      toast.info(`Time's up for question ${currentQuestionIndex + 1}. Moving to question ${next.index + 1}.`, {
+        position: "top-center",
+        autoClose: 2500,
+      });
+      setCurrentQuestionIndex(next.index);
+    } else if (next.kind === "review") {
+      setAckUnanswered(false);
+      setShowConfirmSubmit(true);
+    } else {
+      // Every question's time is used up: hand the quiz in.
+      submitQuizRef.current();
+    }
+  }, [currentQuestion, currentQuestionIndex, totalQuestions, quizQuestions, updateAnswer, writeBank]);
+
+  // Tick the clock of the question on screen and bank every second, so a
+  // reload or a skip never hands back time already used.
+  useEffect(() => {
+    if (!questionClock) return;
+    if (questionClock.left <= 0) {
+      void handlePerQuestionTimeout();
+      return;
+    }
+    // Paused with the exam or a violation banner. It keeps running behind the
+    // review sheet, so opening it can't be used to stop the clock.
     if (showInstructions || isExamPaused || showViolationWarning) return;
 
     const timer = setTimeout(() => {
-      setPerQuestionTimeLeft((prev) => (prev !== null ? Math.max(0, prev - 1) : null));
+      setQuestionClock((c) => (c ? { ...c, left: Math.max(0, c.left - 1) } : c));
     }, 1000);
     return () => clearTimeout(timer);
   }, [
-    perQuestionTimeLeft,
+    questionClock,
     showInstructions,
     isExamPaused,
     showViolationWarning,
-    currentQuestionIndex,
     handlePerQuestionTimeout,
   ]);
 
-  const submitCurrentAnswer = useCallback(async () => {
-    if (!currentQuestion) return;
+  useEffect(() => {
+    if (questionClock) writeBank(questionClock.questionId, questionClock.left);
+  }, [questionClock, writeBank]);
 
-    const currentAnswer = latestAnswersRef.current.find(
-      (a) => a.question_id === currentQuestion.id,
-    )?.answer;
+  /**
+   * Move to any question, in either timing mode. Per-question mode saves the
+   * answer being left first (only if it changed); an unanswered question is
+   * simply skipped and keeps the time it had left.
+   */
+  const navigateTo = useCallback(
+    async (index: number) => {
+      if (index < 0 || index >= totalQuestions || index === currentQuestionIndex) return;
+      if (isOverallTimed) {
+        goToQuestion(index);
+        return;
+      }
+      if (isSubmitting) return;
+      // Stop this question's clock now; it resumes if the student comes back.
+      if (questionClock) {
+        writeBank(questionClock.questionId, questionClock.left);
+        setQuestionClock(null);
+      }
+      try {
+        await saveCurrentIfChanged();
+      } finally {
+        setCurrentQuestionIndex(index);
+      }
+    },
+    [
+      totalQuestions,
+      currentQuestionIndex,
+      isOverallTimed,
+      goToQuestion,
+      isSubmitting,
+      questionClock,
+      writeBank,
+      saveCurrentIfChanged,
+    ],
+  );
 
-    if (currentAnswer !== undefined && currentAnswer !== null) {
-      await updateAnswer(currentQuestion.id, currentAnswer, true); // forceSave = true
-    }
-  }, [currentQuestion, updateAnswer]);
-
-  const handleNext = useCallback(async () => {
-    if (isOverallTimed) {
-      goToQuestion(currentQuestionIndex + 1);
-      return;
-    }
-    // Cancel per-question timer immediately to prevent race with auto-advance
-    setPerQuestionTimeLeft(null);
-    setIsSubmitting(true);
-    try {
-      await submitCurrentAnswer();
-      setCurrentQuestionIndex((prev) => Math.min(totalQuestions - 1, prev + 1));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, [
-    submitCurrentAnswer,
-    totalQuestions,
-    isOverallTimed,
-    goToQuestion,
+  const handleNext = useCallback(() => navigateTo(currentQuestionIndex + 1), [
+    navigateTo,
     currentQuestionIndex,
   ]);
+
+  const openReview = useCallback(async () => {
+    if (!isOverallTimed) await saveCurrentIfChanged();
+    setAckUnanswered(false);
+    setShowConfirmSubmit(true);
+  }, [isOverallTimed, saveCurrentIfChanged]);
 
   if (loading) {
     return (
@@ -2598,7 +2699,7 @@ const QuizTakingPage: React.FC = () => {
 
   return (
     <div
-      className={`fixed inset-0 bg-white dark:bg-gray-900 flex flex-col ${isCodingFullscreen ? "overflow-hidden" : "overflow-auto"}`}
+      className="fixed inset-0 flex flex-col overflow-hidden bg-white dark:bg-gray-900"
     >
       {/* Warning Notification - Orange popup at top of browser */}
       <WarningNotification
@@ -2768,16 +2869,16 @@ const QuizTakingPage: React.FC = () => {
       {/* Header */}
       {!isCodingFullscreen && (
         <div className="sticky top-0 z-20 border-b border-gray-200 bg-white/90 px-4 py-3 backdrop-blur sm:px-6 dark:border-gray-700 dark:bg-gray-900/90">
-          <div className="flex w-full flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <BookOpen className="h-6 w-6 flex-shrink-0 text-blue-600" />
+          <div className="flex w-full items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <BookOpen className="hidden h-6 w-6 flex-shrink-0 text-blue-600 sm:block" />
               <div className="min-w-0">
                 <h1 className="truncate text-lg font-bold text-text-primary-light sm:text-xl dark:text-text-primary-dark">
                   {quiz.title}
                 </h1>
                 <p className="text-sm text-gray-600 dark:text-gray-200">
                   Question {currentQuestionIndex + 1} of {totalQuestions}
-                  {isOverallTimed && flaggedQuestions.size > 0 && (
+                  {flaggedQuestions.size > 0 && (
                     <span className="ml-2 inline-flex items-center gap-1 text-amber-600 dark:text-amber-400">
                       <Flag className="h-3 w-3" /> {flaggedQuestions.size} flagged
                     </span>
@@ -2786,7 +2887,7 @@ const QuizTakingPage: React.FC = () => {
               </div>
             </div>
 
-            <div className="flex items-center gap-3 sm:gap-4">
+            <div className="flex flex-shrink-0 items-center gap-2 sm:gap-4">
               {/* Progress Indicator */}
               <div className="hidden items-center gap-3 md:flex">
                 <div
@@ -2819,7 +2920,15 @@ const QuizTakingPage: React.FC = () => {
                 />
               ) : (
                 !isOverallTimed &&
-                currentQuestion?.questionBank?.time_limit_seconds && (
+                currentQuestion?.questionBank?.time_limit_seconds &&
+                (currentLocked ? (
+                  <span
+                    role="status"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 dark:bg-red-900/30 dark:text-red-300"
+                  >
+                    <Lock className="h-3.5 w-3.5" /> Time's up
+                  </span>
+                ) : (
                   <QuestionTimer
                     key={`question-timer-${currentQuestionIndex}`}
                     variant="question"
@@ -2831,22 +2940,20 @@ const QuizTakingPage: React.FC = () => {
                     }
                     paused={isExamPaused || showViolationWarning}
                   />
-                )
+                ))
               )}
 
               {/* Submit Button */}
               <button
-                onClick={async () => {
-                  if (!isOverallTimed) await submitCurrentAnswer();
-                  setShowConfirmSubmit(true);
-                }}
+                onClick={() => void openReview()}
+                aria-label="Submit quiz"
                 disabled={
                   isSubmitting ||
                   answeredQuestions === 0 ||
                   isExamPaused ||
                   timeUpState !== null
                 }
-                className="z-10 inline-flex items-center rounded-full bg-green-600 px-4 py-2 font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
+                className="z-10 inline-flex items-center rounded-full bg-green-600 px-3 py-2 font-medium text-white shadow-sm transition-colors hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 dark:focus-visible:ring-offset-gray-900"
               >
                 {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
@@ -2862,21 +2969,50 @@ const QuizTakingPage: React.FC = () => {
         </div>
       )}
 
-      {/* Main Content */}
-      <div className="flex-1 flex overflow-hidden" data-resizable-container>
+      {/* Answered progress on small screens (the header shows it from md up) */}
+      {!isCodingFullscreen && (
+        <div className="h-1 w-full flex-shrink-0 bg-gray-100 md:hidden dark:bg-gray-800" aria-hidden>
+          <div
+            className="h-full bg-blue-500 transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+
+      {/* Main Content: stacked on phones/tablets, two resizable columns from lg */}
+      <div
+        className="flex min-h-0 flex-1 flex-col overflow-y-auto lg:flex-row lg:overflow-hidden"
+        data-resizable-container
+        style={
+          {
+            "--quiz-left": `${columnSizes.left}%`,
+            "--quiz-right": `${columnSizes.right}%`,
+          } as React.CSSProperties
+        }
+      >
         {/* Column 1: Question Details */}
         <div
-          className={`overflow-y-auto p-6 ${
+          className={`w-full flex-shrink-0 p-4 sm:p-6 lg:h-full lg:w-[var(--quiz-left)] lg:overflow-y-auto ${
             (proctoringSettings?.require_fullscreen && !isFullscreenMode) ||
             isExamPaused
               ? "blur-sm pointer-events-none select-none"
               : ""
           } ${isCodingFullscreen ? "hidden" : ""}`}
-          style={{
-            width: isCodingFullscreen ? "0%" : `${columnSizes.left}%`,
-            height: isCodingFullscreen ? "100vh" : "calc(100vh - 160px)",
-          }}
         >
+          {currentLocked && (
+            <div
+              role="status"
+              className="mb-4 flex items-start gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800 dark:border-red-900/60 dark:bg-red-900/20 dark:text-red-200"
+            >
+              <Lock className="mt-0.5 h-4 w-4 flex-shrink-0" />
+              <span>
+                Time ran out on this question, so it can't be changed.
+                {answeredIds.has(currentQuestion?.id ?? -1)
+                  ? " Your answer was kept."
+                  : " It will count as unanswered."}
+              </span>
+            </div>
+          )}
           <div className="space-y-6">
             {/* Question Image */}
             {(() => {
@@ -2953,11 +3089,14 @@ const QuizTakingPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Resizer */}
+        {/* Resizer (desktop only) */}
         {!isCodingFullscreen && (
           <div
-            className="w-1 bg-gray-300 dark:bg-gray-600 cursor-col-resize hover:bg-blue-400 dark:hover:bg-blue-500 transition-colors relative"
+            className="relative hidden w-1 flex-shrink-0 cursor-col-resize bg-gray-200 transition-colors hover:bg-blue-400 lg:block dark:bg-gray-700 dark:hover:bg-blue-500"
             onMouseDown={handleMouseDown}
+            role="separator"
+            aria-orientation="vertical"
+            aria-label="Resize question and answer panels"
           >
             <div className="absolute inset-y-0 left-1/2 transform -translate-x-1/2 w-0.5 bg-gray-400 dark:bg-gray-500"></div>
           </div>
@@ -2965,16 +3104,16 @@ const QuizTakingPage: React.FC = () => {
 
         {/* Column 2: Answering and Testing */}
         <div
-          className={`overflow-y-auto p-6 ${
+          className={`w-full p-4 sm:p-6 ${
+            isCodingFullscreen
+              ? "h-screen overflow-y-auto"
+              : "border-t border-gray-200 lg:h-full lg:w-[var(--quiz-right)] lg:overflow-y-auto lg:border-t-0 dark:border-gray-800"
+          } ${
             (proctoringSettings?.require_fullscreen && !isFullscreenMode) ||
             isExamPaused
               ? "blur-sm pointer-events-none select-none"
               : ""
           }`}
-          style={{
-            width: isCodingFullscreen ? "100%" : `${columnSizes.right}%`,
-            height: isCodingFullscreen ? "100vh" : "calc(100vh - 160px)",
-          }}
         >
           <div className="space-y-6">
             {/* Answer Input */}
@@ -2999,112 +3138,121 @@ const QuizTakingPage: React.FC = () => {
 
       {/* Navigation Footer */}
       {!isCodingFullscreen && (
-        <div className="border-t border-gray-200 px-3 py-3 sm:px-6 dark:border-gray-700">
-          {!isOverallTimed && !isCurrentSaved && (
-            <div className="mb-2 flex animate-pulse items-center justify-center gap-2 text-sm font-bold text-amber-600 dark:text-amber-400">
-              <AlertCircle className="h-4 w-4 flex-shrink-0" />
-              <span>Please save your answer before proceeding.</span>
-            </div>
-          )}
-          {isOverallTimed && (
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs">
-              <button
-                type="button"
-                onClick={() => currentQuestion && toggleFlag(currentQuestion.id)}
-                disabled={!currentQuestion || timeUpState !== null}
-                aria-pressed={!!currentQuestion && flaggedQuestions.has(currentQuestion.id)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-medium transition-colors disabled:opacity-50 ${
-                  currentQuestion && flaggedQuestions.has(currentQuestion.id)
-                    ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-                    : "border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
-                }`}
-              >
-                <Flag className="h-3.5 w-3.5" />
-                {currentQuestion && flaggedQuestions.has(currentQuestion.id)
-                  ? "Flagged for review"
-                  : "Flag for review"}
-              </button>
-              <span
-                className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400"
-                aria-live="polite"
-              >
-                {syncState === "saving" && (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
-                  </>
-                )}
-                {syncState === "saved" && (
-                  <>
-                    <Cloud className="h-3.5 w-3.5 text-emerald-500" /> Answers saved
-                  </>
-                )}
-                {syncState === "offline" && (
-                  <>
-                    <CloudOff className="h-3.5 w-3.5 text-amber-500" /> Saved on this
-                    device — will be sent on submit
-                  </>
-                )}
-              </span>
-            </div>
-          )}
-          <div className="max-w-8xl mx-auto flex items-center gap-2 sm:gap-3">
+        <div className="flex-shrink-0 border-t border-gray-200 bg-white/95 px-3 pt-2 pb-[calc(0.75rem+env(safe-area-inset-bottom))] backdrop-blur sm:px-6 dark:border-gray-700 dark:bg-gray-900/95">
+          <div className="mx-auto mb-2 flex max-w-8xl flex-wrap items-center justify-between gap-2 text-xs">
             <button
-              onClick={() =>
-                isOverallTimed
-                  ? goToQuestion(currentQuestionIndex - 1)
-                  : setCurrentQuestionIndex((prev) => Math.max(0, prev - 1))
-              }
+              type="button"
+              onClick={() => currentQuestion && toggleFlag(currentQuestion.id)}
+              disabled={!currentQuestion || timeUpState !== null}
+              aria-pressed={!!currentQuestion && flaggedQuestions.has(currentQuestion.id)}
+              className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-400 disabled:opacity-50 ${
+                currentQuestion && flaggedQuestions.has(currentQuestion.id)
+                  ? "border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
+                  : "border-gray-300 text-gray-600 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-300 dark:hover:bg-gray-800"
+              }`}
+            >
+              <Flag className="h-3.5 w-3.5" />
+              {currentQuestion && flaggedQuestions.has(currentQuestion.id)
+                ? "Flagged for review"
+                : "Flag for review"}
+            </button>
+
+            {/* What the grid colours mean */}
+            <div className="hidden items-center gap-3 text-gray-500 md:flex dark:text-gray-400" aria-hidden>
+              <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-emerald-500" />Answered</span>
+              <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm border-2 border-amber-400 bg-amber-50 dark:bg-amber-900/30" />Skipped</span>
+              {!isOverallTimed && (
+                <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-red-200 dark:bg-red-900/60" />Time's up</span>
+              )}
+              <span className="inline-flex items-center gap-1"><span className="h-2.5 w-2.5 rounded-sm bg-gray-200 dark:bg-gray-700" />Not seen</span>
+            </div>
+
+            <span
+              className="inline-flex items-center gap-1.5 text-gray-500 dark:text-gray-400"
+              aria-live="polite"
+            >
+              {syncState === "saving" && (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving…
+                </>
+              )}
+              {syncState === "saved" && (
+                <>
+                  <Cloud className="h-3.5 w-3.5 text-emerald-500" /> Answers saved
+                </>
+              )}
+              {syncState === "offline" && (
+                <>
+                  <CloudOff className="h-3.5 w-3.5 text-amber-500" /> Saved on this
+                  device — will be sent on submit
+                </>
+              )}
+            </span>
+          </div>
+
+          <div className="mx-auto flex max-w-8xl items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => void navigateTo(currentQuestionIndex - 1)}
               disabled={
                 currentQuestionIndex === 0 ||
                 isExamPaused ||
                 timeUpState !== null ||
-                (!isOverallTimed && !isCurrentSaved)
+                (!isOverallTimed && isSubmitting)
               }
               aria-label="Previous question"
-              className="inline-flex flex-shrink-0 items-center rounded-full border border-gray-300 px-3 py-2 text-gray-700 transition-colors hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+              className="inline-flex h-10 flex-shrink-0 items-center rounded-full border border-gray-300 px-3 text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
             >
               <ArrowLeft className="h-4 w-4 sm:mr-2" />
               <span className="hidden sm:inline">Previous</span>
             </button>
 
-            <div className="min-w-0 flex-1 overflow-x-auto">
+            <div className="min-w-0 flex-1 overflow-x-auto [scrollbar-width:thin]">
               <div className="flex items-center gap-2 px-1 py-1.5">
                 {quizQuestions.map((question, index) => {
                   const isAnswered = answeredIds.has(question.id);
-                  const isFlagged = isOverallTimed && flaggedQuestions.has(question.id);
+                  const isFlagged = flaggedQuestions.has(question.id);
                   const isCurrent = index === currentQuestionIndex;
+                  const isLocked = isLockedAt(index);
+                  const isSkipped = !isAnswered && !isLocked && !isCurrent && visitedIds.has(question.id);
+                  const status = isAnswered
+                    ? "answered"
+                    : isLocked
+                      ? "time's up, not answered"
+                      : isSkipped
+                        ? "skipped, not answered"
+                        : "not answered";
                   return (
                     <button
                       key={question.id ?? index}
-                      onClick={() =>
-                        isOverallTimed
-                          ? goToQuestion(index)
-                          : setCurrentQuestionIndex(index)
-                      }
+                      ref={isCurrent ? (el) => el?.scrollIntoView?.({ block: "nearest", inline: "nearest" }) : undefined}
+                      onClick={() => void navigateTo(index)}
                       disabled={
                         isExamPaused ||
                         timeUpState !== null ||
-                        (!isOverallTimed && !isCurrentSaved)
+                        (!isOverallTimed && isSubmitting)
                       }
                       aria-current={isCurrent ? "step" : undefined}
-                      aria-label={`Question ${index + 1}${
-                        isAnswered ? ", answered" : ", not answered"
-                      }${isFlagged ? ", flagged" : ""}`}
-                      title={`${isAnswered ? "Answered" : "Not answered"}${
-                        isFlagged ? " · flagged" : ""
-                      }`}
-                      className={`relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-all disabled:cursor-not-allowed ${
+                      aria-label={`Question ${index + 1}, ${status}${isFlagged ? ", flagged" : ""}`}
+                      title={`Question ${index + 1}: ${status}${isFlagged ? " · flagged" : ""}`}
+                      className={`relative flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl text-sm font-bold transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 disabled:cursor-not-allowed dark:focus-visible:ring-offset-gray-900 ${
                         isCurrent
                           ? "z-10 scale-110 bg-blue-600 text-white shadow-lg shadow-blue-500/30"
                           : isAnswered
                             ? "bg-emerald-500 text-white shadow-md shadow-emerald-500/20 hover:bg-emerald-600"
-                            : "bg-gray-100 text-gray-400 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-500 dark:hover:bg-gray-700"
+                            : isLocked
+                              ? "bg-red-100 text-red-500 dark:bg-red-900/40 dark:text-red-300"
+                              : isSkipped
+                                ? "border-2 border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300"
+                                : "bg-gray-100 text-gray-500 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-gray-700"
                       } ${isFlagged ? "ring-2 ring-amber-400 ring-offset-1 dark:ring-offset-gray-900" : ""}`}
                     >
                       {isAnswered && (
                         <div className="absolute -right-1.5 -top-1.5 rounded-full border-2 border-emerald-500 bg-white p-0.5 shadow-sm dark:bg-gray-900">
                           <Check className="h-2.5 w-2.5 stroke-[4px] text-emerald-500" />
                         </div>
+                      )}
+                      {isLocked && !isAnswered && (
+                        <Lock className="absolute -right-1 -top-1 h-3.5 w-3.5 rounded-full bg-white p-0.5 text-red-500 dark:bg-gray-900" />
                       )}
                       {isFlagged && (
                         <Flag className="absolute -bottom-1.5 -right-1.5 h-3.5 w-3.5 fill-amber-400 text-amber-500" />
@@ -3116,99 +3264,136 @@ const QuizTakingPage: React.FC = () => {
               </div>
             </div>
 
-            {isOverallTimed && currentQuestionIndex === totalQuestions - 1 ? (
+            {currentQuestionIndex === totalQuestions - 1 ? (
               <button
-                onClick={() => setShowConfirmSubmit(true)}
+                onClick={() => void openReview()}
                 disabled={isExamPaused || isSubmitting || timeUpState !== null}
-                className="inline-flex flex-shrink-0 items-center rounded-full bg-green-600 px-3 py-2 font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
+                className="inline-flex h-10 flex-shrink-0 items-center rounded-full bg-green-600 px-3 font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
               >
                 <ListChecks className="h-4 w-4 sm:mr-2" />
                 <span className="hidden sm:inline">Review &amp; Submit</span>
+                <span className="sr-only sm:hidden">Review &amp; Submit</span>
               </button>
             ) : (
-              <button
-                onClick={handleNext}
-                disabled={
-                  currentQuestionIndex === totalQuestions - 1 ||
-                  isExamPaused ||
-                  timeUpState !== null ||
-                  (!isOverallTimed && (!isCurrentSaved || isSubmitting))
-                }
-                aria-label="Next question"
-                className="inline-flex flex-shrink-0 items-center rounded-full bg-blue-600 px-3 py-2 font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4"
-              >
-                {!isOverallTimed && isSubmitting ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
-                    <span className="hidden sm:inline">Saving...</span>
-                  </>
-                ) : (
-                  <>
-                    <span className="hidden sm:inline">Next</span>
-                    <ArrowRight className="h-4 w-4 sm:ml-2" />
-                  </>
-                )}
-              </button>
+              (() => {
+                // Nothing answered here (and still open): moving on is a skip.
+                const willSkip =
+                  !!currentQuestion && !currentLocked && !answeredIds.has(currentQuestion.id);
+                return (
+                  <button
+                    onClick={() => void handleNext()}
+                    disabled={
+                      isExamPaused ||
+                      timeUpState !== null ||
+                      (!isOverallTimed && isSubmitting)
+                    }
+                    aria-label={willSkip ? "Skip question" : "Next question"}
+                    title={willSkip ? "Skip for now — you can come back to it" : undefined}
+                    className={`inline-flex h-10 flex-shrink-0 items-center rounded-full px-3 font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50 sm:px-4 ${
+                      willSkip
+                        ? "border border-gray-300 text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                        : "bg-blue-600 text-white hover:bg-blue-700"
+                    }`}
+                  >
+                    {!isOverallTimed && isSubmitting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin sm:mr-2" />
+                        <span className="hidden sm:inline">Saving...</span>
+                      </>
+                    ) : willSkip ? (
+                      <>
+                        <span className="hidden sm:inline">Skip</span>
+                        <SkipForward className="h-4 w-4 sm:ml-2" />
+                      </>
+                    ) : (
+                      <>
+                        <span className="hidden sm:inline">Next</span>
+                        <ArrowRight className="h-4 w-4 sm:ml-2" />
+                      </>
+                    )}
+                  </button>
+                );
+              })()
             )}
           </div>
         </div>
       )}
 
-      {/* Submit Confirmation Modal */}
-      {showConfirmSubmit && (
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-4"
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="confirm-submit-title"
-        >
-          <div className="w-full max-w-md rounded-t-2xl bg-white p-6 sm:rounded-2xl dark:bg-gray-900">
-            <div className="text-center">
-              <ListChecks className="mx-auto mb-3 h-11 w-11 text-blue-600" />
-              <h3
-                id="confirm-submit-title"
-                className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark"
-              >
-                Ready to Submit?
-              </h3>
-              <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-                <div className="rounded-xl bg-emerald-50 p-2 dark:bg-emerald-900/20">
-                  <div className="text-lg font-bold text-emerald-600">{answeredQuestions}</div>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Answered</div>
-                </div>
-                <div className="rounded-xl bg-gray-100 p-2 dark:bg-gray-800">
-                  <div className="text-lg font-bold text-gray-700 dark:text-gray-200">
-                    {totalQuestions - answeredQuestions}
+      {/* Submit Confirmation (review) sheet */}
+      {showConfirmSubmit && (() => {
+        const unanswered = unansweredIndices.length;
+        const reopenable = unansweredIndices.filter((i) => !isLockedAt(i));
+        const timedOut = unansweredIndices.filter((i) => isLockedAt(i));
+        const needsAck = unanswered > 0;
+        const close = () => setShowConfirmSubmit(false);
+        const jump = (i: number) => {
+          close();
+          void navigateTo(i);
+        };
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 backdrop-blur-sm sm:items-center sm:p-4"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="confirm-submit-title"
+            onKeyDown={(e) => {
+              if (e.key === "Escape" && !isSubmitting) close();
+            }}
+            onClick={(e) => {
+              if (e.target === e.currentTarget && !isSubmitting) close();
+            }}
+          >
+            <div className="max-h-[92vh] w-full max-w-md overflow-y-auto rounded-t-2xl bg-white p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))] shadow-2xl sm:rounded-2xl sm:p-6 dark:bg-gray-900">
+              <div className="mx-auto mb-3 h-1.5 w-10 rounded-full bg-gray-200 sm:hidden dark:bg-gray-700" aria-hidden />
+              <div className="text-center">
+                {needsAck ? (
+                  <AlertCircle className="mx-auto mb-3 h-11 w-11 text-amber-500" />
+                ) : (
+                  <ListChecks className="mx-auto mb-3 h-11 w-11 text-blue-600" />
+                )}
+                <h3
+                  id="confirm-submit-title"
+                  className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark"
+                >
+                  {needsAck
+                    ? `${unanswered} question${unanswered === 1 ? "" : "s"} not answered`
+                    : "Ready to submit?"}
+                </h3>
+                <div className="mt-4 grid grid-cols-3 gap-2 text-center">
+                  <div className="rounded-xl bg-emerald-50 p-2 dark:bg-emerald-900/20">
+                    <div className="text-lg font-bold text-emerald-600">{answeredQuestions}</div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">Answered</div>
                   </div>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400">Unanswered</div>
-                </div>
-                <div className="rounded-xl bg-amber-50 p-2 dark:bg-amber-900/20">
-                  <div className="text-lg font-bold text-amber-600">
-                    {isOverallTimed ? formatClock(timeLeft) : flaggedQuestions.size}
+                  <div className={`rounded-xl p-2 ${needsAck ? "bg-amber-50 dark:bg-amber-900/20" : "bg-gray-100 dark:bg-gray-800"}`}>
+                    <div className={`text-lg font-bold ${needsAck ? "text-amber-600" : "text-gray-700 dark:text-gray-200"}`}>
+                      {unanswered}
+                    </div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">Unanswered</div>
                   </div>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400">
-                    {isOverallTimed ? "Time left" : "Flagged"}
+                  <div className="rounded-xl bg-blue-50 p-2 dark:bg-blue-900/20">
+                    <div className="text-lg font-bold text-blue-600">
+                      {isOverallTimed ? formatClock(timeLeft) : flaggedQuestions.size}
+                    </div>
+                    <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                      {isOverallTimed ? "Time left" : "Flagged"}
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {isOverallTimed &&
-                (unansweredIndices.length > 0 || flaggedQuestions.size > 0) && (
-                  <div className="mt-4 space-y-2 text-left text-xs">
-                    {unansweredIndices.length > 0 && (
+                {(unanswered > 0 || flaggedQuestions.size > 0) && (
+                  <div className="mt-4 space-y-3 text-left text-xs">
+                    {reopenable.length > 0 && (
                       <div>
-                        <p className="mb-1 font-medium text-gray-600 dark:text-gray-300">
+                        <p className="mb-1.5 font-medium text-gray-600 dark:text-gray-300">
                           Not answered yet — tap to go back:
                         </p>
                         <div className="flex flex-wrap gap-1.5">
-                          {unansweredIndices.map((i) => (
+                          {reopenable.map((i) => (
                             <button
                               key={`u-${i}`}
-                              onClick={() => {
-                                setShowConfirmSubmit(false);
-                                goToQuestion(i);
-                              }}
-                              className="h-7 min-w-[1.75rem] rounded-lg bg-gray-100 px-2 font-semibold text-gray-700 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
+                              onClick={() => jump(i)}
+                              aria-label={`Go to question ${i + 1}`}
+                              className="h-8 min-w-[2rem] rounded-lg border-2 border-amber-400 bg-amber-50 px-2 font-semibold text-amber-800 hover:bg-amber-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:bg-amber-900/20 dark:text-amber-300"
                             >
                               {i + 1}
                             </button>
@@ -3216,9 +3401,16 @@ const QuizTakingPage: React.FC = () => {
                         </div>
                       </div>
                     )}
+                    {timedOut.length > 0 && (
+                      <p className="flex items-center gap-1.5 text-gray-500 dark:text-gray-400">
+                        <Lock className="h-3.5 w-3.5 flex-shrink-0 text-red-500" />
+                        Time ran out on question{timedOut.length === 1 ? "" : "s"}{" "}
+                        {timedOut.map((i) => i + 1).join(", ")} — {timedOut.length === 1 ? "it" : "they"} can't be answered any more.
+                      </p>
+                    )}
                     {flaggedQuestions.size > 0 && (
                       <div>
-                        <p className="mb-1 font-medium text-gray-600 dark:text-gray-300">
+                        <p className="mb-1.5 font-medium text-gray-600 dark:text-gray-300">
                           Flagged for review:
                         </p>
                         <div className="flex flex-wrap gap-1.5">
@@ -3226,11 +3418,9 @@ const QuizTakingPage: React.FC = () => {
                             flaggedQuestions.has(q.id) ? (
                               <button
                                 key={`f-${q.id}`}
-                                onClick={() => {
-                                  setShowConfirmSubmit(false);
-                                  goToQuestion(i);
-                                }}
-                                className="inline-flex h-7 items-center gap-1 rounded-lg bg-amber-100 px-2 font-semibold text-amber-800 hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-300"
+                                onClick={() => jump(i)}
+                                aria-label={`Go to flagged question ${i + 1}`}
+                                className="inline-flex h-8 items-center gap-1 rounded-lg bg-amber-100 px-2 font-semibold text-amber-800 hover:bg-amber-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500 dark:bg-amber-900/30 dark:text-amber-300"
                               >
                                 <Flag className="h-3 w-3" />
                                 {i + 1}
@@ -3243,44 +3433,71 @@ const QuizTakingPage: React.FC = () => {
                   </div>
                 )}
 
-              <p className="mt-4 text-sm text-gray-600 dark:text-gray-300">
-                {isOverallTimed
-                  ? "You can still go back and change answers until you submit or time runs out. Submitting is final."
-                  : "This action cannot be undone."}
-              </p>
-              <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
-                <button
-                  onClick={() => setShowConfirmSubmit(false)}
-                  className="rounded-full border border-gray-300 px-4 py-2 text-gray-700 transition-colors hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                <div
+                  role={needsAck ? "alert" : undefined}
+                  className={`mt-4 rounded-xl px-3 py-2.5 text-left text-sm ${
+                    needsAck
+                      ? "border border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
+                      : "bg-gray-50 text-gray-600 dark:bg-gray-800/60 dark:text-gray-300"
+                  }`}
                 >
-                  Continue Quiz
-                </button>
-                <button
-                  data-track="tm.quiz.submit_click"
-                  onClick={async () => {
-                    const ok = await submitQuiz();
-                    if (!ok) setShowConfirmSubmit(false);
-                  }}
-                  disabled={isSubmitting}
-                  className="inline-flex items-center justify-center rounded-full bg-green-600 px-4 py-2 font-medium text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Submitting...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Submit Quiz
-                    </>
-                  )}
-                </button>
+                  {needsAck
+                    ? `Unanswered questions score 0. Once you submit, you can't come back to answer or change anything — this can't be undone.`
+                    : "Once you submit, you can't change your answers — this can't be undone."}
+                </div>
+
+                {needsAck && (
+                  <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl px-1 text-left text-sm text-gray-700 dark:text-gray-200">
+                    <input
+                      type="checkbox"
+                      checked={ackUnanswered}
+                      onChange={(e) => setAckUnanswered(e.target.checked)}
+                      className="mt-0.5 h-4 w-4 flex-shrink-0 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    />
+                    <span>
+                      I understand {unanswered === 1 ? "1 question is" : `${unanswered} questions are`} unanswered
+                      and I want to submit anyway.
+                    </span>
+                  </label>
+                )}
+
+                <div className="mt-5 flex flex-col-reverse gap-3 sm:flex-row sm:justify-center">
+                  <button
+                    onClick={close}
+                    disabled={isSubmitting}
+                    autoFocus
+                    className="rounded-full border border-gray-300 px-4 py-2.5 text-gray-700 transition-colors hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-800"
+                  >
+                    {needsAck && reopenable.length > 0 ? "Go back and answer" : "Continue quiz"}
+                  </button>
+                  <button
+                    data-track="tm.quiz.submit_click"
+                    onClick={async () => {
+                      if (needsAck && !ackUnanswered) return;
+                      const ok = await submitQuiz();
+                      if (!ok) setShowConfirmSubmit(false);
+                    }}
+                    disabled={isSubmitting || (needsAck && !ackUnanswered)}
+                    className="inline-flex items-center justify-center rounded-full bg-green-600 px-4 py-2.5 font-medium text-white transition-colors hover:bg-green-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-green-500 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircle className="mr-2 h-4 w-4" />
+                        {needsAck ? "Submit anyway" : "Submit quiz"}
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Audio Settings Confirmation Modal */}
       {audioConfirmationRequest && (

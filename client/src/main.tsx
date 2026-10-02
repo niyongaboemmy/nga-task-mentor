@@ -9,6 +9,7 @@ import "./index.css";
 import App from "./App.tsx";
 import { initNgaInstall, NgaInstallPrompt } from "./pwa/ngaInstall";
 import { startActivity } from "./activity";
+import { HideInFocusMode } from "./utils/focusMode";
 
 // Installable app + "install this too" when opened from the installed NGA app.
 initNgaInstall();
@@ -23,7 +24,10 @@ createRoot(document.getElementById("root")!).render(
         <CourseCacheProvider>
           <SchemeOfWorkProvider>
             <App />
-            <NgaInstallPrompt appName="Task Mentor" accent="#3b82f6" startPath="/dashboard?source=pwa" />
+            {/* Never over a quiz in progress (focus mode), where it hid "Next". */}
+            <HideInFocusMode>
+              <NgaInstallPrompt appName="Task Mentor" accent="#3b82f6" startPath="/dashboard?source=pwa" />
+            </HideInFocusMode>
           </SchemeOfWorkProvider>
         </CourseCacheProvider>
       </AuthProvider>

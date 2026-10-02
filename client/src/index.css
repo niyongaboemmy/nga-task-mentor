@@ -225,3 +225,8 @@ ul[data-type="taskList"] div {
 .animate-bounce-in {
   animation: bounce-in 0.6s ease-out forwards;
 }
+/* Focus mode (utils/focusMode.ts): floating extras step aside while a quiz is
+   being taken. Mark any app-level floating element with data-hide-in-focus. */
+html[data-focus-mode] [data-hide-in-focus] {
+  display: none !important;
+}

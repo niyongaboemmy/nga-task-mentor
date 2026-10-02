@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { act, render, screen, fireEvent } from "@testing-library/react";
+import { act, render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 
 /**
@@ -355,6 +355,143 @@ describe("QuizTakingPage — per-question durations (no overall duration)", () =
     for (let i = 0; i < 11; i++) await advance(1_000);
     expect(screen.getByText("Question 2 of 3")).toBeInTheDocument();
     expect(submitCalls()).toHaveLength(0);
+  });
+
+  const tick = async (seconds: number) => {
+    for (let i = 0; i < seconds; i++) await advance(1_000);
+  };
+
+  it("skips an unanswered question and resumes it later with the time it had left", async () => {
+    mockStart(null);
+    await startQuiz();
+
+    // Nothing answered: the forward button is a skip, never blocked.
+    expect(screen.queryByText(/Please save your answer/)).not.toBeInTheDocument();
+    await tick(4);
+    fireEvent.click(screen.getByRole("button", { name: "Skip question" }));
+    await flush();
+    expect(screen.getByText("Question 2 of 3")).toBeInTheDocument();
+    expect(quizApi.submitQuestionAnswer).not.toHaveBeenCalled();
+    expect(screen.getByRole("timer")).toHaveAccessibleName("Question: 0:10");
+
+    // Away from question 1 its clock is paused.
+    await tick(3);
+    expect(screen.getByRole("button", { name: /^Question 1, skipped, not answered/ })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Question 1, skipped/ }));
+    await flush();
+    expect(screen.getByText("Question 1 of 3")).toBeInTheDocument();
+    expect(screen.getByRole("timer")).toHaveAccessibleName("Question: 0:06");
+
+    // Answer it; moving on saves it with only the on-screen time (4 s + 2 s).
+    await tick(2);
+    fireEvent.change(screen.getByLabelText("answer-101"), { target: { value: "A" } });
+    fireEvent.click(screen.getByRole("button", { name: "Next question" }));
+    await flush();
+    expect(quizApi.submitQuestionAnswer).toHaveBeenCalledWith(SUBMISSION_ID, 101, "A", 6);
+    // Question 2 kept the 7 s it had left.
+    expect(screen.getByRole("timer")).toHaveAccessibleName("Question: 0:07");
+  });
+
+  it("locks a question whose own time ran out, but leaves the others open", async () => {
+    mockStart(null);
+    await startQuiz();
+    await tick(11);
+    expect(screen.getByText("Question 2 of 3")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^Question 1, time's up, not answered/ }));
+    await flush();
+    expect(screen.getByLabelText("answer-101")).toBeDisabled();
+    expect(screen.getByText(/Time ran out on this question/)).toBeInTheDocument();
+    expect(screen.queryByRole("timer")).not.toBeInTheDocument();
+    // Nothing to skip on a locked question: just move on.
+    expect(screen.getByRole("button", { name: "Next question" })).toBeEnabled();
+    expect(submitCalls()).toHaveLength(0);
+  });
+
+  it("warns about unanswered questions and needs an explicit confirmation to submit", async () => {
+    mockStart(null);
+    await startQuiz();
+    fireEvent.change(screen.getByLabelText("answer-101"), { target: { value: "A" } });
+
+    fireEvent.click(screen.getByRole("button", { name: "Submit quiz" }));
+    await flush();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("2 questions not answered")).toBeInTheDocument();
+    expect(within(dialog).getByText(/can't be undone/)).toBeInTheDocument();
+    // The unanswered ones are one tap away.
+    expect(within(dialog).getByRole("button", { name: "Go to question 2" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Go to question 3" })).toBeInTheDocument();
+
+    const submit = within(dialog).getByRole("button", { name: /Submit anyway/ });
+    expect(submit).toBeDisabled();
+    fireEvent.click(submit);
+    expect(submitCalls()).toHaveLength(0);
+
+    fireEvent.click(within(dialog).getByRole("checkbox"));
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+    await flush();
+    expect(submitCalls()).toHaveLength(1);
+    expect(submitCalls()[0][1].answers).toEqual([expect.objectContaining({ question_id: 101, answer: "A" })]);
+  });
+
+  it("goes back to an unanswered question from the review sheet", async () => {
+    mockStart(null);
+    await startQuiz();
+    fireEvent.click(screen.getByRole("button", { name: "Submit quiz" }));
+    await flush();
+    // Nothing answered yet: the header button is disabled, so use the last step.
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("answer-101"), { target: { value: "A" } });
+    fireEvent.click(screen.getByRole("button", { name: /^Question 3/ }));
+    await flush();
+    fireEvent.click(screen.getByRole("button", { name: /Review & Submit/ }));
+    await flush();
+    fireEvent.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Go to question 2" }));
+    await flush();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("Question 2 of 3")).toBeInTheDocument();
+  });
+
+  it("submits without the extra confirmation when every question is answered", async () => {
+    mockStart(null);
+    await startQuiz();
+    for (const qid of [101, 102, 103]) {
+      fireEvent.change(screen.getByLabelText(`answer-${qid}`), { target: { value: "x" } });
+      if (qid !== 103) {
+        fireEvent.click(screen.getByRole("button", { name: "Next question" }));
+        await flush();
+      }
+    }
+    fireEvent.click(screen.getByRole("button", { name: /Review & Submit/ }));
+    await flush();
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Ready to submit?")).toBeInTheDocument();
+    expect(within(dialog).queryByRole("checkbox")).not.toBeInTheDocument();
+    fireEvent.click(within(dialog).getByRole("button", { name: /Submit quiz/ }));
+    await flush();
+    expect(submitCalls()).toHaveLength(1);
+  });
+});
+
+describe("QuizTakingPage — focus mode", () => {
+  it("keeps floating extras (install prompts) away while the quiz page is open", async () => {
+    quizApi.getQuiz.mockResolvedValue({ success: true, data: makeQuiz(null) });
+    mockStart(null);
+    const { HideInFocusMode } = await import("../utils/focusMode");
+    const view = render(
+      <HideInFocusMode>
+        <button>Install Task Mentor</button>
+      </HideInFocusMode>,
+    );
+    expect(screen.getByRole("button", { name: "Install Task Mentor" })).toBeVisible();
+
+    renderPage();
+    await flush();
+    expect(document.documentElement).toHaveAttribute("data-focus-mode");
+    expect(screen.getByText("Install Task Mentor")).not.toBeVisible();
+    view.unmount();
   });
 });
 
