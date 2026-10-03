@@ -51,6 +51,21 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({
     localStorage.setItem("theme", theme);
   }, [theme, isInitialized]);
 
+  // NGA desktop app: it keeps the desktop and all four NGA apps on one theme.
+  // A switch made elsewhere arrives here, already saved to the MIS account, so
+  // apply it without saving again. preventDefault tells the desktop this app
+  // applied it itself.
+  useEffect(() => {
+    const onDesktopTheme = (e: Event) => {
+      const next = (e as CustomEvent<{ theme?: string }>).detail?.theme;
+      if (next !== "light" && next !== "dark") return;
+      e.preventDefault();
+      setTheme(next);
+    };
+    window.addEventListener("nga:set-theme", onDesktopTheme);
+    return () => window.removeEventListener("nga:set-theme", onDesktopTheme);
+  }, []);
+
   const toggleTheme = () => {
     const newTheme = theme === "light" ? "dark" : "light";
     setTheme(newTheme);
