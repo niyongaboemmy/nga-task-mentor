@@ -16,7 +16,7 @@ interface Props {
 }
 
 const labelOf = (name?: string) =>
-  ({ gemini: "Gemini", groq: "Groq", glm: "GLM", openai: "OpenAI", deepseek: "DeepSeek" })[name ?? ""] ?? name;
+  ({ gemini: "Gemini", groq: "Groq", glm: "GLM", openai: "OpenAI", deepseek: "DeepSeek", openrouter: "OpenRouter" })[name ?? ""] ?? name;
 
 function useElapsed(since: number) {
   const [now, setNow] = useState(Date.now());
