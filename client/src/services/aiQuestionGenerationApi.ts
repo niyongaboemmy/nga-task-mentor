@@ -5,7 +5,7 @@ import type { QuestionType, DifficultyLevel } from "../types/quiz.types";
 // run generation batches against its context_id. Nothing is saved until the
 // teacher confirms through QuestionBankApiService.bulkCreateCourseQuestions.
 
-export type AIProviderName = "gemini" | "groq" | "glm" | "openai" | "deepseek";
+export type AIProviderName = "gemini" | "groq" | "glm" | "openai" | "deepseek" | "openrouter";
 
 export interface AIProviderInfo {
   name: AIProviderName;

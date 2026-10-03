@@ -32,7 +32,7 @@ export const aiGenerateBatchSchema = z
       .optional()
       .transform((v) => (v ? v : undefined)),
     provider: z
-      .enum(["gemini", "groq", "glm", "openai", "deepseek"])
+      .enum(["gemini", "groq", "glm", "openai", "deepseek", "openrouter"])
       .nullish()
       .transform((v) => v ?? null),
     // Only a steering hint for the prompt, so never a reason to reject a batch:

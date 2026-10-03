@@ -172,7 +172,7 @@ describe("GET /ai/providers", () => {
     const res = await auth(request(app).get(`${base}/ai/providers`));
     expect(res.status).toBe(200);
     const names = res.body.data.providers.map((p: any) => p.name).sort();
-    expect(names).toEqual(["deepseek", "gemini", "glm", "groq", "openai"]);
+    expect(names).toEqual(["deepseek", "gemini", "glm", "groq", "openai", "openrouter"]);
     for (const p of res.body.data.providers) {
       expect(typeof p.model).toBe("string");
       expect(typeof p.configured).toBe("boolean");
