@@ -50,18 +50,37 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Start continuous monitoring when component mounts
+  // Start continuous monitoring when component mounts.
+  // Keyed on the setting VALUES: the page passes a new settings object on
+  // every render (its clock re-renders it every second), and restarting on
+  // each one stacked up detection loops while the models were still loading
+  // on a first open, until the page froze.
+  const {
+    enableFaceDetection,
+    faceDetectionSensitivity,
+    enableObjectDetection,
+    objectDetectionSensitivity,
+  } = settings;
   useEffect(() => {
-    startMonitoring();
+    const run = { cancelled: false };
+    void startMonitoring(run);
     return () => {
+      run.cancelled = true;
       if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
+        clearTimeout(detectionIntervalRef.current);
+        detectionIntervalRef.current = null;
       }
       if (warningDebounceTimer) {
         clearTimeout(warningDebounceTimer);
       }
     };
-  }, [videoElement, settings]);
+  }, [
+    videoElement,
+    enableFaceDetection,
+    faceDetectionSensitivity,
+    enableObjectDetection,
+    objectDetectionSensitivity,
+  ]);
 
   // Handle video element setup and playback
   useEffect(() => {
@@ -158,88 +177,83 @@ const FloatingCameraComponent: React.FC<FloatingCameraComponentProps> = ({
     };
   }, [warnings, previousWarnings, onViolationResolved]);
 
-  const startMonitoring = async () => {
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-    }
-
+  // One check at a time: the next starts a second after the last finished
+  // (a check can take longer than a second on a PC without a usable GPU).
+  const startMonitoring = async (run: { cancelled: boolean }) => {
     try {
       await faceDetectionService.loadModels();
     } catch (error) {
       console.error("Error loading face detection models:", error);
       return;
     }
+    // Settings changed or the component left while the models loaded.
+    if (run.cancelled) return;
 
     setDetectionStatus((prev) => ({ ...prev, isDetecting: true }));
 
-    detectionIntervalRef.current = setInterval(async () => {
-      if (!videoElement) return;
-
-      try {
-        const result: ProctoringDetectionResult =
-          await faceDetectionService.checkProctoringCompliance(videoElement, {
-            enableFaceDetection: settings.enableFaceDetection,
-            faceDetectionSensitivity: settings.faceDetectionSensitivity,
-            enableObjectDetection: settings.enableObjectDetection,
-            objectDetectionSensitivity: settings.objectDetectionSensitivity,
-          });
-
-        setDetectionStatus({
-          faceCount: result.faceCount,
-          confidence: result.faceConfidence,
-          isDetecting: true,
-        });
-
-        // Update warnings
-        const newWarnings = result.warnings;
-        setWarnings(newWarnings);
-
-        // Get face details for drawing borders
-        if (settings.enableFaceDetection) {
-          try {
-            const faceResult = await faceDetectionService.detectFaces(
-              videoElement,
-              {
-                minConfidence: settings.faceDetectionSensitivity / 100,
-              },
-            );
-            // Draw face borders on overlay canvas
-            drawFaceBorders(faceResult.faceDetails || []);
-          } catch (error) {
-            console.error("Error getting face details for borders:", error);
-          }
-        }
-
-        // Report violations if callback provided
-        if (onViolation && newWarnings.length > 0) {
-          newWarnings.forEach((warning) => {
-            let severity = "medium";
-            if (
-              warning.includes("No face detected") ||
-              warning.includes("Multiple faces")
-            ) {
-              severity = "high";
-            } else if (
-              warning.includes("Mobile phone") ||
-              warning.includes("Unauthorized")
-            ) {
-              severity = "critical";
-            }
-
-            onViolation({
-              type: "face_detection_violation",
-              severity,
-              message: warning,
-              timestamp: new Date(),
-              details: result,
+    const check = async () => {
+      if (run.cancelled) return;
+      if (videoElement) {
+        try {
+          const result: ProctoringDetectionResult =
+            await faceDetectionService.checkProctoringCompliance(videoElement, {
+              enableFaceDetection,
+              faceDetectionSensitivity,
+              enableObjectDetection,
+              objectDetectionSensitivity,
             });
+          if (run.cancelled) return;
+
+          setDetectionStatus({
+            faceCount: result.faceCount,
+            confidence: result.faceConfidence,
+            isDetecting: true,
           });
+
+          // Update warnings
+          const newWarnings = result.warnings;
+          setWarnings(newWarnings);
+
+          // Face borders from the same detection (it used to run a second one).
+          if (enableFaceDetection) {
+            drawFaceBorders(result.faceDetails || []);
+          }
+
+          // Report violations if callback provided
+          if (onViolation && newWarnings.length > 0) {
+            newWarnings.forEach((warning) => {
+              let severity = "medium";
+              if (
+                warning.includes("No face detected") ||
+                warning.includes("Multiple faces")
+              ) {
+                severity = "high";
+              } else if (
+                warning.includes("Mobile phone") ||
+                warning.includes("Unauthorized")
+              ) {
+                severity = "critical";
+              }
+
+              onViolation({
+                type: "face_detection_violation",
+                severity,
+                message: warning,
+                timestamp: new Date(),
+                details: result,
+              });
+            });
+          }
+        } catch (error) {
+          console.error("Error during monitoring:", error);
+          setDetectionStatus((prev) => ({ ...prev, isDetecting: false }));
         }
-      } catch (error) {
-        console.error("Error during monitoring:", error);
-        setDetectionStatus((prev) => ({ ...prev, isDetecting: false }));
       }
-    }, 1000); // Check every second
+      if (!run.cancelled) {
+        detectionIntervalRef.current = setTimeout(check, 1000);
+      }
+    };
+    detectionIntervalRef.current = setTimeout(check, 1000);
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
