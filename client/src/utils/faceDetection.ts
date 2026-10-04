@@ -1,8 +1,7 @@
-import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
-import * as tf from "@tensorflow/tfjs-core";
-import "@tensorflow/tfjs-backend-webgl";
-import "@tensorflow/tfjs-backend-cpu";
-import * as cocoSsd from "@tensorflow-models/coco-ssd";
+// The ML libraries (several MB) are imported only when proctoring starts,
+// so they stay out of the bundle every page (and every quiz) loads first.
+import type { FaceDetector } from "@mediapipe/tasks-vision";
+import type * as cocoSsdTypes from "@tensorflow-models/coco-ssd";
 import type * as faceapiType from "face-api.js";
 import { withGpuWarmup } from "./gpuWarmup";
 
@@ -48,6 +47,9 @@ async function initializeTensorFlow(): Promise<void> {
   tfInitializationPromise = (async () => {
     try {
       // Suppress internal TensorFlow warnings
+      const tf = await import("@tensorflow/tfjs-core");
+      await import("@tensorflow/tfjs-backend-webgl");
+      await import("@tensorflow/tfjs-backend-cpu");
       tf.env().set("DEBUG", false);
 
       // Check if backend is already set
@@ -75,8 +77,8 @@ async function initializeTensorFlow(): Promise<void> {
 
 class FaceDetectionService {
   private faceDetector: FaceDetector | null = null;
-  private objectDetector: cocoSsd.ObjectDetection | null = null;
-  private objectDetectorLoading: Promise<cocoSsd.ObjectDetection | null> | null = null;
+  private objectDetector: cocoSsdTypes.ObjectDetection | null = null;
+  private objectDetectorLoading: Promise<cocoSsdTypes.ObjectDetection | null> | null = null;
   private lastObjects: { at: number; objects: string[] } | null = null;
   private objectsInFlight: Promise<string[]> | null = null;
   // The first GPU detection compiles shaders, blocking the page 1–3 s; it
@@ -118,6 +120,9 @@ class FaceDetectionService {
       // Try to load MediaPipe Tasks Vision Face Detector
       let mediaPipeLoaded = false;
       try {
+        const { FaceDetector, FilesetResolver } = await import(
+          "@mediapipe/tasks-vision"
+        );
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm",
         );
@@ -755,11 +760,12 @@ class FaceDetectionService {
   }
 
   /** COCO-SSD, loaded once on first use (TensorFlow.js WebGL, CPU fallback). */
-  private loadObjectDetector(): Promise<cocoSsd.ObjectDetection | null> {
+  private loadObjectDetector(): Promise<cocoSsdTypes.ObjectDetection | null> {
     if (this.objectDetector) return Promise.resolve(this.objectDetector);
     this.objectDetectorLoading ??= (async () => {
       try {
         await initializeTensorFlow();
+        const cocoSsd = await import("@tensorflow-models/coco-ssd");
         this.objectDetector = await cocoSsd.load();
         return this.objectDetector;
       } catch {

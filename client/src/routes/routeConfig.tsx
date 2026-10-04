@@ -19,52 +19,58 @@ import {
   Trophy,
 } from "lucide-react";
 
-import Dashboard from "../components/Dashboard/Dashboard";
-import Courses from "../components/Courses/Courses";
-import AssignmentsPage from "../pages/AssignmentsPage";
-import SubmissionsPage from "../pages/SubmissionsPage";
-import CourseDetails from "../components/Courses/CourseDetails";
-import AssignmentDetails from "../components/Assignments/AssignmentDetails";
-import CreateAssignmentPage from "../components/Assignments/CreateAssignmentPage";
-import StudentDetails from "../components/Students/StudentDetails";
-import Students from "../components/Students/Students";
-import UpdateAssignmentPage from "../components/Assignments/UpdateAssignmentPage";
-import EditQuestionPage from "../components/Quizzes/EditQuestionPage";
-import QuizView from "../components/Quizzes/QuizView";
-import QuizTaker from "../components/Quizzes/QuizTaker";
-import QuizResults from "../components/Quizzes/QuizResults";
-import CreateQuestionPage from "../components/Quizzes/CreateQuestionPage";
-import Profile from "../components/Profile/Profile";
-import QuizTakingPage from "../pages/QuizTakingPage";
-import QuizResultsPage from "../pages/QuizResultsPage";
-import QuizSubmissionsPage from "../pages/QuizSubmissionsPage";
-import StudentQuizzesPage from "../pages/StudentQuizzesPage";
-import CreateQuizPage from "../components/Quizzes/CreateQuizPage";
-import EditQuizPage from "../components/Quizzes/EditQuizPage";
-import QuizProctoringPage from "../components/Quizzes/QuizProctoringPage";
-import QuizAnalyticsPage from "../components/Quizzes/QuizAnalyticsPage";
-import QuizProctoringSettingsPage from "../components/Quizzes/QuizProctoringSettingsPage";
-import QuizProctoringMonitoringPage from "../components/Quizzes/QuizProctoringMonitoringPage";
-import QuizProctoringAnalyticsPage from "../components/Quizzes/QuizProctoringAnalyticsPage";
-import { LiveProctoringDashboard } from "../components/Proctoring";
-import QuizListPage from "../pages/QuizListPage";
-import QuizzesPage from "../pages/QuizzesPage";
-import CourseReportsPage from "../pages/CourseReportsPage";
-import StudentReportsPage from "../pages/StudentReportsPage";
-import SubjectGradesPage from "../pages/SubjectGradesPage";
-import SubjectAssessmentReportPage from "../pages/SubjectAssessmentReportPage";
-import GeneralAttributesPage from "../pages/GeneralAttributesPage";
-import BloomsTaxonomyManagementPage from "../components/Quizzes/BloomsTaxonomyManagementPage";
-import QuestionBankPage from "../pages/QuestionBankPage";
-import QuestionBankHubPage from "../pages/QuestionBankHubPage";
-import SubmissionDetailPage from "../pages/SubmissionDetailPage";
-import GradesPage from "../pages/GradesPage";
-import AssessmentMarksPage from "../pages/AssessmentMarksPage";
-import DatabaseManagementPage from "../pages/DatabaseManagementPage";
-import RolesPermissionsPage from "../pages/Admin/RolesPermissionsPage";
-import RankingPage from "../pages/RankingPage";
-import AdminSubjectsPage from "../pages/AdminSubjectsPage";
 import { usePermissions } from "../hooks/usePermissions";
+import { lazyPage } from "./lazyPage";
+
+// Every page loads on first visit (see lazyPage), so the quiz page doesn't
+// wait for all the others.
+const Dashboard = lazyPage(() => import("../components/Dashboard/Dashboard"));
+const Courses = lazyPage(() => import("../components/Courses/Courses"));
+const AssignmentsPage = lazyPage(() => import("../pages/AssignmentsPage"));
+const SubmissionsPage = lazyPage(() => import("../pages/SubmissionsPage"));
+const CourseDetails = lazyPage(() => import("../components/Courses/CourseDetails"));
+const AssignmentDetails = lazyPage(() => import("../components/Assignments/AssignmentDetails"));
+const CreateAssignmentPage = lazyPage(() => import("../components/Assignments/CreateAssignmentPage"));
+const StudentDetails = lazyPage(() => import("../components/Students/StudentDetails"));
+const Students = lazyPage(() => import("../components/Students/Students"));
+const UpdateAssignmentPage = lazyPage(() => import("../components/Assignments/UpdateAssignmentPage"));
+const EditQuestionPage = lazyPage(() => import("../components/Quizzes/EditQuestionPage"));
+const QuizView = lazyPage(() => import("../components/Quizzes/QuizView"));
+const QuizTaker = lazyPage(() => import("../components/Quizzes/QuizTaker"));
+const QuizResults = lazyPage(() => import("../components/Quizzes/QuizResults"));
+const CreateQuestionPage = lazyPage(() => import("../components/Quizzes/CreateQuestionPage"));
+const Profile = lazyPage(() => import("../components/Profile/Profile"));
+const QuizTakingPage = lazyPage(() => import("../pages/QuizTakingPage"));
+const QuizResultsPage = lazyPage(() => import("../pages/QuizResultsPage"));
+const QuizSubmissionsPage = lazyPage(() => import("../pages/QuizSubmissionsPage"));
+const StudentQuizzesPage = lazyPage(() => import("../pages/StudentQuizzesPage"));
+const CreateQuizPage = lazyPage(() => import("../components/Quizzes/CreateQuizPage"));
+const EditQuizPage = lazyPage(() => import("../components/Quizzes/EditQuizPage"));
+const QuizProctoringPage = lazyPage(() => import("../components/Quizzes/QuizProctoringPage"));
+const QuizAnalyticsPage = lazyPage(() => import("../components/Quizzes/QuizAnalyticsPage"));
+const QuizProctoringSettingsPage = lazyPage(() => import("../components/Quizzes/QuizProctoringSettingsPage"));
+const QuizProctoringMonitoringPage = lazyPage(() => import("../components/Quizzes/QuizProctoringMonitoringPage"));
+const QuizProctoringAnalyticsPage = lazyPage(() => import("../components/Quizzes/QuizProctoringAnalyticsPage"));
+const LiveProctoringDashboard = lazyPage(() =>
+  import("../components/Proctoring").then((m) => ({ default: m.LiveProctoringDashboard })),
+);
+const QuizListPage = lazyPage(() => import("../pages/QuizListPage"));
+const QuizzesPage = lazyPage(() => import("../pages/QuizzesPage"));
+const CourseReportsPage = lazyPage(() => import("../pages/CourseReportsPage"));
+const StudentReportsPage = lazyPage(() => import("../pages/StudentReportsPage"));
+const SubjectGradesPage = lazyPage(() => import("../pages/SubjectGradesPage"));
+const SubjectAssessmentReportPage = lazyPage(() => import("../pages/SubjectAssessmentReportPage"));
+const GeneralAttributesPage = lazyPage(() => import("../pages/GeneralAttributesPage"));
+const BloomsTaxonomyManagementPage = lazyPage(() => import("../components/Quizzes/BloomsTaxonomyManagementPage"));
+const QuestionBankPage = lazyPage(() => import("../pages/QuestionBankPage"));
+const QuestionBankHubPage = lazyPage(() => import("../pages/QuestionBankHubPage"));
+const SubmissionDetailPage = lazyPage(() => import("../pages/SubmissionDetailPage"));
+const GradesPage = lazyPage(() => import("../pages/GradesPage"));
+const AssessmentMarksPage = lazyPage(() => import("../pages/AssessmentMarksPage"));
+const DatabaseManagementPage = lazyPage(() => import("../pages/DatabaseManagementPage"));
+const RolesPermissionsPage = lazyPage(() => import("../pages/Admin/RolesPermissionsPage"));
+const RankingPage = lazyPage(() => import("../pages/RankingPage"));
+const AdminSubjectsPage = lazyPage(() => import("../pages/AdminSubjectsPage"));
 
 // School-wide viewers get the subjects report; everyone else their course grid.
 const CoursesEntry = () => {
