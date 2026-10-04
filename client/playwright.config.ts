@@ -25,6 +25,14 @@ export default defineConfig({
       },
     },
     {
+      // The engine NGA Desktop uses on macOS (WKWebView).
+      name: "webkit",
+      use: {
+        ...devices["Desktop Safari"],
+        viewport: { width: 1280, height: 800 },
+      },
+    },
+    {
       name: "mobile",
       use: {
         ...devices["Pixel 7"],

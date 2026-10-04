@@ -1,9 +1,9 @@
-import { FaceDetector, FilesetResolver } from "@mediapipe/tasks-vision";
-import * as tf from "@tensorflow/tfjs-core";
-import "@tensorflow/tfjs-backend-webgl";
-import "@tensorflow/tfjs-backend-cpu";
-import * as cocoSsd from "@tensorflow-models/coco-ssd";
+// The ML libraries (several MB) are imported only when proctoring starts,
+// so they stay out of the bundle every page (and every quiz) loads first.
+import type { FaceDetector } from "@mediapipe/tasks-vision";
+import type * as cocoSsdTypes from "@tensorflow-models/coco-ssd";
 import type * as faceapiType from "face-api.js";
+import { withGpuWarmup } from "./gpuWarmup";
 
 export interface FaceDetectionResult {
   hasFace: boolean;
@@ -27,7 +27,16 @@ export interface ProctoringDetectionResult {
   lookingAway: boolean;
   lookingAwayDuration: number; // in seconds
   attentionScore: number; // 0-100, higher is better attention
+  /** The detections behind faceCount (callers draw them; no second pass). */
+  faceDetails?: FaceDetectionResult["faceDetails"];
 }
+
+/**
+ * COCO-SSD is the heaviest model by far (seconds per frame on a PC without a
+ * usable GPU). Both proctoring loops ask for it, so one result is shared for
+ * this long, and only one detection runs at a time.
+ */
+export const OBJECT_DETECTION_REUSE_MS = 3000;
 
 // Singleton promise to ensure TensorFlow is only initialized once
 let tfInitializationPromise: Promise<void> | null = null;
@@ -38,6 +47,9 @@ async function initializeTensorFlow(): Promise<void> {
   tfInitializationPromise = (async () => {
     try {
       // Suppress internal TensorFlow warnings
+      const tf = await import("@tensorflow/tfjs-core");
+      await import("@tensorflow/tfjs-backend-webgl");
+      await import("@tensorflow/tfjs-backend-cpu");
       tf.env().set("DEBUG", false);
 
       // Check if backend is already set
@@ -65,7 +77,14 @@ async function initializeTensorFlow(): Promise<void> {
 
 class FaceDetectionService {
   private faceDetector: FaceDetector | null = null;
-  private objectDetector: cocoSsd.ObjectDetection | null = null;
+  private objectDetector: cocoSsdTypes.ObjectDetection | null = null;
+  private objectDetectorLoading: Promise<cocoSsdTypes.ObjectDetection | null> | null = null;
+  private lastObjects: { at: number; objects: string[] } | null = null;
+  private objectsInFlight: Promise<string[]> | null = null;
+  // The first GPU detection compiles shaders, blocking the page 1–3 s; it
+  // runs once, behind the warm-up indicator (utils/gpuWarmup).
+  private faceWarmup: Promise<void> | null = null;
+  private objectWarmup: Promise<void> | null = null;
   private modelsLoaded = false;
   private modelLoadingPromise: Promise<void> | null = null;
   private audioContext: AudioContext | null = null;
@@ -94,15 +113,16 @@ class FaceDetectionService {
 
   private async loadModelsInternal(): Promise<void> {
     try {
-      // Initialize TensorFlow using the singleton function
-      await initializeTensorFlow();
-
-      // Load COCO-SSD model for object detection
-      this.objectDetector = await cocoSsd.load();
+      // COCO-SSD (and TensorFlow.js with it) loads on first use instead, in
+      // detectObjects(): only quizzes with object detection need it, and it
+      // was the biggest download and GPU warm-up on a student's first open.
 
       // Try to load MediaPipe Tasks Vision Face Detector
       let mediaPipeLoaded = false;
       try {
+        const { FaceDetector, FilesetResolver } = await import(
+          "@mediapipe/tasks-vision"
+        );
         const vision = await FilesetResolver.forVisionTasks(
           "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm",
         );
@@ -134,10 +154,10 @@ class FaceDetectionService {
             "https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights/";
 
           await Promise.all([
+            // Only what detectFaces() uses: the tiny detector + landmarks.
+            // (The recognition and SSD nets, ~11 MB, were never used.)
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
-            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
           ]);
 
           this.faceApiModelsLoaded = true;
@@ -181,6 +201,15 @@ class FaceDetectionService {
 
     // Try MediaPipe Tasks Vision first (if loaded)
     if (this.useMediaPipe && this.faceDetector) {
+      const detector = this.faceDetector;
+      this.faceWarmup ??= withGpuWarmup("Preparing camera checks…", () => {
+        try {
+          detector.detectForVideo(videoElement, performance.now());
+        } catch {
+          /* the real call below reports it */
+        }
+      });
+      await this.faceWarmup;
       try {
         // Detect faces directly (synchronous call)
         const results = this.faceDetector.detectForVideo(
@@ -584,6 +613,7 @@ class FaceDetectionService {
 
       result.faceDetected = faceResult.hasFace;
       result.faceCount = faceResult.faceCount;
+      result.faceDetails = faceResult.faceDetails || [];
       result.faceConfidence = (faceResult.confidence || 0) * 100;
 
       // Perform behavioral analysis if face is detected
@@ -712,10 +742,57 @@ class FaceDetectionService {
     videoElement: HTMLVideoElement,
     sensitivity: number,
   ): Promise<string[]> {
-    if (!this.objectDetector) {
-      // console.warn("Object detector not loaded");
+    // Shared and single-flight (see OBJECT_DETECTION_REUSE_MS).
+    const now = Date.now();
+    if (this.lastObjects && now - this.lastObjects.at < OBJECT_DETECTION_REUSE_MS) {
+      return this.lastObjects.objects;
+    }
+    if (this.objectsInFlight) return this.objectsInFlight;
+    this.objectsInFlight = this.runObjectDetection(videoElement, sensitivity)
+      .then((objects) => {
+        this.lastObjects = { at: Date.now(), objects };
+        return objects;
+      })
+      .finally(() => {
+        this.objectsInFlight = null;
+      });
+    return this.objectsInFlight;
+  }
+
+  /** COCO-SSD, loaded once on first use (TensorFlow.js WebGL, CPU fallback). */
+  private loadObjectDetector(): Promise<cocoSsdTypes.ObjectDetection | null> {
+    if (this.objectDetector) return Promise.resolve(this.objectDetector);
+    this.objectDetectorLoading ??= (async () => {
+      try {
+        await initializeTensorFlow();
+        const cocoSsd = await import("@tensorflow-models/coco-ssd");
+        this.objectDetector = await cocoSsd.load();
+        return this.objectDetector;
+      } catch {
+        this.objectDetectorLoading = null; // try again on a later check
+        return null;
+      }
+    })();
+    return this.objectDetectorLoading;
+  }
+
+  private async runObjectDetection(
+    videoElement: HTMLVideoElement,
+    sensitivity: number,
+  ): Promise<string[]> {
+    if (!(await this.loadObjectDetector()) || !this.objectDetector) {
       return [];
     }
+
+    const detector = this.objectDetector;
+    this.objectWarmup ??= withGpuWarmup("Preparing camera checks…", async () => {
+      try {
+        await detector.detect(videoElement);
+      } catch {
+        /* the real call below reports it */
+      }
+    });
+    await this.objectWarmup;
 
     try {
       // Run object detection on the video element
@@ -870,6 +947,14 @@ class FaceDetectionService {
               const totalAverage =
                 samples.reduce((a, b) => a + b) / samples.length;
               microphoneLevel = Math.min(100, (totalAverage / 255) * 100);
+              // Done with this sample: without this every check (every 2 s)
+              // left another live source + analyser in the audio graph.
+              try {
+                microphone.disconnect();
+                analyser.disconnect();
+              } catch {
+                /* already disconnected */
+              }
 
               // Check camera (video) - this is approximate
               if (videoTrack) {

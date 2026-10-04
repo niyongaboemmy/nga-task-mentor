@@ -1,7 +1,6 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "../utils/axiosConfig";
-import html2canvas from "html2canvas";
 import { QuizApiService } from "../services/quizApi";
 import { ProctoringApiService } from "../services/proctoringApi";
 import {
@@ -183,6 +182,34 @@ const QuizTakingPage: React.FC = () => {
   );
   const [proctoringMonitorActive, setProctoringMonitorActive] = useState(false);
   const hasProctoringCamera = streamHasCamera(proctoringStream);
+  // Stable settings for the proctoring components. Built inline, they were a
+  // new object on every render (the clock re-renders every second), which
+  // restarted the camera's detection loop each time and, for microphone-only
+  // sessions, stopped and restarted monitoring (and its socket) each second.
+  const monitorSettings = useMemo(
+    () =>
+      !proctoringSettings || hasProctoringCamera
+        ? proctoringSettings
+        : {
+            // Microphone-only session: no camera-based checks, which
+            // would otherwise flag violations nobody can fix.
+            ...proctoringSettings,
+            enable_face_detection: false,
+            enable_object_detection: false,
+            min_camera_level: 0,
+          },
+    [proctoringSettings, hasProctoringCamera],
+  );
+  const cameraSettings = useMemo(
+    () => ({
+      enableFaceDetection: proctoringSettings?.enable_face_detection,
+      faceDetectionSensitivity: proctoringSettings?.face_detection_sensitivity,
+      enableObjectDetection: proctoringSettings?.enable_object_detection,
+      objectDetectionSensitivity:
+        proctoringSettings?.object_detection_sensitivity,
+    }),
+    [proctoringSettings],
+  );
   // Latest stream for cleanup/socket callbacks that outlive a render.
   const proctoringStreamRef = useRef<MediaStream | null>(null);
   useEffect(() => {
@@ -1006,6 +1033,8 @@ const QuizTakingPage: React.FC = () => {
       const rootElement = document.getElementById("root") || document.body;
 
       // Capture the interface using html2canvas
+      // Loaded only when an instructor asks for a screenshot.
+      const { default: html2canvas } = await import("html2canvas");
       const canvas = await html2canvas(rootElement, {
         logging: false,
         useCORS: true,
@@ -2781,18 +2810,7 @@ const QuizTakingPage: React.FC = () => {
           <ProctoringMonitorComponent
             sessionToken={proctoringSession.session_token}
             quizId={id!}
-            settings={
-              hasProctoringCamera
-                ? proctoringSettings
-                : {
-                    // Microphone-only session: no camera-based checks, which
-                    // would otherwise flag violations nobody can fix.
-                    ...proctoringSettings,
-                    enable_face_detection: false,
-                    enable_object_detection: false,
-                    min_camera_level: 0,
-                  }
-            }
+            settings={monitorSettings}
             videoElement={proctoringVideoElement}
             stream={proctoringStream}
             isActive={proctoringMonitorActive}
@@ -2813,14 +2831,7 @@ const QuizTakingPage: React.FC = () => {
           <FloatingCameraComponent
             videoElement={proctoringVideoElement}
             stream={proctoringStream}
-            settings={{
-              enableFaceDetection: proctoringSettings.enable_face_detection,
-              faceDetectionSensitivity:
-                proctoringSettings.face_detection_sensitivity,
-              enableObjectDetection: proctoringSettings.enable_object_detection,
-              objectDetectionSensitivity:
-                proctoringSettings.object_detection_sensitivity,
-            }}
+            settings={cameraSettings}
             onViolation={handleProctoringViolation}
             onViolationResolved={() => { setShowViolationWarning(false); setCurrentViolation(null); }}
           />

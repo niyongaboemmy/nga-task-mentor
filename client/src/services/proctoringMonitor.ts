@@ -68,6 +68,7 @@ export interface ProctoringStatus {
 class ProctoringMonitor {
   private config: ProctoringMonitorConfig | null = null;
   private monitoringInterval: ReturnType<typeof setInterval> | null = null;
+  private checkInFlight = false;
   private status!: ProctoringStatus;
   private isMonitoring = false;
   private socket: any = null;
@@ -201,11 +202,16 @@ class ProctoringMonitor {
     // Check every 2 seconds
     this.monitoringInterval = setInterval(async () => {
       if (!this.isMonitoring || !this.config) return;
-
+      // A check can take longer than 2 s (models still loading, no GPU):
+      // skip this tick instead of stacking checks up until the page freezes.
+      if (this.checkInFlight) return;
+      this.checkInFlight = true;
       try {
         await this.performMonitoringCheck();
       } catch (error) {
         console.error("Error in monitoring check:", error);
+      } finally {
+        this.checkInFlight = false;
       }
     }, 2000);
   }
