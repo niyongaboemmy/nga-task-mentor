@@ -10,6 +10,7 @@ import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 import { appRoutes } from "./routes/routeConfig";
 import { useTheme } from "./contexts/ThemeContext";
 import { ActivityRouterTracker } from "./vendor/nga-activity/react";
+import GpuWarmupIndicator from "./components/Proctoring/GpuWarmupIndicator";
 
 function AppContent() {
   const { theme } = useTheme();
@@ -49,6 +50,8 @@ function AppContent() {
 
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
           </Routes>
+          {/* While the first camera detection prepares the graphics card. */}
+          <GpuWarmupIndicator />
           <ToastContainer
             position="top-right"
             autoClose={5000}

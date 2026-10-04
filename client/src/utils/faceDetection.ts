@@ -4,6 +4,7 @@ import "@tensorflow/tfjs-backend-webgl";
 import "@tensorflow/tfjs-backend-cpu";
 import * as cocoSsd from "@tensorflow-models/coco-ssd";
 import type * as faceapiType from "face-api.js";
+import { withGpuWarmup } from "./gpuWarmup";
 
 export interface FaceDetectionResult {
   hasFace: boolean;
@@ -78,6 +79,10 @@ class FaceDetectionService {
   private objectDetectorLoading: Promise<cocoSsd.ObjectDetection | null> | null = null;
   private lastObjects: { at: number; objects: string[] } | null = null;
   private objectsInFlight: Promise<string[]> | null = null;
+  // The first GPU detection compiles shaders, blocking the page 1–3 s; it
+  // runs once, behind the warm-up indicator (utils/gpuWarmup).
+  private faceWarmup: Promise<void> | null = null;
+  private objectWarmup: Promise<void> | null = null;
   private modelsLoaded = false;
   private modelLoadingPromise: Promise<void> | null = null;
   private audioContext: AudioContext | null = null;
@@ -191,6 +196,15 @@ class FaceDetectionService {
 
     // Try MediaPipe Tasks Vision first (if loaded)
     if (this.useMediaPipe && this.faceDetector) {
+      const detector = this.faceDetector;
+      this.faceWarmup ??= withGpuWarmup("Preparing camera checks…", () => {
+        try {
+          detector.detectForVideo(videoElement, performance.now());
+        } catch {
+          /* the real call below reports it */
+        }
+      });
+      await this.faceWarmup;
       try {
         // Detect faces directly (synchronous call)
         const results = this.faceDetector.detectForVideo(
@@ -763,6 +777,16 @@ class FaceDetectionService {
     if (!(await this.loadObjectDetector()) || !this.objectDetector) {
       return [];
     }
+
+    const detector = this.objectDetector;
+    this.objectWarmup ??= withGpuWarmup("Preparing camera checks…", async () => {
+      try {
+        await detector.detect(videoElement);
+      } catch {
+        /* the real call below reports it */
+      }
+    });
+    await this.objectWarmup;
 
     try {
       // Run object detection on the video element

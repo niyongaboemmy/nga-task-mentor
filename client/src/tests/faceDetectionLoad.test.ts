@@ -11,6 +11,8 @@ vi.mock("@tensorflow/tfjs-core", () => ({
   ready: vi.fn().mockResolvedValue(undefined),
 }));
 vi.mock("@tensorflow/tfjs-backend-webgl", () => ({}));
+// The warm-up indicator has its own test (gpuWarmup.test.tsx).
+vi.mock("../utils/gpuWarmup", () => ({ withGpuWarmup: (_: string, run: () => unknown) => Promise.resolve(run()) }));
 vi.mock("@tensorflow/tfjs-backend-cpu", () => ({}));
 vi.mock("@mediapipe/tasks-vision", () => ({
   FilesetResolver: { forVisionTasks: vi.fn().mockResolvedValue({}) },
@@ -53,14 +55,15 @@ describe("faceDetection model loading", () => {
         faceDetectionService.checkProctoringCompliance(video, withObjects),
         faceDetectionService.checkProctoringCompliance(video, withObjects),
       ]);
-      expect(coco.detect).toHaveBeenCalledTimes(1);
+      // One warm-up frame (first use compiles the GPU programs) + one real detection.
+      expect(coco.detect).toHaveBeenCalledTimes(2);
       expect(a.warnings.join()).toMatch(/Mobile phone/);
       expect(b.warnings.join()).toMatch(/Mobile phone/);
       await faceDetectionService.checkProctoringCompliance(video, withObjects);
-      expect(coco.detect).toHaveBeenCalledTimes(1); // reused
+      expect(coco.detect).toHaveBeenCalledTimes(2); // reused
       vi.advanceTimersByTime(OBJECT_DETECTION_REUSE_MS + 1);
       await faceDetectionService.checkProctoringCompliance(video, withObjects);
-      expect(coco.detect).toHaveBeenCalledTimes(2); // fresh after the reuse window
+      expect(coco.detect).toHaveBeenCalledTimes(3); // fresh after the reuse window
     } finally {
       vi.useRealTimers();
     }
