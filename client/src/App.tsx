@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -11,6 +12,15 @@ import { appRoutes } from "./routes/routeConfig";
 import { useTheme } from "./contexts/ThemeContext";
 import { ActivityRouterTracker } from "./vendor/nga-activity/react";
 import GpuWarmupIndicator from "./components/Proctoring/GpuWarmupIndicator";
+
+/** While a page's code downloads (first visit only). Inside the layout, so the menus stay. */
+function PageLoading() {
+  return (
+    <div className="flex min-h-[40vh] items-center justify-center" role="status" aria-label="Loading">
+      <div className="h-9 w-9 animate-spin rounded-full border-4 border-blue-100 border-t-blue-600 dark:border-blue-900/40 dark:border-t-blue-500" />
+    </div>
+  );
+}
 
 function AppContent() {
   const { theme } = useTheme();
@@ -37,10 +47,10 @@ function AppContent() {
                 element={
                   <ProtectedRoute permissions={route.permissions}>
                     {route.noLayout ? (
-                      route.element
+                      <Suspense fallback={<PageLoading />}>{route.element}</Suspense>
                     ) : (
                       <Layout fullWidth={route.fullWidth} noPadding={route.noPadding}>
-                        {route.element}
+                        <Suspense fallback={<PageLoading />}>{route.element}</Suspense>
                       </Layout>
                     )}
                   </ProtectedRoute>

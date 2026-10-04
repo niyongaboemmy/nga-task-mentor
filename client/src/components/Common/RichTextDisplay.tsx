@@ -45,15 +45,23 @@ const RichTextDisplay: React.FC<RichTextDisplayProps> = ({
     [],
   );
 
+  // Stable, so a re-render doesn't count as new options: Tiptap compares
+  // options by identity and reconfigures the editor (ProseMirror setProps +
+  // updateState) whenever one differs. The quiz page re-renders every second.
+  const editorProps = React.useMemo(
+    () => ({
+      attributes: {
+        class: `prose dark:prose-invert max-w-none focus:outline-none text-[11pt] prose-p:text-[11pt] prose-h1:text-[24pt] prose-h2:text-[18pt] prose-h3:text-[14pt] prose-img:my-0 ${className}`,
+      },
+    }),
+    [className],
+  );
+
   const editor = useEditor({
     extensions,
     content: content,
     editable: false,
-    editorProps: {
-      attributes: {
-        class: `prose dark:prose-invert max-w-none focus:outline-none text-[11pt] prose-p:text-[11pt] prose-h1:text-[24pt] prose-h2:text-[18pt] prose-h3:text-[14pt] prose-img:my-0 ${className}`,
-      },
-    },
+    editorProps,
   });
 
   // Sync content from props to editor when it changes from outside
@@ -75,4 +83,5 @@ const RichTextDisplay: React.FC<RichTextDisplayProps> = ({
   );
 };
 
-export default RichTextDisplay;
+// Re-renders only when its content or class changes, not with its parent.
+export default React.memo(RichTextDisplay);

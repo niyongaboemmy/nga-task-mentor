@@ -3,6 +3,7 @@ import { getProctoringStream } from "../../utils/proctoringMedia";
 import axios from "../../utils/axiosConfig";
 import { Button } from "../ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
+import { useFaceDetectionLoop } from "../../hooks/useFaceDetectionLoop";
 import faceDetectionService from "../../utils/faceDetection";
 import { useAuth } from "../../contexts/AuthContext";
 import { QuizApiService } from "../../services/quizApi";
@@ -1348,7 +1349,6 @@ const IdentityVerificationStep: React.FC<{
     confidence: 0,
     isDetecting: false,
   });
-  const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
@@ -1382,43 +1382,15 @@ const IdentityVerificationStep: React.FC<{
       cancelled = true;
       cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
       cameraStreamRef.current = null;
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-      }
     };
   }, [videoRef]);
 
-  // Start continuous face detection when video is ready
-  useEffect(() => {
-    if (videoRef.current && !photoCaptured) {
-      startContinuousDetection();
-    }
-
-    return () => {
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-      }
-    };
-  }, [photoCaptured]);
-
-  const startContinuousDetection = async () => {
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-    }
-
-    // Load face detection models
-    try {
-      await faceDetectionService.loadModels();
-    } catch (error) {
-      console.error("Error loading face detection models:", error);
-      return;
-    }
-
-    setDetectionStatus((prev) => ({ ...prev, isDetecting: true }));
-
-    detectionIntervalRef.current = setInterval(async () => {
+  // Continuous face detection while no photo is taken (one pass at a time).
+  useFaceDetectionLoop(
+    !photoCaptured,
+    500,
+    async () => {
       if (!videoRef.current || photoCaptured) return;
-
       try {
         const result = await faceDetectionService.detectFaces(
           videoRef.current,
@@ -1442,8 +1414,12 @@ const IdentityVerificationStep: React.FC<{
           isDetecting: false,
         }));
       }
-    }, 500);
-  };
+    },
+    {
+      onStart: () => setDetectionStatus((prev) => ({ ...prev, isDetecting: true })),
+      onLoadError: (error) => console.error("Error loading face detection models:", error),
+    },
+  );
 
   const drawFaceBorders = (faceDetails: any[]) => {
     const video = videoRef.current;
@@ -1711,7 +1687,6 @@ const FaceVerificationStep: React.FC<{
     warnings: [],
     isDetecting: false,
   });
-  const detectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
 
   useEffect(() => {
@@ -1748,42 +1723,14 @@ const FaceVerificationStep: React.FC<{
       cancelled = true;
       cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
       cameraStreamRef.current = null;
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-      }
     };
   }, []);
 
-  // Start continuous face detection when video is ready
-  useEffect(() => {
-    if (videoRef.current && !faceVerified && !isVerifying) {
-      startContinuousDetection();
-    }
-
-    return () => {
-      if (detectionIntervalRef.current) {
-        clearInterval(detectionIntervalRef.current);
-      }
-    };
-  }, [faceVerified, isVerifying]);
-
-  const startContinuousDetection = async () => {
-    if (detectionIntervalRef.current) {
-      clearInterval(detectionIntervalRef.current);
-    }
-
-    // Load face detection models
-    try {
-      await faceDetectionService.loadModels();
-    } catch (error) {
-      console.error("Error loading face detection models:", error);
-      setError("Failed to load face detection models");
-      return;
-    }
-
-    setDetectionStatus((prev) => ({ ...prev, isDetecting: true }));
-
-    detectionIntervalRef.current = setInterval(async () => {
+  // Continuous face detection until verified (one pass at a time).
+  useFaceDetectionLoop(
+    !faceVerified && !isVerifying,
+    300, // responsive feedback
+    async () => {
       if (!videoRef.current || faceVerified) return;
 
       // Check if video is ready
@@ -1831,8 +1778,15 @@ const FaceVerificationStep: React.FC<{
           isDetecting: false,
         }));
       }
-    }, 300); // Detect every 300ms for more responsive feedback
-  };
+    },
+    {
+      onStart: () => setDetectionStatus((prev) => ({ ...prev, isDetecting: true })),
+      onLoadError: (error) => {
+        console.error("Error loading face detection models:", error);
+        setError("Failed to load face detection models");
+      },
+    },
+  );
 
   const drawFaceBordersAndStatus = (faceDetails: any[], result: any) => {
     const video = videoRef.current;
