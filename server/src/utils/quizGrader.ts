@@ -22,7 +22,7 @@ import {
   AlgorithmicGradingConfig,
 } from "../types/grading.types";
 import { CodeExecutor, TestCase } from "./codeExecutor";
-import { Judge0Service } from "../services/Judge0Service";
+import { Judge0Service, JudgeUnavailableError } from "../services/Judge0Service";
 import { isWebLanguage, resolveAnswerLanguage } from "./codeLanguages";
 import { aiService } from "../services/ai/aiService";
 
@@ -2055,13 +2055,17 @@ export class CodingGrader {
         },
       };
     } catch (error: any) {
+      // Never mark a student wrong because the judge failed: leave the answer
+      // pending. Judge outages are flagged for the re-grade job
+      // (services/codeRegrade); other failures wait for the instructor.
+      if (error instanceof JudgeUnavailableError) {
+        console.warn("Coding grading deferred, judge unavailable:", error.message);
+        return pendingCodeResult("Judge unavailable – will re-grade.", {
+          judge_unavailable: true,
+        });
+      }
       console.error("Coding grading failed:", error);
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback:
-          "Coding auto-grading failed. Please try again later or contact your instructor.",
-      };
+      return pendingCodeResult("Automatic grading failed – needs manual review.");
     }
   }
 }

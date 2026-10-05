@@ -13,7 +13,8 @@ import {
   QuizAttempt,
   QuizSubmission,
 } from "../models";
-import { Judge0Service } from "../services/Judge0Service";
+import { Judge0Service, JudgeUnavailableError } from "../services/Judge0Service";
+import { regradePendingCodeAttempts } from "../services/codeRegrade.service";
 import { aiService } from "../services/ai/aiService";
 
 /**
@@ -438,5 +439,28 @@ describe("coding questions: per-test results (TM-FIX-1)", () => {
     const stored = await QuizSubmission.findByPk(sub.id);
     expect(stored?.status).toBe("completed");
     expect(Number(stored?.total_score)).toBe(1);
+  });
+
+  it("judge down: the answer stays pending (not 0), and the re-grade job grades it later (TM-FIX-6)", async () => {
+    const { quiz, question } = await makeCodingQuiz();
+    const sub = (await start(quiz.id)).body.data;
+    const answer = { code: "print(3)", language: "python" };
+
+    (Judge0Service.submit as jest.Mock).mockRejectedValue(new JudgeUnavailableError("429"));
+    await submit(quiz.id, [{ question_id: question.id, answer }]);
+    let stored = await QuizSubmission.findByPk(sub.id);
+    expect(stored?.grade_status).toBe("pending");
+    const r = (await results(quiz.id)).body.data;
+    expect(r.results[0].points_earned).toBeNull(); // "pending", not a 0
+    expect(r.results[0].grading_details.pending_reason).toMatch(/will re-grade/);
+
+    // The judge is back.
+    (Judge0Service.submit as jest.Mock).mockImplementation(async (s: any) => `tok:${s.stdin}`);
+    const report = await regradePendingCodeAttempts();
+    expect(report.regraded).toBeGreaterThanOrEqual(1);
+    expect(report.submissions_updated).toContain(sub.id);
+    stored = await QuizSubmission.findByPk(sub.id);
+    expect(Number(stored?.total_score)).toBe(1);
+    expect(stored?.grade_status).toBe("auto_graded");
   });
 });

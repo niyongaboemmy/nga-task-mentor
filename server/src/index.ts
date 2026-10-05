@@ -13,6 +13,7 @@ import express, { Application, Request, Response, NextFunction } from "express";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
+import { startJudgeMaintenance } from "./services/codeRegrade.service";
 import { Sequelize } from "sequelize-typescript";
 import http from "http";
 import fs from "fs";
@@ -345,6 +346,9 @@ const startServer = async (): Promise<void> => {
       );
       // Backstop for the per-request pushes to the MIS Reminder Hub.
       startReminderSweep();
+      // Judge runtimes (newest per language), daily health/quota check, and
+      // re-grading of answers left pending while the judge was down.
+      startJudgeMaintenance();
       // Publish the page -> feature catalog to the MIS analytics console (non-fatal).
       void activityRelay.pushCatalog(activityCatalog);
     });

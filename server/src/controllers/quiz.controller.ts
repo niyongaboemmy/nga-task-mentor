@@ -15,6 +15,7 @@ import {
 import { aiService } from "../services/ai/aiService";
 import {
   Judge0Service,
+  JudgeUnavailableError,
   UnsupportedLanguageError,
 } from "../services/Judge0Service";
 import { getQuestionBankInclude } from "../utils/quizUtils";
@@ -2164,6 +2165,7 @@ async function runAgainstTests(
       });
     } catch (tcErr: any) {
       if (tcErr instanceof UnsupportedLanguageError) throw tcErr;
+      if (tcErr instanceof JudgeUnavailableError) throw tcErr;
       results.push({
         testCaseId: tc.id,
         passed: false,
@@ -2260,6 +2262,13 @@ async function runWithStdin(res: Response, code: string, language: string, stdin
 }
 
 const runErrorResponse = (res: Response, error: any) => {
+  if (error instanceof JudgeUnavailableError) {
+    return res.status(503).json({
+      success: false,
+      code: "JUDGE_UNAVAILABLE",
+      message: "The code runner is busy or unavailable. Try again in a moment.",
+    });
+  }
   if (error instanceof UnsupportedLanguageError) {
     return res.status(400).json({
       success: false,
