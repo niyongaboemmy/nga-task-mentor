@@ -16,6 +16,10 @@ import {
 import type { CodingData } from "../../../types/quiz.types";
 import { CodePreviewModal } from "../CodePreviewModal";
 import { toast } from "react-toastify";
+import {
+  languageDisplayName,
+  useCodeLanguages,
+} from "../../../hooks/useCodeLanguages";
 
 interface CodingSetupTabProps {
   codingData: CodingData;
@@ -402,6 +406,11 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
   );
   const [showAddFileDialog, setShowAddFileDialog] = useState(false);
 
+  const codeLanguages = useCodeLanguages();
+  const judgeLanguages = codeLanguages.judge.map((l) => ({
+    key: l.key,
+    display: l.runtime ? languageDisplayName(l) : (LANG_LABELS[l.key] ?? l.label),
+  }));
   const isProjectMode = Boolean(codingData.project_mode);
   const canPreview = [
     "html",
@@ -526,21 +535,8 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
             </h3>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(
-              [
-                "javascript",
-                "typescript",
-                "python",
-                "java",
-                "cpp",
-                "c",
-                "go",
-                "rust",
-                "ruby",
-                "csharp",
-                "php",
-              ] as const
-            ).map((lang) => (
+            {/* Only languages the judge runs (GET /quizzes/code-languages). */}
+            {judgeLanguages.map(({ key: lang, display }) => (
               <button
                 key={lang}
                 type="button"
@@ -564,7 +560,7 @@ export const CodingSetupTab: React.FC<CodingSetupTabProps> = ({
                     : "border-gray-300 dark:border-gray-600 text-text-secondary-light dark:text-text-secondary-dark hover:border-blue-400 hover:text-blue-600"
                 }`}
               >
-                {LANG_LABELS[lang] ?? lang}
+                {display}
               </button>
             ))}
           </div>

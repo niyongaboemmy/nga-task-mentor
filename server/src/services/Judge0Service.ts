@@ -26,6 +26,76 @@ export interface Judge0Result {
   };
 }
 
+/** A language the judge can run (GET /api/quizzes/code-languages). */
+export interface SupportedLanguage {
+  /** Key stored on questions and answers, e.g. "python". */
+  key: string;
+  label: string;
+  judge_language_id: number;
+  /** The judge's own runtime name, e.g. "Python (3.8.1)", when known. */
+  runtime: string | null;
+}
+
+/** Thrown when a run asks for a language the judge has no runtime for. */
+export class UnsupportedLanguageError extends Error {
+  code = "UNSUPPORTED_LANGUAGE" as const;
+  constructor(public language: unknown) {
+    super(`Unsupported language: ${String(language)}`);
+  }
+}
+
+/** Other spellings of the canonical keys below. */
+const LANGUAGE_ALIASES: Record<string, string> = {
+  js: "javascript",
+  node: "javascript",
+  nodejs: "javascript",
+  ts: "typescript",
+  py: "python",
+  python3: "python",
+  "c++": "cpp",
+  "c#": "csharp",
+  cs: "csharp",
+  rb: "ruby",
+  rs: "rust",
+  golang: "go",
+  kt: "kotlin",
+};
+
+/**
+ * Language ids of the stock Judge0 CE image (the RapidAPI-hosted judge).
+ */
+const FALLBACK_LANGUAGE_IDS: Record<string, number> = {
+  javascript: 63, // Node.js 12.14.0
+  typescript: 74, // TypeScript 3.7.4
+  python: 71, // Python 3.8.1
+  java: 62, // Java (OpenJDK 13.0.1)
+  cpp: 54, // C++ (GCC 9.2.0)
+  c: 50, // C (GCC 9.2.0)
+  csharp: 51, // C# (Mono 6.6.0.161)
+  ruby: 72, // Ruby 2.7.0
+  go: 60, // Go 1.13.5
+  rust: 73, // Rust 1.40.0
+  php: 68, // PHP 7.4.1
+  kotlin: 78, // Kotlin 1.3.70
+  swift: 83, // Swift 5.2.3
+};
+
+const LANGUAGE_LABELS: Record<string, string> = {
+  javascript: "JavaScript",
+  typescript: "TypeScript",
+  python: "Python",
+  java: "Java",
+  cpp: "C++",
+  c: "C",
+  csharp: "C#",
+  ruby: "Ruby",
+  go: "Go",
+  rust: "Rust",
+  php: "PHP",
+  kotlin: "Kotlin",
+  swift: "Swift",
+};
+
 export class Judge0Service {
   private static readonly BASE_URL =
     process.env.JUDGE0_URL || "http://localhost:2358";
@@ -103,34 +173,40 @@ export class Judge0Service {
   }
 
   /**
-   * Maps common language names to Judge0 language IDs
-   * Note: These IDs are based on the default Judge0 configuration.
-   * You might want to fetch these dynamically from /languages in a production environment.
+   * Canonical key for a language name as stored on questions/answers
+   * ("py" → "python", "C++" → "cpp"), or null when it isn't a language the
+   * judge runs.
    */
-  static getLanguageId(language: string): number {
-    const mapping: Record<string, number> = {
-      javascript: 63, // Node.js 12.14.0
-      js: 63,
-      typescript: 74, // TypeScript 3.7.4
-      ts: 74,
-      python: 71, // Python 3.8.1
-      py: 71,
-      java: 62, // Java (OpenJDK 13.0.1)
-      cpp: 54, // C++ (GCC 9.2.0)
-      "c++": 54,
-      c: 50, // C (GCC 9.2.0)
-      csharp: 51, // C# (Mono 6.6.0.161)
-      "c#": 51,
-      ruby: 72, // Ruby 2.7.0
-      rb: 72,
-      go: 60, // Go 1.13.5
-      rust: 73, // Rust 1.40.0
-      rs: 73,
-      php: 68, // PHP 7.4.1
-      kotlin: 78, // Kotlin 1.3.70
-      swift: 83, // Swift 5.2.3
-    };
-    return mapping[language.toLowerCase()] || 63; // Default to Node.js
+  static normalizeLanguage(language: unknown): string | null {
+    if (typeof language !== "string") return null;
+    const raw = language.trim().toLowerCase();
+    if (!raw) return null;
+    const key = LANGUAGE_ALIASES[raw] ?? raw;
+    return Object.prototype.hasOwnProperty.call(FALLBACK_LANGUAGE_IDS, key)
+      ? key
+      : null;
+  }
+
+  /**
+   * Judge0 language id for a language, or null when the judge has no runtime
+   * for it. There is deliberately no default: running a Python answer as
+   * Node.js (the old `|| 63`) silently mis-graded it. Callers refuse with
+   * UNSUPPORTED_LANGUAGE (runs) or leave the answer for manual review
+   * (grading).
+   */
+  static getLanguageId(language: unknown): number | null {
+    const key = this.normalizeLanguage(language);
+    return key ? FALLBACK_LANGUAGE_IDS[key] : null;
+  }
+
+  /** Every language the judge can run, for authors and validation. */
+  static supportedLanguages(): SupportedLanguage[] {
+    return Object.keys(FALLBACK_LANGUAGE_IDS).map((key) => ({
+      key,
+      label: LANGUAGE_LABELS[key] ?? key,
+      judge_language_id: FALLBACK_LANGUAGE_IDS[key],
+      runtime: null,
+    }));
   }
 
   /**
@@ -145,6 +221,7 @@ export class Judge0Service {
     memoryLimit = 262144,
   ): Promise<Judge0Result> {
     const languageId = this.getLanguageId(language);
+    if (!languageId) throw new UnsupportedLanguageError(language);
     try {
       const response = await axios.post(
         `${this.BASE_URL}/submissions?base64_encoded=false&wait=true`,

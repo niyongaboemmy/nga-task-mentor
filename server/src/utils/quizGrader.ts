@@ -23,6 +23,7 @@ import {
 } from "../types/grading.types";
 import { CodeExecutor, TestCase } from "./codeExecutor";
 import { Judge0Service } from "../services/Judge0Service";
+import { isWebLanguage, resolveAnswerLanguage } from "./codeLanguages";
 import { aiService } from "../services/ai/aiService";
 
 // Category-based grading functions
@@ -1782,6 +1783,37 @@ export class InteractiveGrader {
   }
 }
 
+/**
+ * An answer the judge couldn't grade (unsupported language, web project, no
+ * code, judge down): 0 points for now, flagged so the submission is left for
+ * the instructor (grade_status "pending") instead of looking like a wrong
+ * answer.
+ */
+export function pendingCodeResult(
+  reason: string,
+  extra: Record<string, any> = {},
+): GradingResult {
+  return {
+    is_correct: false,
+    points_earned: 0,
+    feedback: reason,
+    detailed_feedback: { grade_status: "pending", pending_reason: reason, ...extra },
+  };
+}
+
+/** True when a grading result (or stored grading_details) awaits review. */
+export const isPendingGrade = (resultOrDetails: any): boolean => {
+  let d = resultOrDetails?.detailed_feedback ?? resultOrDetails;
+  if (typeof d === "string") {
+    try {
+      d = JSON.parse(d);
+    } catch {
+      return false;
+    }
+  }
+  return d?.grade_status === "pending";
+};
+
 export class CodingGrader {
   static async gradeCoding(
     question: QuizQuestion,
@@ -1841,21 +1873,18 @@ export class CodingGrader {
     }
 
     const testResults: any[] = [];
-    const language = questionData.language || "javascript";
-    let languageId: number | null = null;
-    try {
-      languageId = Judge0Service.getLanguageId(language);
-    } catch (e) {
-      languageId = null;
-    }
-
-    if (!languageId) {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback:
-          "Coding auto-grading is not available (unsupported language configuration).",
-      };
+    // The student's language when the question allows it, else the
+    // question's own. Never a default runtime: an unmapped language is left
+    // for the instructor instead of being run as something else.
+    const language = resolveAnswerLanguage(questionData, answer.language);
+    const languageId = language ? Judge0Service.getLanguageId(language) : null;
+    if (!language || !languageId) {
+      const declared = answer.language || questionData.language;
+      return pendingCodeResult(
+        isWebLanguage(declared)
+          ? "Web projects are reviewed by your instructor."
+          : `Unsupported language "${declared ?? "none"}" – needs manual review.`,
+      );
     }
 
     try {
@@ -2989,6 +3018,21 @@ export class AdvancedQuizGrader {
     maxPoints: number,
   ): Promise<AdvancedGradingResult> {
     const basicResult = await CodingGrader.gradeCoding(question, answerData);
+
+    // Not graded by the judge: no penalties, nothing to scale.
+    if (isPendingGrade(basicResult)) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        max_points: maxPoints,
+        percentage: 0,
+        feedback: basicResult.feedback || "Needs manual review",
+        detailed_feedback: {
+          ...(basicResult.detailed_feedback || {}),
+          strategy_used: config.strategy,
+        } as any,
+      };
+    }
 
     let pointsEarned = basicResult.points_earned;
     const breakdown: Record<string, number> = { test_cases: pointsEarned };

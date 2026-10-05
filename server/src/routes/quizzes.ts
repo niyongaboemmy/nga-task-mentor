@@ -20,6 +20,7 @@ import {
   getAIHint,
   runCode,
   generateTestCases,
+  getCodeLanguages,
 } from "../controllers/quiz.controller";
 
 import {
@@ -98,6 +99,9 @@ router
 
 // Quizzes grouped by subject, role-scoped, paginated (redesigned /quizzes page)
 router.get("/grouped", authorizePermission("QUIZZES_VIEW"), getGroupedQuizzes);
+
+// Languages a coding question can use (judge runtimes + web preview).
+router.get("/code-languages", authorizePermission("QUIZZES_VIEW"), getCodeLanguages);
 
 // Student quiz routes
 router.get("/available", authorizePermission("QUIZZES_ATTEMPT"), getAvailableQuizzes);

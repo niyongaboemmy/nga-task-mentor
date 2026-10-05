@@ -7,10 +7,15 @@ import ProctoringEvent from "../models/ProctoringEvent.model";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
-import { QuizGrader, AdvancedQuizGrader } from "../utils/quizGrader";
+import {
+  QuizGrader,
+  AdvancedQuizGrader,
+  isPendingGrade,
+} from "../utils/quizGrader";
 import { aiService } from "../services/ai/aiService";
 import { Judge0Service } from "../services/Judge0Service";
 import { getQuestionBankInclude } from "../utils/quizUtils";
+import { isWebLanguage, WEB_PREVIEW_LANGUAGES } from "../utils/codeLanguages";
 
 import { QuestionType, GradingResult } from "../types/quiz.types";
 import type { QuizCreationAttributes } from "../models/Quiz.model";
@@ -1398,6 +1403,8 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
 
     // Now calculate scores and create/update attempts
     let calculatedTotalScore = 0;
+    // A code answer the judge couldn't grade leaves the attempt for review.
+    let anyPendingReview = false;
     const results = [];
 
     // Get all attempts for this submission to calculate scores
@@ -1444,6 +1451,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
           );
           isCorrect = gradingResult.is_correct;
           pointsEarned = gradingResult.points_earned;
+          if (isPendingGrade(gradingResult)) anyPendingReview = true;
         } catch (error) {
           console.error(
             `Error grading question ${question.id} of type ${question.questionBank?.question_type}:`,
@@ -1538,7 +1546,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         time_taken: time_taken || 0,
         status: "completed",
         completed_at: new Date(),
-        grade_status: gradeStatusOnSubmit(quiz),
+        grade_status: gradeStatusOnSubmit(quiz, anyPendingReview),
         passed: isPassed(finalPercentage, quiz),
       },
       { transaction },
@@ -2080,8 +2088,15 @@ export const runCode = async (req: Request, res: Response) => {
       });
     }
 
-    const webLanguages = ["html", "css", "react", "vue", "angular", "nextjs"];
-    const isWeb = webLanguages.includes(language.toLowerCase());
+    const isWeb = isWebLanguage(language);
+    // Fail closed: never run code under a runtime it wasn't written for.
+    if (!isWeb && !Judge0Service.getLanguageId(language)) {
+      return res.status(400).json({
+        success: false,
+        code: "UNSUPPORTED_LANGUAGE",
+        message: `Unsupported language "${language}".`,
+      });
+    }
 
     // ── Batch mode: run code against multiple test cases ──────────────────────
     if (Array.isArray(test_cases) && test_cases.length > 0) {
@@ -2186,6 +2201,21 @@ export const runCode = async (req: Request, res: Response) => {
       message: error.message || "Failed to execute code",
     });
   }
+};
+
+// @desc    Languages a coding/algorithmic question can use: the judge's
+//          runtimes (with versions when known) and browser-preview web
+//          languages. The question form only offers these.
+// @route   GET /api/quizzes/code-languages
+// @access  Private
+export const getCodeLanguages = async (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      judge: Judge0Service.supportedLanguages(),
+      web_preview: WEB_PREVIEW_LANGUAGES,
+    },
+  });
 };
 
 // @desc    Generate AI test cases for coding questions

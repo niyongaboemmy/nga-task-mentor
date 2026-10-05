@@ -67,6 +67,14 @@ export function isPastDeadline(
   );
 }
 
+const safeJson = (v: string) => {
+  try {
+    return JSON.parse(v);
+  } catch {
+    return null;
+  }
+};
+
 export interface FinalizedSummary {
   submission_id: number;
   final_score: number;
@@ -96,7 +104,7 @@ export async function finalizeFromSavedAttempts(
     }),
     QuizAttempt.findAll({
       where: { submission_id: submission.id },
-      attributes: ["id", "question_id", "points_earned"],
+      attributes: ["id", "question_id", "points_earned", "grading_details"],
       transaction,
     }),
   ]);
@@ -126,7 +134,16 @@ export async function finalizeFromSavedAttempts(
       status: "completed",
       completed_at: now,
       time_taken: Math.max(0, Math.floor((endAt - startedAt) / 1000)),
-      grade_status: gradeStatusOnSubmit(quiz),
+      grade_status: gradeStatusOnSubmit(
+        quiz,
+        attempts.some((a: any) => {
+          const d =
+            typeof a.grading_details === "string"
+              ? safeJson(a.grading_details)
+              : a.grading_details;
+          return d?.grade_status === "pending";
+        }),
+      ),
     },
     { transaction },
   );

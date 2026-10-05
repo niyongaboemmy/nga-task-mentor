@@ -122,8 +122,16 @@ export const isPassed = (percentage: number, quiz: any): boolean =>
 export const needsManualReview = (quiz: any): boolean =>
   quiz?.require_manual_grading === true || quiz?.enable_automatic_grading === false;
 
-export const gradeStatusOnSubmit = (quiz: any): "pending" | "auto_graded" =>
-  needsManualReview(quiz) ? "pending" : "auto_graded";
+/**
+ * grade_status of a just-finished attempt. `needsReview`: some answer couldn't
+ * be graded automatically (e.g. a code answer the judge couldn't run), so the
+ * instructor has to look at it whatever the quiz settings say.
+ */
+export const gradeStatusOnSubmit = (
+  quiz: any,
+  needsReview = false,
+): "pending" | "auto_graded" =>
+  needsManualReview(quiz) || needsReview ? "pending" : "auto_graded";
 
 export interface ResultVisibility {
   /** The student may open their results (their answers). */
@@ -203,9 +211,14 @@ export function buildStudentResults(submission: any, quiz: any) {
   if (!v.released) return base;
 
   const percentage = Number(submission.percentage) || 0;
+  const graded = submission.grade_status === "graded";
   const results = (submission.attempts || []).map((attempt: any) => {
     const bank = attempt.attemptQuestion?.questionBank;
     const qd = parseJson(bank?.question_data);
+    // A code answer the judge couldn't grade shows as "pending", not 0.
+    const awaitingReview =
+      !graded && parseJson(attempt.grading_details)?.grade_status === "pending";
+    const showPoints = v.show_score && !awaitingReview;
     return {
       question_id: attempt.question_id,
       question_text: bank?.question_text,
@@ -213,8 +226,8 @@ export function buildStudentResults(submission: any, quiz: any) {
       question_data: v.show_correct_answers ? qd : stripAnswerFields(qd, bank?.question_type),
       user_answer: attempt.submitted_answer,
       correct_answer: v.show_correct_answers ? attempt.correct_answer : null,
-      is_correct: v.show_score ? attempt.is_correct : null,
-      points_earned: v.show_score ? Number(attempt.points_earned) || 0 : null,
+      is_correct: showPoints ? attempt.is_correct : null,
+      points_earned: showPoints ? Number(attempt.points_earned) || 0 : null,
       max_points: Number(attempt.attemptQuestion?.points) || 0,
       explanation: v.show_correct_answers ? bank?.explanation ?? null : null,
       time_taken: attempt.time_taken,
