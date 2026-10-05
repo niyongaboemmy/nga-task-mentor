@@ -19,6 +19,7 @@ import {
   deleteAllQuizSubmissions,
   getAIHint,
   runCode,
+  previewRunCode,
   generateTestCases,
   getCodeLanguages,
 } from "../controllers/quiz.controller";
@@ -60,6 +61,7 @@ import {
 import { protect, authorizePermission } from "../middleware/auth";
 import { intOrNull, trackOnSuccess } from "../activity/keyEvents";
 import { validateBody } from "../middleware/validation.middleware";
+import { codeRunLimiter } from "../middleware/rateLimiter.middleware";
 import {
   createQuizSchema,
   updateQuizSchema,
@@ -152,6 +154,7 @@ router.post(
 router.post(
   "/questions/:questionId/run-code",
   authorizePermission("QUIZ_QUESTIONS_RUN_CODE"),
+  codeRunLimiter,
   runCode,
 );
 
@@ -181,11 +184,14 @@ router.post(
   authorizePermission("QUIZZES_CREATE", "QUIZZES_EDIT"),
   generateTestCases,
 );
-// Instructor-only: run code against test cases during question preparation (no submission needed)
+// Authors only: run code against draft test cases while preparing a
+// question (no submission needed). QUIZZES_EDIT alone — students also hold
+// QUIZ_QUESTIONS_RUN_CODE and must not post their own test data.
 router.post(
   "/preview-run",
-  authorizePermission("QUIZ_QUESTIONS_RUN_CODE", "QUIZZES_EDIT"),
-  runCode,
+  authorizePermission("QUIZZES_EDIT"),
+  codeRunLimiter,
+  previewRunCode,
 );
 
 // Quiz submission routes

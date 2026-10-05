@@ -13,9 +13,16 @@ import {
   isPendingGrade,
 } from "../utils/quizGrader";
 import { aiService } from "../services/ai/aiService";
-import { Judge0Service } from "../services/Judge0Service";
+import {
+  Judge0Service,
+  UnsupportedLanguageError,
+} from "../services/Judge0Service";
 import { getQuestionBankInclude } from "../utils/quizUtils";
-import { isWebLanguage, WEB_PREVIEW_LANGUAGES } from "../utils/codeLanguages";
+import {
+  allowedAnswerLanguages,
+  isWebLanguage,
+  WEB_PREVIEW_LANGUAGES,
+} from "../utils/codeLanguages";
 
 import { QuestionType, GradingResult } from "../types/quiz.types";
 import type { QuizCreationAttributes } from "../models/Quiz.model";
@@ -2072,134 +2079,289 @@ export const getAIHint = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Run code snippet instantly (no grading, just execution)
-//          When `test_cases` array is provided, runs code against each case and returns pass/fail.
-// @route   POST /api/quizzes/questions/:questionId/run-code
-//          POST /api/quizzes/preview-run  (instructor prep, no questionId required)
-// @access  Private
-export const runCode = async (req: Request, res: Response) => {
-  try {
-    const { code, language, stdin, test_cases } = req.body;
+/** Free "Run with stdin" caps: input in, output back. */
+export const RUN_STDIN_MAX_BYTES = 64 * 1024;
+export const RUN_OUTPUT_MAX_BYTES = 256 * 1024;
 
-    if (!code || !language) {
-      return res.status(400).json({
-        success: false,
-        message: "code and language are required",
+const capOutput = (s: string | null | undefined): string | null => {
+  if (s === null || s === undefined) return null;
+  if (Buffer.byteLength(s, "utf8") <= RUN_OUTPUT_MAX_BYTES) return s;
+  return (
+    Buffer.from(s, "utf8").subarray(0, RUN_OUTPUT_MAX_BYTES).toString("utf8") +
+    "\n… output truncated (256 KB limit)"
+  );
+};
+
+const normalizeOutput = (s: string | null | undefined) =>
+  (s ?? "").replace(/\r\n/g, "\n").trimEnd();
+
+/**
+ * Run `code` against test cases on the judge. With `revealHidden` false a
+ * hidden test comes back without its input/expected/output/error (the
+ * caller only sends hidden tests to authors anyway).
+ */
+async function runAgainstTests(
+  code: string,
+  language: string,
+  tests: any[],
+  revealHidden: boolean,
+) {
+  const results: any[] = [];
+  for (const tc of tests) {
+    const hide = !!tc.is_hidden && !revealHidden;
+    try {
+      const result = await Judge0Service.runSingle(code, language, tc.input ?? "");
+      const actual = normalizeOutput(result.stdout);
+      const expected = normalizeOutput(tc.expected_output);
+      const compileError = result.compile_output || result.message;
+      const runtimeError = result.stderr;
+      const statusId = result.status?.id;
+      // Judge0 status 3 = Accepted; also do our own string compare
+      const passed = statusId === 3 || (statusId !== 6 && actual === expected);
+      results.push({
+        testCaseId: tc.id,
+        passed,
+        input: hide ? null : (tc.input ?? ""),
+        expected: hide ? null : tc.expected_output,
+        actual: hide ? null : capOutput(result.stdout ?? null),
+        error:
+          hide || passed
+            ? null
+            : capOutput(compileError || runtimeError || result.status?.description || "Wrong Answer"),
+        executionTime: parseFloat(result.time || "0") * 1000,
+        memoryUsed: result.memory ?? null,
+        status: result.status?.description ?? "Unknown",
+        is_hidden: !!tc.is_hidden,
+        points: tc.points ?? null,
+      });
+    } catch (tcErr: any) {
+      if (tcErr instanceof UnsupportedLanguageError) throw tcErr;
+      results.push({
+        testCaseId: tc.id,
+        passed: false,
+        input: hide ? null : (tc.input ?? ""),
+        expected: hide ? null : tc.expected_output,
+        actual: null,
+        error: tcErr.message || "Execution failed",
+        executionTime: 0,
+        memoryUsed: null,
+        status: "Error",
+        is_hidden: !!tc.is_hidden,
+        points: tc.points ?? null,
       });
     }
+  }
+  return {
+    results,
+    passed: results.filter((r) => r.passed).length,
+    total: results.length,
+    web_preview: false,
+  };
+}
 
-    const isWeb = isWebLanguage(language);
-    // Fail closed: never run code under a runtime it wasn't written for.
-    if (!isWeb && !Judge0Service.getLanguageId(language)) {
-      return res.status(400).json({
-        success: false,
-        code: "UNSUPPORTED_LANGUAGE",
-        message: `Unsupported language "${language}".`,
-      });
-    }
+/** Web languages can't be judged: test cases come back as preview-only. */
+const webPreviewResults = (tests: any[], revealHidden: boolean) => ({
+  results: tests.map((tc: any) => {
+    const hide = !!tc.is_hidden && !revealHidden;
+    return {
+      testCaseId: tc.id,
+      passed: null, // visual only
+      input: hide ? null : tc.input,
+      expected: hide ? null : tc.expected_output,
+      actual: null,
+      error: null,
+      executionTime: 0,
+      memoryUsed: null,
+      status: "Web Preview",
+      is_hidden: !!tc.is_hidden,
+    };
+  }),
+  web_preview: true,
+  passed: 0,
+  total: tests.length,
+});
 
-    // ── Batch mode: run code against multiple test cases ──────────────────────
-    if (Array.isArray(test_cases) && test_cases.length > 0) {
-      if (isWeb) {
-        // Web languages can't be auto-tested via Judge0 — return preview flag
-        const results = test_cases.map((tc: any) => ({
-          testCaseId: tc.id,
-          passed: null, // visual only
-          input: tc.input,
-          expected: tc.expected_output,
-          actual: null,
-          error: null,
-          executionTime: 0,
-          memoryUsed: null,
-          status: "Web Preview",
-          is_hidden: tc.is_hidden,
-        }));
-        return res.json({ success: true, data: { results, web_preview: true, passed: 0, total: test_cases.length } });
-      }
+/** Common checks on {code, language, stdin}; sends the error and returns false. */
+function checkRunInput(req: Request, res: Response): boolean {
+  const { code, language, stdin } = req.body || {};
+  if (typeof code !== "string" || !code || typeof language !== "string" || !language) {
+    res.status(400).json({ success: false, message: "code and language are required" });
+    return false;
+  }
+  if (typeof stdin === "string" && Buffer.byteLength(stdin, "utf8") > RUN_STDIN_MAX_BYTES) {
+    res.status(413).json({
+      success: false,
+      code: "INPUT_TOO_LARGE",
+      message: "Input is limited to 64 KB.",
+    });
+    return false;
+  }
+  // Fail closed: never run code under a runtime it wasn't written for.
+  if (!isWebLanguage(language) && !Judge0Service.getLanguageId(language)) {
+    res.status(400).json({
+      success: false,
+      code: "UNSUPPORTED_LANGUAGE",
+      message: `Unsupported language "${language}".`,
+    });
+    return false;
+  }
+  return true;
+}
 
-      const normalizeOutput = (s: string | null | undefined) =>
-        (s ?? "").replace(/\r\n/g, "\n").trimEnd();
-
-      const results: any[] = [];
-      for (const tc of test_cases) {
-        try {
-          const result = await Judge0Service.runSingle(code, language, tc.input ?? "");
-          const actual = normalizeOutput(result.stdout);
-          const expected = normalizeOutput(tc.expected_output);
-          const compileError = result.compile_output || result.message;
-          const runtimeError = result.stderr;
-          const statusId = result.status?.id;
-          // Judge0 status 3 = Accepted; also do our own string compare
-          const passed = statusId === 3 || actual === expected;
-          results.push({
-            testCaseId: tc.id,
-            passed,
-            input: tc.is_hidden ? null : (tc.input ?? ""),
-            expected: tc.is_hidden ? null : tc.expected_output,
-            actual: result.stdout ?? null,
-            error: !passed
-              ? (compileError || runtimeError || result.status?.description || "Wrong Answer")
-              : null,
-            executionTime: parseFloat(result.time || "0") * 1000,
-            memoryUsed: result.memory ?? null,
-            status: result.status?.description ?? "Unknown",
-            is_hidden: tc.is_hidden ?? false,
-          });
-        } catch (tcErr: any) {
-          results.push({
-            testCaseId: tc.id,
-            passed: false,
-            input: tc.is_hidden ? null : (tc.input ?? ""),
-            expected: tc.is_hidden ? null : tc.expected_output,
-            actual: null,
-            error: tcErr.message || "Execution failed",
-            executionTime: 0,
-            memoryUsed: null,
-            status: "Error",
-            is_hidden: tc.is_hidden ?? false,
-          });
-        }
-      }
-
-      return res.json({
-        success: true,
-        data: {
-          results,
-          passed: results.filter((r) => r.passed).length,
-          total: results.length,
-          web_preview: false,
-        },
-      });
-    }
-
-    // ── Single-run mode ───────────────────────────────────────────────────────
-    if (isWeb) {
-      return res.json({
-        success: true,
-        data: { stdout: null, stderr: null, web_preview: true, language, execution_time: 0 },
-      });
-    }
-
-    const result = await Judge0Service.runSingle(code, language, stdin);
-
+/** Free run with optional stdin (no test cases). */
+async function runWithStdin(res: Response, code: string, language: string, stdin?: string) {
+  if (isWebLanguage(language)) {
     return res.json({
       success: true,
-      data: {
-        stdout: result.stdout,
-        stderr: result.stderr || result.compile_output,
-        exit_code: result.status?.id,
-        status: result.status?.description,
-        execution_time: parseFloat(result.time || "0") * 1000,
-        memory_used: result.memory,
-        web_preview: false,
-      },
+      data: { stdout: null, stderr: null, web_preview: true, language, execution_time: 0 },
     });
-  } catch (error: any) {
-    console.error("Run code error:", error);
-    res.status(500).json({
+  }
+  const result = await Judge0Service.runSingle(code, language, stdin);
+  return res.json({
+    success: true,
+    data: {
+      stdout: capOutput(result.stdout),
+      stderr: capOutput(result.stderr || result.compile_output),
+      exit_code: result.status?.id,
+      status: result.status?.description,
+      execution_time: parseFloat(result.time || "0") * 1000,
+      memory_used: result.memory,
+      web_preview: false,
+    },
+  });
+}
+
+const runErrorResponse = (res: Response, error: any) => {
+  if (error instanceof UnsupportedLanguageError) {
+    return res.status(400).json({
       success: false,
-      message: error.message || "Failed to execute code",
+      code: "UNSUPPORTED_LANGUAGE",
+      message: error.message,
     });
+  }
+  console.error("Run code error:", error);
+  return res.status(500).json({
+    success: false,
+    message: error?.message || "Failed to execute code",
+  });
+};
+
+// @desc    Run code for a quiz question: a free run with stdin, or "Run
+//          tests" (`run_tests: true`, or any `test_cases` in the body).
+//          The test cases always come from the question in the DB:
+//          students get its visible tests only, and only while they have an
+//          attempt in progress on the question's quiz. Test cases in the
+//          body are honoured only for authors (QUIZZES_EDIT), who may be
+//          trying draft tests. Never creates or changes a graded answer.
+// @route   POST /api/quizzes/questions/:questionId/run-code
+// @access  Private (QUIZ_QUESTIONS_RUN_CODE), rate-limited per user
+export const runCode = async (req: Request, res: Response) => {
+  try {
+    if (!checkRunInput(req, res)) return;
+    const { code, language, stdin, test_cases } = req.body;
+    const wantsTests = req.body.run_tests === true || Array.isArray(test_cases);
+
+    const question = await QuizQuestion.findByPk(req.params.questionId, {
+      include: getQuestionBankInclude(),
+    });
+    if (!question) {
+      return res.status(404).json({ success: false, message: "Question not found" });
+    }
+    const isAuthor = !!req.user.permissions?.has("QUIZZES_EDIT");
+
+    if (!isAuthor) {
+      // Only while attempting the question's quiz.
+      const quiz = await Quiz.findByPk(question.quiz_id);
+      if (!quiz || quizAvailability(quiz).state === "unpublished") {
+        return res.status(403).json({
+          success: false,
+          code: "QUIZ_NOT_AVAILABLE",
+          message: "This quiz is not available.",
+        });
+      }
+      const attempts = await studentAttemptSummary(quiz, req.user.id);
+      if (attempts.in_progress_submission_id === null) {
+        return res.status(403).json({
+          success: false,
+          code: "NOT_ATTEMPTING",
+          message: "Start the quiz to run code for its questions.",
+        });
+      }
+      const inProgress = await QuizSubmission.findByPk(attempts.in_progress_submission_id);
+      if (inProgress && isPastDeadline(inProgress)) {
+        return res.status(409).json({
+          success: false,
+          code: "ATTEMPT_TIME_EXPIRED",
+          message: "Time is up for this quiz.",
+        });
+      }
+      if (!(await studentMayTakeQuiz(req, quiz))) {
+        return res.status(403).json({
+          success: false,
+          code: "NOT_ENROLLED",
+          message: "You are not enrolled in this quiz's subject.",
+        });
+      }
+      // Only in a language the question allows.
+      const allowed = allowedAnswerLanguages(question.questionBank?.question_data);
+      const lang = Judge0Service.normalizeLanguage(language);
+      if (!isWebLanguage(language) && allowed.length > 0 && (!lang || !allowed.includes(lang))) {
+        return res.status(400).json({
+          success: false,
+          code: "LANGUAGE_NOT_ALLOWED",
+          message: `This question is answered in ${allowed.join(", ")}.`,
+        });
+      }
+    }
+
+    if (!wantsTests) return runWithStdin(res, code, language, stdin);
+
+    let qd: any = question.questionBank?.question_data || {};
+    if (typeof qd === "string") {
+      try {
+        qd = JSON.parse(qd);
+      } catch {
+        qd = {};
+      }
+    }
+    const questionTests: any[] = Array.isArray(qd.test_cases) ? qd.test_cases : [];
+    // Students: the question's visible tests, whatever the body says.
+    const tests =
+      isAuthor && Array.isArray(test_cases) && test_cases.length > 0
+        ? test_cases
+        : isAuthor
+          ? questionTests
+          : questionTests.filter((tc) => !tc?.is_hidden);
+
+    if (isWebLanguage(language)) {
+      return res.json({ success: true, data: webPreviewResults(tests, isAuthor) });
+    }
+    const data = await runAgainstTests(code, language, tests, isAuthor);
+    return res.json({ success: true, data });
+  } catch (error: any) {
+    return runErrorResponse(res, error);
+  }
+};
+
+// @desc    Author preview while preparing a question: run code against the
+//          test cases in the body (draft tests, no question or submission
+//          needed), or a free stdin run.
+// @route   POST /api/quizzes/preview-run
+// @access  Private (QUIZZES_EDIT)
+export const previewRunCode = async (req: Request, res: Response) => {
+  try {
+    if (!checkRunInput(req, res)) return;
+    const { code, language, stdin, test_cases } = req.body;
+    if (!Array.isArray(test_cases) || test_cases.length === 0) {
+      return runWithStdin(res, code, language, stdin);
+    }
+    if (isWebLanguage(language)) {
+      return res.json({ success: true, data: webPreviewResults(test_cases, true) });
+    }
+    const data = await runAgainstTests(code, language, test_cases, true);
+    return res.json({ success: true, data });
+  } catch (error: any) {
+    return runErrorResponse(res, error);
   }
 };
 
