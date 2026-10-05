@@ -218,6 +218,11 @@ export function buildStudentResults(submission: any, quiz: any) {
       max_points: Number(attempt.attemptQuestion?.points) || 0,
       explanation: v.show_correct_answers ? bank?.explanation ?? null : null,
       time_taken: attempt.time_taken,
+      // Per-test results of code questions; hidden tests only as pass/fail,
+      // and only once the score is visible.
+      grading_details: studentGradingDetails(attempt.grading_details, {
+        includeHidden: v.show_score,
+      }),
     };
   });
 
@@ -232,6 +237,88 @@ export function buildStudentResults(submission: any, quiz: any) {
     feedback: submission.grade_status === "graded" ? submission.feedback : null,
     results,
   };
+}
+
+// ─── Per-test results of code questions ───────────────────────────────────
+
+/** Grader fields that reveal the score; students get them with the score only. */
+const SCORE_DETAIL_KEYS = [
+  "strategy_used",
+  "breakdown",
+  "penalties_applied",
+  "quality_score",
+  "efficiency_score",
+  "correctness_score",
+] as const;
+
+/**
+ * quiz_attempts.grading_details as a student may see it. Visible tests come
+ * back in full (input, expected, actual output, error). Hidden tests never
+ * show their input, expected output, actual output or error: with
+ * `includeHidden` they are reduced to {testCaseId, is_hidden, passed, points};
+ * without it they are left out, and the pass counts cover visible tests only
+ * (so a student can't learn their hidden-test score while it isn't released).
+ * Staff (QUIZZES_VIEW_RESULTS_ALL) get the stored record as is.
+ */
+export function studentGradingDetails(
+  details: any,
+  opts: { includeHidden: boolean },
+): Record<string, any> | null {
+  const d = parseJson(details);
+  if (!d || typeof d !== "object" || Array.isArray(d)) return null;
+
+  const out: Record<string, any> = {};
+  if (typeof d.grade_status === "string") out.grade_status = d.grade_status;
+  if (typeof d.pending_reason === "string") out.pending_reason = d.pending_reason;
+
+  const raw = Array.isArray(d.testResults)
+    ? d.testResults
+    : Array.isArray(d.test_results)
+      ? d.test_results
+      : null;
+  if (raw) {
+    const tests: any[] = [];
+    for (const r of raw) {
+      if (!r || typeof r !== "object") continue;
+      if (r.is_hidden) {
+        if (opts.includeHidden) {
+          tests.push({
+            testCaseId: r.testCaseId ?? r.id ?? null,
+            is_hidden: true,
+            passed: r.passed === true,
+            points: r.points ?? null,
+          });
+        }
+        continue;
+      }
+      tests.push({
+        testCaseId: r.testCaseId ?? r.id ?? null,
+        is_hidden: false,
+        passed: r.passed === true,
+        points: r.points ?? null,
+        input: r.input ?? null,
+        expected: r.expected ?? null,
+        actual: r.actual ?? null,
+        error: r.error ?? null,
+        status: r.status ?? null,
+        executionTime: r.executionTime ?? null,
+        memoryUsed: r.memoryUsed ?? null,
+      });
+    }
+    out.testResults = tests;
+    if (opts.includeHidden) {
+      out.passedTests = Number(d.passedTests ?? tests.filter((t) => t.passed).length);
+      out.totalTests = Number(d.totalTests ?? raw.length);
+    } else {
+      out.passedTests = tests.filter((t) => t.passed).length;
+      out.totalTests = tests.length;
+    }
+  }
+
+  if (opts.includeHidden) {
+    for (const k of SCORE_DETAIL_KEYS) if (d[k] !== undefined) out[k] = d[k];
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 // ─── Hiding answers from the student while they take the quiz ─────────────

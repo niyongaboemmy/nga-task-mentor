@@ -13,6 +13,8 @@ import {
   QuizAttempt,
   QuizSubmission,
 } from "../models";
+import { Judge0Service } from "../services/Judge0Service";
+import { aiService } from "../services/ai/aiService";
 
 /**
  * Each quiz setting, as the student experiences it (dev DB, real routes):
@@ -288,3 +290,97 @@ describe("result settings", () => {
   });
 });
 
+
+describe("coding questions: per-test results (TM-FIX-1)", () => {
+  // No real judge or AI: the stub accepts every test except the hidden one.
+  beforeEach(() => {
+    jest.spyOn(aiService, "gradeCoding").mockRejectedValue(new Error("no AI in tests"));
+    jest.spyOn(Judge0Service, "submit").mockImplementation(async (sub: any) => `tok:${sub.stdin}`);
+    jest.spyOn(Judge0Service, "waitAndGetResult").mockImplementation(async (token: string) => {
+      const ok = token !== "tok:HIDDEN-INPUT";
+      return {
+        stdout: ok ? "3" : "wrong",
+        stderr: null,
+        compile_output: null,
+        message: null,
+        time: "0.01",
+        memory: 100,
+        token,
+        status: ok ? { id: 3, description: "Accepted" } : { id: 4, description: "Wrong Answer" },
+      };
+    });
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  async function makeCodingQuiz() {
+    const quiz = await Quiz.create({
+      title: "Coding settings spec",
+      description: "quizSettings.integration.spec.ts",
+      course_id: COURSE_ID,
+      created_by: adminId,
+      status: "published",
+      type: "Quiz",
+      show_results_immediately: true,
+      show_correct_answers: false,
+      enable_automatic_grading: true,
+      require_manual_grading: false,
+    } as any);
+    quizIds.push(quiz.id);
+    const bank = await QuestionBank.create({
+      course_id: COURSE_ID,
+      question_type: "coding",
+      question_text: "Add two numbers",
+      question_data: {
+        language: "python",
+        test_cases: [
+          { id: "v1", input: "1 2", expected_output: "3", is_hidden: false, points: 1 },
+          { id: "h1", input: "HIDDEN-INPUT", expected_output: "HIDDEN-EXPECTED", is_hidden: true, points: 1 },
+        ],
+      } as any,
+      created_by: adminId,
+    } as any);
+    bankIds.push(bank.id);
+    const question = await QuizQuestion.create({
+      quiz_id: quiz.id,
+      question_id: bank.id,
+      points: 2,
+      order: 1,
+    } as any);
+    return { quiz, question };
+  }
+
+  it("stores every test in grading_details but never sends a hidden test's data to the student", async () => {
+    const { quiz, question } = await makeCodingQuiz();
+    const sub = (await start(quiz.id)).body.data;
+    const answer = { code: "print(sum(map(int, input().split())))", language: "python" };
+
+    const saved = await save(sub.id, question.id, answer);
+    expect(saved.status).toBe(201);
+    const details = saved.body.data.grading_details;
+    expect(details.testResults).toHaveLength(2);
+    expect(details.testResults[0]).toMatchObject({ passed: true, input: "1 2", expected: "3" });
+    expect(JSON.stringify(saved.body)).not.toContain("HIDDEN-");
+
+    const row = await QuizAttempt.findOne({
+      where: { submission_id: sub.id, question_id: question.id },
+    });
+    const stored: any = row?.grading_details;
+    expect(stored.testResults).toHaveLength(2);
+    expect(stored.testResults[1]).toMatchObject({ is_hidden: true, input: "HIDDEN-INPUT", passed: false });
+
+    await submit(quiz.id, [{ question_id: question.id, answer }]);
+    const r = (await results(quiz.id)).body.data;
+    expect(JSON.stringify(r)).not.toContain("HIDDEN-");
+    const res = r.results[0].grading_details;
+    expect(res.testResults[1]).toEqual({ testCaseId: "h1", is_hidden: true, passed: false, points: 1 });
+    expect(res.passedTests).toBe(1);
+
+    // The teacher's grading view has every test, hidden input included.
+    const staff = await request(app)
+      .get(`/api/quizzes/submissions/${sub.id}/grade`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(staff.status).toBe(200);
+    const q = staff.body.data.questions.find((x: any) => x.question_id === question.id);
+    expect(q.grading_details.testResults[1].input).toBe("HIDDEN-INPUT");
+  });
+});

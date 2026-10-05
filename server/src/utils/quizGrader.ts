@@ -1879,6 +1879,8 @@ export class CodingGrader {
         const passed = statusId === 3; // 3 is "Accepted" in Judge0
         testResults.push({
           testCaseId: tc.id,
+          is_hidden: tc.is_hidden === true,
+          points: Number(tc.points) || 1,
           passed,
           input: tc.input,
           expected: tc.expected_output,
@@ -2768,11 +2770,15 @@ export class AdvancedQuizGrader {
       max_points: maxPoints,
       percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
       feedback: basicResult.feedback || "Graded",
+      // Merge, don't replace: the per-test results (testResults, passedTests,
+      // totalTests) are what students and teachers see and what is stored in
+      // quiz_attempts.grading_details.
       detailed_feedback: {
+        ...(basicResult.detailed_feedback || {}),
         strategy_used: config.strategy,
         breakdown,
         penalties_applied: penalties,
-      },
+      } as any,
     };
   }
 
@@ -2837,11 +2843,15 @@ export class AdvancedQuizGrader {
       max_points: maxPoints,
       percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
       feedback: basicResult.feedback || "Graded",
+      // Merge, don't replace: the per-test results (testResults, passedTests,
+      // totalTests) are what students and teachers see and what is stored in
+      // quiz_attempts.grading_details.
       detailed_feedback: {
+        ...(basicResult.detailed_feedback || {}),
         strategy_used: config.strategy,
         breakdown,
         penalties_applied: penalties,
-      },
+      } as any,
     };
   }
 
@@ -3035,11 +3045,15 @@ export class AdvancedQuizGrader {
       max_points: maxPoints,
       percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
       feedback: basicResult.feedback || "Graded",
+      // Merge, don't replace: the per-test results (testResults, passedTests,
+      // totalTests) are what students and teachers see and what is stored in
+      // quiz_attempts.grading_details.
       detailed_feedback: {
+        ...(basicResult.detailed_feedback || {}),
         strategy_used: config.strategy,
         breakdown,
         penalties_applied: penalties,
-      },
+      } as any,
     };
   }
 
@@ -3063,9 +3077,11 @@ export class AdvancedQuizGrader {
       max_points: maxPoints,
       percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
       feedback: basicResult.feedback || "Graded",
+      // Keep the per-test results (same as coding).
       detailed_feedback: {
+        ...(basicResult.detailed_feedback || {}),
         strategy_used: config.strategy,
-      },
+      } as any,
     };
   }
 
@@ -3294,6 +3310,7 @@ export class QuizGrader {
         is_correct: isCorrect,
         points_earned: pointsEarned,
         correct_answer: normalizedAnswers.data, // Store normalized correct answer for reference
+        grading_details: (gradingResult.detailed_feedback as any) ?? null,
       });
     }
 

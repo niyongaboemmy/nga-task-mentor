@@ -16,6 +16,7 @@ import {
   buildStudentResults,
   needsManualReview,
   resultVisibility,
+  studentGradingDetails,
 } from "../utils/quizStudentView";
 import {
   computeAttemptEndTime,
@@ -23,6 +24,10 @@ import {
   isPastDeadline,
   secondsRemaining,
 } from "../utils/quizTiming";
+
+/** What the grader reported, stored in quiz_attempts.grading_details. */
+const gradingDetailsOf = (result: GradingResult): object | null =>
+  (result as any)?.detailed_feedback ?? null;
 
 const computeAttemptGrading = async (params: {
   submission: any;
@@ -334,6 +339,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
         {
           submitted_answer: normalizedSubmittedAnswer.data,
           correct_answer: normalizedCorrectAnswer.data,
+          grading_details: gradingDetailsOf(gradingResult),
           is_correct: isCorrect,
           points_earned: pointsEarned,
           time_taken:
@@ -353,6 +359,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
           submission_id: parseInt(submissionId),
           submitted_answer: normalizedSubmittedAnswer.data,
           correct_answer: normalizedCorrectAnswer.data,
+          grading_details: gradingDetailsOf(gradingResult),
           is_correct: isCorrect,
           points_earned: pointsEarned,
           time_taken: typeof time_taken === "number" ? time_taken : 0,
@@ -390,8 +397,11 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
             ? gradingResult.feedback || "Answer saved"
             : "Answer saved",
         },
+        // Per-test results without anything a hidden test would give away.
         grading_details: isCodeRun
-          ? ((gradingResult as any).detailed_feedback ?? null)
+          ? studentGradingDetails(gradingDetailsOf(gradingResult), {
+              includeHidden: true,
+            })
           : null,
         question_completed: true,
       },
@@ -531,6 +541,7 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
           submission_id: parseInt(submissionId),
           submitted_answer: normalizedSubmittedAnswer.data,
           correct_answer: normalizedCorrectAnswer.data,
+          grading_details: gradingDetailsOf(gradingResult),
           is_correct: isCorrect,
           points_earned: pointsEarned,
           time_taken: typeof time_taken === "number" ? time_taken : 0,

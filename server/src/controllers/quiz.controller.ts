@@ -1476,6 +1476,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
           {
             submitted_answer: normalizedSubmittedAnswer.data,
             correct_answer: normalizedCorrectAnswer.data,
+            grading_details: gradingResult?.detailed_feedback ?? null,
             is_correct: isCorrect,
             points_earned: pointsEarned,
             time_taken: answer.time_taken || 0,
@@ -1495,6 +1496,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
             quiz_id: parseInt(id),
             submitted_answer: normalizedSubmittedAnswer.data,
             correct_answer: normalizedCorrectAnswer.data,
+            grading_details: gradingResult?.detailed_feedback ?? null,
             is_correct: isCorrect,
             points_earned: pointsEarned,
             status: questionTimedOut ? "timed_out" : "completed",
