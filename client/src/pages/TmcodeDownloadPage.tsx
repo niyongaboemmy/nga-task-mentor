@@ -13,6 +13,7 @@ import {
   WifiOff,
 } from "lucide-react";
 import HomeNavbar from "../components/HomeNavbar";
+import { useFocusMode } from "../utils/focusMode";
 import {
   type DesktopOs,
   type DetectedOs,
@@ -69,6 +70,8 @@ function formatDate(iso: string | null): string | null {
 }
 
 const TmcodeDownloadPage: React.FC = () => {
+  // The "install Task Mentor as an app" card would cover this page, which installs a different app.
+  useFocusMode();
   const os: DetectedOs = useMemo(() => detectOs(), []);
   const [release, setRelease] = useState<TmcodeRelease | null>(null);
   const [releaseState, setReleaseState] = useState<"loading" | "ready" | "unavailable">("loading");
