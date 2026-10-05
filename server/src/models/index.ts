@@ -254,6 +254,8 @@ export {
   setupAssociations,
 };
 
+export * from "./Tmcode.models";
+
 export default {
   User,
   Assignment,
