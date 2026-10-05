@@ -172,3 +172,18 @@ describe("app header", () => {
     expect(btn).toHaveAccessibleName("Get TMCode");
   });
 });
+
+describe("TmcodeDownloadPage hides app-level extras", () => {
+  it("turns on focus mode so the Task Mentor install card doesn't cover the page", async () => {
+    const { isFocusModeActive } = await import("../utils/focusMode");
+    const { default: Page } = await import("../pages/TmcodeDownloadPage");
+    const { MemoryRouter } = await import("react-router-dom");
+    const { render } = await import("@testing-library/react");
+    const React = await import("react");
+    const view = render(React.createElement(MemoryRouter, null, React.createElement(Page)));
+    expect(isFocusModeActive()).toBe(true);
+    view.unmount();
+    expect(isFocusModeActive()).toBe(false);
+  });
+});
+
