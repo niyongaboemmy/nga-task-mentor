@@ -187,3 +187,38 @@ describe("TmcodeDownloadPage hides app-level extras", () => {
   });
 });
 
+describe("TmcodeDownloadPage back button", () => {
+  it("goes back inside the app when there is history", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const { Routes, Route } = await import("react-router-dom");
+    render(
+      <MemoryRouter initialEntries={["/quizzes", "/tmcode"]} initialIndex={1}>
+        <Routes>
+          <Route path="/quizzes" element={<p>Quizzes page</p>} />
+          <Route path="/tmcode" element={<TmcodeDownloadPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const back = screen.getByTestId("tmcode-back");
+    expect(back).toHaveTextContent("Back");
+    fireEvent.click(back);
+    expect(await screen.findByText("Quizzes page")).toBeInTheDocument();
+  });
+
+  it("opened directly, it leads to sign in (signed out)", async () => {
+    const { fireEvent } = await import("@testing-library/react");
+    const { Routes, Route } = await import("react-router-dom");
+    render(
+      <MemoryRouter initialEntries={["/tmcode"]}>
+        <Routes>
+          <Route path="/login" element={<p>Sign in page</p>} />
+          <Route path="/tmcode" element={<TmcodeDownloadPage />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const back = screen.getByTestId("tmcode-back");
+    expect(back).toHaveTextContent("Back to Sign in");
+    fireEvent.click(back);
+    expect(await screen.findByText("Sign in page")).toBeInTheDocument();
+  });
+});
