@@ -1489,9 +1489,16 @@ export class InteractiveGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): Promise<GradingResult> {
-    // Algorithmic questions use the same logic as coding questions for test case execution
-    // but the data structure and UI are slightly different.
-    return CodingGrader.gradeCoding(question, answerData);
+    // An algorithmic question is an I/O programming problem: the answer is
+    // code, run against the question's test cases like a coding question.
+    // Answers from the retired trace/predict widget carry no code (only a
+    // placeholder "solution" and a client-computed score that is never
+    // trusted) — those wait for the instructor instead of scoring 0.
+    const answer = normalizeAlgorithmicAnswer(answerData);
+    if (!answer) {
+      return pendingCodeResult("No code submitted – needs manual review.");
+    }
+    return CodingGrader.gradeCoding(question, answer as any);
   }
 
   static gradeLogicalExpression(
@@ -1813,6 +1820,43 @@ export const isPendingGrade = (resultOrDetails: any): boolean => {
   }
   return d?.grade_status === "pending";
 };
+
+/** Strings the retired trace/predict widget put in `solution`. */
+const ALGORITHM_WIDGET_PLACEHOLDER = /^algorithm (progress|trace|predictions)/i;
+
+/**
+ * True when an algorithmic answer's `solution` is source code rather than
+ * one of the old widget's placeholder strings.
+ */
+export function looksLikeSourceCode(text: unknown): boolean {
+  if (typeof text !== "string") return false;
+  const t = text.trim();
+  if (!t || ALGORITHM_WIDGET_PLACEHOLDER.test(t)) return false;
+  return /[(){};=:\n]/.test(t);
+}
+
+/**
+ * An algorithmic answer as {code, language}: `{code}` as is, `{solution}`
+ * only when it is code. null when there is no code to run.
+ */
+export function normalizeAlgorithmicAnswer(
+  answerData: any,
+): { code: string; language?: string } | null {
+  let a = answerData;
+  if (typeof a === "string") {
+    try {
+      a = JSON.parse(a);
+    } catch {
+      return looksLikeSourceCode(a) ? { code: a } : null;
+    }
+  }
+  if (!a || typeof a !== "object") return null;
+  const language =
+    typeof a.language === "string" && a.language !== "algorithm" ? a.language : undefined;
+  if (typeof a.code === "string" && a.code.trim()) return { code: a.code, language };
+  if (looksLikeSourceCode(a.solution)) return { code: a.solution, language };
+  return null;
+}
 
 export class CodingGrader {
   static async gradeCoding(
@@ -2160,6 +2204,13 @@ export class AdvancedQuizGrader {
     answerData: AnswerDataType,
     questionType: string,
   ): NormalizedAnswer {
+    // Algorithmic answers are stored as {code, language}; an old
+    // {solution: <code>} is mapped onto it. Anything else (the retired
+    // widget's progress payload) is kept as sent and graded as pending.
+    if (questionType === "algorithmic") {
+      const code = normalizeAlgorithmicAnswer(answerData);
+      if (code) return { type: questionType, data: code };
+    }
     return {
       type: questionType,
       data: answerData,

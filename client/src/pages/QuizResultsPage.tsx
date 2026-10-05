@@ -947,6 +947,7 @@ const QuizResultsPage: React.FC = () => {
                                 answer={attempt.user_answer}
                                 onAnswerChange={() => {}}
                                 disabled={true}
+                                readOnlyReview={true}
                                 showCorrectAnswer={false}
                               />
                             </div>
@@ -970,6 +971,7 @@ const QuizResultsPage: React.FC = () => {
                                     answer={attempt.correct_answer}
                                     onAnswerChange={() => {}}
                                     disabled={true}
+                                    readOnlyReview={true}
                                     showCorrectAnswer={true}
                                   />
                                 </div>

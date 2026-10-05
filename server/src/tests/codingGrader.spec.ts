@@ -1,4 +1,8 @@
-import { AdvancedQuizGrader } from "../utils/quizGrader";
+import {
+  AdvancedQuizGrader,
+  isPendingGrade,
+  looksLikeSourceCode,
+} from "../utils/quizGrader";
 import { Judge0Service } from "../services/Judge0Service";
 import { aiService } from "../services/ai/aiService";
 import { studentGradingDetails } from "../utils/quizStudentView";
@@ -125,5 +129,60 @@ describe("studentGradingDetails", () => {
   it("returns null for nothing stored", () => {
     expect(studentGradingDetails(null, { includeHidden: true })).toBeNull();
     expect(studentGradingDetails("not json", { includeHidden: true })).toBeNull();
+  });
+});
+
+describe("algorithmic answers are code (TM-FIX-2)", () => {
+  const q = () => question("algorithmic", { language: undefined, allowed_languages: ["python", "javascript"] });
+
+  it("{code, language}: graded on the judge, full marks when every test passes", async () => {
+    stubJudge();
+    const r = await AdvancedQuizGrader.gradeWithConfig(q(), {
+      code: "a, b = map(int, input().split())\nprint(a + b)",
+      language: "python",
+    });
+    expect(r.points_earned).toBe(4);
+    expect(r.is_correct).toBe(true);
+    const sub = (Judge0Service.submit as jest.Mock).mock.calls[0][0];
+    expect(sub.language_id).toBe(71); // python, not the Node.js default
+  });
+
+  it("{solution: <code>} from an old client is mapped onto code", async () => {
+    stubJudge();
+    const r = await AdvancedQuizGrader.gradeWithConfig(q(), {
+      solution: "console.log(3);",
+      language: "javascript",
+    });
+    expect(r.points_earned).toBe(4);
+    expect((Judge0Service.submit as jest.Mock).mock.calls[0][0].language_id).toBe(63);
+  });
+
+  it.each([
+    { solution: "Algorithm progress", language: "algorithm", score: 100 },
+    { solution: "Algorithm predictions completed", language: "algorithm", submitted: true, score: 100 },
+    { solution: "", language: "algorithm" },
+    {},
+  ])("widget placeholder %p → pending with feedback, never scored", async (answer) => {
+    stubJudge();
+    const r = await AdvancedQuizGrader.gradeWithConfig(q(), answer as any);
+    expect(Judge0Service.submit).not.toHaveBeenCalled();
+    expect(r.points_earned).toBe(0);
+    expect(isPendingGrade(r)).toBe(true);
+    expect(r.feedback).toBe("No code submitted – needs manual review.");
+  });
+
+  it("normalizeAnswer stores {solution: <code>} as {code, language}", () => {
+    expect(
+      AdvancedQuizGrader.normalizeAnswer({ solution: "print(1)", language: "python" } as any, "algorithmic").data,
+    ).toEqual({ code: "print(1)", language: "python" });
+    const widget = { solution: "Algorithm progress", language: "algorithm" };
+    expect(AdvancedQuizGrader.normalizeAnswer(widget as any, "algorithmic").data).toBe(widget);
+  });
+
+  it("looksLikeSourceCode", () => {
+    expect(looksLikeSourceCode("print(1)")).toBe(true);
+    expect(looksLikeSourceCode("x = 1")).toBe(true);
+    expect(looksLikeSourceCode("Algorithm trace completed")).toBe(false);
+    expect(looksLikeSourceCode("just words")).toBe(false);
   });
 });

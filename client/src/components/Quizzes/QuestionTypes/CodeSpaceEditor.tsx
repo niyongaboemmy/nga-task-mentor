@@ -105,7 +105,21 @@ const TAB_COLOR: Record<string, string> = {
   rb: "#701516",
 };
 
-function buildInitialFiles(codingData: CodingData, answer: any): ProjectFile[] {
+/** Languages the student may answer in: the question's own + allowed_languages. */
+export function answerLanguagesOf(codingData: Partial<CodingData>): string[] {
+  const out: string[] = [];
+  for (const l of [codingData.language, ...(codingData.allowed_languages ?? [])]) {
+    const key = typeof l === "string" ? l.trim().toLowerCase() : "";
+    if (key && !out.includes(key)) out.push(key);
+  }
+  return out;
+}
+
+function buildInitialFiles(
+  codingData: CodingData,
+  answer: any,
+  lang: string = codingData.language || "javascript",
+): ProjectFile[] {
   if (codingData.project_mode) {
     const savedCode = (answer as CodingAnswer)?.code;
     if (savedCode) {
@@ -120,7 +134,6 @@ function buildInitialFiles(codingData: CodingData, answer: any): ProjectFile[] {
     }
     return [];
   }
-  const lang = codingData.language || "javascript";
   const ext = LANG_EXT[lang] ?? lang;
   const savedCode = (answer as CodingAnswer)?.code;
   const content = savedCode || codingData.starter_code || "";
@@ -350,7 +363,14 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
 
   const codingData: CodingData = question.question_data as CodingData;
   const isProjectMode = Boolean(codingData.project_mode);
-  const language = codingData.language || "javascript";
+  // The student may switch between the question's allowed languages; the
+  // answer records the one used ({code, language}).
+  const answerLanguages = useMemo(() => answerLanguagesOf(codingData), [codingData]);
+  const [language, setLanguage] = useState<string>(() => {
+    const saved = (answer as CodingAnswer | undefined)?.language;
+    if (saved && answerLanguages.includes(saved)) return saved;
+    return answerLanguages[0] || "javascript";
+  });
   const isWebLang = [
     "html",
     "css",
@@ -367,7 +387,7 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
 
   // ─── File state ─────────────────────────────────────────────────────────────
   const [files, setFiles] = useState<ProjectFile[]>(() =>
-    buildInitialFiles(codingData, answer),
+    buildInitialFiles(codingData, answer, language),
   );
   const [activeFileName, setActiveFileName] = useState(
     () => files[0]?.name ?? "main.js",
@@ -605,9 +625,29 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
     language,
   ]);
 
+  const changeLanguage = useCallback(
+    (next: string) => {
+      if (next === language || isProjectMode) return;
+      const ext = LANG_EXT[next] ?? next;
+      const current = files[0];
+      const renamed: ProjectFile = {
+        ...(current ?? { content: "" }),
+        name: `main.${ext}`,
+        language: next,
+        is_entry_point: true,
+      };
+      setLanguage(next);
+      setFiles([renamed]);
+      setActiveFileName(renamed.name);
+      setOpenedTabs([renamed.name]);
+      onAnswerChange({ code: renamed.content || "", language: next });
+    },
+    [language, isProjectMode, files, onAnswerChange],
+  );
+
   const resetCode = useCallback(() => {
     if (window.confirm("Reset code to starter template?")) {
-      const initialFiles = buildInitialFiles(codingData, null);
+      const initialFiles = buildInitialFiles(codingData, null, language);
       setFiles(initialFiles);
       setActiveFileName(initialFiles[0]?.name ?? "");
       setOpenedTabs([initialFiles[0]?.name]);
@@ -948,6 +988,22 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
         <div className="flex-1 flex flex-col bg-[#1e1e1e] overflow-hidden">
           {/* Tabs */}
           <div className="flex items-center bg-[#252526] h-9 overflow-x-auto no-scrollbar">
+            {answerLanguages.length > 1 && !isProjectMode && (
+              <select
+                aria-label="Language"
+                data-testid="code-language-picker"
+                value={language}
+                disabled={disabled}
+                onChange={(e) => changeLanguage(e.target.value)}
+                className="order-last ml-auto mr-2 bg-[#3c3c3c] text-[#ccc] text-[11px] rounded px-2 py-1 border border-[#555] outline-none"
+              >
+                {answerLanguages.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            )}
             {openedTabs.map((fileName) => {
               const file = files.find((f) => f.name === fileName);
               const isPreview = fileName === PREVIEW_TAB_ID;

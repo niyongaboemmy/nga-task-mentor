@@ -97,6 +97,11 @@ export interface AlgorithmicData {
   input_format: string;
   output_format: string;
   constraints?: string;
+  /** Language the editor opens in (a judge language). */
+  language?: string;
+  /** Other languages the student may answer in. */
+  allowed_languages?: string[];
+  starter_code?: string;
   test_cases: Array<{
     id: string;
     input: string;
@@ -228,8 +233,13 @@ export interface NumericalAnswer {
   units?: string;
 }
 
+/**
+ * Algorithmic questions are answered with code, like coding questions.
+ * `solution` is the legacy (retired trace/predict widget) field.
+ */
 export interface AlgorithmicAnswer {
-  solution: string;
+  code?: string;
+  solution?: string;
   language: string;
 }
 
@@ -627,6 +637,8 @@ export interface QuestionComponentProps {
   isFullscreen?: boolean;
   isStarted?: boolean;
   onNext?: () => void;
+  /** Read-only review (results pages): code questions show the code, not the IDE. */
+  readOnlyReview?: boolean;
 }
 
 export interface QuizAttemptProps {

@@ -354,6 +354,9 @@ const ANSWER_KEYS = new Set([
   "solution",
   "solution_code",
   "reference_solution",
+  // Algorithmic questions are now answered with code; an imported
+  // algorithm's code is the reference solution.
+  "algorithm_code",
   "explanation",
 ]);
 
