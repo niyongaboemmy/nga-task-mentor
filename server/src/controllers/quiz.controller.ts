@@ -18,6 +18,8 @@ import {
   JudgeUnavailableError,
   UnsupportedLanguageError,
 } from "../services/Judge0Service";
+import { answerFiles, getCodeRunner } from "../services/coderunner";
+import { codeRunnerLanguages } from "../utils/codeLanguages";
 import { getQuestionBankInclude } from "../utils/quizUtils";
 import {
   allowedAnswerLanguages,
@@ -2135,52 +2137,37 @@ async function runAgainstTests(
   tests: any[],
   revealHidden: boolean,
 ) {
-  const results: any[] = [];
-  for (const tc of tests) {
+  const { files, entry } = answerFiles(code, language);
+  const run = await getCodeRunner().run({
+    language,
+    files,
+    entry,
+    interactive: true,
+    tests: tests.map((tc: any, i: number) => ({
+      id: String(tc.id ?? i + 1),
+      input: tc.input ?? "",
+      expected_output: tc.expected_output ?? "",
+    })),
+  });
+  const results: any[] = tests.map((tc: any, i: number) => {
     const hide = !!tc.is_hidden && !revealHidden;
-    try {
-      const result = await Judge0Service.runSingle(code, language, tc.input ?? "");
-      const actual = normalizeOutput(result.stdout);
-      const expected = normalizeOutput(tc.expected_output);
-      const compileError = result.compile_output || result.message;
-      const runtimeError = result.stderr;
-      const statusId = result.status?.id;
-      // Judge0 status 3 = Accepted; also do our own string compare
-      const passed = statusId === 3 || (statusId !== 6 && actual === expected);
-      results.push({
-        testCaseId: tc.id,
-        passed,
-        input: hide ? null : (tc.input ?? ""),
-        expected: hide ? null : tc.expected_output,
-        actual: hide ? null : capOutput(result.stdout ?? null),
-        error:
-          hide || passed
-            ? null
-            : capOutput(compileError || runtimeError || result.status?.description || "Wrong Answer"),
-        executionTime: parseFloat(result.time || "0") * 1000,
-        memoryUsed: result.memory ?? null,
-        status: result.status?.description ?? "Unknown",
-        is_hidden: !!tc.is_hidden,
-        points: tc.points ?? null,
-      });
-    } catch (tcErr: any) {
-      if (tcErr instanceof UnsupportedLanguageError) throw tcErr;
-      if (tcErr instanceof JudgeUnavailableError) throw tcErr;
-      results.push({
-        testCaseId: tc.id,
-        passed: false,
-        input: hide ? null : (tc.input ?? ""),
-        expected: hide ? null : tc.expected_output,
-        actual: null,
-        error: tcErr.message || "Execution failed",
-        executionTime: 0,
-        memoryUsed: null,
-        status: "Error",
-        is_hidden: !!tc.is_hidden,
-        points: tc.points ?? null,
-      });
-    }
-  }
+    const r = run.tests[i];
+    const passed = !!r?.passed;
+    return {
+      testCaseId: tc.id,
+      passed,
+      input: hide ? null : (tc.input ?? ""),
+      expected: hide ? null : tc.expected_output,
+      actual: hide ? null : capOutput(r?.stdout ?? null),
+      error: hide || passed ? null : capOutput(r?.stderr || r?.status || "Wrong Answer"),
+      executionTime: r?.time_ms ?? 0,
+      memoryUsed: r?.memory_kb ?? null,
+      status: r?.status ?? r?.verdict ?? "Unknown",
+      verdict: r?.verdict ?? "internal-error",
+      is_hidden: !!tc.is_hidden,
+      points: tc.points ?? null,
+    };
+  });
   return {
     results,
     passed: results.filter((r) => r.passed).length,
@@ -2227,7 +2214,7 @@ function checkRunInput(req: Request, res: Response): boolean {
     return false;
   }
   // Fail closed: never run code under a runtime it wasn't written for.
-  if (!isWebLanguage(language) && !Judge0Service.getLanguageId(language)) {
+  if (!isWebLanguage(language) && !getCodeRunner().supportsLanguage(language)) {
     res.status(400).json({
       success: false,
       code: "UNSUPPORTED_LANGUAGE",
@@ -2246,16 +2233,24 @@ async function runWithStdin(res: Response, code: string, language: string, stdin
       data: { stdout: null, stderr: null, web_preview: true, language, execution_time: 0 },
     });
   }
-  const result = await Judge0Service.runSingle(code, language, stdin);
+  const { files, entry } = answerFiles(code, language);
+  const run = await getCodeRunner().run({
+    language,
+    files,
+    entry,
+    interactive: true,
+    tests: [{ id: "stdin", input: stdin ?? "" }],
+  });
+  const r = run.tests[0];
   return res.json({
     success: true,
     data: {
-      stdout: capOutput(result.stdout),
-      stderr: capOutput(result.stderr || result.compile_output),
-      exit_code: result.status?.id,
-      status: result.status?.description,
-      execution_time: parseFloat(result.time || "0") * 1000,
-      memory_used: result.memory,
+      stdout: capOutput(r?.stdout ?? null),
+      stderr: capOutput(r?.stderr ?? (run.compile && !run.compile.ok ? run.compile.output : null)),
+      exit_code: r?.exit_code ?? null,
+      status: r?.status ?? r?.verdict,
+      execution_time: r?.time_ms ?? 0,
+      memory_used: r?.memory_kb ?? null,
       web_preview: false,
     },
   });
@@ -2411,7 +2406,7 @@ export const getCodeLanguages = async (_req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     data: {
-      judge: Judge0Service.supportedLanguages(),
+      judge: codeRunnerLanguages(),
       web_preview: WEB_PREVIEW_LANGUAGES,
     },
   });
