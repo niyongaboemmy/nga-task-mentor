@@ -9,9 +9,13 @@ import Login from "./components/Auth/Login";
 import Callback from "./components/Auth/Callback";
 import ErrorBoundary from "./components/ErrorBoundary/ErrorBoundary";
 import { appRoutes } from "./routes/routeConfig";
+import { lazyPage } from "./routes/lazyPage";
 import { useTheme } from "./contexts/ThemeContext";
 import { ActivityRouterTracker } from "./vendor/nga-activity/react";
 import GpuWarmupIndicator from "./components/Proctoring/GpuWarmupIndicator";
+
+// Public TMCode download page (no sign-in needed).
+const TmcodeDownloadPage = lazyPage(() => import("./pages/TmcodeDownloadPage"));
 
 /** While a page's code downloads (first visit only). Inside the layout, so the menus stay. */
 function PageLoading() {
@@ -36,6 +40,14 @@ function AppContent() {
             <Route path="/" element={<AuthGuard />} />
             <Route path="/login" element={<Login />} />
             <Route path="/sso/callback" element={<Callback />} />
+            <Route
+              path="/tmcode"
+              element={
+                <Suspense fallback={<PageLoading />}>
+                  <TmcodeDownloadPage />
+                </Suspense>
+              }
+            />
 
             {/* Protected routes — driven by routeConfig.tsx, the single
                 source of truth also consumed by the sidebar to build its

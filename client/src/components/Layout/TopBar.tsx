@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { Menu, LayoutGrid, LogOut, User as UserIcon } from "lucide-react";
+import { Menu, LayoutGrid, LogOut, User as UserIcon, Code2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { getProfileImageUrl } from "../../utils/imageUrl";
 import { ThemeToggle } from "../ThemeToggle";
@@ -93,6 +93,18 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
 
         {bellFor === "instructor" && <NotificationBell loadAlerts={loadInstructorAlerts} />}
         {bellFor === "student" && <NotificationBell loadAlerts={loadStudentAlerts} pollMs={2 * 60 * 1000} />}
+
+        {/* TMCode desktop editor download page (public, /tmcode). */}
+        <Link
+          to="/tmcode"
+          title="Get TMCode, the desktop code editor"
+          aria-label="Get TMCode"
+          data-testid="get-tmcode-button"
+          className="inline-flex items-center gap-1.5 rounded-full border border-blue-200 dark:border-blue-800 bg-blue-50 dark:bg-blue-900/30 px-2 sm:px-3 py-1.5 text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+        >
+          <Code2 className="h-4 w-4" />
+          <span className="hidden lg:inline">Get TMCode</span>
+        </Link>
 
         <ThemeToggle />
 
