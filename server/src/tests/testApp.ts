@@ -18,6 +18,7 @@ import questionBankHubRoutes from "../routes/questionBankHub";
 import rankingRoutes from "../routes/rankings";
 import questionBankRoutes from "../routes/questionBank";
 import dashboardRoutes from "../routes/dashboard";
+import tmcodeRoutes from "../routes/tmcode";
 
 /**
  * Minimal test harness app — mounts only the routers under test against the
@@ -28,6 +29,7 @@ import dashboardRoutes from "../routes/dashboard";
  */
 export function buildTestApp() {
   const app = express();
+  app.use("/api/tmcode", express.json({ limit: "8mb" }), tmcodeRoutes);
   app.use(express.json());
   app.use("/api/proctoring", proctoringRoutes);
   app.use("/api/users", usersRoutes);
