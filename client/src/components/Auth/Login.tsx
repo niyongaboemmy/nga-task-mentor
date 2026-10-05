@@ -1,5 +1,6 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Link } from "react-router-dom";
 import HomeNavbar from "../HomeNavbar";
 import { useAuth } from "../../contexts/AuthContext";
 import { beginSsoLogin, getSsoConfig } from "../../utils/ssoState";
@@ -140,6 +141,15 @@ const Login: React.FC = () => {
                 >
                   Visit NGA Central MIS
                 </a>
+              </p>
+              <p className="mt-2 text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
+                Coding?{" "}
+                <Link
+                  to="/tmcode"
+                  className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+                >
+                  Get TMCode, the desktop code editor
+                </Link>
               </p>
             </div>
           </div>

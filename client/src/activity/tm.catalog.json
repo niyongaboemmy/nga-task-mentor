@@ -1,10 +1,11 @@
 {
   "app": "tm",
-  "version": "2026.10.01",
+  "version": "2026.10.06",
   "features": [
     { "key": "tm.landing", "label": "Start page", "module": "Public", "patterns": ["/"], "public": true },
     { "key": "tm.login", "label": "Sign-in page", "module": "Public", "patterns": ["/login"], "public": true },
     { "key": "tm.sso_callback", "label": "Signing in from NGA MIS", "module": "Public", "patterns": ["/sso/callback"], "public": true },
+    { "key": "tm.tmcode_download", "label": "Get TMCode (download page)", "module": "Public", "patterns": ["/tmcode"], "public": true },
 
     { "key": "tm.dashboard", "label": "Dashboard", "module": "Home", "patterns": ["/dashboard"] },
     { "key": "tm.profile", "label": "Profile", "module": "Account", "patterns": ["/profile"] },

@@ -30,7 +30,7 @@ describe("Task Mentor activity catalog", () => {
   it("names every route in App.tsx and routeConfig.tsx", () => {
     const app = [...src("App.tsx").matchAll(/path="([^"]+)"/g)].map((m) => m[1]);
     const config = [...src("routes/routeConfig.tsx").matchAll(/\bpath:\s*"([^"]+)"/g)].map((m) => m[1]);
-    expect(app).toEqual(expect.arrayContaining(["/", "/login", "/sso/callback"]));
+    expect(app).toEqual(expect.arrayContaining(["/", "/login", "/sso/callback", "/tmcode"]));
     expect(config.length).toBeGreaterThan(40);
     const paths = [...new Set([...app, ...config])].filter((p) => p !== "*");
     const c = compiled();
@@ -65,7 +65,7 @@ describe("Task Mentor activity catalog", () => {
       expect(f.module).toBeTruthy();
       expect(!!f.event !== !!f.patterns?.length).toBe(true);
     }
-    expect(features.filter((f) => f.public).map((f) => f.key)).toEqual(["tm.landing", "tm.login", "tm.sso_callback"]);
+    expect(features.filter((f) => f.public).map((f) => f.key)).toEqual(["tm.landing", "tm.login", "tm.sso_callback", "tm.tmcode_download"]);
   });
 
   it("every data-track key in the app is a catalogued event", () => {
