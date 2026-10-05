@@ -375,9 +375,10 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
 
     // While the attempt is running the student only learns that the answer
     // was saved — never whether it is right (they could otherwise probe
-    // options and change answers). Coding questions keep their test-run
-    // output, which is part of the question itself; their score shows only
-    // when the quiz releases grades immediately.
+    // options and change answers). Coding questions keep their visible
+    // test-run output, which is part of the question itself; their score and
+    // hidden-test results show only when the quiz releases grades
+    // immediately (resultVisibility).
     const questionType = question.questionBank?.question_type;
     const isCodeRun = questionType === "coding" || questionType === "algorithmic";
     const revealScore =
@@ -400,7 +401,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
         // Per-test results without anything a hidden test would give away.
         grading_details: isCodeRun
           ? studentGradingDetails(gradingDetailsOf(gradingResult), {
-              includeHidden: true,
+              includeHidden: revealScore,
             })
           : null,
         question_completed: true,

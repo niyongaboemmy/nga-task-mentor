@@ -312,7 +312,7 @@ describe("coding questions: per-test results (TM-FIX-1)", () => {
   });
   afterEach(() => jest.restoreAllMocks());
 
-  async function makeCodingQuiz() {
+  async function makeCodingQuiz(overrides: Record<string, any> = {}) {
     const quiz = await Quiz.create({
       title: "Coding settings spec",
       description: "quizSettings.integration.spec.ts",
@@ -324,6 +324,7 @@ describe("coding questions: per-test results (TM-FIX-1)", () => {
       show_correct_answers: false,
       enable_automatic_grading: true,
       require_manual_grading: false,
+      ...overrides,
     } as any);
     quizIds.push(quiz.id);
     const bank = await QuestionBank.create({
@@ -382,5 +383,17 @@ describe("coding questions: per-test results (TM-FIX-1)", () => {
     expect(staff.status).toBe(200);
     const q = staff.body.data.questions.find((x: any) => x.question_id === question.id);
     expect(q.grading_details.testResults[1].input).toBe("HIDDEN-INPUT");
+  });
+
+  it("a graded save reports hidden tests only when the quiz releases results (TM-FIX-7)", async () => {
+    const { quiz, question } = await makeCodingQuiz({ show_results_immediately: false });
+    const sub = (await start(quiz.id)).body.data;
+    const saved = await save(sub.id, question.id, { code: "print(3)", language: "python" });
+    expect(saved.status).toBe(201);
+    const details = saved.body.data.grading_details;
+    expect(details.testResults).toHaveLength(1);
+    expect(details.testResults[0].is_hidden).toBe(false);
+    expect(details.totalTests).toBe(1);
+    expect(saved.body.data.grading_result.points_earned).toBeNull();
   });
 });

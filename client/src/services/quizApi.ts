@@ -228,6 +228,40 @@ export class QuizApiService {
     return response.data;
   }
 
+  /**
+   * "Run tests": runs the question's visible test cases on the judge (the
+   * server picks the tests). Never saves or grades the answer.
+   */
+  static async runTests(
+    questionId: number,
+    data: { code: string; language: string },
+  ): Promise<{
+    success: boolean;
+    data: {
+      results: Array<{
+        testCaseId: string;
+        passed: boolean | null;
+        input: string | null;
+        expected: string | null;
+        actual: string | null;
+        error: string | null;
+        executionTime: number;
+        memoryUsed: number | null;
+        status: string;
+        is_hidden: boolean;
+      }>;
+      passed: number;
+      total: number;
+      web_preview?: boolean;
+    };
+  }> {
+    const response = await axios.post(
+      `/quizzes/questions/${questionId}/run-code`,
+      { ...data, run_tests: true },
+    );
+    return response.data;
+  }
+
   static async submitQuiz(
     submissionId: number,
   ): Promise<{ success: boolean; data: any }> {

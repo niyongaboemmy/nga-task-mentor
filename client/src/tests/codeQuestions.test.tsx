@@ -95,3 +95,36 @@ describe("algorithmic questions use the code editor (TM-FIX-2)", () => {
     expect(screen.queryByTestId("monaco")).toBeNull();
   });
 });
+
+const coding = {
+  id: 12,
+  question_type: "coding",
+  question_text: "Add two numbers",
+  question_data: {
+    language: "python",
+    starter_code: "print(3)",
+    test_cases: [{ id: "v1", input: "1 2", expected_output: "3", is_hidden: false, points: 1 }],
+  },
+} as any;
+
+describe("Run tests (TM-FIX-7)", () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it("runs the visible tests through the run endpoint and never saves a graded answer", async () => {
+    quizApi.runTests.mockResolvedValue({
+      success: true,
+      data: {
+        results: [
+          { testCaseId: "v1", passed: true, input: "1 2", expected: "3", actual: "3", error: null, executionTime: 12, memoryUsed: 1, status: "Accepted", is_hidden: false },
+        ],
+        passed: 1,
+        total: 1,
+      },
+    });
+    render(<QuestionRenderer question={coding} onAnswerChange={() => {}} submissionId={77} />);
+    fireEvent.click(screen.getByText("Test"));
+    expect(await screen.findByText(/1\/1 visible tests passed/)).toBeInTheDocument();
+    expect(quizApi.runTests).toHaveBeenCalledWith(12, { code: "print(3)", language: "python" });
+    expect(quizApi.submitQuestionAnswer).not.toHaveBeenCalled();
+  });
+});
