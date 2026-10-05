@@ -35,6 +35,7 @@ import NoteNotification from "../components/Proctoring/NoteNotification";
 import PauseOverlay from "../components/Proctoring/PauseOverlay";
 import LockdownWarningOverlay from "../components/Proctoring/LockdownWarningOverlay";
 import { useQuizLockdown } from "../hooks/useQuizLockdown";
+import OpenInTmcode from "../components/Quizzes/OpenInTmcode";
 import type {
   Quiz,
   QuizQuestion,
@@ -119,6 +120,10 @@ const QuizTakingPage: React.FC = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const quizQuestions = quiz?.questions || [];
+  // How coding questions are delivered (web editor or the TMCode desktop app).
+  const [tmcodeDelivery, setTmcodeDelivery] = useState<
+    "web" | "tmcode_optional" | "tmcode_required"
+  >("web");
   const currentQuestion = quizQuestions[currentQuestionIndex] || null;
   const totalQuestions = quizQuestions.length;
   const answeredQuestions = answers.filter((a) => hasAnswerValue(a.answer)).length;
@@ -721,6 +726,9 @@ const QuizTakingPage: React.FC = () => {
       }
 
       setQuiz(response.data as QuizTakingQuiz);
+      ProctoringApiService.getProctoringSettings(Number(id))
+        .then((r) => setTmcodeDelivery(r?.data?.tmcode_delivery || "web"))
+        .catch(() => setTmcodeDelivery("web"));
     } catch (error: any) {
       // console.error("Error fetching quiz:", error);
 
@@ -1887,6 +1895,10 @@ const QuizTakingPage: React.FC = () => {
     question: QuizQuestion,
     extraProps: Partial<QuestionComponentProps> = {},
   ) => {
+    const qType = (question.question_type || question.questionBank?.question_type || "").toLowerCase();
+    if (tmcodeDelivery === "tmcode_required" && (qType === "coding" || qType === "algorithmic")) {
+      return <OpenInTmcode key={question.id} quizId={Number(id)} required />;
+    }
     return (
       <QuestionRenderer
         key={question.id}
@@ -2775,6 +2787,9 @@ const QuizTakingPage: React.FC = () => {
               ))}
             </div>
 
+            {currentInstructionStep === instructions.length - 1 && tmcodeDelivery !== "web" && (
+              <OpenInTmcode quizId={Number(id)} required={tmcodeDelivery === "tmcode_required"} compact />
+            )}
             {currentInstructionStep === instructions.length - 1 ? (
               <button
                 onClick={startQuizAttempt}
