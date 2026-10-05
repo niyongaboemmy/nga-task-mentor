@@ -186,3 +186,29 @@ describe("algorithmic answers are code (TM-FIX-2)", () => {
     expect(looksLikeSourceCode("just words")).toBe(false);
   });
 });
+
+describe("tests decide the auto score (TM-FIX-10)", () => {
+  it("a generous AI rubric is stored as a suggestion and never raises the score", async () => {
+    stubJudge(["secret-in", "2 2"]); // 1 of 4 weighted points
+    (aiService.gradeCoding as jest.Mock).mockResolvedValue({
+      is_correct: true,
+      points_earned: 4,
+      feedback: "Looks great",
+      quality_score: 90,
+    });
+    const r = await AdvancedQuizGrader.gradeWithConfig(question("coding"), { code: "print(1)", language: "python" });
+    expect(r.points_earned).toBeCloseTo(1);
+    expect(r.feedback).toBe("1/3 test cases passed.");
+    expect((r.detailed_feedback as any).ai_suggestion).toMatchObject({ points: 4, feedback: "Looks great" });
+  });
+
+  it("re-grading the same code gives the same score whatever the AI says", async () => {
+    stubJudge(["secret-in"]);
+    const ai = aiService.gradeCoding as jest.Mock;
+    ai.mockResolvedValueOnce({ is_correct: true, points_earned: 4, feedback: "a" });
+    const a = await AdvancedQuizGrader.gradeWithConfig(question("coding"), { code: "x=1", language: "python" });
+    ai.mockResolvedValueOnce({ is_correct: false, points_earned: 0, feedback: "b" });
+    const b = await AdvancedQuizGrader.gradeWithConfig(question("coding"), { code: "x=1", language: "python" });
+    expect(a.points_earned).toBe(b.points_earned);
+  });
+});

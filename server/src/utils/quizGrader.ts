@@ -1988,19 +1988,12 @@ export class CodingGrader {
       const testPoints =
         totalWeight > 0 ? (earnedWeight / totalWeight) * maxPoints : 0;
 
-      // AI Analysis for Code Quality (optional, never overrides test correctness downward)
-      let aiResult:
-        | {
-            is_correct: boolean;
-            points_earned: number;
-            feedback: string;
-            quality_score?: number;
-            efficiency_score?: number;
-            correctness_score?: number;
-          }
-        | undefined;
+      // The tests decide the auto score (TM-FIX-10): re-grading the same code
+      // always gives the same score. The AI rubric is only a suggestion for
+      // the teacher (applied by a manual grade, if at all).
+      let aiSuggestion: Record<string, any> | undefined;
       try {
-        aiResult = await aiService.gradeCoding(
+        const ai = await aiService.gradeCoding(
           question.questionBank?.question_text || "",
           finalCode,
           language,
@@ -2008,34 +2001,32 @@ export class CodingGrader {
           maxPoints,
           questionData.constraints,
         );
+        if (ai && typeof ai === "object") {
+          aiSuggestion = {
+            points: typeof ai.points_earned === "number" ? ai.points_earned : null,
+            feedback: ai.feedback ?? null,
+            quality_score: ai.quality_score,
+            efficiency_score: ai.efficiency_score,
+            correctness_score: ai.correctness_score,
+          };
+        }
       } catch (e) {
-        aiResult = undefined;
+        aiSuggestion = undefined;
       }
 
-      const aiPoints =
-        typeof aiResult?.points_earned === "number"
-          ? aiResult.points_earned
-          : 0;
-
-      // AI can only boost, never reduce test-based score
-      const combinedPoints = Math.max(testPoints, aiPoints);
-      const pointsEarned = Math.max(0, Math.min(combinedPoints, maxPoints));
+      const pointsEarned = Math.max(0, Math.min(testPoints, maxPoints));
 
       return {
         is_correct: allPassed,
         points_earned: pointsEarned,
-        feedback:
-          aiResult?.feedback ||
-          (allPassed
-            ? "All test cases passed."
-            : `${passedTests}/${totalTests} test cases passed.`),
+        feedback: allPassed
+          ? "All test cases passed."
+          : `${passedTests}/${totalTests} test cases passed.`,
         detailed_feedback: {
           testResults,
-          quality_score: aiResult?.quality_score,
-          efficiency_score: aiResult?.efficiency_score,
-          correctness_score: aiResult?.correctness_score,
           passedTests,
           totalTests,
+          ...(aiSuggestion ? { ai_suggestion: aiSuggestion } : {}),
         },
       };
     } catch (error: any) {
