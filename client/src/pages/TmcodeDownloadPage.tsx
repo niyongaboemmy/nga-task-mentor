@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Apple,
+  ArrowLeft,
   Code2,
   Download,
   ExternalLink,
@@ -12,7 +13,9 @@ import {
   Terminal,
   WifiOff,
 } from "lucide-react";
+import { useLocation, useNavigate } from "react-router-dom";
 import HomeNavbar from "../components/HomeNavbar";
+import { useAuth } from "../contexts/AuthContext";
 import { useFocusMode } from "../utils/focusMode";
 import {
   type DesktopOs,
@@ -69,6 +72,33 @@ function formatDate(iso: string | null): string | null {
     : d.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
 }
 
+/**
+ * Back to where the visitor came from inside Task Mentor; opened directly
+ * (shared link, new tab) it goes to the Dashboard, or Sign in when signed out.
+ */
+export const BackButton: React.FC = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { isAuthenticated } = useAuth();
+  // React Router gives the first entry of a fresh visit the key "default".
+  const hasHistory = location.key !== "default";
+  const fallback = isAuthenticated ? { to: "/dashboard", label: "Back to Dashboard" } : { to: "/login", label: "Back to Sign in" };
+  return (
+    <button
+      type="button"
+      onClick={() => (hasHistory ? navigate(-1) : navigate(fallback.to))}
+      className="group inline-flex items-center gap-2 h-9 pl-2.5 pr-4 rounded-full border border-gray-200 dark:border-gray-800 bg-white/80 dark:bg-gray-900/70 backdrop-blur text-sm font-medium text-gray-700 dark:text-gray-200 shadow-sm hover:bg-white hover:border-gray-300 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:border-gray-700 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-950 transition-colors"
+      aria-label={hasHistory ? "Go back" : fallback.label}
+      data-testid="tmcode-back"
+    >
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-gray-100 dark:bg-gray-800 group-hover:bg-blue-600 group-hover:text-white transition-colors">
+        <ArrowLeft className="w-3.5 h-3.5 transition-transform group-hover:-translate-x-0.5" />
+      </span>
+      {hasHistory ? "Back" : fallback.label}
+    </button>
+  );
+};
+
 const TmcodeDownloadPage: React.FC = () => {
   // The "install Task Mentor as an app" card would cover this page, which installs a different app.
   useFocusMode();
@@ -98,7 +128,10 @@ const TmcodeDownloadPage: React.FC = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-blue-50 to-white dark:from-gray-950 dark:via-gray-950 dark:to-gray-950 flex flex-col">
       <HomeNavbar />
 
-      <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12 space-y-8">
+      <main className="flex-1 w-full max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8 space-y-8">
+        <div className="-mb-2">
+          <BackButton />
+        </div>
         {/* Hero */}
         <section className="text-center space-y-4">
           <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-blue-600 text-white shadow-lg">
