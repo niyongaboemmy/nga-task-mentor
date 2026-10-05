@@ -43,6 +43,8 @@ import RichTextDisplay from "../components/Common/RichTextDisplay";
 import { liveSocketAuth } from "../utils/liveSocketAuth";
 import {
   BACKGROUND_SAVE_TYPES,
+  CODE_AUTOSAVE_DEBOUNCE_MS,
+  CODE_BACKGROUND_SAVE_TYPES,
   formatClock,
   hasAnswerValue,
   mergeAnswers,
@@ -1896,7 +1898,11 @@ const QuizTakingPage: React.FC = () => {
    * final submit.
    */
   const persistAnswerSilently = useCallback(
-    async (questionId: number, answer: AnswerDataType) => {
+    async (
+      questionId: number,
+      answer: AnswerDataType,
+      opts: { saveOnly?: boolean } = {},
+    ) => {
       if (!existingSubmission || !hasAnswerValue(answer)) return;
       setSyncState("saving");
       try {
@@ -1905,6 +1911,7 @@ const QuizTakingPage: React.FC = () => {
           questionId,
           answer,
           Math.max(0, Math.floor((Date.now() - questionStartTimeRef.current) / 1000)),
+          ...(opts.saveOnly ? [opts] : []),
         );
         setSyncState("saved");
       } catch (error: any) {
@@ -1938,6 +1945,47 @@ const QuizTakingPage: React.FC = () => {
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAnswerKey, currentQuestion?.id, isOverallTimed, timeUpState]);
+
+  // Code answers (both timing modes): saved without grading 5 s after the
+  // last edit, and right away when the window loses focus. The local copy
+  // (quiz_<id>_answers) is written on every edit as the crash backup.
+  const codeSavedRef = useRef<Map<number, string>>(new Map());
+  const pendingCodeSaveRef = useRef<{ questionId: number; answer: AnswerDataType; key: string } | null>(null);
+  const flushCodeSave = useCallback(() => {
+    const pending = pendingCodeSaveRef.current;
+    pendingCodeSaveRef.current = null;
+    if (!pending || codeSavedRef.current.get(pending.questionId) === pending.key) return;
+    codeSavedRef.current.set(pending.questionId, pending.key);
+    void persistAnswerSilently(pending.questionId, pending.answer, { saveOnly: true });
+  }, [persistAnswerSilently]);
+  useEffect(() => {
+    // Leaving a question saves (and grades) it on navigation; drop its
+    // pending background save so it can't overwrite that later.
+    if (pendingCodeSaveRef.current?.questionId !== currentQuestion?.id) {
+      pendingCodeSaveRef.current = null;
+    }
+    if (!currentQuestion || timeUpState || !existingSubmission) return;
+    if (currentAnswerValue === undefined) return;
+    const qType = (
+      currentQuestion.question_type ||
+      currentQuestion.questionBank?.question_type ||
+      ""
+    ).toLowerCase();
+    if (!CODE_BACKGROUND_SAVE_TYPES.has(qType)) return;
+    if (codeSavedRef.current.get(currentQuestion.id) === currentAnswerKey) return;
+    pendingCodeSaveRef.current = {
+      questionId: currentQuestion.id,
+      answer: currentAnswerValue,
+      key: currentAnswerKey,
+    };
+    const t = window.setTimeout(flushCodeSave, CODE_AUTOSAVE_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAnswerKey, currentQuestion?.id, timeUpState, existingSubmission?.id]);
+  useEffect(() => {
+    window.addEventListener("blur", flushCodeSave);
+    return () => window.removeEventListener("blur", flushCodeSave);
+  }, [flushCodeSave]);
 
   /**
    * Overall mode navigation: any question, any direction. The answer being

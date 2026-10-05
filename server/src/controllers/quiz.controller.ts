@@ -57,6 +57,7 @@ import {
   SUBMIT_GRACE_SECONDS,
   computeAttemptEndTime,
   finalizeFromSavedAttempts,
+  gradeUngradedAttempts,
   isPastDeadline,
   secondsRemaining,
 } from "../utils/quizTiming";
@@ -1537,6 +1538,20 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         timed_out: questionTimedOut,
         time_limit_seconds: question.time_limit_seconds,
       });
+    }
+
+    // Answers saved on the server but not in this request still count; code
+    // answers that were only background-saved (TM-FIX-8) are graded now.
+    const answeredIds = new Set(results.map((r: any) => r.question_id));
+    const savedElsewhere = allAttempts.filter(
+      (a) =>
+        !answeredIds.has(a.question_id) &&
+        allQuizQuestions.some((q) => q.id === a.question_id),
+    );
+    await gradeUngradedAttempts(savedElsewhere, transaction);
+    for (const a of savedElsewhere) {
+      calculatedTotalScore += parseFloat(String(a.points_earned)) || 0;
+      if (isPendingGrade(a.grading_details)) anyPendingReview = true;
     }
 
     const finalPercentage =

@@ -1,6 +1,8 @@
 import { Transaction } from "sequelize";
 import { QuizAttempt, QuizQuestion } from "../models";
 import { gradeStatusOnSubmit, isPassed } from "./quizStudentView";
+import { AdvancedQuizGrader, isUngradedSave } from "./quizGrader";
+import { getQuestionBankInclude } from "./quizUtils";
 
 /**
  * Quiz timing rules shared by the submission/attempt controllers.
@@ -75,6 +77,52 @@ const safeJson = (v: string) => {
   }
 };
 
+/**
+ * Grade the code answers that were only background-saved (TM-FIX-8) and
+ * store the result on the attempt. Returns how many were graded.
+ */
+export async function gradeUngradedAttempts(
+  attempts: any[],
+  transaction?: Transaction,
+): Promise<number> {
+  let graded = 0;
+  for (const attempt of attempts) {
+    if (!isUngradedSave(attempt.grading_details)) continue;
+    const question = await QuizQuestion.findByPk(attempt.question_id, {
+      include: getQuestionBankInclude(),
+      transaction,
+    });
+    if (!question) continue;
+    let result: any;
+    try {
+      result = await AdvancedQuizGrader.gradeWithConfig(
+        question,
+        attempt.submitted_answer as any,
+      );
+    } catch (error) {
+      console.error(`Grading saved answer ${attempt.id} failed:`, error);
+      result = {
+        is_correct: false,
+        points_earned: 0,
+        detailed_feedback: {
+          grade_status: "pending",
+          pending_reason: "Automatic grading failed – needs manual review.",
+        },
+      };
+    }
+    await attempt.update(
+      {
+        is_correct: result.is_correct,
+        points_earned: result.points_earned,
+        grading_details: result.detailed_feedback ?? null,
+      },
+      { transaction },
+    );
+    graded++;
+  }
+  return graded;
+}
+
 export interface FinalizedSummary {
   submission_id: number;
   final_score: number;
@@ -104,10 +152,19 @@ export async function finalizeFromSavedAttempts(
     }),
     QuizAttempt.findAll({
       where: { submission_id: submission.id },
-      attributes: ["id", "question_id", "points_earned", "grading_details"],
+      attributes: [
+        "id",
+        "question_id",
+        "points_earned",
+        "is_correct",
+        "submitted_answer",
+        "grading_details",
+      ],
       transaction,
     }),
   ]);
+  // Code answers that were only background-saved get graded now.
+  await gradeUngradedAttempts(attempts, transaction);
 
   const maxScore = questions.reduce((sum, q) => sum + Number(q.points || 0), 0);
   const totalScore = attempts.reduce(

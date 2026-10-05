@@ -157,11 +157,16 @@ export class QuizApiService {
     return response.data;
   }
 
+  /**
+   * Save one answer. `saveOnly` (coding/algorithmic background saves) stores
+   * it without grading — no judge run; it is graded on submit.
+   */
   static async submitQuestionAnswer(
     submissionId: number,
     questionId: number,
     answerData: AnswerDataType,
     timeTakenSeconds?: number,
+    opts: { saveOnly?: boolean } = {},
   ): Promise<{ success: boolean; data: any }> {
     const response = await axios.post(
       `/quizzes/attempts/${submissionId}/questions/${questionId}/answer`,
@@ -170,6 +175,7 @@ export class QuizApiService {
         ...(typeof timeTakenSeconds === "number"
           ? { time_taken: timeTakenSeconds }
           : {}),
+        ...(opts.saveOnly ? { save_only: true } : {}),
       },
     );
     return response.data;

@@ -396,4 +396,47 @@ describe("coding questions: per-test results (TM-FIX-1)", () => {
     expect(details.totalTests).toBe(1);
     expect(saved.body.data.grading_result.points_earned).toBeNull();
   });
+
+  it("background save_only stores code without running the judge; submit grades it (TM-FIX-8)", async () => {
+    const { quiz, question } = await makeCodingQuiz();
+    const sub = (await start(quiz.id)).body.data;
+    const answer = { code: "print(3)", language: "python" };
+
+    const saved = await asStudent(
+      request(app).post(`/api/quizzes/attempts/${sub.id}/questions/${question.id}/answer`),
+    ).send({ answer_data: answer, time_taken: 3, save_only: true });
+    expect(saved.status).toBe(201);
+    expect(saved.body.data.graded).toBe(false);
+    expect(Judge0Service.submit).not.toHaveBeenCalled();
+    const row = await QuizAttempt.findOne({ where: { submission_id: sub.id, question_id: question.id } });
+    expect(row?.submitted_answer).toEqual(answer);
+    expect(row?.grading_details).toEqual({ ungraded: true });
+
+    // The final submit doesn't resend it: the saved copy is graded.
+    const done = await submit(quiz.id, []);
+    expect(done.status).toBe(201);
+    expect(Judge0Service.submit).toHaveBeenCalled();
+    const stored = await QuizSubmission.findByPk(sub.id);
+    expect(Number(stored?.total_score)).toBe(1); // visible test passes, hidden fails
+    await row?.reload();
+    expect((row?.grading_details as any).testResults).toHaveLength(2);
+  });
+
+  it("an expired attempt finalized from saved answers grades background-saved code", async () => {
+    const { quiz, question } = await makeCodingQuiz({ time_limit: 5 });
+    const sub = (await start(quiz.id)).body.data;
+    await asStudent(
+      request(app).post(`/api/quizzes/attempts/${sub.id}/questions/${question.id}/answer`),
+    ).send({ answer_data: { code: "print(3)", language: "python" }, save_only: true });
+    await QuizSubmission.update(
+      { end_time: new Date(Date.now() - 10 * 60 * 1000) } as any,
+      { where: { id: sub.id } },
+    );
+    const res = await start(quiz.id); // resume → finalized from saved answers
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("ATTEMPT_TIME_EXPIRED");
+    const stored = await QuizSubmission.findByPk(sub.id);
+    expect(stored?.status).toBe("completed");
+    expect(Number(stored?.total_score)).toBe(1);
+  });
 });

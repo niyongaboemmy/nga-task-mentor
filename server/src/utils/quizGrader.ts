@@ -1858,6 +1858,25 @@ export function normalizeAlgorithmicAnswer(
   return null;
 }
 
+/**
+ * grading_details of a code answer stored by a background "save only"
+ * (TM-FIX-8): kept on the server, not graded yet. It is graded on submit —
+ * submitQuizAttempt or finalizeFromSavedAttempts.
+ */
+export const UNGRADED_SAVE = Object.freeze({ ungraded: true });
+
+export const isUngradedSave = (details: any): boolean => {
+  let d = details;
+  if (typeof d === "string") {
+    try {
+      d = JSON.parse(d);
+    } catch {
+      return false;
+    }
+  }
+  return d?.ungraded === true;
+};
+
 export class CodingGrader {
   static async gradeCoding(
     question: QuizQuestion,

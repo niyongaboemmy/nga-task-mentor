@@ -10,7 +10,11 @@ import {
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { AnswerDataType, GradingResult } from "../types/quiz.types";
-import { AdvancedQuizGrader } from "../utils/quizGrader";
+import {
+  AdvancedQuizGrader,
+  UNGRADED_SAVE,
+  isUngradedSave,
+} from "../utils/quizGrader";
 import { resolveAcademicTermId } from "../utils/misUtils";
 import {
   buildStudentResults,
@@ -308,6 +312,59 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     const normalizedCorrectAnswer =
       AdvancedQuizGrader.normalizeCorrectAnswer(question);
 
+    // Background save of a code answer (TM-FIX-8): store it, don't run the
+    // judge. It is graded on submit. An unchanged answer that is already
+    // graded is left alone.
+    const questionType = question.questionBank?.question_type;
+    const isCodeType = questionType === "coding" || questionType === "algorithmic";
+    if (req.body.save_only === true && isCodeType) {
+      const unchanged =
+        !!attempt &&
+        !isUngradedSave(attempt.grading_details) &&
+        JSON.stringify(attempt.submitted_answer) ===
+          JSON.stringify(normalizedSubmittedAnswer.data);
+      if (!unchanged) {
+        const values = {
+          submitted_answer: normalizedSubmittedAnswer.data,
+          correct_answer: normalizedCorrectAnswer.data,
+          grading_details: { ...UNGRADED_SAVE },
+          is_correct: null as any,
+          points_earned: 0,
+          time_taken:
+            typeof time_taken === "number" ? time_taken : (attempt?.time_taken ?? 0),
+          completed_at: new Date(),
+          status: "completed" as const,
+        };
+        if (attempt) {
+          await attempt.update(values, { transaction });
+        } else {
+          attempt = await QuizAttempt.create(
+            {
+              ...values,
+              quiz_id: submission.quiz_id,
+              question_id: parseInt(questionId),
+              student_id: req.user.id,
+              submission_id: parseInt(submissionId),
+              started_at: new Date(),
+            },
+            { transaction },
+          );
+        }
+      }
+      await transaction.commit();
+      return res.status(201).json({
+        success: true,
+        data: {
+          attempt_id: attempt?.id ?? null,
+          saved: true,
+          graded: false,
+          grading_result: { is_correct: null, points_earned: null, feedback: "Answer saved" },
+          grading_details: null,
+          question_completed: true,
+        },
+      });
+    }
+
     let gradingResult: GradingResult;
     let attemptStatus: "completed" | "timed_out" = "completed";
     try {
@@ -379,8 +436,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     // test-run output, which is part of the question itself; their score and
     // hidden-test results show only when the quiz releases grades
     // immediately (resultVisibility).
-    const questionType = question.questionBank?.question_type;
-    const isCodeRun = questionType === "coding" || questionType === "algorithmic";
+    const isCodeRun = isCodeType;
     const revealScore =
       isCodeRun &&
       quiz.show_results_immediately !== false &&
