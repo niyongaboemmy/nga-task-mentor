@@ -20,6 +20,8 @@ interface ProctoringSettingsData {
   allow_audio_monitoring: boolean;
   allow_video_monitoring: boolean;
   lockdown_browser: boolean;
+  /** SEB Config Key (64 hex); never returned to students. */
+  seb_config_key?: string | null;
   prevent_tab_switching: boolean;
   prevent_window_minimization: boolean;
   prevent_copy_paste: boolean;
@@ -58,7 +60,9 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
     allow_screen_recording: true,
     allow_audio_monitoring: true,
     allow_video_monitoring: true,
-    lockdown_browser: true,
+    // Requires Safe Exam Browser: opt-in only.
+    lockdown_browser: false,
+    seb_config_key: null,
     prevent_tab_switching: true,
     prevent_window_minimization: true,
     prevent_copy_paste: true,
@@ -238,7 +242,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
             <div className="space-y-3">
               <div>
                 <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
-                  Max Flags Allowed
+                  Max Flags Allowed (tab switches, blocked pastes…)
                 </label>
                 <input
                   type="number"
@@ -601,9 +605,32 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   disabled={!settings.enabled}
                 />
                 <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Lockdown browser mode
+                  Require Safe Exam Browser
                 </span>
               </label>
+              {settings.lockdown_browser && (
+                <div className="md:col-span-2">
+                  <label
+                    htmlFor="seb-config-key"
+                    className="block text-xs font-medium mb-1 text-text-secondary-light dark:text-text-secondary-dark"
+                  >
+                    Safe Exam Browser Config Key (SEB Config Tool → Config Key). Students
+                    can only start or answer from SEB with this configuration.
+                  </label>
+                  <input
+                    id="seb-config-key"
+                    type="text"
+                    spellCheck={false}
+                    value={settings.seb_config_key ?? ""}
+                    onChange={(e) =>
+                      handleInputChange("seb_config_key", e.target.value.trim())
+                    }
+                    placeholder="64 hexadecimal characters"
+                    className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-xs font-mono"
+                    disabled={!settings.enabled}
+                  />
+                </div>
+              )}
 
               <label className="flex items-center">
                 <input
@@ -616,7 +643,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   disabled={!settings.enabled}
                 />
                 <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Prevent tab switching
+                  Detect and log tab switching
                 </span>
               </label>
 
@@ -634,7 +661,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   disabled={!settings.enabled}
                 />
                 <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Prevent window minimization
+                  Detect and log leaving the quiz window
                 </span>
               </label>
 
@@ -649,7 +676,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   disabled={!settings.enabled}
                 />
                 <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Prevent copy/paste
+                  Block copying the quiz and pasting from outside (logged)
                 </span>
               </label>
 
@@ -664,7 +691,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   disabled={!settings.enabled}
                 />
                 <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Prevent right-click
+                  Block the right-click menu
                 </span>
               </label>
 
@@ -705,7 +732,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   disabled={!settings.enabled}
                 />
                 <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                  Auto-terminate sessions with high risk scores
+                  Submit the quiz automatically when a student goes over the max flags
                 </span>
               </label>
 

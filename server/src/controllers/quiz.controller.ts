@@ -52,6 +52,7 @@ import {
   studentAttemptSummary,
 } from "../utils/quizStudentView";
 import { studentMayTakeQuiz } from "../utils/studentEnrollment";
+import { enforceLockdown } from "../utils/lockdown";
 import { cancelQuiz, syncQuiz } from "../services/reminderSync";
 import {
   SUBMIT_GRACE_SECONDS,
@@ -1346,6 +1347,11 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       });
     }
 
+    if (!(await enforceLockdown(req, res, quiz.id))) {
+      await transaction.rollback();
+      return;
+    }
+
     // Check if student already has an in-progress submission
     const existingSubmission = await QuizSubmission.findOne({
       where: {
@@ -1722,6 +1728,13 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
       return res
         .status(404)
         .json({ success: false, message: "Quiz not found" });
+    }
+
+    // lockdown_browser: starting or resuming needs Safe Exam Browser
+    // (409 LOCKDOWN_REQUIRED).
+    if (!(await enforceLockdown(req, res, quiz.id))) {
+      await transaction.rollback();
+      return;
     }
 
     // Check if student already has an in-progress submission

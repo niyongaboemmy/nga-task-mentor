@@ -25,6 +25,13 @@ export interface IProctoringSettingsAttributes {
   allow_audio_monitoring: boolean;
   allow_video_monitoring: boolean;
   lockdown_browser: boolean;
+  /**
+   * Safe Exam Browser Config Key for this quiz (64 hex chars, from SEB
+   * Config Tool). With `lockdown_browser` on, attempts must come from SEB
+   * using this configuration (X-SafeExamBrowser-ConfigKeyHash). Never sent
+   * to students.
+   */
+  seb_config_key?: string | null;
   prevent_tab_switching: boolean;
   prevent_window_minimization: boolean;
   prevent_copy_paste: boolean;
@@ -144,6 +151,13 @@ export class ProctoringSettings extends Model<
     field: "lockdown_browser",
   })
   lockdown_browser!: boolean;
+
+  @Column({
+    type: DataType.STRING(128),
+    allowNull: true,
+    field: "seb_config_key",
+  })
+  seb_config_key?: string | null;
 
   @Column({
     type: DataType.BOOLEAN,

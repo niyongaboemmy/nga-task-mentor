@@ -128,6 +128,9 @@ app.use(
       "Authorization",
       "x-mis-token",
       "X-Db-Access-Token",
+      // Safe Exam Browser adds these to every request (lockdown_browser).
+      "X-SafeExamBrowser-ConfigKeyHash",
+      "X-SafeExamBrowser-RequestHash",
     ],
   }),
 );

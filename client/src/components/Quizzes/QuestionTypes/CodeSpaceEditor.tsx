@@ -51,6 +51,11 @@ import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
 import RichTextDisplay from "../../Common/RichTextDisplay";
 import CountdownTimer from "../../Dashboard/CountdownTimer";
+import {
+  guardEditorPaste,
+  isPasteGuardActive,
+  rememberInternalCopy,
+} from "../../../hooks/useQuizLockdown";
 import QuestionTimer from "../../ui/QuestionTimer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -1058,6 +1063,23 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
                     onMount={(editor) => {
                       editorRef.current = editor;
                       editor.focus();
+                      // Quiz lockdown (prevent_copy_paste): code copied in the
+                      // editor may be pasted back; anything else is undone.
+                      // onDidPaste also catches the context-menu paste, which
+                      // reads the clipboard API and skips DOM paste events.
+                      editor.onKeyDown((e: any) => {
+                        if (!isPasteGuardActive()) return;
+                        const key = e.browserEvent?.key?.toLowerCase();
+                        if ((e.ctrlKey || e.metaKey) && (key === "c" || key === "x")) {
+                          const sel = editor.getSelection();
+                          if (sel) rememberInternalCopy(editor.getModel()?.getValueInRange(sel));
+                        }
+                      });
+                      editor.onDidPaste((e: any) => {
+                        if (!isPasteGuardActive()) return;
+                        const pasted = editor.getModel()?.getValueInRange(e.range) ?? "";
+                        if (guardEditorPaste(pasted)) editor.trigger("lockdown", "undo", null);
+                      });
                     }}
                     options={{
                       fontSize: 14,

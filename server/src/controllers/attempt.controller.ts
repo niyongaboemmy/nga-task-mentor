@@ -16,6 +16,7 @@ import {
   isUngradedSave,
 } from "../utils/quizGrader";
 import { resolveAcademicTermId } from "../utils/misUtils";
+import { enforceLockdown } from "../utils/lockdown";
 import {
   buildStudentResults,
   needsManualReview,
@@ -103,6 +104,12 @@ export const startQuizAttempt = async (req: Request, res: Response) => {
       return res
         .status(404)
         .json({ success: false, message: "Quiz not found" });
+    }
+
+    // lockdown_browser: only from Safe Exam Browser (409 LOCKDOWN_REQUIRED)
+    if (!(await enforceLockdown(req, res, quiz.id))) {
+      await transaction.rollback();
+      return;
     }
 
     // Check if quiz is available
@@ -244,6 +251,13 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
         success: false,
         message: "Not authorized to submit answer for this submission",
       });
+    }
+
+    // A lockdown quiz takes answers only from Safe Exam Browser — also for
+    // an attempt that was started without it.
+    if (!(await enforceLockdown(req, res, submission.quiz_id))) {
+      await transaction.rollback();
+      return;
     }
 
     // Check if submission is still in progress
@@ -505,6 +519,11 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
         success: false,
         message: "Not authorized to submit answers for this submission",
       });
+    }
+
+    if (!(await enforceLockdown(req, res, submission.quiz_id))) {
+      await transaction.rollback();
+      return;
     }
 
     // Check if submission is still in progress

@@ -33,6 +33,8 @@ import FloatingCameraComponent from "../components/Proctoring/FloatingCameraComp
 import WarningNotification from "../components/Proctoring/WarningNotification";
 import NoteNotification from "../components/Proctoring/NoteNotification";
 import PauseOverlay from "../components/Proctoring/PauseOverlay";
+import LockdownWarningOverlay from "../components/Proctoring/LockdownWarningOverlay";
+import { useQuizLockdown } from "../hooks/useQuizLockdown";
 import type {
   Quiz,
   QuizQuestion,
@@ -1690,6 +1692,30 @@ const QuizTakingPage: React.FC = () => {
     submitQuizRef.current = submitQuiz;
   }, [submitQuiz]);
 
+  // The quiz's browser restrictions (copy/paste, right click, leaving the
+  // window), while the student is answering. Over max_flags_allowed with
+  // auto_terminate_on_high_risk on, the attempt is submitted.
+  const lockdown = useQuizLockdown({
+    settings: proctoringSettings,
+    active:
+      !!existingSubmission &&
+      !showInstructions &&
+      !showProctoringSetup &&
+      timeUpState === null,
+    sessionToken: proctoringSession?.session_token ?? null,
+    quizId: quiz?.id,
+    socket: socketRef.current,
+    onFlagLimit: () => {
+      setTerminationReason(
+        "You left the quiz window or broke its rules more often than allowed. Your quiz is being submitted.",
+      );
+      setShowQuizTerminated(true);
+      setTimeout(() => {
+        submitQuizRef.current({ auto: true });
+      }, 3000);
+    },
+  });
+
   const nextInstruction = () => {
     if (currentInstructionStep < instructions.length - 1) {
       setCurrentInstructionStep(currentInstructionStep + 1);
@@ -2794,6 +2820,11 @@ const QuizTakingPage: React.FC = () => {
 
       {/* Pause Overlay - When exam is paused */}
       <PauseOverlay isVisible={isExamPaused} reason={pauseReason} />
+      <LockdownWarningOverlay
+        incident={showQuizTerminated ? null : lockdown.incident}
+        maxFlags={lockdown.maxFlags}
+        onDismiss={lockdown.dismiss}
+      />
 
       {timeUpOverlay}
 
