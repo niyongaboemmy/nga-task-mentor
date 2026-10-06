@@ -1,6 +1,7 @@
 import React from "react";
 import { bandMeta, bandOf } from "../../../services/subjectReportApi";
 import { SELECT, type ProfileSubject } from "./profileTheme";
+import Select from "../../ui/Select";
 
 // Small building blocks shared by the student profile tabs.
 
@@ -85,7 +86,7 @@ export function SubjectSelect({
   allLabel?: string;
 }) {
   return (
-    <select
+    <Select
       aria-label="Subject"
       value={value ?? ""}
       onChange={(e) => onChange(e.target.value || null)}
@@ -97,7 +98,7 @@ export function SubjectSelect({
           {s.name}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
 

@@ -23,6 +23,7 @@ import {
   type GroupedAssessment,
 } from "../services/submissionsApi";
 import { onAcademicPeriodChanged } from "../utils/academicPeriodEvents";
+import Select from "../components/ui/Select";
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 
@@ -470,10 +471,10 @@ const SubmissionsPage: React.FC = () => {
             className="w-full rounded-xl border border-transparent bg-surface-light py-2.5 pl-9 pr-4 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark"
           />
         </div>
-        <select
+        <Select
           value={subjectId}
           onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : "")}
-          className="rounded-xl border border-transparent bg-surface-light px-3 py-2.5 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark lg:w-56"
+          className="lg:w-56"
         >
           <option value="">All subjects</option>
           {allSubjects.map((s) => (
@@ -482,11 +483,11 @@ const SubmissionsPage: React.FC = () => {
               {s.name}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="rounded-xl border border-transparent bg-surface-light px-3 py-2.5 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark lg:w-44"
+          className="lg:w-44"
         >
           {statusOptions.map((o) => (
             <option key={o} value={o}>
@@ -497,7 +498,7 @@ const SubmissionsPage: React.FC = () => {
                 : STATUS_LABELS[o] ?? prettyStatus(o)}
             </option>
           ))}
-        </select>
+        </Select>
         <button
           onClick={() => fetchData({ refresh: true })}
           disabled={refreshing}

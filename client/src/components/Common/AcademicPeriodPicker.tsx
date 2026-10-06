@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { Calendar, Loader2 } from "lucide-react";
 import { getAcademicTerms, getAcademicYears } from "../../services/authService";
 import type { AcademicTerm, AcademicYear } from "../../types/user.types";
+import Select from "../ui/Select";
 
 export interface SelectedPeriod {
   academicYearId: number;
@@ -87,11 +88,10 @@ const AcademicPeriodPicker: React.FC<AcademicPeriodPickerProps> = ({
   return (
     <div className={`flex items-center gap-2 ${className}`}>
       <Calendar className="w-4 h-4 text-gray-400 dark:text-gray-500 shrink-0" />
-      <select
+      <Select variant="outline"
         value={selectedYearId}
         onChange={(e) => handleYearChange(e.target.value)}
         disabled={loadingYears}
-        className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/30"
       >
         <option value="">Current Term</option>
         {years.map((y) => (
@@ -99,13 +99,12 @@ const AcademicPeriodPicker: React.FC<AcademicPeriodPickerProps> = ({
             {y.name}
           </option>
         ))}
-      </select>
+      </Select>
       {selectedYearId !== "" && (
-        <select
+        <Select variant="outline"
           value={selectedTermId}
           onChange={(e) => handleTermChange(e.target.value)}
           disabled={loadingTerms}
-          className="px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/30"
         >
           <option value="">Select term...</option>
           {terms.map((t) => (
@@ -113,7 +112,7 @@ const AcademicPeriodPicker: React.FC<AcademicPeriodPickerProps> = ({
               {t.name}
             </option>
           ))}
-        </select>
+        </Select>
       )}
       {loadingTerms && <Loader2 className="w-4 h-4 animate-spin text-gray-400 dark:text-gray-500" />}
     </div>

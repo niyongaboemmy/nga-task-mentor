@@ -14,6 +14,7 @@ import {
   AlertTriangle,
   CheckCircle,
 } from "lucide-react";
+import Select from "../ui/Select";
 
 interface QuizAnalyticsPageProps {}
 
@@ -111,15 +112,14 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
             </p>
           </div>
           <div className="flex gap-2">
-            <select
+            <Select size="sm" variant="outline"
               value={timeRange}
               onChange={(e) => setTimeRange(e.target.value as any)}
-              className="px-2 py-1.5 text-sm border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="all">All Time</option>
               <option value="month">Last Month</option>
               <option value="week">Last Week</option>
-            </select>
+            </Select>
             <Button
               onClick={() => navigate(`/quizzes/${quizId}`)}
               variant="secondary"

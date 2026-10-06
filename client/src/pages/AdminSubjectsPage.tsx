@@ -26,6 +26,7 @@ import {
   type SubjectSort,
 } from "../services/adminReportsApi";
 import type { SubjectHealth } from "../services/instructorOverviewApi";
+import Select from "../components/ui/Select";
 
 // ─── /courses for school-wide viewers ─────────────────────────────────────────
 // Every subject in the school with the same per-subject numbers the teacher
@@ -271,38 +272,38 @@ const AdminSubjectsPage: React.FC = () => {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <select aria-label="Programme" className={selectCls} value={programme ?? ""} onChange={(e) => update({ programme: e.target.value || undefined })}>
+            <Select aria-label="Programme" className={selectCls} value={programme ?? ""} onChange={(e) => update({ programme: e.target.value || undefined })}>
               <option value="">All programmes</option>
               {data.facets.programmes.map((p) => (
                 <option key={p} value={p}>
                   {p}
                 </option>
               ))}
-            </select>
-            <select aria-label="Class" className={selectCls} value={classGroupId ?? ""} onChange={(e) => update({ classGroupId: e.target.value || undefined })}>
+            </Select>
+            <Select aria-label="Class" className={selectCls} value={classGroupId ?? ""} onChange={(e) => update({ classGroupId: e.target.value || undefined })}>
               <option value="">All classes</option>
               {data.facets.class_groups.map((g) => (
                 <option key={g.id} value={g.id}>
                   {g.name}
                 </option>
               ))}
-            </select>
-            <select aria-label="Teacher" className={selectCls} value={teacherId ?? ""} onChange={(e) => update({ teacherId: e.target.value || undefined })}>
+            </Select>
+            <Select aria-label="Teacher" className={selectCls} value={teacherId ?? ""} onChange={(e) => update({ teacherId: e.target.value || undefined })}>
               <option value="">All teachers</option>
               {data.facets.teachers.map((tc) => (
                 <option key={tc.mis_user_id} value={tc.mis_user_id}>
                   {tc.name}
                 </option>
               ))}
-            </select>
-            <select aria-label="Needs" className={selectCls} value={flag ?? ""} onChange={(e) => update({ flag: e.target.value || undefined })}>
+            </Select>
+            <Select aria-label="Needs" className={selectCls} value={flag ?? ""} onChange={(e) => update({ flag: e.target.value || undefined })}>
               <option value="">Any issue</option>
               {FLAGS.map((f) => (
                 <option key={f.key} value={f.key}>
                   {f.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
 
@@ -318,7 +319,7 @@ const AdminSubjectsPage: React.FC = () => {
             ))}
           </div>
           <div className="flex items-center gap-2">
-            <select
+            <Select
               aria-label="Sort by"
               className={selectCls}
               value={sort}
@@ -332,7 +333,7 @@ const AdminSubjectsPage: React.FC = () => {
                   Sort: {s.label}
                 </option>
               ))}
-            </select>
+            </Select>
             <button
               type="button"
               onClick={() => update({ dir: dir === "asc" ? "desc" : "asc" })}

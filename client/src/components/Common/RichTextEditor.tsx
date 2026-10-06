@@ -76,6 +76,7 @@ import {
 } from "../../utils/editorImages";
 
 import { FontSize } from "./extensions/fontSizeExtension";
+import Select from "../ui/Select";
 
 // Custom Line Height Extension
 const LineHeight = Extension.create({
@@ -540,7 +541,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           {/* Text Style Group */}
           <div className="flex items-center gap-0.5 px-1 border-r border-gray-200 dark:border-gray-800">
             <div className="relative group mx-1 flex items-center">
-              <select
+              <Select size="sm" variant="ghost"
                 onChange={(e) => {
                   const val = e.target.value;
                   if (val === "0") {
@@ -562,54 +563,54 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                         ? "3"
                         : "0"
                 }
-                className="bg-transparent text-[13px] font-medium text-gray-700 dark:text-gray-200 outline-none cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1.5 rounded appearance-none w-28"
+                className="w-28"
               >
                 <option value="0">Normal text</option>
                 <option value="1">Heading 1</option>
                 <option value="2">Heading 2</option>
                 <option value="3">Heading 3</option>
-              </select>
+              </Select>
             </div>
 
             <div className="w-px h-5 bg-gray-300 dark:bg-gray-700 mx-1" />
 
             {/* Font Size Dropdown */}
             <div className="flex items-center mx-1">
-              <select
+              <Select size="sm" variant="ghost"
                 onChange={(e) =>
                   (editor.chain().focus() as any)
                     .setFontSize(e.target.value)
                     .run()
                 }
                 value={currentFontSize}
-                className="bg-transparent text-[13px] font-medium text-gray-700 dark:text-gray-200 outline-none cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1.5 rounded appearance-none w-14 text-center"
+                className="w-14"
               >
                 {fontSizes.map((size) => (
                   <option key={size} value={size}>
                     {size.replace("pt", "")}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
 
             <div className="w-px h-5 bg-gray-300 dark:bg-gray-700 mx-1" />
 
             {/* Line Height Dropdown */}
             <div className="flex items-center mx-1">
-              <select
+              <Select size="sm" variant="ghost"
                 onChange={(e) =>
                   (editor.chain().focus() as any)
                     .setLineHeight(e.target.value)
                     .run()
                 }
                 value={currentLineHeight}
-                className="bg-transparent text-[13px] font-medium text-gray-700 dark:text-gray-200 outline-none cursor-pointer hover:bg-gray-100 dark:hover:bg-gray-800 px-2 py-1.5 rounded appearance-none w-28"
+                className="w-28"
               >
                 <option value="1">Single</option>
                 <option value="1.15">1.15</option>
                 <option value="1.5">1.5</option>
                 <option value="2">Double</option>
-              </select>
+              </Select>
             </div>
           </div>
 

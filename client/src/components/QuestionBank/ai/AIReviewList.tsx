@@ -13,6 +13,7 @@ import {
   typeLabel,
 } from "./aiGeneratorModel";
 import type { AIBloomLevel } from "../../../services/aiQuestionGenerationApi";
+import Select from "../../ui/Select";
 
 export interface ReviewQuestion {
   uid: string;
@@ -97,11 +98,10 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange, bloomLevels = [] }
           ))}
         </div>
         {types.length > 1 && (
-          <select
+          <Select size="sm" variant="outline"
             aria-label="Filter by type"
             value={type}
             onChange={(e) => setType(e.target.value as QuestionType | "ALL")}
-            className="px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-xs text-text-primary-light dark:text-text-primary-dark"
           >
             <option value="ALL">All types</option>
             {types.map((t) => (
@@ -109,13 +109,12 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange, bloomLevels = [] }
                 {typeLabel(t)}
               </option>
             ))}
-          </select>
+          </Select>
         )}
-        <select
+        <Select size="sm" variant="outline"
           aria-label="Filter by Bloom's level"
           value={bloom}
           onChange={(e) => setBloom(e.target.value === "ALL" ? "ALL" : Number(e.target.value))}
-          className="px-2.5 py-1.5 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-xs text-text-primary-light dark:text-text-primary-dark"
         >
           <option value="ALL">All Bloom's levels</option>
           {bloomCounts.filter((l) => l.count).map((l) => (
@@ -123,7 +122,7 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange, bloomLevels = [] }
               L{l.order} · {l.name} ({l.count})
             </option>
           ))}
-        </select>
+        </Select>
         <div className="ml-auto flex items-center gap-3 text-xs">
           <button type="button" onClick={() => setVisibleSelected(selectedVisible < visible.length)} className="font-medium text-blue-600 dark:text-blue-300 hover:underline">
             {selectedVisible < visible.length ? "Select all" : "Select none"}
@@ -212,12 +211,12 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange, bloomLevels = [] }
                 </button>
                 {/* Phones: controls get their own line under the text instead of squeezing it. */}
                 <div className="flex items-center gap-1 shrink-0 w-full sm:w-auto pl-8 sm:pl-0 sm:justify-end">
-                  <select
+                  <Select size="sm" variant="bare"
                     aria-label="Bloom's level"
                     title={q.blooms_level ? BLOOM_LEVELS[q.blooms_level - 1]?.name : "Not classified"}
                     value={q.blooms_level ?? ""}
                     onChange={(e) => update(q.uid, bloomFields(Number(e.target.value)))}
-                    className={`text-[11px] font-semibold rounded-lg border px-1.5 py-1 ${
+                    triggerClassName={`!h-7 text-[11px] font-semibold ${
                       q.blooms_level ? BLOOM_LEVELS[q.blooms_level - 1]?.chip : "border-gray-200 text-gray-400"
                     }`}
                   >
@@ -227,8 +226,8 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange, bloomLevels = [] }
                         L{l.order} · {l.short}
                       </option>
                     ))}
-                  </select>
-                  <select
+                  </Select>
+                  <Select size="sm" variant="bare"
                     aria-label="Difficulty"
                     value={q.difficulty_level}
                     onChange={(e) => {
@@ -238,14 +237,14 @@ const AIReviewList: React.FC<Props> = ({ questions, onChange, bloomLevels = [] }
                       if (!isBloomAligned(q.blooms_level, d)) Object.assign(patch, bloomFields(nearestBloomInBand(q.blooms_level, d)));
                       update(q.uid, patch);
                     }}
-                    className={`text-[11px] font-semibold rounded-lg border px-1.5 py-1 ${DIFFICULTIES.find((d) => d.value === q.difficulty_level)?.chip ?? ""}`}
+                    triggerClassName={`!h-7 text-[11px] font-semibold ${DIFFICULTIES.find((d) => d.value === q.difficulty_level)?.chip ?? ""}`}
                   >
                     {DIFFICULTIES.map((d) => (
                       <option key={d.value} value={d.value}>
                         {d.label}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   <button
                     type="button"
                     aria-label="Remove question"

@@ -19,6 +19,7 @@ const quizApi = vi.hoisted(() => ({
 vi.mock("../services/quizApi", () => ({ QuizApiService: quizApi }));
 
 import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const algorithmic = {
   id: 11,
@@ -62,9 +63,9 @@ describe("algorithmic questions use the code editor (TM-FIX-2)", () => {
     });
 
     // Only the question's languages are offered.
-    const picker = screen.getByTestId("code-language-picker") as HTMLSelectElement;
-    expect(Array.from(picker.options).map((o) => o.value)).toEqual(["python", "javascript"]);
-    fireEvent.change(picker, { target: { value: "javascript" } });
+    const picker = screen.getByTestId("code-language-picker");
+    expect(optionValues(picker)).toEqual(["python", "javascript"]);
+    pickOption(picker, "javascript");
     expect(onAnswerChange).toHaveBeenLastCalledWith(
       expect.objectContaining({ language: "javascript" }),
     );

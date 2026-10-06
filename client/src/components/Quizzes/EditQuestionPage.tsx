@@ -39,6 +39,7 @@ import type {
   BloomsTaxonomyLevel,
 } from "../../types/quiz.types";
 import RichEditor from "../ui/RichEditor";
+import Select from "../ui/Select";
 
 interface EditQuestionPageProps {
   quizId: number;
@@ -563,7 +564,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                     <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       Bloom's Taxonomy Level
                     </label>
-                    <select
+                    <Select size="lg" variant="outline"
                       value={formData.blooms_taxonomy_level_id ?? ""}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -573,7 +574,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                             : null,
                         }))
                       }
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full"
                     >
                       <option value="">— Uncategorized —</option>
                       {bloomsLevels.map((level) => (
@@ -581,14 +582,14 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                           {level.level_order}. {level.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       Difficulty Level
                     </label>
-                    <select
+                    <Select size="lg" variant="outline"
                       value={formData.difficulty_level ?? ""}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -596,13 +597,13 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                           difficulty_level: (e.target.value as any) || null,
                         }))
                       }
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full"
                     >
                       <option value="">— Uncategorized —</option>
                       <option value="EASY">🟢 Easy</option>
                       <option value="MEDIUM">🟡 Medium</option>
                       <option value="DIFFICULT">🔴 Difficult</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
 

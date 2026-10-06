@@ -12,6 +12,7 @@ import {
   AlertCircle,
   RotateCcw,
 } from "lucide-react";
+import Select from "../../ui/Select";
 
 // Extended answer type for component state management
 interface DropdownAnswerWithState extends DropdownAnswer {
@@ -236,7 +237,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
               return (
                 <span key={index} className="inline-block mx-1 align-middle">
                   <div className="relative inline-block min-w-[200px]">
-                    <select
+                    <Select variant="bare"
                       value={selectedValue}
                       onChange={(e) =>
                         handleSelectionChange(
@@ -245,7 +246,8 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                         )
                       }
                       disabled={disabled || submitted}
-                      className={`appearance-none w-full px-4 py-2 pr-10 border-2 rounded-lg text-sm font-medium transition-all ${
+                      className="w-full"
+                      triggerClassName={`border-2 font-medium ${
                         disabled || submitted
                           ? "cursor-not-allowed bg-gray-50 dark:bg-gray-800/50 text-text-secondary-light dark:text-text-secondary-dark/70"
                           : "cursor-pointer bg-white dark:bg-gray-800 hover:border-blue-400 dark:hover:border-blue-500"
@@ -257,7 +259,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                             : selectedValue
                               ? "border-blue-400 bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-300"
                               : "border-gray-300 dark:border-gray-600 text-text-primary-light dark:text-text-primary-dark"
-                      } focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      }`}
                     >
                       <option value="" disabled>
                         Select an option
@@ -276,7 +278,7 @@ export const DropdownQuestion: React.FC<QuestionComponentProps> = ({
                             : option}
                         </option>
                       ))}
-                    </select>
+                    </Select>
 
                     <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 pointer-events-none">
                       {status === true && showCorrectAnswer && (

@@ -17,6 +17,7 @@ vi.mock("../services/questionBankHubApi", () => ({
 }));
 
 import QuestionBankHubPage from "../pages/QuestionBankHubPage";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const stats = (id: number, name: string, extra: Partial<SubjectBankStats> = {}): SubjectBankStats => ({
   subject_id: id, subject_name: name, subject_code: `C${id}`, total: 0, mine: 0, easy: 0, medium: 0,
@@ -83,7 +84,7 @@ describe("QuestionBankHubPage", () => {
   it("filters the dashboard by subject through the URL", async () => {
     renderAt("/question-bank");
     await screen.findByText("Subject report");
-    fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "9" } });
+    pickOption(screen.getByLabelText("Subject"), "9");
     await waitFor(() => expect(getOverview).toHaveBeenLastCalledWith(9));
     expect(lastSearch).toContain("subject=9");
     // the per-subject report table is replaced by that subject's own view
@@ -123,7 +124,7 @@ describe("QuestionBankHubPage", () => {
 
     let resolve!: (v: QuestionBankOverview) => void;
     getOverview.mockImplementationOnce(() => new Promise((r) => (resolve = r)));
-    fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "9" } });
+    pickOption(screen.getByLabelText("Subject"), "9");
 
     // stale dashboard gone, skeleton + busy select + progress bar instead
     await waitFor(() => expect(screen.queryByText("Subject report")).not.toBeInTheDocument());
@@ -145,8 +146,8 @@ describe("QuestionBankHubPage", () => {
 
     let resolveSlow!: (v: QuestionBankOverview) => void;
     getOverview.mockImplementationOnce(() => new Promise((r) => (resolveSlow = r))); // subject 9
-    fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "9" } });
-    fireEvent.change(screen.getByLabelText("Subject"), { target: { value: "" } }); // back to all
+    pickOption(screen.getByLabelText("Subject"), "9");
+    pickOption(screen.getByLabelText("Subject"), ""); // back to all
     await screen.findByText("Subject report");
 
     resolveSlow(overview(9)); // arrives late -- must not replace "all subjects"

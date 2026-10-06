@@ -11,6 +11,7 @@ import {
 import { RankingSkeleton, SubjectPicker } from "./rankingParts";
 import StudentRankingPanel from "./StudentRankingPanel";
 import StaffLeaderboardPanel from "./StaffLeaderboardPanel";
+import Select from "../ui/Select";
 
 // The ranking, for whoever is looking. Used by the Overall Ranking page (all
 // subjects, subject picker) and by a subject's Ranking tab (subject locked).
@@ -78,7 +79,7 @@ export default function RankingView({ filters, onChange, lockedSubjectId }: Prop
         <div className="flex flex-wrap items-center gap-2">
           <Segmented label="Kind of work" value={filters.kind} options={KIND_OPTIONS} onChange={(kind) => set({ kind })} />
           {isStaff && classGroups.length > 1 && (
-            <select
+            <Select
               aria-label="Class"
               value={filters.classGroupId ?? ""}
               onChange={(e) => set({ classGroupId: e.target.value ? Number(e.target.value) : null })}
@@ -90,7 +91,7 @@ export default function RankingView({ filters, onChange, lockedSubjectId }: Prop
                   {g.name}
                 </option>
               ))}
-            </select>
+            </Select>
           )}
           {data?.view === "student" && (
             <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark/70 sm:ml-auto">

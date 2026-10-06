@@ -38,6 +38,7 @@ import QuestionBankModal from "../QuestionBank/QuestionBankModal";
 import type { QuestionBankEntry } from "../../types/quiz.types";
 import RichTextDisplay from "../Common/RichTextDisplay";
 import { usePermissions } from "../../hooks/usePermissions";
+import Select from "../ui/Select";
 
 interface QuizViewProps {
   quizId: number;
@@ -405,15 +406,15 @@ const QuizEditForm: React.FC<{
           <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-1">
             Status
           </label>
-          <select
+          <Select variant="outline"
             value={editForm.status}
             onChange={(e) => onChange("status", e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="w-full"
           >
             <option value="draft">Draft</option>
             <option value="published">Published</option>
             <option value="completed">Completed</option>
-          </select>
+          </Select>
         </div>
         <div className="flex items-center pt-6">
           <input

@@ -15,6 +15,7 @@ import {
   List as ListIcon,
   UserRound,
 } from "lucide-react";
+import Select from "../ui/Select";
 
 /* -------------------------------------------------------------------------- */
 /*  Types                                                                      */
@@ -369,14 +370,14 @@ const MyStudentsView: React.FC = () => {
           />
         </div>
 
-        <select
+        <Select
           value={subjectFilter}
           onChange={(e) =>
             setSubjectFilter(
               e.target.value === "all" ? "all" : Number(e.target.value),
             )
           }
-          className="w-full rounded-xl border border-transparent bg-surface-light px-3 py-2.5 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark lg:w-52"
+          className="w-full lg:w-52"
         >
           <option value="all">All subjects</option>
           {subjects.map((s) => (
@@ -385,16 +386,16 @@ const MyStudentsView: React.FC = () => {
               {s.subject_name}
             </option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           value={classGroupFilter}
           onChange={(e) =>
             setClassGroupFilter(
               e.target.value === "all" ? "all" : Number(e.target.value),
             )
           }
-          className="w-full rounded-xl border border-transparent bg-surface-light px-3 py-2.5 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark lg:w-48"
+          className="w-full lg:w-48"
         >
           <option value="all">All class groups</option>
           {classGroups.map((c) => (
@@ -402,7 +403,7 @@ const MyStudentsView: React.FC = () => {
               {c.class_group_name}
             </option>
           ))}
-        </select>
+        </Select>
 
         <div className="flex shrink-0 rounded-xl bg-surface-light p-1 dark:bg-surface-dark/50">
           <button

@@ -17,6 +17,7 @@ vi.mock("../services/questionBankHubApi", () => ({
 }));
 
 import QuestionBankView from "../components/QuestionBank/QuestionBankView";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const zero = {
   total: 0, mine: 0, easy: 0, medium: 0, difficult: 0, no_difficulty: 0, with_explanation: 0,
@@ -122,7 +123,7 @@ describe("pagination", () => {
     expect(onPage).toHaveBeenCalledWith(3);
     fireEvent.click(screen.getByRole("button", { name: "Page 6" }));
     expect(onPage).toHaveBeenCalledWith(6);
-    fireEvent.change(screen.getByLabelText("Rows per page"), { target: { value: "50" } });
+    pickOption(screen.getByLabelText("Rows per page"), "50");
     expect(onSize).toHaveBeenCalledWith(50);
   });
 

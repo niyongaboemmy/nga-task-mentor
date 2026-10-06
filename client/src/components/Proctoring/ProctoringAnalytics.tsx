@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import axios from "../../utils/axiosConfig";
+import Select from "../ui/Select";
 
 interface ProctoringAnalyticsProps {
   quizId: string;
@@ -116,15 +117,14 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
           <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 mt-0.5">Monitor and analyze proctoring session data</p>
         </div>
         <div className="flex items-center gap-2">
-          <select
+          <Select variant="outline"
             value={timeRange}
             onChange={(e) => setTimeRange(e.target.value as any)}
-            className="px-3 py-2 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 text-text-secondary-light dark:text-text-secondary-dark rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all"
           >
             <option value="all">All Time</option>
             <option value="month">Last Month</option>
             <option value="week">Last Week</option>
-          </select>
+          </Select>
           <button
             onClick={exportReport}
             className="flex items-center gap-2 px-4 py-2 text-sm font-semibold bg-blue-600 hover:bg-blue-700 text-white rounded-xl transition-all shadow-sm"

@@ -1,5 +1,6 @@
 import { Calendar } from "lucide-react";
 import type { AcademicYear, AcademicTerm } from "../../types/user.types";
+import Select from "../ui/Select";
 
 export interface TermYearSelectProps {
   years: AcademicYear[];
@@ -29,7 +30,7 @@ export default function TermYearSelect({
   return (
     <div className="flex items-center gap-2 flex-wrap">
       <Calendar className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark/60 flex-shrink-0" />
-      <select
+      <Select
         value={academicYear}
         onChange={(e) => onAcademicYearChange(e.target.value)}
         disabled={disabled || years.length === 0}
@@ -42,8 +43,8 @@ export default function TermYearSelect({
             {y.name}
           </option>
         ))}
-      </select>
-      <select
+      </Select>
+      <Select
         value={term}
         onChange={(e) => onTermChange(e.target.value)}
         disabled={disabled || terms.length === 0}
@@ -56,7 +57,7 @@ export default function TermYearSelect({
             {t.name}
           </option>
         ))}
-      </select>
+      </Select>
     </div>
   );
 }

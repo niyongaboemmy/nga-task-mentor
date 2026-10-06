@@ -2,6 +2,7 @@ import React from "react";
 import type { SingleChoiceData } from "../../../types/quiz.types";
 import { X } from "lucide-react";
 import { RichOptionEditor } from "./RichOptionEditor";
+import Select from "../../ui/Select";
 
 interface SingleChoiceQuestionFormProps {
   data: SingleChoiceData;
@@ -97,7 +98,7 @@ export const SingleChoiceQuestionForm: React.FC<
         <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-3">
           Correct Answer
         </label>
-        <select
+        <Select size="lg" variant="outline"
           value={correctOptionIndex}
           onChange={(e) =>
             onChange({
@@ -105,14 +106,14 @@ export const SingleChoiceQuestionForm: React.FC<
               correct_option_index: parseInt(e.target.value),
             })
           }
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 transition-colors duration-200"
+          className="w-full"
         >
           {options.map((_: string, index: number) => (
             <option key={index} value={index}>
               Option {index + 1}
             </option>
           ))}
-        </select>
+        </Select>
       </div>
     </div>
   );

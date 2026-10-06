@@ -30,6 +30,7 @@ import { Skeleton, LoadingAnnouncer, TopProgressBar } from "../components/ui/Ske
 import { KindBadge, LanguageBadge, LiveDot, Pill } from "../components/Projects/ProjectBadges";
 import NewProjectDialog from "../components/Projects/NewProjectDialog";
 import { formatBytes, languageMeta, summaryLine, timeAgo } from "../components/Projects/projectFormat";
+import Select from "../components/ui/Select";
 
 /**
  * /projects — a user's TMCode projects (PROJECTS_PLAN.md §5): cards or a
@@ -376,7 +377,7 @@ const FilterSelect: React.FC<{
   <label className="relative">
     <span className="sr-only">{label}</span>
     {icon && <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">{icon}</span>}
-    <select
+    <Select variant="outline"
       value={value}
       onChange={(e) => onChange(e.target.value)}
       className={`rounded-xl border border-gray-200 bg-white py-2 pr-8 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark ${icon ? "pl-8" : "pl-3"}`}
@@ -386,7 +387,7 @@ const FilterSelect: React.FC<{
           {l}
         </option>
       ))}
-    </select>
+    </Select>
   </label>
 );
 

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
 import { getLanguageIcon } from "./languageIcons";
+import Select from "../ui/Select";
 
 const LangIcon = getLanguageIcon("html");
 
@@ -121,15 +122,15 @@ export const HtmlTestCaseBuilderModal: React.FC<
               <label className="block text-sm font-medium text-emerald-800 dark:text-emerald-200 mb-2">
                 Element Type
               </label>
-              <select
+              <Select variant="outline"
                 value={elementType}
                 onChange={(e) => setElementType(e.target.value)}
-                className="w-full px-3 py-2 border border-emerald-300 dark:border-emerald-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-emerald-500 dark:bg-gray-700 dark:text-white"
+                className="w-full"
               >
                 <option value="tag">HTML Tag (div, p, h1, etc.)</option>
                 <option value="class">CSS Class (.classname)</option>
                 <option value="id">ID (#idname)</option>
-              </select>
+              </Select>
             </div>
             <div>
               <label className="block text-sm font-medium text-emerald-800 dark:text-emerald-200 mb-2">

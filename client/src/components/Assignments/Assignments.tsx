@@ -7,6 +7,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { usePermissions } from "../../hooks/usePermissions";
 import AssignmentCard, { type AssignmentInterface } from "./AssignmentCard";
 import { onAcademicPeriodChanged } from "../../utils/academicPeriodEvents";
+import Select from "../ui/Select";
 
 // Module-level cache: keyed by courseId, holds the last fetched assignments list
 // so revisiting a tab paints instantly. It is only a first paint: the list is
@@ -292,10 +293,9 @@ const Assignments: React.FC<AssignmentsProps> = ({
                     <span className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
                       Filter:
                     </span>
-                    <select
+                    <Select
                       value={filter}
                       onChange={(e) => setFilter(e.target.value as any)}
-                      className="text-sm rounded-2xl px-3 py-2.5 bg-surface-light dark:bg-surface-dark border border-transparent dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500"
                     >
                       <option value="all">All (not removed)</option>
                       <option value="published">Published</option>
@@ -305,7 +305,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                         <option value="removed">Removed</option>
                       )}
                       <option value="draft">Draft</option>
-                    </select>
+                    </Select>
                   </div>
                 )}
 

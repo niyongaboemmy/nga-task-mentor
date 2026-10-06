@@ -36,6 +36,7 @@ import type { Course } from "../../types/course.types";
 import { toast } from "react-toastify";
 import * as QuestionForms from "../Quizzes/QuestionForms";
 import RichEditor from "../ui/RichEditor";
+import Select from "../ui/Select";
 
 interface QuestionBankModalProps {
   isOpen: boolean;
@@ -512,19 +513,19 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
                     <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       <Cpu className="w-3.5 h-3.5 inline mr-1" /> Question Type
                     </label>
-                    <select
+                    <Select size="lg" variant="outline"
                       value={formData.question_type}
                       onChange={(e) =>
                         handleTypeChange(e.target.value as QuestionType)
                       }
-                      className="w-full px-4 py-3 rounded-xl border border-border-light dark:border-border-dark/50 bg-white dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+                      className="w-full"
                     >
                       {QUESTION_TYPES.map((type) => (
                         <option key={type.value} value={type.value}>
                           {type.icon} {type.label}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   {/* Difficulty */}

@@ -1,10 +1,11 @@
-import { Loader2, ChevronDown } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import type { AssessmentCategory } from "../../services/reportCardApi";
 import { CATEGORIES, CATEGORY_ORDER } from "./categoryMeta";
+import Select from "../ui/Select";
 
 // ─── Reusable "map this assessment to a report-card category" control ────────
 // A single assessment can be mapped into one of CW/HW/MD/EOT (or left
-// unmapped). This is deliberately a plain <select> rather than a floating
+// unmapped). This is deliberately a plain <Select> rather than a floating
 // popover/menu: it renders correctly inside scrolling containers (a table
 // body with overflow-x-auto, a list, a card) with no clipping or z-index
 // work, and the browser's native dropdown needs no extra a11y wiring.
@@ -33,36 +34,30 @@ export default function AssessmentMappingControl({
 
   return (
     <div className={`group relative inline-flex items-center ${className}`}>
-      <select
+      <Select size="sm" variant="bare"
         value={category ?? ""}
         disabled={disabled || saving}
         onChange={(e) => onChange((e.target.value || null) as AssessmentCategory | null)}
         aria-label="Report card category"
-        className={`appearance-none pl-2.5 pr-6 py-1 rounded-full text-[11px] font-semibold border cursor-pointer disabled:cursor-not-allowed disabled:opacity-60 hover:brightness-95 dark:hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-blue-500/30 transition-all ${
+        triggerClassName={`!h-7 rounded-full text-[11px] font-semibold ${
           meta
             ? `${meta.badge} border-transparent`
             : "bg-gray-100 dark:bg-gray-800 text-text-secondary-light dark:text-text-secondary-dark/70 border-border-light dark:border-border-dark/40"
         }`}
       >
-        <option value="" className="bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200">
+        <option value="">
           Unmapped
         </option>
         {CATEGORY_ORDER.map((cat) => (
-          <option key={cat} value={cat} className="bg-white dark:bg-gray-900 text-gray-700 dark:text-gray-200">
+          <option key={cat} value={cat}>
             {CATEGORIES[cat].label} ({CATEGORIES[cat].weight}%)
           </option>
         ))}
-      </select>
-      {/* appearance-none strips the browser's own arrow, so this is the only
-          visual cue this is a dropdown — always visible, not hover-only. */}
-      {saving ? (
-        <Loader2 className="w-3 h-3 animate-spin absolute right-1.5 pointer-events-none text-current opacity-80" />
-      ) : (
-        <ChevronDown
-          className={`w-3 h-3 absolute right-1.5 pointer-events-none transition-colors ${
-            meta ? "text-current opacity-80" : "text-gray-400 dark:text-gray-500 group-hover:text-text-secondary-light dark:group-hover:text-text-secondary-dark"
-          }`}
-        />
+      </Select>
+      {saving && (
+        <span className="absolute -right-1 -top-1 rounded-full bg-white dark:bg-gray-900 p-0.5 shadow">
+          <Loader2 className="w-3 h-3 animate-spin text-blue-500" />
+        </span>
       )}
     </div>
   );

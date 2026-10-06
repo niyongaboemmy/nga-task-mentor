@@ -8,6 +8,7 @@ import {
 } from "../../services/projectsApi";
 import { Skeleton } from "../ui/Skeleton";
 import { formatBytes, formatDateTime, monacoLanguage } from "./projectFormat";
+import Select from "../ui/Select";
 
 const MonacoEditor = lazy(() => import("@monaco-editor/react"));
 
@@ -147,12 +148,11 @@ const FilesTab: React.FC<{
         <label className="flex items-center gap-2 text-sm">
           <History className="h-4 w-4 text-slate-400" aria-hidden="true" />
           <span className="font-medium text-slate-600 dark:text-slate-300">Revision</span>
-          <select
+          <Select size="sm" variant="outline"
             value={effectiveRev ?? ""}
             onChange={(e) => onRevisionChange(e.target.value ? Number(e.target.value) : null)}
             disabled={!revisions?.length}
             aria-label="Revision"
-            className="rounded-xl border border-gray-200 bg-white py-1.5 pl-3 pr-8 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark"
           >
             {(revisions ?? []).map((r, i) => (
               <option key={r.id} value={r.id}>
@@ -160,7 +160,7 @@ const FilesTab: React.FC<{
                 {i === 0 ? " (latest)" : ""} · {r.message || r.source} · {formatDateTime(r.created_at)}
               </option>
             ))}
-          </select>
+          </Select>
         </label>
         {current && !isHead && (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">

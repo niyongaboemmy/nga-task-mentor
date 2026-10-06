@@ -27,6 +27,7 @@ import {
   FileEdit,
   Award,
 } from "lucide-react";
+import Select from "../components/ui/Select";
 
 const QuizListPage: React.FC = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -333,39 +334,36 @@ const QuizListPage: React.FC = () => {
 
               {/* Filters */}
               <div className="flex items-center gap-3">
-                <select
+                <Select size="lg"
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="px-4 py-3 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark"
                 >
                   <option value="all">All Status</option>
                   <option value="published">Published</option>
                   <option value="draft">Draft</option>
                   <option value="completed">Completed</option>
-                </select>
+                </Select>
 
-                <select
+                <Select size="lg"
                   value={typeFilter}
                   onChange={(e) => setTypeFilter(e.target.value)}
-                  className="px-4 py-3 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark"
                 >
                   <option value="all">All Types</option>
                   <option value="Assessment">Assessment</option>
                   <option value="Homework">Homework</option>
                   <option value="Quiz">Quiz</option>
                   <option value="Exam">Exam</option>
-                </select>
+                </Select>
 
-                <select
+                <Select size="lg"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
-                  className="px-4 py-3 border border-transparent rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark"
                 >
                   <option value="created_at">Date Created</option>
                   <option value="title">Title</option>
                   <option value="total_questions">Questions</option>
                   <option value="total_points">Points</option>
-                </select>
+                </Select>
 
                 <button
                   onClick={() =>

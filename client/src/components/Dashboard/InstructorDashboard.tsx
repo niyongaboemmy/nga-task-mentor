@@ -60,6 +60,7 @@ import {
   pct,
   relativeDue,
 } from "./instructor/InstructorPanels";
+import Select from "../ui/Select";
 
 /**
  * Instructor dashboard: one decision board across every subject the teacher is
@@ -718,10 +719,10 @@ const SubjectFocusPicker: React.FC<{
     <div className="flex flex-col sm:flex-row sm:items-center gap-2">
       <label className="flex items-center gap-2 text-sm text-text-secondary-light dark:text-text-secondary-dark">
         <span className="shrink-0">Focus</span>
-        <select
+        <Select size="sm" variant="outline"
           value={selected ?? ""}
           onChange={(e) => onSelect(e.target.value ? Number(e.target.value) : null)}
-          className="min-w-0 w-full sm:w-80 rounded-full border border-border-light dark:border-border-dark/50 bg-card-light dark:bg-card-dark/40 px-3 py-1.5 text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/30"
+          className="min-w-0 w-full sm:w-80"
           aria-label="Focus on a subject"
         >
           <option value="">All subjects ({subjects.length})</option>
@@ -731,7 +732,7 @@ const SubjectFocusPicker: React.FC<{
               {s.health === "at_risk" ? " (at risk)" : ""}
             </option>
           ))}
-        </select>
+        </Select>
       </label>
       {atRisk.length > 0 && (
         <div className="flex gap-1.5 overflow-x-auto" aria-label="Subjects at risk">

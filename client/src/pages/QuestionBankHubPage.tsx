@@ -27,6 +27,7 @@ import {
   QuestionBankHubApiService,
   type QuestionBankOverview,
 } from "../services/questionBankHubApi";
+import Select from "../components/ui/Select";
 
 /**
  * /question-bank -- one place for a teacher's question banks across every
@@ -167,7 +168,7 @@ const QuestionBankHubPage: React.FC = () => {
           <label className="relative">
             <span className="sr-only">Subject</span>
             <BookOpen className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
-            <select
+            <Select variant="outline"
               value={subjectId ?? ""}
               onChange={(e) =>
                 update({
@@ -176,7 +177,7 @@ const QuestionBankHubPage: React.FC = () => {
               }
               disabled={!data}
               aria-busy={pending !== null}
-              className="min-w-[16rem] appearance-none rounded-xl border border-gray-200 bg-white py-2.5 pl-9 pr-9 text-sm font-medium text-text-primary-light focus:outline-none focus:ring-2 focus:ring-blue-500/30 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark"
+              className="min-w-[16rem]"
             >
               <option value="">
                 {tab === "questions" ? "Choose a subject…" : "All my subjects"}
@@ -189,7 +190,7 @@ const QuestionBankHubPage: React.FC = () => {
                     : ""}
                 </option>
               ))}
-            </select>
+            </Select>
             {pending ? (
               <Loader2 className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin text-blue-500" />
             ) : (

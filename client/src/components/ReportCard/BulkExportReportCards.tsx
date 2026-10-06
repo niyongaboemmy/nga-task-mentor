@@ -16,6 +16,7 @@ import { CourseApiService } from "../../services/courseApi";
 import { ReportCardApiService, STATUS_META } from "../../services/reportCardApi";
 import AcademicPeriodPicker, { type SelectedPeriod } from "../Common/AcademicPeriodPicker";
 import ReportCardPreview from "./ReportCardPreview";
+import Select from "../ui/Select";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -340,16 +341,13 @@ export default function BulkExportReportCards() {
                 <Loader2 className="w-4 h-4 animate-spin" /> Loading…
               </div>
             ) : (
-              <select
+              <Select variant="outline"
                 value={selectedCourseId}
                 onChange={(e) =>
                   setSelectedCourseId(e.target.value === "" ? "" : Number(e.target.value))
                 }
                 disabled={isExporting}
-                className="w-full px-3 py-2.5 rounded-xl border border-gray-200 dark:border-gray-700
-                  bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark text-sm
-                  focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent
-                  disabled:opacity-50"
+                className="w-full"
               >
                 <option value="">Select a class…</option>
                 {courses.map((c) => (
@@ -357,7 +355,7 @@ export default function BulkExportReportCards() {
                     {c.code} — {c.title}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
           </div>
 
