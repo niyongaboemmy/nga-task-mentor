@@ -469,6 +469,7 @@ export const ShareLiveStatus: React.FC<{
         <button
           type="button"
           role="switch"
+          data-track="tm.project.share_presence"
           aria-checked={on}
           aria-labelledby={`${id}-title`}
           aria-describedby={`${id}-desc`}

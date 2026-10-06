@@ -73,7 +73,7 @@ describe("projectsApi (server PROJECTS_API.md shapes)", () => {
     expect(d.links[0]).toMatchObject({ activity_title: "Web portfolio", course: { id: 12, title: null }, activity_open: true, status: "submitted" });
     expect(d.git).toMatchObject({ branch: "main", ahead: 1, last_push: { message: "Contact form" } });
     expect(d.git?.updated_at).toBeTruthy();
-    expect(d.can).toEqual({ edit: true, save: false, report_git: true, read_all_revisions: true });
+    expect(d.can).toEqual({ edit: true, save: false, report_git: true, read_all_revisions: true, share_presence: true });
 
     const one = normalizeProjectDetail(makeProjectDetails(1));
     expect(one.presence[0]).toMatchObject({ user: { name: "John Doe" }, device_name: "MacBook", online: true });

@@ -77,6 +77,10 @@
     { "key": "tm.report_card.bulk_export", "label": "Report cards bulk-exported", "module": "Report cards", "event": true },
     { "key": "tm.project.create", "label": "Clicked \"Create project\"", "module": "Projects", "event": true },
     { "key": "tm.project.open_in_tmcode", "label": "Clicked \"Open in TMCode\" on a project", "module": "Projects", "event": true },
-    { "key": "tm.project.submit_click", "label": "Clicked \"Submit\" on a project", "module": "Projects", "event": true }
+    { "key": "tm.project.submit_click", "label": "Clicked \"Submit\" on a project", "module": "Projects", "event": true },
+    { "key": "tm.project.share_presence", "label": "Toggled \"Share live status\" on a project", "module": "Projects", "event": true },
+    { "key": "tm.assignment.open_in_tmcode", "label": "Clicked \"Open in TMCode\" on an assignment", "module": "Assignments", "event": true },
+    { "key": "tm.assignment.workspace_code", "label": "Opened a student's workspace code (Workspaces)", "module": "Assignments", "event": true },
+    { "key": "tm.assignment.workspace_grade", "label": "Clicked \"Grade\" in Workspaces", "module": "Assignments", "event": true }
   ]
 }

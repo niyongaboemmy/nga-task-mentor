@@ -578,7 +578,7 @@ export function normalizeProjectDetail(raw: unknown): ProjectDetail {
       save: can ? can.save === true : owner,
       report_git: can ? can.report_git === true : owner || base.my_role === "collaborator",
       read_all_revisions: can ? can.read_all_revisions === true : true,
-      share_presence: can ? can.share_presence === true : owner,
+      share_presence: typeof can?.share_presence === "boolean" ? can.share_presence : owner,
     },
   };
 }
