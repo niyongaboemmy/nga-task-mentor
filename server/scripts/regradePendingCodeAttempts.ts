@@ -49,6 +49,7 @@ async function main() {
     models.Role,
     models.Permission,
     models.RolePermission,
+    ...models.TMCODE_MODELS,
   ] as any);
   setupAssociations();
 

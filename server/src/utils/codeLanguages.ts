@@ -1,4 +1,6 @@
-import { Judge0Service } from "../services/Judge0Service";
+import { Judge0Service, SupportedLanguage } from "../services/Judge0Service";
+import { getCodeRunner } from "../services/coderunner";
+import { profileById, profileIdForLanguage } from "../tmcode/profiles";
 
 /**
  * Which language a coding/algorithmic question (and an answer to it) runs
@@ -74,9 +76,10 @@ export function validateCodeLanguages(
 ): { errors: string[]; warnings: string[] } {
   const errors: string[] = [];
   const warnings: string[] = [];
-  const supported = Judge0Service.supportedLanguages().map((l) => l.key);
+  const runner = getCodeRunner();
+  const supported = runner.languages();
   const ok = (l: unknown) =>
-    Judge0Service.normalizeLanguage(l) !== null ||
+    runner.supportsLanguage(l) ||
     (questionType === "coding" && isWebLanguage(l));
 
   if (data?.language !== undefined && data?.language !== null && data?.language !== "") {
@@ -98,4 +101,24 @@ export function validateCodeLanguages(
     }
   }
   return { errors, warnings };
+}
+
+/**
+ * Languages the configured code runner can run, for authors
+ * (GET /api/quizzes/code-languages). With tm-judge the runtime is the TMCode
+ * profile's; judge_language_id is 0 (tm-judge takes profile ids).
+ */
+export function codeRunnerLanguages(): SupportedLanguage[] {
+  const runner = getCodeRunner();
+  if (runner.name === "judge0") return Judge0Service.supportedLanguages();
+  const labels = new Map(Judge0Service.supportedLanguages().map((l) => [l.key, l.label]));
+  return runner.languages().map((key) => {
+    const profile = profileById(profileIdForLanguage(key) ?? "");
+    return {
+      key,
+      label: labels.get(key) ?? profile?.label ?? key,
+      judge_language_id: 0,
+      runtime: profile ? `${profile.label} (${profile.judge?.version ?? ""})` : null,
+    };
+  });
 }

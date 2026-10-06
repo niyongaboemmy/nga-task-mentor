@@ -14,6 +14,8 @@ import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { startJudgeMaintenance } from "./services/codeRegrade.service";
+import tmcodeRoutes from "./routes/tmcode";
+import { startTmcodeWorker } from "./services/tmcodeGrading.service";
 import { Sequelize } from "sequelize-typescript";
 import http from "http";
 import fs from "fs";
@@ -141,6 +143,10 @@ app.use(
 // auth middleware -- a request without a valid session is a public visitor.
 app.use("/api/activity", activityRoutes);
 
+// TMCode desktop API: its own JSON parser (snapshots carry whole
+// workspaces, beyond the default 100 kB). Mounted before the global parser.
+app.use("/api/tmcode", express.json({ limit: "8mb" }), tmcodeRoutes);
+
 // Body parser middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -233,6 +239,8 @@ const initializeDatabase = async (): Promise<void> => {
       Role,
       Permission,
       RolePermission,
+      TMCODE_MODELS,
+      PROJECT_MODELS,
     } = await import("./models");
 
     // Add models to Sequelize instance
@@ -259,6 +267,8 @@ const initializeDatabase = async (): Promise<void> => {
       Role,
       Permission,
       RolePermission,
+      ...TMCODE_MODELS,
+      ...PROJECT_MODELS,
     ]);
 
     // Set up model associations
@@ -349,6 +359,8 @@ const startServer = async (): Promise<void> => {
       // Judge runtimes (newest per language), daily health/quota check, and
       // re-grading of answers left pending while the judge was down.
       startJudgeMaintenance();
+      // TMCode grading queue (tmcode_runs), one job at a time.
+      void startTmcodeWorker();
       // Publish the page -> feature catalog to the MIS analytics console (non-fatal).
       void activityRelay.pushCatalog(activityCatalog);
     });

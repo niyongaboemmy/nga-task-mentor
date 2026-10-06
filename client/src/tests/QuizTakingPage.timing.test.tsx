@@ -82,6 +82,7 @@ class MemoryStorage {
 vi.stubGlobal("localStorage", new MemoryStorage());
 
 import QuizTakingPage from "../pages/QuizTakingPage";
+import { ProctoringApiService } from "../services/proctoringApi";
 
 const QUIZ_ID = 5;
 const SUBMISSION_ID = 77;
@@ -636,5 +637,28 @@ describe("QuizTakingPage — code answers are autosaved (TM-FIX-8)", () => {
       expect.any(Number),
       { saveOnly: true },
     );
+  });
+});
+
+describe("QuizTakingPage — TMCode delivery", () => {
+  it("tmcode_required: coding questions show Open in TMCode instead of the web editor", async () => {
+    vi.mocked(ProctoringApiService.getProctoringSettings).mockResolvedValue({
+      success: true,
+      data: { enabled: false, tmcode_delivery: "tmcode_required" },
+    });
+    quizApi.getQuiz.mockResolvedValue({ success: true, data: makeQuiz(5, "coding") });
+    mockStart(300);
+    renderPage();
+    await flush();
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole("button", { name: /^Next/ }));
+    expect(screen.getByTestId("open-in-tmcode")).toBeInTheDocument(); // on the start screen too
+    fireEvent.click(screen.getByRole("button", { name: /Start Quiz|Resume Quiz/ }));
+    await flush();
+    expect(screen.queryByLabelText("answer-101")).toBeNull();
+    expect(screen.getAllByTestId("open-in-tmcode").length).toBeGreaterThan(0);
+    vi.mocked(ProctoringApiService.getProctoringSettings).mockResolvedValue({
+      success: true,
+      data: { enabled: false },
+    });
   });
 });

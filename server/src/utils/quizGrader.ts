@@ -22,7 +22,8 @@ import {
   AlgorithmicGradingConfig,
 } from "../types/grading.types";
 import { CodeExecutor, TestCase } from "./codeExecutor";
-import { Judge0Service, JudgeUnavailableError } from "../services/Judge0Service";
+import { JudgeUnavailableError } from "../services/Judge0Service";
+import { answerFiles, getCodeRunner } from "../services/coderunner";
 import { isWebLanguage, resolveAnswerLanguage } from "./codeLanguages";
 import { aiService } from "../services/ai/aiService";
 
@@ -1908,24 +1909,6 @@ export class CodingGrader {
       };
     }
 
-    // Detect if this is a "project mode" answer (JSON string of files)
-    let finalCode = answer.code;
-    if (finalCode.trim().startsWith("[") && finalCode.trim().endsWith("]")) {
-      try {
-        const files = JSON.parse(finalCode);
-        if (Array.isArray(files)) {
-          // Find entry point or just pick the first file for grading
-          const entryFile =
-            files.find((f: any) => f.is_entry_point) || files[0];
-          if (entryFile) {
-            finalCode = entryFile.content || "";
-          }
-        }
-      } catch (e) {
-        // Not actually a JSON array, keep as is
-      }
-    }
-
     const testCases = questionData.test_cases || [];
     if (!Array.isArray(testCases) || testCases.length === 0) {
       return {
@@ -1939,9 +1922,9 @@ export class CodingGrader {
     // The student's language when the question allows it, else the
     // question's own. Never a default runtime: an unmapped language is left
     // for the instructor instead of being run as something else.
+    const runner = getCodeRunner();
     const language = resolveAnswerLanguage(questionData, answer.language);
-    const languageId = language ? Judge0Service.getLanguageId(language) : null;
-    if (!language || !languageId) {
+    if (!language || !runner.supportsLanguage(language)) {
       const declared = answer.language || questionData.language;
       return pendingCodeResult(
         isWebLanguage(declared)
@@ -1949,26 +1932,29 @@ export class CodingGrader {
           : `Unsupported language "${declared ?? "none"}" – needs manual review.`,
       );
     }
+    // Every file of a project-mode answer goes to the runner (tm-judge runs
+    // them all; Judge0 runs the entry file).
+    const { files, entry } = answerFiles(answer.code, language);
+    const finalCode = files.find((f) => f.path === entry)?.content ?? answer.code;
 
     try {
-      // Execute each test case via Judge0
-      for (const tc of testCases) {
-        const submission = {
-          source_code: finalCode,
-          language_id: languageId,
-          stdin: tc.input,
-          expected_output: tc.expected_output,
-          cpu_limit: tc.time_limit || questionData.time_limit || 5,
-          memory_limit:
-            (tc.memory_limit || questionData.memory_limit || 256) * 1024,
-        };
-
-        const token = await Judge0Service.submit(submission);
-        const result = await Judge0Service.waitAndGetResult(token);
-
-        const statusId = result.status?.id;
-        const statusDesc = result.status?.description || "Unknown";
-        const passed = statusId === 3; // 3 is "Accepted" in Judge0
+      const run = await runner.run({
+        language,
+        files,
+        entry,
+        tests: testCases.map((tc: any, i: number) => ({
+          id: String(tc.id ?? i + 1),
+          input: tc.input ?? "",
+          expected_output: tc.expected_output ?? "",
+        })),
+        limits: {
+          time_s: questionData.time_limit || 5,
+          memory_mb: questionData.memory_limit || 256,
+        },
+      });
+      testCases.forEach((tc: any, i: number) => {
+        const r = run.tests[i];
+        const passed = !!r?.passed;
         testResults.push({
           testCaseId: tc.id,
           is_hidden: tc.is_hidden === true,
@@ -1976,16 +1962,14 @@ export class CodingGrader {
           passed,
           input: tc.input,
           expected: tc.expected_output,
-          actual: result.stdout,
-          error: !passed
-            ? (result.stderr || result.compile_output || result.message || statusDesc)
-            : null,
-          executionTime: result.time,
-          memoryUsed: result.memory,
-          status: statusDesc,
-          statusId,
+          actual: r?.stdout ?? null,
+          error: !passed ? (r?.stderr || r?.status || r?.verdict || "Failed") : null,
+          executionTime: r?.time_ms ?? null,
+          memoryUsed: r?.memory_kb ?? null,
+          status: r?.status ?? r?.verdict ?? "Unknown",
+          verdict: r?.verdict ?? "internal-error",
         });
-      }
+      });
 
       const passedTests = testResults.filter((r) => r.passed).length;
       const totalTests = testResults.length;
@@ -2004,19 +1988,12 @@ export class CodingGrader {
       const testPoints =
         totalWeight > 0 ? (earnedWeight / totalWeight) * maxPoints : 0;
 
-      // AI Analysis for Code Quality (optional, never overrides test correctness downward)
-      let aiResult:
-        | {
-            is_correct: boolean;
-            points_earned: number;
-            feedback: string;
-            quality_score?: number;
-            efficiency_score?: number;
-            correctness_score?: number;
-          }
-        | undefined;
+      // The tests decide the auto score (TM-FIX-10): re-grading the same code
+      // always gives the same score. The AI rubric is only a suggestion for
+      // the teacher (applied by a manual grade, if at all).
+      let aiSuggestion: Record<string, any> | undefined;
       try {
-        aiResult = await aiService.gradeCoding(
+        const ai = await aiService.gradeCoding(
           question.questionBank?.question_text || "",
           finalCode,
           language,
@@ -2024,34 +2001,32 @@ export class CodingGrader {
           maxPoints,
           questionData.constraints,
         );
+        if (ai && typeof ai === "object") {
+          aiSuggestion = {
+            points: typeof ai.points_earned === "number" ? ai.points_earned : null,
+            feedback: ai.feedback ?? null,
+            quality_score: ai.quality_score,
+            efficiency_score: ai.efficiency_score,
+            correctness_score: ai.correctness_score,
+          };
+        }
       } catch (e) {
-        aiResult = undefined;
+        aiSuggestion = undefined;
       }
 
-      const aiPoints =
-        typeof aiResult?.points_earned === "number"
-          ? aiResult.points_earned
-          : 0;
-
-      // AI can only boost, never reduce test-based score
-      const combinedPoints = Math.max(testPoints, aiPoints);
-      const pointsEarned = Math.max(0, Math.min(combinedPoints, maxPoints));
+      const pointsEarned = Math.max(0, Math.min(testPoints, maxPoints));
 
       return {
         is_correct: allPassed,
         points_earned: pointsEarned,
-        feedback:
-          aiResult?.feedback ||
-          (allPassed
-            ? "All test cases passed."
-            : `${passedTests}/${totalTests} test cases passed.`),
+        feedback: allPassed
+          ? "All test cases passed."
+          : `${passedTests}/${totalTests} test cases passed.`,
         detailed_feedback: {
           testResults,
-          quality_score: aiResult?.quality_score,
-          efficiency_score: aiResult?.efficiency_score,
-          correctness_score: aiResult?.correctness_score,
           passedTests,
           totalTests,
+          ...(aiSuggestion ? { ai_suggestion: aiSuggestion } : {}),
         },
       };
     } catch (error: any) {

@@ -22,6 +22,9 @@ interface ProctoringSettingsData {
   lockdown_browser: boolean;
   /** SEB Config Key (64 hex); never returned to students. */
   seb_config_key?: string | null;
+  /** How coding questions are answered: web editor or the TMCode desktop app. */
+  tmcode_delivery?: "web" | "tmcode_optional" | "tmcode_required";
+  tmcode_policy?: TmcodePolicy | null;
   prevent_tab_switching: boolean;
   prevent_window_minimization: boolean;
   prevent_copy_paste: boolean;
@@ -47,6 +50,25 @@ interface ProctoringSettingsData {
   object_detection_sensitivity: number;
 }
 
+/** TMCode session policy (nga-tmcode packages/protocol/src/policy.ts). */
+interface TmcodePolicy {
+  mode: "practice" | "monitored" | "secure";
+  intelligence: "none" | "basic" | "diagnostics" | "full";
+  paste: "allow" | "internal_only" | "block";
+  terminal: "off" | "restricted" | "full";
+  internet_in_preview: boolean;
+  allow_offline_grace_minutes: number;
+}
+
+const TMCODE_POLICY_DEFAULTS: TmcodePolicy = {
+  mode: "monitored",
+  intelligence: "basic",
+  paste: "internal_only",
+  terminal: "off",
+  internet_in_preview: false,
+  allow_offline_grace_minutes: 10,
+};
+
 const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
   quizId,
   onSettingsSaved,
@@ -63,6 +85,8 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
     // Requires Safe Exam Browser: opt-in only.
     lockdown_browser: false,
     seb_config_key: null,
+    tmcode_delivery: "web",
+    tmcode_policy: null,
     prevent_tab_switching: true,
     prevent_window_minimization: true,
     prevent_copy_paste: true,
@@ -586,6 +610,106 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                 </p>
               </div>
             </div>
+          </div>
+
+          {/* TMCode delivery (applies whether or not proctoring is on) */}
+          <div className="border-t border-gray-200 dark:border-gray-700 pt-4" data-testid="tmcode-settings">
+            <h3 className="text-base font-medium mb-3 text-text-primary-light dark:text-text-primary-dark">
+              Coding questions: delivery
+            </h3>
+            <label htmlFor="tmcode-delivery" className="block text-sm mb-1 text-text-secondary-light dark:text-text-secondary-dark">
+              Delivery
+            </label>
+            <select
+              id="tmcode-delivery"
+              value={settings.tmcode_delivery ?? "web"}
+              onChange={(e) => handleInputChange("tmcode_delivery", e.target.value)}
+              className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
+            >
+              <option value="web">Web editor (in the browser)</option>
+              <option value="tmcode_optional">TMCode optional (desktop app or web)</option>
+              <option value="tmcode_required">TMCode required (desktop app only)</option>
+            </select>
+            {settings.tmcode_delivery && settings.tmcode_delivery !== "web" && (() => {
+              const policy = { ...TMCODE_POLICY_DEFAULTS, ...(settings.tmcode_policy ?? {}) };
+              const setPolicy = (patch: Partial<TmcodePolicy>) =>
+                handleInputChange("tmcode_policy", { ...policy, ...patch });
+              const select = (
+                id: keyof TmcodePolicy,
+                label: string,
+                options: Array<[string, string]>,
+              ) => (
+                <div>
+                  <label htmlFor={`tmcode-${id}`} className="block text-xs mb-1 text-text-secondary-light dark:text-text-secondary-dark">
+                    {label}
+                  </label>
+                  <select
+                    id={`tmcode-${id}`}
+                    value={String(policy[id])}
+                    onChange={(e) => setPolicy({ [id]: e.target.value } as Partial<TmcodePolicy>)}
+                    className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
+                  >
+                    {options.map(([v, l]) => (
+                      <option key={v} value={v}>
+                        {l}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+              return (
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {select("mode", "Mode", [
+                    ["practice", "Practice (no restrictions)"],
+                    ["monitored", "Monitored (logged)"],
+                    ["secure", "Secure (lab lockdown)"],
+                  ])}
+                  {select("intelligence", "Editor help", [
+                    ["none", "None"],
+                    ["basic", "Basic (syntax colours, brackets)"],
+                    ["diagnostics", "Diagnostics (errors shown)"],
+                    ["full", "Full (completion, no AI)"],
+                  ])}
+                  {select("paste", "Paste", [
+                    ["allow", "Allow"],
+                    ["internal_only", "Only text copied inside the exam"],
+                    ["block", "Block"],
+                  ])}
+                  {select("terminal", "Terminal", [
+                    ["off", "Off"],
+                    ["restricted", "Restricted console"],
+                    ...(policy.mode === "practice" ? [["full", "Full (practice only)"] as [string, string]] : []),
+                  ])}
+                  <label className="flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                    <input
+                      type="checkbox"
+                      className="mr-2"
+                      checked={policy.internet_in_preview}
+                      onChange={(e) => setPolicy({ internet_in_preview: e.target.checked })}
+                    />
+                    Internet in the web preview
+                  </label>
+                  <div>
+                    <label htmlFor="tmcode-grace" className="block text-xs mb-1 text-text-secondary-light dark:text-text-secondary-dark">
+                      Offline grace after the deadline (minutes, 0–30)
+                    </label>
+                    <input
+                      id="tmcode-grace"
+                      type="number"
+                      min={0}
+                      max={30}
+                      value={policy.allow_offline_grace_minutes}
+                      onChange={(e) =>
+                        setPolicy({
+                          allow_offline_grace_minutes: Math.max(0, Math.min(30, parseInt(e.target.value) || 0)),
+                        })
+                      }
+                      className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
+                    />
+                  </div>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Browser Restrictions */}

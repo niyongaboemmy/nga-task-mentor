@@ -89,7 +89,7 @@ export async function regradePendingCodeAttempts(
 }
 
 /** Totals of a finished submission from its saved attempts. */
-async function recomputeSubmission(submissionId: number): Promise<boolean> {
+export async function recomputeSubmission(submissionId: number): Promise<boolean> {
   const submission = await QuizSubmission.findByPk(submissionId);
   if (!submission || submission.grade_status === "graded") return false;
   const quiz = await Quiz.findByPk(submission.quiz_id);

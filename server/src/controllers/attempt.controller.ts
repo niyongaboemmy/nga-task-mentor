@@ -17,6 +17,14 @@ import {
 } from "../utils/quizGrader";
 import { resolveAcademicTermId } from "../utils/misUtils";
 import { enforceLockdown } from "../utils/lockdown";
+import { tmcodeSettingsFor } from "../tmcode/policy";
+
+/** delivery = tmcode_required: code answers must come through TMCode (plan §10.4). */
+const TMCODE_REQUIRED_BODY = {
+  success: false,
+  code: "TMCODE_REQUIRED",
+  message: "This exam's coding questions must be answered in TMCode.",
+};
 import {
   buildStudentResults,
   needsManualReview,
@@ -331,6 +339,13 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     // graded is left alone.
     const questionType = question.questionBank?.question_type;
     const isCodeType = questionType === "coding" || questionType === "algorithmic";
+
+    // TMCode required: code answers only come through /api/tmcode.
+    if (isCodeType && (await tmcodeSettingsFor(quiz.id)).delivery === "tmcode_required") {
+      await transaction.rollback();
+      return res.status(409).json(TMCODE_REQUIRED_BODY);
+    }
+
     if (req.body.save_only === true && isCodeType) {
       const unchanged =
         !!attempt &&
@@ -559,6 +574,15 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
       // Verify question belongs to the quiz
       if (question.quiz_id !== submission.quiz_id) {
         throw new Error(`Question ${question_id} does not belong to this quiz`);
+      }
+
+      const qType = question.questionBank?.question_type;
+      if (
+        (qType === "coding" || qType === "algorithmic") &&
+        (await tmcodeSettingsFor(quiz.id)).delivery === "tmcode_required"
+      ) {
+        await transaction.rollback();
+        return res.status(409).json(TMCODE_REQUIRED_BODY);
       }
 
       // Check if student already answered this question in this submission

@@ -18,6 +18,8 @@ import {
   JudgeUnavailableError,
   UnsupportedLanguageError,
 } from "../services/Judge0Service";
+import { answerFiles, getCodeRunner } from "../services/coderunner";
+import { codeRunnerLanguages } from "../utils/codeLanguages";
 import { getQuestionBankInclude } from "../utils/quizUtils";
 import {
   allowedAnswerLanguages,
@@ -54,6 +56,8 @@ import {
 } from "../utils/quizStudentView";
 import { studentMayTakeQuiz } from "../utils/studentEnrollment";
 import { enforceLockdown } from "../utils/lockdown";
+import { startOrResumeAttempt } from "../utils/quizAttemptStart";
+import { tmcodeSettingsFor } from "../tmcode/policy";
 import { cancelQuiz, syncQuiz } from "../services/reminderSync";
 import {
   SUBMIT_GRACE_SECONDS,
@@ -1428,6 +1432,11 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       transaction,
     });
 
+    // TMCode required: code answers in the web submit are ignored; the ones
+    // TMCode synced (already on the attempts) count instead.
+    const tmcodeRequired =
+      (await tmcodeSettingsFor(quiz.id)).delivery === "tmcode_required";
+
     for (const answer of answers) {
       const question = allQuizQuestions.find(
         (q) => q.id === Number(answer.question_id),
@@ -1435,6 +1444,12 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
 
       if (!question) {
         continue; // Skip invalid questions or questions not in this quiz
+      }
+      if (
+        tmcodeRequired &&
+        ["coding", "algorithmic"].includes(question.questionBank?.question_type as string)
+      ) {
+        continue;
       }
 
       const questionData = question.questionBank?.question_data as any;
@@ -1738,36 +1753,30 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
       return;
     }
 
-    // Check if student already has an in-progress submission
-    const existingSubmission = await QuizSubmission.findOne({
-      where: {
-        quiz_id,
-        student_id: req.user.id,
-        status: "in_progress",
-      },
-      transaction,
-    });
-
-    if (existingSubmission) {
-      // Time already ran out on the attempt: submit it with what was saved
-      // rather than discarding it, and tell the client where the results are.
-      const closedMeanwhile = quizAvailability(quiz).state === "closed";
-      if (isPastDeadline(existingSubmission) || closedMeanwhile) {
-        const summary = await finalizeFromSavedAttempts(
-          existingSubmission,
-          quiz,
-          transaction,
-        );
-        await transaction.commit();
-        return res.status(409).json({
-          success: false,
-          code: "ATTEMPT_TIME_EXPIRED",
-          message:
-            "Time ran out on your previous attempt. It was submitted with the answers you had saved.",
-          data: summary,
-        });
-      }
-
+    const started = await startOrResumeAttempt(req, quiz, transaction, status);
+    if (started.kind === "expired") {
+      // Time already ran out on the attempt: it was submitted with what was
+      // saved; tell the client where the results are.
+      await transaction.commit();
+      return res.status(409).json({
+        success: false,
+        code: "ATTEMPT_TIME_EXPIRED",
+        message:
+          "Time ran out on your previous attempt. It was submitted with the answers you had saved.",
+        data: started.summary,
+      });
+    }
+    if (started.kind === "refused") {
+      await transaction.rollback();
+      return res.status(started.status).json({
+        success: false,
+        code: started.code,
+        message: started.message,
+        ...(started.data !== undefined ? { data: started.data } : {}),
+      });
+    }
+    if (started.kind === "resumed") {
+      const existingSubmission = started.submission;
       await transaction.rollback();
       return res.status(200).json({
         success: true,
@@ -1779,73 +1788,7 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
         message: "Resuming existing submission",
       });
     }
-
-    // Published and inside its availability window
-    const availability = quizAvailability(quiz);
-    if (availability.state !== "open") {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        code: "QUIZ_NOT_AVAILABLE",
-        message: `Quiz is not currently available. ${availabilityMessage(availability)}`.trim(),
-        data: { availability },
-      });
-    }
-
-    if (!(await studentMayTakeQuiz(req, quiz))) {
-      await transaction.rollback();
-      return res.status(403).json({
-        success: false,
-        code: "NOT_ENROLLED",
-        message: "You are not enrolled in this quiz's subject.",
-      });
-    }
-
-    // Calculate attempt number
-    const previousSubmissions = await QuizSubmission.count({
-      where: {
-        quiz_id,
-        student_id: req.user.id,
-        status: { [Op.in]: ["completed", "timed_out", "abandoned"] },
-      },
-      transaction,
-    });
-
-    // max_attempts (null = unlimited)
-    const maxAttempts = Number(quiz.max_attempts) > 0 ? Number(quiz.max_attempts) : null;
-    if (maxAttempts !== null && previousSubmissions >= maxAttempts) {
-      await transaction.rollback();
-      return res.status(409).json({
-        success: false,
-        code: "MAX_ATTEMPTS_REACHED",
-        message: `You have used all ${maxAttempts} attempt${maxAttempts === 1 ? "" : "s"} for this quiz.`,
-        data: { max_attempts: maxAttempts, attempts_used: previousSubmissions },
-      });
-    }
-
-    // The attempt clock always starts on the server: a client-supplied
-    // started_at could otherwise push the deadline out.
-    const startTime = new Date();
-    const endTime = computeAttemptEndTime(quiz, startTime);
-
-    // Create submission record
-    const submission = await QuizSubmission.create(
-      {
-        quiz_id,
-        student_id: req.user.id,
-        total_score: 0,
-        max_score: 0,
-        percentage: 0,
-        status,
-        grade_status: "pending",
-        time_taken: 0,
-        started_at: startTime,
-        end_time: endTime,
-        attempt_number: previousSubmissions + 1,
-        passed: false,
-      },
-      { transaction },
-    );
+    const submission = started.submission;
 
     await transaction.commit();
 
@@ -2135,52 +2078,37 @@ async function runAgainstTests(
   tests: any[],
   revealHidden: boolean,
 ) {
-  const results: any[] = [];
-  for (const tc of tests) {
+  const { files, entry } = answerFiles(code, language);
+  const run = await getCodeRunner().run({
+    language,
+    files,
+    entry,
+    interactive: true,
+    tests: tests.map((tc: any, i: number) => ({
+      id: String(tc.id ?? i + 1),
+      input: tc.input ?? "",
+      expected_output: tc.expected_output ?? "",
+    })),
+  });
+  const results: any[] = tests.map((tc: any, i: number) => {
     const hide = !!tc.is_hidden && !revealHidden;
-    try {
-      const result = await Judge0Service.runSingle(code, language, tc.input ?? "");
-      const actual = normalizeOutput(result.stdout);
-      const expected = normalizeOutput(tc.expected_output);
-      const compileError = result.compile_output || result.message;
-      const runtimeError = result.stderr;
-      const statusId = result.status?.id;
-      // Judge0 status 3 = Accepted; also do our own string compare
-      const passed = statusId === 3 || (statusId !== 6 && actual === expected);
-      results.push({
-        testCaseId: tc.id,
-        passed,
-        input: hide ? null : (tc.input ?? ""),
-        expected: hide ? null : tc.expected_output,
-        actual: hide ? null : capOutput(result.stdout ?? null),
-        error:
-          hide || passed
-            ? null
-            : capOutput(compileError || runtimeError || result.status?.description || "Wrong Answer"),
-        executionTime: parseFloat(result.time || "0") * 1000,
-        memoryUsed: result.memory ?? null,
-        status: result.status?.description ?? "Unknown",
-        is_hidden: !!tc.is_hidden,
-        points: tc.points ?? null,
-      });
-    } catch (tcErr: any) {
-      if (tcErr instanceof UnsupportedLanguageError) throw tcErr;
-      if (tcErr instanceof JudgeUnavailableError) throw tcErr;
-      results.push({
-        testCaseId: tc.id,
-        passed: false,
-        input: hide ? null : (tc.input ?? ""),
-        expected: hide ? null : tc.expected_output,
-        actual: null,
-        error: tcErr.message || "Execution failed",
-        executionTime: 0,
-        memoryUsed: null,
-        status: "Error",
-        is_hidden: !!tc.is_hidden,
-        points: tc.points ?? null,
-      });
-    }
-  }
+    const r = run.tests[i];
+    const passed = !!r?.passed;
+    return {
+      testCaseId: tc.id,
+      passed,
+      input: hide ? null : (tc.input ?? ""),
+      expected: hide ? null : tc.expected_output,
+      actual: hide ? null : capOutput(r?.stdout ?? null),
+      error: hide || passed ? null : capOutput(r?.stderr || r?.status || "Wrong Answer"),
+      executionTime: r?.time_ms ?? 0,
+      memoryUsed: r?.memory_kb ?? null,
+      status: r?.status ?? r?.verdict ?? "Unknown",
+      verdict: r?.verdict ?? "internal-error",
+      is_hidden: !!tc.is_hidden,
+      points: tc.points ?? null,
+    };
+  });
   return {
     results,
     passed: results.filter((r) => r.passed).length,
@@ -2227,7 +2155,7 @@ function checkRunInput(req: Request, res: Response): boolean {
     return false;
   }
   // Fail closed: never run code under a runtime it wasn't written for.
-  if (!isWebLanguage(language) && !Judge0Service.getLanguageId(language)) {
+  if (!isWebLanguage(language) && !getCodeRunner().supportsLanguage(language)) {
     res.status(400).json({
       success: false,
       code: "UNSUPPORTED_LANGUAGE",
@@ -2246,16 +2174,24 @@ async function runWithStdin(res: Response, code: string, language: string, stdin
       data: { stdout: null, stderr: null, web_preview: true, language, execution_time: 0 },
     });
   }
-  const result = await Judge0Service.runSingle(code, language, stdin);
+  const { files, entry } = answerFiles(code, language);
+  const run = await getCodeRunner().run({
+    language,
+    files,
+    entry,
+    interactive: true,
+    tests: [{ id: "stdin", input: stdin ?? "" }],
+  });
+  const r = run.tests[0];
   return res.json({
     success: true,
     data: {
-      stdout: capOutput(result.stdout),
-      stderr: capOutput(result.stderr || result.compile_output),
-      exit_code: result.status?.id,
-      status: result.status?.description,
-      execution_time: parseFloat(result.time || "0") * 1000,
-      memory_used: result.memory,
+      stdout: capOutput(r?.stdout ?? null),
+      stderr: capOutput(r?.stderr ?? (run.compile && !run.compile.ok ? run.compile.output : null)),
+      exit_code: r?.exit_code ?? null,
+      status: r?.status ?? r?.verdict,
+      execution_time: r?.time_ms ?? 0,
+      memory_used: r?.memory_kb ?? null,
       web_preview: false,
     },
   });
@@ -2411,7 +2347,7 @@ export const getCodeLanguages = async (_req: Request, res: Response) => {
   res.status(200).json({
     success: true,
     data: {
-      judge: Judge0Service.supportedLanguages(),
+      judge: codeRunnerLanguages(),
       web_preview: WEB_PREVIEW_LANGUAGES,
     },
   });
