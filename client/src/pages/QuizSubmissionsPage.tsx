@@ -35,6 +35,7 @@ import {
 import { toast } from "react-toastify";
 import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
 import { usePermissions } from "../hooks/usePermissions";
+import LinkedProjectsPanel from "../components/Projects/LinkedProjectsPanel";
 import { QuizApiService } from "../services/quizApi";
 import type { QuizQuestion } from "../types/quiz.types";
 
@@ -73,7 +74,7 @@ const QuizSubmissionsPage: React.FC = () => {
   const { quizId } = useParams<{ quizId: string }>();
   const navigate = useNavigate();
   const [quiz, setQuiz] = useState<Quiz | null>(null);
-  const { canManageOwned } = usePermissions();
+  const { can, canManageOwned } = usePermissions();
   // Any teacher of the quiz's subject grades and records manual marks;
   // deleting / resetting submissions stays with the quiz's creator or a
   // super admin (both enforced server-side too).
@@ -543,6 +544,16 @@ const QuizSubmissionsPage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* TMCode projects students linked to this quiz (collapsed: most quizzes have none). */}
+        {quizId && can("PROJECTS_MONITOR") && (
+          <LinkedProjectsPanel
+            activityType="quiz"
+            activityId={Number(quizId)}
+            collapsible
+            className="mb-4 sm:mb-6"
+          />
+        )}
 
         {/* Controls */}
         <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-xl border border-white/20 dark:border-gray-800/50 rounded-2xl p-4 mb-4 sm:mb-6">
