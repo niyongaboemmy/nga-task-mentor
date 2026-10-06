@@ -2,7 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch, shallowEqual } from "react-redux";
 import { motion } from "framer-motion";
-import { BookOpen } from "lucide-react";
+import { BookOpen, LayoutGrid, List } from "lucide-react";
 import { usePermissions } from "../../hooks/usePermissions";
 import CourseCard from "./CourseCard";
 import type { RootState, AppDispatch } from "../../store";
@@ -31,6 +31,17 @@ const itemVariants = {
   },
 };
 
+// Cards by default; the compact list is one click away and remembered per browser.
+type View = "grid" | "list";
+const VIEW_KEY = "tm.courses.view";
+const loadView = (): View => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "grid";
+  } catch {
+    return "grid";
+  }
+};
+
 const Courses: React.FC = () => {
   const { can } = usePermissions();
   const isCourseManager = can("COURSES_VIEW_STUDENTS");
@@ -38,6 +49,15 @@ const Courses: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [filter, _setFilter] = useState<"all" | "enrolled" | "teaching">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [view, setView] = useState<View>(loadView);
+  const chooseView = (v: View) => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* private mode: the choice just isn't remembered */
+    }
+  };
 
   // Get courses from Redux store with defensive checks
   const { courses, loading, error } = useSelector(
@@ -128,6 +148,28 @@ const Courses: React.FC = () => {
             <span className="px-3 py-1 rounded-full text-xs font-medium bg-surface-light dark:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark">
               {courses.length} course{courses.length === 1 ? "" : "s"}
             </span>
+            <div role="group" aria-label="View" className="flex rounded-xl bg-surface-light p-1 dark:bg-surface-dark/50">
+              {([
+                ["grid", "Grid view", LayoutGrid],
+                ["list", "List view", List],
+              ] as const).map(([v, label, Icon]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => chooseView(v)}
+                  aria-pressed={view === v}
+                  aria-label={label}
+                  title={label}
+                  className={`flex items-center justify-center rounded-lg px-2.5 py-1.5 transition-colors ${
+                    view === v
+                      ? "bg-white text-blue-600 shadow-sm dark:bg-card-dark dark:text-blue-400"
+                      : "text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -159,7 +201,14 @@ const Courses: React.FC = () => {
       </motion.div>
 
       {/* Courses List */}
-      <motion.div variants={itemVariants} className="space-y-2 md:space-y-2.5">
+      <motion.div
+        variants={itemVariants}
+        className={
+          view === "grid" && filteredCourses.length > 0
+            ? "grid gap-3 sm:grid-cols-2 xl:grid-cols-3"
+            : "space-y-2 md:space-y-2.5"
+        }
+      >
         {filteredCourses.length === 0 ? (
           <div className="text-center py-12 bg-card-light dark:bg-card-dark/30 border border-dashed border-border-light dark:border-border-dark/50 rounded-2xl">
             <svg
@@ -198,11 +247,11 @@ const Courses: React.FC = () => {
               key={course.id}
               variants={itemVariants}
               layout
-              className="will-change-transform"
+              className="will-change-transform h-full"
             >
               <CourseCard
                 course={course}
-                compact={true}
+                compact={view === "list"}
                 onClick={() =>
                   navigate(`/courses/${course.id}`, { state: { course } })
                 }
