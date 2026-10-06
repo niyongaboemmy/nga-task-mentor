@@ -28,7 +28,7 @@ const memoryStorage = () => {
 const CHROME_UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36";
 
-describe("NgaInstallPrompt — asks on load until the app is installed", () => {
+describe("NgaInstallPrompt — a quiet offer until the app is installed", () => {
   beforeEach(() => {
     vi.stubGlobal("localStorage", memoryStorage());
     vi.stubGlobal("sessionStorage", memoryStorage());
@@ -40,10 +40,25 @@ describe("NgaInstallPrompt — asks on load until the app is installed", () => {
     delete (navigator as any).getInstalledRelatedApps;
   });
 
-  it("shows automatically on a normal browser load", async () => {
+  const installable = (outcome: "accepted" | "dismissed" = "dismissed") => {
+    const event = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
+      prompt: vi.fn().mockResolvedValue(undefined),
+      userChoice: Promise.resolve({ outcome }),
+    });
+    act(() => {
+      window.dispatchEvent(event);
+    });
+    return event;
+  };
+
+  it("offers only a small corner button on a normal load, never the full-screen card", async () => {
     const m = await load();
     m.initNgaInstall();
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    installable();
+    await act(async () => undefined);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(await screen.findByRole("button", { name: /Install Task Mentor/ }));
     expect(await screen.findByRole("dialog", { name: "Install Task Mentor as an app" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Install all NGA apps" })).toHaveAttribute("href", "https://mis.amashuri.com/apps");
   });
@@ -55,51 +70,59 @@ describe("NgaInstallPrompt — asks on load until the app is installed", () => {
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
     await act(async () => undefined);
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Install Task Mentor/ })).toBeNull();
     expect(localStorage.getItem("nga.appInstalled")).toBe("1");
   });
 
-  it("'Not now' hides the card for this browser session only", async () => {
+  it("shows nothing inside NGA Desktop", async () => {
+    vi.spyOn(navigator, "userAgent", "get").mockReturnValue(`${CHROME_UA} NGADesktop/1.4.0`);
+    const m = await load();
+    m.initNgaInstall();
+    render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    installable();
+    await act(async () => undefined);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Install Task Mentor/ })).toBeNull();
+  });
+
+  it("'Not now' keeps every install offer away for 30 days, across browser sessions", async () => {
     const m = await load();
     m.initNgaInstall();
     const { unmount } = render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    installable();
+    fireEvent.click(await screen.findByRole("button", { name: /Install Task Mentor/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Not now" }));
     expect(screen.queryByRole("dialog")).toBeNull();
-    expect(sessionStorage.getItem("nga.installDismissedThisSession")).toBe("1");
+    expect(screen.queryByRole("button", { name: /Install Task Mentor/ })).toBeNull();
+    expect(Number(localStorage.getItem("nga.installDismissedUntil"))).toBeGreaterThan(Date.now() + 29 * 86_400_000);
     unmount();
+    sessionStorage.clear(); // a new browser session
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    installable();
     await act(async () => undefined);
-    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Install Task Mentor/ })).toBeNull();
+    expect(m.dismissedForNow(Date.now() + 31 * 86_400_000)).toBe(false);
   });
 
-  it("clears an old 24-hour snooze so the card comes back", async () => {
+  it("the corner button's x hides it for 30 days too", async () => {
+    const m = await load();
+    m.initNgaInstall();
+    render(<m.NgaInstallPrompt appName="Task Mentor" />);
+    installable();
+    fireEvent.click(await screen.findByRole("button", { name: "Hide the install Task Mentor button" }));
+    expect(screen.queryByRole("button", { name: /Install Task Mentor/ })).toBeNull();
+    expect(m.dismissedForNow()).toBe(true);
+  });
+
+  it("clears an old 24-hour snooze key", async () => {
     localStorage.setItem("nga.installSnoozedUntil", String(Date.now() + 20 * 3_600_000));
     const m = await load();
     m.initNgaInstall();
     expect(localStorage.getItem("nga.installSnoozedUntil")).toBeNull();
-    render(<m.NgaInstallPrompt appName="Task Mentor" />);
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
-  it("after 'Not now' the corner Install button stays, and reopens the card", async () => {
-    const m = await load();
-    m.initNgaInstall();
-    render(<m.NgaInstallPrompt appName="Task Mentor" />);
-    act(() => {
-      window.dispatchEvent(
-        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
-          prompt: vi.fn().mockResolvedValue(undefined),
-          userChoice: Promise.resolve({ outcome: "dismissed" }),
-        }),
-      );
-    });
-    fireEvent.click(await screen.findByRole("button", { name: "Not now" }));
-    const corner = await screen.findByRole("button", { name: /Install Task Mentor/ });
-    fireEvent.click(corner);
-    expect(await screen.findByRole("dialog")).toBeInTheDocument();
-  });
-
-  it("the NGA installer overrides 'Not now' and gets a safe way back", async () => {
-    sessionStorage.setItem("nga.installDismissedThisSession", "1");
+  it("the NGA installer opens the card despite 'Not now' and gets a safe way back", async () => {
+    localStorage.setItem("nga.installDismissedUntil", String(Date.now() + 86_400_000));
     setUrl("/?nga_install=1&return=" + encodeURIComponent("https://mis.amashuri.com/apps?step=2"));
     const m = await load();
     m.initNgaInstall();
@@ -121,21 +144,15 @@ describe("NgaInstallPrompt — asks on load until the app is installed", () => {
     const m = await load();
     m.initNgaInstall();
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
-    await screen.findByRole("dialog");
-    const prompt = vi.fn().mockResolvedValue(undefined);
-    const event = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
-      prompt,
-      userChoice: Promise.resolve({ outcome: "accepted" }),
-    });
-    act(() => {
-      window.dispatchEvent(event);
-    });
+    const event = installable("accepted");
     expect(event.defaultPrevented).toBe(true);
+    fireEvent.click(await screen.findByRole("button", { name: /Install Task Mentor/ }));
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Install & open Task Mentor" }));
     });
-    expect(prompt).toHaveBeenCalled();
+    expect(event.prompt).toHaveBeenCalled();
     expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("button", { name: /Install Task Mentor/ })).toBeNull();
     expect(localStorage.getItem("nga.appInstalled")).toBe("1");
   });
 
@@ -145,46 +162,20 @@ describe("NgaInstallPrompt — asks on load until the app is installed", () => {
     m.initNgaInstall();
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
     await act(async () => undefined);
-    expect(screen.queryByRole("dialog")).toBeNull();
-
-    const event = Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
-      prompt: vi.fn().mockResolvedValue(undefined),
-      userChoice: Promise.resolve({ outcome: "dismissed" }),
-    });
-    act(() => {
-      window.dispatchEvent(event);
-    });
+    expect(screen.queryByRole("button", { name: /Install Task Mentor/ })).toBeNull();
+    installable();
     expect(localStorage.getItem("nga.appInstalled")).toBeNull();
-    expect(await screen.findByRole("button", { name: "Install & open Task Mentor" })).toBeInTheDocument();
-  });
-
-  it("the late browser signal still respects 'Not now' (but offers the corner button)", async () => {
-    sessionStorage.setItem("nga.installDismissedThisSession", "1");
-    const m = await load();
-    m.initNgaInstall();
-    render(<m.NgaInstallPrompt appName="Task Mentor" />);
-    act(() => {
-      window.dispatchEvent(
-        Object.assign(new Event("beforeinstallprompt", { cancelable: true }), {
-          prompt: vi.fn(),
-          userChoice: Promise.resolve({ outcome: "dismissed" }),
-        }),
-      );
-    });
-    await act(async () => undefined);
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(screen.getByRole("button", { name: /Install Task Mentor/ })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Install Task Mentor/ })).toBeInTheDocument();
   });
 
   it("decides purely from the inputs", async () => {
     const { shouldOffer, shouldShowInstallButton } = await load();
-    const base = { standalone: false, knownInstalled: false, platform: "chromium" as const, forced: false, dismissedThisSession: false };
-    expect(shouldOffer(base)).toBe(true);
-    expect(shouldOffer({ ...base, standalone: true })).toBe(false);
+    const base = { standalone: false, knownInstalled: false, platform: "chromium" as const, forced: false };
+    expect(shouldOffer(base)).toBe(false); // the card never opens by itself
+    expect(shouldOffer({ ...base, forced: true })).toBe(true);
+    expect(shouldOffer({ ...base, forced: true, standalone: true })).toBe(false);
     expect(shouldOffer({ ...base, knownInstalled: true, forced: true })).toBe(false);
-    expect(shouldOffer({ ...base, platform: "firefox-other" })).toBe(false);
-    expect(shouldOffer({ ...base, dismissedThisSession: true })).toBe(false);
-    expect(shouldOffer({ ...base, dismissedThisSession: true, forced: true })).toBe(true);
+    expect(shouldOffer({ ...base, platform: "firefox-other", forced: true })).toBe(false);
 
     const btn = { standalone: false, installed: false, platform: "chromium" as const, canPrompt: true, cardOpen: false, hidden: false };
     expect(shouldShowInstallButton(btn)).toBe(true);
@@ -351,13 +342,13 @@ describe("NgaInstallPrompt — installed app visited in a browser tab", () => {
     expect(set[1]).toBe("nga_inst_tupo=already.1700000000000; path=/; max-age=900; samesite=lax");
   });
 
-  it("a removed app is not 'installed', whatever an old note says: no 'Open' button, the install card returns", async () => {
+  it("a removed app is not 'installed', whatever an old note says: no 'Open' button", async () => {
     localStorage.setItem("nga.appInstalled", "1");
     (navigator as any).getInstalledRelatedApps = vi.fn().mockResolvedValue([]);
     const m = await load();
     m.initNgaInstall();
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
-    expect(await screen.findByRole("dialog", { name: "Install Task Mentor as an app" })).toBeInTheDocument();
+    await act(async () => undefined);
     expect(screen.queryByRole("link", { name: /Open in the Task Mentor app/ })).toBeNull();
     expect(localStorage.getItem("nga.appInstalled")).toBeNull();
     expect(m.getLiveCheck()).toBe("no");
@@ -396,7 +387,7 @@ describe("NgaInstallPrompt — installed app visited in a browser tab", () => {
     });
     expect(await m.refreshLiveCheck()).toBe("no");
     render(<m.NgaInstallPrompt appName="Task Mentor" />);
-    expect(await screen.findByRole("button", { name: "Install & open Task Mentor" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Install Task Mentor/ })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Open in the Task Mentor app/ })).toBeNull();
   });
 });

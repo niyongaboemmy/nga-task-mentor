@@ -1,25 +1,24 @@
 import React, { useEffect, useState, useSyncExternalStore } from "react";
 
 /**
- * Install prompt shown automatically when the app loads in a browser tab and
- * isn't installed on this device (nga_central_mis/docs/APP_LAUNCH.md).
+ * A quiet install offer for when the app loads in a browser tab and isn't
+ * installed on this device (nga_central_mis/docs/APP_LAUNCH.md).
  *
- * Browsers only open their native install dialog from a user gesture -- a
- * page can never pop it by itself -- so on load we show this card, and its
- * one button opens the browser's dialog (Chromium's beforeinstallprompt). On
+ * An ordinary visit gets only a small corner "Install" button; it opens the
+ * install card, whose one button opens the browser's dialog (Chromium's
+ * beforeinstallprompt -- browsers only open it from a user gesture). On
  * iPhone/iPad, Safari on Mac and Firefox, where there is no dialog, the card
- * shows the exact steps.
+ * shows the exact steps. The card opens by itself only when the NGA
+ * installer sent the user here on purpose (`nga_install=1`): a full-screen
+ * card on every browser session was the main complaint.
  *
- * Never shown when:
- * - the app already runs installed (standalone), or the browser reports it
- *   installed here (manifest related_applications + getInstalledRelatedApps),
+ * Nothing is shown when:
+ * - the app already runs installed (standalone, or inside NGA Desktop), or
+ *   the browser reports it installed here (manifest related_applications +
+ *   getInstalledRelatedApps),
  * - the browser can't install web apps at all (desktop Firefox off Windows),
- * - the user said "Not now" in this browser session (unless the NGA
- *   installer sent them here on purpose with `nga_install=1`).
- *
- * Whenever the card is closed and the app is installable, a small corner
- * "Install" button stays available -- dismissing never removes the way to
- * install (no DevTools, no waiting).
+ * - the user dismissed it ("Not now" or the corner x) in the last
+ *   DISMISS_DAYS days -- unless the NGA installer asks.
  *
  * URL markers:
  * - `nga_launch=app`  opened from another installed NGA app (wording only)
@@ -40,10 +39,9 @@ const FORCED_KEY = "nga.installRequested";
 const RETURN_KEY = "nga.installReturn";
 /** Legacy 24 h snooze (removed: it hid the only way to install for a day). */
 const LEGACY_SNOOZE_KEY = "nga.installSnoozedUntil";
-/** "Not now" hides the big card until the browser is reopened. */
-const DISMISS_KEY = "nga.installDismissedThisSession";
-/** The small corner button can be hidden for the session too. */
-const PILL_HIDDEN_KEY = "nga.installPillHidden";
+/** "Not now" / the corner x: no install offer until this time (ms). */
+const DISMISS_KEY = "nga.installDismissedUntil";
+export const DISMISS_DAYS = 30;
 const INSTALLED_KEY = "nga.appInstalled";
 /** Where "Install all NGA apps" lives. */
 export const DEFAULT_INSTALLER_URL = "https://mis.amashuri.com/apps";
@@ -65,9 +63,13 @@ const safe = <T,>(fn: () => T, fallback: T): T => {
   }
 };
 
+/** NGA Desktop's own window: the user is already in the NGA app. */
+const isNgaDesktop = () => typeof navigator !== "undefined" && /\bNGADesktop\/\d/.test(navigator.userAgent);
+
 export const isStandalone = () =>
   typeof window !== "undefined" &&
   (Boolean((navigator as any).standalone) ||
+    isNgaDesktop() ||
     ["standalone", "window-controls-overlay", "fullscreen", "minimal-ui"].some(
       (m) => window.matchMedia?.(`(display-mode: ${m})`).matches,
     ));
@@ -190,18 +192,14 @@ export const detectPlatform = (ua = navigator.userAgent, touch = navigator.maxTo
   return "other";
 };
 
-/** Pure decision, unit-tested: should the big card open on this load? */
-export const shouldOffer = (s: {
-  standalone: boolean;
-  knownInstalled: boolean;
-  platform: Platform;
-  forced: boolean;
-  dismissedThisSession: boolean;
-}) => {
+export const dismissedForNow = (now = Date.now()) => safe(() => Number(localStorage.getItem(DISMISS_KEY) || 0) > now, false);
+const dismissForNow = (now = Date.now()) => safe(() => localStorage.setItem(DISMISS_KEY, String(now + DISMISS_DAYS * 86_400_000)), undefined);
+
+/** Pure decision, unit-tested: should the big card open by itself on this load? Only when the installer asked. */
+export const shouldOffer = (s: { standalone: boolean; knownInstalled: boolean; platform: Platform; forced: boolean }) => {
   if (s.standalone || s.knownInstalled) return false;
   if (s.platform === "firefox-other") return false; // can't install web apps
-  if (s.forced) return true;
-  return !s.dismissedThisSession;
+  return s.forced;
 };
 
 /**
@@ -309,7 +307,7 @@ export const NgaInstallPrompt: React.FC<{
   const [already, setAlready] = useState(false);
   const [dark, setDark] = useState(false);
   const [closedThisLoad, setClosedThisLoad] = useState(false);
-  const [pillHidden, setPillHidden] = useState(() => safe(() => sessionStorage.getItem(PILL_HIDDEN_KEY) === "1", false));
+  const [pillHidden, setPillHidden] = useState(() => dismissedForNow());
   const platform = detectPlatform();
   const fromApp = safe(() => sessionStorage.getItem(FLAG_KEY) === "1", false);
   const forced = safe(() => sessionStorage.getItem(FORCED_KEY) === "1", false);
@@ -323,7 +321,6 @@ export const NgaInstallPrompt: React.FC<{
       knownInstalled: false,
       platform,
       forced,
-      dismissedThisSession: safe(() => sessionStorage.getItem(DISMISS_KEY) === "1", false),
     };
     // Running as the installed app (e.g. the installer's link opened it
     // straight in its window): nothing to ask -- just tell the installer.
@@ -381,7 +378,7 @@ export const NgaInstallPrompt: React.FC<{
   }, []);
 
   // The browser's "not installed, installable" signal can arrive after the
-  // first render -- open then too (still honouring "Not now").
+  // first render -- an installer visit opens the card then.
   const canPrompt = Boolean(deferred);
   useEffect(() => {
     // Chromium only offers installation when the app is NOT installed here,
@@ -393,7 +390,6 @@ export const NgaInstallPrompt: React.FC<{
       knownInstalled: false,
       platform,
       forced,
-      dismissedThisSession: safe(() => sessionStorage.getItem(DISMISS_KEY) === "1", false),
     });
     if (ok) setOpen(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -469,7 +465,7 @@ export const NgaInstallPrompt: React.FC<{
           type="button"
           aria-label={`Hide the install ${appName} button`}
           onClick={() => {
-            safe(() => sessionStorage.setItem(PILL_HIDDEN_KEY, "1"), undefined);
+            dismissForNow();
             setPillHidden(true);
           }}
           style={{ border: 0, background: "rgba(255,255,255,.18)", color: "#fff", width: 28, height: 28, borderRadius: 999, cursor: "pointer", fontSize: 14, lineHeight: "28px" }}
@@ -486,8 +482,9 @@ export const NgaInstallPrompt: React.FC<{
     setOpen(false);
   };
   const notNow = () => {
-    // Until the browser is reopened; the corner button stays available.
-    safe(() => sessionStorage.setItem(DISMISS_KEY, "1"), undefined);
+    // Quiet for DISMISS_DAYS: no corner button either (the installer can still ask).
+    dismissForNow();
+    setPillHidden(true);
     close();
   };
   const install = async () => {
