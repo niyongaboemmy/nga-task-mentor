@@ -55,6 +55,7 @@ import rolesPermissionsRoutes from "./routes/rolesPermissions";
 import accessRoutes from "./routes/access";
 import integrationRoutes from "./routes/integration";
 import activityRoutes from "./routes/activity";
+import mediaRoutes from "./routes/media";
 import { activityRelay } from "./activity/relay";
 import activityCatalog from "./activity/catalog.json";
 import aiService from "./services/ai/aiService";
@@ -297,6 +298,7 @@ const startServer = async (): Promise<void> => {
     app.use("/api/access", accessRoutes);
     // MIS -> Task Mentor server-to-server reads (MIS bearer token, read-only)
     app.use("/api/integration", integrationRoutes);
+    app.use("/api/media", mediaRoutes);
     // Public (no auth) — QR code verification
     app.get("/api/public/verify/report-card/:uuid", verifyReportCard);
 

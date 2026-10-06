@@ -230,3 +230,15 @@ ul[data-type="taskList"] div {
 html[data-focus-mode] [data-hide-in-focus] {
   display: none !important;
 }
+
+/* Rich editor: an image still uploading (shown from a local blob:/data: URL). */
+.ProseMirror img[src^="blob:"],
+.ProseMirror img[src^="data:"] {
+  opacity: 0.55;
+  animation: tm-image-uploading 1.2s ease-in-out infinite;
+}
+@keyframes tm-image-uploading {
+  50% {
+    opacity: 0.3;
+  }
+}

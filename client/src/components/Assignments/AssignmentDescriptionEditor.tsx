@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Edit3, X, Save } from "lucide-react";
+import { Edit3, X, Save, Loader2, ImagePlus } from "lucide-react";
 import { Button } from "../ui/Button";
 import RichTextEditor from "../Common/RichTextEditor";
 import RichTextDisplay from "../Common/RichTextDisplay";
@@ -20,6 +20,7 @@ const AssignmentDescriptionEditor: React.FC<
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [tempContent, setTempContent] = useState(description);
+  const [imagesUploading, setImagesUploading] = useState(false);
 
   const handleEdit = () => {
     setTempContent(description);
@@ -27,6 +28,8 @@ const AssignmentDescriptionEditor: React.FC<
   };
 
   const handleSave = () => {
+    // Saving now would store temporary blob: image URLs.
+    if (imagesUploading) return;
     onChange(tempContent);
     setIsModalOpen(false);
   };
@@ -74,9 +77,10 @@ const AssignmentDescriptionEditor: React.FC<
                   <h3 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark">
                     {description ? "Edit Description" : "Add Description"}
                   </h3>
-                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70">
-                    Use the toolbar to format your content, add images, or
-                    tables.
+                  <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/70 flex items-center gap-1.5">
+                    <ImagePlus className="w-4 h-4" />
+                    Format with the toolbar. Paste or drag images straight in —
+                    they upload automatically.
                   </p>
                 </div>
                 <button
@@ -95,6 +99,7 @@ const AssignmentDescriptionEditor: React.FC<
                   onChange={setTempContent}
                   placeholder={placeholder}
                   minHeight="300px"
+                  onUploadingChange={setImagesUploading}
                 />
               </div>
 
@@ -107,11 +112,16 @@ const AssignmentDescriptionEditor: React.FC<
                   type="button"
                   variant="primary"
                   onClick={handleSave}
+                  disabled={imagesUploading}
                   className="bg-blue-600 hover:bg-blue-700 text-white min-w-[140px] shadow-lg shadow-blue-500/20"
                 >
                   <div className="flex items-center gap-2">
-                    <Save className="w-4 h-4" />
-                    <span>Save and Continue</span>
+                    {imagesUploading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    <span>{imagesUploading ? "Uploading images…" : "Save and Continue"}</span>
                   </div>
                 </Button>
               </div>

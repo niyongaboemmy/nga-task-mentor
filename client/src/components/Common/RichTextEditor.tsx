@@ -1,6 +1,9 @@
-import React, { useCallback, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import MathFormulaModal from "./MathFormulaModal";
-import { useEditor, EditorContent, Extension } from "@tiptap/react";
+import { useEditor, EditorContent, Extension, type Editor } from "@tiptap/react";
+import type { EditorView } from "@tiptap/pm/view";
+import { NodeSelection } from "@tiptap/pm/state";
+import { toast } from "react-toastify";
 import StarterKit from "@tiptap/starter-kit";
 import { Color } from "@tiptap/extension-color";
 import { TextStyle } from "@tiptap/extension-text-style";
@@ -61,7 +64,16 @@ import {
   Palette,
   Sigma,
   Edit3,
+  Upload,
+  Link2,
+  Loader2,
 } from "lucide-react";
+import {
+  imageSourceKind,
+  importEditorImage,
+  isImageFile,
+  uploadLocalImageSrc,
+} from "../../utils/editorImages";
 
 import { FontSize } from "./extensions/fontSizeExtension";
 
@@ -120,6 +132,17 @@ interface RichTextEditorProps {
   onChange: (content: string) => void;
   placeholder?: string;
   minHeight?: string;
+  /** Called with true while pasted/dropped images are still uploading. */
+  onUploadingChange?: (uploading: boolean) => void;
+}
+
+const IMAGE_NODE = "imageResize";
+
+/** Text a clipboard HTML fragment shows, ignoring tags and whitespace. */
+function visibleText(html: string): string {
+  if (!html) return "";
+  const doc = new DOMParser().parseFromString(html, "text/html");
+  return (doc.body.textContent || "").replace(/\s+/g, "");
 }
 
 const lowlight = createLowlight(common);
@@ -129,12 +152,114 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
   onChange,
   placeholder = "Start typing your document...",
   minHeight = "400px",
+  onUploadingChange,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showTableMenu, setShowTableMenu] = useState(false);
   const [showMathModal, setShowMathModal] = useState(false);
   const [currentFontSize, setCurrentFontSize] = useState("11pt"); // Google Docs default
   const [currentLineHeight, setCurrentLineHeight] = useState("1.15");
+  const [uploadingCount, setUploadingCount] = useState(0);
+  const [showImageMenu, setShowImageMenu] = useState(false);
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<Editor | null>(null);
+  // srcs currently being re-hosted, so a second pass doesn't upload them twice
+  const inFlight = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    onUploadingChange?.(uploadingCount > 0);
+  }, [uploadingCount, onUploadingChange]);
+
+  /** Swap every image whose src is `from` to `to` (or delete it when `to` is null). */
+  const replaceImageSrc = useCallback((from: string, to: string | null) => {
+    const ed = editorRef.current;
+    if (!ed || ed.isDestroyed) return;
+    const { state } = ed;
+    const tr = state.tr;
+    const hits: { pos: number; size: number; attrs: Record<string, unknown> }[] = [];
+    state.doc.descendants((node, pos) => {
+      if (node.type.name === IMAGE_NODE && node.attrs.src === from) {
+        hits.push({ pos, size: node.nodeSize, attrs: node.attrs });
+      }
+    });
+    // back to front so earlier positions stay valid
+    for (const h of hits.reverse()) {
+      if (to) tr.setNodeMarkup(h.pos, undefined, { ...h.attrs, src: to });
+      else tr.delete(h.pos, h.pos + h.size);
+    }
+    if (hits.length) ed.view.dispatch(tr.setMeta("addToHistory", false));
+  }, []);
+
+  /**
+   * Upload every image in the document that isn't on our server yet: blob:
+   * (just pasted/dropped files), data: (pasted from Google Docs, Word…) and
+   * http(s) links to other sites (re-hosted server-side so they can't vanish).
+   */
+  const rehostImages = useCallback(() => {
+    const ed = editorRef.current;
+    if (!ed || ed.isDestroyed) return;
+    const pending = new Set<string>();
+    ed.state.doc.descendants((node) => {
+      if (node.type.name !== IMAGE_NODE) return;
+      const src: string = node.attrs.src || "";
+      if (imageSourceKind(src) !== "own" && !inFlight.current.has(src)) pending.add(src);
+    });
+
+    let unreachable = 0;
+    pending.forEach((src) => {
+      const kind = imageSourceKind(src);
+      if (kind === "unreachable") {
+        unreachable++;
+        replaceImageSrc(src, null);
+        return;
+      }
+      inFlight.current.add(src);
+      setUploadingCount((n) => n + 1);
+      const job = kind === "local" ? uploadLocalImageSrc(src) : importEditorImage(src);
+      job
+        .then((url) => replaceImageSrc(src, url))
+        .catch((err: Error) => {
+          if (kind === "remote") {
+            // Still shows from the original site — just not copied here.
+            toast.warn(`An image couldn't be copied, so it stays linked to the original site. ${err.message}`);
+          } else {
+            replaceImageSrc(src, null);
+            toast.error(err.message || "An image could not be uploaded.");
+          }
+        })
+        .finally(() => {
+          inFlight.current.delete(src);
+          if (src.startsWith("blob:")) URL.revokeObjectURL(src);
+          setUploadingCount((n) => Math.max(0, n - 1));
+        });
+    });
+    if (unreachable) {
+      toast.warn(
+        "Some pasted images point to files on your computer the browser can't read. Copy each image on its own and paste it, or use the image button to upload it.",
+      );
+    }
+  }, [replaceImageSrc]);
+
+  /** Show the files at once (from a blob: URL), then upload them in the background. */
+  const insertImageFiles = useCallback(
+    (files: File[], view: EditorView, pos?: number, replaceSelected = false) => {
+      const type = view.state.schema.nodes[IMAGE_NODE];
+      if (!type || files.length === 0) return;
+      const nodes = files.map((f) => type.create({ src: URL.createObjectURL(f), alt: f.name }));
+      const sel = view.state.selection;
+      // A just-inserted image stays selected; a new one goes after it unless
+      // the teacher asked to replace it.
+      const at = pos ?? (sel instanceof NodeSelection && !replaceSelected ? sel.to : undefined);
+      let tr = view.state.tr;
+      nodes.forEach((n, i) => {
+        if (i === 0 && at === undefined) tr = tr.replaceSelectionWith(n);
+        else tr = tr.insert(tr.mapping.map(at ?? sel.to), n);
+      });
+      view.dispatch(tr.scrollIntoView());
+      rehostImages();
+    },
+    [rehostImages],
+  );
 
   const editor = useEditor({
     extensions: [
@@ -161,7 +286,10 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             "text-blue-600 dark:text-blue-400 underline decoration-blue-500/30 hover:decoration-blue-500 transition-all cursor-pointer",
         },
       }),
-      ImageResize,
+      // data: images are let in only long enough to be uploaded (see
+      // rehostImages). allowBase64 is the parent Image option, missing from
+      // this extension's option type but honoured at runtime.
+      ImageResize.configure({ allowBase64: true } as Parameters<typeof ImageResize.configure>[0]),
       Table.configure({
         resizable: true,
         HTMLAttributes: {
@@ -214,6 +342,34 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
       onChange(editor.getHTML());
     },
     editorProps: {
+      handlePaste: (view, event) => {
+        const data = event.clipboardData;
+        if (!data) return false;
+        const files = Array.from(data.files || []).filter(isImageFile);
+        // An image copied on its own (screenshot, "Copy image") arrives as a
+        // file, often with an <img> fragment beside it — upload the bytes.
+        // Mixed content (a web page or doc with text) pastes as HTML, and its
+        // images are re-hosted right after.
+        if (files.length && !visibleText(data.getData("text/html"))) {
+          event.preventDefault();
+          insertImageFiles(files, view);
+          return true;
+        }
+        setTimeout(rehostImages, 0);
+        return false;
+      },
+      handleDrop: (view, event, _slice, moved) => {
+        if (moved) return false;
+        const files = Array.from(event.dataTransfer?.files || []).filter(isImageFile);
+        if (!files.length) {
+          setTimeout(rehostImages, 0);
+          return false;
+        }
+        event.preventDefault();
+        const coords = view.posAtCoords({ left: event.clientX, top: event.clientY });
+        insertImageFiles(files, view, coords?.pos);
+        return true;
+      },
       attributes: {
         class: `prose focus:outline-none max-w-full p-8 min-h-[${minHeight}] dark:prose-invert leading-normal text-black dark:text-gray-100 font-[Arial] text-[11pt] prose-p:text-[11pt] prose-h1:text-[24pt] prose-h2:text-[18pt] prose-h3:text-[14pt] prose-p:my-[0.5em] prose-headings:mt-[1em] prose-headings:mb-[0.5em] prose-li:my-0 prose-ul:my-[0.5em] prose-ol:my-[0.5em] prose-img:my-0 placeholder:text-gray-300 dark:placeholder:text-gray-700`,
       },
@@ -241,6 +397,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     },
   });
 
+  editorRef.current = editor;
+
   // Sync content from props to editor when it changes from outside
   React.useEffect(() => {
     if (!editor) return;
@@ -253,12 +411,24 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
     }
   }, [editor, content]);
 
-  const addImage = useCallback(() => {
-    const url = window.prompt("Enter image URL");
-    if (url) {
-      editor?.chain().focus().insertContent(`<img src="${url}" />`).run();
-    }
-  }, [editor]);
+  const addImageFromUrl = useCallback(() => {
+    setShowImageMenu(false);
+    const url = window.prompt("Paste the image address (https://…)");
+    if (!url || !editor) return;
+    editor.chain().focus().insertContent({ type: IMAGE_NODE, attrs: { src: url.trim() } }).run();
+    rehostImages();
+  }, [editor, rehostImages]);
+
+  const replaceNextPick = useRef(false);
+  const onPickImages = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []).filter(isImageFile);
+    e.target.value = "";
+    const replace = replaceNextPick.current;
+    replaceNextPick.current = false;
+    if (!editor || files.length === 0) return;
+    editor.commands.focus();
+    insertImageFiles(files, editor.view, undefined, replace);
+  };
 
   const setLink = useCallback(() => {
     const previousUrl = editor?.getAttributes("link").href;
@@ -575,9 +745,52 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             >
               <LinkIcon className="w-4 h-4" />
             </MenuButton>
-            <MenuButton onClick={addImage} title="Image">
-              <ImageIcon className="w-4 h-4" />
-            </MenuButton>
+            <div className="relative">
+              <MenuButton
+                onClick={() => setShowImageMenu((v) => !v)}
+                isActive={showImageMenu}
+                title="Image (or paste / drop one into the page)"
+              >
+                <ImageIcon className="w-4 h-4" />
+              </MenuButton>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/gif,image/webp,image/bmp,image/avif"
+                multiple
+                className="hidden"
+                onChange={onPickImages}
+                data-testid="editor-image-input"
+              />
+              {showImageMenu && (
+                <>
+                  <div className="fixed inset-0 z-[60]" onClick={() => setShowImageMenu(false)} />
+                  <div className="absolute left-0 top-full mt-1 z-[61] w-60 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 shadow-xl p-1.5 text-sm">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowImageMenu(false);
+                        replaceNextPick.current = false;
+                        imageInputRef.current?.click();
+                      }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-left text-gray-700 dark:text-gray-200"
+                    >
+                      <Upload className="w-4 h-4 text-blue-500" /> Upload from device
+                    </button>
+                    <button
+                      type="button"
+                      onClick={addImageFromUrl}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 text-left text-gray-700 dark:text-gray-200"
+                    >
+                      <Link2 className="w-4 h-4 text-blue-500" /> From an image link
+                    </button>
+                    <p className="px-3 pt-1.5 pb-1 text-[11px] text-gray-400 border-t border-gray-100 dark:border-gray-800 mt-1">
+                      Tip: you can also paste (Ctrl/⌘ V) or drag images straight into the page.
+                    </p>
+                  </div>
+                </>
+              )}
+            </div>
 
             {/* Table Tools */}
             <MenuButton
@@ -634,6 +847,15 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
           </div>
 
           <div className="ml-auto flex items-center gap-2 pr-2">
+            {uploadingCount > 0 && (
+              <span
+                role="status"
+                className="flex items-center gap-1.5 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 px-2.5 py-1 text-xs font-medium"
+              >
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                Uploading {uploadingCount} image{uploadingCount > 1 ? "s" : ""}…
+              </span>
+            )}
             <MenuButton
               onClick={() => setIsExpanded(!isExpanded)}
               title={isExpanded ? "Collapse" : "Full Screen"}
@@ -651,7 +873,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             {/* Main Editing Area */}
             <div
               className={`flex-1 transition-all duration-300 ${
-                editor?.isActive("table") || editor?.isActive("image")
+                editor?.isActive("table") || editor?.isActive(IMAGE_NODE)
                   ? "mr-[280px]" // Reserve space for sidebar
                   : ""
               }`}
@@ -666,7 +888,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
             </div>
 
             {/* Contextual Right Sidebar */}
-            {(editor?.isActive("table") || editor?.isActive("image")) && (
+            {(editor?.isActive("table") || editor?.isActive(IMAGE_NODE)) && (
               <div className="w-[280px] fixed right-4 top-24 bottom-24 bg-white/95 dark:bg-gray-950/95 backdrop-blur-md rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-y-auto animate-in slide-in-from-right-8 duration-300 z-[90]">
                 {editor.isActive("table") && (
                   <div className="p-5 flex flex-col gap-6">
@@ -807,7 +1029,7 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                   </div>
                 )}
 
-                {editor.isActive("image") && (
+                {editor.isActive(IMAGE_NODE) && (
                   <div className="p-5 flex flex-col gap-4">
                     <h3 className="text-xs font-bold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/70 mb-2 flex items-center gap-2">
                       <ImageIcon className="w-4 h-4" /> Image Properties
@@ -818,16 +1040,8 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
                     </p>
                     <button
                       onClick={() => {
-                        const url = window.prompt(
-                          "Enter new image URL to replace",
-                        );
-                        if (url) {
-                          editor
-                            ?.chain()
-                            .focus()
-                            .insertContent(`<img src="${url}" />`)
-                            .run();
-                        }
+                        replaceNextPick.current = true;
+                        imageInputRef.current?.click();
                       }}
                       className="w-full flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50 hover:bg-white dark:bg-gray-800/50 dark:hover:bg-gray-800 border border-gray-200 dark:border-gray-700 transition duration-200 text-sm font-medium text-gray-700 dark:text-gray-200"
                     >

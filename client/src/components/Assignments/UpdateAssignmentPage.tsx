@@ -46,7 +46,7 @@ const UpdateAssignmentPage: React.FC = () => {
     }
   }, [assignmentId]);
 
-  const handleSubmit = (_assignmentData: any) => {
+  const handleSubmit = (_assignmentData: unknown) => {
     // Navigate back to assignment details - the modal handled the update
     navigate(`/assignments/${assignmentId}`);
   };
@@ -85,7 +85,7 @@ const UpdateAssignmentPage: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black py-8">
+    <div className="min-h-screen px-2 sm:px-4 py-4">
       <div className="max-w-5xl mx-auto">
         <UpdateAssignmentModal
           assignment={assignment}
