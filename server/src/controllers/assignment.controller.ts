@@ -19,6 +19,7 @@ import {
   handleMisError,
 } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
+import { assignmentTmcodeSettings } from "./tmcodeAssignments.controller";
 import { canManageAssignment } from "../utils/ownership";
 import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
 import { cancelAssignment, syncAssignment } from "../services/reminderSync";
@@ -387,6 +388,8 @@ export const getAssignment = async (req: Request, res: Response) => {
         ...assignment.toJSON(),
         can_manage: canManageAssignment(req.user, assignment),
         can_grade: canGrade,
+        // TMCode practical settings (null = not a TMCode assignment)
+        tmcode: await assignmentTmcodeSettings(assignment.id),
       },
     });
   } catch (error) {
