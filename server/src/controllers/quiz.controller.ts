@@ -7,10 +7,25 @@ import ProctoringEvent from "../models/ProctoringEvent.model";
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { QuestionValidator } from "../utils/questionValidation";
-import { QuizGrader, AdvancedQuizGrader } from "../utils/quizGrader";
+import {
+  QuizGrader,
+  AdvancedQuizGrader,
+  isPendingGrade,
+} from "../utils/quizGrader";
 import { aiService } from "../services/ai/aiService";
-import { Judge0Service } from "../services/Judge0Service";
+import {
+  Judge0Service,
+  JudgeUnavailableError,
+  UnsupportedLanguageError,
+} from "../services/Judge0Service";
+import { answerFiles, getCodeRunner } from "../services/coderunner";
+import { codeRunnerLanguages } from "../utils/codeLanguages";
 import { getQuestionBankInclude } from "../utils/quizUtils";
+import {
+  allowedAnswerLanguages,
+  isWebLanguage,
+  WEB_PREVIEW_LANGUAGES,
+} from "../utils/codeLanguages";
 
 import { QuestionType, GradingResult } from "../types/quiz.types";
 import type { QuizCreationAttributes } from "../models/Quiz.model";
@@ -40,11 +55,15 @@ import {
   studentAttemptSummary,
 } from "../utils/quizStudentView";
 import { studentMayTakeQuiz } from "../utils/studentEnrollment";
+import { enforceLockdown } from "../utils/lockdown";
+import { startOrResumeAttempt } from "../utils/quizAttemptStart";
+import { tmcodeSettingsFor } from "../tmcode/policy";
 import { cancelQuiz, syncQuiz } from "../services/reminderSync";
 import {
   SUBMIT_GRACE_SECONDS,
   computeAttemptEndTime,
   finalizeFromSavedAttempts,
+  gradeUngradedAttempts,
   isPastDeadline,
   secondsRemaining,
 } from "../utils/quizTiming";
@@ -1333,6 +1352,11 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       });
     }
 
+    if (!(await enforceLockdown(req, res, quiz.id))) {
+      await transaction.rollback();
+      return;
+    }
+
     // Check if student already has an in-progress submission
     const existingSubmission = await QuizSubmission.findOne({
       where: {
@@ -1398,6 +1422,8 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
 
     // Now calculate scores and create/update attempts
     let calculatedTotalScore = 0;
+    // A code answer the judge couldn't grade leaves the attempt for review.
+    let anyPendingReview = false;
     const results = [];
 
     // Get all attempts for this submission to calculate scores
@@ -1406,6 +1432,11 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       transaction,
     });
 
+    // TMCode required: code answers in the web submit are ignored; the ones
+    // TMCode synced (already on the attempts) count instead.
+    const tmcodeRequired =
+      (await tmcodeSettingsFor(quiz.id)).delivery === "tmcode_required";
+
     for (const answer of answers) {
       const question = allQuizQuestions.find(
         (q) => q.id === Number(answer.question_id),
@@ -1413,6 +1444,12 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
 
       if (!question) {
         continue; // Skip invalid questions or questions not in this quiz
+      }
+      if (
+        tmcodeRequired &&
+        ["coding", "algorithmic"].includes(question.questionBank?.question_type as string)
+      ) {
+        continue;
       }
 
       const questionData = question.questionBank?.question_data as any;
@@ -1444,6 +1481,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
           );
           isCorrect = gradingResult.is_correct;
           pointsEarned = gradingResult.points_earned;
+          if (isPendingGrade(gradingResult)) anyPendingReview = true;
         } catch (error) {
           console.error(
             `Error grading question ${question.id} of type ${question.questionBank?.question_type}:`,
@@ -1476,6 +1514,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
           {
             submitted_answer: normalizedSubmittedAnswer.data,
             correct_answer: normalizedCorrectAnswer.data,
+            grading_details: gradingResult?.detailed_feedback ?? null,
             is_correct: isCorrect,
             points_earned: pointsEarned,
             time_taken: answer.time_taken || 0,
@@ -1495,6 +1534,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
             quiz_id: parseInt(id),
             submitted_answer: normalizedSubmittedAnswer.data,
             correct_answer: normalizedCorrectAnswer.data,
+            grading_details: gradingResult?.detailed_feedback ?? null,
             is_correct: isCorrect,
             points_earned: pointsEarned,
             status: questionTimedOut ? "timed_out" : "completed",
@@ -1522,6 +1562,20 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
       });
     }
 
+    // Answers saved on the server but not in this request still count; code
+    // answers that were only background-saved (TM-FIX-8) are graded now.
+    const answeredIds = new Set(results.map((r: any) => r.question_id));
+    const savedElsewhere = allAttempts.filter(
+      (a) =>
+        !answeredIds.has(a.question_id) &&
+        allQuizQuestions.some((q) => q.id === a.question_id),
+    );
+    await gradeUngradedAttempts(savedElsewhere, transaction);
+    for (const a of savedElsewhere) {
+      calculatedTotalScore += parseFloat(String(a.points_earned)) || 0;
+      if (isPendingGrade(a.grading_details)) anyPendingReview = true;
+    }
+
     const finalPercentage =
       calculatedMaxScore > 0
         ? (calculatedTotalScore / calculatedMaxScore) * 100
@@ -1536,7 +1590,7 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         time_taken: time_taken || 0,
         status: "completed",
         completed_at: new Date(),
-        grade_status: gradeStatusOnSubmit(quiz),
+        grade_status: gradeStatusOnSubmit(quiz, anyPendingReview),
         passed: isPassed(finalPercentage, quiz),
       },
       { transaction },
@@ -1692,36 +1746,37 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
         .json({ success: false, message: "Quiz not found" });
     }
 
-    // Check if student already has an in-progress submission
-    const existingSubmission = await QuizSubmission.findOne({
-      where: {
-        quiz_id,
-        student_id: req.user.id,
-        status: "in_progress",
-      },
-      transaction,
-    });
+    // lockdown_browser: starting or resuming needs Safe Exam Browser
+    // (409 LOCKDOWN_REQUIRED).
+    if (!(await enforceLockdown(req, res, quiz.id))) {
+      await transaction.rollback();
+      return;
+    }
 
-    if (existingSubmission) {
-      // Time already ran out on the attempt: submit it with what was saved
-      // rather than discarding it, and tell the client where the results are.
-      const closedMeanwhile = quizAvailability(quiz).state === "closed";
-      if (isPastDeadline(existingSubmission) || closedMeanwhile) {
-        const summary = await finalizeFromSavedAttempts(
-          existingSubmission,
-          quiz,
-          transaction,
-        );
-        await transaction.commit();
-        return res.status(409).json({
-          success: false,
-          code: "ATTEMPT_TIME_EXPIRED",
-          message:
-            "Time ran out on your previous attempt. It was submitted with the answers you had saved.",
-          data: summary,
-        });
-      }
-
+    const started = await startOrResumeAttempt(req, quiz, transaction, status);
+    if (started.kind === "expired") {
+      // Time already ran out on the attempt: it was submitted with what was
+      // saved; tell the client where the results are.
+      await transaction.commit();
+      return res.status(409).json({
+        success: false,
+        code: "ATTEMPT_TIME_EXPIRED",
+        message:
+          "Time ran out on your previous attempt. It was submitted with the answers you had saved.",
+        data: started.summary,
+      });
+    }
+    if (started.kind === "refused") {
+      await transaction.rollback();
+      return res.status(started.status).json({
+        success: false,
+        code: started.code,
+        message: started.message,
+        ...(started.data !== undefined ? { data: started.data } : {}),
+      });
+    }
+    if (started.kind === "resumed") {
+      const existingSubmission = started.submission;
       await transaction.rollback();
       return res.status(200).json({
         success: true,
@@ -1733,73 +1788,7 @@ export const createQuizSubmission = async (req: Request, res: Response) => {
         message: "Resuming existing submission",
       });
     }
-
-    // Published and inside its availability window
-    const availability = quizAvailability(quiz);
-    if (availability.state !== "open") {
-      await transaction.rollback();
-      return res.status(400).json({
-        success: false,
-        code: "QUIZ_NOT_AVAILABLE",
-        message: `Quiz is not currently available. ${availabilityMessage(availability)}`.trim(),
-        data: { availability },
-      });
-    }
-
-    if (!(await studentMayTakeQuiz(req, quiz))) {
-      await transaction.rollback();
-      return res.status(403).json({
-        success: false,
-        code: "NOT_ENROLLED",
-        message: "You are not enrolled in this quiz's subject.",
-      });
-    }
-
-    // Calculate attempt number
-    const previousSubmissions = await QuizSubmission.count({
-      where: {
-        quiz_id,
-        student_id: req.user.id,
-        status: { [Op.in]: ["completed", "timed_out", "abandoned"] },
-      },
-      transaction,
-    });
-
-    // max_attempts (null = unlimited)
-    const maxAttempts = Number(quiz.max_attempts) > 0 ? Number(quiz.max_attempts) : null;
-    if (maxAttempts !== null && previousSubmissions >= maxAttempts) {
-      await transaction.rollback();
-      return res.status(409).json({
-        success: false,
-        code: "MAX_ATTEMPTS_REACHED",
-        message: `You have used all ${maxAttempts} attempt${maxAttempts === 1 ? "" : "s"} for this quiz.`,
-        data: { max_attempts: maxAttempts, attempts_used: previousSubmissions },
-      });
-    }
-
-    // The attempt clock always starts on the server: a client-supplied
-    // started_at could otherwise push the deadline out.
-    const startTime = new Date();
-    const endTime = computeAttemptEndTime(quiz, startTime);
-
-    // Create submission record
-    const submission = await QuizSubmission.create(
-      {
-        quiz_id,
-        student_id: req.user.id,
-        total_score: 0,
-        max_score: 0,
-        percentage: 0,
-        status,
-        grade_status: "pending",
-        time_taken: 0,
-        started_at: startTime,
-        end_time: endTime,
-        attempt_number: previousSubmissions + 1,
-        passed: false,
-      },
-      { transaction },
-    );
+    const submission = started.submission;
 
     await transaction.commit();
 
@@ -2062,128 +2051,306 @@ export const getAIHint = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Run code snippet instantly (no grading, just execution)
-//          When `test_cases` array is provided, runs code against each case and returns pass/fail.
-// @route   POST /api/quizzes/questions/:questionId/run-code
-//          POST /api/quizzes/preview-run  (instructor prep, no questionId required)
-// @access  Private
-export const runCode = async (req: Request, res: Response) => {
-  try {
-    const { code, language, stdin, test_cases } = req.body;
+/** Free "Run with stdin" caps: input in, output back. */
+export const RUN_STDIN_MAX_BYTES = 64 * 1024;
+export const RUN_OUTPUT_MAX_BYTES = 256 * 1024;
 
-    if (!code || !language) {
-      return res.status(400).json({
-        success: false,
-        message: "code and language are required",
-      });
-    }
+const capOutput = (s: string | null | undefined): string | null => {
+  if (s === null || s === undefined) return null;
+  if (Buffer.byteLength(s, "utf8") <= RUN_OUTPUT_MAX_BYTES) return s;
+  return (
+    Buffer.from(s, "utf8").subarray(0, RUN_OUTPUT_MAX_BYTES).toString("utf8") +
+    "\n… output truncated (256 KB limit)"
+  );
+};
 
-    const webLanguages = ["html", "css", "react", "vue", "angular", "nextjs"];
-    const isWeb = webLanguages.includes(language.toLowerCase());
+const normalizeOutput = (s: string | null | undefined) =>
+  (s ?? "").replace(/\r\n/g, "\n").trimEnd();
 
-    // ── Batch mode: run code against multiple test cases ──────────────────────
-    if (Array.isArray(test_cases) && test_cases.length > 0) {
-      if (isWeb) {
-        // Web languages can't be auto-tested via Judge0 — return preview flag
-        const results = test_cases.map((tc: any) => ({
-          testCaseId: tc.id,
-          passed: null, // visual only
-          input: tc.input,
-          expected: tc.expected_output,
-          actual: null,
-          error: null,
-          executionTime: 0,
-          memoryUsed: null,
-          status: "Web Preview",
-          is_hidden: tc.is_hidden,
-        }));
-        return res.json({ success: true, data: { results, web_preview: true, passed: 0, total: test_cases.length } });
-      }
+/**
+ * Run `code` against test cases on the judge. With `revealHidden` false a
+ * hidden test comes back without its input/expected/output/error (the
+ * caller only sends hidden tests to authors anyway).
+ */
+async function runAgainstTests(
+  code: string,
+  language: string,
+  tests: any[],
+  revealHidden: boolean,
+) {
+  const { files, entry } = answerFiles(code, language);
+  const run = await getCodeRunner().run({
+    language,
+    files,
+    entry,
+    interactive: true,
+    tests: tests.map((tc: any, i: number) => ({
+      id: String(tc.id ?? i + 1),
+      input: tc.input ?? "",
+      expected_output: tc.expected_output ?? "",
+    })),
+  });
+  const results: any[] = tests.map((tc: any, i: number) => {
+    const hide = !!tc.is_hidden && !revealHidden;
+    const r = run.tests[i];
+    const passed = !!r?.passed;
+    return {
+      testCaseId: tc.id,
+      passed,
+      input: hide ? null : (tc.input ?? ""),
+      expected: hide ? null : tc.expected_output,
+      actual: hide ? null : capOutput(r?.stdout ?? null),
+      error: hide || passed ? null : capOutput(r?.stderr || r?.status || "Wrong Answer"),
+      executionTime: r?.time_ms ?? 0,
+      memoryUsed: r?.memory_kb ?? null,
+      status: r?.status ?? r?.verdict ?? "Unknown",
+      verdict: r?.verdict ?? "internal-error",
+      is_hidden: !!tc.is_hidden,
+      points: tc.points ?? null,
+    };
+  });
+  return {
+    results,
+    passed: results.filter((r) => r.passed).length,
+    total: results.length,
+    web_preview: false,
+  };
+}
 
-      const normalizeOutput = (s: string | null | undefined) =>
-        (s ?? "").replace(/\r\n/g, "\n").trimEnd();
+/** Web languages can't be judged: test cases come back as preview-only. */
+const webPreviewResults = (tests: any[], revealHidden: boolean) => ({
+  results: tests.map((tc: any) => {
+    const hide = !!tc.is_hidden && !revealHidden;
+    return {
+      testCaseId: tc.id,
+      passed: null, // visual only
+      input: hide ? null : tc.input,
+      expected: hide ? null : tc.expected_output,
+      actual: null,
+      error: null,
+      executionTime: 0,
+      memoryUsed: null,
+      status: "Web Preview",
+      is_hidden: !!tc.is_hidden,
+    };
+  }),
+  web_preview: true,
+  passed: 0,
+  total: tests.length,
+});
 
-      const results: any[] = [];
-      for (const tc of test_cases) {
-        try {
-          const result = await Judge0Service.runSingle(code, language, tc.input ?? "");
-          const actual = normalizeOutput(result.stdout);
-          const expected = normalizeOutput(tc.expected_output);
-          const compileError = result.compile_output || result.message;
-          const runtimeError = result.stderr;
-          const statusId = result.status?.id;
-          // Judge0 status 3 = Accepted; also do our own string compare
-          const passed = statusId === 3 || actual === expected;
-          results.push({
-            testCaseId: tc.id,
-            passed,
-            input: tc.is_hidden ? null : (tc.input ?? ""),
-            expected: tc.is_hidden ? null : tc.expected_output,
-            actual: result.stdout ?? null,
-            error: !passed
-              ? (compileError || runtimeError || result.status?.description || "Wrong Answer")
-              : null,
-            executionTime: parseFloat(result.time || "0") * 1000,
-            memoryUsed: result.memory ?? null,
-            status: result.status?.description ?? "Unknown",
-            is_hidden: tc.is_hidden ?? false,
-          });
-        } catch (tcErr: any) {
-          results.push({
-            testCaseId: tc.id,
-            passed: false,
-            input: tc.is_hidden ? null : (tc.input ?? ""),
-            expected: tc.is_hidden ? null : tc.expected_output,
-            actual: null,
-            error: tcErr.message || "Execution failed",
-            executionTime: 0,
-            memoryUsed: null,
-            status: "Error",
-            is_hidden: tc.is_hidden ?? false,
-          });
-        }
-      }
+/** Common checks on {code, language, stdin}; sends the error and returns false. */
+function checkRunInput(req: Request, res: Response): boolean {
+  const { code, language, stdin } = req.body || {};
+  if (typeof code !== "string" || !code || typeof language !== "string" || !language) {
+    res.status(400).json({ success: false, message: "code and language are required" });
+    return false;
+  }
+  if (typeof stdin === "string" && Buffer.byteLength(stdin, "utf8") > RUN_STDIN_MAX_BYTES) {
+    res.status(413).json({
+      success: false,
+      code: "INPUT_TOO_LARGE",
+      message: "Input is limited to 64 KB.",
+    });
+    return false;
+  }
+  // Fail closed: never run code under a runtime it wasn't written for.
+  if (!isWebLanguage(language) && !getCodeRunner().supportsLanguage(language)) {
+    res.status(400).json({
+      success: false,
+      code: "UNSUPPORTED_LANGUAGE",
+      message: `Unsupported language "${language}".`,
+    });
+    return false;
+  }
+  return true;
+}
 
-      return res.json({
-        success: true,
-        data: {
-          results,
-          passed: results.filter((r) => r.passed).length,
-          total: results.length,
-          web_preview: false,
-        },
-      });
-    }
-
-    // ── Single-run mode ───────────────────────────────────────────────────────
-    if (isWeb) {
-      return res.json({
-        success: true,
-        data: { stdout: null, stderr: null, web_preview: true, language, execution_time: 0 },
-      });
-    }
-
-    const result = await Judge0Service.runSingle(code, language, stdin);
-
+/** Free run with optional stdin (no test cases). */
+async function runWithStdin(res: Response, code: string, language: string, stdin?: string) {
+  if (isWebLanguage(language)) {
     return res.json({
       success: true,
-      data: {
-        stdout: result.stdout,
-        stderr: result.stderr || result.compile_output,
-        exit_code: result.status?.id,
-        status: result.status?.description,
-        execution_time: parseFloat(result.time || "0") * 1000,
-        memory_used: result.memory,
-        web_preview: false,
-      },
-    });
-  } catch (error: any) {
-    console.error("Run code error:", error);
-    res.status(500).json({
-      success: false,
-      message: error.message || "Failed to execute code",
+      data: { stdout: null, stderr: null, web_preview: true, language, execution_time: 0 },
     });
   }
+  const { files, entry } = answerFiles(code, language);
+  const run = await getCodeRunner().run({
+    language,
+    files,
+    entry,
+    interactive: true,
+    tests: [{ id: "stdin", input: stdin ?? "" }],
+  });
+  const r = run.tests[0];
+  return res.json({
+    success: true,
+    data: {
+      stdout: capOutput(r?.stdout ?? null),
+      stderr: capOutput(r?.stderr ?? (run.compile && !run.compile.ok ? run.compile.output : null)),
+      exit_code: r?.exit_code ?? null,
+      status: r?.status ?? r?.verdict,
+      execution_time: r?.time_ms ?? 0,
+      memory_used: r?.memory_kb ?? null,
+      web_preview: false,
+    },
+  });
+}
+
+const runErrorResponse = (res: Response, error: any) => {
+  if (error instanceof JudgeUnavailableError) {
+    return res.status(503).json({
+      success: false,
+      code: "JUDGE_UNAVAILABLE",
+      message: "The code runner is busy or unavailable. Try again in a moment.",
+    });
+  }
+  if (error instanceof UnsupportedLanguageError) {
+    return res.status(400).json({
+      success: false,
+      code: "UNSUPPORTED_LANGUAGE",
+      message: error.message,
+    });
+  }
+  console.error("Run code error:", error);
+  return res.status(500).json({
+    success: false,
+    message: error?.message || "Failed to execute code",
+  });
+};
+
+// @desc    Run code for a quiz question: a free run with stdin, or "Run
+//          tests" (`run_tests: true`, or any `test_cases` in the body).
+//          The test cases always come from the question in the DB:
+//          students get its visible tests only, and only while they have an
+//          attempt in progress on the question's quiz. Test cases in the
+//          body are honoured only for authors (QUIZZES_EDIT), who may be
+//          trying draft tests. Never creates or changes a graded answer.
+// @route   POST /api/quizzes/questions/:questionId/run-code
+// @access  Private (QUIZ_QUESTIONS_RUN_CODE), rate-limited per user
+export const runCode = async (req: Request, res: Response) => {
+  try {
+    if (!checkRunInput(req, res)) return;
+    const { code, language, stdin, test_cases } = req.body;
+    const wantsTests = req.body.run_tests === true || Array.isArray(test_cases);
+
+    const question = await QuizQuestion.findByPk(req.params.questionId, {
+      include: getQuestionBankInclude(),
+    });
+    if (!question) {
+      return res.status(404).json({ success: false, message: "Question not found" });
+    }
+    const isAuthor = !!req.user.permissions?.has("QUIZZES_EDIT");
+
+    if (!isAuthor) {
+      // Only while attempting the question's quiz.
+      const quiz = await Quiz.findByPk(question.quiz_id);
+      if (!quiz || quizAvailability(quiz).state === "unpublished") {
+        return res.status(403).json({
+          success: false,
+          code: "QUIZ_NOT_AVAILABLE",
+          message: "This quiz is not available.",
+        });
+      }
+      const attempts = await studentAttemptSummary(quiz, req.user.id);
+      if (attempts.in_progress_submission_id === null) {
+        return res.status(403).json({
+          success: false,
+          code: "NOT_ATTEMPTING",
+          message: "Start the quiz to run code for its questions.",
+        });
+      }
+      const inProgress = await QuizSubmission.findByPk(attempts.in_progress_submission_id);
+      if (inProgress && isPastDeadline(inProgress)) {
+        return res.status(409).json({
+          success: false,
+          code: "ATTEMPT_TIME_EXPIRED",
+          message: "Time is up for this quiz.",
+        });
+      }
+      if (!(await studentMayTakeQuiz(req, quiz))) {
+        return res.status(403).json({
+          success: false,
+          code: "NOT_ENROLLED",
+          message: "You are not enrolled in this quiz's subject.",
+        });
+      }
+      // Only in a language the question allows.
+      const allowed = allowedAnswerLanguages(question.questionBank?.question_data);
+      const lang = Judge0Service.normalizeLanguage(language);
+      if (!isWebLanguage(language) && allowed.length > 0 && (!lang || !allowed.includes(lang))) {
+        return res.status(400).json({
+          success: false,
+          code: "LANGUAGE_NOT_ALLOWED",
+          message: `This question is answered in ${allowed.join(", ")}.`,
+        });
+      }
+    }
+
+    if (!wantsTests) return runWithStdin(res, code, language, stdin);
+
+    let qd: any = question.questionBank?.question_data || {};
+    if (typeof qd === "string") {
+      try {
+        qd = JSON.parse(qd);
+      } catch {
+        qd = {};
+      }
+    }
+    const questionTests: any[] = Array.isArray(qd.test_cases) ? qd.test_cases : [];
+    // Students: the question's visible tests, whatever the body says.
+    const tests =
+      isAuthor && Array.isArray(test_cases) && test_cases.length > 0
+        ? test_cases
+        : isAuthor
+          ? questionTests
+          : questionTests.filter((tc) => !tc?.is_hidden);
+
+    if (isWebLanguage(language)) {
+      return res.json({ success: true, data: webPreviewResults(tests, isAuthor) });
+    }
+    const data = await runAgainstTests(code, language, tests, isAuthor);
+    return res.json({ success: true, data });
+  } catch (error: any) {
+    return runErrorResponse(res, error);
+  }
+};
+
+// @desc    Author preview while preparing a question: run code against the
+//          test cases in the body (draft tests, no question or submission
+//          needed), or a free stdin run.
+// @route   POST /api/quizzes/preview-run
+// @access  Private (QUIZZES_EDIT)
+export const previewRunCode = async (req: Request, res: Response) => {
+  try {
+    if (!checkRunInput(req, res)) return;
+    const { code, language, stdin, test_cases } = req.body;
+    if (!Array.isArray(test_cases) || test_cases.length === 0) {
+      return runWithStdin(res, code, language, stdin);
+    }
+    if (isWebLanguage(language)) {
+      return res.json({ success: true, data: webPreviewResults(test_cases, true) });
+    }
+    const data = await runAgainstTests(code, language, test_cases, true);
+    return res.json({ success: true, data });
+  } catch (error: any) {
+    return runErrorResponse(res, error);
+  }
+};
+
+// @desc    Languages a coding/algorithmic question can use: the judge's
+//          runtimes (with versions when known) and browser-preview web
+//          languages. The question form only offers these.
+// @route   GET /api/quizzes/code-languages
+// @access  Private
+export const getCodeLanguages = async (_req: Request, res: Response) => {
+  res.status(200).json({
+    success: true,
+    data: {
+      judge: codeRunnerLanguages(),
+      web_preview: WEB_PREVIEW_LANGUAGES,
+    },
+  });
 };
 
 // @desc    Generate AI test cases for coding questions

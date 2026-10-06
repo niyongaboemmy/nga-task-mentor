@@ -8,6 +8,8 @@ import {
 } from "sequelize-typescript";
 import { Quiz } from "./Quiz.model";
 
+export type TmcodeDelivery = "web" | "tmcode_optional" | "tmcode_required";
+
 export type ProctoringMode =
   | "automated"
   | "live"
@@ -25,6 +27,17 @@ export interface IProctoringSettingsAttributes {
   allow_audio_monitoring: boolean;
   allow_video_monitoring: boolean;
   lockdown_browser: boolean;
+  /**
+   * Safe Exam Browser Config Key for this quiz (64 hex chars, from SEB
+   * Config Tool). With `lockdown_browser` on, attempts must come from SEB
+   * using this configuration (X-SafeExamBrowser-ConfigKeyHash). Never sent
+   * to students.
+   */
+  seb_config_key?: string | null;
+  /** How coding questions are answered (TMCode, plan §10.1). */
+  tmcode_delivery?: TmcodeDelivery;
+  /** TMCode Policy overrides (mode, intelligence, paste, terminal, …). */
+  tmcode_policy?: Record<string, unknown> | null;
   prevent_tab_switching: boolean;
   prevent_window_minimization: boolean;
   prevent_copy_paste: boolean;
@@ -144,6 +157,28 @@ export class ProctoringSettings extends Model<
     field: "lockdown_browser",
   })
   lockdown_browser!: boolean;
+
+  @Column({
+    type: DataType.STRING(128),
+    allowNull: true,
+    field: "seb_config_key",
+  })
+  seb_config_key?: string | null;
+
+  @Column({
+    type: DataType.ENUM("web", "tmcode_optional", "tmcode_required"),
+    allowNull: false,
+    defaultValue: "web",
+    field: "tmcode_delivery",
+  })
+  tmcode_delivery!: TmcodeDelivery;
+
+  @Column({
+    type: DataType.JSON,
+    allowNull: true,
+    field: "tmcode_policy",
+  })
+  tmcode_policy?: Record<string, unknown> | null;
 
   @Column({
     type: DataType.BOOLEAN,

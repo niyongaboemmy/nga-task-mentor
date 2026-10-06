@@ -12,6 +12,7 @@ import { Permission } from "../models/Permission.model";
 import { uploadProfilePicture } from "../middleware/upload";
 import fileServer from "../utils/fileServer";
 import { generateUniqueFilename, sanitizeKeepExtension } from "../utils/uploadFilename";
+import { upsertMisUser } from "../services/misUserSync";
 
 // True if the given role_id points at one of the 3 seeded system roles
 // (admin/instructor/student). Used to decide whether an SSO login is
@@ -578,135 +579,20 @@ export const ssoCallback = async (req: Request, res: Response) => {
       console.warn("⚠️ Could not fetch full profile, using basic data");
     }
 
-    // Map MIS roles to local roles (reusing existing logic)
-    const mapMisRoleToLocal = (
-      misRoles: { role_id: number; name: string }[],
-    ): "student" | "instructor" | "admin" => {
-      if (!misRoles || !Array.isArray(misRoles) || misRoles.length === 0) {
-        return "student";
-      }
-      let bestRole: "student" | "instructor" | "admin" = "student";
-      for (const role of misRoles) {
-        if (
-          role.role_id === 1 ||
-          role.role_id === 2 ||
-          role.role_id === 3 ||
-          role.role_id === 12 ||
-          (role.name &&
-            (role.name.toLowerCase().includes("admin") ||
-              role.name.toLowerCase().includes("super") ||
-              role.name.toLowerCase().includes("manager")))
-        ) {
-          return "admin";
-        }
-        if (
-          role.role_id === 4 ||
-          role.role_id === 11 ||
-          (role.name &&
-            (role.name.toLowerCase().includes("teacher") ||
-              role.name.toLowerCase().includes("instructor")))
-        ) {
-          bestRole = "instructor";
-        }
-      }
-      return bestRole;
-    };
-
-    const mappedRole = mapMisRoleToLocal(roles);
-    const mappedRoleRecord = await Role.findOne({ where: { name: mappedRole } });
-
-    // Sync user with local database
-    console.log("🔍 Looking up user by MIS user_id:", misUser.user_id);
-    let localUser = await User.findOne({
-      where: { mis_user_id: misUser.user_id },
-    });
-
-    // If not found by mis_user_id, try finding by email as fallback
-    if (!localUser) {
-      console.log(
-        "🔍 User not found by mis_user_id, trying email:",
-        misUser.email,
-      );
-      localUser = await User.findOne({
-        where: { email: misUser.email },
+    // Create or refresh the local user (shared with the TMCode sign-in,
+    // services/misUserSync.ts).
+    console.log("🔍 Syncing local user for MIS user_id:", misUser.user_id);
+    let localUser: User;
+    try {
+      ({ user: localUser } = await upsertMisUser(misUser, misProfile, roles));
+    } catch (createError: any) {
+      console.error("❌ Error creating user:", createError);
+      return res.status(500).json({
+        success: false,
+        message: "Failed to create user account: " + createError.message,
       });
-
-      if (localUser) {
-        console.log(
-          "🔍 Found user by email, updating mis_user_id:",
-          localUser.id,
-        );
-        // Update the mis_user_id for future lookups
-        localUser.mis_user_id = misUser.user_id;
-        await localUser.save();
-      }
     }
-
-    console.log(
-      "🔍 Database lookup result:",
-      localUser
-        ? `Found user ID: ${localUser.id}`
-        : "User not found in database - will create new user",
-    );
-
-    if (!localUser) {
-      // Create local account if it doesn't exist
-      console.log("👤 Creating new local user for MIS user:", misUser.user_id);
-      console.log("📝 User details:");
-      console.log("  - Email:", misUser.email);
-      console.log(
-        "  - Name:",
-        `${misProfile?.first_name || misUser.username} ${misProfile?.last_name || ""}`,
-      );
-      console.log("  - Role:", mappedRole);
-
-      try {
-        localUser = await User.create({
-          first_name: misProfile?.first_name || misUser.username,
-          last_name: misProfile?.last_name || "",
-          email: misUser.email,
-          password: "SSO_USER_" + crypto.randomBytes(8).toString("hex"),
-          role: mappedRole,
-          role_id: mappedRoleRecord?.id ?? null,
-          mis_user_id: misUser.user_id,
-        });
-
-        console.log("✅ New user created successfully with ID:", localUser.id);
-      } catch (createError: any) {
-        console.error("❌ Error creating user:", createError);
-        return res.status(500).json({
-          success: false,
-          message: "Failed to create user account: " + createError.message,
-        });
-      }
-    } else {
-      // Update existing user info
-      console.log("🔄 Updating existing local user:", localUser.id);
-      console.log("📝 Update details:");
-      console.log(
-        "  - Previous name:",
-        `${localUser.first_name} ${localUser.last_name}`,
-      );
-      console.log(
-        "  - New name:",
-        `${misProfile?.first_name || localUser.first_name} ${misProfile?.last_name || localUser.last_name}`,
-      );
-      console.log("  - Previous role:", localUser.role);
-      console.log("  - New role:", mappedRole);
-
-      localUser.first_name = misProfile?.first_name || localUser.first_name;
-      localUser.last_name = misProfile?.last_name || localUser.last_name;
-      localUser.email = misUser.email;
-      localUser.role = mappedRole;
-      // See verifyOtp() for why this only follows the MIS remap when the
-      // user isn't currently on a manually-assigned custom role.
-      if (!localUser.role_id || (await isSystemRoleId(localUser.role_id))) {
-        localUser.role_id = mappedRoleRecord?.id ?? localUser.role_id;
-      }
-      await localUser.save();
-
-      console.log("✅ User updated successfully");
-    }
+    console.log("✅ Local user synced:", localUser.id);
 
     const effectiveRole = localUser.role_id
       ? await Role.findByPk(localUser.role_id, { include: [Permission] })

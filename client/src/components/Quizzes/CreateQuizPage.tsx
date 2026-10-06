@@ -162,7 +162,7 @@ export const CreateQuizPage: React.FC = () => {
                   <div className="ml-6 space-y-2 text-xs text-text-secondary-light dark:text-text-secondary-dark">
                     <p>• Real-time video and audio monitoring</p>
                     <p>• Automated detection of suspicious behavior</p>
-                    <p>• Browser lockdown and security restrictions</p>
+                    <p>• Leaving the quiz window, copy/paste and right-click detected and logged; Safe Exam Browser can be required</p>
                     <p>• Live instructor monitoring dashboard</p>
                     <p>• Comprehensive session recording and analytics</p>
                   </div>

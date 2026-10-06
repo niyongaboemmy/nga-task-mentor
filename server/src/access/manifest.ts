@@ -25,7 +25,7 @@ const SCHOOL_ONLY = { scopeable: false };
 export const TM_MANIFEST = defineManifest({
   app: "tm",
   name: "Task Mentor",
-  version: "2026.09.29.1",
+  version: "2026.10.06.2",
   capabilities: {
     USERS_VIEW_SELF: R("View own profile", "PEOPLE"),
     USERS_VIEW_ALL: R("View students and staff", "PEOPLE"),
@@ -107,6 +107,16 @@ export const TM_MANIFEST = defineManifest({
 
     RANKINGS_VIEW_OWN: R("See own class position", "ASSESSMENT"),
     RANKINGS_VIEW_ALL: R("Class leaderboard (named)", "ASSESSMENT"),
+
+    TMCODE_USE: W("Use the TMCode desktop editor", "ASSESSMENT"),
+    TMCODE_CONSOLE_VIEW: R("TMCode live exam console", "ASSESSMENT"),
+    TMCODE_CONSOLE_CONTROL: W("Control TMCode exam sessions", "ASSESSMENT"),
+    TMCODE_REVIEW_TELEMETRY: R("TMCode replay and integrity flags", "ASSESSMENT"),
+    TMCODE_PROFILES_MANAGE: W("Manage TMCode language profiles", "SYSTEM", SCHOOL_ONLY),
+
+    PROJECTS_USE: W("Own coding projects (TMCode sync)", "ASSESSMENT"),
+    PROJECTS_VIEW_ALL: R("See every coding project", "ASSESSMENT", ["detail"], SCHOOL_ONLY),
+    PROJECTS_MONITOR: R("Project monitor and linked projects", "ASSESSMENT"),
 
     ACADEMICS_VIEW: R("View academic periods", "ACADEMICS"),
     ACADEMICS_MANAGE_PERIODS: W("Manage academic periods", "ACADEMICS", SCHOOL_ONLY),

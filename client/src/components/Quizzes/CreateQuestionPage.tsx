@@ -96,6 +96,8 @@ const createQuestionData = (type: QuestionType) => {
         algorithm_description: "",
         input_format: "",
         output_format: "",
+        language: "python",
+        allowed_languages: [],
         test_cases: [
           {
             id: "1",

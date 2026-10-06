@@ -20,6 +20,7 @@ const INSTRUCTOR_PERMISSIONS = [
   "REPORT_CARDS_EXPORT_PDF", "MANUAL_ASSESSMENTS_VIEW", "MANUAL_ASSESSMENTS_CREATE",
   "MANUAL_ASSESSMENTS_EDIT", "MANUAL_ASSESSMENTS_DELETE", "DASHBOARD_VIEW_INSTRUCTOR",
   "ACADEMICS_VIEW", "USERS_VIEW_ALL", "USERS_VIEW_OTHERS_ACTIVITY", "USERS_MANAGE_ENROLLMENT",
+  "PROJECTS_USE", "PROJECTS_MONITOR",
 ];
 
 const STUDENT_PERMISSIONS = [
@@ -28,6 +29,7 @@ const STUDENT_PERMISSIONS = [
   "QUIZZES_VIEW_RESULTS_OWN", "QUIZ_QUESTIONS_USE_AI_HINT", "QUIZ_QUESTIONS_RUN_CODE",
   "PROCTORING_START_SESSION", "PROCTORING_VIEW_OWN_SESSIONS", "PROCTORING_LOG_EVENTS",
   "REPORT_CARDS_VIEW_OWN", "REPORT_CARDS_EXPORT_PDF", "DASHBOARD_VIEW_STUDENT", "ACADEMICS_VIEW",
+  "PROJECTS_USE",
 ];
 
 export const MOCK_USERS = {
@@ -69,10 +71,22 @@ export const MOCK_USERS = {
     permissions: ["*"], // external MIS catalog — unrelated
     roleId: 1,
     roleName: "admin",
-    localPermissions: [...INSTRUCTOR_PERMISSIONS, ...STUDENT_PERMISSIONS, "DATABASE_ADMIN_ACCESS", "ROLES_PERMISSIONS_VIEW", "ROLES_PERMISSIONS_MANAGE", "USERS_CREATE", "USERS_EDIT", "USERS_DELETE", "COURSES_CREATE", "COURSES_DELETE", "REPORT_CARDS_APPROVE", "ASSIGNMENTS_MANAGE_ANY", "QUIZZES_MANAGE_ANY", "QUESTION_BANK_MANAGE_ANY", "PROCTORING_VIEW_ANALYTICS"],
+    localPermissions: [...INSTRUCTOR_PERMISSIONS, ...STUDENT_PERMISSIONS, "DATABASE_ADMIN_ACCESS", "ROLES_PERMISSIONS_VIEW", "ROLES_PERMISSIONS_MANAGE", "USERS_CREATE", "USERS_EDIT", "USERS_DELETE", "COURSES_CREATE", "COURSES_DELETE", "REPORT_CARDS_APPROVE", "ASSIGNMENTS_MANAGE_ANY", "QUIZZES_MANAGE_ANY", "QUESTION_BANK_MANAGE_ANY", "PROCTORING_VIEW_ANALYTICS", "PROJECTS_VIEW_ALL"],
     currentAcademicYear: { id: 1, name: "2025-2026" },
     currentAcademicTerm: { id: 1, name: "Term 2" },
   },
+};
+
+/**
+ * The API is another origin (localhost:5002) than the dev server, and
+ * WebKit enforces CORS on fulfilled responses, so mocks must answer with
+ * credentialed CORS headers (Chromium doesn't check).
+ */
+export const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "http://localhost:5174",
+  "Access-Control-Allow-Credentials": "true",
+  "Access-Control-Allow-Headers": "authorization, content-type, x-mis-token",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 };
 
 type MockUser = (typeof MOCK_USERS)[keyof typeof MOCK_USERS];
@@ -100,6 +114,7 @@ export async function loginAs(page: Page, role: keyof typeof MOCK_USERS) {
     route.fulfill({
       status: 200,
       contentType: "application/json",
+      headers: CORS_HEADERS,
       body: JSON.stringify({
         success: true,
         data: { user, roles: user.roles, permissions: user.permissions },
@@ -112,6 +127,7 @@ export async function loginAs(page: Page, role: keyof typeof MOCK_USERS) {
     route.fulfill({
       status: 200,
       contentType: "application/json",
+      headers: CORS_HEADERS,
       body: JSON.stringify({ success: true, user }),
     }),
   );
@@ -122,6 +138,7 @@ export async function loginAs(page: Page, role: keyof typeof MOCK_USERS) {
       route.fulfill({
         status: 200,
         contentType: "application/json",
+      headers: CORS_HEADERS,
         body: JSON.stringify({
           success: true,
           data: {
@@ -146,6 +163,7 @@ export async function loginAs(page: Page, role: keyof typeof MOCK_USERS) {
       route.fulfill({
         status: 200,
         contentType: "application/json",
+      headers: CORS_HEADERS,
         body: JSON.stringify({
           success: true,
           data: {

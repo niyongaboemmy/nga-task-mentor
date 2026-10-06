@@ -92,10 +92,18 @@ export const getProctoringSettings = async (req: Request, res: Response) => {
       where: { quiz_id: quizId },
     });
 
+    // The SEB Config Key lets anyone forge the lockdown header: only people
+    // who manage the settings see it; students learn whether one is set.
+    let data: any = settings;
+    if (settings && !req.user.permissions?.has("PROCTORING_MANAGE_SETTINGS")) {
+      const { seb_config_key, ...rest } = settings.toJSON() as any;
+      data = { ...rest, seb_config_key_set: !!seb_config_key };
+    }
+
     // Return settings or null if none exist (don't create defaults on GET)
     res.status(200).json({
       success: true,
-      data: settings,
+      data,
     });
   } catch (error) {
     console.error("Get proctoring settings error:", error);
@@ -162,6 +170,24 @@ export const updateProctoringSettings = async (req: Request, res: Response) => {
         message:
           "Not authorized to update proctoring settings. Only instructors allowed.",
       });
+    }
+
+    // SEB Config Key: 64 hex characters (SEB Config Tool → Config Key), or
+    // empty to clear it.
+    if ("seb_config_key" in updateData) {
+      const key =
+        typeof updateData.seb_config_key === "string"
+          ? updateData.seb_config_key.trim().toLowerCase()
+          : null;
+      if (key && !/^[0-9a-f]{64}$/.test(key)) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "The Safe Exam Browser Config Key must be 64 hexadecimal characters.",
+          errors: [{ field: "seb_config_key", message: "Expected 64 hex characters" }],
+        });
+      }
+      updateData.seb_config_key = key || null;
     }
 
     let settings = await ProctoringSettings.findOne({

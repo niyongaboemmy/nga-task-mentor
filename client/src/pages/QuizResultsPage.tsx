@@ -19,6 +19,7 @@ import {
   Lock,
 } from "lucide-react";
 import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
+import CodeTestResults from "../components/Quizzes/CodeTestResults";
 import RichTextDisplay from "../components/Common/RichTextDisplay";
 import type { StudentQuizState } from "../types/quiz.types";
 import { describeRetake } from "../utils/retakeState";
@@ -87,6 +88,8 @@ interface QuizResult {
     points_earned: number | null;
     max_points: number;
     explanation?: string;
+    /** Per-test results of a coding/algorithmic answer. */
+    grading_details?: unknown;
   }>;
 }
 
@@ -227,6 +230,7 @@ const QuizResultsPage: React.FC = () => {
                 points_earned: r.points_earned != null ? parseFloat(r.points_earned) : null,
                 max_points: r.max_points || 1,
                 explanation: r.explanation || null,
+                grading_details: r.grading_details ?? null,
               }))
             : [],
         };
@@ -297,6 +301,7 @@ const QuizResultsPage: React.FC = () => {
             points_earned: r.points_earned != null ? parseFloat(r.points_earned) : null,
             max_points: r.max_points || (r.question_type === "coding" ? 5 : 1),
             explanation: r.explanation || null,
+            grading_details: r.grading_details ?? null,
           })) || [],
       };
 
@@ -942,6 +947,7 @@ const QuizResultsPage: React.FC = () => {
                                 answer={attempt.user_answer}
                                 onAnswerChange={() => {}}
                                 disabled={true}
+                                readOnlyReview={true}
                                 showCorrectAnswer={false}
                               />
                             </div>
@@ -965,6 +971,7 @@ const QuizResultsPage: React.FC = () => {
                                     answer={attempt.correct_answer}
                                     onAnswerChange={() => {}}
                                     disabled={true}
+                                    readOnlyReview={true}
                                     showCorrectAnswer={true}
                                   />
                                 </div>
@@ -993,6 +1000,11 @@ const QuizResultsPage: React.FC = () => {
                               </div>
                             )}
                         </div>
+
+                        {/* Per-test results of a coding/algorithmic answer */}
+                        {attempt.grading_details && (
+                          <CodeTestResults details={attempt.grading_details} />
+                        )}
 
                         {/* Explanation */}
                         {attempt.explanation && attempt.explanation !== "No explanation provided." && (

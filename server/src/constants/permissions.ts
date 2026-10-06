@@ -31,6 +31,8 @@ export const PERMISSION_CATEGORIES = [
   "MANUAL_ASSESSMENTS",
   "DASHBOARD",
   "RANKINGS",
+  "TMCODE",
+  "PROJECTS",
   "ACADEMICS",
   "DATABASE_ADMIN",
   "ROLES_PERMISSIONS",
@@ -142,6 +144,18 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
   { key: "RANKINGS_VIEW_OWN", category: "RANKINGS", description: "See own class position: the top-bar standing chip, the Overall Ranking page, a subject's Ranking tab and the dashboard Standing card" },
   { key: "RANKINGS_VIEW_ALL", category: "RANKINGS", description: "See the named class leaderboard for the subjects in scope, and a student's class standing on their profile" },
 
+  // TMCODE — the desktop exam editor (nga-tmcode) and its staff tools.
+  { key: "TMCODE_USE", category: "TMCODE", description: "Open coding quizzes and practice in the TMCode desktop editor" },
+  { key: "TMCODE_CONSOLE_VIEW", category: "TMCODE", description: "See the live TMCode exam console for quizzes in scope" },
+  { key: "TMCODE_CONSOLE_CONTROL", category: "TMCODE", description: "Pause, extend, message, force-submit or end TMCode exam sessions" },
+  { key: "TMCODE_REVIEW_TELEMETRY", category: "TMCODE", description: "Replay TMCode sessions and review integrity flags" },
+  { key: "TMCODE_PROFILES_MANAGE", category: "TMCODE", description: "Manage TMCode language profiles" },
+
+  // PROJECTS — personal coding projects synced with TMCode (PROJECTS_PLAN.md).
+  { key: "PROJECTS_USE", category: "PROJECTS", description: "Keep coding projects in Task Mentor, sync them with TMCode and link them to activities" },
+  { key: "PROJECTS_VIEW_ALL", category: "PROJECTS", description: "See every project (read-only)" },
+  { key: "PROJECTS_MONITOR", category: "PROJECTS", description: "Live project monitor and projects linked to activities in scope" },
+
   // ACADEMICS
   { key: "ACADEMICS_VIEW", category: "ACADEMICS", description: "View academic years/terms" },
   { key: "ACADEMICS_MANAGE_PERIODS", category: "ACADEMICS", description: "Switch/manage academic periods" },
@@ -224,6 +238,12 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"admin" | "instructor" | "student"
     "MANUAL_ASSESSMENTS_DELETE",
     "DASHBOARD_VIEW_INSTRUCTOR",
     "RANKINGS_VIEW_ALL",
+    "TMCODE_USE",
+    "TMCODE_CONSOLE_VIEW",
+    "TMCODE_CONSOLE_CONTROL",
+    "TMCODE_REVIEW_TELEMETRY",
+    "PROJECTS_USE",
+    "PROJECTS_MONITOR",
     "ACADEMICS_VIEW",
     "USERS_VIEW_ALL",
     "USERS_VIEW_OTHERS_ACTIVITY",
@@ -249,6 +269,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"admin" | "instructor" | "student"
     "REPORT_CARDS_EXPORT_PDF",
     "DASHBOARD_VIEW_STUDENT",
     "RANKINGS_VIEW_OWN",
+    "TMCODE_USE",
+    "PROJECTS_USE",
     "ACADEMICS_VIEW",
   ],
 };

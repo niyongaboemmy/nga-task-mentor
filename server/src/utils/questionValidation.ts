@@ -3,6 +3,7 @@ import {
   QuestionDataType,
   QuestionValidationResult,
 } from "../types/quiz.types";
+import { validateCodeLanguages } from "./codeLanguages";
 
 // Validation functions for each question type
 export class QuestionValidator {
@@ -372,6 +373,10 @@ export class QuestionValidator {
       });
     }
 
+    const langs = validateCodeLanguages("algorithmic", data);
+    errors.push(...langs.errors);
+    warnings.push(...langs.warnings);
+
     return { isValid: errors.length === 0, errors, warnings };
   }
 
@@ -445,6 +450,11 @@ export class QuestionValidator {
     if (data.allowed_languages && !Array.isArray(data.allowed_languages)) {
       errors.push("Allowed languages must be an array of strings");
     }
+
+    // Only languages the judge runs (or a browser-preview web project).
+    const langs = validateCodeLanguages("coding", data);
+    errors.push(...langs.errors);
+    warnings.push(...langs.warnings);
 
     return { isValid: errors.length === 0, errors, warnings };
   }

@@ -22,7 +22,9 @@ import {
   AlgorithmicGradingConfig,
 } from "../types/grading.types";
 import { CodeExecutor, TestCase } from "./codeExecutor";
-import { Judge0Service } from "../services/Judge0Service";
+import { JudgeUnavailableError } from "../services/Judge0Service";
+import { answerFiles, getCodeRunner } from "../services/coderunner";
+import { isWebLanguage, resolveAnswerLanguage } from "./codeLanguages";
 import { aiService } from "../services/ai/aiService";
 
 // Category-based grading functions
@@ -1488,9 +1490,16 @@ export class InteractiveGrader {
     question: QuizQuestion,
     answerData: AnswerDataType,
   ): Promise<GradingResult> {
-    // Algorithmic questions use the same logic as coding questions for test case execution
-    // but the data structure and UI are slightly different.
-    return CodingGrader.gradeCoding(question, answerData);
+    // An algorithmic question is an I/O programming problem: the answer is
+    // code, run against the question's test cases like a coding question.
+    // Answers from the retired trace/predict widget carry no code (only a
+    // placeholder "solution" and a client-computed score that is never
+    // trusted) — those wait for the instructor instead of scoring 0.
+    const answer = normalizeAlgorithmicAnswer(answerData);
+    if (!answer) {
+      return pendingCodeResult("No code submitted – needs manual review.");
+    }
+    return CodingGrader.gradeCoding(question, answer as any);
   }
 
   static gradeLogicalExpression(
@@ -1782,6 +1791,93 @@ export class InteractiveGrader {
   }
 }
 
+/**
+ * An answer the judge couldn't grade (unsupported language, web project, no
+ * code, judge down): 0 points for now, flagged so the submission is left for
+ * the instructor (grade_status "pending") instead of looking like a wrong
+ * answer.
+ */
+export function pendingCodeResult(
+  reason: string,
+  extra: Record<string, any> = {},
+): GradingResult {
+  return {
+    is_correct: false,
+    points_earned: 0,
+    feedback: reason,
+    detailed_feedback: { grade_status: "pending", pending_reason: reason, ...extra },
+  };
+}
+
+/** True when a grading result (or stored grading_details) awaits review. */
+export const isPendingGrade = (resultOrDetails: any): boolean => {
+  let d = resultOrDetails?.detailed_feedback ?? resultOrDetails;
+  if (typeof d === "string") {
+    try {
+      d = JSON.parse(d);
+    } catch {
+      return false;
+    }
+  }
+  return d?.grade_status === "pending";
+};
+
+/** Strings the retired trace/predict widget put in `solution`. */
+const ALGORITHM_WIDGET_PLACEHOLDER = /^algorithm (progress|trace|predictions)/i;
+
+/**
+ * True when an algorithmic answer's `solution` is source code rather than
+ * one of the old widget's placeholder strings.
+ */
+export function looksLikeSourceCode(text: unknown): boolean {
+  if (typeof text !== "string") return false;
+  const t = text.trim();
+  if (!t || ALGORITHM_WIDGET_PLACEHOLDER.test(t)) return false;
+  return /[(){};=:\n]/.test(t);
+}
+
+/**
+ * An algorithmic answer as {code, language}: `{code}` as is, `{solution}`
+ * only when it is code. null when there is no code to run.
+ */
+export function normalizeAlgorithmicAnswer(
+  answerData: any,
+): { code: string; language?: string } | null {
+  let a = answerData;
+  if (typeof a === "string") {
+    try {
+      a = JSON.parse(a);
+    } catch {
+      return looksLikeSourceCode(a) ? { code: a } : null;
+    }
+  }
+  if (!a || typeof a !== "object") return null;
+  const language =
+    typeof a.language === "string" && a.language !== "algorithm" ? a.language : undefined;
+  if (typeof a.code === "string" && a.code.trim()) return { code: a.code, language };
+  if (looksLikeSourceCode(a.solution)) return { code: a.solution, language };
+  return null;
+}
+
+/**
+ * grading_details of a code answer stored by a background "save only"
+ * (TM-FIX-8): kept on the server, not graded yet. It is graded on submit —
+ * submitQuizAttempt or finalizeFromSavedAttempts.
+ */
+export const UNGRADED_SAVE = Object.freeze({ ungraded: true });
+
+export const isUngradedSave = (details: any): boolean => {
+  let d = details;
+  if (typeof d === "string") {
+    try {
+      d = JSON.parse(d);
+    } catch {
+      return false;
+    }
+  }
+  return d?.ungraded === true;
+};
+
 export class CodingGrader {
   static async gradeCoding(
     question: QuizQuestion,
@@ -1813,24 +1909,6 @@ export class CodingGrader {
       };
     }
 
-    // Detect if this is a "project mode" answer (JSON string of files)
-    let finalCode = answer.code;
-    if (finalCode.trim().startsWith("[") && finalCode.trim().endsWith("]")) {
-      try {
-        const files = JSON.parse(finalCode);
-        if (Array.isArray(files)) {
-          // Find entry point or just pick the first file for grading
-          const entryFile =
-            files.find((f: any) => f.is_entry_point) || files[0];
-          if (entryFile) {
-            finalCode = entryFile.content || "";
-          }
-        }
-      } catch (e) {
-        // Not actually a JSON array, keep as is
-      }
-    }
-
     const testCases = questionData.test_cases || [];
     if (!Array.isArray(testCases) || testCases.length === 0) {
       return {
@@ -1841,57 +1919,57 @@ export class CodingGrader {
     }
 
     const testResults: any[] = [];
-    const language = questionData.language || "javascript";
-    let languageId: number | null = null;
-    try {
-      languageId = Judge0Service.getLanguageId(language);
-    } catch (e) {
-      languageId = null;
+    // The student's language when the question allows it, else the
+    // question's own. Never a default runtime: an unmapped language is left
+    // for the instructor instead of being run as something else.
+    const runner = getCodeRunner();
+    const language = resolveAnswerLanguage(questionData, answer.language);
+    if (!language || !runner.supportsLanguage(language)) {
+      const declared = answer.language || questionData.language;
+      return pendingCodeResult(
+        isWebLanguage(declared)
+          ? "Web projects are reviewed by your instructor."
+          : `Unsupported language "${declared ?? "none"}" – needs manual review.`,
+      );
     }
-
-    if (!languageId) {
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback:
-          "Coding auto-grading is not available (unsupported language configuration).",
-      };
-    }
+    // Every file of a project-mode answer goes to the runner (tm-judge runs
+    // them all; Judge0 runs the entry file).
+    const { files, entry } = answerFiles(answer.code, language);
+    const finalCode = files.find((f) => f.path === entry)?.content ?? answer.code;
 
     try {
-      // Execute each test case via Judge0
-      for (const tc of testCases) {
-        const submission = {
-          source_code: finalCode,
-          language_id: languageId,
-          stdin: tc.input,
-          expected_output: tc.expected_output,
-          cpu_limit: tc.time_limit || questionData.time_limit || 5,
-          memory_limit:
-            (tc.memory_limit || questionData.memory_limit || 256) * 1024,
-        };
-
-        const token = await Judge0Service.submit(submission);
-        const result = await Judge0Service.waitAndGetResult(token);
-
-        const statusId = result.status?.id;
-        const statusDesc = result.status?.description || "Unknown";
-        const passed = statusId === 3; // 3 is "Accepted" in Judge0
+      const run = await runner.run({
+        language,
+        files,
+        entry,
+        tests: testCases.map((tc: any, i: number) => ({
+          id: String(tc.id ?? i + 1),
+          input: tc.input ?? "",
+          expected_output: tc.expected_output ?? "",
+        })),
+        limits: {
+          time_s: questionData.time_limit || 5,
+          memory_mb: questionData.memory_limit || 256,
+        },
+      });
+      testCases.forEach((tc: any, i: number) => {
+        const r = run.tests[i];
+        const passed = !!r?.passed;
         testResults.push({
           testCaseId: tc.id,
+          is_hidden: tc.is_hidden === true,
+          points: Number(tc.points) || 1,
           passed,
           input: tc.input,
           expected: tc.expected_output,
-          actual: result.stdout,
-          error: !passed
-            ? (result.stderr || result.compile_output || result.message || statusDesc)
-            : null,
-          executionTime: result.time,
-          memoryUsed: result.memory,
-          status: statusDesc,
-          statusId,
+          actual: r?.stdout ?? null,
+          error: !passed ? (r?.stderr || r?.status || r?.verdict || "Failed") : null,
+          executionTime: r?.time_ms ?? null,
+          memoryUsed: r?.memory_kb ?? null,
+          status: r?.status ?? r?.verdict ?? "Unknown",
+          verdict: r?.verdict ?? "internal-error",
         });
-      }
+      });
 
       const passedTests = testResults.filter((r) => r.passed).length;
       const totalTests = testResults.length;
@@ -1910,19 +1988,12 @@ export class CodingGrader {
       const testPoints =
         totalWeight > 0 ? (earnedWeight / totalWeight) * maxPoints : 0;
 
-      // AI Analysis for Code Quality (optional, never overrides test correctness downward)
-      let aiResult:
-        | {
-            is_correct: boolean;
-            points_earned: number;
-            feedback: string;
-            quality_score?: number;
-            efficiency_score?: number;
-            correctness_score?: number;
-          }
-        | undefined;
+      // The tests decide the auto score (TM-FIX-10): re-grading the same code
+      // always gives the same score. The AI rubric is only a suggestion for
+      // the teacher (applied by a manual grade, if at all).
+      let aiSuggestion: Record<string, any> | undefined;
       try {
-        aiResult = await aiService.gradeCoding(
+        const ai = await aiService.gradeCoding(
           question.questionBank?.question_text || "",
           finalCode,
           language,
@@ -1930,44 +2001,46 @@ export class CodingGrader {
           maxPoints,
           questionData.constraints,
         );
+        if (ai && typeof ai === "object") {
+          aiSuggestion = {
+            points: typeof ai.points_earned === "number" ? ai.points_earned : null,
+            feedback: ai.feedback ?? null,
+            quality_score: ai.quality_score,
+            efficiency_score: ai.efficiency_score,
+            correctness_score: ai.correctness_score,
+          };
+        }
       } catch (e) {
-        aiResult = undefined;
+        aiSuggestion = undefined;
       }
 
-      const aiPoints =
-        typeof aiResult?.points_earned === "number"
-          ? aiResult.points_earned
-          : 0;
-
-      // AI can only boost, never reduce test-based score
-      const combinedPoints = Math.max(testPoints, aiPoints);
-      const pointsEarned = Math.max(0, Math.min(combinedPoints, maxPoints));
+      const pointsEarned = Math.max(0, Math.min(testPoints, maxPoints));
 
       return {
         is_correct: allPassed,
         points_earned: pointsEarned,
-        feedback:
-          aiResult?.feedback ||
-          (allPassed
-            ? "All test cases passed."
-            : `${passedTests}/${totalTests} test cases passed.`),
+        feedback: allPassed
+          ? "All test cases passed."
+          : `${passedTests}/${totalTests} test cases passed.`,
         detailed_feedback: {
           testResults,
-          quality_score: aiResult?.quality_score,
-          efficiency_score: aiResult?.efficiency_score,
-          correctness_score: aiResult?.correctness_score,
           passedTests,
           totalTests,
+          ...(aiSuggestion ? { ai_suggestion: aiSuggestion } : {}),
         },
       };
     } catch (error: any) {
+      // Never mark a student wrong because the judge failed: leave the answer
+      // pending. Judge outages are flagged for the re-grade job
+      // (services/codeRegrade); other failures wait for the instructor.
+      if (error instanceof JudgeUnavailableError) {
+        console.warn("Coding grading deferred, judge unavailable:", error.message);
+        return pendingCodeResult("Judge unavailable – will re-grade.", {
+          judge_unavailable: true,
+        });
+      }
       console.error("Coding grading failed:", error);
-      return {
-        is_correct: false,
-        points_earned: 0,
-        feedback:
-          "Coding auto-grading failed. Please try again later or contact your instructor.",
-      };
+      return pendingCodeResult("Automatic grading failed – needs manual review.");
     }
   }
 }
@@ -2129,6 +2202,13 @@ export class AdvancedQuizGrader {
     answerData: AnswerDataType,
     questionType: string,
   ): NormalizedAnswer {
+    // Algorithmic answers are stored as {code, language}; an old
+    // {solution: <code>} is mapped onto it. Anything else (the retired
+    // widget's progress payload) is kept as sent and graded as pending.
+    if (questionType === "algorithmic") {
+      const code = normalizeAlgorithmicAnswer(answerData);
+      if (code) return { type: questionType, data: code };
+    }
     return {
       type: questionType,
       data: answerData,
@@ -2768,11 +2848,15 @@ export class AdvancedQuizGrader {
       max_points: maxPoints,
       percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
       feedback: basicResult.feedback || "Graded",
+      // Merge, don't replace: the per-test results (testResults, passedTests,
+      // totalTests) are what students and teachers see and what is stored in
+      // quiz_attempts.grading_details.
       detailed_feedback: {
+        ...(basicResult.detailed_feedback || {}),
         strategy_used: config.strategy,
         breakdown,
         penalties_applied: penalties,
-      },
+      } as any,
     };
   }
 
@@ -2837,11 +2921,15 @@ export class AdvancedQuizGrader {
       max_points: maxPoints,
       percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
       feedback: basicResult.feedback || "Graded",
+      // Merge, don't replace: the per-test results (testResults, passedTests,
+      // totalTests) are what students and teachers see and what is stored in
+      // quiz_attempts.grading_details.
       detailed_feedback: {
+        ...(basicResult.detailed_feedback || {}),
         strategy_used: config.strategy,
         breakdown,
         penalties_applied: penalties,
-      },
+      } as any,
     };
   }
 
@@ -2980,6 +3068,21 @@ export class AdvancedQuizGrader {
   ): Promise<AdvancedGradingResult> {
     const basicResult = await CodingGrader.gradeCoding(question, answerData);
 
+    // Not graded by the judge: no penalties, nothing to scale.
+    if (isPendingGrade(basicResult)) {
+      return {
+        is_correct: false,
+        points_earned: 0,
+        max_points: maxPoints,
+        percentage: 0,
+        feedback: basicResult.feedback || "Needs manual review",
+        detailed_feedback: {
+          ...(basicResult.detailed_feedback || {}),
+          strategy_used: config.strategy,
+        } as any,
+      };
+    }
+
     let pointsEarned = basicResult.points_earned;
     const breakdown: Record<string, number> = { test_cases: pointsEarned };
     const penalties: Record<string, number> = {};
@@ -3035,11 +3138,15 @@ export class AdvancedQuizGrader {
       max_points: maxPoints,
       percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
       feedback: basicResult.feedback || "Graded",
+      // Merge, don't replace: the per-test results (testResults, passedTests,
+      // totalTests) are what students and teachers see and what is stored in
+      // quiz_attempts.grading_details.
       detailed_feedback: {
+        ...(basicResult.detailed_feedback || {}),
         strategy_used: config.strategy,
         breakdown,
         penalties_applied: penalties,
-      },
+      } as any,
     };
   }
 
@@ -3063,9 +3170,11 @@ export class AdvancedQuizGrader {
       max_points: maxPoints,
       percentage: maxPoints > 0 ? (pointsEarned / maxPoints) * 100 : 0,
       feedback: basicResult.feedback || "Graded",
+      // Keep the per-test results (same as coding).
       detailed_feedback: {
+        ...(basicResult.detailed_feedback || {}),
         strategy_used: config.strategy,
-      },
+      } as any,
     };
   }
 
@@ -3294,6 +3403,7 @@ export class QuizGrader {
         is_correct: isCorrect,
         points_earned: pointsEarned,
         correct_answer: normalizedAnswers.data, // Store normalized correct answer for reference
+        grading_details: (gradingResult.detailed_feedback as any) ?? null,
       });
     }
 

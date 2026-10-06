@@ -122,8 +122,16 @@ export const isPassed = (percentage: number, quiz: any): boolean =>
 export const needsManualReview = (quiz: any): boolean =>
   quiz?.require_manual_grading === true || quiz?.enable_automatic_grading === false;
 
-export const gradeStatusOnSubmit = (quiz: any): "pending" | "auto_graded" =>
-  needsManualReview(quiz) ? "pending" : "auto_graded";
+/**
+ * grade_status of a just-finished attempt. `needsReview`: some answer couldn't
+ * be graded automatically (e.g. a code answer the judge couldn't run), so the
+ * instructor has to look at it whatever the quiz settings say.
+ */
+export const gradeStatusOnSubmit = (
+  quiz: any,
+  needsReview = false,
+): "pending" | "auto_graded" =>
+  needsManualReview(quiz) || needsReview ? "pending" : "auto_graded";
 
 export interface ResultVisibility {
   /** The student may open their results (their answers). */
@@ -203,9 +211,14 @@ export function buildStudentResults(submission: any, quiz: any) {
   if (!v.released) return base;
 
   const percentage = Number(submission.percentage) || 0;
+  const graded = submission.grade_status === "graded";
   const results = (submission.attempts || []).map((attempt: any) => {
     const bank = attempt.attemptQuestion?.questionBank;
     const qd = parseJson(bank?.question_data);
+    // A code answer the judge couldn't grade shows as "pending", not 0.
+    const awaitingReview =
+      !graded && parseJson(attempt.grading_details)?.grade_status === "pending";
+    const showPoints = v.show_score && !awaitingReview;
     return {
       question_id: attempt.question_id,
       question_text: bank?.question_text,
@@ -213,11 +226,16 @@ export function buildStudentResults(submission: any, quiz: any) {
       question_data: v.show_correct_answers ? qd : stripAnswerFields(qd, bank?.question_type),
       user_answer: attempt.submitted_answer,
       correct_answer: v.show_correct_answers ? attempt.correct_answer : null,
-      is_correct: v.show_score ? attempt.is_correct : null,
-      points_earned: v.show_score ? Number(attempt.points_earned) || 0 : null,
+      is_correct: showPoints ? attempt.is_correct : null,
+      points_earned: showPoints ? Number(attempt.points_earned) || 0 : null,
       max_points: Number(attempt.attemptQuestion?.points) || 0,
       explanation: v.show_correct_answers ? bank?.explanation ?? null : null,
       time_taken: attempt.time_taken,
+      // Per-test results of code questions; hidden tests only as pass/fail,
+      // and only once the score is visible.
+      grading_details: studentGradingDetails(attempt.grading_details, {
+        includeHidden: v.show_score,
+      }),
     };
   });
 
@@ -232,6 +250,88 @@ export function buildStudentResults(submission: any, quiz: any) {
     feedback: submission.grade_status === "graded" ? submission.feedback : null,
     results,
   };
+}
+
+// ─── Per-test results of code questions ───────────────────────────────────
+
+/** Grader fields that reveal the score; students get them with the score only. */
+const SCORE_DETAIL_KEYS = [
+  "strategy_used",
+  "breakdown",
+  "penalties_applied",
+  "quality_score",
+  "efficiency_score",
+  "correctness_score",
+] as const;
+
+/**
+ * quiz_attempts.grading_details as a student may see it. Visible tests come
+ * back in full (input, expected, actual output, error). Hidden tests never
+ * show their input, expected output, actual output or error: with
+ * `includeHidden` they are reduced to {testCaseId, is_hidden, passed, points};
+ * without it they are left out, and the pass counts cover visible tests only
+ * (so a student can't learn their hidden-test score while it isn't released).
+ * Staff (QUIZZES_VIEW_RESULTS_ALL) get the stored record as is.
+ */
+export function studentGradingDetails(
+  details: any,
+  opts: { includeHidden: boolean },
+): Record<string, any> | null {
+  const d = parseJson(details);
+  if (!d || typeof d !== "object" || Array.isArray(d)) return null;
+
+  const out: Record<string, any> = {};
+  if (typeof d.grade_status === "string") out.grade_status = d.grade_status;
+  if (typeof d.pending_reason === "string") out.pending_reason = d.pending_reason;
+
+  const raw = Array.isArray(d.testResults)
+    ? d.testResults
+    : Array.isArray(d.test_results)
+      ? d.test_results
+      : null;
+  if (raw) {
+    const tests: any[] = [];
+    for (const r of raw) {
+      if (!r || typeof r !== "object") continue;
+      if (r.is_hidden) {
+        if (opts.includeHidden) {
+          tests.push({
+            testCaseId: r.testCaseId ?? r.id ?? null,
+            is_hidden: true,
+            passed: r.passed === true,
+            points: r.points ?? null,
+          });
+        }
+        continue;
+      }
+      tests.push({
+        testCaseId: r.testCaseId ?? r.id ?? null,
+        is_hidden: false,
+        passed: r.passed === true,
+        points: r.points ?? null,
+        input: r.input ?? null,
+        expected: r.expected ?? null,
+        actual: r.actual ?? null,
+        error: r.error ?? null,
+        status: r.status ?? null,
+        executionTime: r.executionTime ?? null,
+        memoryUsed: r.memoryUsed ?? null,
+      });
+    }
+    out.testResults = tests;
+    if (opts.includeHidden) {
+      out.passedTests = Number(d.passedTests ?? tests.filter((t) => t.passed).length);
+      out.totalTests = Number(d.totalTests ?? raw.length);
+    } else {
+      out.passedTests = tests.filter((t) => t.passed).length;
+      out.totalTests = tests.length;
+    }
+  }
+
+  if (opts.includeHidden) {
+    for (const k of SCORE_DETAIL_KEYS) if (d[k] !== undefined) out[k] = d[k];
+  }
+  return Object.keys(out).length ? out : null;
 }
 
 // ─── Hiding answers from the student while they take the quiz ─────────────
@@ -254,6 +354,9 @@ const ANSWER_KEYS = new Set([
   "solution",
   "solution_code",
   "reference_solution",
+  // Algorithmic questions are now answered with code; an imported
+  // algorithm's code is the reference solution.
+  "algorithm_code",
   "explanation",
 ]);
 

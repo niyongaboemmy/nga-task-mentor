@@ -51,6 +51,11 @@ import { toast } from "react-toastify";
 import { motion, AnimatePresence } from "framer-motion";
 import RichTextDisplay from "../../Common/RichTextDisplay";
 import CountdownTimer from "../../Dashboard/CountdownTimer";
+import {
+  guardEditorPaste,
+  isPasteGuardActive,
+  rememberInternalCopy,
+} from "../../../hooks/useQuizLockdown";
 import QuestionTimer from "../../ui/QuestionTimer";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -105,7 +110,21 @@ const TAB_COLOR: Record<string, string> = {
   rb: "#701516",
 };
 
-function buildInitialFiles(codingData: CodingData, answer: any): ProjectFile[] {
+/** Languages the student may answer in: the question's own + allowed_languages. */
+export function answerLanguagesOf(codingData: Partial<CodingData>): string[] {
+  const out: string[] = [];
+  for (const l of [codingData.language, ...(codingData.allowed_languages ?? [])]) {
+    const key = typeof l === "string" ? l.trim().toLowerCase() : "";
+    if (key && !out.includes(key)) out.push(key);
+  }
+  return out;
+}
+
+function buildInitialFiles(
+  codingData: CodingData,
+  answer: any,
+  lang: string = codingData.language || "javascript",
+): ProjectFile[] {
   if (codingData.project_mode) {
     const savedCode = (answer as CodingAnswer)?.code;
     if (savedCode) {
@@ -120,7 +139,6 @@ function buildInitialFiles(codingData: CodingData, answer: any): ProjectFile[] {
     }
     return [];
   }
-  const lang = codingData.language || "javascript";
   const ext = LANG_EXT[lang] ?? lang;
   const savedCode = (answer as CodingAnswer)?.code;
   const content = savedCode || codingData.starter_code || "";
@@ -344,13 +362,19 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
     disabled = false,
     timeRemaining,
     onToggleFullscreen,
-    submissionId,
     isFullscreen,
   } = props;
 
   const codingData: CodingData = question.question_data as CodingData;
   const isProjectMode = Boolean(codingData.project_mode);
-  const language = codingData.language || "javascript";
+  // The student may switch between the question's allowed languages; the
+  // answer records the one used ({code, language}).
+  const answerLanguages = useMemo(() => answerLanguagesOf(codingData), [codingData]);
+  const [language, setLanguage] = useState<string>(() => {
+    const saved = (answer as CodingAnswer | undefined)?.language;
+    if (saved && answerLanguages.includes(saved)) return saved;
+    return answerLanguages[0] || "javascript";
+  });
   const isWebLang = [
     "html",
     "css",
@@ -367,7 +391,7 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
 
   // ─── File state ─────────────────────────────────────────────────────────────
   const [files, setFiles] = useState<ProjectFile[]>(() =>
-    buildInitialFiles(codingData, answer),
+    buildInitialFiles(codingData, answer, language),
   );
   const [activeFileName, setActiveFileName] = useState(
     () => files[0]?.name ?? "main.js",
@@ -399,11 +423,6 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
   const [isTesting, setIsTesting] = useState(false);
   const [testResults, setTestResults] = useState<any[]>([]);
   const [expandedResults, setExpandedResults] = useState<Set<number>>(new Set());
-  const [gradingResult, setGradingResult] = useState<{
-    is_correct: boolean | null;
-    points_earned: number | null;
-    feedback?: string;
-  } | null>(null);
   const [consoleLog, setConsoleLog] = useState<ConsoleEntry[]>([]);
   const [lastError, setLastError] = useState<string | undefined>();
   const [stdinValue, setStdinValue] = useState("");
@@ -566,8 +585,11 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
     stdinValue,
   ]);
 
+  // "Run tests" runs the question's visible tests on the judge. It never
+  // saves or grades the answer (saving happens on navigation, autosave and
+  // submit), so it can't be used to probe hidden tests.
   const runTests = useCallback(async () => {
-    if (isTesting || !submissionId) return;
+    if (isTesting) return;
     setIsTesting(true);
     setBottomPanel("results");
     setExpandedResults(new Set());
@@ -575,39 +597,46 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
       const code = isProjectMode
         ? JSON.stringify(files)
         : (activeFile?.content ?? "");
-      const res = await QuizApiService.submitQuestionAnswer(
-        submissionId,
-        question.id,
-        { code, language },
-      );
-      const details = res.data?.grading_details;
-      const results = details?.testResults || details?.test_results;
-      if (results?.length) {
-        setTestResults(results);
-      } else {
-        toast.info("Tests submitted. Waiting for results...");
-      }
-      if (res.data?.grading_result) {
-        setGradingResult(res.data.grading_result);
+      const res = await QuizApiService.runTests(question.id, { code, language });
+      const results = res.data?.results ?? [];
+      setTestResults(results);
+      if (res.data?.web_preview) {
+        toast.info("Web projects are checked in the preview, not by tests.");
+      } else if (results.length === 0) {
+        toast.info("This question has no visible tests to run.");
       }
     } catch (err: any) {
-      toast.error(err.message || "Failed to run tests");
+      toast.error(
+        err?.response?.data?.message || err.message || "Failed to run tests",
+      );
     } finally {
       setIsTesting(false);
     }
-  }, [
-    isTesting,
-    submissionId,
-    isProjectMode,
-    files,
-    activeFile,
-    question.id,
-    language,
-  ]);
+  }, [isTesting, isProjectMode, files, activeFile, question.id, language]);
+
+  const changeLanguage = useCallback(
+    (next: string) => {
+      if (next === language || isProjectMode) return;
+      const ext = LANG_EXT[next] ?? next;
+      const current = files[0];
+      const renamed: ProjectFile = {
+        ...(current ?? { content: "" }),
+        name: `main.${ext}`,
+        language: next,
+        is_entry_point: true,
+      };
+      setLanguage(next);
+      setFiles([renamed]);
+      setActiveFileName(renamed.name);
+      setOpenedTabs([renamed.name]);
+      onAnswerChange({ code: renamed.content || "", language: next });
+    },
+    [language, isProjectMode, files, onAnswerChange],
+  );
 
   const resetCode = useCallback(() => {
     if (window.confirm("Reset code to starter template?")) {
-      const initialFiles = buildInitialFiles(codingData, null);
+      const initialFiles = buildInitialFiles(codingData, null, language);
       setFiles(initialFiles);
       setActiveFileName(initialFiles[0]?.name ?? "");
       setOpenedTabs([initialFiles[0]?.name]);
@@ -948,6 +977,22 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
         <div className="flex-1 flex flex-col bg-[#1e1e1e] overflow-hidden">
           {/* Tabs */}
           <div className="flex items-center bg-[#252526] h-9 overflow-x-auto no-scrollbar">
+            {answerLanguages.length > 1 && !isProjectMode && (
+              <select
+                aria-label="Language"
+                data-testid="code-language-picker"
+                value={language}
+                disabled={disabled}
+                onChange={(e) => changeLanguage(e.target.value)}
+                className="order-last ml-auto mr-2 bg-[#3c3c3c] text-[#ccc] text-[11px] rounded px-2 py-1 border border-[#555] outline-none"
+              >
+                {answerLanguages.map((l) => (
+                  <option key={l} value={l}>
+                    {l}
+                  </option>
+                ))}
+              </select>
+            )}
             {openedTabs.map((fileName) => {
               const file = files.find((f) => f.name === fileName);
               const isPreview = fileName === PREVIEW_TAB_ID;
@@ -1018,6 +1063,23 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
                     onMount={(editor) => {
                       editorRef.current = editor;
                       editor.focus();
+                      // Quiz lockdown (prevent_copy_paste): code copied in the
+                      // editor may be pasted back; anything else is undone.
+                      // onDidPaste also catches the context-menu paste, which
+                      // reads the clipboard API and skips DOM paste events.
+                      editor.onKeyDown((e: any) => {
+                        if (!isPasteGuardActive()) return;
+                        const key = e.browserEvent?.key?.toLowerCase();
+                        if ((e.ctrlKey || e.metaKey) && (key === "c" || key === "x")) {
+                          const sel = editor.getSelection();
+                          if (sel) rememberInternalCopy(editor.getModel()?.getValueInRange(sel));
+                        }
+                      });
+                      editor.onDidPaste((e: any) => {
+                        if (!isPasteGuardActive()) return;
+                        const pasted = editor.getModel()?.getValueInRange(e.range) ?? "";
+                        if (guardEditorPaste(pasted)) editor.trigger("lockdown", "undo", null);
+                      });
                     }}
                     options={{
                       fontSize: 14,
@@ -1203,23 +1265,12 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
                                     : "Some Tests Failed"}
                                 </h4>
                                 <p className="text-xs text-slate-400">
-                                  {passedCount}/{testResults.length} tests passed
-                                  {gradingResult?.points_earned != null && (
-                                    <span className="ml-2 text-blue-400 font-medium">
-                                      · {gradingResult.points_earned} pts earned
-                                    </span>
-                                  )}
+                                  {passedCount}/{testResults.length} visible tests passed
+                                  <span className="ml-2 text-slate-500">
+                                    · hidden tests run when you submit
+                                  </span>
                                 </p>
                               </div>
-                              {gradingResult?.is_correct != null && (
-                                <span className={`text-[10px] font-bold px-2 py-1 rounded-full ${
-                                  gradingResult.is_correct
-                                    ? "bg-emerald-500/20 text-emerald-400"
-                                    : "bg-rose-500/20 text-rose-400"
-                                }`}>
-                                  {gradingResult.is_correct ? "CORRECT" : "INCORRECT"}
-                                </span>
-                              )}
                             </div>
                             <div className="grid grid-cols-1 gap-2">
                               {testResults.map((result, idx) => {
@@ -1266,9 +1317,10 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
                                       <div className="flex items-center gap-3">
                                         {result.executionTime != null && (
                                           <span className="text-[10px] text-slate-500 font-mono">
-                                            {result.executionTime < 1
-                                              ? `${Math.round(result.executionTime * 1000)}ms`
-                                              : `${result.executionTime.toFixed(2)}s`}
+                                            {/* the server reports milliseconds */}
+                                            {result.executionTime < 1000
+                                              ? `${Math.round(result.executionTime)}ms`
+                                              : `${(result.executionTime / 1000).toFixed(2)}s`}
                                           </span>
                                         )}
                                         {hasDiff && (
@@ -1312,7 +1364,7 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
                               className="mb-3 opacity-20"
                             />
                             <p className="text-sm">
-                              Click 'Test' to run all validation cases.
+                              Click 'Test' to run the visible test cases.
                             </p>
                           </div>
                         )}

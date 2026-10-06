@@ -33,6 +33,9 @@ import FloatingCameraComponent from "../components/Proctoring/FloatingCameraComp
 import WarningNotification from "../components/Proctoring/WarningNotification";
 import NoteNotification from "../components/Proctoring/NoteNotification";
 import PauseOverlay from "../components/Proctoring/PauseOverlay";
+import LockdownWarningOverlay from "../components/Proctoring/LockdownWarningOverlay";
+import { useQuizLockdown } from "../hooks/useQuizLockdown";
+import OpenInTmcode from "../components/Quizzes/OpenInTmcode";
 import type {
   Quiz,
   QuizQuestion,
@@ -43,6 +46,8 @@ import RichTextDisplay from "../components/Common/RichTextDisplay";
 import { liveSocketAuth } from "../utils/liveSocketAuth";
 import {
   BACKGROUND_SAVE_TYPES,
+  CODE_AUTOSAVE_DEBOUNCE_MS,
+  CODE_BACKGROUND_SAVE_TYPES,
   formatClock,
   hasAnswerValue,
   mergeAnswers,
@@ -115,6 +120,10 @@ const QuizTakingPage: React.FC = () => {
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Answer[]>([]);
   const quizQuestions = quiz?.questions || [];
+  // How coding questions are delivered (web editor or the TMCode desktop app).
+  const [tmcodeDelivery, setTmcodeDelivery] = useState<
+    "web" | "tmcode_optional" | "tmcode_required"
+  >("web");
   const currentQuestion = quizQuestions[currentQuestionIndex] || null;
   const totalQuestions = quizQuestions.length;
   const answeredQuestions = answers.filter((a) => hasAnswerValue(a.answer)).length;
@@ -717,6 +726,9 @@ const QuizTakingPage: React.FC = () => {
       }
 
       setQuiz(response.data as QuizTakingQuiz);
+      ProctoringApiService.getProctoringSettings(Number(id))
+        .then((r) => setTmcodeDelivery(r?.data?.tmcode_delivery || "web"))
+        .catch(() => setTmcodeDelivery("web"));
     } catch (error: any) {
       // console.error("Error fetching quiz:", error);
 
@@ -1688,6 +1700,30 @@ const QuizTakingPage: React.FC = () => {
     submitQuizRef.current = submitQuiz;
   }, [submitQuiz]);
 
+  // The quiz's browser restrictions (copy/paste, right click, leaving the
+  // window), while the student is answering. Over max_flags_allowed with
+  // auto_terminate_on_high_risk on, the attempt is submitted.
+  const lockdown = useQuizLockdown({
+    settings: proctoringSettings,
+    active:
+      !!existingSubmission &&
+      !showInstructions &&
+      !showProctoringSetup &&
+      timeUpState === null,
+    sessionToken: proctoringSession?.session_token ?? null,
+    quizId: quiz?.id,
+    socket: socketRef.current,
+    onFlagLimit: () => {
+      setTerminationReason(
+        "You left the quiz window or broke its rules more often than allowed. Your quiz is being submitted.",
+      );
+      setShowQuizTerminated(true);
+      setTimeout(() => {
+        submitQuizRef.current({ auto: true });
+      }, 3000);
+    },
+  });
+
   const nextInstruction = () => {
     if (currentInstructionStep < instructions.length - 1) {
       setCurrentInstructionStep(currentInstructionStep + 1);
@@ -1859,6 +1895,10 @@ const QuizTakingPage: React.FC = () => {
     question: QuizQuestion,
     extraProps: Partial<QuestionComponentProps> = {},
   ) => {
+    const qType = (question.question_type || question.questionBank?.question_type || "").toLowerCase();
+    if (tmcodeDelivery === "tmcode_required" && (qType === "coding" || qType === "algorithmic")) {
+      return <OpenInTmcode key={question.id} quizId={Number(id)} required />;
+    }
     return (
       <QuestionRenderer
         key={question.id}
@@ -1896,7 +1936,11 @@ const QuizTakingPage: React.FC = () => {
    * final submit.
    */
   const persistAnswerSilently = useCallback(
-    async (questionId: number, answer: AnswerDataType) => {
+    async (
+      questionId: number,
+      answer: AnswerDataType,
+      opts: { saveOnly?: boolean } = {},
+    ) => {
       if (!existingSubmission || !hasAnswerValue(answer)) return;
       setSyncState("saving");
       try {
@@ -1905,6 +1949,7 @@ const QuizTakingPage: React.FC = () => {
           questionId,
           answer,
           Math.max(0, Math.floor((Date.now() - questionStartTimeRef.current) / 1000)),
+          ...(opts.saveOnly ? [opts] : []),
         );
         setSyncState("saved");
       } catch (error: any) {
@@ -1938,6 +1983,47 @@ const QuizTakingPage: React.FC = () => {
     return () => window.clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentAnswerKey, currentQuestion?.id, isOverallTimed, timeUpState]);
+
+  // Code answers (both timing modes): saved without grading 5 s after the
+  // last edit, and right away when the window loses focus. The local copy
+  // (quiz_<id>_answers) is written on every edit as the crash backup.
+  const codeSavedRef = useRef<Map<number, string>>(new Map());
+  const pendingCodeSaveRef = useRef<{ questionId: number; answer: AnswerDataType; key: string } | null>(null);
+  const flushCodeSave = useCallback(() => {
+    const pending = pendingCodeSaveRef.current;
+    pendingCodeSaveRef.current = null;
+    if (!pending || codeSavedRef.current.get(pending.questionId) === pending.key) return;
+    codeSavedRef.current.set(pending.questionId, pending.key);
+    void persistAnswerSilently(pending.questionId, pending.answer, { saveOnly: true });
+  }, [persistAnswerSilently]);
+  useEffect(() => {
+    // Leaving a question saves (and grades) it on navigation; drop its
+    // pending background save so it can't overwrite that later.
+    if (pendingCodeSaveRef.current?.questionId !== currentQuestion?.id) {
+      pendingCodeSaveRef.current = null;
+    }
+    if (!currentQuestion || timeUpState || !existingSubmission) return;
+    if (currentAnswerValue === undefined) return;
+    const qType = (
+      currentQuestion.question_type ||
+      currentQuestion.questionBank?.question_type ||
+      ""
+    ).toLowerCase();
+    if (!CODE_BACKGROUND_SAVE_TYPES.has(qType)) return;
+    if (codeSavedRef.current.get(currentQuestion.id) === currentAnswerKey) return;
+    pendingCodeSaveRef.current = {
+      questionId: currentQuestion.id,
+      answer: currentAnswerValue,
+      key: currentAnswerKey,
+    };
+    const t = window.setTimeout(flushCodeSave, CODE_AUTOSAVE_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentAnswerKey, currentQuestion?.id, timeUpState, existingSubmission?.id]);
+  useEffect(() => {
+    window.addEventListener("blur", flushCodeSave);
+    return () => window.removeEventListener("blur", flushCodeSave);
+  }, [flushCodeSave]);
 
   /**
    * Overall mode navigation: any question, any direction. The answer being
@@ -2701,6 +2787,9 @@ const QuizTakingPage: React.FC = () => {
               ))}
             </div>
 
+            {currentInstructionStep === instructions.length - 1 && tmcodeDelivery !== "web" && (
+              <OpenInTmcode quizId={Number(id)} required={tmcodeDelivery === "tmcode_required"} compact />
+            )}
             {currentInstructionStep === instructions.length - 1 ? (
               <button
                 onClick={startQuizAttempt}
@@ -2746,6 +2835,11 @@ const QuizTakingPage: React.FC = () => {
 
       {/* Pause Overlay - When exam is paused */}
       <PauseOverlay isVisible={isExamPaused} reason={pauseReason} />
+      <LockdownWarningOverlay
+        incident={showQuizTerminated ? null : lockdown.incident}
+        maxFlags={lockdown.maxFlags}
+        onDismiss={lockdown.dismiss}
+      />
 
       {timeUpOverlay}
 

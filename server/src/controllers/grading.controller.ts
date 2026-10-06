@@ -219,6 +219,8 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
             is_correct: attemptsByQuestion[question.id]?.is_correct,
             points_earned: attemptsByQuestion[question.id]?.points_earned,
             time_taken: attemptsByQuestion[question.id]?.time_taken,
+            // Staff see every test, hidden ones included.
+            grading_details: attemptsByQuestion[question.id]?.grading_details ?? null,
           };
         }),
       },

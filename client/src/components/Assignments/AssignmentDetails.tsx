@@ -17,6 +17,9 @@ import FilePreviewModal from "../Submissions/FilePreviewModal";
 import { type SubmissionItemInterface } from "./SubmissionSummaryItem";
 import { type RubricCriterion } from "./AssignmentCard";
 import { Award, Target, ArrowLeft } from "lucide-react";
+import SubmitProjectCard from "../Projects/SubmitProjectCard";
+import LinkedProjectsPanel from "../Projects/LinkedProjectsPanel";
+import { assignmentAllowsProject } from "../../services/projectsApi";
 import {
   formatDateTimeLocal,
   parseLocalDateTimeToUTC,
@@ -308,7 +311,9 @@ const AssignmentDetails = () => {
     : false;
 
   // Only published assignments can be submitted; completed/draft are closed
+  // Project-only assignments are submitted from the "Submit a project" card.
   const canSubmit =
+    assignment?.submission_type !== "project" &&
     isStudent &&
     !userSubmission() &&
     !!user &&
@@ -558,6 +563,27 @@ const AssignmentDetails = () => {
             </div>
           )}
         </div>
+
+        {/* TMCode Projects: students submit a project when the assignment
+            accepts one; teachers see the projects linked to it. */}
+        {isStudent &&
+          !canViewAllSubmissions &&
+          can("PROJECTS_USE") &&
+          assignmentAllowsProject(assignment.submission_type) && (
+            <SubmitProjectCard
+              assignmentId={Number(assignment.id)}
+              assignmentTitle={assignment.title}
+              closed={isOverdue || assignment.status !== "published"}
+              onSubmitted={fetchSubmissions}
+            />
+          )}
+        {canViewAllSubmissions && can("PROJECTS_MONITOR") && (
+          <LinkedProjectsPanel
+            activityType="assignment"
+            activityId={Number(assignment.id)}
+            collapsible={!assignmentAllowsProject(assignment.submission_type)}
+          />
+        )}
 
         {/* Clean Tab Navigation */}
         <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 overflow-hidden">

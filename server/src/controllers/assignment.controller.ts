@@ -520,7 +520,7 @@ export const createAssignment = async (req: Request, res: Response) => {
     }
 
     // Validate submission_type
-    const validSubmissionTypes = ["file", "text", "both"];
+    const validSubmissionTypes = ["file", "text", "both", "project"];
     if (!validSubmissionTypes.includes(submission_type)) {
       return res.status(400).json({
         success: false,
@@ -778,7 +778,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
     }
 
     if (submission_type !== undefined) {
-      const validTypes = ["file", "text", "both"];
+      const validTypes = ["file", "text", "both", "project"];
       if (!validTypes.includes(submission_type)) {
         return res.status(400).json({
           success: false,

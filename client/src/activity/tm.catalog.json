@@ -53,6 +53,10 @@
     { "key": "tm.grades.subject_report", "label": "Subject assessment report", "module": "Grades", "patterns": ["/grades/subjects/:courseId/report"] },
     { "key": "tm.grades.marks", "label": "Entering marks", "module": "Grades", "patterns": ["/grades/:assessmentId/marks"] },
 
+    { "key": "tm.projects", "label": "Projects", "module": "Projects", "patterns": ["/projects"] },
+    { "key": "tm.project", "label": "Project details", "module": "Projects", "patterns": ["/projects/:id"] },
+    { "key": "tm.projects.monitor", "label": "Project monitor", "module": "Projects", "patterns": ["/projects/monitor"] },
+
     { "key": "tm.admin.blooms", "label": "Bloom's taxonomy", "module": "Administration", "patterns": ["/admin/blooms-taxonomy"] },
     { "key": "tm.admin.database", "label": "Database management", "module": "Administration", "patterns": ["/admin/database-management"] },
     { "key": "tm.admin.roles", "label": "Roles & permissions", "module": "Administration", "patterns": ["/admin/roles-permissions"] },
@@ -70,6 +74,9 @@
     { "key": "tm.dashboard.export_csv", "label": "Dashboard exported (CSV)", "module": "Home", "event": true },
     { "key": "tm.report_card.download_pdf", "label": "Report card downloaded (PDF)", "module": "Report cards", "event": true },
     { "key": "tm.report_card.print", "label": "Report card printed", "module": "Report cards", "event": true },
-    { "key": "tm.report_card.bulk_export", "label": "Report cards bulk-exported", "module": "Report cards", "event": true }
+    { "key": "tm.report_card.bulk_export", "label": "Report cards bulk-exported", "module": "Report cards", "event": true },
+    { "key": "tm.project.create", "label": "Clicked \"Create project\"", "module": "Projects", "event": true },
+    { "key": "tm.project.open_in_tmcode", "label": "Clicked \"Open in TMCode\" on a project", "module": "Projects", "event": true },
+    { "key": "tm.project.submit_click", "label": "Clicked \"Submit\" on a project", "module": "Projects", "event": true }
   ]
 }

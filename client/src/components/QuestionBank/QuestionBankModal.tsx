@@ -200,7 +200,12 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
         defaultData = { language: "javascript", test_cases: [] };
         break;
       case "algorithmic":
-        defaultData = { algorithm_description: "", test_cases: [] };
+        defaultData = {
+          algorithm_description: "",
+          language: "python",
+          allowed_languages: [],
+          test_cases: [],
+        };
         break;
       case "fill_blank":
         defaultData = { text_with_blanks: "", acceptable_answers: [] };

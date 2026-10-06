@@ -67,3 +67,20 @@ export const integrationLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+
+// "Run" / "Run tests" on code questions: each call is one or more judge
+// submissions (a shared, metered resource on exam day), so 10 per minute per
+// signed-in user. Keyed by user id: a whole lab shares one IP. Must run after
+// `protect`.
+export const codeRunLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.CODE_RUN_RATE_LIMIT_PER_MIN) || 10,
+  keyGenerator: (req) => `code-run:${(req as any).user?.id ?? req.ip}`,
+  message: {
+    success: false,
+    code: "RATE_LIMITED",
+    message: "Too many code runs — wait a minute and try again.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
