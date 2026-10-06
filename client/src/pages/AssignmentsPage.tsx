@@ -7,8 +7,6 @@ import {
   Plus,
   ChevronLeft,
   ChevronRight,
-  Calendar,
-  Award,
   Users,
   CheckCircle2,
   Clock,
@@ -174,84 +172,115 @@ function StaffStatus({ a, canManage, onStatus }: Omit<ItemProps, "isStudent">) {
   );
 }
 
-const subjectLabel = (a: ListedAssignment) => `${a.subject_code ? `${a.subject_code} · ` : ""}${a.subject_name}`;
+// Same per-subject tint as the Submissions page, so a subject reads the same everywhere.
+const SUBJECT_HUES = [211, 262, 340, 24, 152, 190, 45, 288];
+const hueFor = (id: number) => SUBJECT_HUES[Math.abs(id) % SUBJECT_HUES.length];
 
-function AssignmentCard({ a, isStudent, canManage, onStatus }: ItemProps) {
-  const late = isStudent && a.my_state === "missed";
+function SubjectTile({ a }: { a: ListedAssignment }) {
+  const hue = hueFor(a.course_id);
   return (
-    <li className="flex flex-col rounded-2xl border border-white/60 bg-card-light p-4 shadow-sm transition-colors hover:border-blue-200 dark:border-border-dark/30 dark:bg-card-dark/30 dark:hover:border-blue-900/50">
-      <div className="flex items-start justify-between gap-2">
-        <span className="truncate text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark/80">{subjectLabel(a)}</span>
-        {isNew(a.created_at) && (
-          <span className="shrink-0 rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">New</span>
-        )}
-      </div>
+    <span
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+      style={{ backgroundColor: `hsl(${hue} 85% 92%)`, color: `hsl(${hue} 70% 35%)` }}
+      aria-hidden
+    >
+      <ClipboardList className="h-5 w-5" />
+    </span>
+  );
+}
+
+/** Title (the card's link, stretched over the whole card), code chip and "New". */
+function TitleLine({ a }: { a: ListedAssignment }) {
+  return (
+    <div className="flex min-w-0 items-center gap-2">
       <Link
         to={`/assignments/${a.id}`}
-        className="mt-1.5 line-clamp-2 text-base font-semibold text-text-primary-light hover:text-blue-600 dark:text-text-primary-dark dark:hover:text-blue-400"
+        className="truncate font-semibold text-text-primary-light after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-blue-500 dark:text-text-primary-dark"
       >
         {a.title}
       </Link>
-      <div className="mb-3 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-        <span className={`flex items-center gap-1 ${late ? "font-medium text-red-600 dark:text-red-400" : ""}`}>
-          <Calendar className="h-3 w-3" />
-          Due {formatDateTimeLocal(a.due_date)}
+      {a.subject_code && (
+        <span className="shrink-0 rounded-md bg-surface-light px-1.5 py-0.5 text-[10px] font-medium text-text-secondary-light dark:bg-surface-dark/60 dark:text-text-secondary-dark">
+          {a.subject_code}
         </span>
-        <span className="flex items-center gap-1">
-          <Award className="h-3 w-3" />
-          {a.max_score} pts
-        </span>
+      )}
+      {isNew(a.created_at) && (
+        <span className="shrink-0 rounded-md bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">New</span>
+      )}
+    </div>
+  );
+}
+
+/** Subject · due · points, in the grey meta style. */
+function MetaLine({ a, isStudent }: { a: ListedAssignment; isStudent: boolean }) {
+  const late = isStudent && a.my_state === "missed";
+  return (
+    <span className="block truncate text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+      {a.subject_name} ·{" "}
+      <span className={late ? "font-medium text-red-600 dark:text-red-400" : ""}>Due {formatDateTimeLocal(a.due_date)}</span> ·{" "}
+      {a.max_score} pts
+    </span>
+  );
+}
+
+const cardShell =
+  "group relative rounded-2xl border border-white/60 bg-card-light shadow-sm transition-colors hover:border-blue-200 dark:border-border-dark/30 dark:bg-card-dark/30 dark:hover:border-blue-900/50";
+
+/** Grid card: room to breathe -- the title wraps and the due date never gets cut. */
+function AssignmentCard({ a, isStudent, canManage, onStatus }: ItemProps) {
+  const late = isStudent && a.my_state === "missed";
+  return (
+    <li className={`${cardShell} flex flex-col p-4`}>
+      <div className="flex items-center gap-3">
+        <SubjectTile a={a} />
+        <div className="min-w-0 flex-1">
+          <span className="block truncate text-xs text-text-secondary-light dark:text-text-secondary-dark/70">{a.subject_name}</span>
+          <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+            {a.subject_code && (
+              <span className="rounded-md bg-surface-light px-1.5 py-0.5 text-[10px] font-medium text-text-secondary-light dark:bg-surface-dark/60 dark:text-text-secondary-dark">
+                {a.subject_code}
+              </span>
+            )}
+            {isNew(a.created_at) && (
+              <span className="rounded-md bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">New</span>
+            )}
+          </div>
+        </div>
       </div>
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border-light pt-3 dark:border-border-dark/30">
-        <div className="flex flex-wrap items-center gap-2">
+      <Link
+        to={`/assignments/${a.id}`}
+        className="mt-3 line-clamp-2 font-semibold text-text-primary-light after:absolute after:inset-0 after:rounded-2xl after:content-[''] focus:outline-none focus-visible:after:ring-2 focus-visible:after:ring-blue-500 dark:text-text-primary-dark"
+      >
+        {a.title}
+      </Link>
+      <span className="mb-4 mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+        <span className={late ? "font-medium text-red-600 dark:text-red-400" : ""}>Due {formatDateTimeLocal(a.due_date)}</span> · {a.max_score} pts
+      </span>
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-border-light pt-3 dark:border-border-dark/30">
+        {/* Above the stretched link, so the status picker stays usable. */}
+        <div className="relative z-10 flex flex-wrap items-center gap-2">
           {isStudent ? <StudentBadge a={a} /> : <StaffStatus a={a} canManage={canManage} onStatus={onStatus} />}
         </div>
-        <Link
-          to={`/assignments/${a.id}`}
-          aria-label={`Open ${a.title}`}
-          className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
-        >
-          Open
-        </Link>
+        <ChevronRight className="h-5 w-5 shrink-0 text-text-secondary-light transition-transform group-hover:translate-x-0.5 dark:text-text-secondary-dark" aria-hidden />
       </div>
     </li>
   );
 }
 
 function AssignmentRow({ a, isStudent, canManage, onStatus }: ItemProps) {
-  const dueSoonOrLate = isStudent && (a.my_state === "todo" || a.my_state === "missed");
-  const late = isStudent && a.my_state === "missed";
-
   return (
-    <li className="flex flex-col gap-2 px-4 py-3.5 transition-colors hover:bg-surface-light/70 dark:hover:bg-surface-dark/30 sm:flex-row sm:items-center sm:gap-4">
-      <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-2">
-          <Link
-            to={`/assignments/${a.id}`}
-            className="truncate text-sm font-semibold text-text-primary-light hover:text-blue-600 dark:text-text-primary-dark dark:hover:text-blue-400"
-          >
-            {a.title}
-          </Link>
-          {isNew(a.created_at) && (
-            <span className="shrink-0 rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">New</span>
-          )}
-        </div>
-        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-          <span className="font-medium text-text-primary-light/80 dark:text-text-primary-dark/80">{subjectLabel(a)}</span>
-          <span className={`flex items-center gap-1 ${late ? "font-medium text-red-600 dark:text-red-400" : dueSoonOrLate ? "text-text-primary-light/80 dark:text-text-primary-dark/80" : ""}`}>
-            <Calendar className="h-3 w-3" />
-            Due {formatDateTimeLocal(a.due_date)}
-          </span>
-          <span className="flex items-center gap-1">
-            <Award className="h-3 w-3" />
-            {a.max_score} pts
-          </span>
+    <li className={`${cardShell} flex flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-3 sm:px-5`}>
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <SubjectTile a={a} />
+        <div className="min-w-0 flex-1">
+          <TitleLine a={a} />
+          <MetaLine a={a} isStudent={isStudent} />
         </div>
       </div>
-
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="relative z-10 flex shrink-0 items-center gap-3 pl-[52px] sm:pl-0">
         {isStudent ? <StudentBadge a={a} /> : <StaffStatus a={a} canManage={canManage} onStatus={onStatus} />}
       </div>
+      <ChevronRight className="hidden h-5 w-5 shrink-0 text-text-secondary-light transition-transform group-hover:translate-x-0.5 dark:text-text-secondary-dark sm:block" aria-hidden />
     </li>
   );
 }
@@ -535,11 +564,7 @@ const AssignmentsPage: React.FC = () => {
               ))}
             </ul>
           ) : (
-            <ul
-              aria-label="Assignments"
-              aria-busy={refreshing}
-              className="divide-y divide-border-light overflow-hidden rounded-2xl border border-white/60 bg-card-light shadow-sm dark:divide-border-dark/30 dark:border-border-dark/30 dark:bg-card-dark/30"
-            >
+            <ul aria-label="Assignments" aria-busy={refreshing} className="space-y-3">
               {items.map((a) => (
                 <AssignmentRow key={a.id} a={a} isStudent={isStudent} canManage={canManage} onStatus={handleStatus} />
               ))}

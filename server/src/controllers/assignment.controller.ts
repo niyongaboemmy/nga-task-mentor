@@ -213,7 +213,8 @@ export const listAssignments = async (req: Request, res: Response) => {
       id: a.id,
       title: a.title,
       due_date: a.due_date,
-      created_at: (a as any).created_at ?? null,
+      // Through get(): the model's declared created_at field shadows the value.
+      created_at: (a.get("created_at") as Date | undefined) ?? null,
       max_score: a.max_score,
       submission_type: a.submission_type,
       status: a.status,

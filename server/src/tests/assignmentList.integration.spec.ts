@@ -98,6 +98,8 @@ describe("assignments list", () => {
     const state = Object.fromEntries(res.body.data.items.map((a: any) => [a.title.replace(` ${RUN}`, ""), a.my_state]));
     expect(state).toMatchObject({ "To do": "todo", Graded: "graded", Overdue: "missed" });
     expect(res.body.data.counts).toMatchObject({ todo: 1, graded: 1, missed: 1, submitted: 0 });
+    // The page tags recent work "New" from this.
+    expect(Date.parse(res.body.data.items[0].created_at)).toBeGreaterThan(Date.now() - 3_600_000);
   });
 
   it("filters a student by their own state, keeping the counts for the chips", async () => {
