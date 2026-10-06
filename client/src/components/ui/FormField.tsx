@@ -1,4 +1,5 @@
 import React from "react";
+import Select from "./Select";
 
 interface FormFieldProps {
   label: string;
@@ -79,14 +80,17 @@ export const FormField: React.FC<FormFieldProps> = ({
           className={`${baseInputClasses} resize-none`}
         />
       ) : type === "select" ? (
-        <select
+        <Select
           id={name}
           name={name}
           value={value}
           onChange={onChange}
           required={required}
           disabled={disabled}
-          className={baseInputClasses}
+          size="lg"
+          variant="outline"
+          invalid={!!error}
+          className={`w-full ${className}`}
         >
           <option value="">{placeholder || `Select ${label}`}</option>
           {options.map((option) => (
@@ -94,7 +98,7 @@ export const FormField: React.FC<FormFieldProps> = ({
               {option.label}
             </option>
           ))}
-        </select>
+        </Select>
       ) : (
         <input
           id={name}

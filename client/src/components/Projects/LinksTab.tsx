@@ -16,6 +16,7 @@ import {
 } from "../../services/projectsApi";
 import { LinkStatusBadge, Pill } from "./ProjectBadges";
 import { formatDateTime, freezeTarget } from "./projectFormat";
+import Select from "../ui/Select";
 
 const TYPE_ICON: Record<ActivityType, React.ElementType> = {
   quiz: HelpCircle,
@@ -320,17 +321,16 @@ export const LinkActivityDialog: React.FC<{
               className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark"
             />
           </label>
-          <select
+          <Select variant="outline"
             aria-label="Activity type"
             value={type}
             onChange={(e) => setType(e.target.value as ActivityType | "")}
-            className="rounded-xl border border-gray-200 bg-white py-2 pl-3 pr-8 text-sm dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark"
           >
             <option value="">All types</option>
             <option value="assignment">Assignments</option>
             <option value="quiz">Quizzes</option>
             <option value="manual_assessment">Recorded assessments</option>
-          </select>
+          </Select>
         </div>
 
         {error && (

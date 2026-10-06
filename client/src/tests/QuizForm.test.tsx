@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import QuizForm from "../components/Quizzes/QuizForm";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const onSubmit = vi.fn();
 const onCancel = vi.fn();
@@ -138,17 +139,13 @@ describe("QuizForm", () => {
 
   it("offers only DB-valid quiz types (not practice/graded)", () => {
     render(<QuizForm mode="create" onSubmit={onSubmit} onCancel={onCancel} />);
-    const options = Array.from(
-      (screen.getByLabelText(/Quiz Type/i) as HTMLSelectElement).options,
-    ).map((o) => o.value);
+    const options = optionValues(screen.getByLabelText(/Quiz Type/i));
     expect(options).toEqual(["Quiz", "Assessment", "Homework", "Exam"]);
   });
 
   it("shows the status select only in edit mode, without 'archived'", () => {
     render(<QuizForm mode="edit" onSubmit={onSubmit} onCancel={onCancel} />);
-    const options = Array.from(
-      (screen.getByLabelText(/Quiz Status/i) as HTMLSelectElement).options,
-    ).map((o) => o.value);
+    const options = optionValues(screen.getByLabelText(/Quiz Status/i));
     expect(options).toEqual(["draft", "published", "completed"]);
   });
 
@@ -199,7 +196,7 @@ describe("QuizForm", () => {
     const user = userEvent.setup();
     render(<QuizForm mode="create" onSubmit={onSubmit} onCancel={onCancel} />);
     await fillRequired(user);
-    await user.selectOptions(screen.getByLabelText(/Quiz Type/i), "Exam");
+    pickOption(screen.getByLabelText(/Quiz Type/i), "Exam");
     await user.type(screen.getByLabelText(/Instructions/i), "Read carefully");
     await user.type(screen.getByLabelText(/Maximum Attempts/i), "2");
     await user.type(screen.getByLabelText(/Passing Score/i), "65.5");
@@ -241,9 +238,9 @@ describe("QuizForm", () => {
       />,
     );
     expect(screen.getByLabelText(/Quiz Title/i)).toHaveValue("Old");
-    expect(screen.getByLabelText(/Quiz Type/i)).toHaveValue("Homework");
+    expect(selectValue(screen.getByLabelText(/Quiz Type/i))).toBe("Homework");
 
-    await user.selectOptions(screen.getByLabelText(/Quiz Status/i), "published");
+    pickOption(screen.getByLabelText(/Quiz Status/i), "published");
     await user.click(screen.getByRole("button", { name: /Save Changes/i }));
 
     expect(onSubmit.mock.calls[0][0]).toMatchObject({

@@ -38,6 +38,7 @@ import type {
 } from "../../types/quiz.types";
 import { QuizApiService } from "../../services/quizApi";
 import RichEditor from "../ui/RichEditor";
+import Select from "../ui/Select";
 
 // Helper function to create typed question data
 const createQuestionData = (type: QuestionType) => {
@@ -451,7 +452,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                 <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-3">
                   1. Choose Question Type
                 </label>
-                <select
+                <Select size="lg" variant="outline"
                   value={formData.question_type}
                   onChange={(e) => {
                     const newType = e.target.value as QuestionType;
@@ -461,7 +462,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                       question_data: createQuestionData(newType),
                     }));
                   }}
-                  className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 font-medium"
+                  className="w-full"
                 >
                   <option value="single_choice">Single Choice</option>
                   <option value="multiple_choice">Multiple Choice</option>
@@ -474,7 +475,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                   <option value="dropdown">Dropdown</option>
                   <option value="algorithmic">Algorithmic</option>
                   <option value="coding">Coding Workflow Workspace</option>
-                </select>
+                </Select>
               </div>
 
               {/* Question Text */}
@@ -615,7 +616,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                     <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       Bloom's Taxonomy Level
                     </label>
-                    <select
+                    <Select size="lg" variant="outline"
                       value={formData.blooms_taxonomy_level_id ?? ""}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -625,7 +626,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                             : null,
                         }))
                       }
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full"
                     >
                       <option value="">— Uncategorized —</option>
                       {bloomsLevels.map((level) => (
@@ -633,14 +634,14 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                           {level.level_order}. {level.name}
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-2">
                       Difficulty Level
                     </label>
-                    <select
+                    <Select size="lg" variant="outline"
                       value={formData.difficulty_level ?? ""}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -648,13 +649,13 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                           difficulty_level: (e.target.value as any) || null,
                         }))
                       }
-                      className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="w-full"
                     >
                       <option value="">— Uncategorized —</option>
                       <option value="EASY">🟢 Easy</option>
                       <option value="MEDIUM">🟡 Medium</option>
                       <option value="DIFFICULT">🔴 Difficult</option>
-                    </select>
+                    </Select>
                   </div>
                 </div>
 

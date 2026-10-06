@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from "lucide-react";
+import Select from "../components/ui/Select";
 
 interface QuizResult {
   id: number;
@@ -553,16 +554,16 @@ const StudentQuizzesPage: React.FC = () => {
                 <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Status
                 </label>
-                <select
+                <Select
                   value={filters.status}
                   onChange={(e) => updateFilter("status", e.target.value)}
-                  className="w-full px-3 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                  className="w-full"
                 >
                   <option value="all">All Status</option>
                   <option value="completed">Completed</option>
                   <option value="pending">Pending</option>
                   <option value="in_progress">In Progress</option>
-                </select>
+                </Select>
               </div>
 
               {/* Course Filter */}
@@ -570,10 +571,10 @@ const StudentQuizzesPage: React.FC = () => {
                 <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Course
                 </label>
-                <select
+                <Select
                   value={filters.course}
                   onChange={(e) => updateFilter("course", e.target.value)}
-                  className="w-full px-3 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                  className="w-full"
                 >
                   <option value="all">All Courses</option>
                   {courses.map((course) => (
@@ -581,7 +582,7 @@ const StudentQuizzesPage: React.FC = () => {
                       {course}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
 
               {/* Date Range Filter */}
@@ -589,17 +590,17 @@ const StudentQuizzesPage: React.FC = () => {
                 <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Date Range
                 </label>
-                <select
+                <Select
                   value={filters.dateRange}
                   onChange={(e) => updateFilter("dateRange", e.target.value)}
-                  className="w-full px-3 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                  className="w-full"
                 >
                   <option value="all">All Time</option>
                   <option value="today">Today</option>
                   <option value="week">This Week</option>
                   <option value="month">This Month</option>
                   <option value="quarter">Last 3 Months</option>
-                </select>
+                </Select>
               </div>
 
               {/* Score Range Filter */}
@@ -607,17 +608,17 @@ const StudentQuizzesPage: React.FC = () => {
                 <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Score Range
                 </label>
-                <select
+                <Select
                   value={filters.scoreRange}
                   onChange={(e) => updateFilter("scoreRange", e.target.value)}
-                  className="w-full px-3 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                  className="w-full"
                 >
                   <option value="all">All Scores</option>
                   <option value="excellent">Excellent (90%+)</option>
                   <option value="good">Good (70-89%)</option>
                   <option value="average">Average (50-69%)</option>
                   <option value="poor">Poor (below 50%)</option>
-                </select>
+                </Select>
               </div>
 
               {/* Sort By */}
@@ -625,17 +626,17 @@ const StudentQuizzesPage: React.FC = () => {
                 <label className="block text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark mb-2">
                   Sort By
                 </label>
-                <select
+                <Select
                   value={filters.sortBy}
                   onChange={(e) => updateFilter("sortBy", e.target.value)}
-                  className="w-full px-3 py-2 border border-transparent bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-sm"
+                  className="w-full"
                 >
                   <option value="submitted_at">Date Taken</option>
                   <option value="quiz_title">Quiz Title</option>
                   <option value="percentage">Score</option>
                   <option value="final_score">Points</option>
                   <option value="time_taken">Time Taken</option>
-                </select>
+                </Select>
               </div>
             </div>
 

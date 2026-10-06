@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
 import { getLanguageIcon } from "./languageIcons";
+import Select from "../ui/Select";
 
 const LangIcon = getLanguageIcon("angular");
 
@@ -116,16 +117,16 @@ export const AngularTestCaseBuilderModal: React.FC<
               <label className="block text-sm font-medium text-red-800 dark:text-red-200 mb-2">
                 Type
               </label>
-              <select
+              <Select variant="outline"
                 value={decoratorType}
                 onChange={(e) => setDecoratorType(e.target.value)}
-                className="w-full px-3 py-2 border border-red-300 dark:border-red-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 dark:bg-gray-700 dark:text-white"
+                className="w-full"
               >
                 <option value="component">Component</option>
                 <option value="service">Service</option>
                 <option value="directive">Directive</option>
                 <option value="pipe">Pipe</option>
-              </select>
+              </Select>
             </div>
             <div>
               <label className="block text-sm font-medium text-red-800 dark:text-red-200 mb-2">

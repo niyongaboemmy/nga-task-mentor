@@ -33,6 +33,7 @@ import {
 } from "../services/assignmentApi";
 import { formatDateTimeLocal } from "../utils/dateUtils";
 import { onAcademicPeriodChanged } from "../utils/academicPeriodEvents";
+import Select from "../components/ui/Select";
 
 /* ── helpers ─────────────────────────────────────────────────────────────── */
 
@@ -174,16 +175,16 @@ function AssignmentRow({
       {/* status */}
       <div className="shrink-0">
         {canChangeStatus ? (
-          <select
+          <Select size="sm" variant="bare"
             value={a.status}
             onChange={(e) => onStatus(a.id, e.target.value as AssignmentStatus)}
-            className={`cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 ${meta.cls}`}
+            triggerClassName={`rounded-full font-medium ${meta.cls}`}
           >
             <option value="draft">Draft</option>
             <option value="published">Published</option>
             <option value="completed">Completed</option>
             <option value="removed">Removed</option>
-          </select>
+          </Select>
         ) : (
           <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${meta.cls}`}>
             <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
@@ -484,10 +485,10 @@ const AssignmentsPage: React.FC = () => {
             className="w-full rounded-xl border border-transparent bg-surface-light py-2.5 pl-9 pr-4 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark"
           />
         </div>
-        <select
+        <Select
           value={subjectId}
           onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : "")}
-          className="rounded-xl border border-transparent bg-surface-light px-3 py-2.5 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark lg:w-56"
+          className="lg:w-56"
         >
           <option value="">All subjects</option>
           {allSubjects.map((s) => (
@@ -496,18 +497,18 @@ const AssignmentsPage: React.FC = () => {
               {s.name}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="rounded-xl border border-transparent bg-surface-light px-3 py-2.5 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark lg:w-44"
+          className="lg:w-44"
         >
           {statusOptions.map((o) => (
             <option key={o.v} value={o.v}>
               {o.l}
             </option>
           ))}
-        </select>
+        </Select>
         <button
           onClick={() => fetchData({ refresh: true })}
           disabled={refreshing}

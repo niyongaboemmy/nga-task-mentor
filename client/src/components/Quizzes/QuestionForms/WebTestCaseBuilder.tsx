@@ -17,6 +17,7 @@
 import React, { useState } from "react";
 import { Plus, Trash2, ChevronDown, Check, X } from "lucide-react";
 import { toast } from "react-toastify";
+import Select from "../../ui/Select";
 
 // ─── Rule type catalogue ───────────────────────────────────────────────────────
 interface RuleType {
@@ -526,7 +527,7 @@ const RuleCard: React.FC<{
             </label>
             {field.type === "select" ? (
               <div className="relative">
-                <select
+                <Select size="sm" variant="outline"
                   value={rule.values[field.key] ?? ""}
                   onChange={(e) =>
                     onUpdate({
@@ -534,7 +535,7 @@ const RuleCard: React.FC<{
                       values: { ...rule.values, [field.key]: e.target.value },
                     })
                   }
-                  className="w-full mt-1 appearance-none text-xs px-2 py-1.5 pr-6 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                  className="w-full mt-1"
                 >
                   <option value="">Select…</option>
                   {field.options?.map((o) => (
@@ -542,7 +543,7 @@ const RuleCard: React.FC<{
                       {o.label}
                     </option>
                   ))}
-                </select>
+                </Select>
                 <ChevronDown
                   size={10}
                   className="absolute right-2 top-1/2 -translate-y-0 mt-0.5 text-gray-400 pointer-events-none"

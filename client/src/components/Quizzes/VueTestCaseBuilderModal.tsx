@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
 import { getLanguageIcon } from "./languageIcons";
+import Select from "../ui/Select";
 
 const LangIcon = getLanguageIcon("vue");
 
@@ -123,15 +124,15 @@ export const VueTestCaseBuilderModal: React.FC<
               <label className="block text-sm font-medium text-green-800 dark:text-green-200 mb-2">
                 Vue API Type
               </label>
-              <select
+              <Select variant="outline"
                 value={apiType}
                 onChange={(e) => setApiType(e.target.value)}
-                className="w-full px-3 py-2 border border-green-300 dark:border-green-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                className="w-full"
               >
                 <option value="options">Options API</option>
                 <option value="composition">Composition API</option>
                 <option value="setup">Setup Script</option>
-              </select>
+              </Select>
             </div>
           </div>
 

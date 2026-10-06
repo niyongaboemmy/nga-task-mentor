@@ -8,6 +8,7 @@ import {
   type ProjectVisibility,
 } from "../../services/projectsApi";
 import { isGithubRepoUrl, LANGUAGE_CHOICES } from "./projectFormat";
+import Select from "../ui/Select";
 
 const fieldCls =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-text-primary-light placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark";
@@ -184,7 +185,7 @@ const NewProjectDialog: React.FC<{
             <label htmlFor={`${id}-vis`} className={labelCls}>
               Visibility
             </label>
-            <select
+            <Select
               id={`${id}-vis`}
               value={visibility}
               onChange={(e) => setVisibility(e.target.value as ProjectVisibility)}
@@ -192,7 +193,7 @@ const NewProjectDialog: React.FC<{
             >
               <option value="private">Private — you and your teachers</option>
               <option value="course">Course — classmates can view</option>
-            </select>
+            </Select>
           </div>
         </div>
 

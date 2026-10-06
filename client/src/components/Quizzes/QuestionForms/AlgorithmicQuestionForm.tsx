@@ -4,6 +4,7 @@ import {
   languageDisplayName,
   useCodeLanguages,
 } from "../../../hooks/useCodeLanguages";
+import Select from "../../ui/Select";
 
 interface AlgorithmicQuestionFormProps {
   data: AlgorithmicData;
@@ -33,11 +34,11 @@ export const AlgorithmicQuestionForm: React.FC<
         >
           Language students answer in <span className="text-red-500">*</span>
         </label>
-        <select
+        <Select size="lg" variant="outline"
           id="algorithmic-language"
           value={data.language ?? ""}
           onChange={(e) => onChange({ ...data, language: e.target.value })}
-          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark"
+          className="w-full"
         >
           <option value="">Choose a language…</option>
           {judge.map((l) => (
@@ -45,7 +46,7 @@ export const AlgorithmicQuestionForm: React.FC<
               {languageDisplayName(l)}
             </option>
           ))}
-        </select>
+        </Select>
         <div className="mt-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">
           Also allow:
         </div>

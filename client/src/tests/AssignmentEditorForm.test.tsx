@@ -16,6 +16,7 @@ vi.mock("../components/Assignments/AssignmentDescriptionEditor", () => ({
 }));
 
 import AssignmentEditorForm, { type AssignmentFormValues } from "../components/Assignments/form/AssignmentEditorForm";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const future = () => {
   const d = new Date(Date.now() + 3 * 86_400_000);
@@ -152,7 +153,7 @@ describe("AI rubric", () => {
     const marks = within(panel).getByLabelText("Marks to distribute") as HTMLInputElement;
     expect(marks.value).toBe("10");
     fireEvent.change(marks, { target: { value: "20" } });
-    fireEvent.change(within(panel).getByRole("combobox"), { target: { value: "3" } });
+    pickOption(within(panel).getByRole("combobox"), "3");
     fireEvent.click(within(panel).getByRole("button", { name: /generate rubric/i }));
 
     const preview = await screen.findByTestId("rubric-ai-preview");

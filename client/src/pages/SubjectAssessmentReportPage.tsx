@@ -52,6 +52,7 @@ import {
   type StudentStat,
   type SubjectReport,
 } from "../services/subjectReportApi";
+import Select from "../components/ui/Select";
 
 // ─── Subject assessment report ────────────────────────────────────────────────
 // The Grades page answers "which subjects have assessments?". This page answers
@@ -628,16 +629,15 @@ export default function SubjectAssessmentReportPage() {
             })}
           </div>
 
-          <select
+          <Select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
             aria-label="Sort students"
-            className="px-3 py-2 rounded-xl text-sm bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark border border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500/20"
           >
             <option value="score">Sort: highest score</option>
             <option value="name">Sort: name</option>
             <option value="marked">Sort: most marks</option>
-          </select>
+          </Select>
         </div>
 
         {studentRows.length === 0 ? (

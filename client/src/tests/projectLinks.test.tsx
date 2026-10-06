@@ -13,6 +13,7 @@ import LinkedProjectsPanel from "../components/Projects/LinkedProjectsPanel";
 import OpenProjectInTmcode, { OPEN_FALLBACK_MS } from "../components/Projects/OpenProjectInTmcode";
 import { normalizeProjectDetail, type ProjectDetail, type ProjectLink } from "../services/projectsApi";
 import { makeActivityProjects, makeLinkable, makeProjectDetails, makeProjectList } from "./fixtures/projects";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const detail = (overrides: Record<string, unknown> = {}): ProjectDetail =>
   normalizeProjectDetail({ ...makeProjectDetails(1).project, ...overrides });
@@ -113,8 +114,8 @@ describe("Submit a project (assignment page)", () => {
 
     const select = await screen.findByLabelText("Project to submit");
     // Archived projects aren't offered.
-    expect(within(select).queryByText(/Python games/)).toBeNull();
-    fireEvent.change(select, { target: { value: "1" } });
+    expect(optionValues(select)).not.toContain("3");
+    pickOption(select, "1");
     fireEvent.click(screen.getByRole("button", { name: /Submit project/ }));
     const dialog = await screen.findByRole("alertdialog");
     expect(dialog).toHaveTextContent("Sorting algorithms (revision #3)");
@@ -136,7 +137,7 @@ describe("Submit a project (assignment page)", () => {
         <SubmitProjectCard assignmentId={77} assignmentTitle="Sorting lab" />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByLabelText("Project to submit")).toHaveValue("1"));
+    await waitFor(() => expect(selectValue(screen.getByLabelText("Project to submit"))).toBe("1"));
     fireEvent.click(screen.getByRole("button", { name: /Submit project/ }));
     fireEvent.click(within(await screen.findByRole("alertdialog")).getByRole("button", { name: "Submit" }));
     await waitFor(() => expect(axiosMock.post).toHaveBeenCalledTimes(1));

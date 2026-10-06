@@ -1,6 +1,7 @@
 import RichTextEditor from "../Common/RichTextEditor";
 import { Plus, Trash2 } from "lucide-react";
 import { type RubricCriterion } from "./AssignmentCard";
+import Select from "../ui/Select";
 
 interface Attachment {
   name: string;
@@ -161,18 +162,18 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
             >
               Submission Type
             </label>
-            <select
+            <Select variant="outline"
               id="submission_type"
               name="submission_type"
               value={editFormData.submission_type}
               onChange={onInputChange}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full"
             >
               <option value="text">Text Only</option>
               <option value="file">File Upload Only</option>
               <option value="both">Both Text and File</option>
               <option value="project">TMCode Project</option>
-            </select>
+            </Select>
           </div>
 
           {/* Attachments Section */}
@@ -478,16 +479,16 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
             >
               Status
             </label>
-            <select
+            <Select variant="outline"
               id="status"
               name="status"
               value={editFormData.status}
               onChange={onInputChange}
-              className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:bg-gray-700 dark:text-white"
+              className="w-full"
             >
               <option value="draft">Draft</option>
               <option value="published">Published</option>
-            </select>
+            </Select>
           </div>
 
           <div className="flex justify-end space-x-3 pt-4">

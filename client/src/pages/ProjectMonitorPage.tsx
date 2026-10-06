@@ -14,6 +14,7 @@ import {
 import { Skeleton } from "../components/ui/Skeleton";
 import { Avatar, LanguageBadge, LiveDot, LiveIndicator, Pill, SyncBadge } from "../components/Projects/ProjectBadges";
 import { dirtyCount, languageMeta, timeAgo } from "../components/Projects/projectFormat";
+import Select from "../components/ui/Select";
 
 /**
  * /projects/monitor (PROJECTS_MONITOR) — who is working on a project in TMCode
@@ -192,10 +193,9 @@ const ProjectMonitorPage: React.FC = () => {
           <label className="relative">
             <span className="sr-only">Course</span>
             <BookOpen className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
-            <select
+            <Select variant="outline"
               value={course}
               onChange={(e) => setCourse(e.target.value)}
-              className="rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-8 text-sm dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark"
             >
               <option value="">All courses</option>
               {courses.map(([id, label]) => (
@@ -204,13 +204,12 @@ const ProjectMonitorPage: React.FC = () => {
                 </option>
               ))}
               <option value={NO_COURSE}>No course</option>
-            </select>
+            </Select>
           </label>
-          <select
+          <Select variant="outline"
             aria-label="Language"
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
-            className="rounded-xl border border-gray-200 bg-white py-2 pl-3 pr-8 text-sm dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark"
           >
             <option value="">All languages</option>
             {languages.map((l) => (
@@ -218,7 +217,7 @@ const ProjectMonitorPage: React.FC = () => {
                 {languageMeta(l)?.label ?? l}
               </option>
             ))}
-          </select>
+          </Select>
           <div role="radiogroup" aria-label="Show" className="flex rounded-xl bg-gray-100 p-1 dark:bg-white/[0.04]">
             {(
               [

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
 import { getLanguageIcon } from "./languageIcons";
+import Select from "../ui/Select";
 
 const LangIcon = getLanguageIcon("typescript");
 
@@ -109,10 +110,10 @@ export const TypeScriptTestCaseBuilderModal: React.FC<
               <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
                 Construct Type
               </label>
-              <select
+              <Select variant="outline"
                 value={constructType}
                 onChange={(e) => setConstructType(e.target.value)}
-                className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                className="w-full"
               >
                 <option value="interface">Interface</option>
                 <option value="type">Type Alias</option>
@@ -120,7 +121,7 @@ export const TypeScriptTestCaseBuilderModal: React.FC<
                 <option value="function">Function</option>
                 <option value="enum">Enum</option>
                 <option value="generic">Generic Function</option>
-              </select>
+              </Select>
             </div>
             <div>
               <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">

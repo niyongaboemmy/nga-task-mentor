@@ -18,6 +18,7 @@ vi.mock("../components/ReportCard/StudentReportCardDashboard", () => ({
 }));
 
 import StudentDetails from "../components/Students/StudentDetails";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const student = {
   user: { id: 52, first_name: "Axcel", last_name: "NTARUGERA", email: "a@nga.ac.rw", role: "student" },
@@ -229,6 +230,6 @@ describe("StudentDetails", () => {
   it("restores the tab and subject from the URL", async () => {
     renderPage("/students/52?tab=recorded&subject=10");
     expect(await screen.findByRole("tab", { name: /Recorded Assessments/, selected: true })).toBeInTheDocument();
-    expect(screen.getByRole("combobox", { name: "Subject" })).toHaveValue("10");
+    expect(selectValue(screen.getByRole("combobox", { name: "Subject" }))).toBe("10");
   });
 });

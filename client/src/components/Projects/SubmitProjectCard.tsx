@@ -7,6 +7,7 @@ import { Skeleton } from "../ui/Skeleton";
 import { apiErrorMessage, projectsApi, type ProjectSummary } from "../../services/projectsApi";
 import { LinkStatusBadge } from "./ProjectBadges";
 import { formatDateTime, freezeTarget } from "./projectFormat";
+import Select from "../ui/Select";
 
 /**
  * "Submit a project" on an assignment whose submission_type allows `project`:
@@ -140,12 +141,12 @@ const SubmitProjectCard: React.FC<{
               <label htmlFor={`${id}-project`} className="sr-only">
                 Project to submit
               </label>
-              <select
+              <Select variant="outline"
                 id={`${id}-project`}
                 value={choice}
                 onChange={(e) => setChoice(e.target.value ? Number(e.target.value) : "")}
                 disabled={closed || busy}
-                className="flex-1 rounded-xl border border-gray-200 bg-white py-2 pl-3 pr-8 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark"
+                className="flex-1"
               >
                 <option value="">Choose a project…</option>
                 {projects.map((p) => (
@@ -154,7 +155,7 @@ const SubmitProjectCard: React.FC<{
                     {p.kind === "tm" ? (p.head ? ` · revision #${p.head.number}` : " · not saved yet") : " · GitHub"}
                   </option>
                 ))}
-              </select>
+              </Select>
               <button
                 type="button"
                 onClick={() => setConfirming(true)}

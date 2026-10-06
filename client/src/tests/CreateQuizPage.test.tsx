@@ -8,6 +8,7 @@ import quizReducer from "../store/slices/quizSlice";
 import CreateQuizPage from "../components/Quizzes/CreateQuizPage";
 import { QuizApiService } from "../services/quizApi";
 import { toast } from "react-toastify";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 vi.mock("react-toastify", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
@@ -64,7 +65,7 @@ describe("CreateQuizPage", () => {
 
     await user.type(screen.getByLabelText(/Quiz Title/i), "Algebra");
     await user.type(screen.getByLabelText(/^Description/i), "Desc");
-    await user.selectOptions(screen.getByLabelText(/Quiz Type/i), "Assessment");
+    pickOption(screen.getByLabelText(/Quiz Type/i), "Assessment");
     await user.click(screen.getByRole("button", { name: /Create Quiz/i }));
 
     await waitFor(() => expect(mockedCreate).toHaveBeenCalledTimes(1));

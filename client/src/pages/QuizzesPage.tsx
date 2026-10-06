@@ -30,6 +30,7 @@ import {
 import { QuizApiService } from "../services/quizApi";
 import { formatDateTimeLocal } from "../utils/dateUtils";
 import { onAcademicPeriodChanged } from "../utils/academicPeriodEvents";
+import Select from "../components/ui/Select";
 
 const SUBJECT_HUES = [211, 262, 340, 24, 152, 190, 45, 288];
 const hueFor = (id: number) => SUBJECT_HUES[Math.abs(id) % SUBJECT_HUES.length];
@@ -140,15 +141,15 @@ function QuizRow({
 
       <div className="flex shrink-0 items-center gap-1.5">
         {q.can_edit ? (
-          <select
+          <Select size="sm" variant="bare"
             value={q.status}
             onChange={(e) => onStatus(q.id, e.target.value as QuizStatus)}
-            className={`cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 ${meta.cls}`}
+            triggerClassName={`rounded-full font-medium ${meta.cls}`}
           >
             <option value="draft">Draft</option>
             <option value="published">Published</option>
             <option value="completed">Completed</option>
-          </select>
+          </Select>
         ) : (
           <span className={`rounded-full border px-2.5 py-1 text-xs font-medium ${meta.cls}`}>
             {meta.label}
@@ -480,10 +481,10 @@ const QuizzesPage: React.FC = () => {
             className="w-full rounded-xl border border-transparent bg-surface-light py-2.5 pl-9 pr-4 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark"
           />
         </div>
-        <select
+        <Select
           value={subjectId}
           onChange={(e) => setSubjectId(e.target.value ? Number(e.target.value) : "")}
-          className="rounded-xl border border-transparent bg-surface-light px-3 py-2.5 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark lg:w-52"
+          className="lg:w-52"
         >
           <option value="">All subjects</option>
           {allSubjects.map((s) => (
@@ -492,28 +493,28 @@ const QuizzesPage: React.FC = () => {
               {s.name}
             </option>
           ))}
-        </select>
-        <select
+        </Select>
+        <Select
           value={type}
           onChange={(e) => setType(e.target.value)}
-          className="rounded-xl border border-transparent bg-surface-light px-3 py-2.5 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark lg:w-36"
+          className="lg:w-36"
         >
           <option value="all">All types</option>
           <option value="Quiz">Quiz</option>
           <option value="Assessment">Assessment</option>
           <option value="Homework">Homework</option>
           <option value="Exam">Exam</option>
-        </select>
-        <select
+        </Select>
+        <Select
           value={status}
           onChange={(e) => setStatus(e.target.value)}
-          className="rounded-xl border border-transparent bg-surface-light px-3 py-2.5 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:bg-surface-dark/50 dark:text-text-primary-dark lg:w-36"
+          className="lg:w-36"
         >
           <option value="all">All statuses</option>
           <option value="published">Published</option>
           <option value="draft">Draft</option>
           <option value="completed">Completed</option>
-        </select>
+        </Select>
         <button
           onClick={() => fetchData({ refresh: true })}
           disabled={refreshing}

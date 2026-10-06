@@ -20,6 +20,7 @@ import {
 import type { RubricCriterion } from "../AssignmentCard";
 import { evenRubric, rubricTotal, scaleRubric } from "../../../utils/rubricMarks";
 import { generateRubric, type GeneratedRubric } from "./assignmentAiApi";
+import Select from "../../ui/Select";
 
 interface RubricBuilderProps {
   rubric: RubricCriterion[];
@@ -217,14 +218,14 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
                     <span className="block text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                       Number of criteria
                     </span>
-                    <select value={aiCount} onChange={(e) => setAiCount(e.target.value)} className={inputCls}>
+                    <Select value={aiCount} onChange={(e) => setAiCount(e.target.value)} variant="outline" className="w-full" aria-label="Number of criteria">
                       <option value="auto">Let the AI decide</option>
                       {[2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                         <option key={n} value={n}>
                           {n} criteria
                         </option>
                       ))}
-                    </select>
+                    </Select>
                   </label>
                   <label className="block">
                     <span className="block text-xs font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">

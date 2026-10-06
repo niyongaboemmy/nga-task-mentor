@@ -31,6 +31,7 @@ vi.mock("../services/aiQuestionGenerationApi", async (orig) => ({
 }));
 
 import AIGenerateModal from "../components/QuestionBank/AIGenerateModal";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const SOURCES: AISourcesResponse = {
   scope: { subject_name: "Web UI", class_group_id: 7, academic_term_id: 3, class_groups: [{ id: 7, name: "L5 SOD" }] },
@@ -182,14 +183,14 @@ describe("AIGenerateModal", () => {
     const cards = within(screen.getByRole("list", { name: "Generated questions" })).getAllByRole("listitem");
     fireEvent.click(within(cards[1]).getByRole("button", { name: "Exclude question" }));
     expect(screen.getByLabelText("Bloom's taxonomy spread")).toHaveTextContent("L1 Remember 1");
-    expect(within(cards[0]).getByLabelText("Bloom's level")).toHaveValue("1");
+    expect(selectValue(within(cards[0]).getByLabelText("Bloom's level"))).toBe("1");
     // Moving to Difficult pulls the Bloom's level into L4–L6 so the pair stays consistent.
-    fireEvent.change(within(cards[0]).getByLabelText("Difficulty"), { target: { value: "DIFFICULT" } });
-    expect(within(cards[0]).getByLabelText("Bloom's level")).toHaveValue("4");
+    pickOption(within(cards[0]).getByLabelText("Difficulty"), "DIFFICULT");
+    expect(selectValue(within(cards[0]).getByLabelText("Bloom's level"))).toBe("4");
     // A hand-picked level outside the band is allowed but flagged.
-    fireEvent.change(within(cards[0]).getByLabelText("Bloom's level"), { target: { value: "2" } });
+    pickOption(within(cards[0]).getByLabelText("Bloom's level"), "2");
     expect(within(cards[0]).getByText(/L2 is unusual for difficult/)).toBeInTheDocument();
-    fireEvent.change(within(cards[0]).getByLabelText("Bloom's level"), { target: { value: "5" } });
+    pickOption(within(cards[0]).getByLabelText("Bloom's level"), "5");
     expect(screen.getByLabelText(/Link to scheme-of-work topic/)).toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: /Save 1 to question bank/ }));
 

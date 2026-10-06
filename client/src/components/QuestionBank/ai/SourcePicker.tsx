@@ -21,6 +21,7 @@ import type {
   AISourcesResponse,
 } from "../../../services/aiQuestionGenerationApi";
 import { groupByWeek, matchesQuery, sourceKey, weekLabel } from "./aiGeneratorModel";
+import Select from "../../ui/Select";
 
 const GROUP_ICONS: Record<AISourceGroupKey, LucideIcon> = {
   curriculum: GraduationCap,
@@ -120,18 +121,17 @@ const SourcePicker: React.FC<Props> = ({
           )}
         </label>
         {(data?.scope.class_groups.length ?? 0) > 1 && (
-          <select
+          <Select variant="outline"
             aria-label="Class group"
             value={classGroupId ?? ""}
             onChange={(e) => onClassGroupChange(Number(e.target.value))}
-            className="px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800/60 text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
             {data!.scope.class_groups.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
               </option>
             ))}
-          </select>
+          </Select>
         )}
       </div>
 

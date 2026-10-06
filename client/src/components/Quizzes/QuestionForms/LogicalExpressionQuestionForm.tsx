@@ -1,5 +1,6 @@
 import React from "react";
 import type { LogicalExpressionData } from "../../../types/quiz.types";
+import Select from "../../ui/Select";
 
 interface LogicalExpressionQuestionFormProps {
   data: LogicalExpressionData;
@@ -75,7 +76,7 @@ export const LogicalExpressionQuestionForm: React.FC<
                 />
               </div>
               <div className="flex-1">
-                <select
+                <Select variant="outline"
                   value={variable.type || "boolean"}
                   onChange={(e) => {
                     const newVariables = [...(data.variables || [])];
@@ -88,12 +89,12 @@ export const LogicalExpressionQuestionForm: React.FC<
                       variables: newVariables,
                     });
                   }}
-                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full"
                 >
                   <option value="boolean">Boolean</option>
                   <option value="number">Number</option>
                   <option value="string">String</option>
-                </select>
+                </Select>
               </div>
               {data.variables && data.variables.length > 1 && (
                 <button

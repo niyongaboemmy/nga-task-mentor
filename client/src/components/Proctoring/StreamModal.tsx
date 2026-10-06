@@ -41,6 +41,7 @@ import {
   AlertCircle,
   Search,
 } from "lucide-react";
+import Select from "../ui/Select";
 
 interface ProctoringEvent {
   id: number;
@@ -269,21 +270,21 @@ const EventsDropdown: React.FC<{
                     className="w-full pl-8 pr-2 py-1.5 text-xs border border-transparent rounded-lg bg-surface-light dark:bg-surface-dark/50 text-text-primary-light dark:text-text-primary-dark"
                   />
                 </div>
-                <select
+                <Select size="sm"
                   value={severityFilter}
                   onChange={(e) => setSeverityFilter(e.target.value)}
-                  className="text-xs px-2 py-1.5 border border-transparent rounded-lg bg-surface-light dark:bg-surface-dark/50 text-text-secondary-light dark:text-text-secondary-dark w-24"
+                  className="w-24"
                 >
                   <option value="all">Severity</option>
                   <option value="critical">Critical</option>
                   <option value="high">High</option>
                   <option value="medium">Medium</option>
                   <option value="low">Low</option>
-                </select>
-                <select
+                </Select>
+                <Select size="sm"
                   value={eventTypeFilter}
                   onChange={(e) => setEventTypeFilter(e.target.value)}
-                  className="text-xs px-2 py-1.5 border border-transparent rounded-lg bg-surface-light dark:bg-surface-dark/50 text-text-secondary-light dark:text-text-secondary-dark w-24"
+                  className="w-24"
                 >
                   <option value="all">Type</option>
                   {Object.keys(eventCounts).map((type) => (
@@ -291,7 +292,7 @@ const EventsDropdown: React.FC<{
                       {type.replace(/_/g, " ").slice(0, 10)}
                     </option>
                   ))}
-                </select>
+                </Select>
                 {(searchQuery ||
                   severityFilter !== "all" ||
                   eventTypeFilter !== "all") && (

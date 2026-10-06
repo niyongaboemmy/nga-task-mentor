@@ -20,6 +20,7 @@ import {
 } from "../../utils/quizFormValidation";
 import type { CreateQuizRequest, QuizStatus } from "../../types/quiz.types";
 import { Timer, X } from "lucide-react";
+import Select from "../ui/Select";
 
 export interface QuizFormProps {
   mode: "create" | "edit";
@@ -235,12 +236,14 @@ export const QuizForm: React.FC<QuizFormProps> = ({
           <label htmlFor="quiz-type" className={labelClass}>
             Quiz Type <span className="text-red-500">*</span>
           </label>
-          <select
+          <Select
             id="quiz-type"
             name="type"
             value={values.type}
             onChange={(e) => setField("type", e.target.value as QuizFormValues["type"])}
-            className={inputClass(Boolean(errors.type))}
+            className="w-full"
+              variant="outline"
+              invalid={Boolean(errors.type)}
             {...ariaProps("type")}
           >
             {QUIZ_TYPES.map((t) => (
@@ -248,7 +251,7 @@ export const QuizForm: React.FC<QuizFormProps> = ({
                 {t.label}
               </option>
             ))}
-          </select>
+          </Select>
           <FieldErrorText id={errorId("type")} message={errors.type} />
         </div>
 
@@ -257,14 +260,16 @@ export const QuizForm: React.FC<QuizFormProps> = ({
             <label htmlFor="quiz-status" className={labelClass}>
               Quiz Status
             </label>
-            <select
+            <Select
               id="quiz-status"
               name="status"
               value={values.status}
               onChange={(e) =>
                 setField("status", e.target.value as QuizFormValues["status"])
               }
-              className={inputClass(Boolean(errors.status))}
+              className="w-full"
+                variant="outline"
+                invalid={Boolean(errors.status)}
               {...ariaProps("status")}
             >
               {QUIZ_STATUSES.map((s) => (
@@ -272,7 +277,7 @@ export const QuizForm: React.FC<QuizFormProps> = ({
                   {s.label}
                 </option>
               ))}
-            </select>
+            </Select>
             <FieldErrorText id={errorId("status")} message={errors.status} />
             <p className="mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
               Published quizzes are visible to students. A quiz needs at least

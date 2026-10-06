@@ -9,6 +9,7 @@ import {
   type AssessmentType,
 } from "../../services/manualAssessmentApi";
 import type { Course } from "../../types/course.types";
+import Select from "../ui/Select";
 
 interface Props {
   open: boolean;
@@ -144,11 +145,11 @@ export default function CreateAssessmentModal({
           {/* Subject selector */}
           <div>
             <label className="block text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1.5">Class</label>
-            <select
+            <Select variant="outline"
               value={courseId}
               onChange={(e) => setCourseId(e.target.value ? Number(e.target.value) : "")}
               disabled={isEdit || presetCourseId != null}
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white dark:bg-gray-800 disabled:bg-gray-50 dark:disabled:bg-gray-800/50 disabled:text-gray-400 dark:disabled:text-gray-500"
+              className="w-full"
             >
               <option value="">Select a subject</option>
               {courses.map((c) => (
@@ -156,16 +157,16 @@ export default function CreateAssessmentModal({
                   {c.title}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Assessment Type */}
           <div>
             <label className="block text-sm text-text-secondary-light dark:text-text-secondary-dark mb-1.5">Assessment Type</label>
-            <select
+            <Select variant="outline"
               value={assessmentType}
               onChange={(e) => setAssessmentType(e.target.value as AssessmentType)}
-              className="w-full border border-gray-200 dark:border-gray-700 rounded-xl px-4 py-2.5 text-sm text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 bg-white dark:bg-gray-800"
+              className="w-full"
             >
               <option value="">Assessment Type</option>
               {ASSESSMENT_TYPES.map((t) => (
@@ -173,7 +174,7 @@ export default function CreateAssessmentModal({
                   {ASSESSMENT_TYPE_LABELS[t]}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           {/* Assessment Number */}

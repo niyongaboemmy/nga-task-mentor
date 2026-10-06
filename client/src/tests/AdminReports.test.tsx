@@ -51,6 +51,7 @@ import InstructorDashboard from "../components/Dashboard/InstructorDashboard";
 import AdminSubjectsPage from "../pages/AdminSubjectsPage";
 import AdminStudentsDirectory from "../components/Students/AdminStudentsDirectory";
 import { resetAlertState } from "../services/alertStore";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const store = new Map<string, string>();
 vi.stubGlobal("localStorage", {
@@ -178,7 +179,7 @@ describe("school dashboard (admin variant)", () => {
     renderDash();
     await screen.findByText("Subject scorecards");
     const picker = screen.getByRole("combobox", { name: "Focus on a subject" });
-    expect(within(picker).getAllByRole("option")).toHaveLength(21);
+    expect(optionValues(picker)).toHaveLength(21);
     expect(screen.queryByRole("tablist", { name: "Focus on a subject" })).toBeNull();
     expect(screen.getByText("1–10 of 20 subjects")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -188,7 +189,7 @@ describe("school dashboard (admin variant)", () => {
     // Teachers show under the subject name.
     expect(screen.getAllByText("Teacher 11").length).toBeGreaterThan(0);
 
-    fireEvent.change(picker, { target: { value: "3" } });
+    pickOption(picker, "3");
     await waitFor(() => expect(lastSearch).toBe("?subject=3"));
     await waitFor(() => expect(getOverview).toHaveBeenCalledWith(3, { fresh: false }));
   });
@@ -270,10 +271,10 @@ describe("AdminSubjectsPage", () => {
     await waitFor(() => expect(getSubjects).toHaveBeenLastCalledWith(expect.objectContaining({ health: "at_risk", flag: "unmapped" }), expect.anything(), false));
     expect(lastSearch).toContain("health=at_risk");
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Programme" }), { target: { value: "A-Level" } });
+    pickOption(screen.getByRole("combobox", { name: "Programme" }), "A-Level");
     await waitFor(() => expect(getSubjects).toHaveBeenLastCalledWith(expect.objectContaining({ programme: "A-Level" }), expect.anything(), false));
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Sort by" }), { target: { value: "pending" } });
+    pickOption(screen.getByRole("combobox", { name: "Sort by" }), "pending");
     await waitFor(() => expect(getSubjects).toHaveBeenLastCalledWith(expect.objectContaining({ sort: "pending", dir: "desc" }), expect.anything(), false));
 
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
@@ -372,7 +373,7 @@ describe("AdminStudentsDirectory", () => {
     fireEvent.click(screen.getByRole("button", { name: /Excelling \(10\)/ }));
     await waitFor(() => expect(getStudents).toHaveBeenLastCalledWith(expect.objectContaining({ status: "excelling" }), expect.anything(), false));
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Gender" }), { target: { value: "F" } });
+    pickOption(screen.getByRole("combobox", { name: "Gender" }), "F");
     await waitFor(() => expect(getStudents).toHaveBeenLastCalledWith(expect.objectContaining({ gender: "F" }), expect.anything(), false));
 
     fireEvent.click(screen.getByRole("button", { name: "Group by class" }));

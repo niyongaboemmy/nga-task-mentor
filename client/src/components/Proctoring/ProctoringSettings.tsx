@@ -3,6 +3,7 @@ import { toast } from "react-toastify";
 import { Button } from "../ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
 import axios from "../../utils/axiosConfig";
+import Select from "../ui/Select";
 
 interface ProctoringSettingsProps {
   quizId: string;
@@ -226,17 +227,17 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                 <label className="block text-sm font-medium mb-1 text-text-primary-light dark:text-text-primary-dark">
                   Proctoring Mode
                 </label>
-                <select
+                <Select variant="outline"
                   value={settings.mode}
                   onChange={(e) => handleInputChange("mode", e.target.value)}
-                  className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
+                  className="w-full"
                   disabled={!settings.enabled}
                 >
                   <option value="disabled">Disabled</option>
                   <option value="automated">Automated Monitoring</option>
                   <option value="live">Live Proctoring</option>
                   <option value="record_review">Record & Review</option>
-                </select>
+                </Select>
               </div>
 
               <div>
@@ -620,16 +621,16 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
             <label htmlFor="tmcode-delivery" className="block text-sm mb-1 text-text-secondary-light dark:text-text-secondary-dark">
               Delivery
             </label>
-            <select
+            <Select variant="outline"
               id="tmcode-delivery"
               value={settings.tmcode_delivery ?? "web"}
               onChange={(e) => handleInputChange("tmcode_delivery", e.target.value)}
-              className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
+              className="w-full"
             >
               <option value="web">Web editor (in the browser)</option>
               <option value="tmcode_optional">TMCode optional (desktop app or web)</option>
               <option value="tmcode_required">TMCode required (desktop app only)</option>
-            </select>
+            </Select>
             {settings.tmcode_delivery && settings.tmcode_delivery !== "web" && (() => {
               const policy = { ...TMCODE_POLICY_DEFAULTS, ...(settings.tmcode_policy ?? {}) };
               const setPolicy = (patch: Partial<TmcodePolicy>) =>
@@ -643,18 +644,18 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                   <label htmlFor={`tmcode-${id}`} className="block text-xs mb-1 text-text-secondary-light dark:text-text-secondary-dark">
                     {label}
                   </label>
-                  <select
+                  <Select variant="outline"
                     id={`tmcode-${id}`}
                     value={String(policy[id])}
                     onChange={(e) => setPolicy({ [id]: e.target.value } as Partial<TmcodePolicy>)}
-                    className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
+                    className="w-full"
                   >
                     {options.map(([v, l]) => (
                       <option key={v} value={v}>
                         {l}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               );
               return (

@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { ReportCardApiService, type AttributeRating } from "../../services/reportCardApi";
+import Select from "../ui/Select";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -653,20 +654,20 @@ export default function GeneralAttributesForm({
               <label className="relative flex-1 min-w-[150px] sm:flex-none">
                 <span className="sr-only">Quick-mark attendance for all visible students</span>
                 <UserCheck className="w-4 h-4 text-text-secondary-light dark:text-text-secondary-dark/50 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                <select
+                <Select variant="outline"
                   value=""
                   onChange={(e) => {
                     if (e.target.value) applyAttendanceToAll(e.target.value as AttendanceStatus);
                     e.target.value = "";
                   }}
-                  className="w-full sm:w-auto appearance-none cursor-pointer pl-9 pr-7 py-2 text-sm rounded-xl border border-slate-200 dark:border-white/10 bg-white dark:bg-slate-800 text-text-secondary-light dark:text-text-secondary-dark/80 hover:border-slate-300 dark:hover:border-white/25 focus:outline-none focus:ring-2 focus:ring-blue-400/40 transition-all"
+                  className="w-full sm:w-auto"
                   aria-label="Mark all visible students' attendance"
                 >
                   <option value="" disabled>Mark all attendance…</option>
                   {ATTENDANCE_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
-                </select>
+                </Select>
                 <ChevronDown className="w-3.5 h-3.5 text-text-secondary-light dark:text-text-secondary-dark/50 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               </label>
             )}
@@ -811,13 +812,13 @@ export default function GeneralAttributesForm({
                           <span>{attr}</span>
                           <label className="relative">
                             <span className="sr-only">Quick fill {attr} for all visible students</span>
-                            <select
+                            <Select
                               value=""
                               onChange={(e) => {
                                 if (e.target.value) applyRatingToColumn(attr, e.target.value as AttributeRating);
                                 e.target.value = "";
                               }}
-                              className="appearance-none cursor-pointer w-4 h-4 opacity-0 absolute inset-0"
+                              className="w-4"
                               aria-label={`Quick fill ${attr} for all visible students`}
                               title={`Quick fill ${attr}`}
                             >
@@ -825,7 +826,7 @@ export default function GeneralAttributesForm({
                               {RATINGS.map((r) => (
                                 <option key={r} value={r}>{r}</option>
                               ))}
-                            </select>
+                            </Select>
                             <Zap className="w-3 h-3 text-text-secondary-light/60 dark:text-text-secondary-dark/40 hover:text-blue-500 dark:hover:text-blue-400 transition-colors" />
                           </label>
                         </div>

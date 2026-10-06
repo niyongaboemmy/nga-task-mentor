@@ -38,6 +38,7 @@ import { usePermissions } from "../hooks/usePermissions";
 import LinkedProjectsPanel from "../components/Projects/LinkedProjectsPanel";
 import { QuizApiService } from "../services/quizApi";
 import type { QuizQuestion } from "../types/quiz.types";
+import Select from "../components/ui/Select";
 
 interface QuizSubmission {
   id: number;
@@ -572,27 +573,25 @@ const QuizSubmissionsPage: React.FC = () => {
             </div>
 
             <div className="flex gap-2 sm:gap-3">
-              <select
+              <Select size="sm"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="px-3 py-2 text-xs border border-gray-200/50 dark:border-gray-700/50 dark:bg-gray-800/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200"
               >
                 <option value="all">All Status</option>
                 <option value="completed">Completed</option>
                 <option value="in_progress">In Progress</option>
                 <option value="expired">Expired</option>
-              </select>
+              </Select>
 
-              <select
+              <Select size="sm"
                 value={gradeFilter}
                 onChange={(e) => setGradeFilter(e.target.value)}
-                className="px-3 py-2 text-xs border border-gray-200/50 dark:border-gray-700/50 dark:bg-gray-800/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-400 focus:border-transparent transition-all duration-200"
               >
                 <option value="all">All Grades</option>
                 <option value="graded">Graded</option>
                 <option value="auto_graded">Auto</option>
                 <option value="pending">Pending</option>
-              </select>
+              </Select>
 
               <div className="flex gap-1">
                 <button

@@ -2,6 +2,7 @@ import React from "react";
 import type { MatchingData } from "../../../types/quiz.types";
 import { RichOptionEditor } from "./RichOptionEditor";
 import { Sigma, X, Plus } from "lucide-react";
+import Select from "../../ui/Select";
 
 interface MatchingQuestionFormProps {
   data: MatchingData;
@@ -230,7 +231,7 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                 </span>
 
                 <span className="text-text-secondary-light dark:text-text-secondary-dark/60">→</span>
-                <select
+                <Select size="lg" variant="outline"
                   value={data.correct_matches[leftItem.id] || ""}
                   onChange={(e) => {
                     const newCorrectMatches = {
@@ -246,7 +247,7 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                       correct_matches: newCorrectMatches,
                     });
                   }}
-                  className="flex-1 px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-green-500 dark:focus:ring-green-400 transition-colors duration-200"
+                  className="flex-1"
                 >
                   <option value="">Select match...</option>
                   {data.right_items.map((rightItem, rightIndex) => (
@@ -256,7 +257,7 @@ export const MatchingQuestionForm: React.FC<MatchingQuestionFormProps> = ({
                         `Definition ${String.fromCharCode(65 + rightIndex)}`}
                     </option>
                   ))}
-                </select>
+                </Select>
               </div>
             ))}
           </div>

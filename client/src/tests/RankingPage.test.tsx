@@ -16,6 +16,7 @@ vi.mock("../utils/axiosConfig", () => ({ default: { get: (...a: unknown[]) => ge
 
 import RankingPage from "../pages/RankingPage";
 import CourseRankingPanel from "../components/Courses/CourseRankingPanel";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const SUBJECTS = [
   { course_id: "8", name: "Graphic User Interface Design", code: "SPEGI302" },
@@ -153,7 +154,7 @@ describe("Overall Ranking — staff", () => {
     renderPage();
     expect(await screen.findByText("Leaderboard")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Angelo IGIHOZO" })).toHaveAttribute("href", "/students/1");
-    fireEvent.change(screen.getByLabelText("Class"), { target: { value: "2" } });
+    pickOption(screen.getByLabelText("Class"), "2");
     await waitFor(() => expect(get).toHaveBeenLastCalledWith("/rankings", { params: { classGroupId: 2 } }));
     fireEvent.click(screen.getByRole("button", { name: /Not ranked yet/ }));
     expect(screen.getByRole("link", { name: "Bella IRAKOZE" })).toBeInTheDocument();

@@ -1,6 +1,7 @@
 import React from "react";
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { pageWindow } from "../../utils/pagination";
+import Select from "./Select";
 
 /**
  * Footer pagination for server-paginated lists: "Showing 11–20 of 57",
@@ -68,18 +69,17 @@ const Pagination: React.FC<PaginationProps> = ({
         {onPageSizeChange && (
           <label className="inline-flex items-center gap-2 text-xs">
             Rows per page
-            <select
+            <Select size="sm" variant="outline"
               value={pageSize}
               disabled={busy}
               onChange={(e) => onPageSizeChange(Number(e.target.value))}
-              className="rounded-lg border border-gray-200 bg-white px-2 py-1 text-xs font-medium text-text-primary-light focus:outline-none focus:ring-2 focus:ring-blue-500/30 dark:border-gray-700 dark:bg-gray-800 dark:text-text-primary-dark"
             >
               {pageSizeOptions.map((n) => (
                 <option key={n} value={n}>
                   {n}
                 </option>
               ))}
-            </select>
+            </Select>
           </label>
         )}
       </div>

@@ -13,6 +13,7 @@ import {
   type ProjectVisibility,
 } from "../../services/projectsApi";
 import { Avatar, Pill } from "./ProjectBadges";
+import Select from "../ui/Select";
 
 const fieldCls =
   "w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-text-primary-light placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark";
@@ -95,10 +96,10 @@ export const MembersTab: React.FC<{
           </div>
           <div>
             <label htmlFor={`${id}-role`} className={labelCls}>Role</label>
-            <select id={`${id}-role`} value={role} onChange={(e) => setRole(e.target.value as "collaborator" | "viewer")} className={fieldCls}>
+            <Select id={`${id}-role`} value={role} onChange={(e) => setRole(e.target.value as "collaborator" | "viewer")} className={fieldCls}>
               <option value="collaborator">Collaborator</option>
               <option value="viewer">Viewer</option>
-            </select>
+            </Select>
           </div>
           <button
             type="submit"
@@ -257,10 +258,10 @@ export const SettingsTab: React.FC<{
         </div>
         <div>
           <label htmlFor={`${id}-vis`} className={labelCls}>Visibility</label>
-          <select id={`${id}-vis`} value={visibility} onChange={(e) => setVisibility(e.target.value as ProjectVisibility)} className={fieldCls}>
+          <Select id={`${id}-vis`} value={visibility} onChange={(e) => setVisibility(e.target.value as ProjectVisibility)} className={fieldCls}>
             <option value="private">Private — you, members and your teachers</option>
             <option value="course">Course — classmates can view</option>
-          </select>
+          </Select>
         </div>
         {error && (
           <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:border-rose-900/50 dark:bg-rose-950/20 dark:text-rose-300">

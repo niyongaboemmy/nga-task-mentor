@@ -5,6 +5,7 @@ import type {
   QuestionComponentProps,
 } from "../../../types/quiz.types";
 import RichTextDisplay from "../../Common/RichTextDisplay";
+import Select from "../../ui/Select";
 
 export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
   question,
@@ -192,22 +193,11 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
                 </svg>
                 Select unit:
               </label>
-              <select
+              <Select size="lg" variant="outline"
                 value={selectedUnit}
                 onChange={(e) => handleUnitChange(e.target.value)}
                 disabled={disabled}
-                className={`w-full px-4 sm:px-6 py-3 sm:py-4 text-base sm:text-lg font-medium border-2 rounded-xl focus:outline-none focus:ring-4 transition-all duration-300 appearance-none bg-white dark:bg-gray-900 text-text-primary-light dark:text-text-primary-dark ${
-                  disabled
-                    ? "bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 cursor-not-allowed opacity-60"
-                    : "border-gray-300 dark:border-gray-600 focus:border-blue-500 focus:ring-blue-200 hover:border-blue-400 cursor-pointer"
-                }`}
-                style={{
-                  backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%236b7280' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e")`,
-                  backgroundPosition: "right 0.5rem center",
-                  backgroundRepeat: "no-repeat",
-                  backgroundSize: "1.5em 1.5em",
-                  paddingRight: "2.5rem",
-                }}
+                className="w-full"
               >
                 <option value="">Select a unit...</option>
                 {units.split(",").map((unit, index) => (
@@ -215,7 +205,7 @@ export const NumericalQuestion: React.FC<QuestionComponentProps> = ({
                     {unit?.trim()}
                   </option>
                 ))}
-              </select>
+              </Select>
             </div>
           )}
 

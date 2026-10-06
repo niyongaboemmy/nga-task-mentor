@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
 import { getLanguageIcon } from "./languageIcons";
+import Select from "../ui/Select";
 
 const LangIcon = getLanguageIcon("react");
 
@@ -119,15 +120,15 @@ export const ReactTestCaseBuilderModal: React.FC<
               <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
                 Component Type
               </label>
-              <select
+              <Select variant="outline"
                 value={componentType}
                 onChange={(e) => setComponentType(e.target.value)}
-                className="w-full px-3 py-2 border border-blue-300 dark:border-blue-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:text-white"
+                className="w-full"
               >
                 <option value="functional">Functional Component</option>
                 <option value="class">Class Component</option>
                 <option value="hook">Custom Hook</option>
-              </select>
+              </Select>
             </div>
             <div>
               <label className="block text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">

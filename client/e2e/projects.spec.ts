@@ -173,7 +173,8 @@ test.describe("Project page", () => {
     await expect(page.getByTestId("file-viewer")).toContainText("merge_sort", { timeout: 20_000 });
     await shot(page, "project-files");
 
-    await page.getByLabel("Revision").selectOption("9001");
+    await page.getByLabel("Revision").click();
+    await page.locator('[role="option"][data-value="9001"]').click();
     await expect(page).toHaveURL(/rev=9001/);
     await expect(page.getByText("Viewing revision #1, not the latest")).toBeVisible();
     await expect(tree.getByRole("treeitem")).toHaveCount(3); // README.md, src, src/main.cpp
@@ -313,7 +314,8 @@ test.describe("Teacher views", () => {
     await expect(page.getByTestId("monitor-card")).toHaveCount(1);
     await expect(page.getByTestId("monitor-card")).toContainText("Eric Mugisha");
     await page.getByRole("radio", { name: "Open now" }).click();
-    await page.getByLabel("Course").selectOption({ label: "WEB — Web Development" });
+    await page.getByLabel("Course").click();
+    await page.getByRole("option", { name: "WEB — Web Development" }).click();
     await expect(page.getByTestId("monitor-card")).toHaveCount(1);
     await expect(page.getByTestId("monitor-card")).toContainText("Portfolio site");
   });
@@ -344,6 +346,6 @@ test.describe("Teacher views", () => {
     await shot(page, "assignment-linked-projects");
     await panel.getByRole("link", { name: "Open John Doe's project Sorting algorithms" }).click();
     await expect(page).toHaveURL(/\/projects\/1\?tab=files&rev=9001|\/projects\/1\?tab=files&rev=9003/);
-    await expect(page.getByLabel("Revision")).toHaveValue("9003");
+    await expect(page.getByLabel("Revision")).toHaveAttribute("data-value", "9003");
   });
 });

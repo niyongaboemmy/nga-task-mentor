@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { toast } from "react-toastify";
 import Modal from "../ui/Modal";
 import { getLanguageIcon } from "./languageIcons";
+import Select from "../ui/Select";
 
 const LangIcon = getLanguageIcon("nodejs");
 
@@ -112,32 +113,32 @@ export const NodeJSTestCaseBuilderModal: React.FC<
               <label className="block text-sm font-medium text-green-800 dark:text-green-200 mb-2">
                 Server Framework
               </label>
-              <select
+              <Select variant="outline"
                 value={serverType}
                 onChange={(e) => setServerType(e.target.value)}
-                className="w-full px-3 py-2 border border-green-300 dark:border-green-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                className="w-full"
               >
                 <option value="express">Express.js</option>
                 <option value="fastify">Fastify</option>
                 <option value="http">Node.js HTTP</option>
                 <option value="koa">Koa.js</option>
-              </select>
+              </Select>
             </div>
             <div>
               <label className="block text-sm font-medium text-green-800 dark:text-green-200 mb-2">
                 HTTP Method
               </label>
-              <select
+              <Select variant="outline"
                 value={httpMethod}
                 onChange={(e) => setHttpMethod(e.target.value)}
-                className="w-full px-3 py-2 border border-green-300 dark:border-green-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 dark:bg-gray-700 dark:text-white"
+                className="w-full"
               >
                 <option value="GET">GET</option>
                 <option value="POST">POST</option>
                 <option value="PUT">PUT</option>
                 <option value="DELETE">DELETE</option>
                 <option value="PATCH">PATCH</option>
-              </select>
+              </Select>
             </div>
           </div>
 

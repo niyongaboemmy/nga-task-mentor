@@ -57,6 +57,7 @@ import {
   rememberInternalCopy,
 } from "../../../hooks/useQuizLockdown";
 import QuestionTimer from "../../ui/QuestionTimer";
+import Select from "../../ui/Select";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type SidePanel = "explorer" | "problem" | "ai" | "question" | null;
@@ -978,20 +979,20 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
           {/* Tabs */}
           <div className="flex items-center bg-[#252526] h-9 overflow-x-auto no-scrollbar">
             {answerLanguages.length > 1 && !isProjectMode && (
-              <select
+              <Select size="sm"
                 aria-label="Language"
                 data-testid="code-language-picker"
                 value={language}
                 disabled={disabled}
                 onChange={(e) => changeLanguage(e.target.value)}
-                className="order-last ml-auto mr-2 bg-[#3c3c3c] text-[#ccc] text-[11px] rounded px-2 py-1 border border-[#555] outline-none"
+                className="order-last ml-auto mr-2"
               >
                 {answerLanguages.map((l) => (
                   <option key={l} value={l}>
                     {l}
                   </option>
                 ))}
-              </select>
+              </Select>
             )}
             {openedTabs.map((fileName) => {
               const file = files.find((f) => f.name === fileName);

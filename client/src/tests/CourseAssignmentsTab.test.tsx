@@ -24,6 +24,7 @@ vi.mock("../components/Assignments/AssignmentCard", () => ({
 }));
 
 import Assignments from "../components/Assignments/Assignments";
+import { pickOption, selectValue, optionValues } from "./helpers/select";
 
 const ADMIN = ["SUBMISSIONS_CREATE", "ASSIGNMENTS_VIEW_SUBMISSIONS", "ASSIGNMENTS_CREATE"];
 const STUDENT = ["SUBMISSIONS_CREATE"];
@@ -70,7 +71,7 @@ describe("course Assignments tab", () => {
     renderTab();
     expect(await screen.findByText("Live (published)")).toBeInTheDocument();
     expect(screen.queryByText("Old (removed)")).toBeNull();
-    fireEvent.change(screen.getByRole("combobox"), { target: { value: "removed" } });
+    pickOption(screen.getByRole("combobox"), "removed");
     expect(screen.getByText("Old (removed)")).toBeInTheDocument();
   });
 

@@ -50,6 +50,7 @@ import Tooltip from "../ui/Tooltip";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import AssessmentMappingControl from "./AssessmentMappingControl";
 import { CATEGORIES, CATEGORY_ORDER } from "./categoryMeta";
+import Select from "../ui/Select";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,10 +92,10 @@ export interface ReportCardBuilderProps {
 // Both were absolutely-positioned inside the "Available Assessments" list,
 // which scrolls (`overflow-y-auto`) — any custom floating element there gets
 // clipped by the list's own overflow, and a bare "+" icon gave no visual hint
-// that it opened a category picker at all. A native <select> (via the shared
+// that it opened a category picker at all. A native <Select> (via the shared
 // AssessmentMappingControl, also used on the Grades page) sidesteps both
 // problems for free: the browser renders its own dropdown outside any CSS
-// overflow/stacking context, and a <select> is unmistakably a dropdown.
+// overflow/stacking context, and a <Select> is unmistakably a dropdown.
 
 // ─── Draggable item card ──────────────────────────────────────────────────────
 

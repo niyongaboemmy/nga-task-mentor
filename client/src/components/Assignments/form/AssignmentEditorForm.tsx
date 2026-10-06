@@ -29,6 +29,7 @@ import UploadProgressOverlay, { type UploadProgressState } from "./UploadProgres
 import type { RubricCriterion } from "../AssignmentCard";
 import { rubricTotal } from "../../../utils/rubricMarks";
 import { parseLocalDateTimeToUTC } from "../../../utils/dateUtils";
+import Select from "../../ui/Select";
 
 /** What the server accepts as an assignment attachment (middleware/assignmentUpload.ts). */
 export const ATTACHMENT_EXTENSIONS =
@@ -398,11 +399,13 @@ const AssignmentEditorForm: React.FC<Props> = ({
               {mode === "create" && (
                 <div data-field="course_id">
                   <Label htmlFor="as-course">Course</Label>
-                  <select
+                  <Select
                     id="as-course"
                     value={values.course_id}
                     onChange={(e) => set("course_id", e.target.value)}
-                    className={inputCls(errors.course_id)}
+                    className="w-full"
+                    variant="outline"
+                    invalid={!!errors.course_id}
                   >
                     <option value="">Select a course</option>
                     {(courses || []).map((c) => (
@@ -411,7 +414,7 @@ const AssignmentEditorForm: React.FC<Props> = ({
                         {c.title}
                       </option>
                     ))}
-                  </select>
+                  </Select>
                   <FieldError msg={errors.course_id} />
                 </div>
               )}
