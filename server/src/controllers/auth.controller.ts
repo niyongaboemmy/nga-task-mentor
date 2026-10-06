@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { namesFromMis } from "../utils/names";
 import { noteAccessVersion } from "../access/snapshot";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
@@ -318,8 +319,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
       // Create new user if doesn't exist
       console.log("👤 Creating new user with role:", mappedRole);
       localUser = await User.create({
-        first_name: misProfile.first_name,
-        last_name: misProfile.last_name,
+        ...namesFromMis(misProfile, misUser.email),
         email: misUser.email,
         password: "MIS_AUTH", // Placeholder password since auth is handled by MIS
         role: mappedRole,
@@ -335,8 +335,9 @@ export const verifyOtp = async (req: Request, res: Response) => {
         "New role:",
         mappedRole,
       );
-      localUser.first_name = misProfile.first_name;
-      localUser.last_name = misProfile.last_name;
+      const names = namesFromMis(misProfile, misUser.email);
+      localUser.first_name = names.first_name;
+      localUser.last_name = names.last_name;
       localUser.email = misUser.email;
       localUser.role = mappedRole;
       // Only follow the MIS-driven remap if the user's role_id currently
