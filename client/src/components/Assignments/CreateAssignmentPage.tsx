@@ -59,7 +59,8 @@ const CreateAssignmentPage: React.FC = () => {
       toast.error(
         error.response?.data?.message || "Failed to create assignment",
       );
-      // You might want to show an error message here
+      // Rethrow so the form keeps what the teacher typed (it resets only on success).
+      throw error;
     }
   };
 

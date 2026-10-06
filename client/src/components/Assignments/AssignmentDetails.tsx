@@ -297,7 +297,9 @@ const AssignmentDetails = () => {
           submission.student_id?.toString()) === user?.id?.toString(),
     );
 
-  const isStudent = can("SUBMISSIONS_CREATE");
+  // Admins hold SUBMISSIONS_CREATE too; only someone who can't see others'
+  // submissions is a student here (same rule as the assignments list).
+  const isStudent = can("SUBMISSIONS_CREATE") && !can("ASSIGNMENTS_VIEW_SUBMISSIONS");
   const dueDate = assignment ? new Date(assignment.due_date) : null;
   const isOverdue = dueDate
     ? (() => {

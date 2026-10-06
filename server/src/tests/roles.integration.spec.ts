@@ -163,25 +163,25 @@ describe("users routes (previously had IDOR gaps)", () => {
   });
 });
 
-describe("assignments — grouped, role-scoped listing", () => {
+describe("assignments — role-scoped list", () => {
   it("rejects an unauthenticated request", async () => {
-    const res = await request(app).get("/api/assignments/grouped");
+    const res = await request(app).get("/api/assignments/list");
     expect(res.status).toBe(401);
   });
 
   it("scopes a student to 'enrolled'", async () => {
     const res = await request(app)
-      .get("/api/assignments/grouped")
+      .get("/api/assignments/list")
       .set("Authorization", `Bearer ${studentToken}`);
     expect(res.status).toBe(200);
     expect(res.body.data.scope).toBe("enrolled");
     expect(res.body.data.can_manage).toBe(false);
-    expect(Array.isArray(res.body.data.subjects)).toBe(true);
+    expect(Array.isArray(res.body.data.items)).toBe(true);
   });
 
   it("scopes an instructor to 'assigned' and marks them a manager", async () => {
     const res = await request(app)
-      .get("/api/assignments/grouped")
+      .get("/api/assignments/list")
       .set("Authorization", `Bearer ${instructorToken}`);
     expect(res.status).toBe(200);
     expect(res.body.data.scope).toBe("assigned");
@@ -190,7 +190,7 @@ describe("assignments — grouped, role-scoped listing", () => {
 
   it("scopes an admin to 'all'", async () => {
     const res = await request(app)
-      .get("/api/assignments/grouped")
+      .get("/api/assignments/list")
       .set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     expect(res.body.data.scope).toBe("all");
@@ -198,10 +198,10 @@ describe("assignments — grouped, role-scoped listing", () => {
 
   it("returns a bounded page shape", async () => {
     const res = await request(app)
-      .get("/api/assignments/grouped?pageSize=5&page=1")
+      .get("/api/assignments/list?pageSize=5&page=1")
       .set("Authorization", `Bearer ${adminToken}`);
     expect(res.body.data.pagination).toMatchObject({ page: 1, page_size: 5 });
-    expect(res.body.data.subjects.length).toBeLessThanOrEqual(5);
+    expect(res.body.data.items.length).toBeLessThanOrEqual(5);
   });
 });
 

@@ -320,7 +320,7 @@ export default function GradesPage() {
     try {
       const [quizData, assignmentData] = await Promise.all([
         QuizGroupedApiService.getGrouped({ pageSize: courseList.length }),
-        AssignmentApiService.getGrouped({ pageSize: courseList.length }),
+        AssignmentApiService.listAll(),
       ]);
 
       const quizzes: AssessmentRow[] = quizData.subjects.flatMap((s) =>
@@ -336,18 +336,16 @@ export default function GradesPage() {
         })),
       );
 
-      const assignments: AssessmentRow[] = assignmentData.subjects.flatMap((s) =>
-        s.assignments.map((a) => ({
-          key: `assignment-${a.id}`,
-          kind: "assignment" as const,
-          id: a.id,
-          courseId: a.course_id,
-          title: a.title,
-          date: a.due_date,
-          maxScore: a.max_score ? Number(a.max_score) : null,
-          recorded: a.graded_count ?? null,
-        })),
-      );
+      const assignments: AssessmentRow[] = assignmentData.map((a) => ({
+        key: `assignment-${a.id}`,
+        kind: "assignment" as const,
+        id: a.id,
+        courseId: a.course_id,
+        title: a.title,
+        date: a.due_date,
+        maxScore: a.max_score ? Number(a.max_score) : null,
+        recorded: a.graded_count ?? null,
+      }));
 
       setQuizRows(quizzes);
       setAssignmentRows(assignments);

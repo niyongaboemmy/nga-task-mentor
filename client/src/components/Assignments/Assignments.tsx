@@ -168,11 +168,10 @@ const Assignments: React.FC<AssignmentsProps> = ({
 
   const filteredAssignments = useMemo(() => {
     return assignments.filter((assignment) => {
-      // Students should only see published, completed, or public assignments
-      if (isStudentView) {
-        return (
-          assignment.status === "published" || assignment.status === "completed"
-        );
+      // Students only ever see published or completed work -- then the same
+      // filter and search as everyone else (they used to skip both).
+      if (isStudentView && assignment.status !== "published" && assignment.status !== "completed") {
+        return false;
       }
 
       // "All" means everything still in use; removed work has its own filter.
@@ -304,7 +303,7 @@ const Assignments: React.FC<AssignmentsProps> = ({
                       {canManageAssignments && (
                         <option value="removed">Removed</option>
                       )}
-                      <option value="draft">Draft</option>
+                      {!isStudentView && <option value="draft">Draft</option>}
                     </select>
                   </div>
                 )}

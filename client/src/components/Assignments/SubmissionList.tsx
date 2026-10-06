@@ -425,7 +425,8 @@ const SubmissionList: React.FC<SubmissionListProps> = ({
             <AnimatePresence mode="popLayout">
               {submissions.map((submission, index) => (
                 <motion.div
-                  key={submission.id}
+                  // Not-yet-submitted placeholders all have id null.
+                  key={submission.id ?? `student-${submission.student?.id ?? submission.student_id ?? index}`}
                   layout
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
