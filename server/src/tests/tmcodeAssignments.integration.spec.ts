@@ -325,6 +325,9 @@ describe("TMCode practicals", () => {
       share_presence: true,
     });
 
+    const link = await request(app).get(`/api/tmcode/assignments/${practical.id}/open-link`).set("Authorization", tok(student));
+    expect(link.body.deeplink).toMatch(new RegExp(`^tmcode://assignment\\?id=${practical.id}&api=http`));
+
     const mine = await request(app).get(`/api/tmcode/assignments/${practical.id}`).set("Authorization", tok(student));
     expect(mine.body.assignment.my).toMatchObject({ project_id: p.id, link_id: p.links[0].id, state: "in_progress" });
   });
@@ -545,7 +548,7 @@ describe("share_presence", () => {
       await s.waitFor('"device_id":"going-private"');
       const off = await request(app).patch(`/api/tmcode/projects/${p.id}`).set("Authorization", tok(student2)).send({ share_presence: false });
       expect(off.status).toBe(200);
-      await s.waitFor('"online":false');
+      await s.waitFor('"withdrawn":true');
     } finally {
       await s.close();
     }

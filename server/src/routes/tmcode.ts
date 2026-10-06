@@ -125,5 +125,6 @@ router.get(as, read, wrap(tmAssignments.getAssignment));
 router.post(`${as}/start`, use, wrap(tmAssignments.startAssignment));
 router.put(`${as}/tmcode`, tmcodeUserAuth, requireTmPermission("ASSIGNMENTS_EDIT"), wrap(tmAssignments.updateAssignmentTmcode));
 router.get(`${as}/workspaces`, read, wrap(tmAssignments.assignmentWorkspaces));
+router.get(`${as}/open-link`, read, wrap(tmAssignments.assignmentOpenLink));
 
 export default router;

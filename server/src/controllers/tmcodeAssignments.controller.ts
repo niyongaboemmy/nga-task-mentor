@@ -418,6 +418,16 @@ export const getAssignment = async (req: Request, res: Response) => {
   return res.status(200).json({ assignment: await detailJson(req, t) });
 };
 
+// @desc    The tmcode:// deep link that opens the assignment in TMCode (the
+//          web "Open in TMCode" button; same origin rule as projects' open-link).
+// @route   GET /api/tmcode/assignments/:id/open-link
+export const assignmentOpenLink = async (req: Request, res: Response) => {
+  const t = await assignmentFor(req, res);
+  if (!t) return;
+  const api = encodeURIComponent(apiOrigin(req));
+  return res.status(200).json({ deeplink: `tmcode://assignment?id=${t.assignment.id}&api=${api}` });
+};
+
 // ─── POST /assignments/:id/start ─────────────────────────────────────────────
 
 async function workspaceOf(userId: number, assignmentId: number) {

@@ -22,6 +22,8 @@ export interface MonitorEntry {
   project: MonitorProject;
   course_ids: number[];
   presence: PresenceJson;
+  /** The owner stopped sharing live status: monitors drop the row at once. */
+  withdrawn?: boolean;
 }
 
 const tracked = new Map<string, MonitorEntry>();
@@ -59,7 +61,7 @@ export function withdrawPresence(projectId: number): number {
   for (const [key, e] of tracked) {
     if (e.project.id !== projectId) continue;
     tracked.delete(key);
-    projectsBus.publish(MONITOR_TOPIC, "presence", { ...e, presence: { ...e.presence, online: false } });
+    projectsBus.publish(MONITOR_TOPIC, "presence", { ...e, presence: { ...e.presence, online: false }, withdrawn: true });
     n++;
   }
   return n;
