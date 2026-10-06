@@ -371,6 +371,11 @@ export interface GradingResult {
   is_correct: boolean;
   points_earned: number;
   feedback?: string;
+  /**
+   * For coding/algorithmic: testResults, passedTests, totalTests, and —
+   * when the answer couldn't be graded automatically —
+   * grade_status: "pending" + pending_reason.
+   */
   detailed_feedback?: Record<string, any>;
 }
 

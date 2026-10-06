@@ -10,12 +10,26 @@ import {
 import { Op, Transaction } from "sequelize";
 import { sequelize } from "../config/database";
 import { AnswerDataType, GradingResult } from "../types/quiz.types";
-import { AdvancedQuizGrader } from "../utils/quizGrader";
+import {
+  AdvancedQuizGrader,
+  UNGRADED_SAVE,
+  isUngradedSave,
+} from "../utils/quizGrader";
 import { resolveAcademicTermId } from "../utils/misUtils";
+import { enforceLockdown } from "../utils/lockdown";
+import { tmcodeSettingsFor } from "../tmcode/policy";
+
+/** delivery = tmcode_required: code answers must come through TMCode (plan §10.4). */
+const TMCODE_REQUIRED_BODY = {
+  success: false,
+  code: "TMCODE_REQUIRED",
+  message: "This exam's coding questions must be answered in TMCode.",
+};
 import {
   buildStudentResults,
   needsManualReview,
   resultVisibility,
+  studentGradingDetails,
 } from "../utils/quizStudentView";
 import {
   computeAttemptEndTime,
@@ -23,6 +37,10 @@ import {
   isPastDeadline,
   secondsRemaining,
 } from "../utils/quizTiming";
+
+/** What the grader reported, stored in quiz_attempts.grading_details. */
+const gradingDetailsOf = (result: GradingResult): object | null =>
+  (result as any)?.detailed_feedback ?? null;
 
 const computeAttemptGrading = async (params: {
   submission: any;
@@ -94,6 +112,12 @@ export const startQuizAttempt = async (req: Request, res: Response) => {
       return res
         .status(404)
         .json({ success: false, message: "Quiz not found" });
+    }
+
+    // lockdown_browser: only from Safe Exam Browser (409 LOCKDOWN_REQUIRED)
+    if (!(await enforceLockdown(req, res, quiz.id))) {
+      await transaction.rollback();
+      return;
     }
 
     // Check if quiz is available
@@ -237,6 +261,13 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
       });
     }
 
+    // A lockdown quiz takes answers only from Safe Exam Browser — also for
+    // an attempt that was started without it.
+    if (!(await enforceLockdown(req, res, submission.quiz_id))) {
+      await transaction.rollback();
+      return;
+    }
+
     // Check if submission is still in progress
     if (submission.status !== "in_progress") {
       await transaction.rollback();
@@ -303,6 +334,66 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
     const normalizedCorrectAnswer =
       AdvancedQuizGrader.normalizeCorrectAnswer(question);
 
+    // Background save of a code answer (TM-FIX-8): store it, don't run the
+    // judge. It is graded on submit. An unchanged answer that is already
+    // graded is left alone.
+    const questionType = question.questionBank?.question_type;
+    const isCodeType = questionType === "coding" || questionType === "algorithmic";
+
+    // TMCode required: code answers only come through /api/tmcode.
+    if (isCodeType && (await tmcodeSettingsFor(quiz.id)).delivery === "tmcode_required") {
+      await transaction.rollback();
+      return res.status(409).json(TMCODE_REQUIRED_BODY);
+    }
+
+    if (req.body.save_only === true && isCodeType) {
+      const unchanged =
+        !!attempt &&
+        !isUngradedSave(attempt.grading_details) &&
+        JSON.stringify(attempt.submitted_answer) ===
+          JSON.stringify(normalizedSubmittedAnswer.data);
+      if (!unchanged) {
+        const values = {
+          submitted_answer: normalizedSubmittedAnswer.data,
+          correct_answer: normalizedCorrectAnswer.data,
+          grading_details: { ...UNGRADED_SAVE },
+          is_correct: null as any,
+          points_earned: 0,
+          time_taken:
+            typeof time_taken === "number" ? time_taken : (attempt?.time_taken ?? 0),
+          completed_at: new Date(),
+          status: "completed" as const,
+        };
+        if (attempt) {
+          await attempt.update(values, { transaction });
+        } else {
+          attempt = await QuizAttempt.create(
+            {
+              ...values,
+              quiz_id: submission.quiz_id,
+              question_id: parseInt(questionId),
+              student_id: req.user.id,
+              submission_id: parseInt(submissionId),
+              started_at: new Date(),
+            },
+            { transaction },
+          );
+        }
+      }
+      await transaction.commit();
+      return res.status(201).json({
+        success: true,
+        data: {
+          attempt_id: attempt?.id ?? null,
+          saved: true,
+          graded: false,
+          grading_result: { is_correct: null, points_earned: null, feedback: "Answer saved" },
+          grading_details: null,
+          question_completed: true,
+        },
+      });
+    }
+
     let gradingResult: GradingResult;
     let attemptStatus: "completed" | "timed_out" = "completed";
     try {
@@ -334,6 +425,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
         {
           submitted_answer: normalizedSubmittedAnswer.data,
           correct_answer: normalizedCorrectAnswer.data,
+          grading_details: gradingDetailsOf(gradingResult),
           is_correct: isCorrect,
           points_earned: pointsEarned,
           time_taken:
@@ -353,6 +445,7 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
           submission_id: parseInt(submissionId),
           submitted_answer: normalizedSubmittedAnswer.data,
           correct_answer: normalizedCorrectAnswer.data,
+          grading_details: gradingDetailsOf(gradingResult),
           is_correct: isCorrect,
           points_earned: pointsEarned,
           time_taken: typeof time_taken === "number" ? time_taken : 0,
@@ -368,11 +461,11 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
 
     // While the attempt is running the student only learns that the answer
     // was saved — never whether it is right (they could otherwise probe
-    // options and change answers). Coding questions keep their test-run
-    // output, which is part of the question itself; their score shows only
-    // when the quiz releases grades immediately.
-    const questionType = question.questionBank?.question_type;
-    const isCodeRun = questionType === "coding" || questionType === "algorithmic";
+    // options and change answers). Coding questions keep their visible
+    // test-run output, which is part of the question itself; their score and
+    // hidden-test results show only when the quiz releases grades
+    // immediately (resultVisibility).
+    const isCodeRun = isCodeType;
     const revealScore =
       isCodeRun &&
       quiz.show_results_immediately !== false &&
@@ -390,8 +483,11 @@ export const submitQuestionAnswer = async (req: Request, res: Response) => {
             ? gradingResult.feedback || "Answer saved"
             : "Answer saved",
         },
+        // Per-test results without anything a hidden test would give away.
         grading_details: isCodeRun
-          ? ((gradingResult as any).detailed_feedback ?? null)
+          ? studentGradingDetails(gradingDetailsOf(gradingResult), {
+              includeHidden: revealScore,
+            })
           : null,
         question_completed: true,
       },
@@ -440,6 +536,11 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
       });
     }
 
+    if (!(await enforceLockdown(req, res, submission.quiz_id))) {
+      await transaction.rollback();
+      return;
+    }
+
     // Check if submission is still in progress
     if (submission.status !== "in_progress") {
       await transaction.rollback();
@@ -473,6 +574,15 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
       // Verify question belongs to the quiz
       if (question.quiz_id !== submission.quiz_id) {
         throw new Error(`Question ${question_id} does not belong to this quiz`);
+      }
+
+      const qType = question.questionBank?.question_type;
+      if (
+        (qType === "coding" || qType === "algorithmic") &&
+        (await tmcodeSettingsFor(quiz.id)).delivery === "tmcode_required"
+      ) {
+        await transaction.rollback();
+        return res.status(409).json(TMCODE_REQUIRED_BODY);
       }
 
       // Check if student already answered this question in this submission
@@ -531,6 +641,7 @@ export const submitAllAnswers = async (req: Request, res: Response) => {
           submission_id: parseInt(submissionId),
           submitted_answer: normalizedSubmittedAnswer.data,
           correct_answer: normalizedCorrectAnswer.data,
+          grading_details: gradingDetailsOf(gradingResult),
           is_correct: isCorrect,
           points_earned: pointsEarned,
           time_taken: typeof time_taken === "number" ? time_taken : 0,

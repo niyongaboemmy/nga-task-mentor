@@ -1,5 +1,6 @@
 import type { IQuestionService, ValidationResult } from "./IQuestionService";
 import type { QuestionType, AlgorithmicData } from "../../types/quiz.types";
+import { FALLBACK_CODE_LANGUAGES } from "../../hooks/useCodeLanguages";
 
 export class AlgorithmicService implements IQuestionService {
   supports(type: QuestionType): boolean {
@@ -38,6 +39,18 @@ export class AlgorithmicService implements IQuestionService {
         if (!tc.expected_output)
           errors.push(`Test case ${index + 1} is missing expected output.`);
       });
+    }
+
+    // Answers run on the judge, so the editor needs a language it supports.
+    if (!algorithmicData.language || !String(algorithmicData.language).trim()) {
+      errors.push("Choose the programming language students answer in.");
+    } else {
+      const judge = new Set(FALLBACK_CODE_LANGUAGES.judge.map((l) => l.key));
+      const bad = [algorithmicData.language, ...(algorithmicData.allowed_languages ?? [])]
+        .filter((l) => !judge.has(String(l).toLowerCase()));
+      if (bad.length) {
+        errors.push(`Unsupported language: ${bad.join(", ")}.`);
+      }
     }
 
     if (!algorithmicData.input_format) {

@@ -97,6 +97,16 @@ export const BACKGROUND_SAVE_TYPES = new Set([
   "logical_expression",
 ]);
 
+/**
+ * Code answers are background-saved too, but differently: 5 s after the last
+ * edit (and when the window loses focus), and "save only" — stored on the
+ * server without running the judge. They are graded on submit (or on an
+ * explicit save in per-question mode), so a crash or a closed tab loses at
+ * most a few seconds of code without turning every pause into a judge run.
+ */
+export const CODE_BACKGROUND_SAVE_TYPES = new Set(["coding", "algorithmic"]);
+export const CODE_AUTOSAVE_DEBOUNCE_MS = 5000;
+
 /** A value the student actually entered (empty strings/arrays/objects don't count). */
 export function hasAnswerValue(answer: unknown): boolean {
   if (answer === null || answer === undefined) return false;

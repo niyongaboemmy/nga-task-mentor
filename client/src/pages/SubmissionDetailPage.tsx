@@ -17,6 +17,7 @@ import {
   BarChart3,
 } from "lucide-react";
 import RichTextDisplay from "../components/Common/RichTextDisplay";
+import CodeTestResults from "../components/Quizzes/CodeTestResults";
 
 interface QuestionResult {
   question_id: number;
@@ -31,6 +32,8 @@ interface QuestionResult {
   is_correct: boolean | null;
   points_earned: number | null;
   time_taken?: number;
+  /** Per-test results of a coding/algorithmic answer (all tests, hidden too). */
+  grading_details?: any;
 }
 
 interface SubmissionDetail {
@@ -869,6 +872,19 @@ const SubmissionDetailPage: React.FC = () => {
                       </div>
                     )}
                   </div>
+
+                  {q.grading_details && (
+                    <CodeTestResults details={q.grading_details} />
+                  )}
+                  {/* The AI rubric never changes the auto score: a suggestion for the marker. */}
+                  {q.grading_details?.ai_suggestion?.points != null && (
+                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                      AI suggestion (not applied): {q.grading_details.ai_suggestion.points}/{q.points} pts
+                      {q.grading_details.ai_suggestion.feedback
+                        ? ` — ${q.grading_details.ai_suggestion.feedback}`
+                        : ""}
+                    </p>
+                  )}
 
                   {/* Pending badge */}
                   {q.is_correct === null && (

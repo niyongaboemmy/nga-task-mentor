@@ -171,6 +171,7 @@ const AssignmentForm: React.FC<AssignmentFormProps> = ({
               <option value="text">Text Only</option>
               <option value="file">File Upload Only</option>
               <option value="both">Both Text and File</option>
+              <option value="project">TMCode Project</option>
             </select>
           </div>
 

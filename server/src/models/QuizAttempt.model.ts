@@ -25,6 +25,13 @@ export interface IQuizAttemptAttributes {
   submission_id?: number; // Optional - set when part of a complete submission
   submitted_answer?: object; // Normalized submitted answer for comparison
   correct_answer?: object; // Correct answer at time of submission for comparison
+  /**
+   * What the grader reported for this answer. For coding/algorithmic
+   * questions: {testResults[], passedTests, totalTests, ...}, including
+   * hidden tests — strip with quizStudentView.studentGradingDetails before
+   * sending it to a student.
+   */
+  grading_details?: object | null;
   is_correct?: boolean;
   points_earned?: number;
   time_taken?: number; // seconds
@@ -94,6 +101,13 @@ export class QuizAttempt extends Model<
     field: "correct_answer",
   })
   correct_answer?: object;
+
+  @Column({
+    type: DataType.JSON,
+    allowNull: true,
+    field: "grading_details",
+  })
+  grading_details?: object | null;
 
   @Column({
     type: DataType.BOOLEAN,

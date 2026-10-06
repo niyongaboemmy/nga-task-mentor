@@ -19,6 +19,7 @@ import rankingRoutes from "../routes/rankings";
 import questionBankRoutes from "../routes/questionBank";
 import dashboardRoutes from "../routes/dashboard";
 import mediaRoutes from "../routes/media";
+import tmcodeRoutes from "../routes/tmcode";
 
 /**
  * Minimal test harness app — mounts only the routers under test against the
@@ -29,6 +30,7 @@ import mediaRoutes from "../routes/media";
  */
 export function buildTestApp() {
   const app = express();
+  app.use("/api/tmcode", express.json({ limit: "8mb" }), tmcodeRoutes);
   app.use(express.json());
   app.use("/api/proctoring", proctoringRoutes);
   app.use("/api/users", usersRoutes);
@@ -78,6 +80,8 @@ export async function ensureModelsRegistered() {
     models.Role,
     models.Permission,
     models.RolePermission,
+    ...models.TMCODE_MODELS,
+    ...models.PROJECT_MODELS,
   ]);
   setupAssociations();
   modelsRegistered = true;

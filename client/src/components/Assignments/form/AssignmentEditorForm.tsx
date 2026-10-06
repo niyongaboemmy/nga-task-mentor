@@ -19,6 +19,7 @@ import {
   Plus,
   Loader2,
   ListChecks,
+  Code2,
 } from "lucide-react";
 import AssignmentDescriptionEditor from "../AssignmentDescriptionEditor";
 import FileDropzone from "../../Common/FileDropzone";
@@ -69,7 +70,11 @@ const SUBMISSION_TYPES = [
   { value: "both", label: "File & text", hint: "Upload and/or write", icon: Layers },
   { value: "file", label: "File only", hint: "Students upload files", icon: FileUp },
   { value: "text", label: "Text only", hint: "Students write online", icon: Keyboard },
+  { value: "project", label: "TMCode project", hint: "Students code in TMCode", icon: Code2 },
 ];
+
+/** Submission types where students don't upload files. */
+const NO_FILE_TYPES = ["text", "project"];
 
 const FILE_PRESETS: { label: string; types: string[] }[] = [
   { label: "Documents", types: ["pdf", "docx"] },
@@ -319,7 +324,7 @@ const AssignmentEditorForm: React.FC<Props> = ({
     fd.append("due_date", parseLocalDateTimeToUTC(values.due_date).toISOString().slice(0, 16));
     fd.append("max_score", String(values.max_score));
     fd.append("submission_type", values.submission_type);
-    fd.append("allowed_file_types", JSON.stringify(values.submission_type === "text" ? [] : values.allowed_file_types));
+    fd.append("allowed_file_types", JSON.stringify(NO_FILE_TYPES.includes(values.submission_type) ? [] : values.allowed_file_types));
     fd.append("rubric", JSON.stringify(values.rubric));
     if (mode === "create") {
       fd.append("course_id", values.course_id);
@@ -492,7 +497,7 @@ const AssignmentEditorForm: React.FC<Props> = ({
 
         {/* 2. Submission */}
         <Section step={2} icon={Type} title="How students submit">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5" role="radiogroup" aria-label="Submission type">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5" role="radiogroup" aria-label="Submission type">
             {SUBMISSION_TYPES.map((t) => {
               const on = values.submission_type === t.value;
               return (
@@ -517,7 +522,7 @@ const AssignmentEditorForm: React.FC<Props> = ({
               );
             })}
           </div>
-          {values.submission_type !== "text" && (
+          {!NO_FILE_TYPES.includes(values.submission_type) && (
             <div className="mt-4">
               <Label>File types students may upload</Label>
               <FileTypeChips value={values.allowed_file_types} onChange={(v) => set("allowed_file_types", v)} />

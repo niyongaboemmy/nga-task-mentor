@@ -16,7 +16,8 @@ export interface IAssignmentAttributes {
   description: string;
   due_date: Date;
   max_score: number;
-  submission_type: "file" | "text" | "both";
+  // "project": the work is a TMCode project linked and submitted from TMCode
+  submission_type: "file" | "text" | "both" | "project";
   allowed_file_types?: string[] | null;
   rubric?: Array<{
     criteria: string;
@@ -108,19 +109,19 @@ export class Assignment extends Model<
 
   @Column({
     type: DataType.ENUM,
-    values: ["file", "text", "both"],
+    values: ["file", "text", "both", "project"],
     allowNull: false,
     field: "submission_type",
     defaultValue: "both",
     validate: {
       notNull: { msg: "Submission type is required" },
       isIn: {
-        args: [["file", "text", "both"]],
-        msg: "Submission type must be one of: file, text, or both",
+        args: [["file", "text", "both", "project"]],
+        msg: "Submission type must be one of: file, text, both, or project",
       },
     },
   })
-  public submission_type!: "file" | "text" | "both";
+  public submission_type!: "file" | "text" | "both" | "project";
 
   @Column({
     type: DataType.JSON,

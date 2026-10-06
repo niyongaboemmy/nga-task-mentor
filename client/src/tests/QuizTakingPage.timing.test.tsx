@@ -82,11 +82,12 @@ class MemoryStorage {
 vi.stubGlobal("localStorage", new MemoryStorage());
 
 import QuizTakingPage from "../pages/QuizTakingPage";
+import { ProctoringApiService } from "../services/proctoringApi";
 
 const QUIZ_ID = 5;
 const SUBMISSION_ID = 77;
 
-function makeQuiz(timeLimit: number | null) {
+function makeQuiz(timeLimit: number | null, questionType = "single_choice") {
   return {
     id: QUIZ_ID,
     title: "Timed quiz",
@@ -99,10 +100,10 @@ function makeQuiz(timeLimit: number | null) {
       quiz_id: QUIZ_ID,
       points: 1,
       order: i + 1,
-      question_type: "single_choice",
+      question_type: questionType,
       question_text: `Question text ${id}`,
       questionBank: {
-        question_type: "single_choice",
+        question_type: questionType,
         question_text: `Question text ${id}`,
         time_limit_seconds: 10,
       },
@@ -589,5 +590,75 @@ describe("QuizTakingPage — quiz settings on the instructions screen", () => {
     await flush();
     expect(screen.getByRole("alert")).toHaveTextContent(/This quiz opens on/);
     expect(screen.queryByRole("link", { name: /View my results/ })).not.toBeInTheDocument();
+  });
+});
+
+describe("QuizTakingPage — code answers are autosaved (TM-FIX-8)", () => {
+  it.each([
+    ["overall duration", 5],
+    ["per-question durations", null],
+  ])("%s: saved without grading 5 s after the last edit", async (_label, timeLimit) => {
+    quizApi.getQuiz.mockResolvedValue({ success: true, data: makeQuiz(timeLimit, "coding") });
+    mockStart(timeLimit ? timeLimit * 60 : null);
+    await startQuiz();
+
+    fireEvent.change(screen.getByLabelText("answer-101"), { target: { value: "print(1)" } });
+    await advance(3_000);
+    fireEvent.change(screen.getByLabelText("answer-101"), { target: { value: "print(12)" } });
+    await advance(4_000);
+    expect(quizApi.submitQuestionAnswer).not.toHaveBeenCalled();
+
+    await advance(1_500);
+    expect(quizApi.submitQuestionAnswer).toHaveBeenCalledTimes(1);
+    expect(quizApi.submitQuestionAnswer).toHaveBeenCalledWith(
+      SUBMISSION_ID,
+      101,
+      "print(12)",
+      expect.any(Number),
+      { saveOnly: true },
+    );
+    // The crash backup in this browser has the latest code too.
+    expect(localStorage.getItem(`quiz_${QUIZ_ID}_answers`)).toContain("print(12)");
+  });
+
+  it("saves right away when the window loses focus", async () => {
+    quizApi.getQuiz.mockResolvedValue({ success: true, data: makeQuiz(5, "coding") });
+    mockStart(300);
+    await startQuiz();
+    fireEvent.change(screen.getByLabelText("answer-101"), { target: { value: "x = 1" } });
+    await act(async () => {
+      window.dispatchEvent(new Event("blur"));
+    });
+    await flush();
+    expect(quizApi.submitQuestionAnswer).toHaveBeenCalledWith(
+      SUBMISSION_ID,
+      101,
+      "x = 1",
+      expect.any(Number),
+      { saveOnly: true },
+    );
+  });
+});
+
+describe("QuizTakingPage — TMCode delivery", () => {
+  it("tmcode_required: coding questions show Open in TMCode instead of the web editor", async () => {
+    vi.mocked(ProctoringApiService.getProctoringSettings).mockResolvedValue({
+      success: true,
+      data: { enabled: false, tmcode_delivery: "tmcode_required" },
+    });
+    quizApi.getQuiz.mockResolvedValue({ success: true, data: makeQuiz(5, "coding") });
+    mockStart(300);
+    renderPage();
+    await flush();
+    for (let i = 0; i < 3; i++) fireEvent.click(screen.getByRole("button", { name: /^Next/ }));
+    expect(screen.getByTestId("open-in-tmcode")).toBeInTheDocument(); // on the start screen too
+    fireEvent.click(screen.getByRole("button", { name: /Start Quiz|Resume Quiz/ }));
+    await flush();
+    expect(screen.queryByLabelText("answer-101")).toBeNull();
+    expect(screen.getAllByTestId("open-in-tmcode").length).toBeGreaterThan(0);
+    vi.mocked(ProctoringApiService.getProctoringSettings).mockResolvedValue({
+      success: true,
+      data: { enabled: false },
+    });
   });
 });

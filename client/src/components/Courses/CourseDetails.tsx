@@ -455,6 +455,7 @@ const CourseDetails: React.FC = () => {
               canViewAll={canViewAllMarks}
               canEdit={canEditMarks}
               state={recordedAssessments}
+              showLinkedProjects={can("PROJECTS_MONITOR")}
             />
           )}
 

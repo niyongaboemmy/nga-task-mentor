@@ -13,6 +13,9 @@ import {
   QuizAttempt,
   QuizSubmission,
 } from "../models";
+import { Judge0Service, JudgeUnavailableError } from "../services/Judge0Service";
+import { regradePendingCodeAttempts } from "../services/codeRegrade.service";
+import { aiService } from "../services/ai/aiService";
 
 /**
  * Each quiz setting, as the student experiences it (dev DB, real routes):
@@ -288,3 +291,176 @@ describe("result settings", () => {
   });
 });
 
+
+describe("coding questions: per-test results (TM-FIX-1)", () => {
+  // No real judge or AI: the stub accepts every test except the hidden one.
+  beforeEach(() => {
+    jest.spyOn(aiService, "gradeCoding").mockRejectedValue(new Error("no AI in tests"));
+    jest.spyOn(Judge0Service, "submit").mockImplementation(async (sub: any) => `tok:${sub.stdin}`);
+    jest.spyOn(Judge0Service, "waitAndGetResult").mockImplementation(async (token: string) => {
+      const ok = token !== "tok:HIDDEN-INPUT";
+      return {
+        stdout: ok ? "3" : "wrong",
+        stderr: null,
+        compile_output: null,
+        message: null,
+        time: "0.01",
+        memory: 100,
+        token,
+        status: ok ? { id: 3, description: "Accepted" } : { id: 4, description: "Wrong Answer" },
+      };
+    });
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  async function makeCodingQuiz(overrides: Record<string, any> = {}) {
+    const quiz = await Quiz.create({
+      title: "Coding settings spec",
+      description: "quizSettings.integration.spec.ts",
+      course_id: COURSE_ID,
+      created_by: adminId,
+      status: "published",
+      type: "Quiz",
+      show_results_immediately: true,
+      show_correct_answers: false,
+      enable_automatic_grading: true,
+      require_manual_grading: false,
+      ...overrides,
+    } as any);
+    quizIds.push(quiz.id);
+    const bank = await QuestionBank.create({
+      course_id: COURSE_ID,
+      question_type: "coding",
+      question_text: "Add two numbers",
+      question_data: {
+        language: "python",
+        test_cases: [
+          { id: "v1", input: "1 2", expected_output: "3", is_hidden: false, points: 1 },
+          { id: "h1", input: "HIDDEN-INPUT", expected_output: "HIDDEN-EXPECTED", is_hidden: true, points: 1 },
+        ],
+      } as any,
+      created_by: adminId,
+    } as any);
+    bankIds.push(bank.id);
+    const question = await QuizQuestion.create({
+      quiz_id: quiz.id,
+      question_id: bank.id,
+      points: 2,
+      order: 1,
+    } as any);
+    return { quiz, question };
+  }
+
+  it("stores every test in grading_details but never sends a hidden test's data to the student", async () => {
+    const { quiz, question } = await makeCodingQuiz();
+    const sub = (await start(quiz.id)).body.data;
+    const answer = { code: "print(sum(map(int, input().split())))", language: "python" };
+
+    const saved = await save(sub.id, question.id, answer);
+    expect(saved.status).toBe(201);
+    const details = saved.body.data.grading_details;
+    expect(details.testResults).toHaveLength(2);
+    expect(details.testResults[0]).toMatchObject({ passed: true, input: "1 2", expected: "3" });
+    expect(JSON.stringify(saved.body)).not.toContain("HIDDEN-");
+
+    const row = await QuizAttempt.findOne({
+      where: { submission_id: sub.id, question_id: question.id },
+    });
+    const stored: any = row?.grading_details;
+    expect(stored.testResults).toHaveLength(2);
+    expect(stored.testResults[1]).toMatchObject({ is_hidden: true, input: "HIDDEN-INPUT", passed: false });
+
+    await submit(quiz.id, [{ question_id: question.id, answer }]);
+    const r = (await results(quiz.id)).body.data;
+    expect(JSON.stringify(r)).not.toContain("HIDDEN-");
+    const res = r.results[0].grading_details;
+    expect(res.testResults[1]).toEqual({ testCaseId: "h1", is_hidden: true, passed: false, points: 1 });
+    expect(res.passedTests).toBe(1);
+
+    // The teacher's grading view has every test, hidden input included.
+    const staff = await request(app)
+      .get(`/api/quizzes/submissions/${sub.id}/grade`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    expect(staff.status).toBe(200);
+    const q = staff.body.data.questions.find((x: any) => x.question_id === question.id);
+    expect(q.grading_details.testResults[1].input).toBe("HIDDEN-INPUT");
+  });
+
+  it("a graded save reports hidden tests only when the quiz releases results (TM-FIX-7)", async () => {
+    const { quiz, question } = await makeCodingQuiz({ show_results_immediately: false });
+    const sub = (await start(quiz.id)).body.data;
+    const saved = await save(sub.id, question.id, { code: "print(3)", language: "python" });
+    expect(saved.status).toBe(201);
+    const details = saved.body.data.grading_details;
+    expect(details.testResults).toHaveLength(1);
+    expect(details.testResults[0].is_hidden).toBe(false);
+    expect(details.totalTests).toBe(1);
+    expect(saved.body.data.grading_result.points_earned).toBeNull();
+  });
+
+  it("background save_only stores code without running the judge; submit grades it (TM-FIX-8)", async () => {
+    const { quiz, question } = await makeCodingQuiz();
+    const sub = (await start(quiz.id)).body.data;
+    const answer = { code: "print(3)", language: "python" };
+
+    const saved = await asStudent(
+      request(app).post(`/api/quizzes/attempts/${sub.id}/questions/${question.id}/answer`),
+    ).send({ answer_data: answer, time_taken: 3, save_only: true });
+    expect(saved.status).toBe(201);
+    expect(saved.body.data.graded).toBe(false);
+    expect(Judge0Service.submit).not.toHaveBeenCalled();
+    const row = await QuizAttempt.findOne({ where: { submission_id: sub.id, question_id: question.id } });
+    expect(row?.submitted_answer).toEqual(answer);
+    expect(row?.grading_details).toEqual({ ungraded: true });
+
+    // The final submit doesn't resend it: the saved copy is graded.
+    const done = await submit(quiz.id, []);
+    expect(done.status).toBe(201);
+    expect(Judge0Service.submit).toHaveBeenCalled();
+    const stored = await QuizSubmission.findByPk(sub.id);
+    expect(Number(stored?.total_score)).toBe(1); // visible test passes, hidden fails
+    await row?.reload();
+    expect((row?.grading_details as any).testResults).toHaveLength(2);
+  });
+
+  it("an expired attempt finalized from saved answers grades background-saved code", async () => {
+    const { quiz, question } = await makeCodingQuiz({ time_limit: 5 });
+    const sub = (await start(quiz.id)).body.data;
+    await asStudent(
+      request(app).post(`/api/quizzes/attempts/${sub.id}/questions/${question.id}/answer`),
+    ).send({ answer_data: { code: "print(3)", language: "python" }, save_only: true });
+    await QuizSubmission.update(
+      { end_time: new Date(Date.now() - 10 * 60 * 1000) } as any,
+      { where: { id: sub.id } },
+    );
+    const res = await start(quiz.id); // resume → finalized from saved answers
+    expect(res.status).toBe(409);
+    expect(res.body.code).toBe("ATTEMPT_TIME_EXPIRED");
+    const stored = await QuizSubmission.findByPk(sub.id);
+    expect(stored?.status).toBe("completed");
+    expect(Number(stored?.total_score)).toBe(1);
+  });
+
+  it("judge down: the answer stays pending (not 0), and the re-grade job grades it later (TM-FIX-6)", async () => {
+    const { quiz, question } = await makeCodingQuiz();
+    const sub = (await start(quiz.id)).body.data;
+    const answer = { code: "print(3)", language: "python" };
+
+    (Judge0Service.submit as jest.Mock).mockRejectedValue(new JudgeUnavailableError("429"));
+    await submit(quiz.id, [{ question_id: question.id, answer }]);
+    let stored = await QuizSubmission.findByPk(sub.id);
+    expect(stored?.grade_status).toBe("pending");
+    const r = (await results(quiz.id)).body.data;
+    expect(r.results[0].points_earned).toBeNull(); // "pending", not a 0
+    expect(r.results[0].grading_details.pending_reason).toMatch(/will re-grade/);
+
+    // The judge is back.
+    (Judge0Service.submit as jest.Mock).mockImplementation(async (s: any) => `tok:${s.stdin}`);
+    const report = await regradePendingCodeAttempts();
+    expect(report.regraded).toBeGreaterThanOrEqual(1);
+    expect(report.submissions_updated).toContain(sub.id);
+    stored = await QuizSubmission.findByPk(sub.id);
+    expect(Number(stored?.total_score)).toBe(1);
+    expect(stored?.grade_status).toBe("auto_graded");
+  });
+});

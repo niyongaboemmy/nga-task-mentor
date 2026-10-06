@@ -1,5 +1,9 @@
 import React from "react";
 import type { AlgorithmicData } from "../../../types/quiz.types";
+import {
+  languageDisplayName,
+  useCodeLanguages,
+} from "../../../hooks/useCodeLanguages";
 
 interface AlgorithmicQuestionFormProps {
   data: AlgorithmicData;
@@ -9,8 +13,57 @@ interface AlgorithmicQuestionFormProps {
 export const AlgorithmicQuestionForm: React.FC<
   AlgorithmicQuestionFormProps
 > = ({ data, onChange }) => {
+  // Answers run on the judge: only its languages (GET /quizzes/code-languages).
+  const { judge } = useCodeLanguages();
+  const allowed = data.allowed_languages ?? [];
+  const toggleAllowed = (key: string) =>
+    onChange({
+      ...data,
+      allowed_languages: allowed.includes(key)
+        ? allowed.filter((l) => l !== key)
+        : [...allowed, key],
+    });
+
   return (
     <div className="space-y-6">
+      <div>
+        <label
+          htmlFor="algorithmic-language"
+          className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-3"
+        >
+          Language students answer in <span className="text-red-500">*</span>
+        </label>
+        <select
+          id="algorithmic-language"
+          value={data.language ?? ""}
+          onChange={(e) => onChange({ ...data, language: e.target.value })}
+          className="w-full px-4 py-3 border border-gray-300 dark:border-gray-600 rounded-2xl bg-white dark:bg-gray-800 text-text-primary-light dark:text-text-primary-dark"
+        >
+          <option value="">Choose a language…</option>
+          {judge.map((l) => (
+            <option key={l.key} value={l.key}>
+              {languageDisplayName(l)}
+            </option>
+          ))}
+        </select>
+        <div className="mt-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+          Also allow:
+        </div>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {judge
+            .filter((l) => l.key !== data.language)
+            .map((l) => (
+              <label key={l.key} className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  checked={allowed.includes(l.key)}
+                  onChange={() => toggleAllowed(l.key)}
+                />
+                {l.label}
+              </label>
+            ))}
+        </div>
+      </div>
       <div>
         <label className="block text-sm font-medium text-text-secondary-light dark:text-text-secondary-dark mb-3">
           Algorithm Description
