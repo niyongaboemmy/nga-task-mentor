@@ -52,6 +52,9 @@ describe("Task Mentor activity catalog", () => {
       ["/courses/3/quizzes/create", "tm.quiz.create"],
       ["/grades/subjects/3/report", "tm.grades.subject_report"],
       ["/grades/7/marks", "tm.grades.marks"],
+      ["/projects", "tm.projects"],
+      ["/projects/monitor", "tm.projects.monitor"],
+      ["/projects/5", "tm.project"],
     ];
     for (const [p, key] of cases) expect([p, resolveRoute("tm", c, p).feature]).toEqual([p, key]);
   });

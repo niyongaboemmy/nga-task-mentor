@@ -21,6 +21,7 @@ import {
   type StudentStat,
 } from "../../services/subjectReportApi";
 import type { RecordedAssessmentsState } from "./useRecordedAssessments";
+import LinkedProjectsPanel from "../Projects/LinkedProjectsPanel";
 
 // ─── Recorded assessments (course tab) ────────────────────────────────────────
 // The marks a teacher enters by hand — class work, homework, midterms, CA exams
@@ -72,12 +73,15 @@ function AssessmentRow({
   canEdit,
   expanded,
   onToggle,
+  showLinkedProjects = false,
 }: {
   assessment: AssessmentStat;
   students: StudentStat[];
   canEdit: boolean;
   expanded: boolean;
   onToggle: () => void;
+  /** TMCode projects linked to this assessment (PROJECTS_MONITOR). */
+  showLinkedProjects?: boolean;
 }) {
   const [search, setSearch] = useState("");
 
@@ -193,6 +197,10 @@ function AssessmentRow({
                 )}
               </div>
 
+              {showLinkedProjects && assessment.kind === "manual" && (
+                <LinkedProjectsPanel activityType="manual_assessment" activityId={assessment.id} collapsible />
+              )}
+
               {rows.length === 0 ? (
                 <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark/60 py-6 text-center">
                   No students match that search.
@@ -243,10 +251,13 @@ export default function RecordedAssessmentsPanel({
   canViewAll,
   canEdit,
   state,
+  showLinkedProjects = false,
 }: {
   canViewAll: boolean;
   canEdit: boolean;
   state: RecordedAssessmentsState;
+  /** Show each assessment's TMCode "Linked projects" (teachers with PROJECTS_MONITOR). */
+  showLinkedProjects?: boolean;
 }) {
   const { report, recorded, loading, refreshing, error, reload } = state;
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -417,6 +428,7 @@ export default function RecordedAssessmentsPanel({
               assessment={assessment}
               students={report?.students ?? []}
               canEdit={canEdit}
+              showLinkedProjects={showLinkedProjects && canViewAll}
               expanded={expanded === assessment.key}
               onToggle={() => setExpanded(expanded === assessment.key ? null : assessment.key)}
             />
