@@ -14,6 +14,8 @@ import {
   Clock,
   AlertCircle,
   X,
+  LayoutGrid,
+  List,
 } from "lucide-react";
 import { usePermissions } from "../hooks/usePermissions";
 import {
@@ -26,8 +28,8 @@ import { formatDateTimeLocal } from "../utils/dateUtils";
 import { onAcademicPeriodChanged } from "../utils/academicPeriodEvents";
 
 /**
- * Assignments: one list, newest first, with a search box, a subject filter
- * and status chips. Students' chips are their own state (to do, overdue,
+ * Assignments: newest first, as cards (default) or a compact list, with a
+ * search box, a subject filter and status chips. Students' chips are their own state (to do, overdue,
  * submitted, graded) with counts; staff filter by the assignment's status.
  */
 
@@ -76,6 +78,16 @@ const STAFF_CHIPS: { v: "all" | AssignmentStatus; l: string }[] = [
   { v: "removed", l: "Removed" },
 ];
 
+type View = "grid" | "list";
+const VIEW_KEY = "tm.assignments.view";
+const loadView = (): View => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "grid";
+  } catch {
+    return "grid";
+  }
+};
+
 const isNew = (createdAt: string | null) =>
   !!createdAt && Date.now() - new Date(createdAt).getTime() < NEW_DAYS * 86_400_000;
 
@@ -119,21 +131,94 @@ function StudentBadge({ a }: { a: ListedAssignment }) {
   }
 }
 
-function AssignmentRow({
-  a,
-  isStudent,
-  canManage,
-  onStatus,
-}: {
+type ItemProps = {
   a: ListedAssignment;
   isStudent: boolean;
   canManage: boolean;
   onStatus: (id: number, s: AssignmentStatus) => void;
-}) {
+};
+
+/** Staff: hand-in progress and the status (a picker for the creator). */
+function StaffStatus({ a, canManage, onStatus }: Omit<ItemProps, "isStudent">) {
   const meta = STATUS_META[a.status] ?? STATUS_META.draft;
   // Co-teachers see each other's assignments; only the creator (or a super
   // admin) may change the status.
   const canChangeStatus = canManage && a.can_manage === true;
+  return (
+    <>
+      {a.submission_count !== undefined && (
+        <span className="flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark/70" title="Graded / handed in">
+          <Users className="h-3.5 w-3.5" />
+          {a.graded_count ?? 0}/{a.submission_count} graded
+        </span>
+      )}
+      {canChangeStatus ? (
+        <select
+          value={a.status}
+          onChange={(e) => onStatus(a.id, e.target.value as AssignmentStatus)}
+          aria-label={`Status of ${a.title}`}
+          className={`cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 ${meta.cls}`}
+        >
+          <option value="draft">Draft</option>
+          <option value="published">Published</option>
+          <option value="completed">Completed</option>
+          <option value="removed">Removed</option>
+        </select>
+      ) : (
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${meta.cls}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+          {meta.label}
+        </span>
+      )}
+    </>
+  );
+}
+
+const subjectLabel = (a: ListedAssignment) => `${a.subject_code ? `${a.subject_code} · ` : ""}${a.subject_name}`;
+
+function AssignmentCard({ a, isStudent, canManage, onStatus }: ItemProps) {
+  const late = isStudent && a.my_state === "missed";
+  return (
+    <li className="flex flex-col rounded-2xl border border-white/60 bg-card-light p-4 shadow-sm transition-colors hover:border-blue-200 dark:border-border-dark/30 dark:bg-card-dark/30 dark:hover:border-blue-900/50">
+      <div className="flex items-start justify-between gap-2">
+        <span className="truncate text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark/80">{subjectLabel(a)}</span>
+        {isNew(a.created_at) && (
+          <span className="shrink-0 rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-white">New</span>
+        )}
+      </div>
+      <Link
+        to={`/assignments/${a.id}`}
+        className="mt-1.5 line-clamp-2 text-base font-semibold text-text-primary-light hover:text-blue-600 dark:text-text-primary-dark dark:hover:text-blue-400"
+      >
+        {a.title}
+      </Link>
+      <div className="mb-3 mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+        <span className={`flex items-center gap-1 ${late ? "font-medium text-red-600 dark:text-red-400" : ""}`}>
+          <Calendar className="h-3 w-3" />
+          Due {formatDateTimeLocal(a.due_date)}
+        </span>
+        <span className="flex items-center gap-1">
+          <Award className="h-3 w-3" />
+          {a.max_score} pts
+        </span>
+      </div>
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-border-light pt-3 dark:border-border-dark/30">
+        <div className="flex flex-wrap items-center gap-2">
+          {isStudent ? <StudentBadge a={a} /> : <StaffStatus a={a} canManage={canManage} onStatus={onStatus} />}
+        </div>
+        <Link
+          to={`/assignments/${a.id}`}
+          aria-label={`Open ${a.title}`}
+          className="rounded-full bg-blue-600 px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-blue-700"
+        >
+          Open
+        </Link>
+      </div>
+    </li>
+  );
+}
+
+function AssignmentRow({ a, isStudent, canManage, onStatus }: ItemProps) {
   const dueSoonOrLate = isStudent && (a.my_state === "todo" || a.my_state === "missed");
   const late = isStudent && a.my_state === "missed";
 
@@ -152,10 +237,7 @@ function AssignmentRow({
           )}
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
-          <span className="font-medium text-text-primary-light/80 dark:text-text-primary-dark/80">
-            {a.subject_code ? `${a.subject_code} · ` : ""}
-            {a.subject_name}
-          </span>
+          <span className="font-medium text-text-primary-light/80 dark:text-text-primary-dark/80">{subjectLabel(a)}</span>
           <span className={`flex items-center gap-1 ${late ? "font-medium text-red-600 dark:text-red-400" : dueSoonOrLate ? "text-text-primary-light/80 dark:text-text-primary-dark/80" : ""}`}>
             <Calendar className="h-3 w-3" />
             Due {formatDateTimeLocal(a.due_date)}
@@ -168,36 +250,7 @@ function AssignmentRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-3">
-        {isStudent ? (
-          <StudentBadge a={a} />
-        ) : (
-          <>
-            {a.submission_count !== undefined && (
-              <span className="flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark/70" title="Graded / handed in">
-                <Users className="h-3.5 w-3.5" />
-                {a.graded_count ?? 0}/{a.submission_count} graded
-              </span>
-            )}
-            {canChangeStatus ? (
-              <select
-                value={a.status}
-                onChange={(e) => onStatus(a.id, e.target.value as AssignmentStatus)}
-                aria-label={`Status of ${a.title}`}
-                className={`cursor-pointer rounded-full border px-2.5 py-1 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-blue-500/30 ${meta.cls}`}
-              >
-                <option value="draft">Draft</option>
-                <option value="published">Published</option>
-                <option value="completed">Completed</option>
-                <option value="removed">Removed</option>
-              </select>
-            ) : (
-              <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium ${meta.cls}`}>
-                <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-                {meta.label}
-              </span>
-            )}
-          </>
-        )}
+        {isStudent ? <StudentBadge a={a} /> : <StaffStatus a={a} canManage={canManage} onStatus={onStatus} />}
       </div>
     </li>
   );
@@ -226,6 +279,15 @@ const AssignmentsPage: React.FC = () => {
   const debouncedSearch = useDebounced(search, 300);
   const [status, setStatus] = useState("all");
   const [subjectId, setSubjectId] = useState<number | "">("");
+  const [view, setView] = useState<View>(loadView);
+  const chooseView = (v: View) => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      /* private mode: the choice just isn't remembered */
+    }
+  };
 
   // Only the latest request may update the list (filters change faster than responses).
   const requestSeq = useRef(0);
@@ -347,6 +409,28 @@ const AssignmentsPage: React.FC = () => {
               </option>
             ))}
           </select>
+          <div role="group" aria-label="View" className="flex shrink-0 rounded-xl bg-surface-light p-1 dark:bg-surface-dark/50">
+            {([
+              ["grid", "Grid view", LayoutGrid],
+              ["list", "List view", List],
+            ] as const).map(([v, label, Icon]) => (
+              <button
+                key={v}
+                type="button"
+                onClick={() => chooseView(v)}
+                aria-pressed={view === v}
+                aria-label={label}
+                title={label}
+                className={`flex items-center justify-center rounded-lg px-2.5 py-1.5 transition-colors ${
+                  view === v
+                    ? "bg-white text-blue-600 shadow-sm dark:bg-card-dark dark:text-blue-400"
+                    : "text-text-secondary-light hover:text-text-primary-light dark:text-text-secondary-dark dark:hover:text-text-primary-dark"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+              </button>
+            ))}
+          </div>
           <button
             onClick={() => fetchData({ refresh: true })}
             disabled={refreshing}
@@ -397,7 +481,13 @@ const AssignmentsPage: React.FC = () => {
       )}
 
       {/* List */}
-      {loading ? (
+      {loading && view === "grid" ? (
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3" aria-busy="true">
+          {[0, 1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className="h-40 animate-pulse rounded-2xl border border-white/60 bg-card-light dark:border-border-dark/30 dark:bg-card-dark/30" />
+          ))}
+        </div>
+      ) : loading ? (
         <div className="divide-y divide-border-light overflow-hidden rounded-2xl border border-white/60 bg-card-light dark:divide-border-dark/30 dark:border-border-dark/30 dark:bg-card-dark/30" aria-busy="true">
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className="space-y-2 px-4 py-4">
@@ -438,15 +528,23 @@ const AssignmentsPage: React.FC = () => {
         )
       ) : (
         <>
-          <ul
-            aria-label="Assignments"
-            aria-busy={refreshing}
-            className="divide-y divide-border-light overflow-hidden rounded-2xl border border-white/60 bg-card-light shadow-sm dark:divide-border-dark/30 dark:border-border-dark/30 dark:bg-card-dark/30"
-          >
-            {items.map((a) => (
-              <AssignmentRow key={a.id} a={a} isStudent={isStudent} canManage={canManage} onStatus={handleStatus} />
-            ))}
-          </ul>
+          {view === "grid" ? (
+            <ul aria-label="Assignments" aria-busy={refreshing} className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {items.map((a) => (
+                <AssignmentCard key={a.id} a={a} isStudent={isStudent} canManage={canManage} onStatus={handleStatus} />
+              ))}
+            </ul>
+          ) : (
+            <ul
+              aria-label="Assignments"
+              aria-busy={refreshing}
+              className="divide-y divide-border-light overflow-hidden rounded-2xl border border-white/60 bg-card-light shadow-sm dark:divide-border-dark/30 dark:border-border-dark/30 dark:bg-card-dark/30"
+            >
+              {items.map((a) => (
+                <AssignmentRow key={a.id} a={a} isStudent={isStudent} canManage={canManage} onStatus={handleStatus} />
+              ))}
+            </ul>
+          )}
 
           <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-sm">
             <span className="text-text-secondary-light dark:text-text-secondary-dark">
