@@ -9,7 +9,7 @@ import {
   publishAssignment,
   getAssignmentSubmissions,
   getEnrolledAssignments,
-  getGroupedAssignments,
+  listAssignments,
   submitAssignment,
   gradeUnsubmittedStudent,
 } from "../controllers/assignment.controller";
@@ -27,8 +27,8 @@ router.use(protect);
 
 // Get enrolled assignments for students
 router.get("/enrolled", authorizePermission("ASSIGNMENTS_VIEW"), getEnrolledAssignments);
-// Assignments grouped by subject, role-scoped, paginated (redesigned /assignments page)
-router.get("/grouped", authorizePermission("ASSIGNMENTS_VIEW"), getGroupedAssignments);
+// One flat, role-scoped list, newest first (the /assignments page)
+router.get("/list", authorizePermission("ASSIGNMENTS_VIEW"), listAssignments);
 router.get("/", authorizePermission("ASSIGNMENTS_VIEW"), getAssignments);
 router.get("/:id", authorizePermission("ASSIGNMENTS_VIEW"), getAssignment);
 

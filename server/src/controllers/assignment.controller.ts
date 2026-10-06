@@ -5,6 +5,7 @@ import { Op } from "sequelize";
 import fileServer from "../utils/fileServer";
 import {
   generateUniqueFilename,
+  sanitizeKeepExtension,
   sanitizeWholeName,
 } from "../utils/uploadFilename";
 import {
@@ -23,6 +24,7 @@ import { canManageAssignment } from "../utils/ownership";
 import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
 import { cancelAssignment, syncAssignment } from "../services/reminderSync";
 import { assignmentStatusScope, isAssignmentStudentView, termScope } from "../utils/courseItemScope";
+import { STUDENT_STATES, studentAssignmentState, type StudentAssignmentState } from "../utils/assignmentListState";
 
 // This controller manages all assignment-related operations, including creation, retrieval, updating, deletion, and submission handling. It also integrates with the NGA MIS to fetch enrolled students and manage assignment visibility based on course enrollment. The controller ensures that only authorized users can perform certain actions (e.g., only instructors can create assignments) and that students can only see and submit assignments for courses they are enrolled in. It also handles file uploads for assignments and submissions, storing metadata in the database and files on disk.
 // @desc    Get assignments for a specific course
@@ -73,8 +75,13 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
         "submission_type",
         "status",
         "created_by",
+        "created_at",
       ],
-      order: [["due_date", "ASC"]],
+      // Newest first, the same as the Assignments page.
+      order: [
+        ["created_at", "DESC"],
+        ["id", "DESC"],
+      ],
     });
 
     res
@@ -133,232 +140,147 @@ export const getAssignments = async (req: Request, res: Response) => {
   }
 };
 
-// @desc    Assignments grouped by subject, scoped by role, paginated by subject.
-//          Backs the redesigned /assignments page.
-// @route   GET /api/assignments/grouped
+// @desc    One flat list of the caller's assignments, newest first, with search,
+//          subject and status filters. Backs the /assignments page.
+//          status: staff filter by stored status (draft/published/completed/
+//          removed; default everything but removed); students by their own
+//          state (todo/submitted/graded/missed -- utils/assignmentListState).
+// @route   GET /api/assignments/list
 // @access  Private (ASSIGNMENTS_VIEW)
-export const getGroupedAssignments = async (req: Request, res: Response) => {
+export const listAssignments = async (req: Request, res: Response) => {
   try {
     const page = Math.max(1, parseInt(String(req.query.page ?? "1"), 10) || 1);
-    const pageSize = Math.min(
-      24,
-      Math.max(1, parseInt(String(req.query.pageSize ?? "8"), 10) || 8),
-    );
+    const pageSize = Math.min(50, Math.max(1, parseInt(String(req.query.pageSize ?? "20"), 10) || 20));
     const search = String(req.query.search ?? "").trim().toLowerCase();
     const statusFilter = String(req.query.status ?? "").trim();
-    const subjectIdParam = req.query.subjectId
-      ? Number(req.query.subjectId)
-      : null;
+    const subjectIdParam = req.query.subjectId ? Number(req.query.subjectId) : null;
 
     const { scope, subjects } = await getScopedSubjects(req);
-
     if (scope === "none") {
-      return res
-        .status(403)
-        .json({ success: false, message: "Not authorized to view assignments" });
-    }
-
-    let visibleSubjects = subjects;
-    if (subjectIdParam != null && !isNaN(subjectIdParam)) {
-      visibleSubjects = visibleSubjects.filter((s) => s.id === subjectIdParam);
+      return res.status(403).json({ success: false, message: "Not authorized to view assignments" });
     }
 
     const isStudent = !req.user.permissions?.has("ASSIGNMENTS_VIEW_SUBMISSIONS");
-    const canManage = req.user.permissions?.has("ASSIGNMENTS_CREATE");
+    const canManage = !!req.user.permissions?.has("ASSIGNMENTS_CREATE");
+    const subjectById = new Map(subjects.map((s) => [s.id, s]));
+
+    let visibleIds = subjects.map((s) => s.id);
+    if (subjectIdParam != null && !isNaN(subjectIdParam)) {
+      visibleIds = visibleIds.filter((id) => id === subjectIdParam);
+    }
 
     const termId = await getCurrentTermId(req);
-    const termWhere = termId
-      ? {
-          [Op.or]: [
-            { academic_term_id: termId },
-            { academic_term_id: null },
-          ],
-        }
-      : {};
-
-    // Status scoping: students only ever see published/completed; managers may
-    // filter, and by default see everything except hard-removed unless they ask.
-    let statusWhere: any = {};
+    const where: any = {
+      course_id: { [Op.in]: visibleIds },
+      ...(termId ? { [Op.or]: [{ academic_term_id: termId }, { academic_term_id: null }] } : {}),
+    };
     if (isStudent) {
-      statusWhere = { status: { [Op.in]: ["published", "completed"] } };
-    } else if (
-      ["draft", "published", "completed", "removed"].includes(statusFilter)
-    ) {
-      statusWhere = { status: statusFilter };
+      where.status = { [Op.in]: ["published", "completed"] };
+    } else if (["draft", "published", "completed", "removed"].includes(statusFilter)) {
+      where.status = statusFilter;
     } else {
-      statusWhere = { status: { [Op.ne]: "removed" } };
+      where.status = { [Op.ne]: "removed" };
     }
-
-    // Search keeps a subject if its name/code matches OR it has an assignment
-    // whose title matches — so searching a task name doesn't hide its subject.
+    // Search matches the title, or the subject's name/code.
     if (search) {
-      const nameMatch = new Set(
-        visibleSubjects
-          .filter(
-            (s) =>
-              s.name.toLowerCase().includes(search) ||
-              (s.code ?? "").toLowerCase().includes(search),
-          )
-          .map((s) => s.id),
-      );
-      let titleMatch = new Set<number>();
-      if (visibleSubjects.length > 0) {
-        const rows = (await Assignment.findAll({
-          where: {
-            course_id: { [Op.in]: visibleSubjects.map((s) => s.id) },
-            title: { [Op.like]: `%${search}%` },
-            ...termWhere,
-            ...statusWhere,
-          },
-          attributes: ["course_id"],
-          group: ["course_id"],
-          raw: true,
-        })) as any[];
-        titleMatch = new Set(rows.map((r) => Number(r.course_id)));
-      }
-      visibleSubjects = visibleSubjects.filter(
-        (s) => nameMatch.has(s.id) || titleMatch.has(s.id),
-      );
-    }
-
-    // When searching, the assignment lists + counts also narrow to title
-    // matches, so a subject section's badge and its rows stay consistent.
-    const searchWhere: any = search ? { title: { [Op.like]: `%${search}%` } } : {};
-
-    // Per-subject assignment counts across ALL visible subjects (cheap, for totals
-    // + the section badges even on pages we don't hydrate).
-    const countRows: Array<{ course_id: number; n: number }> =
-      visibleSubjects.length > 0
-        ? ((await Assignment.findAll({
-            where: {
-              course_id: { [Op.in]: visibleSubjects.map((s) => s.id) },
-              ...termWhere,
-              ...statusWhere,
-              ...searchWhere,
-            },
-            attributes: [
-              "course_id",
-              [Assignment.sequelize!.fn("COUNT", Assignment.sequelize!.col("id")), "n"],
-            ],
-            group: ["course_id"],
-            raw: true,
-          })) as any)
-        : [];
-    const countBySubject = new Map<number, number>(
-      countRows.map((r) => [Number(r.course_id), Number(r.n)]),
-    );
-
-    const totalAssignments = [...countBySubject.values()].reduce((a, b) => a + b, 0);
-    const totalSubjects = visibleSubjects.length;
-    const totalPages = Math.max(1, Math.ceil(totalSubjects / pageSize));
-    const pageSubjects = visibleSubjects.slice(
-      (page - 1) * pageSize,
-      page * pageSize,
-    );
-
-    const PER_SUBJECT_CAP = 25;
-
-    const assignmentsBySubject = new Map<number, any[]>();
-    if (pageSubjects.length > 0) {
-      const rows = await Assignment.findAll({
-        where: {
-          course_id: { [Op.in]: pageSubjects.map((s) => s.id) },
-          ...termWhere,
-          ...statusWhere,
-          ...searchWhere,
-        },
-        include: [
-          { model: User, as: "creator", attributes: ["id", "first_name", "last_name"] },
-          {
-            model: Submission,
-            as: "submissions",
-            required: false,
-            where: isStudent ? { student_id: req.user.id } : undefined,
-            attributes: ["id", "student_id", "grade", "status"],
-          },
-        ],
-        attributes: [
-          "id",
-          "title",
-          "due_date",
-          "max_score",
-          "submission_type",
-          "status",
-          "course_id",
-          "created_by",
-        ],
-        order: [["due_date", "ASC"]],
+      const subjectMatches = visibleIds.filter((id) => {
+        const s = subjectById.get(id)!;
+        return s.name.toLowerCase().includes(search) || (s.code ?? "").toLowerCase().includes(search);
       });
-
-      for (const a of rows) {
-        const list = assignmentsBySubject.get(a.course_id!) ?? [];
-        const subs: any[] = (a as any).submissions ?? [];
-        const base = {
-          id: a.id,
-          title: a.title,
-          due_date: a.due_date,
-          max_score: a.max_score,
-          submission_type: a.submission_type,
-          status: a.status,
-          course_id: a.course_id,
-          creator: (a as any).creator ?? null,
-          created_by: a.created_by,
-          can_manage: canManageAssignment(req.user, a),
-        };
-        if (isStudent) {
-          const mine = subs[0] ?? null;
-          list.push({
-            ...base,
-            my_submission: mine
-              ? { status: mine.status, grade: mine.grade ?? null }
-              : null,
-          });
-        } else {
-          list.push({
-            ...base,
-            submission_count: subs.length,
-            graded_count: subs.filter(
-              (s) => s.grade !== null && s.grade !== undefined && s.grade !== "",
-            ).length,
-          });
-        }
-        assignmentsBySubject.set(a.course_id!, list);
-      }
+      where[Op.and] = [{ [Op.or]: [{ title: { [Op.like]: `%${search}%` } }, { course_id: { [Op.in]: subjectMatches } }] }];
     }
 
-    const data = pageSubjects.map((s) => {
-      const all = assignmentsBySubject.get(s.id) ?? [];
-      const capped = all.slice(0, PER_SUBJECT_CAP);
-      return {
-        subject_id: s.id,
-        subject_name: s.name,
-        subject_code: s.code,
-        assignment_count: countBySubject.get(s.id) ?? all.length,
-        published_count: all.filter((a) => a.status === "published").length,
-        draft_count: all.filter((a) => a.status === "draft").length,
-        has_more: all.length > PER_SUBJECT_CAP,
-        assignments: capped,
-      };
+    // Bounded by term and scope; ordering and paging happen on the whole set so
+    // the student's own-state filter and its counts agree with the rows.
+    const rows =
+      visibleIds.length === 0
+        ? []
+        : await Assignment.findAll({
+            where,
+            include: [{ model: User, as: "creator", attributes: ["id", "first_name", "last_name"] }],
+            attributes: ["id", "title", "due_date", "max_score", "submission_type", "status", "course_id", "created_by", "created_at"],
+            order: [
+              ["created_at", "DESC"],
+              ["id", "DESC"],
+            ],
+          });
+
+    const subjectOf = (a: Assignment) => {
+      const s = subjectById.get(a.course_id!);
+      return { subject_name: s?.name ?? "", subject_code: s?.code ?? null };
+    };
+    const baseOf = (a: Assignment) => ({
+      id: a.id,
+      title: a.title,
+      due_date: a.due_date,
+      created_at: (a as any).created_at ?? null,
+      max_score: a.max_score,
+      submission_type: a.submission_type,
+      status: a.status,
+      course_id: a.course_id,
+      ...subjectOf(a),
+      creator: (a as any).creator ?? null,
+      created_by: a.created_by,
+      can_manage: canManageAssignment(req.user, a),
     });
+
+    let items: any[];
+    let counts: Record<string, number>;
+    if (isStudent) {
+      const mine = rows.length
+        ? await Submission.findAll({
+            where: { assignment_id: { [Op.in]: rows.map((a) => a.id) }, student_id: req.user.id },
+            attributes: ["assignment_id", "status", "grade"],
+          })
+        : [];
+      const byAssignment = new Map(mine.map((s: any) => [s.assignment_id, s]));
+      const now = new Date();
+      const all = rows.map((a) => {
+        const sub: any = byAssignment.get(a.id) ?? null;
+        return {
+          ...baseOf(a),
+          my_state: studentAssignmentState(a, sub, now),
+          my_submission: sub && sub.status !== "draft" ? { status: sub.status, grade: sub.grade ?? null } : null,
+        };
+      });
+      counts = Object.fromEntries(STUDENT_STATES.map((st) => [st, all.filter((x) => x.my_state === st).length]));
+      items = STUDENT_STATES.includes(statusFilter as StudentAssignmentState) ? all.filter((x) => x.my_state === statusFilter) : all;
+    } else {
+      items = rows.map(baseOf);
+      counts = {};
+    }
+
+    const total = items.length;
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const pageItems = items.slice((page - 1) * pageSize, page * pageSize);
+
+    // Staff see hand-in progress; counted for this page only.
+    if (!isStudent && pageItems.length) {
+      const subs = (await Submission.findAll({
+        where: { assignment_id: { [Op.in]: pageItems.map((a) => a.id) } },
+        attributes: ["assignment_id", "grade"],
+        raw: true,
+      })) as any[];
+      for (const item of pageItems) {
+        const own = subs.filter((s) => s.assignment_id === item.id);
+        item.submission_count = own.length;
+        item.graded_count = own.filter((s) => s.grade != null && s.grade !== "").length;
+      }
+    }
 
     return res.status(200).json({
       success: true,
       data: {
         scope,
-        can_manage: !!canManage,
-        subjects: data,
-        // The full scoped subject list (for the subject-filter dropdown)
-        all_subjects: subjects.map((s) => ({
-          id: s.id,
-          name: s.name,
-          code: s.code,
-        })),
-        totals: { subjects: totalSubjects, assignments: totalAssignments },
-        pagination: { page, page_size: pageSize, total_pages: totalPages },
+        can_manage: canManage,
+        items: pageItems,
+        counts,
+        subjects: subjects.map((s) => ({ id: s.id, name: s.name, code: s.code })),
+        pagination: { page, page_size: pageSize, total, total_pages: totalPages },
       },
     });
   } catch (error) {
-    console.error("Get grouped assignments error:", error);
+    console.error("List assignments error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -374,6 +296,19 @@ export const getAssignment = async (req: Request, res: Response) => {
       return res
         .status(404)
         .json({ success: false, message: "Assignment not found" });
+    }
+
+    // A student reads only what the lists would show them: published or
+    // completed work in a subject they're enrolled in. Anything else is "not
+    // found", so a guessed id can't open a draft or another class's work.
+    if (isAssignmentStudentView(req)) {
+      const { scope, subjects } = await getScopedSubjects(req);
+      const visible =
+        ["published", "completed"].includes(assignment.status) &&
+        (scope === "all" || subjects.some((s) => s.id === assignment.course_id));
+      if (!visible) {
+        return res.status(404).json({ success: false, message: "Assignment not found" });
+      }
     }
 
     // can_manage drives the edit / status controls on the detail page;
@@ -1243,24 +1178,41 @@ export const submitAssignment = async (req: Request, res: Response) => {
       });
     }
 
-    // 7. Validate submission content
+    // 7. Validate submission content. Uploads are held in memory
+    // (middleware/submissionUpload: memoryStorage, so there is no file.path)
+    // and stored on the shared file-server here, as updateSubmission does.
     const text_submission = req.body.text_submission;
-    const file_submission = (req as any).file?.path;
+    const file = (req as any).file as Express.Multer.File | undefined;
 
-    console.log("Submission validation:", {
-      text_submission,
-      file_submission,
-      hasText: !!text_submission,
-      hasFile: !!file_submission,
-      reqFile: (req as any).file,
-      reqBody: req.body,
-    });
-
-    if (!text_submission && !file_submission) {
+    if (!text_submission && !file) {
       return res.status(400).json({
         success: false,
         message: "Please provide either text submission or file submission.",
       });
+    }
+    // The Submission model enforces the assignment's type; say so plainly
+    // here instead of letting its hook surface as a 500.
+    const type = assignment.submission_type;
+    if ((type === "text" || type === "both") && !String(text_submission ?? "").trim()) {
+      return res.status(400).json({ success: false, message: "This assignment needs a written answer." });
+    }
+    if ((type === "file" || type === "both") && !file) {
+      return res.status(400).json({ success: false, message: "This assignment needs a file." });
+    }
+
+    let file_submissions = null;
+    if (file) {
+      const filename = generateUniqueFilename("submission", file.originalname, sanitizeKeepExtension);
+      await fileServer.uploadFile(file.buffer, `submissions/${filename}`);
+      file_submissions = [
+        {
+          filename,
+          originalname: file.originalname,
+          path: `submissions/${filename}`,
+          size: file.size,
+          mimetype: file.mimetype || "application/octet-stream",
+        },
+      ];
     }
 
     // Create submission
@@ -1268,24 +1220,7 @@ export const submitAssignment = async (req: Request, res: Response) => {
       assignment_id: parseInt(id),
       student_id: req.user.id,
       text_submission: text_submission || null,
-      file_submissions: file_submission
-        ? [
-            {
-              filename:
-                (req as any).file?.originalname ||
-                file_submission.split("/").pop() ||
-                "submission",
-              originalname:
-                (req as any).file?.originalname ||
-                file_submission.split("/").pop() ||
-                "submission",
-              path: file_submission,
-              size: (req as any).file?.size || 0,
-              mimetype:
-                (req as any).file?.mimetype || "application/octet-stream",
-            },
-          ]
-        : null,
+      file_submissions,
       status: "submitted",
       submitted_at: new Date(),
       is_late: isPastDate(assignment.due_date),
