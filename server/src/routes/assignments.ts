@@ -16,10 +16,11 @@ import {
 import { protect, authorizePermission, isCourseInstructor } from "../middleware/auth";
 import { intOrNull, trackOnSuccess } from "../activity/keyEvents";
 import { timezoneMiddleware } from "../utils/dateUtils";
-import { uploadAssignmentAttachment } from "../middleware/assignmentUpload";
+import { assignmentAttachments } from "../middleware/assignmentUpload";
 import { uploadSubmission } from "../middleware/submissionUpload";
-
-// Configure multer for file uploads
+import { validateBody } from "../middleware/validation.middleware";
+import { generateRubricSchema } from "../validations/assignmentAi.validation";
+import { generateAssignmentRubric } from "../controllers/assignmentAi.controller";
 
 const router = Router();
 
@@ -33,11 +34,19 @@ router.get("/grouped", authorizePermission("ASSIGNMENTS_VIEW"), getGroupedAssign
 router.get("/", authorizePermission("ASSIGNMENTS_VIEW"), getAssignments);
 router.get("/:id", authorizePermission("ASSIGNMENTS_VIEW"), getAssignment);
 
+// AI rubric from the (unsaved) description — nothing is stored.
+router.post(
+  "/ai/rubric",
+  authorizePermission("ASSIGNMENTS_CREATE", "ASSIGNMENTS_EDIT"),
+  validateBody(generateRubricSchema),
+  generateAssignmentRubric,
+);
+
 // Instructor and admin routes - these should be for general assignment operations
 router.post(
   "/",
   authorizePermission("ASSIGNMENTS_CREATE"),
-  uploadAssignmentAttachment.any(),
+  assignmentAttachments,
   timezoneMiddleware(["due_date"]),
   createAssignment,
 );
@@ -48,7 +57,7 @@ router
   .put(
     authorizePermission("ASSIGNMENTS_EDIT"),
     isCourseInstructor,
-    uploadAssignmentAttachment.any(),
+    assignmentAttachments,
     timezoneMiddleware(["due_date"]),
     updateAssignment,
   )

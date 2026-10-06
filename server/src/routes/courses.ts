@@ -16,7 +16,7 @@ import {
 } from "../controllers/assignment.controller";
 import { getQuizzes, createQuiz } from "../controllers/quiz.controller";
 import { timezoneMiddleware } from "../utils/dateUtils";
-import { uploadAssignmentAttachment } from "../middleware/assignmentUpload";
+import { assignmentAttachments } from "../middleware/assignmentUpload";
 
 import { protect, authorizePermission } from "../middleware/auth";
 import { requireMisToken } from "../middleware/misAuth";
@@ -59,7 +59,7 @@ router
   .get(authorizePermission("ASSIGNMENTS_VIEW"), getCourseAssignments)
   .post(
     authorizePermission("ASSIGNMENTS_CREATE"),
-    uploadAssignmentAttachment.any(),
+    assignmentAttachments,
     timezoneMiddleware(["due_date"]),
     createAssignment,
   );

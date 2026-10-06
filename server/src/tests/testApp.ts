@@ -18,6 +18,7 @@ import questionBankHubRoutes from "../routes/questionBankHub";
 import rankingRoutes from "../routes/rankings";
 import questionBankRoutes from "../routes/questionBank";
 import dashboardRoutes from "../routes/dashboard";
+import mediaRoutes from "../routes/media";
 import tmcodeRoutes from "../routes/tmcode";
 
 /**
@@ -47,6 +48,7 @@ export function buildTestApp() {
   app.use("/api/rankings", rankingRoutes);
   app.use("/api/courses/:courseId/question-bank", questionBankRoutes);
   app.use("/api/dashboard", dashboardRoutes);
+  app.use("/api/media", mediaRoutes);
   return app;
 }
 
