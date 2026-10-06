@@ -132,7 +132,7 @@ const LinksTab: React.FC<{
                     </p>
                     <p className="flex flex-wrap items-center gap-x-2 text-[11px] text-slate-500 dark:text-slate-400">
                       <span>{ACTIVITY_TYPE_LABEL[l.activity_type]}</span>
-                      {l.course && <span>· {l.course.code ? `${l.course.code} — ` : ""}{l.course.title}</span>}
+                      {l.course?.title && <span>· {l.course.code ? `${l.course.code} — ` : ""}{l.course.title}</span>}
                       {l.status === "submitted" && l.submitted_at ? (
                         <span>· submitted {formatDateTime(l.submitted_at)}</span>
                       ) : l.due_date ? (
@@ -260,7 +260,7 @@ export const LinkActivityDialog: React.FC<{
       (a) =>
         !taken.has(keyOf(a)) &&
         (!type || a.activity_type === type) &&
-        (!q || a.title.toLowerCase().includes(q) || a.course?.title.toLowerCase().includes(q) || a.course?.code?.toLowerCase().includes(q)),
+        (!q || a.title.toLowerCase().includes(q) || !!a.course?.title?.toLowerCase().includes(q) || !!a.course?.code?.toLowerCase().includes(q)),
     );
   }, [items, query, type, taken]);
 
@@ -371,7 +371,7 @@ export const LinkActivityDialog: React.FC<{
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{a.title}</span>
                     <span className="block truncate text-[11px] text-slate-500 dark:text-slate-400">
-                      {a.course ? `${a.course.code ? `${a.course.code} — ` : ""}${a.course.title}` : ACTIVITY_TYPE_LABEL[a.activity_type]}
+                      {a.course?.title ? `${a.course.code ? `${a.course.code} — ` : ""}${a.course.title}` : ACTIVITY_TYPE_LABEL[a.activity_type]}
                       {a.due_date ? ` · due ${formatDateTime(a.due_date)}` : ""}
                     </span>
                   </span>

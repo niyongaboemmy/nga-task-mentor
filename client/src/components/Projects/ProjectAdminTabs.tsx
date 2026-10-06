@@ -205,6 +205,7 @@ export const SettingsTab: React.FC<{
     setVisibility(project.visibility);
   }, [project.name, project.description, project.visibility]);
 
+  const submitted = project.links.some((l) => l.status === "submitted");
   const dirty = name.trim() !== project.name || description.trim() !== (project.description ?? "") || visibility !== project.visibility;
 
   const save = async (e: React.FormEvent) => {
@@ -299,13 +300,16 @@ export const SettingsTab: React.FC<{
         </div>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-orange-200/70 pt-3 dark:border-orange-900/40">
           <p className="max-w-md text-sm text-slate-600 dark:text-slate-300">
-            Delete the project and every revision for good.{" "}
-            {project.links.some((l) => l.status === "submitted") && "Submitted versions stay with the activities they were submitted to."}
+            {submitted
+              ? "This project was submitted to an activity, so it can't be deleted. Archive it instead."
+              : "Delete the project and every revision for good."}
           </p>
           <button
             type="button"
             onClick={() => setDeleteOpen(true)}
-            className="inline-flex items-center gap-1.5 rounded-xl bg-orange-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-orange-500"
+            disabled={submitted}
+            title={submitted ? "Submitted projects can't be deleted. Archive it instead." : undefined}
+            className="inline-flex items-center gap-1.5 rounded-xl bg-orange-600 px-3.5 py-2 text-sm font-semibold text-white hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" aria-hidden="true" /> Delete project
           </button>

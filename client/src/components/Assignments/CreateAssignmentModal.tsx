@@ -341,10 +341,11 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
                       <option value="both">📁 File & ✍️ Text</option>
                       <option value="file">📁 File Only</option>
                       <option value="text">✍️ Text Only</option>
+                      <option value="project">💻 TMCode Project</option>
                     </select>
                   </div>
 
-                  {formData.submission_type !== "text" && (
+                  {!["text", "project"].includes(formData.submission_type) && (
                     <div className="md:col-span-2">
                       <label className="block text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark mb-1">
                         Allowed File Types (comma-separated)
@@ -542,7 +543,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({
           <FileDropzone
             onFilesSelected={(updatedFiles: File[]) => setFiles(updatedFiles)}
             allowedTypes={
-              formData.submission_type !== "text"
+              !["text", "project"].includes(formData.submission_type)
                 ? formData.allowed_file_types
                 : ""
             }

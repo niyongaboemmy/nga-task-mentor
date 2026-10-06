@@ -102,7 +102,8 @@ export const GitTab: React.FC<{
 }> = ({ git, repoUrl, defaultBranch, events }) => {
   const pushes = useMemo(() => {
     if (git?.pushes?.length) return git.pushes;
-    return events
+    // The server keeps the last push on the project and each push as a `pushed` event.
+    const fromEvents = events
       .filter((e) => e.type === "pushed")
       .map((e) => ({
         commit: String(e.data?.commit ?? ""),
@@ -110,6 +111,8 @@ export const GitTab: React.FC<{
         at: e.created_at,
         user: e.user ?? null,
       }));
+    const last = git?.last_push;
+    return last && !fromEvents.some((p) => p.commit === last.commit) ? [last, ...fromEvents] : fromEvents;
   }, [git, events]);
 
   return (
@@ -197,25 +200,38 @@ const GitStat: React.FC<{ label: string; value: string; icon: React.ReactNode; m
 
 // ─── Activity timeline ────────────────────────────────────────────────────────
 
+const activityTitle = (e: ProjectEvent): string =>
+  String(e.data?.title ?? e.data?.activity_title ?? "an activity");
+
 const EVENT_META: Record<string, { icon: React.ElementType; color: string; text: (e: ProjectEvent) => string }> = {
   created: { icon: Sparkles, color: "text-violet-500", text: () => "created the project" },
   saved: {
     icon: Save,
     color: "text-blue-500",
-    text: (e) => `saved revision #${e.data?.number ?? e.data?.revision_number ?? "?"}${e.data?.message ? ` — “${e.data.message}”` : ""}`,
+    text: (e) =>
+      `${e.data?.source === "auto" ? "auto-saved" : "saved"} revision #${e.data?.number ?? e.data?.revision_number ?? "?"}${
+        e.data?.file_count ? ` (${e.data.file_count} files)` : ""
+      }${e.data?.message ? ` — “${e.data.message}”` : ""}`,
   },
   pushed: {
     icon: UploadCloud,
     color: "text-emerald-500",
     text: (e) => `pushed ${shortSha(e.data?.commit as string | undefined)}${e.data?.message ? ` — “${e.data.message}”` : ""}`,
   },
-  opened: { icon: MonitorUp, color: "text-sky-500", text: (e) => `opened it in TMCode${e.data?.device_name ? ` on ${e.data.device_name}` : ""}` },
-  linked: { icon: Link2, color: "text-blue-500", text: (e) => `linked it to ${e.data?.activity_title ?? "an activity"}` },
-  unlinked: { icon: Link2, color: "text-slate-400", text: (e) => `unlinked ${e.data?.activity_title ?? "an activity"}` },
+  opened: {
+    icon: MonitorUp,
+    color: "text-sky-500",
+    text: (e) => `opened it in TMCode${e.data?.device_name ? ` on ${e.data.device_name}` : ""}${e.data?.file ? ` (${e.data.file})` : ""}`,
+  },
+  linked: { icon: Link2, color: "text-blue-500", text: (e) => `linked it to ${activityTitle(e)}` },
+  unlinked: { icon: Link2, color: "text-slate-400", text: (e) => `unlinked ${activityTitle(e)}` },
   submitted: {
     icon: Send,
     color: "text-emerald-600",
-    text: (e) => `submitted it to ${e.data?.activity_title ?? "an activity"}${e.data?.revision_number ? ` (revision #${e.data.revision_number})` : ""}`,
+    text: (e) =>
+      `submitted it to ${activityTitle(e)}${
+        e.data?.revision_number ? ` (revision #${e.data.revision_number})` : e.data?.git_commit ? ` (${shortSha(e.data.git_commit as string)})` : ""
+      }`,
   },
   member_added: { icon: UserPlus, color: "text-violet-500", text: (e) => `added ${e.data?.name ?? e.data?.github_username ?? "a member"}` },
   member_removed: { icon: UserMinus, color: "text-orange-500", text: (e) => `removed ${e.data?.name ?? "a member"}` },

@@ -3,7 +3,9 @@ import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { BookOpen, FileCode2, GitBranch, Play, Radio, Search, TriangleAlert, Users } from "lucide-react";
 import { useEventSource } from "../hooks/useEventSource";
+import { useCourseNames } from "../hooks/useCourseNames";
 import {
+  courseLabel,
   isPresenceLive,
   monitorLiveUrl,
   normalizeMonitorEntry,
@@ -35,8 +37,16 @@ const ProjectMonitorPage: React.FC = () => {
   const [course, setCourse] = useState("");
   const [language, setLanguage] = useState("");
   const [stateFilter, setStateFilter] = useState<StateFilter>("open");
+  const courseNames = useCourseNames();
 
   const live = useEventSource(monitorLiveUrl(), {
+    // `hello {scope, course_ids, online: MonitorEntry[]}` opens every stream.
+    hello: (data) => {
+      const rows: unknown[] = Array.isArray(data?.online) ? data.online : Array.isArray(data) ? data : [];
+      setEntries(new Map(rows.map(normalizeMonitorEntry).map((e) => [entryKey(e), e])));
+      setReceived(true);
+      setNow(Date.now());
+    },
     snapshot: (data) => {
       const rows: unknown[] = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : Array.isArray(data?.presence) ? data.presence : [];
       setEntries(new Map(rows.map(normalizeMonitorEntry).map((e) => [entryKey(e), e])));
@@ -53,6 +63,8 @@ const ProjectMonitorPage: React.FC = () => {
           ...e,
           user: e.user ?? old?.user ?? null,
           project: e.project.name !== "Untitled project" || !old ? e.project : old.project,
+          // A stale device arrives once with online:false; keep what it was doing.
+          state: e.online === false && old ? { ...old.state, open: false } : e.state,
           courses: e.courses.length ? e.courses : (old?.courses ?? []),
         });
         return next;
@@ -80,9 +92,9 @@ const ProjectMonitorPage: React.FC = () => {
 
   const courses = useMemo(() => {
     const map = new Map<string, string>();
-    all.forEach((e) => e.courses.forEach((c) => map.set(String(c.id), c.code ? `${c.code} — ${c.title}` : c.title)));
+    all.forEach((e) => e.courses.forEach((c) => map.set(String(c.id), courseLabel(c, courseNames))));
     return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [all]);
+  }, [all, courseNames]);
   const languages = useMemo(() => [...new Set(all.map((e) => e.project.language).filter((l): l is string => !!l))].sort(), [all]);
 
   const filtered = useMemo(() => {
@@ -106,7 +118,7 @@ const ProjectMonitorPage: React.FC = () => {
       list.forEach((c) => {
         if (course && course !== NO_COURSE && c && String(c.id) !== course) return;
         const key = c ? String(c.id) : NO_COURSE;
-        const label = c ? (c.code ? `${c.code} — ${c.title}` : c.title) : "No course";
+        const label = c ? courseLabel(c, courseNames) : "No course";
         const g = map.get(key) ?? { label, rows: [] };
         g.rows.push(e);
         map.set(key, g);
@@ -119,7 +131,7 @@ const ProjectMonitorPage: React.FC = () => {
         rows: g.rows.sort((a, b) => Number(isPresenceLive(b, now)) - Number(isPresenceLive(a, now)) || (a.user?.name ?? "").localeCompare(b.user?.name ?? "")),
       }))
       .sort((a, b) => (a.key === NO_COURSE ? 1 : b.key === NO_COURSE ? -1 : a.label.localeCompare(b.label)));
-  }, [filtered, course, now]);
+  }, [filtered, course, now, courseNames]);
 
   const openNow = all.filter((e) => isPresenceLive(e, now));
   const students = new Set(openNow.map((e) => e.user_id)).size;

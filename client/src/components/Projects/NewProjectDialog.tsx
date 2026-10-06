@@ -5,7 +5,6 @@ import {
   apiErrorMessage,
   projectsApi,
   type ProjectKind,
-  type ProjectSummary,
   type ProjectVisibility,
 } from "../../services/projectsApi";
 import { isGithubRepoUrl, LANGUAGE_CHOICES } from "./projectFormat";
@@ -21,7 +20,7 @@ const labelCls = "mb-1.5 block text-xs font-semibold text-slate-700 dark:text-sl
 const NewProjectDialog: React.FC<{
   open: boolean;
   onClose: () => void;
-  onCreated: (project: ProjectSummary) => void;
+  onCreated: (project: { id: number; name: string }) => void;
 }> = ({ open, onClose, onCreated }) => {
   const id = useId();
   const [kind, setKind] = useState<ProjectKind>("tm");

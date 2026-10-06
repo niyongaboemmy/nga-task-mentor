@@ -19,10 +19,11 @@ import {
   normalizeEvent,
   normalizeLink,
   normalizePresence,
+  normalizeProject,
   normalizeRevision,
+  summarizePresence,
   projectsApi,
   projectsLiveUrl,
-  type GitState,
   type ProjectDetail,
   type ProjectPresence,
   type RevisionSummary,
@@ -37,6 +38,7 @@ import { ActivityTimeline, GitTab, RevisionsTab } from "../components/Projects/H
 import LinksTab from "../components/Projects/LinksTab";
 import { MembersTab, SettingsTab } from "../components/Projects/ProjectAdminTabs";
 import { formatBytes, timeAgo } from "../components/Projects/projectFormat";
+import { toast } from "react-toastify";
 
 /**
  * /projects/:id — one project (PROJECTS_PLAN.md §5): header with Open in
@@ -106,17 +108,34 @@ const ProjectDetailPage: React.FC = () => {
 
   // ── Live updates (SSE) ──
   const patch = (fn: (p: ProjectDetail) => ProjectDetail) => setProject((p) => (p ? fn(p) : p));
+  // Server events (PROJECTS_API.md "Live streams"): hello, presence, revision,
+  // event, git, project, deleted.
+  const withPresence = (p: ProjectDetail, presence: ProjectPresence[]): ProjectDetail => ({
+    ...p,
+    presence,
+    presence_summary: summarizePresence(presence),
+  });
   const live = useEventSource(project ? projectsLiveUrl(projectId) : null, {
+    hello: (data) => {
+      const list = Array.isArray(data?.presence) ? data.presence.map(normalizePresence) : null;
+      const head = data?.head ? normalizeRevision(data.head) : undefined;
+      patch((p) => ({
+        ...(list ? withPresence(p, list) : p),
+        ...(head !== undefined ? { head } : {}),
+        ...(data?.git !== undefined ? { git: normalizeProject({ git: data.git }).git } : {}),
+      }));
+      setNow(Date.now());
+    },
     snapshot: (data) => {
       const list = Array.isArray(data?.presence) ? data.presence : Array.isArray(data) ? data : [];
-      patch((p) => ({ ...p, presence: list.map(normalizePresence) }));
+      patch((p) => withPresence(p, list.map(normalizePresence)));
       setNow(Date.now());
     },
     presence: (data) => {
       const row = normalizePresence(data);
       patch((p) => {
         const others = p.presence.filter((x) => presenceKey(x) !== presenceKey(row));
-        return { ...p, presence: [...others, row], last_activity_at: row.last_seen_at };
+        return { ...withPresence(p, [...others, row]), last_activity_at: row.last_seen_at };
       });
       setNow(Date.now());
     },
@@ -139,7 +158,7 @@ const ProjectDetailPage: React.FC = () => {
         events: [ev, ...p.events.filter((e) => !(e.id && e.id === ev.id))].slice(0, 100),
       }));
     },
-    git: (data) => patch((p) => ({ ...p, git: { ...(p.git ?? {}), ...(data as GitState) } })),
+    git: (data) => patch((p) => ({ ...p, git: normalizeProject({ git: data?.git ?? data }).git })),
     link: (data) => {
       const link = normalizeLink(data);
       patch((p) => ({
@@ -149,13 +168,32 @@ const ProjectDetailPage: React.FC = () => {
           : [...p.links, link],
       }));
     },
-    project: (data) => patch((p) => ({ ...p, ...(data ?? {}), links: p.links, members: p.members, events: p.events, presence: p.presence })),
+    project: (data) => {
+      const core = normalizeProject(data);
+      patch((p) => ({
+        ...p,
+        name: core.name,
+        description: core.description,
+        language: core.language,
+        visibility: core.visibility,
+        archived_at: core.archived_at,
+        size_bytes: core.size_bytes,
+        file_count: core.file_count,
+        git: core.git ?? p.git,
+        last_activity_at: core.last_activity_at ?? p.last_activity_at,
+        updated_at: core.updated_at,
+      }));
+    },
+    deleted: () => {
+      toast.info("This project was deleted.");
+      navigate("/projects", { replace: true });
+    },
   });
 
   // ── Tabs ──
   const tabs = useMemo(() => {
     if (!project) return [];
-    const owner = project.my_role === "owner";
+    const owner = project.can.edit;
     const list: { id: TabId; label: string; icon: React.ElementType; count?: number }[] = [];
     if (project.kind === "tm") {
       list.push({ id: "files", label: "Files", icon: FileCode2 });
@@ -216,8 +254,9 @@ const ProjectDetailPage: React.FC = () => {
 
   if (!project) return <DetailSkeleton />;
 
-  const owner = project.my_role === "owner";
-  const readOnly = !project.my_role;
+  const owner = project.can.edit;
+  // Admins (VIEW_ALL) and teachers (MONITOR) read other people's projects.
+  const readOnly = !project.my_role || project.my_role === "admin" || project.my_role === "teacher";
 
   return (
     <div className="mx-auto max-w-8xl space-y-4">
@@ -245,7 +284,7 @@ const ProjectDetailPage: React.FC = () => {
           {project.description && <p className="max-w-3xl text-sm text-slate-600 dark:text-slate-300">{project.description}</p>}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
             <LanguageBadge language={project.language} />
-            {!owner && <span>by {project.owner.name}</span>}
+            {project.my_role !== "owner" && <span>by {project.owner.name}</span>}
             {project.kind === "tm" ? (
               <span>
                 {project.head ? `Revision #${project.head.number}` : "No revisions yet"} · {project.file_count} files · {formatBytes(project.size_bytes)}

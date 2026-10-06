@@ -125,9 +125,9 @@ const FilesTab: React.FC<{
     setContentError(null);
     projectsApi
       .fileContent(projectId, selectedFile.path, effectiveRev)
-      .then((text) => {
+      .then(({ text, binary }) => {
         if (cancelled) return;
-        if (text.includes("\u0000")) {
+        if (binary) {
           setContent(null);
           setContentError("This is a binary file; it can't be shown as text.");
         } else setContent({ path: selectedFile.path, text });

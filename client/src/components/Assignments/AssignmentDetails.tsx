@@ -311,7 +311,9 @@ const AssignmentDetails = () => {
     : false;
 
   // Only published assignments can be submitted; completed/draft are closed
+  // Project-only assignments are submitted from the "Submit a project" card.
   const canSubmit =
+    assignment?.submission_type !== "project" &&
     isStudent &&
     !userSubmission() &&
     !!user &&

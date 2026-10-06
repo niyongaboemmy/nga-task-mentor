@@ -12,16 +12,11 @@ import SubmitProjectCard from "../components/Projects/SubmitProjectCard";
 import LinkedProjectsPanel from "../components/Projects/LinkedProjectsPanel";
 import OpenProjectInTmcode, { OPEN_FALLBACK_MS } from "../components/Projects/OpenProjectInTmcode";
 import { normalizeProjectDetail, type ProjectDetail, type ProjectLink } from "../services/projectsApi";
-import { makeActivityProjects, makeLinkable, makeProjects } from "./fixtures/projects";
+import { makeActivityProjects, makeLinkable, makeProjectDetails, makeProjectList } from "./fixtures/projects";
 
 const detail = (overrides: Record<string, unknown> = {}): ProjectDetail =>
-  normalizeProjectDetail({
-    ...makeProjects()[0],
-    links: [{ id: 501, project_id: 1, activity_type: "assignment", activity_id: 77, status: "linked", activity_title: "Sorting lab", course: { id: 11, title: "Computer Science S5", code: "CS5" } }],
-    members: [],
-    events: [],
-    ...overrides,
-  });
+  normalizeProjectDetail({ ...makeProjectDetails(1).project, ...overrides });
+const makeProjects = () => makeProjectList().projects;
 
 /** LinksTab owns no state for links: the page does. Mirror that here. */
 function Harness({ initial, canEdit = true }: { initial: ProjectDetail; canEdit?: boolean }) {
@@ -104,7 +99,7 @@ describe("Submit a project (assignment page)", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("links the chosen project to the assignment, then submits it", async () => {
-    const projects = makeProjects().map((p) => ({ ...p, links: { total: 0, submitted: 0, items: [] } }));
+    const projects = makeProjects().map((p: Record<string, unknown>) => ({ ...p, links: { total: 0, submitted: 0, items: [] } }));
     axiosMock.get.mockResolvedValue({ data: { projects } });
     axiosMock.post
       .mockResolvedValueOnce({ data: { link: { id: 900, project_id: 1, activity_type: "assignment", activity_id: 79, status: "linked" } } })
@@ -164,7 +159,7 @@ describe("Teacher: Linked projects panel", () => {
   beforeEach(() => vi.clearAllMocks());
 
   it("lists linked projects and opens each at its frozen revision", async () => {
-    axiosMock.get.mockResolvedValue({ data: { projects: makeActivityProjects() } });
+    axiosMock.get.mockResolvedValue({ data: makeActivityProjects() });
     render(
       <MemoryRouter>
         <LinkedProjectsPanel activityType="assignment" activityId={77} />

@@ -21,16 +21,15 @@ import {
 import { usePermissions } from "../hooks/usePermissions";
 import {
   apiErrorMessage,
-  isPresenceLive,
   projectsApi,
   type ProjectList,
   type ProjectScope,
   type ProjectSummary,
 } from "../services/projectsApi";
 import { Skeleton, LoadingAnnouncer, TopProgressBar } from "../components/ui/Skeleton";
-import { KindBadge, LanguageBadge, LiveDot, Pill, SyncBadge } from "../components/Projects/ProjectBadges";
+import { KindBadge, LanguageBadge, LiveDot, Pill } from "../components/Projects/ProjectBadges";
 import NewProjectDialog from "../components/Projects/NewProjectDialog";
-import { formatBytes, languageMeta, presenceLine, timeAgo } from "../components/Projects/projectFormat";
+import { formatBytes, languageMeta, summaryLine, timeAgo } from "../components/Projects/projectFormat";
 
 /**
  * /projects — a user's TMCode projects (PROJECTS_PLAN.md §5): cards or a
@@ -206,8 +205,8 @@ const ProjectsPage: React.FC = () => {
 
       {/* Toolbar */}
       <div className="space-y-3 rounded-2xl border border-gray-200/60 bg-white/80 p-3 backdrop-blur-xl dark:border-gray-800/30 dark:bg-gray-900/50">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
-          <div role="tablist" aria-label="Which projects" className="flex shrink-0 rounded-xl bg-gray-100 p-1 dark:bg-white/[0.04]">
+        <div className="flex flex-wrap items-center gap-3">
+          <div role="tablist" aria-label="Which projects" className="flex w-full shrink-0 sm:w-auto rounded-xl bg-gray-100 p-1 dark:bg-white/[0.04]">
             {(
               [
                 ["mine", "My projects"],
@@ -231,7 +230,7 @@ const ProjectsPage: React.FC = () => {
             ))}
           </div>
 
-          <label className="relative flex-1">
+          <label className="relative block min-w-[220px] flex-1">
             <span className="sr-only">Search projects</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <input
@@ -429,8 +428,8 @@ const StatsStrip: React.FC<{ data: ProjectList | null; loading: boolean }> = ({ 
 );
 
 const ProjectCard: React.FC<{ project: ProjectSummary; showOwner: boolean }> = ({ project: p, showOwner }) => {
-  const live = p.presence.filter((x) => isPresenceLive(x));
-  const first = live[0];
+  const summary = p.presence_summary;
+  const live = summary.online;
   return (
     <motion.li
       layout
@@ -441,10 +440,10 @@ const ProjectCard: React.FC<{ project: ProjectSummary; showOwner: boolean }> = (
       <Link
         to={`/projects/${p.id}`}
         className="group flex h-full flex-col rounded-2xl border border-gray-200/70 bg-card-light p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-border-dark/30 dark:bg-card-dark/30 dark:hover:border-blue-800"
-        aria-label={`${p.name}${live.length ? ", open in TMCode now" : ""}`}
+        aria-label={`${p.name}${live ? ", open in TMCode now" : ""}`}
       >
         <div className="flex items-start gap-3">
-          <LiveDot live={live.length > 0} className="mt-1.5" />
+          <LiveDot live={live} className="mt-1.5" />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-semibold text-text-primary-light group-hover:text-blue-700 dark:text-text-primary-dark dark:group-hover:text-blue-300">
               {p.name}
@@ -456,9 +455,9 @@ const ProjectCard: React.FC<{ project: ProjectSummary; showOwner: boolean }> = (
           <KindBadge kind={p.kind} />
         </div>
 
-        {first ? (
+        {live ? (
           <p className="mt-3 truncate rounded-xl bg-emerald-50 px-2.5 py-1.5 text-[11px] font-medium text-emerald-800 dark:bg-emerald-900/20 dark:text-emerald-300">
-            {presenceLine(first, { short: true })}
+            {summaryLine(summary)}
           </p>
         ) : p.archived_at ? (
           <p className="mt-3 rounded-xl bg-amber-50 px-2.5 py-1.5 text-[11px] font-medium text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
@@ -479,7 +478,6 @@ const ProjectCard: React.FC<{ project: ProjectSummary; showOwner: boolean }> = (
               {p.git.behind ? ` ↓${p.git.behind}` : ""}
             </span>
           ) : null}
-          {first?.state.sync && <SyncBadge sync={first.state.sync} />}
           {p.links.total > 0 && (
             <Pill tone={p.links.submitted ? "emerald" : "blue"} icon={<Link2 className="h-3 w-3" aria-hidden="true" />}>
               {p.links.submitted ? `${p.links.submitted}/${p.links.total} submitted` : `${p.links.total} linked`}
@@ -516,7 +514,7 @@ const ProjectTable: React.FC<{ projects: ProjectSummary[]; showOwner: boolean }>
           </thead>
           <tbody className="divide-y divide-gray-100 dark:divide-white/5">
             {projects.map((p) => {
-              const live = p.presence.some((x) => isPresenceLive(x));
+              const live = p.presence_summary.online;
               return (
                 <tr
                   key={p.id}

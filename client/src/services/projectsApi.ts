@@ -2,7 +2,8 @@ import api, { API_BASE_URL } from "../utils/axiosConfig";
 
 /**
  * TMCode Projects — the Task Mentor web client's side of PROJECTS_PLAN.md §3
- * (everything under /api/tmcode). Students and teachers keep personal coding
+ * (everything under /api/tmcode), aligned with the server's
+ * server/src/tmcode/PROJECTS_API.md. Students and teachers keep personal coding
  * projects in Task Mentor and work on them in TMCode; these pages list them,
  * show live presence (SSE), browse revisions, link them to activities and
  * submit.
@@ -18,6 +19,8 @@ export type ProjectKind = "github" | "tm";
 export type ProjectVisibility = "private" | "course";
 export type ProjectScope = "mine" | "shared" | "all";
 export type MemberRole = "owner" | "collaborator" | "viewer";
+/** The caller's relation to a project; admin/teacher are read-only. */
+export type ProjectRole = MemberRole | "admin" | "teacher";
 export type MemberStatus = "invited" | "active" | "removed";
 export type ActivityType = "quiz" | "assignment" | "manual_assessment";
 export type LinkStatus = "linked" | "submitted";
@@ -34,7 +37,8 @@ export interface UserLite {
 
 export interface CourseLite {
   id: number;
-  title: string;
+  /** The server often sends only course_id; pages resolve names from the course list. */
+  title: string | null;
   code?: string | null;
 }
 
@@ -54,6 +58,8 @@ export interface LastCommit {
 /** `project_presence.state` — what TMCode reports every 20 s. */
 export interface PresenceState {
   open: boolean;
+  /** Optional, e.g. "MacBook" (shown in the live line). */
+  device_name?: string | null;
   file?: string | null;
   /** Unsaved editor buffers: a count, or the list of paths. */
   dirty?: number | string[] | null;
@@ -67,7 +73,18 @@ export interface PresenceState {
   sync?: SyncState | null;
 }
 
+/** One row per project in GET /projects. */
+export interface PresenceSummary {
+  online: boolean;
+  devices_online: number;
+  last_seen_at: string | null;
+  file: string | null;
+  dirty: number;
+}
+
 export interface ProjectPresence {
+  /** Server-judged: open and a heartbeat within 60 s. */
+  online?: boolean;
   project_id: number;
   user_id: number;
   user?: UserLite | null;
@@ -109,6 +126,8 @@ export interface ProjectLink {
   activity_title?: string | null;
   course?: CourseLite | null;
   due_date?: string | null;
+  /** The activity still accepts links/submissions. */
+  activity_open?: boolean | null;
   status: LinkStatus;
   revision_id?: number | null;
   revision_number?: number | null;
@@ -138,7 +157,9 @@ export interface GitState {
   behind?: number | null;
   changes?: number | null;
   remote_url?: string | null;
+  /** `reported_at` on the server. */
   updated_at?: string | null;
+  last_push?: GitPush | null;
   pushes?: GitPush[];
 }
 
@@ -172,8 +193,8 @@ export interface ProjectSummary {
   repo_full_name?: string | null;
   default_branch?: string | null;
   owner: UserLite;
-  /** The caller's role on this project; null for read-only access (VIEW_ALL / monitor). */
-  my_role: MemberRole | null;
+  /** The caller's role on this project ("admin"/"teacher" = read-only access). */
+  my_role: ProjectRole | null;
   size_bytes: number;
   file_count: number;
   archived_at?: string | null;
@@ -181,15 +202,26 @@ export interface ProjectSummary {
   updated_at: string;
   last_activity_at?: string | null;
   head: RevisionSummary | null;
+  head_revision_id?: number | null;
+  /** Device rows (project page, SSE); empty in list rows. */
   presence: ProjectPresence[];
+  presence_summary: PresenceSummary;
   links: LinkSummary;
   git?: GitState | null;
+}
+
+export interface ProjectCapabilities {
+  edit: boolean;
+  save: boolean;
+  report_git: boolean;
+  read_all_revisions: boolean;
 }
 
 export interface ProjectDetail extends Omit<ProjectSummary, "links"> {
   links: ProjectLink[];
   members: ProjectMember[];
   events: ProjectEvent[];
+  can: ProjectCapabilities;
 }
 
 export interface ProjectStats {
@@ -211,6 +243,7 @@ export interface LinkableActivity {
   title: string;
   course?: CourseLite | null;
   due_date?: string | null;
+  submission_type?: string | null;
 }
 
 /** One row of the teacher view of an activity (GET /activities/:type/:id/projects). */
@@ -223,7 +256,8 @@ export interface ActivityProject {
 
 /** A row of the teacher monitor: one student's project open on one device. */
 export interface MonitorEntry extends ProjectPresence {
-  project: Pick<ProjectSummary, "id" | "name" | "kind" | "language">;
+  project: Pick<ProjectSummary, "id" | "name" | "kind" | "language"> & { owner?: UserLite | null };
+  /** Only ids from the server (`course_ids`); titles are resolved by the page. */
   courses: CourseLite[];
 }
 
@@ -234,6 +268,8 @@ export interface CreateProjectInput {
   kind: ProjectKind;
   repo_url?: string;
   visibility?: ProjectVisibility;
+  default_branch?: string;
+  github_username?: string;
 }
 
 export interface UpdateProjectInput {
@@ -247,7 +283,7 @@ export interface UpdateProjectInput {
 export interface AddMemberInput {
   user_id?: number;
   email?: string;
-  github_username: string;
+  github_username?: string;
   role: Exclude<MemberRole, "owner">;
 }
 
@@ -288,29 +324,39 @@ export function normalizeUser(raw: unknown): UserLite {
 const userOrNull = (raw: unknown): UserLite | null => (isObj(raw) ? normalizeUser(raw) : null);
 
 export function normalizeCourse(raw: unknown): CourseLite | null {
+  if (typeof raw === "number" || (typeof raw === "string" && /^\d+$/.test(raw))) return { id: Number(raw), title: null, code: null };
   if (!isObj(raw)) return null;
   return {
     id: num(raw.id ?? raw.course_id),
-    title: str(raw.title) ?? str(raw.name) ?? "Course",
+    title: str(raw.title) ?? str(raw.name) ?? str(raw.course_name),
     code: str(raw.code),
   };
 }
 
+/** "CS5 — Computer Science", or "Course #11" when only the id is known. */
+export const courseLabel = (c: CourseLite, names?: Map<number, string>): string =>
+  names?.get(c.id) ?? (c.title ? (c.code ? `${c.code} — ${c.title}` : c.title) : `Course #${c.id}`);
+
+/** `open` defaults to true, as on the server. */
 export function normalizePresenceState(raw: unknown): PresenceState {
   const s = isObj(raw) ? raw : {};
-  return { ...(s as Partial<PresenceState>), open: s.open === true || s.open === 1 || s.open === "true" };
+  return { ...(s as Partial<PresenceState>), open: !(s.open === false || s.open === 0 || s.open === "false") };
 }
 
 export function normalizePresence(raw: unknown): ProjectPresence {
   const p = isObj(raw) ? raw : {};
+  const userId = num(p.user_id ?? (isObj(p.user) ? p.user.id : undefined));
+  const state = normalizePresenceState(typeof p.state === "string" ? safeJson(p.state) : p.state);
   return {
+    ...(typeof p.online === "boolean" ? { online: p.online } : {}),
     project_id: num(p.project_id),
-    user_id: num(p.user_id ?? (isObj(p.user) ? p.user.id : undefined)),
-    user: userOrNull(p.user),
+    user_id: userId,
+    user: userOrNull(p.user) ?? (str(p.user_name) ? { id: userId, name: str(p.user_name)! } : null),
     device_id: String(p.device_id ?? "device"),
-    device_name: str(p.device_name) ?? str(p.device_label),
     app_version: str(p.app_version),
-    state: normalizePresenceState(typeof p.state === "string" ? safeJson(p.state) : p.state),
+    state,
+    // Not a server column: TMCode may report it inside `state`.
+    device_name: str(p.device_name) ?? str(p.device_label) ?? str(state.device_name),
     last_seen_at: str(p.last_seen_at) ?? new Date(0).toISOString(),
   };
 }
@@ -321,7 +367,9 @@ export function normalizeRevision(raw: unknown): RevisionSummary | null {
     id: num(raw.id),
     number: num(raw.number),
     message: str(raw.message),
-    author: userOrNull(raw.author),
+    author:
+      userOrNull(raw.author) ??
+      (str(raw.author_name) ? { id: num(raw.author_id), name: str(raw.author_name)! } : null),
     file_count: num(raw.file_count),
     size_bytes: num(raw.size_bytes),
     source: (str(raw.source) as RevisionSource) ?? "save",
@@ -339,8 +387,9 @@ export function normalizeLink(raw: unknown): ProjectLink {
     activity_type: (str(l.activity_type) as ActivityType) ?? "assignment",
     activity_id: num(l.activity_id),
     activity_title: str(l.activity_title) ?? str(activity.title),
-    course: normalizeCourse(l.course ?? activity.course),
+    course: normalizeCourse(l.course ?? activity.course ?? activity.course_id ?? l.course_id),
     due_date: str(l.due_date) ?? str(activity.due_date),
+    activity_open: typeof activity.open === "boolean" ? activity.open : null,
     status: l.status === "submitted" ? "submitted" : "linked",
     revision_id: l.revision_id == null ? null : num(l.revision_id),
     revision_number:
@@ -370,6 +419,16 @@ function normalizeLinkSummary(raw: unknown): LinkSummary {
   };
 }
 
+function normalizePush(raw: unknown): GitPush | null {
+  if (!isObj(raw)) return null;
+  return {
+    commit: String(raw.commit ?? ""),
+    message: str(raw.message),
+    at: str(raw.at) ?? str(raw.created_at) ?? new Date(0).toISOString(),
+    user: userOrNull(raw.user),
+  };
+}
+
 function normalizeGit(raw: unknown): GitState | null {
   if (!isObj(raw)) return null;
   return {
@@ -379,15 +438,9 @@ function normalizeGit(raw: unknown): GitState | null {
     behind: raw.behind == null ? null : num(raw.behind),
     changes: raw.changes == null ? null : num(raw.changes),
     remote_url: str(raw.remote_url),
-    updated_at: str(raw.updated_at),
-    pushes: Array.isArray(raw.pushes)
-      ? raw.pushes.filter(isObj).map((p) => ({
-          commit: String(p.commit ?? ""),
-          message: str(p.message),
-          at: str(p.at) ?? str(p.created_at) ?? new Date(0).toISOString(),
-          user: userOrNull(p.user),
-        }))
-      : [],
+    updated_at: str(raw.reported_at) ?? str(raw.updated_at),
+    last_push: normalizePush(raw.last_push),
+    pushes: Array.isArray(raw.pushes) ? raw.pushes.map(normalizePush).filter((x): x is GitPush => !!x) : [],
   };
 }
 
@@ -397,7 +450,7 @@ export function normalizeEvent(raw: unknown): ProjectEvent {
     id: num(e.id),
     project_id: e.project_id == null ? undefined : num(e.project_id),
     type: str(e.type) ?? "event",
-    user: userOrNull(e.user),
+    user: userOrNull(e.user) ?? (str(e.user_name) ? { id: num(e.user_id), name: str(e.user_name)! } : null),
     data: isObj(e.data) ? e.data : typeof e.data === "string" ? (safeJson(e.data) as Json | null) : null,
     created_at: str(e.created_at) ?? new Date(0).toISOString(),
   };
@@ -405,7 +458,7 @@ export function normalizeEvent(raw: unknown): ProjectEvent {
 
 function normalizeMember(raw: unknown): ProjectMember {
   const m = isObj(raw) ? raw : {};
-  const user = normalizeUser(m.user ?? { id: m.user_id, email: m.email, name: m.name });
+  const user = normalizeUser(m.user ?? { id: m.user_id, email: m.email, name: m.name, avatar_url: m.avatar_url });
   return {
     user_id: num(m.user_id, user.id),
     user,
@@ -418,6 +471,10 @@ function normalizeMember(raw: unknown): ProjectMember {
 
 export function normalizeProject(raw: unknown): ProjectSummary {
   const p = isObj(raw) ? raw : {};
+  // List rows carry a summary object in `presence`; details carry device rows
+  // in `presence` and the summary in `presence_summary`.
+  const presence = Array.isArray(p.presence) ? p.presence.map(normalizePresence) : [];
+  const summary = normalizeSummary(p.presence_summary) ?? normalizeSummary(p.presence) ?? summarizePresence(presence);
   return {
     id: num(p.id),
     name: str(p.name) ?? "Untitled project",
@@ -438,9 +495,37 @@ export function normalizeProject(raw: unknown): ProjectSummary {
     updated_at: str(p.updated_at) ?? str(p.created_at) ?? new Date(0).toISOString(),
     last_activity_at: str(p.last_activity_at) ?? str(p.updated_at),
     head: normalizeRevision(p.head),
-    presence: Array.isArray(p.presence) ? p.presence.map(normalizePresence) : [],
+    head_revision_id: p.head_revision_id == null ? null : num(p.head_revision_id),
+    presence,
+    presence_summary: summary,
     links: normalizeLinkSummary(p.links),
     git: normalizeGit(p.git),
+  };
+}
+
+export function summarizePresence(rows: ProjectPresence[], now = Date.now()): PresenceSummary {
+  const online = rows.filter((r) => isPresenceLive(r, now));
+  const latest = [...rows].sort((a, b) => b.last_seen_at.localeCompare(a.last_seen_at))[0];
+  const first = online[0] ?? latest;
+  return {
+    online: online.length > 0,
+    devices_online: online.length,
+    last_seen_at: latest?.last_seen_at ?? null,
+    file: first?.state.file ?? null,
+    dirty: first ? dirtyOf(first.state.dirty) : 0,
+  };
+}
+
+const dirtyOf = (d: PresenceState["dirty"]): number => (Array.isArray(d) ? d.length : Number(d) || 0);
+
+function normalizeSummary(raw: unknown): PresenceSummary | null {
+  if (!isObj(raw)) return null;
+  return {
+    online: raw.online === true,
+    devices_online: num(raw.devices_online, raw.online ? 1 : 0),
+    last_seen_at: str(raw.last_seen_at),
+    file: str(raw.file),
+    dirty: dirtyOf(raw.dirty as PresenceState["dirty"]),
   };
 }
 
@@ -448,11 +533,19 @@ export function normalizeProjectDetail(raw: unknown): ProjectDetail {
   const p = isObj(raw) ? (isObj(raw.project) ? { ...raw, ...raw.project } : raw) : {};
   const base = normalizeProject(p);
   const links = Array.isArray(p.links) ? p.links.map(normalizeLink) : base.links.items.map(normalizeLink);
+  const can = isObj(p.can) ? p.can : null;
+  const owner = base.my_role === "owner";
   return {
     ...base,
     links,
     members: Array.isArray(p.members) ? p.members.map(normalizeMember) : [],
     events: Array.isArray(p.events) ? p.events.map(normalizeEvent) : [],
+    can: {
+      edit: can ? can.edit === true : owner,
+      save: can ? can.save === true : owner,
+      report_git: can ? can.report_git === true : owner || base.my_role === "collaborator",
+      read_all_revisions: can ? can.read_all_revisions === true : true,
+    },
   };
 }
 
@@ -461,7 +554,7 @@ const WEEK_MS = 7 * 24 * 3600 * 1000;
 export const PRESENCE_STALE_MS = 75_000;
 
 export const isPresenceLive = (p: ProjectPresence, now = Date.now()): boolean =>
-  p.state.open && now - new Date(p.last_seen_at).getTime() < PRESENCE_STALE_MS;
+  p.online !== false && p.state.open && now - new Date(p.last_seen_at).getTime() < PRESENCE_STALE_MS;
 
 export function computeStats(projects: ProjectSummary[], now = Date.now()): ProjectStats {
   return {
@@ -471,7 +564,7 @@ export function computeStats(projects: ProjectSummary[], now = Date.now()): Proj
     ).length,
     revisions: projects.reduce((n, p) => n + (p.head?.number ?? 0), 0),
     submissions: projects.reduce((n, p) => n + p.links.submitted, 0),
-    live_now: projects.filter((p) => p.presence.some((x) => isPresenceLive(x, now))).length,
+    live_now: projects.filter((p) => p.presence_summary.online).length,
   };
 }
 
@@ -489,7 +582,7 @@ export function normalizeProjectList(body: unknown): ProjectList {
           active_this_week: num(serverStats.active_this_week, computed.active_this_week),
           revisions: num(serverStats.revisions, computed.revisions),
           submissions: num(serverStats.submissions, computed.submissions),
-          live_now: num(serverStats.live_now, computed.live_now),
+          live_now: num(serverStats.online ?? serverStats.live_now, computed.live_now),
         }
       : computed,
   };
@@ -506,16 +599,21 @@ export function normalizeLinkable(body: unknown): LinkableActivity[] {
   const data = unwrap<unknown>(body);
   const toItem = (raw: unknown, type?: ActivityType): LinkableActivity | null => {
     if (!isObj(raw)) return null;
+    const course =
+      normalizeCourse(raw.course) ??
+      (raw.course_id != null ? { id: num(raw.course_id), title: str(raw.course_name), code: null } : null);
     return {
-      activity_type: (str(raw.activity_type) as ActivityType) ?? type ?? "assignment",
+      activity_type: (str(raw.activity_type) as ActivityType) ?? (str(raw.type) as ActivityType) ?? type ?? "assignment",
       activity_id: num(raw.activity_id ?? raw.id),
       title: str(raw.title) ?? str(raw.name) ?? "Untitled",
-      course: normalizeCourse(raw.course),
+      course,
       due_date: str(raw.due_date) ?? str(raw.end_time) ?? str(raw.assessment_date),
+      submission_type: str(raw.submission_type),
     };
   };
   if (Array.isArray(data)) return data.map((r) => toItem(r)).filter((x): x is LinkableActivity => !!x);
   if (!isObj(data)) return [];
+  if (Array.isArray(data.activities)) return normalizeLinkable(data.activities);
   if (Array.isArray(data.items)) return normalizeLinkable(data.items);
   // Grouped shape: { quizzes: [], assignments: [], manual_assessments: [] }
   return Object.entries(ACTIVITY_GROUPS).flatMap(([key, type]) =>
@@ -544,24 +642,35 @@ export function normalizeActivityProjects(body: unknown): ActivityProject[] {
         repo_full_name: project.repo_full_name,
       },
       owner: normalizeUser(r.owner ?? (isObj(r.project) ? r.project.owner : undefined) ?? r.user),
-      revision: normalizeRevision(r.revision),
+      revision: normalizeRevision(r.frozen_revision ?? r.revision),
     };
   });
 }
 
+/**
+ * A monitor row: `{project: {id, name, kind, language, owner}, course_ids,
+ * presence: Presence}` (also accepts the presence fields at the top level).
+ */
 export function normalizeMonitorEntry(raw: unknown): MonitorEntry {
   const e = isObj(raw) ? raw : {};
-  const presence = normalizePresence(e);
-  const project = normalizeProject(e.project ?? { id: presence.project_id });
-  const courses = Array.isArray(e.courses)
-    ? e.courses.map(normalizeCourse).filter((c): c is CourseLite => !!c)
-    : e.course
-      ? [normalizeCourse(e.course)].filter((c): c is CourseLite => !!c)
-      : [];
+  const presence = normalizePresence(isObj(e.presence) ? e.presence : e);
+  const rawProject = isObj(e.project) ? e.project : { id: presence.project_id };
+  const project = normalizeProject(rawProject);
+  const owner = isObj(rawProject.owner) ? normalizeUser(rawProject.owner) : null;
+  const courseSrc: unknown[] = Array.isArray(e.course_ids)
+    ? e.course_ids
+    : Array.isArray(e.courses)
+      ? e.courses
+      : e.course != null
+        ? [e.course]
+        : [];
+  const courses = courseSrc.map(normalizeCourse).filter((c): c is CourseLite => !!c);
   return {
     ...presence,
+    // The device's user, else the project owner (students work on their own projects).
+    user: presence.user ?? (owner && owner.id === presence.user_id ? owner : presence.user) ?? owner,
     project_id: presence.project_id || project.id,
-    project: { id: project.id, name: project.name, kind: project.kind, language: project.language },
+    project: { id: project.id, name: project.name, kind: project.kind, language: project.language, owner },
     courses,
   };
 }
@@ -592,8 +701,9 @@ const BASE = "/tmcode";
 const enc = encodeURIComponent;
 
 export const projectsApi = {
+  /** Archived projects are included; the page filters them. */
   async list(scope: ProjectScope = "mine"): Promise<ProjectList> {
-    const res = await api.get(`${BASE}/projects`, { params: { scope } });
+    const res = await api.get(`${BASE}/projects`, { params: { scope, archived: "include" } });
     return normalizeProjectList(res.data);
   },
 
@@ -602,16 +712,14 @@ export const projectsApi = {
     return normalizeProjectDetail(unwrap(res.data));
   },
 
-  async create(input: CreateProjectInput): Promise<ProjectSummary> {
+  async create(input: CreateProjectInput): Promise<ProjectDetail> {
     const res = await api.post(`${BASE}/projects`, input);
-    const data = unwrap<Json>(res.data);
-    return normalizeProject(isObj(data) && isObj(data.project) ? data.project : data);
+    return normalizeProjectDetail(unwrap(res.data));
   },
 
-  async update(id: number, input: UpdateProjectInput): Promise<ProjectSummary> {
+  async update(id: number, input: UpdateProjectInput): Promise<ProjectDetail> {
     const res = await api.patch(`${BASE}/projects/${id}`, input);
-    const data = unwrap<Json>(res.data);
-    return normalizeProject(isObj(data) && isObj(data.project) ? data.project : data);
+    return normalizeProjectDetail(unwrap(res.data));
   },
 
   async remove(id: number): Promise<void> {
@@ -627,6 +735,7 @@ export const projectsApi = {
       .filter((r): r is RevisionSummary => !!r);
   },
 
+  /** `rev` is a revision id or "head". */
   async manifest(id: number, rev: number | "head"): Promise<RevisionManifest> {
     const res = await api.get(`${BASE}/projects/${id}/revisions/${rev}/manifest`);
     const data = unwrap<unknown>(res.data);
@@ -641,24 +750,28 @@ export const projectsApi = {
     };
   },
 
-  /** One file's text at a revision (the server answers raw bytes, or `{ content }`). */
-  async fileContent(id: number, path: string, rev?: number | null): Promise<string> {
+  /**
+   * One file at a revision: the server answers raw bytes (text/plain or
+   * application/octet-stream). Binary files come back flagged, not decoded.
+   */
+  async fileContent(id: number, path: string, rev?: number | null): Promise<{ text: string; binary: boolean }> {
     const res = await api.get(`${BASE}/projects/${id}/files/${path.split("/").map(enc).join("/")}`, {
-      params: rev ? { rev } : undefined,
+      params: { rev: rev ?? "head" },
       responseType: "text",
       transformResponse: (d) => d,
     });
+    const ct = String(res.headers?.["content-type"] ?? "");
     const body = res.data as unknown;
+    if (ct.includes("application/octet-stream")) return { text: "", binary: true };
+    let text: string;
     if (typeof body === "string") {
-      const ct = String(res.headers?.["content-type"] ?? "");
-      if (ct.includes("application/json")) {
-        const parsed = unwrap<unknown>(safeJson(body));
-        if (isObj(parsed) && typeof parsed.content === "string") return parsed.content;
-      }
-      return body;
+      const parsed = ct.includes("application/json") ? unwrap<unknown>(safeJson(body)) : null;
+      text = isObj(parsed) && typeof parsed.content === "string" ? parsed.content : body;
+    } else {
+      const parsed = unwrap<unknown>(body);
+      text = isObj(parsed) && typeof parsed.content === "string" ? parsed.content : String(body ?? "");
     }
-    const parsed = unwrap<unknown>(body);
-    return isObj(parsed) && typeof parsed.content === "string" ? parsed.content : String(body ?? "");
+    return { text, binary: text.includes("\u0000") };
   },
 
   async openLink(id: number): Promise<string> {
@@ -690,8 +803,11 @@ export const projectsApi = {
     return normalizeLink(isObj(data) && isObj(data.link) ? data.link : data);
   },
 
-  async submit(id: number, linkId: number): Promise<ProjectLink> {
-    const res = await api.post(`${BASE}/projects/${id}/links/${linkId}/submit`);
+  /** Freezes the head revision (tm) or the last reported commit (github). */
+  async submit(id: number, linkId: number, gitCommit?: string): Promise<ProjectLink> {
+    const res = gitCommit
+      ? await api.post(`${BASE}/projects/${id}/links/${linkId}/submit`, { git_commit: gitCommit })
+      : await api.post(`${BASE}/projects/${id}/links/${linkId}/submit`);
     const data = unwrap<Json>(res.data);
     return normalizeLink(isObj(data) && isObj(data.link) ? data.link : data);
   },

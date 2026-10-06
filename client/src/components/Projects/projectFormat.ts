@@ -1,4 +1,11 @@
-import type { ActivityProject, PresenceState, ProjectDetail, ProjectPresence, SyncState } from "../../services/projectsApi";
+import type {
+  ActivityProject,
+  PresenceState,
+  PresenceSummary,
+  ProjectDetail,
+  ProjectPresence,
+  SyncState,
+} from "../../services/projectsApi";
 
 /** Display helpers shared by the Projects pages. */
 
@@ -66,6 +73,14 @@ export function presenceParts(p: ProjectPresence, opts: { short?: boolean } = {}
 }
 
 export const presenceLine = (p: ProjectPresence, opts?: { short?: boolean }) => presenceParts(p, opts).join(" · ");
+
+/** The list-row version: "Open in TMCode on 2 devices · editing main.cpp · 2 unsaved". */
+export function summaryLine(s: PresenceSummary): string {
+  const parts = [`Open in TMCode${s.devices_online > 1 ? ` on ${s.devices_online} devices` : ""}`];
+  if (s.file) parts.push(`editing ${basename(s.file)}`);
+  if (s.dirty > 0) parts.push(`${s.dirty} unsaved`);
+  return parts.join(" · ");
+}
 
 export const SYNC_META: Record<string, { label: string; tone: Tone }> = {
   synced: { label: "Synced", tone: "emerald" },
