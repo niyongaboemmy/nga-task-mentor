@@ -79,6 +79,7 @@ export async function ensureModelsRegistered() {
     models.Permission,
     models.RolePermission,
     ...models.TMCODE_MODELS,
+    ...models.PROJECT_MODELS,
   ]);
   setupAssociations();
   modelsRegistered = true;

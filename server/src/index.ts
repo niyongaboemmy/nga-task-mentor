@@ -240,6 +240,7 @@ const initializeDatabase = async (): Promise<void> => {
       Permission,
       RolePermission,
       TMCODE_MODELS,
+      PROJECT_MODELS,
     } = await import("./models");
 
     // Add models to Sequelize instance
@@ -267,6 +268,7 @@ const initializeDatabase = async (): Promise<void> => {
       Permission,
       RolePermission,
       ...TMCODE_MODELS,
+      ...PROJECT_MODELS,
     ]);
 
     // Set up model associations
