@@ -32,6 +32,7 @@ export const PERMISSION_CATEGORIES = [
   "DASHBOARD",
   "RANKINGS",
   "TMCODE",
+  "PROJECTS",
   "ACADEMICS",
   "DATABASE_ADMIN",
   "ROLES_PERMISSIONS",
@@ -150,6 +151,11 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
   { key: "TMCODE_REVIEW_TELEMETRY", category: "TMCODE", description: "Replay TMCode sessions and review integrity flags" },
   { key: "TMCODE_PROFILES_MANAGE", category: "TMCODE", description: "Manage TMCode language profiles" },
 
+  // PROJECTS — personal coding projects synced with TMCode (PROJECTS_PLAN.md).
+  { key: "PROJECTS_USE", category: "PROJECTS", description: "Keep coding projects in Task Mentor, sync them with TMCode and link them to activities" },
+  { key: "PROJECTS_VIEW_ALL", category: "PROJECTS", description: "See every project (read-only)" },
+  { key: "PROJECTS_MONITOR", category: "PROJECTS", description: "Live project monitor and projects linked to activities in scope" },
+
   // ACADEMICS
   { key: "ACADEMICS_VIEW", category: "ACADEMICS", description: "View academic years/terms" },
   { key: "ACADEMICS_MANAGE_PERIODS", category: "ACADEMICS", description: "Switch/manage academic periods" },
@@ -236,6 +242,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"admin" | "instructor" | "student"
     "TMCODE_CONSOLE_VIEW",
     "TMCODE_CONSOLE_CONTROL",
     "TMCODE_REVIEW_TELEMETRY",
+    "PROJECTS_USE",
+    "PROJECTS_MONITOR",
     "ACADEMICS_VIEW",
     "USERS_VIEW_ALL",
     "USERS_VIEW_OTHERS_ACTIVITY",
@@ -262,6 +270,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"admin" | "instructor" | "student"
     "DASHBOARD_VIEW_STUDENT",
     "RANKINGS_VIEW_OWN",
     "TMCODE_USE",
+    "PROJECTS_USE",
     "ACADEMICS_VIEW",
   ],
 };

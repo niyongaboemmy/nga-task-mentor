@@ -17,6 +17,8 @@ import {
   Award,
   Library,
   Trophy,
+  FolderCode,
+  MonitorDot,
 } from "lucide-react";
 
 import { usePermissions } from "../hooks/usePermissions";
@@ -71,6 +73,9 @@ const DatabaseManagementPage = lazyPage(() => import("../pages/DatabaseManagemen
 const RolesPermissionsPage = lazyPage(() => import("../pages/Admin/RolesPermissionsPage"));
 const RankingPage = lazyPage(() => import("../pages/RankingPage"));
 const AdminSubjectsPage = lazyPage(() => import("../pages/AdminSubjectsPage"));
+const ProjectsPage = lazyPage(() => import("../pages/ProjectsPage"));
+const ProjectDetailPage = lazyPage(() => import("../pages/ProjectDetailPage"));
+const ProjectMonitorPage = lazyPage(() => import("../pages/ProjectMonitorPage"));
 
 // School-wide viewers get the subjects report; everyone else their course grid.
 const CoursesEntry = () => {
@@ -208,6 +213,26 @@ export const appRoutes: AppRoute[] = [
     element: <SubmissionsPage />,
     permissions: ["SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"],
     navItem: { label: "Submissions", icon: FileText, group: "General" },
+  },
+  {
+    // TMCode Projects (PROJECTS_PLAN.md §5): personal coding projects worked
+    // on in TMCode. VIEW_ALL / MONITOR holders reach other people's projects
+    // read-only, so the project page accepts any of the three keys.
+    path: "/projects",
+    element: <ProjectsPage />,
+    permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL"],
+    navItem: { label: "Projects", icon: FolderCode, group: "General" },
+  },
+  {
+    path: "/projects/monitor",
+    element: <ProjectMonitorPage />,
+    permissions: ["PROJECTS_MONITOR"],
+    navItem: { label: "Project Monitor", icon: MonitorDot, group: "Teaching" },
+  },
+  {
+    path: "/projects/:id",
+    element: <ProjectDetailPage />,
+    permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL", "PROJECTS_MONITOR"],
   },
   {
     path: "/students",

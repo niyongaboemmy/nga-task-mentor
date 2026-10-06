@@ -95,6 +95,8 @@ jobs:
             CORS_CREDENTIALS=true
 
             NGA_MIS_BASE_URL=https://api.amashuri.com
+            # TMCode deep links (tmcode://launch, tmcode://project) carry this API origin; TMCode only accepts it.
+            TMCODE_API_ORIGIN=https://taskmentor-api.amashuri.com
 
             LOG_LEVEL=info
             LOG_TO_FILE=true

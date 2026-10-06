@@ -54,7 +54,7 @@ const sha256 = (s: string) => crypto.createHash("sha256").update(s).digest("hex"
 const sessionOf = (req: Request): TmcodeSession => (req as any).tmcodeSession;
 
 /** The API origin TMCode should talk to (it only accepts allow-listed ones). */
-function apiOrigin(req: Request): string {
+export function apiOrigin(req: Request): string {
   const configured = process.env.TMCODE_API_ORIGIN?.replace(/\/+$/, "");
   if (configured) return configured;
   const first = (v: unknown) => (Array.isArray(v) ? v[0] : (v as string | undefined))?.split(",")[0]?.trim();
