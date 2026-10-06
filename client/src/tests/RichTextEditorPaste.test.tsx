@@ -12,7 +12,7 @@ vi.mock("../utils/editorImages", async (orig) => ({
 }));
 const toastWarn = vi.fn();
 const toastError = vi.fn();
-vi.mock("react-toastify", () => ({ toast: { warn: (m: string) => toastWarn(m), error: (m: string) => toastError(m) } }));
+vi.mock("react-toastify", () => ({ toast: { warn: (m: string, o?: unknown) => toastWarn(m, o), error: (m: string, o?: unknown) => toastError(m, o) } }));
 
 import RichTextEditor from "../components/Common/RichTextEditor";
 
@@ -100,7 +100,7 @@ describe("RichTextEditor image paste", () => {
     expect(lastHtml(onChange)).toContain("https://cdn.example.com/c.png");
 
     fireEvent.paste(pm, { clipboardData: clipboard({ files: [new File(["x"], "big.png", { type: "image/png" })] }) });
-    await waitFor(() => expect(toastError).toHaveBeenCalledWith("Image is too large."));
+    await waitFor(() => expect(toastError).toHaveBeenCalledWith("Image is too large.", { toastId: "editor-image-upload" }));
     expect(lastHtml(onChange)).not.toContain("blob:");
   });
 
@@ -109,7 +109,7 @@ describe("RichTextEditor image paste", () => {
     fireEvent.paste(pm, {
       clipboardData: clipboard({ html: '<p>From Word</p><img src="file:///C:/Users/t/AppData/image001.png">', text: "From Word" }),
     });
-    await waitFor(() => expect(toastWarn).toHaveBeenCalledWith(expect.stringMatching(/files on your computer/)));
+    await waitFor(() => expect(toastWarn).toHaveBeenCalledWith(expect.stringMatching(/files on your computer/), undefined));
     expect(lastHtml(onChange)).not.toContain("file:///");
   });
 });

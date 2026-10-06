@@ -221,10 +221,13 @@ const RichTextEditor: React.FC<RichTextEditorProps> = ({
         .catch((err: Error) => {
           if (kind === "remote") {
             // Still shows from the original site — just not copied here.
-            toast.warn(`An image couldn't be copied, so it stays linked to the original site. ${err.message}`);
+            toast.warn(`An image couldn't be copied, so it stays linked to the original site. ${err.message}`, {
+              toastId: "editor-image-remote",
+            });
           } else {
             replaceImageSrc(src, null);
-            toast.error(err.message || "An image could not be uploaded.");
+            // one toast for a whole batch of failed images, not one each
+            toast.error(err.message || "An image could not be uploaded.", { toastId: "editor-image-upload" });
           }
         })
         .finally(() => {
