@@ -12,8 +12,12 @@ import {
   Assignment,
   ManualAssessment,
   ManualAssessmentScore,
+  Permission,
+  Role,
+  RolePermission,
   Submission,
   SubjectAssessmentMapping,
+  User,
 } from "../models";
 import { clearInstructorOverviewCache } from "../controllers/instructorOverview.controller";
 import { clearAdminReportsCache } from "../controllers/adminReports.controller";
@@ -156,7 +160,34 @@ beforeAll(async () => {
   } as any);
 });
 
+// An admin whose role has the ranking switched off (RANKINGS_VIEW_ALL removed).
+let noRankRoleId: number | null = null;
+let noRankUserId: number | null = null;
+
+async function adminWithoutRanking(): Promise<string> {
+  const admin = await Role.findOne({ where: { name: "admin" }, include: [Permission] });
+  const role = await Role.create({ name: `Admin no-rank ${crypto.randomBytes(3).toString("hex")}`, is_system: false } as any);
+  noRankRoleId = role.id;
+  const keep = (admin?.permissions ?? []).filter((p) => p.key !== "RANKINGS_VIEW_ALL");
+  await RolePermission.bulkCreate(keep.map((p) => ({ role_id: role.id, permission_id: p.id })) as any);
+  const user = await User.create({
+    email: `admin.norank.${role.id}@local.test`,
+    password: "MIS_AUTH",
+    first_name: "No",
+    last_name: "Rank",
+    role: "admin",
+    role_id: role.id,
+  } as any);
+  noRankUserId = user.id;
+  return signTokenFor(user.id);
+}
+
 afterAll(async () => {
+  if (noRankUserId) await User.destroy({ where: { id: noRankUserId } });
+  if (noRankRoleId) {
+    await RolePermission.destroy({ where: { role_id: noRankRoleId } });
+    await Role.destroy({ where: { id: noRankRoleId } });
+  }
   await SubjectAssessmentMapping.destroy({ where: { subject_id: [SUBJ_A, SUBJ_B], term: TERM } });
   if (manualIds.length) {
     await ManualAssessmentScore.destroy({ where: { manual_assessment_id: manualIds } });
@@ -255,6 +286,20 @@ describe("GET /api/dashboard/admin/students", () => {
     expect(omar.by_kind).toEqual({ recorded: 40 });
     expect(d.summary).toMatchObject({ with_marks: 2, average: 57.5, needing_support: 1 });
     expect(d.facets.class_groups).toEqual([expect.objectContaining({ id: CLASS_GROUP, students: 2 })]);
+  });
+
+  it("drops the rank without RANKINGS_VIEW_ALL, and won't sort by it", async () => {
+    const token = await adminWithoutRanking();
+    const res = await get("students?sort=rank", token);
+    expect(res.status).toBe(200);
+    const d = res.body.data;
+    expect(d.can_view_rank).toBe(false);
+    expect(d.rows.length).toBeGreaterThan(0);
+    for (const r of d.rows) expect(r).toMatchObject({ rank: null, ranked_of: 0 });
+    // Fell back to the name order rather than leaking the ranking through it.
+    const names = d.rows.map((r: any) => r.name);
+    expect(names).toEqual([...names].sort((a: string, b: string) => a.localeCompare(b)));
+    expect((await get("students")).body.data.can_view_rank).toBe(true);
   });
 
   it("filters and pages server-side", async () => {

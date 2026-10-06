@@ -16,6 +16,8 @@ interface Props {
   average: number | null;
   standing: StandingResult | null;
   standingLoading: boolean;
+  /** False when the viewer's role lacks RANKINGS_VIEW_ALL: no Class rank cell. */
+  showStanding?: boolean;
   attentionCount: number;
   subjectCount: number;
   period: string | null;
@@ -32,6 +34,7 @@ export default function StudentProfileHeader({
   average,
   standing,
   standingLoading,
+  showStanding = true,
   attentionCount,
   subjectCount,
   period,
@@ -96,6 +99,7 @@ export default function StudentProfileHeader({
                 <Pct value={average} />
               </dd>
             </div>
+            {showStanding && (
             <div className="px-3 sm:px-4 py-2">
               <dt className="text-[10px] font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">
                 Class rank
@@ -116,6 +120,7 @@ export default function StudentProfileHeader({
                 )}
               </dd>
             </div>
+            )}
             <button
               type="button"
               onClick={onAttention}

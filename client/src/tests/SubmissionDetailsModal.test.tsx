@@ -108,7 +108,7 @@ describe("SubmissionDetailsModal", () => {
   it("explains grading is locked for co-teachers and hides the console", () => {
     renderModal({ canManageAssignment: false, showGradingLockedNotice: true });
     expect(screen.queryByRole("button", { name: /Finalize Grade/ })).toBeNull();
-    expect(screen.getByText(/Only this assignment's creator or a super admin can grade/)).toBeInTheDocument();
+    expect(screen.getByText(/Only a teacher of this subject, the assignment's creator or a super admin can grade/)).toBeInTheDocument();
   });
 
   it("says graded work is graded and shows the teacher's feedback", () => {

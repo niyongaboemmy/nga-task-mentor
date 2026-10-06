@@ -234,13 +234,18 @@ export const getAdminStudents = async (req: Request, res: Response) => {
   const parsed = adminStudentsQuery.safeParse(req.query);
   if (!parsed.success) return badQuery(res, parsed.error);
   try {
-    const q = parsed.data;
+    // The rank column follows the ranking switch in Roles & Permissions: without
+    // RANKINGS_VIEW_ALL the rows carry no rank and can't be sorted by it.
+    const canSeeRank = req.user?.permissions?.has("RANKINGS_VIEW_ALL") ?? false;
+    const q = canSeeRank || parsed.data.sort !== "rank" ? parsed.data : { ...parsed.data, sort: undefined };
     const data = await loadAdminData(req, q.fresh === "1");
     const { page, status_counts, summary } = queryStudents(data.studentRows, q);
     return res.status(200).json({
       success: true,
       data: {
         ...page,
+        rows: canSeeRank ? page.rows : page.rows.map((r) => ({ ...r, rank: null, ranked_of: 0 })),
+        can_view_rank: canSeeRank,
         status_counts,
         summary,
         facets: studentFacets(data.studentRows, data.subjects),

@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { AlertTriangle, BookOpen } from "lucide-react";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import { dashboardContainerVariants, dashboardItemVariants } from "./dashboardUi";
 import ReportCardPanel from "./student/ReportCardPanel";
 import { ComingUp, FocusHero, MarksBars, SubjectCard, focusCard, focusInk, type SubjectCardData } from "./student/FocusDashboard";
@@ -26,7 +27,9 @@ import { publishAlerts } from "../../services/alertStore";
  *      report card.
  * Reminders go to the notification bell (publishAlerts), not onto the page.
  * Data: GET /dashboard/student/overview; averages including teacher-recorded
- * marks and the rank come from GET /rankings (optional).
+ * marks and the rank come from GET /rankings (optional, and only asked for
+ * while the role holds RANKINGS_VIEW_OWN: without it there is no rank in the
+ * hero and no class averages on subject cards).
  */
 
 const REFRESH_MS = 60 * 1000;
@@ -62,6 +65,8 @@ function thisWeek(now = new Date()): [number, number] {
 
 const StudentDashboard: React.FC = () => {
   const { user } = useAuth();
+  const { can } = usePermissions();
+  const canSeeRanking = can("RANKINGS_VIEW_OWN");
   const location = useLocation();
   const [overview, setOverview] = useState<StudentOverview | null>(null);
   const [standing, setStanding] = useState<StandingResponse | null>(null);
@@ -82,10 +87,12 @@ const StudentDashboard: React.FC = () => {
         ? [demoOverview(), demoStanding() as StandingResponse]
         : await Promise.all([
             getStudentOverview(),
-            axios
-              .get("/rankings")
-              .then((r) => (r.data?.data ?? null) as StandingResponse | null)
-              .catch(() => null),
+            canSeeRanking
+              ? axios
+                  .get("/rankings")
+                  .then((r) => (r.data?.data ?? null) as StandingResponse | null)
+                  .catch(() => null)
+              : Promise.resolve(null),
           ]);
       if (mine !== seq.current) return;
       hasData.current = true;
@@ -106,7 +113,7 @@ const StudentDashboard: React.FC = () => {
         setRefreshing(false);
       }
     }
-  }, []);
+  }, [canSeeRanking]);
 
   useEffect(() => {
     load();
@@ -209,6 +216,7 @@ const StudentDashboard: React.FC = () => {
           average={average}
           rank={overall?.rank ?? null}
           rankedCount={overall?.ranked_count ?? 0}
+          showRank={canSeeRanking}
           refreshing={refreshing}
           onRefresh={() => load()}
           onSeeWeek={() => scrollTo("coming-up")}

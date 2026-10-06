@@ -15,7 +15,7 @@ import {
   getStudentStanding,
   getProfilePicture,
 } from "../controllers/user.controller";
-import { protect, authorizePermission, selfOrPermission } from "../middleware/auth";
+import { protect, authorizePermission, authorizeAllPermissions, selfOrPermission } from "../middleware/auth";
 
 const router = Router();
 
@@ -73,10 +73,11 @@ router.get(
 );
 // Ranking against classmates — teacher-facing only: a student viewing their
 // own profile has no business seeing (even anonymised) classmates' marks, and
-// can't read the MIS rosters it needs anyway.
+// can't read the MIS rosters it needs anyway. RANKINGS_VIEW_ALL is the
+// ranking switch in Roles & Permissions.
 router.get(
   "/:userId/standing",
-  authorizePermission("USERS_VIEW_OTHERS_ACTIVITY"),
+  authorizeAllPermissions("USERS_VIEW_OTHERS_ACTIVITY", "RANKINGS_VIEW_ALL"),
   getStudentStanding,
 );
 router.get(

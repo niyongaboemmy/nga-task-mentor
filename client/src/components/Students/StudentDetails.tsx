@@ -87,6 +87,8 @@ const StudentDetails: React.FC = () => {
   const { user } = useAuth();
   const canEnroll = can("GRADING_MANUAL_ASSESS");
   const canViewReportCards = can("REPORT_CARDS_VIEW_ALL");
+  // Class rank / standing is the ranking switch in Roles & Permissions.
+  const canViewStanding = can("RANKINGS_VIEW_ALL");
 
   const [student, setStudent] = useState<UserFullData | null>(null);
   const [courses, setCourses] = useState<UserCourse[]>([]);
@@ -96,7 +98,7 @@ const StudentDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
 
   const [standing, setStanding] = useState<StandingPayload | null>(null);
-  const [standingLoading, setStandingLoading] = useState(true);
+  const [standingLoading, setStandingLoading] = useState(canViewStanding);
   const [standingError, setStandingError] = useState(false);
 
   const [enrollOpen, setEnrollOpen] = useState(false);
@@ -171,15 +173,20 @@ const StudentDetails: React.FC = () => {
     })();
 
     // The standing needs every subject's MIS roster — slower, and optional.
-    fetchStudentStanding(studentId)
-      .then((payload) => !cancelled && setStanding(payload))
-      .catch(() => !cancelled && setStandingError(true))
-      .finally(() => !cancelled && setStandingLoading(false));
+    if (canViewStanding) {
+      fetchStudentStanding(studentId)
+        .then((payload) => !cancelled && setStanding(payload))
+        .catch(() => !cancelled && setStandingError(true))
+        .finally(() => !cancelled && setStandingLoading(false));
+    } else {
+      setStanding(null);
+      setStandingLoading(false);
+    }
 
     return () => {
       cancelled = true;
     };
-  }, [studentId]);
+  }, [studentId, canViewStanding]);
 
   const refreshCourses = useCallback(async () => {
     const res = await api.get(`/users/${studentId}/courses`);
@@ -324,6 +331,7 @@ const StudentDetails: React.FC = () => {
         average={summary.overallAverage}
         standing={overallStanding}
         standingLoading={standingLoading}
+        showStanding={canViewStanding}
         attentionCount={attentionTotal}
         subjectCount={subjects.length}
         period={period}
@@ -359,6 +367,7 @@ const StudentDetails: React.FC = () => {
               subjectStanding={perSubjectStanding}
               standingLoading={standingLoading}
               standingError={standingError}
+              showStanding={canViewStanding}
               subjectId={subjectId}
               onSubject={(id) => updateParams({ subject: id })}
               kind={kind}

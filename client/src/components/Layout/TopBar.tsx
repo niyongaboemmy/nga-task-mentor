@@ -87,8 +87,9 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
           </div>
         )}
 
-        {/* Students only; the server also answers staff with nothing to show. */}
-        {bellFor === "student" && can("COURSES_VIEW") && <RankStandingChip />}
+        {/* Students only, and only while their role holds RANKINGS_VIEW_OWN;
+            the server also answers staff with nothing to show. */}
+        {bellFor === "student" && can("RANKINGS_VIEW_OWN") && <RankStandingChip />}
 
         {bellFor === "instructor" && <NotificationBell loadAlerts={loadInstructorAlerts} />}
         {bellFor === "student" && <NotificationBell loadAlerts={loadStudentAlerts} pollMs={2 * 60 * 1000} />}

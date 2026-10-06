@@ -31,6 +31,7 @@ import {
   passwordResetLimiter,
 } from "../middleware/rateLimiter.middleware";
 import { protect, authorizePermission } from "../middleware/auth";
+import { backchannelLogout } from "../controllers/backchannelLogout.controller";
 import { handleMulterError } from "../middleware/upload";
 
 const router = Router();
@@ -41,6 +42,8 @@ router.post("/login", loginLimiter, validate(loginSchema), login);
 router.post("/verify-otp", otpLimiter, validate(otpSchema), verifyOtp);
 router.post("/refresh-token", refreshToken);
 router.post("/logout", logout);
+// Single sign-out: NGA MIS calls this when a user signs out there.
+router.post("/backchannel-logout", backchannelLogout);
 router.get("/verify-mis", protect, verifyMisSession);
 router.post("/sso/callback", ssoCallback);
 router.get("/sso/authorize", protect, proxySsoAuthorize);

@@ -15,6 +15,7 @@ import {
   X,
 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import { KpiTile, ProgressBar, pct } from "../Dashboard/instructor/InstructorPanels";
 import {
   getAdminStudents,
@@ -75,6 +76,9 @@ const StatusPill: React.FC<{ status: PerformanceStatus }> = ({ status }) => (
 
 const AdminStudentsDirectory: React.FC = () => {
   const { user } = useAuth();
+  const { can } = usePermissions();
+  // Rank is the ranking switch in Roles & Permissions; the server also drops it.
+  const sorts = can("RANKINGS_VIEW_ALL") ? SORTS : SORTS.filter((s) => s.key !== "rank");
   const [params, setParams] = useSearchParams();
   const page = num(params.get("page")) ?? 1;
   const search = params.get("q") ?? "";
@@ -84,8 +88,9 @@ const AdminStudentsDirectory: React.FC = () => {
   const status = (params.get("status") as PerformanceStatus | null) ?? undefined;
   const attention = params.get("attention") === "1";
   const gender = params.get("gender") ?? undefined;
-  const sort = (params.get("sort") as StudentSort | null) ?? "name";
-  const dir = (params.get("dir") as "asc" | "desc" | null) ?? SORTS.find((s) => s.key === sort)?.dir ?? "asc";
+  const requestedSort = params.get("sort") as StudentSort | null;
+  const sort: StudentSort = sorts.some((s) => s.key === requestedSort) ? requestedSort! : "name";
+  const dir = (params.get("dir") as "asc" | "desc" | null) ?? sorts.find((s) => s.key === sort)?.dir ?? "asc";
   const grouped = params.get("view") === "class";
 
   const [data, setData] = useState<AdminStudentsResponse | null>(null);
@@ -362,11 +367,11 @@ const AdminStudentsDirectory: React.FC = () => {
                   className={selectCls}
                   value={sort}
                   onChange={(e) => {
-                    const so = SORTS.find((x) => x.key === e.target.value)!;
+                    const so = sorts.find((x) => x.key === e.target.value)!;
                     update({ sort: so.key, dir: so.dir });
                   }}
                 >
-                  {SORTS.map((so) => (
+                  {sorts.map((so) => (
                     <option key={so.key} value={so.key}>
                       Sort: {so.label}
                     </option>

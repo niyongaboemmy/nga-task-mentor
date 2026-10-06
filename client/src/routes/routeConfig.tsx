@@ -138,11 +138,13 @@ export const appRoutes: AppRoute[] = [
   },
   { path: "/profile", element: <Profile /> },
   {
-    // Everyone who can see courses; the server decides whether the caller gets
-    // their own position (students) or a leaderboard (teachers, admins).
+    // The server decides whether the caller gets their own position (students,
+    // RANKINGS_VIEW_OWN) or a leaderboard (teachers and admins,
+    // RANKINGS_VIEW_ALL). Either key opens the page; with neither, the menu
+    // item and the route are gone.
     path: "/ranking",
     element: <RankingPage />,
-    permissions: ["COURSES_VIEW"],
+    permissions: ["RANKINGS_VIEW_OWN", "RANKINGS_VIEW_ALL"],
     navItem: { label: "Overall Ranking", icon: Trophy, group: "General" },
   },
   {

@@ -4,7 +4,7 @@ import { Op } from "sequelize";
 import { isPastDate } from "../utils/dateUtils";
 import { resolveAcademicTermId, getCurrentTermId } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
-import { canManageAssignment } from "../utils/ownership";
+import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
 import fs from "fs";
 import path from "path";
 import fileServer from "../utils/fileServer";
@@ -828,10 +828,15 @@ export const gradeSubmission = async (req: Request, res: Response) => {
       include: [
         {
           model: Assignment,
-          attributes: ["id", "title", "course_id", "max_score", "created_by"],
+          as: "assignment",
+          attributes: ["id", "title", "course_id", "academic_term_id", "max_score", "created_by"],
         },
       ],
     })) as any;
+    // The association is `Submission.assignment` (lowercase, from the model's
+    // @BelongsTo property). Reading `submission.Assignment` was always
+    // undefined, so every non-admin was refused grading -- creators included.
+    const assignment = submission?.assignment;
 
     if (!submission) {
       return res
@@ -841,19 +846,19 @@ export const gradeSubmission = async (req: Request, res: Response) => {
 
     if (
       !(req as any).user.permissions?.has("SUBMISSIONS_GRADE") ||
-      !canManageAssignment((req as any).user, submission.Assignment)
+      !(await canGradeAssignment(req, assignment))
     ) {
       return res.status(403).json({
         success: false,
-        message: "Only the assignment's creator or a super admin can grade this submission",
+        message: GRADE_DENIED_MESSAGE,
       });
     }
 
     // Get maxScore from assignment if not provided in request
     const finalMaxScore =
       maxScore ||
-      (submission.Assignment?.max_score
-        ? parseInt(submission.Assignment.max_score)
+      (assignment?.max_score
+        ? parseFloat(assignment.max_score)
         : null);
 
     // Validate grade data

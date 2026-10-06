@@ -1087,7 +1087,7 @@ export const getStudentRecordedAssessments = async (
 
 // @desc    Where one student stands among their classmates, per subject
 // @route   GET /api/users/:userId/standing
-// @access  Private (USERS_VIEW_OTHERS_ACTIVITY)
+// @access  Private (USERS_VIEW_OTHERS_ACTIVITY + RANKINGS_VIEW_ALL)
 //
 // Returns every classmate's per-subject, per-kind mark tallies — anonymised,
 // see utils/studentStanding — so the profile can rank the student overall or

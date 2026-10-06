@@ -47,6 +47,8 @@ interface Props {
   subjectStanding: Record<string, StandingResult> | null;
   standingLoading: boolean;
   standingError: boolean;
+  /** False when the viewer's role lacks RANKINGS_VIEW_ALL: no standing card. */
+  showStanding?: boolean;
   subjectId: string | null;
   onSubject: (courseId: string | null) => void;
   kind: StandingKindFilter;
@@ -108,6 +110,7 @@ export default function StudentOverviewPanel({
   subjectStanding,
   standingLoading,
   standingError,
+  showStanding = true,
   subjectId,
   onSubject,
   kind,
@@ -227,19 +230,21 @@ export default function StudentOverviewPanel({
         </Kpi>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 sm:gap-5">
-        <div className="xl:col-span-2">
-          <StandingCard
-            result={standing}
-            loading={standingLoading}
-            error={standingError}
-            subjects={subjects}
-            subjectId={subjectId}
-            onSubject={onSubject}
-            kind={kind}
-            onKind={onKind}
-          />
-        </div>
+      <div className={`grid grid-cols-1 gap-4 sm:gap-5 ${showStanding ? "xl:grid-cols-3" : ""}`}>
+        {showStanding && (
+          <div className="xl:col-span-2">
+            <StandingCard
+              result={standing}
+              loading={standingLoading}
+              error={standingError}
+              subjects={subjects}
+              subjectId={subjectId}
+              onSubject={onSubject}
+              kind={kind}
+              onKind={onKind}
+            />
+          </div>
+        )}
 
         <section
           className={`${CARD} p-4 sm:p-5`}
@@ -318,7 +323,7 @@ export default function StudentOverviewPanel({
               Subject performance
             </h3>
             <p className="text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
-              Tap a subject to focus the standing on it. The tick on each bar is
+              {showStanding ? "Tap a subject to focus the standing on it. " : ""}The tick on each bar is
               the class average.
             </p>
           </div>

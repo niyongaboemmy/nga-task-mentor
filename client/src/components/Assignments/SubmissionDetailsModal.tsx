@@ -459,7 +459,7 @@ const SubmissionDetailsModal: React.FC<SubmissionDetailsModalProps> = ({
             {!canManageAssignment && showGradingLockedNotice && (
               <div className="flex items-start gap-3 rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-border-dark/60 dark:bg-surface-dark dark:text-slate-300">
                 <Info className="mt-0.5 h-4 w-4 flex-shrink-0 text-slate-400" />
-                <p>Only this assignment's creator or a super admin can grade submissions. You can review the work and add comments.</p>
+                <p>Only a teacher of this subject, the assignment's creator or a super admin can grade submissions. You can review the work and add comments.</p>
               </div>
             )}
 

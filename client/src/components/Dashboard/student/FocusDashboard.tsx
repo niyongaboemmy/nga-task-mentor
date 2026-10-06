@@ -67,10 +67,11 @@ export const FocusHero: React.FC<{
   average: number | null;
   rank: number | null;
   rankedCount: number;
+  showRank: boolean;
   refreshing: boolean;
   onRefresh: () => void;
   onSeeWeek: () => void;
-}> = ({ greeting, first, second, upcomingLater, weekDone, weekTotal, average, rank, rankedCount, refreshing, onRefresh, onSeeWeek }) => {
+}> = ({ greeting, first, second, upcomingLater, weekDone, weekTotal, average, rank, rankedCount, showRank, refreshing, onRefresh, onSeeWeek }) => {
   const now = useNow();
   const lines = [first, second].filter((t): t is StudentTask => !!t).map((t) => detail(t, now)).filter(Boolean);
   const pct = weekTotal ? Math.round((weekDone / weekTotal) * 100) : 0;
@@ -154,10 +155,12 @@ export const FocusHero: React.FC<{
               <span className="text-2xl font-bold tabular-nums">{average == null ? "—" : `${Math.round(average)}%`}</span>{" "}
               <span className="text-blue-100">average</span>
             </p>
-            <Link to="/ranking" className="block hover:underline" aria-label="Open my ranking">
-              <span className="text-2xl font-bold tabular-nums">{rank ? `#${rank}` : "—"}</span>{" "}
-              <span className="text-blue-100">{rank ? `of ${rankedCount} in class` : "ranked after first marks"}</span>
-            </Link>
+            {showRank && (
+              <Link to="/ranking" className="block hover:underline" aria-label="Open my ranking">
+                <span className="text-2xl font-bold tabular-nums">{rank ? `#${rank}` : "—"}</span>{" "}
+                <span className="text-blue-100">{rank ? `of ${rankedCount} in class` : "ranked after first marks"}</span>
+              </Link>
+            )}
           </div>
         </div>
       </div>

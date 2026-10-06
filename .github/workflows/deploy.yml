@@ -5,6 +5,14 @@ on:
     branches: [main]
   workflow_dispatch: {}
 
+# One deploy at a time. Two pushes a minute apart (2026-09-29) ran their
+# deploys at once on the same box: one `npm ci` wiped client/node_modules
+# while the other was compiling ("TS6053: lib.es2023.d.ts not found").
+# Queue instead; never cancel a deploy halfway through.
+concurrency:
+  group: deploy-nga-task-mentor
+  cancel-in-progress: false
+
 jobs:
   deploy:
     runs-on: ubuntu-latest
@@ -164,7 +172,17 @@ jobs:
 
             cd client
             npm ci --legacy-peer-deps
-            npm run build
+            # Safety net for a broken install (e.g. a truncated package, or a
+            # deploy that overlapped this one before the concurrency group
+            # existed): retry once from a verified cache with a clean
+            # node_modules. A real build error fails the retry too.
+            if [ ! -f node_modules/typescript/lib/lib.es2023.d.ts ] || ! npm run build; then
+              echo "Client build failed; verifying the npm cache and reinstalling once"
+              npm cache verify
+              rm -rf node_modules
+              npm ci --legacy-peer-deps
+              npm run build
+            fi
             cd ..
 
             pm2 restart taskmentor-server --update-env || pm2 start server/dist/index.js --name taskmentor-server --update-env

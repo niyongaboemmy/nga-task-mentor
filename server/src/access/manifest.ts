@@ -10,7 +10,8 @@ import { CapabilityDef, defineManifest, Depth, Domain } from "../vendor/nga-acce
  * and grade/result views carry a read depth: `summary` (aggregates, never
  * names) or `detail` (records). REPORT_CARDS_COMMENT and REPORT_CARDS_PUBLISH
  * are new: they split the report-card chain (plan §10) -- class teacher
- * comments, DOS approves, head publishes.
+ * comments, DOS approves, head publishes. RANKINGS_VIEW_OWN / _ALL switch the
+ * Overall Ranking on and off (own position / named leaderboard).
  *
  * Published to MIS on deploy (npm run access:publish).
  */
@@ -24,7 +25,7 @@ const SCHOOL_ONLY = { scopeable: false };
 export const TM_MANIFEST = defineManifest({
   app: "tm",
   name: "Task Mentor",
-  version: "2026.09.27.1",
+  version: "2026.09.29.1",
   capabilities: {
     USERS_VIEW_SELF: R("View own profile", "PEOPLE"),
     USERS_VIEW_ALL: R("View students and staff", "PEOPLE"),
@@ -103,6 +104,9 @@ export const TM_MANIFEST = defineManifest({
     DASHBOARD_VIEW_ADMIN: R("School dashboard", "REPORTING", ["summary"]),
     DASHBOARD_VIEW_INSTRUCTOR: R("Instructor dashboard", "REPORTING"),
     DASHBOARD_VIEW_STUDENT: R("Student dashboard", "REPORTING"),
+
+    RANKINGS_VIEW_OWN: R("See own class position", "ASSESSMENT"),
+    RANKINGS_VIEW_ALL: R("Class leaderboard (named)", "ASSESSMENT"),
 
     ACADEMICS_VIEW: R("View academic periods", "ACADEMICS"),
     ACADEMICS_MANAGE_PERIODS: W("Manage academic periods", "ACADEMICS", SCHOOL_ONLY),

@@ -6,7 +6,7 @@ import {
   signTokenFor,
 } from "./testApp";
 import { sequelize } from "../config/database";
-import { Role } from "../models";
+import { Permission, Role, RolePermission } from "../models";
 
 /**
  * Integration tests for the Roles & Permissions management module, run
@@ -147,5 +147,114 @@ describe("full round trip: create role -> assign permission -> assign to user ->
       .delete(`/api/roles-permissions/roles/${createdRoleId}`)
       .set("Authorization", `Bearer ${adminToken}`);
     expect(res.status).toBe(400);
+  });
+});
+
+describe("editing a role (PUT /roles/:id)", () => {
+  const put = (id: number, body: object) =>
+    request(app)
+      .put(`/api/roles-permissions/roles/${id}`)
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send(body);
+  const keysOf = async (id: number) => {
+    const res = await request(app)
+      .get(`/api/roles-permissions/roles/${id}`)
+      .set("Authorization", `Bearer ${adminToken}`);
+    return [...res.body.data.permissionKeys].sort();
+  };
+  /** Snapshot a role's grants straight from the DB, and put them back. */
+  const snapshot = async (roleId: number) => {
+    const rows = await RolePermission.findAll({ where: { role_id: roleId } });
+    const ids = rows.map((r) => r.permission_id);
+    return async () => {
+      await RolePermission.destroy({ where: { role_id: roleId } });
+      await RolePermission.bulkCreate(ids.map((permission_id) => ({ role_id: roleId, permission_id })) as any);
+    };
+  };
+
+  let tempRoleId: number;
+
+  beforeAll(async () => {
+    const res = await request(app)
+      .post("/api/roles-permissions/roles")
+      .set("Authorization", `Bearer ${adminToken}`)
+      .send({ name: `Test Editor ${Date.now()}`, permissionKeys: ["COURSES_VIEW"] });
+    tempRoleId = res.body.data.id;
+  });
+
+  afterAll(async () => {
+    await RolePermission.destroy({ where: { role_id: tempRoleId } });
+    await Role.destroy({ where: { id: tempRoleId } });
+  });
+
+  it("replaces a role's permission set", async () => {
+    const res = await put(tempRoleId, { permissionKeys: ["COURSES_VIEW", "RANKINGS_VIEW_OWN", "RANKINGS_VIEW_OWN"] });
+    expect(res.status).toBe(200);
+    expect(await keysOf(tempRoleId)).toEqual(["COURSES_VIEW", "RANKINGS_VIEW_OWN"]);
+  });
+
+  it("saves the student role with the ranking switched off (the production payload)", async () => {
+    const student = await Role.findOne({ where: { name: "student" } });
+    const restore = await snapshot(student!.id);
+    const permissionKeys = [
+      "USERS_VIEW_SELF", "COURSES_VIEW", "COURSES_VIEW_OWN_GRADES", "ASSIGNMENTS_VIEW",
+      "SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_CREATE", "QUIZZES_VIEW", "QUIZZES_ATTEMPT",
+      "QUIZZES_VIEW_RESULTS_OWN", "QUIZ_QUESTIONS_USE_AI_HINT", "QUIZ_QUESTIONS_RUN_CODE",
+      "PROCTORING_START_SESSION", "PROCTORING_VIEW_OWN_SESSIONS", "PROCTORING_LOG_EVENTS",
+      "REPORT_CARDS_VIEW_OWN", "REPORT_CARDS_EXPORT_PDF", "DASHBOARD_VIEW_STUDENT", "ACADEMICS_VIEW",
+    ];
+    try {
+      const res = await put(student!.id, {
+        name: "student",
+        description: "Attempts quizzes/assignments and views own results",
+        permissionKeys,
+      });
+      expect(res.status).toBe(200);
+      expect(await keysOf(student!.id)).toEqual([...permissionKeys].sort());
+    } finally {
+      await restore();
+    }
+  });
+
+  it("refuses unknown permission keys and leaves the role untouched", async () => {
+    const before = await keysOf(tempRoleId);
+    const res = await put(tempRoleId, { permissionKeys: ["COURSES_VIEW", "NOT_A_REAL_KEY"] });
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain("NOT_A_REAL_KEY");
+    expect(await keysOf(tempRoleId)).toEqual(before);
+  });
+
+  it("refuses to rename a system role", async () => {
+    const student = await Role.findOne({ where: { name: "student" } });
+    const res = await put(student!.id, { name: "pupil" });
+    expect(res.status).toBe(400);
+    expect((await Role.findByPk(student!.id))!.name).toBe("student");
+  });
+
+  it("lets a role give up Manage Roles & Permissions while someone else keeps it", async () => {
+    expect((await put(tempRoleId, { permissionKeys: ["ROLES_PERMISSIONS_MANAGE"] })).status).toBe(200);
+    const res = await put(tempRoleId, { permissionKeys: ["COURSES_VIEW"] });
+    expect(res.status).toBe(200);
+    expect(await keysOf(tempRoleId)).toEqual(["COURSES_VIEW"]);
+  });
+
+  it("won't strip Manage Roles & Permissions when only users-less roles would keep it", async () => {
+    // The temp role holds MANAGE but nobody is on it: that doesn't count.
+    await put(tempRoleId, { permissionKeys: ["ROLES_PERMISSIONS_MANAGE"] });
+    const admin = await Role.findOne({ where: { name: "admin" }, include: [Permission] });
+    const restore = await snapshot(admin!.id);
+    try {
+      const others = await Role.findAll({ include: [{ model: Permission, where: { key: "ROLES_PERMISSIONS_MANAGE" } }] });
+      const anotherManager = await (await import("../models")).User.count({
+        where: { role_id: others.map((r) => r.id).filter((id) => id !== admin!.id) },
+      });
+      if (anotherManager > 0) return; // the dev DB has another manager; the guard rightly allows it
+      const keys = (admin!.permissions ?? []).map((p) => p.key).filter((k) => k !== "ROLES_PERMISSIONS_MANAGE");
+      const res = await put(admin!.id, { permissionKeys: keys });
+      expect(res.status).toBe(400);
+      expect(await keysOf(admin!.id)).toContain("ROLES_PERMISSIONS_MANAGE");
+    } finally {
+      await restore();
+    }
   });
 });

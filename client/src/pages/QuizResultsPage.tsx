@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useLocation, Link } from "react-router-dom";
+import { useParams, useLocation, Link, useNavigate } from "react-router-dom";
 import axios from "../utils/axiosConfig";
 import {
   AlertCircle,
@@ -14,10 +14,14 @@ import {
   Clock,
   Filter,
   FileText,
+  Printer,
+  RotateCcw,
+  Lock,
 } from "lucide-react";
 import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
 import RichTextDisplay from "../components/Common/RichTextDisplay";
 import type { StudentQuizState } from "../types/quiz.types";
+import { describeRetake } from "../utils/retakeState";
 
 interface Quiz {
   id: number;
@@ -142,6 +146,9 @@ const QuizResultsPage: React.FC = () => {
   /** Set when the quiz's settings hold results back (not released yet). */
   const [pendingMessage, setPendingMessage] = useState<string | null>(null);
   const [studentState, setStudentState] = useState<StudentQuizState | null>(null);
+  const [checkingRetake, setCheckingRetake] = useState(false);
+  const [retakeNotice, setRetakeNotice] = useState<string | null>(null);
+  const navigate = useNavigate();
   const [filterTab, setFilterTab] = useState<FilterTab>("all");
   const [expandedQuestions, setExpandedQuestions] = useState<Set<number>>(new Set());
   const [submissionData] = useState<SubmissionData | null>(
@@ -467,18 +474,113 @@ const QuizResultsPage: React.FC = () => {
     );
   }
 
-  const retake = studentState?.can_start
-    ? {
-        label: studentState.attempts.in_progress_submission_id
-          ? "Resume attempt"
-          : `Take again${
-              studentState.attempts.attempts_left !== null
-                ? ` (${studentState.attempts.attempts_left} left)`
-                : ""
-            }`,
-        to: `/quizzes/${id}/take`,
+  // "Take again" follows the quiz's attempt settings (see utils/retakeState).
+  const retake = describeRetake(studentState);
+
+  /**
+   * Re-check with the server before leaving: another tab may have used the
+   * last try, or the quiz may have closed since this page loaded.
+   */
+  const startRetake = async () => {
+    if (!retake?.enabled || checkingRetake) return;
+    setCheckingRetake(true);
+    try {
+      const res = await axios.get(`/quizzes/${id}`);
+      const fresh: StudentQuizState | null = res.data?.data?.student_state ?? null;
+      setStudentState(fresh);
+      const now = describeRetake(fresh);
+      if (now?.enabled) {
+        navigate(`/quizzes/${id}/take`);
+      } else {
+        setRetakeNotice(
+          now
+            ? `${now.title}: ${now.hint.toLowerCase()}.`
+            : "This quiz can't be taken again right now.",
+        );
       }
-    : null;
+    } catch {
+      setRetakeNotice("Couldn't check your tries. Please try again.");
+    } finally {
+      setCheckingRetake(false);
+    }
+  };
+
+  /** Tries used vs. allowed: small pips (up to 10) plus "1 of 2 tries used". */
+  const triesMeter = (tone: "light" | "dark") =>
+    retake ? (
+      <span id="retake-tries" className="mt-1.5 flex items-center gap-2">
+        {retake.max !== null && retake.max <= 10 && (
+          <span className="flex gap-1" aria-hidden>
+            {Array.from({ length: retake.max }, (_, i) => (
+              <span
+                key={i}
+                className={`h-1.5 w-3.5 rounded-full ${
+                  i < retake.used
+                    ? tone === "light"
+                      ? "bg-white"
+                      : "bg-gray-500 dark:bg-gray-400"
+                    : tone === "light"
+                      ? "bg-white/30"
+                      : "bg-gray-300 dark:bg-gray-600"
+                }`}
+              />
+            ))}
+          </span>
+        )}
+        <span
+          className={`text-[11px] ${
+            tone === "light" ? "text-white/85" : "text-text-secondary-light dark:text-text-secondary-dark"
+          }`}
+        >
+          {retake.triesLabel}
+        </span>
+      </span>
+    ) : null;
+
+  const retakeCard = retake && (
+    <>
+      {retake.enabled ? (
+        <button
+          type="button"
+          onClick={startRetake}
+          disabled={checkingRetake}
+          aria-describedby="retake-tries"
+          className="group flex h-full items-center gap-3 rounded-xl bg-emerald-600 px-4 py-3 text-left text-white shadow-sm transition hover:bg-emerald-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-400 focus-visible:ring-offset-2 disabled:opacity-70 dark:focus-visible:ring-offset-gray-900"
+        >
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white/15">
+            {checkingRetake ? (
+              <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+            ) : (
+              <RotateCcw className="h-5 w-5" aria-hidden />
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="block font-semibold leading-tight">{retake.title}</span>
+            <span className="block text-xs text-white/85">{retake.hint}</span>
+            {triesMeter("light")}
+          </span>
+        </button>
+      ) : (
+        <div
+          role="group"
+          aria-label={`${retake.title}. ${retake.hint}`}
+          aria-describedby="retake-tries"
+          className="flex h-full items-center gap-3 rounded-xl border border-dashed border-gray-300 bg-gray-50 px-4 py-3 text-left text-text-secondary-light dark:border-gray-600 dark:bg-gray-800/40 dark:text-text-secondary-dark"
+        >
+          <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-200 dark:bg-gray-700/70">
+            <Lock className="h-5 w-5" aria-hidden />
+          </span>
+          <span className="min-w-0">
+            <span className="block font-semibold leading-tight text-text-primary-light dark:text-text-primary-dark">
+              {retake.title}
+            </span>
+            <span className="block text-xs">{retake.hint}</span>
+            {triesMeter("dark")}
+          </span>
+        </div>
+      )}
+    </>
+  );
 
   if (!result && pendingMessage) {
     return (
@@ -492,14 +594,7 @@ const QuizResultsPage: React.FC = () => {
             {pendingMessage}
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            {retake && (
-              <Link
-                to={retake.to}
-                className="inline-flex items-center justify-center px-5 py-2.5 bg-blue-600 text-white rounded-full hover:bg-blue-700"
-              >
-                {retake.label}
-              </Link>
-            )}
+            {retakeCard}
             <Link
               to="/my-quizzes"
               className="inline-flex items-center justify-center px-5 py-2.5 border border-gray-300 dark:border-gray-600 rounded-full text-text-secondary-light dark:text-text-secondary-dark hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -922,38 +1017,67 @@ const QuizResultsPage: React.FC = () => {
           )}
         </div>
 
-        {/* Actions */}
-        <div className="mt-12 text-center animate-in slide-in-from-bottom duration-500 delay-1000">
-          <div className="bg-white dark:bg-card-dark/30 backdrop-blur-sm rounded-2xl p-6 border border-orange-200 dark:border-orange-700/30 max-w-md mx-auto">
-            <h3 className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark mb-4">
-              What would you like to do next?
-            </h3>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {retake && (
-                <Link
-                  to={retake.to}
-                  className="inline-flex items-center justify-center whitespace-nowrap px-6 py-3 bg-emerald-600 text-white rounded-full hover:bg-emerald-700 transition-all duration-300 hover:scale-105"
-                >
-                  {retake.label}
-                </Link>
-              )}
+        {/* Next steps */}
+        <section
+          aria-labelledby="next-steps-title"
+          className="mt-12 print:hidden"
+        >
+          <div className="mx-auto max-w-3xl rounded-2xl border border-gray-200 bg-white/90 p-5 shadow-sm backdrop-blur-sm sm:p-6 dark:border-gray-700/60 dark:bg-gray-900/70">
+            <div className="mb-4 text-center sm:text-left">
+              <h3
+                id="next-steps-title"
+                className="text-lg font-semibold text-text-primary-light dark:text-text-primary-dark"
+              >
+                What would you like to do next?
+              </h3>
+              <p className="text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                {retake?.enabled
+                  ? "You can try this quiz again, pick another one, or keep a copy of these results."
+                  : "Pick another quiz or keep a copy of these results."}
+              </p>
+            </div>
+            <div
+              className={`grid gap-3 ${retake ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}
+            >
+              {retakeCard}
               <Link
                 to="/my-quizzes"
-                className="inline-flex items-center px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all duration-300 hover:scale-105"
+                className="group flex items-center gap-3 rounded-xl bg-blue-600 px-4 py-3 text-left text-white shadow-sm transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900"
               >
-                <BookOpen className="h-5 w-5 mr-2" />
-                Take Another Quiz
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-white/15">
+                  <BookOpen className="h-5 w-5" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-semibold leading-tight">Another quiz</span>
+                  <span className="block text-xs text-white/80">Go to My Quizzes</span>
+                </span>
               </Link>
               <button
+                type="button"
                 onClick={() => window.print()}
-                className="inline-flex items-center px-6 py-3 border-2 border-gray-300 dark:border-gray-600 text-text-secondary-light dark:text-text-secondary-dark rounded-2xl hover:bg-gray-50 dark:hover:bg-gray-800 transition-all duration-300 hover:scale-105 hover:border-gray-400 dark:hover:border-gray-500"
+                className="group flex items-center gap-3 rounded-xl border border-gray-300 bg-white px-4 py-3 text-left text-text-primary-light shadow-sm transition hover:bg-gray-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-2 dark:border-gray-600 dark:bg-gray-800/60 dark:text-text-primary-dark dark:hover:bg-gray-800 dark:focus-visible:ring-offset-gray-900"
               >
-                <Target className="h-5 w-5 mr-2" />
-                Print Results
+                <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-gray-100 dark:bg-gray-700/70">
+                  <Printer className="h-5 w-5" aria-hidden />
+                </span>
+                <span className="min-w-0">
+                  <span className="block font-semibold leading-tight">Print results</span>
+                  <span className="block text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                    Save as PDF or paper
+                  </span>
+                </span>
               </button>
             </div>
+            {retakeNotice && (
+              <p
+                role="alert"
+                className="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
+              >
+                {retakeNotice}
+              </p>
+            )}
           </div>
-        </div>
+        </section>
       </div>
     </div>
   );

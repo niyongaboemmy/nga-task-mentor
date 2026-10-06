@@ -8,6 +8,37 @@ import type {
   AssignRolePayload,
 } from "../validations/rolePermission.validation";
 
+const MANAGE_KEY = "ROLES_PERMISSIONS_MANAGE";
+
+/** Keys in `keys` that aren't in the permission catalog. */
+async function unknownPermissionKeys(keys: string[], transaction?: any): Promise<string[]> {
+  if (keys.length === 0) return [];
+  const found = await Permission.findAll({ where: { key: keys }, attributes: ["key"], transaction });
+  const known = new Set(found.map((p) => p.key));
+  return Array.from(new Set(keys.filter((k) => !known.has(k))));
+}
+
+/**
+ * Users, other than on `excludeRoleId`'s role, who could still manage roles.
+ * Counts people, not roles: another role holding the key with nobody assigned
+ * to it doesn't keep anyone out of a lockout.
+ */
+async function otherUsersWhoCanManage(excludeRoleId: number, transaction?: any): Promise<number> {
+  return User.count({
+    where: { role_id: { [Op.ne]: excludeRoleId } },
+    include: [
+      {
+        model: Role,
+        required: true,
+        include: [{ model: Permission, where: { key: MANAGE_KEY }, required: true }],
+      },
+    ],
+    distinct: true,
+    col: "id",
+    transaction,
+  });
+}
+
 // ─── GET /api/roles-permissions/permissions ──────────────────────────────────
 // Full permission catalog, grouped by category, for the checkbox UI.
 
@@ -108,6 +139,15 @@ export const createRole = async (req: Request, res: Response) => {
       });
     }
 
+    const unknown = await unknownPermissionKeys(body.permissionKeys, transaction);
+    if (unknown.length > 0) {
+      await transaction.rollback();
+      return res.status(400).json({
+        success: false,
+        message: `Unknown permission${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ")}. Reload the page and try again.`,
+      });
+    }
+
     const role = await Role.create(
       {
         name: body.name,
@@ -136,7 +176,7 @@ export const createRole = async (req: Request, res: Response) => {
       data: { id: role.id, name: role.name, description: role.description, is_system: false },
     });
   } catch (error) {
-    await transaction.rollback();
+    await transaction.rollback().catch(() => undefined);
     console.error("createRole error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -157,6 +197,14 @@ export const updateRole = async (req: Request, res: Response) => {
     }
 
     if (body.name && body.name !== role.name) {
+      // Migrations and the legacy users.role sync find these by name.
+      if (role.is_system) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: "System roles (admin, instructor, student) cannot be renamed",
+        });
+      }
       const existing = await Role.findOne({ where: { name: body.name }, transaction });
       if (existing) {
         await transaction.rollback();
@@ -172,46 +220,50 @@ export const updateRole = async (req: Request, res: Response) => {
       role.description = body.description;
     }
 
+    if (body.permissionKeys !== undefined) {
+      // A stale page could send a key that no longer exists; dropping it
+      // silently would save a different set than the admin ticked.
+      const unknown = await unknownPermissionKeys(body.permissionKeys, transaction);
+      if (unknown.length > 0) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message: `Unknown permission${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ")}. Reload the page and try again.`,
+        });
+      }
+
+      // Guardrail: don't let this role lose ROLES_PERMISSIONS_MANAGE when no
+      // user on any other role could still manage roles — that would lock
+      // everyone out of this module for good. (RolePermission has no
+      // association to Permission, so this goes through Role's belongsToMany.)
+      const willHaveManage = body.permissionKeys.includes(MANAGE_KEY);
+      const currentlyHasManage =
+        (await Role.count({
+          where: { id: role.id },
+          include: [{ model: Permission, where: { key: MANAGE_KEY }, required: true }],
+          distinct: true,
+          col: "id",
+          transaction,
+        })) > 0;
+
+      if (currentlyHasManage && !willHaveManage && (await otherUsersWhoCanManage(role.id, transaction)) === 0) {
+        await transaction.rollback();
+        return res.status(400).json({
+          success: false,
+          message:
+            "Cannot remove Manage Roles & Permissions from this role: no user on another role could still manage roles, so everyone would be locked out.",
+        });
+      }
+    }
+
     await role.save({ transaction });
 
     if (body.permissionKeys !== undefined) {
-      // Guardrail: don't let the last role holding ROLES_PERMISSIONS_MANAGE
-      // lose it, which would permanently lock everyone out of this module.
-      const willHaveManage = body.permissionKeys.includes("ROLES_PERMISSIONS_MANAGE");
-      const currentlyHasManage = await RolePermission.findOne({
-        where: { role_id: role.id },
-        include: [{ model: Permission, where: { key: "ROLES_PERMISSIONS_MANAGE" }, required: true }],
-        transaction,
-      });
-
-      if (currentlyHasManage && !willHaveManage) {
-        const otherRolesWithManage = await Role.count({
-          where: { id: { [Op.ne]: role.id } },
-          include: [
-            {
-              model: Permission,
-              where: { key: "ROLES_PERMISSIONS_MANAGE" },
-              required: true,
-            },
-          ],
-          transaction,
-        });
-
-        if (otherRolesWithManage === 0) {
-          await transaction.rollback();
-          return res.status(400).json({
-            success: false,
-            message:
-              "Cannot remove Manage Roles & Permissions from the only role that holds it — this would lock everyone out of role management.",
-          });
-        }
-      }
-
       await RolePermission.destroy({ where: { role_id: role.id }, transaction });
 
       if (body.permissionKeys.length > 0) {
         const permissions = await Permission.findAll({
-          where: { key: body.permissionKeys },
+          where: { key: Array.from(new Set(body.permissionKeys)) },
           transaction,
         });
         await RolePermission.bulkCreate(
@@ -225,7 +277,8 @@ export const updateRole = async (req: Request, res: Response) => {
 
     res.status(200).json({ success: true, message: "Role updated" });
   } catch (error) {
-    await transaction.rollback();
+    // A failed commit has already ended the transaction.
+    await transaction.rollback().catch(() => undefined);
     console.error("updateRole error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }

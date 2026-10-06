@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
+import { usePermissions } from "../../hooks/usePermissions";
 import { ActivityRow, EmptyState, dashboardContainerVariants, dashboardItemVariants, type RecentActivity } from "./dashboardUi";
 import {
   getInstructorOverview,
@@ -95,6 +96,7 @@ export interface InstructorDashboardProps {
 
 const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ variant = "teacher" }) => {
   const isAdmin = variant === "admin";
+  const { can } = usePermissions();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
@@ -637,7 +639,9 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ variant = "te
             <div className="grid grid-cols-2 gap-2">
               <QuickAction to="/courses" icon={<BookOpen className="w-4 h-4" />} label="All subjects" />
               <QuickAction to="/students" icon={<Users className="w-4 h-4" />} label="All students" />
-              <QuickAction to="/ranking" icon={<Trophy className="w-4 h-4" />} label="Ranking" />
+              {can("RANKINGS_VIEW_ALL") && (
+                <QuickAction to="/ranking" icon={<Trophy className="w-4 h-4" />} label="Ranking" />
+              )}
               <QuickAction to="/submissions?status=needs_grading" icon={<ClipboardList className="w-4 h-4" />} label="Needs grading" />
               <QuickAction to="/quizzes" icon={<ListChecks className="w-4 h-4" />} label="Quizzes" />
               <QuickAction to="/grades" icon={<GraduationCap className="w-4 h-4" />} label="Grades" />

@@ -3,9 +3,18 @@ import { render, screen, fireEvent, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import type { StudentOverview, StudentTask } from "../services/studentOverviewApi";
 
+// The student's role permissions; RANKINGS_VIEW_OWN is the ranking switch.
+const auth = vi.hoisted(() => ({ permissions: ["RANKINGS_VIEW_OWN"] as string[] }));
 vi.mock("../contexts/AuthContext", () => ({
   useAuth: () => ({
-    user: { id: "2", first_name: "Aline", last_name: "Uwase", currentAcademicYear: { name: "2026 - 2027" }, currentAcademicTerm: { name: "Term 1" } },
+    user: {
+      id: "2",
+      first_name: "Aline",
+      last_name: "Uwase",
+      currentAcademicYear: { name: "2026 - 2027" },
+      currentAcademicTerm: { name: "Term 1" },
+      localPermissions: auth.permissions,
+    },
   }),
 }));
 vi.mock("../contexts/ThemeContext", () => ({ useTheme: () => ({ theme: "light" }) }));
@@ -92,6 +101,7 @@ const RANKING = {
 };
 
 beforeEach(() => {
+  auth.permissions = ["RANKINGS_VIEW_OWN"];
   store.clear();
   resetAlertState();
   getOverview.mockReset();
@@ -167,6 +177,16 @@ describe("StudentDashboard", () => {
     const hero = await screen.findByRole("region", { name: "What to do next" });
     expect(within(hero).getByText("60%")).toBeInTheDocument(); // the online-only average
     expect(within(hero).getByText("ranked after first marks")).toBeInTheDocument();
+  });
+
+  it("neither asks for nor shows the ranking when the role has it switched off", async () => {
+    auth.permissions = [];
+    renderDash();
+    const hero = await screen.findByRole("region", { name: "What to do next" });
+    expect(within(hero).getByText("60%")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Open my ranking" })).toBeNull();
+    expect(screen.queryByText("ranked after first marks")).toBeNull();
+    expect(getRanking).not.toHaveBeenCalled();
   });
 
   it("explains an empty enrolment but still offers the report card", async () => {

@@ -30,6 +30,7 @@ export const PERMISSION_CATEGORIES = [
   "REPORT_CARDS",
   "MANUAL_ASSESSMENTS",
   "DASHBOARD",
+  "RANKINGS",
   "ACADEMICS",
   "DATABASE_ADMIN",
   "ROLES_PERMISSIONS",
@@ -136,6 +137,11 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
   { key: "DASHBOARD_VIEW_INSTRUCTOR", category: "DASHBOARD", description: "View the instructor dashboard" },
   { key: "DASHBOARD_VIEW_STUDENT", category: "DASHBOARD", description: "View the student dashboard" },
 
+  // RANKINGS — the Overall Ranking (page, subject Ranking tab, top-bar chip,
+  // dashboard Standing card, student-profile class standing).
+  { key: "RANKINGS_VIEW_OWN", category: "RANKINGS", description: "See own class position: the top-bar standing chip, the Overall Ranking page, a subject's Ranking tab and the dashboard Standing card" },
+  { key: "RANKINGS_VIEW_ALL", category: "RANKINGS", description: "See the named class leaderboard for the subjects in scope, and a student's class standing on their profile" },
+
   // ACADEMICS
   { key: "ACADEMICS_VIEW", category: "ACADEMICS", description: "View academic years/terms" },
   { key: "ACADEMICS_MANAGE_PERIODS", category: "ACADEMICS", description: "Switch/manage academic periods" },
@@ -217,6 +223,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"admin" | "instructor" | "student"
     "MANUAL_ASSESSMENTS_EDIT",
     "MANUAL_ASSESSMENTS_DELETE",
     "DASHBOARD_VIEW_INSTRUCTOR",
+    "RANKINGS_VIEW_ALL",
     "ACADEMICS_VIEW",
     "USERS_VIEW_ALL",
     "USERS_VIEW_OTHERS_ACTIVITY",
@@ -241,6 +248,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"admin" | "instructor" | "student"
     "REPORT_CARDS_VIEW_OWN",
     "REPORT_CARDS_EXPORT_PDF",
     "DASHBOARD_VIEW_STUDENT",
+    "RANKINGS_VIEW_OWN",
     "ACADEMICS_VIEW",
   ],
 };

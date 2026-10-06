@@ -7,6 +7,10 @@ import { CourseCacheProvider } from "./contexts/CourseCacheContext";
 import { store } from "./store";
 import "./index.css";
 import App from "./App.tsx";
+import { initNgaInstall, NgaInstallPrompt } from "./pwa/ngaInstall";
+
+// Installable app + "install this too" when opened from the installed NGA app.
+initNgaInstall();
 
 createRoot(document.getElementById("root")!).render(
   <Provider store={store}>
@@ -15,6 +19,7 @@ createRoot(document.getElementById("root")!).render(
         <CourseCacheProvider>
           <SchemeOfWorkProvider>
             <App />
+            <NgaInstallPrompt appName="Task Mentor" accent="#3b82f6" startPath="/dashboard?source=pwa" />
           </SchemeOfWorkProvider>
         </CourseCacheProvider>
       </AuthProvider>
