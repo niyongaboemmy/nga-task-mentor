@@ -31,12 +31,15 @@ async function request(
 class FileServerService {
   async uploadFile(buffer: Buffer, remotePath: string): Promise<void> {
     const form = new FormData();
+    // "path" MUST come before "file": the file-server streams the upload to
+    // disk and reads req.body.path when the file part starts. Sent the other
+    // way round it sees an empty path and answers 400 "Invalid or unsafe path".
+    form.append("path", namespaced(remotePath));
     form.append(
       "file",
       new Blob([new Uint8Array(buffer)]),
       remotePath.split("/").pop(),
     );
-    form.append("path", namespaced(remotePath));
 
     const res = await request("/files", { method: "POST", body: form });
     if (!res.ok) {
