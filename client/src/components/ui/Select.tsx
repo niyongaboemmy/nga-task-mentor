@@ -60,10 +60,12 @@ export interface SelectProps
   children?: React.ReactNode;
 }
 
+// Height comes from padding + line height + border, exactly like the inputs
+// (e.g. search: py-2.5 text-sm), so the two match whatever the root font size.
 const SIZES: Record<SelectSize, { trigger: string; text: string; option: string }> = {
-  sm: { trigger: "h-8 pl-2.5 pr-2 gap-1.5 rounded-lg", text: "text-xs", option: "px-2.5 py-1.5 text-xs" },
-  md: { trigger: "h-10 pl-3.5 pr-2.5 gap-2 rounded-xl", text: "text-sm", option: "px-3 py-2 text-sm" },
-  lg: { trigger: "h-12 pl-4 pr-3 gap-2 rounded-xl", text: "text-base", option: "px-3.5 py-2.5 text-base" },
+  sm: { trigger: "py-1.5 pl-2.5 pr-2 gap-1.5 rounded-lg", text: "text-xs leading-4", option: "px-2.5 py-1.5 text-xs" },
+  md: { trigger: "py-2.5 pl-3.5 pr-2.5 gap-2 rounded-xl", text: "text-sm leading-5", option: "px-3 py-2 text-sm" },
+  lg: { trigger: "py-3 pl-4 pr-3 gap-2 rounded-xl", text: "text-base leading-6", option: "px-3.5 py-2.5 text-base" },
 };
 
 const VARIANTS: Record<SelectVariant, string> = {
