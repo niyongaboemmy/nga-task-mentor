@@ -1,6 +1,6 @@
 import React from "react";
-import { CheckCircle2, Cloud, GitBranch, Link2, Loader2, WifiOff } from "lucide-react";
-import type { LinkStatus, ProjectKind, SyncState } from "../../services/projectsApi";
+import { CheckCircle2, Cloud, GitBranch, GraduationCap, Link2, Loader2, Lock, WifiOff } from "lucide-react";
+import type { LinkStatus, ProjectAssignment, ProjectKind, SyncState } from "../../services/projectsApi";
 import type { LiveStatus } from "../../hooks/useEventSource";
 import { initials, languageMeta, syncMeta, TONE_CLASSES, type Tone } from "./projectFormat";
 
@@ -44,6 +44,23 @@ export const KindBadge: React.FC<{ kind: ProjectKind }> = ({ kind }) =>
       Task Mentor
     </Pill>
   );
+
+/** "Practical" / "Case study" on a student's assignment workspace (lock when completed). */
+export const AssignmentBadge: React.FC<{ assignment: ProjectAssignment; withTitle?: boolean }> = ({ assignment, withTitle = false }) => {
+  const kind = assignment.kind === "case_study" ? "Case study" : assignment.kind === "practical" ? "Practical" : "Assignment";
+  const closed = assignment.status === "completed";
+  return (
+    <Pill
+      tone={closed ? "slate" : "violet"}
+      icon={closed ? <Lock className="h-3 w-3" aria-hidden="true" /> : <GraduationCap className="h-3 w-3" aria-hidden="true" />}
+      title={`${kind}: ${assignment.title}${closed ? " (completed, read-only)" : ""}`}
+      testId="assignment-badge"
+      className="max-w-full"
+    >
+      <span className="truncate">{withTitle ? `${kind} · ${assignment.title}` : kind}</span>
+    </Pill>
+  );
+};
 
 /** Green pulsing dot while the project is open in TMCode somewhere. */
 export const LiveDot: React.FC<{ live: boolean; className?: string; label?: string }> = ({

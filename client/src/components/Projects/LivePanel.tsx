@@ -1,6 +1,6 @@
 import React from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { FileCode2, GitBranch, Laptop, Play, TriangleAlert } from "lucide-react";
+import { EyeOff, FileCode2, GitBranch, Laptop, Play, TriangleAlert } from "lucide-react";
 import { isPresenceLive, type ProjectPresence } from "../../services/projectsApi";
 import type { LiveStatus } from "../../hooks/useEventSource";
 import { LiveDot, LiveIndicator, Pill, SyncBadge } from "./ProjectBadges";
@@ -16,7 +16,9 @@ const LivePanel: React.FC<{
   status: LiveStatus;
   onRetry?: () => void;
   now?: number;
-}> = ({ presence, status, onRetry, now = Date.now() }) => {
+  /** The owner turned Share live status off: "hidden" for staff, "own" for the owner. */
+  notShared?: "hidden" | "own" | null;
+}> = ({ presence, status, onRetry, now = Date.now(), notShared = null }) => {
   const live = presence.filter((p) => isPresenceLive(p, now));
   const lastSeen = presence
     .map((p) => p.last_seen_at)
@@ -31,14 +33,33 @@ const LivePanel: React.FC<{
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className="flex items-center gap-2 text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
-          <LiveDot live={live.length > 0} />
-          {live.length > 0 ? `Open in TMCode now` : "Not open in TMCode"}
+          <LiveDot live={notShared !== "hidden" && live.length > 0} />
+          {notShared === "hidden" ? "Live status" : live.length > 0 ? `Open in TMCode now` : "Not open in TMCode"}
         </h2>
-        <LiveIndicator status={status} onRetry={onRetry} />
+        <div className="flex flex-wrap items-center gap-2">
+          {notShared === "own" && (
+            <Pill tone="slate" icon={<EyeOff className="h-3 w-3" aria-hidden="true" />} title="Teachers' monitors don't see this project">
+              Not shared with teachers
+            </Pill>
+          )}
+          <LiveIndicator status={status} onRetry={onRetry} />
+        </div>
       </div>
 
       <AnimatePresence initial={false} mode="popLayout">
-        {live.length === 0 ? (
+        {notShared === "hidden" ? (
+          <motion.p
+            key="hidden"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400"
+            data-testid="presence-not-shared"
+          >
+            <EyeOff className="h-4 w-4" aria-hidden="true" />
+            Live status not shared: the student turned it off for this project.
+          </motion.p>
+        ) : live.length === 0 ? (
           <motion.p
             key="none"
             initial={{ opacity: 0 }}

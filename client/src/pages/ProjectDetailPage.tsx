@@ -7,6 +7,8 @@ import {
   ArrowLeft,
   Eye,
   FileCode2,
+  GraduationCap,
+  Lock,
   GitBranch,
   History,
   Link2,
@@ -30,7 +32,7 @@ import {
 } from "../services/projectsApi";
 import { useEventSource } from "../hooks/useEventSource";
 import { Skeleton, LoadingAnnouncer } from "../components/ui/Skeleton";
-import { KindBadge, LanguageBadge, Pill } from "../components/Projects/ProjectBadges";
+import { AssignmentBadge, KindBadge, LanguageBadge, Pill } from "../components/Projects/ProjectBadges";
 import OpenProjectInTmcode from "../components/Projects/OpenProjectInTmcode";
 import LivePanel from "../components/Projects/LivePanel";
 import FilesTab from "../components/Projects/FilesTab";
@@ -177,6 +179,7 @@ const ProjectDetailPage: React.FC = () => {
         language: core.language,
         visibility: core.visibility,
         archived_at: core.archived_at,
+        share_presence: core.share_presence,
         size_bytes: core.size_bytes,
         file_count: core.file_count,
         git: core.git ?? p.git,
@@ -273,6 +276,7 @@ const ProjectDetailPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-xl font-bold text-text-primary-light dark:text-text-primary-dark md:text-2xl">{project.name}</h1>
             <KindBadge kind={project.kind} />
+            {project.assignment && <AssignmentBadge assignment={project.assignment} />}
             {project.archived_at && <Pill tone="amber">Archived</Pill>}
             {project.visibility === "course" && <Pill tone="violet">Course</Pill>}
             {readOnly && (
@@ -282,6 +286,15 @@ const ProjectDetailPage: React.FC = () => {
             )}
           </div>
           {project.description && <p className="max-w-3xl text-sm text-slate-600 dark:text-slate-300">{project.description}</p>}
+          {project.assignment && (
+            <Link
+              to={`/assignments/${project.assignment.id}`}
+              className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-violet-700 hover:underline dark:text-violet-300"
+            >
+              <GraduationCap className="h-4 w-4 shrink-0" aria-hidden="true" />
+              <span className="truncate">Workspace for “{project.assignment.title}”</span>
+            </Link>
+          )}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
             <LanguageBadge language={project.language} />
             {project.my_role !== "owner" && <span>by {project.owner.name}</span>}
@@ -301,7 +314,28 @@ const ProjectDetailPage: React.FC = () => {
         {!readOnly && <OpenProjectInTmcode projectId={project.id} className="shrink-0" />}
       </motion.header>
 
-      <LivePanel presence={project.presence} status={live.status} onRetry={live.reconnect} now={now} />
+      {project.read_only && (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/20 dark:text-amber-200"
+          data-testid="read-only-banner"
+        >
+          <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+          <p>
+            <span className="font-semibold">Read-only.</span> The assignment
+            {project.assignment ? ` “${project.assignment.title}”` : ""} is completed, so this workspace can be viewed but
+            not saved or submitted any more.
+          </p>
+        </div>
+      )}
+
+      <LivePanel
+        presence={project.presence}
+        status={live.status}
+        onRetry={live.reconnect}
+        now={now}
+        notShared={project.share_presence ? null : readOnly ? "hidden" : "own"}
+      />
 
       {/* Tabs */}
       <div className="overflow-hidden rounded-2xl border border-white bg-card-light shadow-sm dark:border-border-dark/30 dark:bg-card-dark/30">

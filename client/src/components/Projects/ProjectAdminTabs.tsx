@@ -1,7 +1,7 @@
 import React, { useEffect, useId, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { toast } from "react-toastify";
-import { AlertTriangle, Archive, ArchiveRestore, Github, Loader2, Save, Trash2, UserMinus, UserPlus } from "lucide-react";
+import { AlertTriangle, Archive, ArchiveRestore, Github, Loader2, Lock, Radio, Save, Trash2, UserMinus, UserPlus } from "lucide-react";
 import Modal from "../ui/Modal";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import {
@@ -280,6 +280,8 @@ export const SettingsTab: React.FC<{
         </div>
       </form>
 
+      <ShareLiveStatus project={project} onUpdated={onUpdated} />
+
       <section className="space-y-3 rounded-2xl border border-orange-200 bg-orange-50/40 p-4 dark:border-orange-900/40 dark:bg-orange-950/10" aria-label="Danger zone">
         <h3 className="flex items-center gap-2 text-sm font-bold text-orange-800 dark:text-orange-300">
           <AlertTriangle className="h-4 w-4" aria-hidden="true" /> Danger zone
@@ -398,5 +400,93 @@ const DeleteProjectDialog: React.FC<{
         </div>
       </div>
     </Modal>
+  );
+};
+
+// ─── Share live status ────────────────────────────────────────────────────────
+
+/**
+ * "Share live status": whether teachers' monitors see that this project is
+ * open in TMCode (which file, unsaved changes). Locked on for a workspace
+ * while its assignment is open, so the teacher can follow the practical.
+ */
+export const ShareLiveStatus: React.FC<{
+  project: ProjectDetail;
+  onUpdated: (patch: Partial<ProjectDetail>) => void;
+}> = ({ project, onUpdated }) => {
+  const id = useId();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const on = project.share_presence;
+  const locked = on && !project.can.share_presence;
+
+  const toggle = async () => {
+    if (locked || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const updated = await projectsApi.update(project.id, { share_presence: !on });
+      onUpdated({ share_presence: updated.share_presence });
+      toast.success(updated.share_presence ? "Teachers can see your live status again." : "Removed from monitoring.");
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't change live status sharing."));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section
+      aria-labelledby={`${id}-title`}
+      className="rounded-2xl border border-gray-200/70 bg-card-light p-4 dark:border-border-dark/30 dark:bg-card-dark/30"
+      data-testid="share-live-status"
+    >
+      <div className="flex items-start gap-3">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300">
+          <Radio className="h-4 w-4" aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h3 id={`${id}-title`} className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">
+            Share live status
+          </h3>
+          <p id={`${id}-desc`} className="mt-0.5 text-sm text-slate-600 dark:text-slate-300">
+            Your teachers&apos; monitor shows when this project is open in TMCode, the file you&apos;re editing and unsaved
+            changes. Turn it off to remove the project from monitoring; your saves and submissions are still visible.
+          </p>
+          {locked && (
+            <p className="mt-2 flex items-start gap-1.5 rounded-xl bg-blue-50 px-3 py-2 text-xs text-blue-800 dark:bg-blue-900/20 dark:text-blue-200">
+              <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              Locked on while {project.assignment ? `“${project.assignment.title}”` : "the assignment"} is open, so your
+              teacher can follow the practical. You can turn it off once it&apos;s completed.
+            </p>
+          )}
+          {error && (
+            <p role="alert" className="mt-2 text-xs text-rose-600 dark:text-rose-400">
+              {error}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={on}
+          aria-labelledby={`${id}-title`}
+          aria-describedby={`${id}-desc`}
+          aria-disabled={locked || busy}
+          onClick={toggle}
+          className={`relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-gray-900 ${
+            on ? "bg-emerald-500" : "bg-gray-300 dark:bg-gray-600"
+          } ${locked || busy ? "cursor-not-allowed opacity-60" : ""}`}
+        >
+          <motion.span
+            layout
+            transition={{ type: "spring", stiffness: 600, damping: 35 }}
+            className={`inline-flex h-5 w-5 items-center justify-center rounded-full bg-white shadow ${on ? "ml-[22px]" : "ml-0.5"}`}
+          >
+            {locked ? <Lock className="h-3 w-3 text-emerald-600" aria-hidden="true" /> : busy ? <Loader2 className="h-3 w-3 animate-spin text-slate-400" aria-hidden="true" /> : null}
+          </motion.span>
+        </button>
+      </div>
+    </section>
   );
 };

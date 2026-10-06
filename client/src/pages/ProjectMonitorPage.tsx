@@ -56,6 +56,15 @@ const ProjectMonitorPage: React.FC = () => {
     },
     presence: (data) => {
       const e = normalizeMonitorEntry(data);
+      // The student turned Share live status off: drop the row at once.
+      if (e.withdrawn) {
+        setEntries((prev) => {
+          const next = new Map(prev);
+          next.delete(entryKey(e));
+          return next;
+        });
+        return;
+      }
       setEntries((prev) => {
         const next = new Map(prev);
         const old = next.get(entryKey(e));

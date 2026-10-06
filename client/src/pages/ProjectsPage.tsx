@@ -27,7 +27,7 @@ import {
   type ProjectSummary,
 } from "../services/projectsApi";
 import { Skeleton, LoadingAnnouncer, TopProgressBar } from "../components/ui/Skeleton";
-import { KindBadge, LanguageBadge, LiveDot, Pill } from "../components/Projects/ProjectBadges";
+import { AssignmentBadge, KindBadge, LanguageBadge, LiveDot, Pill } from "../components/Projects/ProjectBadges";
 import NewProjectDialog from "../components/Projects/NewProjectDialog";
 import { formatBytes, languageMeta, summaryLine, timeAgo } from "../components/Projects/projectFormat";
 import Select from "../components/ui/Select";
@@ -449,9 +449,15 @@ const ProjectCard: React.FC<{ project: ProjectSummary; showOwner: boolean }> = (
             <p className="truncate text-sm font-semibold text-text-primary-light group-hover:text-blue-700 dark:text-text-primary-dark dark:group-hover:text-blue-300">
               {p.name}
             </p>
-            <p className="mt-0.5 line-clamp-2 min-h-[2rem] text-xs text-slate-500 dark:text-slate-400">
-              {p.description || (p.kind === "github" ? p.repo_full_name : "No description")}
-            </p>
+            {p.assignment ? (
+              <p className="mt-1 flex min-h-[2rem] items-start">
+                <AssignmentBadge assignment={p.assignment} withTitle />
+              </p>
+            ) : (
+              <p className="mt-0.5 line-clamp-2 min-h-[2rem] text-xs text-slate-500 dark:text-slate-400">
+                {p.description || (p.kind === "github" ? p.repo_full_name : "No description")}
+              </p>
+            )}
           </div>
           <KindBadge kind={p.kind} />
         </div>
@@ -532,6 +538,7 @@ const ProjectTable: React.FC<{ projects: ProjectSummary[]; showOwner: boolean }>
                       >
                         {p.name}
                       </Link>
+                      {p.assignment && <AssignmentBadge assignment={p.assignment} />}
                       {p.archived_at && <Pill tone="amber">Archived</Pill>}
                     </div>
                   </td>

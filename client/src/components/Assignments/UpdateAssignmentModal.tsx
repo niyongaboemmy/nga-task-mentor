@@ -6,6 +6,9 @@ import { formatUTCToLocalDateTime } from "../../utils/dateUtils";
 import { type RubricCriterion } from "./AssignmentCard";
 import AssignmentEditorForm, { type ExistingAttachment } from "./form/AssignmentEditorForm";
 import { parseExtensions } from "../../utils/fileList";
+import { usePermissions } from "../../hooks/usePermissions";
+import { apiErrorMessage } from "../../services/projectsApi";
+import { tmcodeAssignmentsApi, tmcodeFromAssignment, type TmcodeSettings } from "../../services/tmcodeAssignmentsApi";
 
 interface UpdateAssignmentProps {
   assignment: {
@@ -19,6 +22,8 @@ interface UpdateAssignmentProps {
     rubric?: RubricCriterion[] | string | null;
     status: string;
     attachments?: ExistingAttachment[];
+    /** TMCode practical settings from GET /assignments/:id (null = off). */
+    tmcode?: TmcodeSettings | null;
   };
   onSubmit: (assignmentData: unknown) => void;
   onCancel?: () => void;
@@ -48,17 +53,34 @@ function parseTypes(types: UpdateAssignmentProps["assignment"]["allowed_file_typ
 }
 
 const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({ assignment, onSubmit, onCancel }) => {
-  const submit = async (data: FormData, onUploadProgress: (e: AxiosProgressEvent) => void) => {
+  const { can } = usePermissions();
+  const initialTmcode = React.useMemo(() => tmcodeFromAssignment(assignment.tmcode), [assignment.tmcode]);
+
+  const submit = async (
+    data: FormData,
+    onUploadProgress: (e: AxiosProgressEvent) => void,
+    tmcode: TmcodeSettings | null,
+  ) => {
+    let saved: unknown;
     try {
       // No 30 s cap: a few large attachments on a school connection take longer.
       const res = await api.put(`/assignments/${assignment.id}`, data, { timeout: 0, onUploadProgress });
-      toast.success("Assignment updated successfully!");
-      onSubmit(res.data?.data);
+      saved = res.data?.data;
     } catch (error) {
       console.error("Error updating assignment:", error);
       toast.error((isAxiosError(error) && error.response?.data?.message) || "Failed to update assignment");
       throw error;
     }
+    if (tmcode) {
+      try {
+        await tmcodeAssignmentsApi.setTmcode(assignment.id, tmcode);
+      } catch (error) {
+        // The form stays open with this message, so the teacher can retry.
+        throw new Error(`The assignment was saved, but its TMCode settings weren't: ${apiErrorMessage(error, "try again")}.`);
+      }
+    }
+    toast.success("Assignment updated successfully!");
+    onSubmit(saved);
   };
 
   return (
@@ -76,6 +98,8 @@ const UpdateAssignmentModal: React.FC<UpdateAssignmentProps> = ({ assignment, on
         status: assignment.status || "draft",
       }}
       existingAttachments={assignment.attachments || []}
+      initialTmcode={initialTmcode}
+      tmcodeEnabled={can("PROJECTS_USE") || !!initialTmcode.kind}
       submit={submit}
       onCancel={onCancel}
     />

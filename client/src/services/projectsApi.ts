@@ -181,6 +181,14 @@ export interface ProjectEvent {
   created_at: string;
 }
 
+/** The TMCode assignment a workspace project belongs to (ASSIGNMENTS_PLAN.md). */
+export interface ProjectAssignment {
+  id: number;
+  title: string;
+  status: "draft" | "published" | "completed" | "removed";
+  kind: "practical" | "case_study" | null;
+}
+
 export interface ProjectSummary {
   id: number;
   name: string;
@@ -208,6 +216,12 @@ export interface ProjectSummary {
   presence_summary: PresenceSummary;
   links: LinkSummary;
   git?: GitState | null;
+  /** Set on a student's workspace for a TMCode assignment. */
+  assignment: ProjectAssignment | null;
+  /** The assignment is completed: viewable, no more saving or submitting. */
+  read_only: boolean;
+  /** Live status goes to teachers' monitors ("Share live status"). */
+  share_presence: boolean;
 }
 
 export interface ProjectCapabilities {
@@ -215,6 +229,8 @@ export interface ProjectCapabilities {
   save: boolean;
   report_git: boolean;
   read_all_revisions: boolean;
+  /** The owner may turn Share live status off (not while the assignment is open). */
+  share_presence: boolean;
 }
 
 export interface ProjectDetail extends Omit<ProjectSummary, "links"> {
@@ -259,6 +275,8 @@ export interface MonitorEntry extends ProjectPresence {
   project: Pick<ProjectSummary, "id" | "name" | "kind" | "language"> & { owner?: UserLite | null };
   /** Only ids from the server (`course_ids`); titles are resolved by the page. */
   courses: CourseLite[];
+  /** The owner stopped sharing live status: drop the row. */
+  withdrawn?: boolean;
 }
 
 export interface CreateProjectInput {
@@ -278,6 +296,7 @@ export interface UpdateProjectInput {
   visibility?: ProjectVisibility;
   /** true archives, false restores. */
   archived?: boolean;
+  share_presence?: boolean;
 }
 
 export interface AddMemberInput {
@@ -500,6 +519,20 @@ export function normalizeProject(raw: unknown): ProjectSummary {
     presence_summary: summary,
     links: normalizeLinkSummary(p.links),
     git: normalizeGit(p.git),
+    assignment: normalizeProjectAssignment(p.assignment),
+    read_only: p.read_only === true,
+    share_presence: p.share_presence !== false,
+  };
+}
+
+function normalizeProjectAssignment(raw: unknown): ProjectAssignment | null {
+  if (!isObj(raw) || raw.id == null) return null;
+  const kind = raw.kind === "practical" || raw.kind === "case_study" ? raw.kind : null;
+  return {
+    id: num(raw.id),
+    title: str(raw.title) ?? `Assignment #${raw.id}`,
+    status: (str(raw.status) as ProjectAssignment["status"]) ?? "published",
+    kind,
   };
 }
 
@@ -545,6 +578,7 @@ export function normalizeProjectDetail(raw: unknown): ProjectDetail {
       save: can ? can.save === true : owner,
       report_git: can ? can.report_git === true : owner || base.my_role === "collaborator",
       read_all_revisions: can ? can.read_all_revisions === true : true,
+      share_presence: can ? can.share_presence === true : owner,
     },
   };
 }
@@ -672,6 +706,7 @@ export function normalizeMonitorEntry(raw: unknown): MonitorEntry {
     project_id: presence.project_id || project.id,
     project: { id: project.id, name: project.name, kind: project.kind, language: project.language, owner },
     courses,
+    ...(e.withdrawn === true ? { withdrawn: true } : {}),
   };
 }
 

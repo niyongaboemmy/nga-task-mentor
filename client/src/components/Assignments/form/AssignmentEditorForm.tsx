@@ -20,6 +20,7 @@ import {
   Loader2,
   ListChecks,
   Code2,
+  TerminalSquare,
 } from "lucide-react";
 import AssignmentDescriptionEditor from "../AssignmentDescriptionEditor";
 import FileDropzone from "../../Common/FileDropzone";
@@ -30,6 +31,8 @@ import type { RubricCriterion } from "../AssignmentCard";
 import { rubricTotal } from "../../../utils/rubricMarks";
 import { parseLocalDateTimeToUTC } from "../../../utils/dateUtils";
 import Select from "../../ui/Select";
+import TmcodePracticalSection from "./TmcodePracticalSection";
+import { EMPTY_TMCODE, sameTmcode, type TmcodeSettings } from "../../../services/tmcodeAssignmentsApi";
 
 /** What the server accepts as an assignment attachment (middleware/assignmentUpload.ts). */
 export const ATTACHMENT_EXTENSIONS =
@@ -62,8 +65,20 @@ interface Props {
   initial: AssignmentFormValues;
   courses?: { id: string; title: string; code: string }[];
   existingAttachments?: ExistingAttachment[];
-  /** Sends the request; reject to keep the form as it is (the error message is shown). */
-  submit: (data: FormData, onUploadProgress: (e: AxiosProgressEvent) => void) => Promise<void>;
+  /** The assignment's TMCode practical settings (edit mode). */
+  initialTmcode?: TmcodeSettings;
+  /** Show the TMCode practical section (the teacher can use projects). */
+  tmcodeEnabled?: boolean;
+  /**
+   * Sends the request; reject to keep the form as it is (the error message is
+   * shown). `tmcode` is the TMCode settings to save after the assignment
+   * (PUT /tmcode/assignments/:id/tmcode), or null when they didn't change.
+   */
+  submit: (
+    data: FormData,
+    onUploadProgress: (e: AxiosProgressEvent) => void,
+    tmcode: TmcodeSettings | null,
+  ) => Promise<void>;
   onCancel?: () => void;
 }
 
@@ -264,10 +279,23 @@ const AssignmentEditorForm: React.FC<Props> = ({
   initial,
   courses,
   existingAttachments = [],
+  initialTmcode = EMPTY_TMCODE,
+  tmcodeEnabled = true,
   submit,
   onCancel,
 }) => {
   const [values, setValues] = useState<AssignmentFormValues>(initial);
+  const [tmcode, setTmcode] = useState<TmcodeSettings>(initialTmcode);
+  // A TMCode practical is always handed in as a project, and picking another
+  // submission type turns TMCode off.
+  const changeTmcode = (next: TmcodeSettings) => {
+    setTmcode(next);
+    if (next.kind && values.submission_type !== "project") set("submission_type", "project");
+  };
+  const changeSubmissionType = (type: string) => {
+    set("submission_type", type);
+    if (type !== "project" && tmcode.kind) setTmcode({ ...tmcode, kind: null });
+  };
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [serverError, setServerError] = useState("");
   const [kept, setKept] = useState<ExistingAttachment[]>(existingAttachments);
@@ -338,11 +366,15 @@ const AssignmentEditorForm: React.FC<Props> = ({
     const totalBytes = files.reduce((a, f) => a + f.size, 0);
     setProgress({ phase: files.length ? "uploading" : "saving", loaded: 0, total: totalBytes, fileCount: files.length });
     try {
-      await submit(fd, (e) => {
-        const total = e.total || totalBytes;
-        const done = e.loaded >= total;
-        setProgress({ phase: done ? "saving" : "uploading", loaded: Math.min(e.loaded, total), total, fileCount: files.length });
-      });
+      await submit(
+        fd,
+        (e) => {
+          const total = e.total || totalBytes;
+          const done = e.loaded >= total;
+          setProgress({ phase: done ? "saving" : "uploading", loaded: Math.min(e.loaded, total), total, fileCount: files.length });
+        },
+        sameTmcode(tmcode, initialTmcode) ? null : tmcode,
+      );
     } catch (err) {
       const e = err as { response?: { data?: { message?: string } }; message?: string };
       setServerError(e?.response?.data?.message || e?.message || "Something went wrong. Please try again.");
@@ -509,7 +541,7 @@ const AssignmentEditorForm: React.FC<Props> = ({
                   type="button"
                   role="radio"
                   aria-checked={on}
-                  onClick={() => set("submission_type", t.value)}
+                  onClick={() => changeSubmissionType(t.value)}
                   className={`flex items-start gap-3 rounded-2xl border-2 p-3.5 text-left transition ${
                     on
                       ? "border-blue-500 bg-blue-50/60 dark:bg-blue-900/20"
@@ -533,8 +565,20 @@ const AssignmentEditorForm: React.FC<Props> = ({
           )}
         </Section>
 
-        {/* 3. Instructions */}
-        <Section step={3} icon={FileText} title="Instructions" subtitle="Click to open the editor — paste or drag images straight in">
+        {/* 3. TMCode practical */}
+        {tmcodeEnabled && (
+          <Section
+            step={3}
+            icon={TerminalSquare}
+            title="TMCode practical"
+            subtitle="Students code it in TMCode, starting from your files"
+          >
+            <TmcodePracticalSection value={tmcode} onChange={changeTmcode} disabled={busy} />
+          </Section>
+        )}
+
+        {/* 4. Instructions */}
+        <Section step={4} icon={FileText} title="Instructions" subtitle="Click to open the editor — paste or drag images straight in">
           <div data-field="description">
             <AssignmentDescriptionEditor
               description={values.description}
@@ -545,8 +589,8 @@ const AssignmentEditorForm: React.FC<Props> = ({
           </div>
         </Section>
 
-        {/* 4. Rubric */}
-        <Section step={4} icon={ListChecks} title="Grading rubric" subtitle="What students are graded on, and how many marks each part is worth">
+        {/* 5. Rubric */}
+        <Section step={5} icon={ListChecks} title="Grading rubric" subtitle="What students are graded on, and how many marks each part is worth">
           <div data-field="rubric">
             <RubricBuilder
               rubric={values.rubric}
@@ -560,8 +604,8 @@ const AssignmentEditorForm: React.FC<Props> = ({
           </div>
         </Section>
 
-        {/* 5. Attachments */}
-        <Section step={5} icon={Paperclip} title="Resources for students" subtitle="Design images, starter files, handouts…">
+        {/* 6. Attachments */}
+        <Section step={6} icon={Paperclip} title="Resources for students" subtitle="Design images, starter files, handouts…">
           {existingAttachments.length > 0 && (
             <ul className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mb-4" data-testid="existing-attachments">
               {existingAttachments.map((att) => {
