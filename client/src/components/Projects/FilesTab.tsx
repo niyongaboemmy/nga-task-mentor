@@ -145,10 +145,11 @@ const FilesTab: React.FC<{
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-3">
-        <label className="flex items-center gap-2 text-sm">
-          <History className="h-4 w-4 text-slate-400" aria-hidden="true" />
-          <span className="font-medium text-slate-600 dark:text-slate-300">Revision</span>
+        <label className="flex min-w-0 max-w-full flex-1 items-center gap-2 text-sm sm:flex-none">
+          <History className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
+          <span className="shrink-0 font-medium text-slate-600 dark:text-slate-300">Revision</span>
           <Select size="sm" variant="outline"
+            className="min-w-0 flex-1 sm:max-w-md"
             value={effectiveRev ?? ""}
             onChange={(e) => onRevisionChange(e.target.value ? Number(e.target.value) : null)}
             disabled={!revisions?.length}

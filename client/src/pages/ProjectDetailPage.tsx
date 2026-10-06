@@ -311,7 +311,7 @@ const ProjectDetailPage: React.FC = () => {
             <span>Updated {timeAgo(project.last_activity_at ?? project.updated_at, now)}</span>
           </div>
         </div>
-        {!readOnly && <OpenProjectInTmcode projectId={project.id} className="shrink-0" />}
+        {!readOnly && <OpenProjectInTmcode projectId={project.id} className="shrink-0 [&>button]:w-full md:[&>button]:w-auto" />}
       </motion.header>
 
       {project.read_only && (

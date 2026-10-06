@@ -60,7 +60,7 @@ test.describe("Projects dashboard", () => {
     await expect(page.getByTestId("stat-submissions")).toHaveText("1");
     await expect(page.getByRole("link", { name: /Sorting algorithms, open in TMCode now/ })).toBeVisible();
     await expect(cards.first()).toContainText("Open in TMCode · editing main.cpp · 2 unsaved");
-    await expect(page.getByRole("link", { name: /Get TMCode/ })).toHaveAttribute("href", /\/tmcode$/);
+    await expect(page.getByRole("main").getByRole("link", { name: /Get TMCode/ })).toHaveAttribute("href", /\/tmcode$/);
     await shot(page, "projects-dashboard-cards");
 
     await page.getByRole("searchbox", { name: "Search projects" }).fill("portfolio");

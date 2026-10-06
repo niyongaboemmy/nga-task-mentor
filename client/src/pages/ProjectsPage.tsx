@@ -243,7 +243,7 @@ const ProjectsPage: React.FC = () => {
             />
           </label>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <FilterSelect
               label="Kind"
               value={kindFilter}
@@ -275,7 +275,7 @@ const ProjectsPage: React.FC = () => {
               type="button"
               aria-pressed={showArchived}
               onClick={() => setParam("archived", showArchived ? null : "1")}
-              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+              className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition ${
                 showArchived
                   ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
                   : "border-gray-200 text-slate-600 hover:bg-gray-50 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
@@ -284,7 +284,7 @@ const ProjectsPage: React.FC = () => {
               <Archive className="h-4 w-4" aria-hidden="true" />
               Archived{archivedCount ? ` (${archivedCount})` : ""}
             </button>
-            <div className="flex rounded-xl border border-gray-200 p-0.5 dark:border-gray-700" role="group" aria-label="Layout">
+            <div className="col-span-2 flex justify-self-end rounded-xl border border-gray-200 p-0.5 dark:border-gray-700 sm:ml-auto" role="group" aria-label="Layout">
               <button
                 type="button"
                 aria-label="Cards"
@@ -374,13 +374,13 @@ const FilterSelect: React.FC<{
   options: [string, string][];
   icon?: React.ReactNode;
 }> = ({ label, value, onChange, options, icon }) => (
-  <label className="relative">
+  <label className="min-w-0">
     <span className="sr-only">{label}</span>
-    {icon && <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">{icon}</span>}
     <Select variant="outline"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`rounded-xl border border-gray-200 bg-white py-2 pr-8 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark ${icon ? "pl-8" : "pl-3"}`}
+      icon={icon}
+      className="w-full sm:w-auto"
     >
       {options.map(([v, l]) => (
         <option key={v} value={v}>
@@ -400,26 +400,24 @@ const STAT_DEFS = [
 ] as const;
 
 const StatsStrip: React.FC<{ data: ProjectList | null; loading: boolean }> = ({ data, loading }) => (
-  <section aria-label="Project statistics" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-    {STAT_DEFS.map(({ key, label, icon: Icon, accent }, i) => (
+  <section aria-label="Project statistics" className="grid grid-cols-3 gap-2 sm:grid-cols-5 sm:gap-3">
+    {STAT_DEFS.map(({ key, label, icon: Icon, accent }) => (
       <div
         key={key}
-        className={`rounded-2xl border border-white bg-card-light p-4 dark:border-border-dark/30 dark:bg-card-dark/30 ${
-          i === 0 ? "col-span-2 sm:col-span-1" : ""
-        }`}
+        className="flex min-w-0 flex-col rounded-2xl border border-white bg-card-light p-3 dark:border-border-dark/30 dark:bg-card-dark/30 sm:p-4"
       >
-        <div className="mb-2 flex items-center gap-2">
-          <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${accent}`}>
+        <div className="mb-1.5 flex min-h-[1.75rem] flex-col items-start gap-1 sm:mb-2 sm:flex-row sm:items-center sm:gap-2">
+          <span className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg sm:flex ${accent}`}>
             <Icon className="h-4 w-4" aria-hidden="true" />
           </span>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary-light dark:text-text-secondary-dark/70">
+          <span className="text-[10px] font-bold uppercase leading-tight tracking-wide text-text-secondary-light dark:text-text-secondary-dark/70 sm:tracking-widest">
             {label}
           </span>
         </div>
         {loading || !data ? (
           <Skeleton className="h-7 w-14" />
         ) : (
-          <p className="text-2xl font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark" data-testid={`stat-${key}`}>
+          <p className="mt-auto text-xl font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark sm:text-2xl" data-testid={`stat-${key}`}>
             {data.stats[key]}
           </p>
         )}
