@@ -35,6 +35,8 @@ import { syncProjectStatus } from "../tmcode/projects/status";
 import { parsePracticalData, PRACTICAL_TYPE, PracticalCriterion } from "../tmcode/practical/question";
 import { canGradeAssignment, canGradeQuiz } from "../utils/gradingAccess";
 import { isPassed } from "../utils/quizStudentView";
+import { getScopedSubjects } from "../utils/scopedSubjects";
+import { tmcodeColumns } from "../tmcode/assignments/load";
 
 /**
  * TMCode practicals beyond assignments, and the grading of every practical:
@@ -664,4 +666,66 @@ export const servePreview = async (req: Request, res: Response) => {
   res.setHeader("Referrer-Policy", "no-referrer");
   res.type(MIME[path.extname(entry.path).toLowerCase()] ?? "application/octet-stream");
   return res.status(200).send(zlib.gunzipSync(gz));
+};
+
+// ─── GET /grading: what the caller can grade ─────────────────────────────────
+
+const can = (req: Request, key: string) => !!req.user?.permissions?.has(key);
+
+// @desc    The TMCode practicals the caller grades: TMCode assignments (and
+//          assignments that take a project) plus quizzes with practical
+//          questions, published or completed, that they created or teach
+//          (scoped subjects; everything for admins). TMCode's Grading view.
+// @route   GET /api/tmcode/grading
+export const listGradable = async (req: Request, res: Response) => {
+  const userId = Number(req.user.id);
+  const { scope, subjects } = await getScopedSubjects(req);
+  const names = new Map(subjects.map((s) => [Number(s.id), s.name]));
+  const all = scope === "all" || can(req, "PROJECTS_VIEW_ALL") || can(req, "ASSIGNMENTS_MANAGE_ANY");
+  const courseIds = [...names.keys()];
+  const who = all ? {} : { [Op.or]: [{ created_by: userId }, ...(courseIds.length ? [{ course_id: { [Op.in]: courseIds } }] : [])] };
+  const tm = await tmcodeColumns();
+  const [assignments, quizzes] = await Promise.all([
+    Assignment.findAll({
+      where: {
+        [Op.and]: [
+          who,
+          { status: { [Op.in]: ["published", "completed"] } },
+          { [Op.or]: [{ submission_type: "project" }, ...(tm.size ? [{ id: { [Op.in]: [...tm.keys()] } }] : [])] },
+        ],
+      } as any,
+      order: [["due_date", "ASC"]],
+      limit: 300,
+    }),
+    Quiz.findAll({ where: { [Op.and]: [who, { status: { [Op.ne]: "draft" } }] } as any, order: [["created_at", "DESC"]], limit: 500 }),
+  ]);
+  const practicals = await practicalQuestionsOf(quizzes.map((q) => q.id));
+  const course = (id: number | null | undefined) => ({ course_id: id ?? null, course_name: id != null ? names.get(Number(id)) ?? null : null });
+  return res.status(200).json({
+    activities: [
+      ...assignments.map((a) => ({
+        type: "assignment" as const,
+        id: a.id,
+        title: a.title,
+        ...course(a.course_id),
+        due_date: iso(a.due_date),
+        status: a.status,
+        max_points: Number(a.max_score),
+        kind: tm.get(a.id)?.tmcode_kind ?? null,
+        questions: null,
+      })),
+      ...quizzes
+        .filter((q) => (practicals.get(q.id)?.length ?? 0) > 0)
+        .map((q) => ({
+          type: "quiz" as const,
+          id: q.id,
+          title: q.title,
+          ...course((q as any).course_id),
+          due_date: iso((q as any).end_date),
+          status: q.status,
+          max_points: null,
+          questions: practicals.get(q.id)!,
+        })),
+    ],
+  });
 };

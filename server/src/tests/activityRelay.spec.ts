@@ -202,7 +202,7 @@ describe("server-side key events", () => {
 
   it("every key event recorded on the server is in the catalog as a key event", () => {
     const keyEvents = catalog.features.filter((f: any) => f.key_event).map((f) => f.key).sort();
-    expect(keyEvents).toEqual(["tm.assignment.submit", "tm.grade.save", "tm.question.generate", "tm.quiz.submit"]);
+    expect(keyEvents).toEqual(["tm.assignment.submit", "tm.grade.ai_draft", "tm.grade.save", "tm.question.generate", "tm.quiz.submit"]);
     const src = ["routes/quizzes.ts", "routes/assignments.ts", "routes/submissions.ts", "routes/manualAssessments.ts", "controllers/aiQuestionGeneration.controller.ts", "controllers/questionBank.controller.ts"]
       .map((f) => fs.readFileSync(path.resolve(__dirname, "..", f), "utf8"))
       .join("\n");
