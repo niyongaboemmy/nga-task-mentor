@@ -413,6 +413,20 @@ export class ReportCardApiService {
   }
 
   // Instructors: draft ↔ saved.  Admins: any → any (including approved).
+  /** AI draft of the class-teacher comment ([NAME] in place of the name; nothing stored). */
+  static async draftComment(body: {
+    term: string;
+    academic_year: string;
+    subjects: Array<{ name: string; score: number | null }>;
+    attributes: Array<{ attribute_name: string; rating: AttributeRating }>;
+    attendance?: "present" | "absent" | "late" | null;
+    tone?: "encouraging" | "balanced" | "concise";
+    current?: string | null;
+  }): Promise<{ success: boolean; data: { comment: string; provider_used: string } }> {
+    const response = await axios.post(`/report-cards/ai-comment`, body);
+    return response.data;
+  }
+
   static async updateStatus(
     reportCardId: number,
     status: ReportCardStatus,

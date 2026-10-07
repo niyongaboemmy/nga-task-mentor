@@ -16,6 +16,7 @@ import {
   getAdminSummary,
 } from "../controllers/reportCard.controller";
 import { protect, authorizePermission, authorizeCapability } from "../middleware/auth";
+import { draftReportComment } from "../controllers/reportCommentAi.controller";
 import { validate } from "../middleware/validation.middleware";
 import {
   builderSaveSchema,
@@ -23,6 +24,7 @@ import {
   attributesSaveSchema,
   generatePdfSchema,
   updateStatusSchema,
+  aiCommentSchema,
 } from "../validations/reportCard.validation";
 
 const router = Router();
@@ -66,6 +68,14 @@ router.post(
   authorizeCapability({ legacy: ["REPORT_CARDS_EDIT"], v2: ["REPORT_CARDS_COMMENT"] }),
   validate(attributesSaveSchema),
   saveAttributes,
+);
+
+// AI draft of the class-teacher comment (nothing stored; same guard as saving it).
+router.post(
+  "/ai-comment",
+  authorizeCapability({ legacy: ["REPORT_CARDS_EDIT"], v2: ["REPORT_CARDS_COMMENT"] }),
+  validate(aiCommentSchema),
+  draftReportComment,
 );
 
 // ── Course overview ────────────────────────────────────────────────────────────
