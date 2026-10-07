@@ -24,6 +24,8 @@ export const TmcodeDeepLinkButton: React.FC<{
   className?: string;
   buttonClassName?: string;
   testId?: string;
+  /** Called once the link was handed to the OS. */
+  onOpened?: () => void;
 }> = ({
   getLink,
   label = "Open in TMCode",
@@ -33,6 +35,7 @@ export const TmcodeDeepLinkButton: React.FC<{
   className = "",
   buttonClassName = "",
   testId,
+  onOpened,
 }) => {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
@@ -72,6 +75,7 @@ export const TmcodeDeepLinkButton: React.FC<{
         cleanup.current = null;
       };
       window.location.href = deeplink;
+      onOpened?.();
     } catch (e) {
       setError(apiErrorMessage(e, "Couldn't get a TMCode link. Try again."));
     } finally {

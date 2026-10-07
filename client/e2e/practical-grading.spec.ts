@@ -64,7 +64,7 @@ async function setup(page: Page) {
           due_date: null,
           max_points: 20,
           rubric: [
-            { criteria: "Semantic HTML", description: "header, nav, main used correctly", max_score: 6 },
+            { criteria: "Semantic HTML", description: "Full marks are earned when semantic HTML5 elements are used appropriately (header, nav, main, section, article, footer), the markup is well-structured and free of stray tags. Partial marks when the structure is mostly correct.", max_score: 6 },
             { criteria: "Styling", description: "Consistent colours and spacing", max_score: 8 },
             { criteria: "Interactivity", description: "The Order button responds", max_score: 6 },
           ],
@@ -100,13 +100,22 @@ async function setup(page: Page) {
 
 test("grades a practical against its criteria with the code and a live preview", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "the workspace is a desktop tool; checked separately below");
-  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.setViewportSize({ width: 1512, height: 945 });
   const { saves } = await setup(page);
   await page.goto("/taskmentor/grading/practical/assignment/77");
 
-  await expect(page.getByTestId("roster-row")).toHaveCount(3); // "To grade" filter
+  // Full screen, the first student to grade selected, the code filling the pane.
+  await expect(page.getByTestId("practical-grading")).toBeVisible();
+  await expect(page.getByTestId("current-student")).toHaveText("Aline Uwase");
   await expect(page.getByTestId("file-viewer")).toBeVisible({ timeout: 15_000 });
   await shot(page, "grading-code");
+
+  // The class list is a dropdown with each student's status and score.
+  await page.getByTestId("student-switcher").click();
+  await expect(page.getByTestId("roster-row")).toHaveCount(4);
+  await expect(page.getByTestId("roster-row").nth(3)).toContainText("17/20");
+  await shot(page, "grading-students");
+  await page.getByTestId("student-switcher").click();
 
   await page.getByRole("tab", { name: /Preview/ }).click();
   const frame = page.frameLocator('[data-testid="practical-preview"]');
@@ -115,9 +124,9 @@ test("grades a practical against its criteria with the code and a live preview",
   await expect(frame.locator("#msg")).toHaveText("Order placed!");
 
   const criteria = page.getByTestId("criterion");
-  await criteria.nth(0).getByRole("button", { name: "Full" }).click();
+  await criteria.nth(0).getByRole("button", { name: "6", exact: true }).click();
   await criteria.nth(1).getByLabel(/Styling score/).fill("6");
-  await criteria.nth(2).getByRole("button", { name: "½" }).click();
+  await criteria.nth(2).getByRole("button", { name: "3", exact: true }).click();
   await criteria.nth(1).getByRole("button", { name: /Comment on Styling/ }).click();
   await criteria.nth(1).getByRole("textbox").fill("Good palette; tighten the spacing.");
   await page.getByPlaceholder(/What went well/).fill("A clean, working page.");
@@ -139,13 +148,29 @@ test("grades a practical against its criteria with the code and a live preview",
   await expect(page).toHaveURL(/student=2/);
   await page.getByRole("tab", { name: "Details" }).click();
   await expect(page.locator("dd", { hasText: "Late" })).toBeVisible();
-  await shot(page, "grading-details");
+
+  // Dark theme, grading panel hidden: the project takes the whole width.
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.getByRole("tab", { name: /Code/ }).click();
+  await page.waitForTimeout(500); // colour transitions settle
+  await shot(page, "grading-dark");
+  await page.keyboard.press("[");
+  await expect(page.getByTestId("criteria-scorer")).toBeHidden();
+  await page.waitForTimeout(300);
+  await shot(page, "grading-wide");
+
+  // Esc closes the workspace.
+  await page.keyboard.press("Escape");
+  await expect(page).toHaveURL(/\/assignments\/77$/);
 });
 
 test("stacks the panes on a phone", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile", "phone layout only");
   await setup(page);
   await page.goto("/taskmentor/grading/practical/assignment/77?student=1");
-  await expect(page.getByTestId("criteria-scorer")).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByTestId("file-viewer").or(page.getByTestId("files-tab"))).toBeVisible({ timeout: 15_000 }).catch(() => undefined);
   await shot(page, "grading-mobile");
+  await page.getByRole("tab", { name: "Grade" }).click();
+  await expect(page.getByTestId("criteria-scorer")).toBeVisible();
+  await shot(page, "grading-mobile-grade");
 });

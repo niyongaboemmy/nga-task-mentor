@@ -20,6 +20,7 @@ import { Award, Target, ArrowLeft } from "lucide-react";
 import SubmitProjectCard from "../Projects/SubmitProjectCard";
 import LinkedProjectsPanel from "../Projects/LinkedProjectsPanel";
 import { assignmentAllowsProject } from "../../services/projectsApi";
+import { gradingWorkspaceHref } from "../../services/practicalsApi";
 import type { TmcodeSettings, WorkspaceRow } from "../../services/tmcodeAssignmentsApi";
 import TmcodeStudentPanel from "./tmcode/TmcodeStudentPanel";
 import TmcodeWorkspacesPanel from "./tmcode/TmcodeWorkspacesPanel";
@@ -338,9 +339,25 @@ const AssignmentDetails = () => {
 
   const isTmcode = !!assignment?.tmcode?.kind;
 
-  // Grade from the Workspaces panel through the existing grading dialog: the
-  // student's submission, or the roster placeholder (keyed by MIS id).
+  // TMCode work (a TMCode practical, a project-only assignment, or a
+  // submission that is a TMCode project) is graded in the full-screen
+  // grading workspace, which shows the project, not in the generic dialog.
+  const gradesInWorkspace = (submission?: unknown) =>
+    canGradeSubmissions &&
+    (isTmcode ||
+      String(assignment?.submission_type ?? "").toLowerCase() === "project" ||
+      !!(submission as { project_ref?: unknown } | undefined)?.project_ref);
+  const openGradingWorkspace = (studentId?: number | null) =>
+    navigate(gradingWorkspaceHref("assignment", Number(assignment?.id), { studentId: studentId ?? null }));
+
+  // Grade from the Workspaces panel: in the grading workspace for a student
+  // with a Task Mentor account, else through the existing grading dialog
+  // (the roster placeholder, keyed by MIS id).
   const gradeWorkspace = (row: WorkspaceRow) => {
+    if (row.user.id != null && gradesInWorkspace()) {
+      openGradingWorkspace(row.user.id);
+      return;
+    }
     const match =
       (row.submission_id != null && submissions.find((s) => String(s.id) === String(row.submission_id))) ||
       (row.user.id != null &&
@@ -722,6 +739,11 @@ const AssignmentDetails = () => {
                       formatDate={formatDate}
                       getSubmissionStatusColor={getSubmissionStatusColor}
                       onViewDetails={(submission) => {
+                        const studentId = Number((submission as any).student?.id ?? (submission as any).student_id);
+                        if (!(submission as any)._isPlaceholder && studentId && gradesInWorkspace(submission)) {
+                          openGradingWorkspace(studentId);
+                          return;
+                        }
                         setSelectedSubmission(submission);
                         setIsDetailsModalOpen(true);
                       }}
