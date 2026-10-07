@@ -19,6 +19,7 @@ import {
 import RichTextDisplay from "../components/Common/RichTextDisplay";
 import CodeTestResults from "../components/Quizzes/CodeTestResults";
 import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
+import PracticalGradeSummary from "../components/Quizzes/PracticalGradeSummary";
 import { gradingWorkspaceHref } from "../services/practicalsApi";
 
 interface QuestionResult {
@@ -912,6 +913,9 @@ const SubmissionDetailPage: React.FC = () => {
                     </p>
                   )}
 
+                  {q.question_type === "tmcode_practical" && (
+                    <PracticalGradeSummary details={q.grading_details} questionData={q.question_data} />
+                  )}
                   {/* TMCode practical: graded against its criteria in the workspace. */}
                   {q.question_type === "tmcode_practical" && detail?.can_grade !== false && (
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 dark:border-violet-900/50 dark:bg-violet-950/20">

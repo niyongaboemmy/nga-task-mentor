@@ -330,6 +330,15 @@ export function studentGradingDetails(
 
   if (opts.includeHidden) {
     for (const k of SCORE_DETAIL_KEYS) if (d[k] !== undefined) out[k] = d[k];
+    // A TMCode practical graded against its criteria: scores, comments and
+    // feedback (not who graded it), once the score is released.
+    if (d.manual && typeof d.manual === "object") {
+      out.manual = {
+        rubric_scores: Array.isArray(d.manual.rubric_scores) ? d.manual.rubric_scores : [],
+        feedback: d.manual.feedback ?? null,
+        graded_at: d.manual.graded_at ?? null,
+      };
+    }
   }
   return Object.keys(out).length ? out : null;
 }

@@ -274,6 +274,19 @@ describe("TmcodePracticalQuestion", () => {
     expect(await screen.findByTestId("practical-submit")).toBeDisabled();
   });
 
+  it("is a static preview outside a quiz attempt", () => {
+    mount({ question: question({ quiz_id: undefined }) });
+    expect(screen.getByTestId("practical-preview-note")).toHaveTextContent("with your starter files");
+    expect(screen.queryByTestId("practical-start")).toBeNull();
+    expect(projects.list).not.toHaveBeenCalled();
+  });
+
+  it("is a static preview for the instructor", () => {
+    mount({ showCorrectAnswer: true });
+    expect(screen.getByTestId("practical-preview-note")).toBeInTheDocument();
+    expect(projects.list).not.toHaveBeenCalled();
+  });
+
   it("shows the submitted revision in review", () => {
     mount({ readOnlyReview: true, answer: { project_id: 101, link_id: 201, revision_id: 302, revision_number: 2 } });
     expect(screen.getByRole("link", { name: "View the code" })).toHaveAttribute("href", "/projects/101?tab=files&rev=302");
@@ -295,5 +308,31 @@ describe("NewProjectDialog — quiz practicals", () => {
     await waitFor(() => expect(practicals.startQuizPractical).toHaveBeenCalledWith(9, 55));
     expect(onCreated).toHaveBeenCalledWith({ id: 101, name: "Build it" });
     expect(projects.create).not.toHaveBeenCalled();
+  });
+});
+
+import PracticalGradeSummary from "../components/Quizzes/PracticalGradeSummary";
+
+describe("PracticalGradeSummary", () => {
+  const qd = { rubric: [{ criteria: "Layout", max_score: 6 }, { criteria: "Styling", max_score: 4 }] };
+
+  it("lists each criterion's score with comments and the overall feedback", () => {
+    render(
+      <PracticalGradeSummary
+        questionData={qd}
+        details={{ manual: { rubric_scores: [{ index: 0, score: 5, comment: "Neat" }, { index: 1, score: 2 }], feedback: "Good work\n\nCriteria notes:\n• Layout: Neat" } }}
+      />,
+    );
+    const box = screen.getByTestId("practical-grade-summary");
+    expect(box).toHaveTextContent("Layout5 / 6");
+    expect(box).toHaveTextContent("Neat");
+    expect(box).toHaveTextContent("Styling2 / 4");
+    expect(box).toHaveTextContent("Teacher's feedback: Good work");
+    expect(box).not.toHaveTextContent("Criteria notes");
+  });
+
+  it("renders nothing before grading", () => {
+    const { container } = render(<PracticalGradeSummary questionData={qd} details={{ grade_status: "pending" }} />);
+    expect(container).toBeEmptyDOMElement();
   });
 });

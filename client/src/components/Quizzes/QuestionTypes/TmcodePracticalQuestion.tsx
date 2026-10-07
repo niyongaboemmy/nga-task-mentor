@@ -43,15 +43,19 @@ export const TmcodePracticalQuestion: React.FC<QuestionComponentProps> = ({
   onAnswerChange,
   disabled = false,
   readOnlyReview = false,
+  showCorrectAnswer = false,
 }) => {
   const data = parseData((question as any).question_data ?? (question as any).questionBank?.question_data);
   const quizId = Number(question.quiz_id);
   const questionId = Number(question.id);
   const submitted = asAnswer(answer);
+  // Outside a quiz attempt (question bank, instructor preview): show what the
+  // student will see, without touching anyone's projects.
+  const previewOnly = !readOnlyReview && (!(quizId > 0) || showCorrectAnswer);
 
   const [project, setProject] = useState<ProjectSummary | null>(null);
   const [linkId, setLinkId] = useState<number | null>(submitted?.link_id ?? null);
-  const [loading, setLoading] = useState(!readOnlyReview);
+  const [loading, setLoading] = useState(!readOnlyReview && !previewOnly);
   const [busy, setBusy] = useState<"start" | "submit" | "withdraw" | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -76,13 +80,13 @@ export const TmcodePracticalQuestion: React.FC<QuestionComponentProps> = ({
   }, [quizId, questionId]);
 
   useEffect(() => {
-    if (readOnlyReview) return;
+    if (readOnlyReview || previewOnly) return;
     load();
     // Coming back from TMCode: refresh quietly.
     const onFocus = () => document.visibilityState === "visible" && load();
     window.addEventListener("focus", onFocus);
     return () => window.removeEventListener("focus", onFocus);
-  }, [load, readOnlyReview]);
+  }, [load, readOnlyReview, previewOnly]);
 
   const start = async () => {
     setBusy("start");
@@ -166,7 +170,13 @@ export const TmcodePracticalQuestion: React.FC<QuestionComponentProps> = ({
       )}
 
       <div className="rounded-2xl border border-blue-200 bg-gradient-to-br from-blue-50 to-indigo-50/60 p-4 dark:border-blue-900/50 dark:from-blue-950/30 dark:to-indigo-950/20">
-        {readOnlyReview ? (
+        {previewOnly ? (
+          <p className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-200" data-testid="practical-preview-note">
+            <TerminalSquare className="h-5 w-5 shrink-0 text-blue-600" aria-hidden="true" />
+            Students start this practical from the quiz: each gets their own TMCode project
+            {data.starter_project_id ? " with your starter files" : ""}, submits it, and you grade it against the criteria.
+          </p>
+        ) : readOnlyReview ? (
           submitted ? (
             <p className="flex flex-wrap items-center gap-2 text-sm">
               <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />

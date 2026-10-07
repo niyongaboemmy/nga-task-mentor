@@ -126,6 +126,18 @@ describe("studentGradingDetails", () => {
     expect(out.strategy_used).toBeUndefined();
   });
 
+  it("shows a practical's criteria grading (not the grader) once the score is released", () => {
+    const stored = {
+      grade_status: "graded",
+      manual: { rubric_scores: [{ index: 0, score: 5, comment: "Neat" }], feedback: "Good", graded_by: 7, graded_at: "2026-10-07T10:00:00Z" },
+    };
+    expect(studentGradingDetails(stored, { includeHidden: true })).toEqual({
+      grade_status: "graded",
+      manual: { rubric_scores: [{ index: 0, score: 5, comment: "Neat" }], feedback: "Good", graded_at: "2026-10-07T10:00:00Z" },
+    });
+    expect(studentGradingDetails(stored, { includeHidden: false })).toEqual({ grade_status: "graded" });
+  });
+
   it("returns null for nothing stored", () => {
     expect(studentGradingDetails(null, { includeHidden: true })).toBeNull();
     expect(studentGradingDetails("not json", { includeHidden: true })).toBeNull();

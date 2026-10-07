@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
 import CodeTestResults from "../components/Quizzes/CodeTestResults";
+import PracticalGradeSummary from "../components/Quizzes/PracticalGradeSummary";
 import RichTextDisplay from "../components/Common/RichTextDisplay";
 import type { StudentQuizState } from "../types/quiz.types";
 import { describeRetake } from "../utils/retakeState";
@@ -1005,6 +1006,15 @@ const QuizResultsPage: React.FC = () => {
                         {/* Per-test results of a coding/algorithmic answer */}
                         {attempt.grading_details && (
                           <CodeTestResults details={attempt.grading_details} />
+                        )}
+
+                        {/* A TMCode practical graded against its criteria */}
+                        {attempt.question_type === "tmcode_practical" && (
+                          <PracticalGradeSummary
+                            details={attempt.grading_details}
+                            questionData={attempt.question_data}
+                            className="mt-4"
+                          />
                         )}
 
                         {/* Explanation */}
