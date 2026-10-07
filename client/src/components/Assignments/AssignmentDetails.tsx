@@ -20,6 +20,9 @@ import { Award, Target, ArrowLeft } from "lucide-react";
 import SubmitProjectCard from "../Projects/SubmitProjectCard";
 import LinkedProjectsPanel from "../Projects/LinkedProjectsPanel";
 import { assignmentAllowsProject } from "../../services/projectsApi";
+import type { TmcodeSettings, WorkspaceRow } from "../../services/tmcodeAssignmentsApi";
+import TmcodeStudentPanel from "./tmcode/TmcodeStudentPanel";
+import TmcodeWorkspacesPanel from "./tmcode/TmcodeWorkspacesPanel";
 import {
   formatDateTimeLocal,
   parseLocalDateTimeToUTC,
@@ -76,6 +79,8 @@ interface Assignment {
   };
   submissions: SubmissionItemInterface[];
   status?: "draft" | "published";
+  /** TMCode practical settings (null = not a TMCode assignment). */
+  tmcode?: TmcodeSettings | null;
 }
 
 const AssignmentDetails = () => {
@@ -115,6 +120,7 @@ const AssignmentDetails = () => {
   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
   const [selectedSubmission, setSelectedSubmission] =
     useState<SubmissionItemInterface | null>(null);
+  const [workspacesKey, setWorkspacesKey] = useState(0);
 
   // Add new file state
   const [newFiles, setNewFiles] = useState<File[]>([]);
@@ -330,6 +336,26 @@ const AssignmentDetails = () => {
     (assignment?.can_grade ??
       canManageOwned(assignment?.created_by, "ASSIGNMENTS_MANAGE_ANY"));
 
+  const isTmcode = !!assignment?.tmcode?.kind;
+
+  // Grade from the Workspaces panel through the existing grading dialog: the
+  // student's submission, or the roster placeholder (keyed by MIS id).
+  const gradeWorkspace = (row: WorkspaceRow) => {
+    const match =
+      (row.submission_id != null && submissions.find((s) => String(s.id) === String(row.submission_id))) ||
+      (row.user.id != null &&
+        submissions.find((s) => !(s as any)._isPlaceholder && String(s.student?.id ?? s.student_id) === String(row.user.id))) ||
+      (row.user.mis_user_id != null &&
+        submissions.find((s) => (s as any)._isPlaceholder && String(s.student?.id) === String(row.user.mis_user_id))) ||
+      null;
+    if (!match) {
+      toast.info("This student's submission isn't loaded yet. Refresh the page and try again.");
+      return;
+    }
+    setSelectedSubmission(match);
+    setIsDetailsModalOpen(true);
+  };
+
   const handleStatusChange = useCallback(
     async (
       assignmentId: string,
@@ -378,6 +404,7 @@ const AssignmentDetails = () => {
           });
         }
         await fetchSubmissions();
+        setWorkspacesKey((k) => k + 1);
       } catch (error) {
         console.error("Error grading submission:", error);
         throw error;
@@ -564,9 +591,23 @@ const AssignmentDetails = () => {
           )}
         </div>
 
+        {/* TMCode practicals: students open it in TMCode; teachers follow
+            every student's workspace and grade from it. */}
+        {isTmcode && isStudent && !canViewAllSubmissions && (
+          <TmcodeStudentPanel assignmentId={Number(assignment.id)} />
+        )}
+        {isTmcode && canViewAllSubmissions && (
+          <TmcodeWorkspacesPanel
+            assignmentId={Number(assignment.id)}
+            refreshKey={workspacesKey}
+            onGrade={canGradeSubmissions ? gradeWorkspace : undefined}
+          />
+        )}
+
         {/* TMCode Projects: students submit a project when the assignment
             accepts one; teachers see the projects linked to it. */}
-        {isStudent &&
+        {!isTmcode &&
+          isStudent &&
           !canViewAllSubmissions &&
           can("PROJECTS_USE") &&
           assignmentAllowsProject(assignment.submission_type) && (
@@ -577,7 +618,7 @@ const AssignmentDetails = () => {
               onSubmitted={fetchSubmissions}
             />
           )}
-        {canViewAllSubmissions && can("PROJECTS_MONITOR") && (
+        {!isTmcode && canViewAllSubmissions && can("PROJECTS_MONITOR") && (
           <LinkedProjectsPanel
             activityType="assignment"
             activityId={Number(assignment.id)}

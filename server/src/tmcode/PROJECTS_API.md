@@ -179,3 +179,39 @@ The teacher view `GET /activities/:type/:id/projects` returns:
   - `PROJECTS_SSE_HEARTBEAT_MS=25000`
   - `TMCODE_USER_TOKEN_TTL_DAYS=30`
 - **nginx.** `deploy/nginx-taskmentor.conf` adds `location ~ ^/api/tmcode/.*/live$` with `proxy_buffering off; proxy_read_timeout 1h;`. Copy it into the live config on the box when deploying.
+
+## Practicals and case studies (ASSIGNMENTS_PLAN.md)
+
+Code: `controllers/tmcodeAssignments.controller.ts`, `tmcode/assignments/*`, migration
+`20261007090000-tmcode-assignments.js`, tests `tests/tmcodeAssignments.integration.spec.ts`.
+The `assignments.tmcode_*` columns are read through the `AssignmentTmcode` model, not `Assignment`.
+
+| Method and path | Who | Success response |
+|---|---|---|
+| `GET /assignments?scope=student\|teaching` | any token (teaching: staff, else `403 FORBIDDEN`) | `200 {assignments: AssignmentSummary[]}` |
+| `GET /assignments/:id` | teacher of it, or an enrolled student (`403 NOT_ENROLLED`; drafts/removed/non-TMCode are `404 ASSIGNMENT_NOT_FOUND` for students) | `200 {assignment: AssignmentDetail}` |
+| `POST /assignments/:id/start` | USE | `201 {project, created: true}` first time, `200 {project, created: false}` after; `409 ASSIGNMENT_COMPLETED` (completed, not started), `403 NOT_ENROLLED` |
+| `PUT /assignments/:id/tmcode` `{kind, language?, starter_project_id?, starter_revision_id?, instructions?}` | ASSIGNMENTS_EDIT + creator or MANAGE_ANY | `200 {assignment: AssignmentDetail}` (teacher view); `422 STARTER_NOT_FOUND\|STARTER_KIND\|STARTER_INVALID\|STARTER_REVISION_NOT_FOUND` |
+| `GET /assignments/:id/workspaces` | teacher of it | `200 {assignment, counts, workspaces: WorkspaceRow[]}` |
+| `GET /assignments/:id/open-link` | as `GET /assignments/:id` | `200 {deeplink: "tmcode://assignment?id=<id>&api=<origin>"}` |
+
+```ts
+AssignmentSummary = { id, title, kind: "practical"|"case_study"|null, course_id, course_name,
+  status, due_date, points, language, read_only, late,
+  my: { project_id, link_id, state: "not_started"|"in_progress"|"submitted"|"graded",
+        submitted_at, revision_number, grade: number|null, max_points, feedback } | null,
+  teaching?: { students, started, submitted, graded } }   // submitted counts graded work too
+AssignmentDetail = AssignmentSummary & { description_html /* untrusted, sanitise */, instructions,
+  attachments: [{name, url /* absolute */}], rubric, starter: {project_id, revision_id, file_count, size_bytes} | null }
+WorkspaceRow = { user: {id /* local, null if never signed in */, mis_user_id, name, email, avatar_url},
+  project_id, link_id, submission_id, state, last_activity_at,
+  presence: (PresenceSummary & {shared: boolean}) | null,   // shared:false -> zeros, "Live status not shared"
+  revision_id, revision_number, submitted_at, grade, max_points }
+counts = { students, started, submitted, graded, live }
+```
+
+- **Start** makes a `tm` project (`visibility: "course"`, the assignment's title and language, `assignment_id` set, `share_presence: true`), copies the starter's manifest as revision 1 (`message: "Starter files"`) when there is a starter with a saved revision, and links it. An unsubmitted link from another of the student's projects moves to the workspace. Unique `(owner_id, assignment_id)` makes concurrent Starts safe.
+- **Read-only**: a workspace whose assignment is `completed` answers `POST /projects/:id/revisions` with `409 ASSIGNMENT_READ_ONLY`; `POST …/links/:linkId/submit` for a completed assignment answers `409 ASSIGNMENT_COMPLETED` (any project).
+- **Projects additions**: every project shape has `share_presence`; `GET /projects` rows and `GET /projects/:id` have `assignment: {id, title, status, kind} | null` and `read_only`; `can.share_presence` says whether the owner may turn sharing off; `PATCH /projects/:id {share_presence}` answers `409 PRESENCE_LOCKED` when turning it off on a workspace of a published assignment.
+- **share_presence false**: heartbeats are stored and reach the project stream for the owner, but never `/monitor/live` (hello or events); admins/teachers get `presence: []` / zeroed summaries on `/projects/:id`, `/projects/:id/live`, `/activities/:type/:id/projects` (rows also carry `project.share_presence`). Turning it off sends one `presence` on the monitor stream with `online: false` and `withdrawn: true`.
+- `GET /api/assignments/:id` (web) carries `tmcode: {kind, language, starter_project_id, starter_revision_id, instructions} | null`.

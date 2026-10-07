@@ -8,6 +8,8 @@ import { apiErrorMessage, projectsApi, type ProjectSummary } from "../../service
 import { LinkStatusBadge } from "./ProjectBadges";
 import { formatDateTime, freezeTarget } from "./projectFormat";
 import Select from "../ui/Select";
+import NewProjectDialog from "./NewProjectDialog";
+import ProjectLifecycle from "./ProjectLifecycle";
 
 /**
  * "Submit a project" on an assignment whose submission_type allows `project`:
@@ -28,12 +30,13 @@ const SubmitProjectCard: React.FC<{
   const [choice, setChoice] = useState<number | "">("");
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [creating, setCreating] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const list = await projectsApi.list("mine");
-      setProjects(list.projects.filter((p) => !p.archived_at));
+      setProjects(list.projects.filter((p) => !p.archived_at && p.status !== "removed"));
     } catch (e) {
       setError(apiErrorMessage(e, "Couldn't load your projects."));
     }
@@ -132,9 +135,14 @@ const SubmitProjectCard: React.FC<{
           ) : projects && projects.length === 0 ? (
             <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
               You don&apos;t have a project yet.
-              <Link to="/projects" className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:underline dark:text-blue-300">
-                <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Create one
-              </Link>
+              <button
+                type="button"
+                onClick={() => setCreating(true)}
+                disabled={closed}
+                className="inline-flex items-center gap-1 font-semibold text-blue-700 hover:underline disabled:opacity-50 dark:text-blue-300"
+              >
+                <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Create one for this assignment
+              </button>
             </div>
           ) : projects ? (
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -177,6 +185,22 @@ const SubmitProjectCard: React.FC<{
             </p>
           )}
           {closed && !submittedLink && <p className="text-xs text-slate-500 dark:text-slate-400">This assignment is closed for submissions.</p>}
+          {existing && (
+            <ProjectLifecycle
+              projectId={existing.project.id}
+              status={existing.project.status}
+              statusChangedAt={existing.project.status_changed_at}
+              isOwner
+              hasAssignment
+              canSubmitNow={!!freezeTarget(existing.project)}
+              assignmentClosed={closed}
+              onChanged={() => {
+                load();
+                onSubmitted?.();
+              }}
+              compact
+            />
+          )}
           {error && (
             <p role="alert" className="text-xs text-rose-600 dark:text-rose-400">
               {error}
@@ -184,6 +208,16 @@ const SubmitProjectCard: React.FC<{
           )}
         </div>
       </div>
+
+      <NewProjectDialog
+        open={creating}
+        initialAssignmentId={assignmentId}
+        onClose={() => setCreating(false)}
+        onCreated={() => {
+          setCreating(false);
+          load();
+        }}
+      />
 
       <ConfirmDialog
         open={confirming}

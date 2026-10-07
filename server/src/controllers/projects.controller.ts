@@ -13,8 +13,10 @@ import {
   ProjectMember,
   ProjectPresence,
   ProjectRevision,
+  ProjectStatus,
   Quiz,
   User,
+  AssignmentTmcode,
 } from "../models";
 import { tmcodeError } from "../middleware/tmcodeAuth";
 import { apiOrigin } from "./tmcode.controller";
@@ -34,8 +36,12 @@ import {
 import { MONITOR_TOPIC, openSse, projectsBus, projectTopic } from "../tmcode/projects/bus";
 import { projectLimits, presenceStaleMs } from "../tmcode/projects/limits";
 import { invalidPathReason } from "../tmcode/projects/paths";
-import { MonitorEntry, MonitorProject, publishPresence } from "../tmcode/projects/presence";
+import { MonitorEntry, MonitorProject, publishPresence, withdrawPresence } from "../tmcode/projects/presence";
+import { AssignmentBrief, assignmentBriefs } from "../tmcode/assignments/load";
+import { isReadOnlyStatus, presenceLocked } from "../tmcode/assignments/state";
+import { lockReason, reopenProject, syncProjectStatus } from "../tmcode/projects/status";
 import {
+  HIDDEN_PRESENCE,
   eventJson,
   isOnline,
   linkJson,
@@ -86,7 +92,7 @@ async function accessOr404(req: Request, res: Response): Promise<ProjectAccess |
 }
 
 /** Record a timeline event (and bump last_activity_at); publish it after the caller commits. */
-async function recordEvent(
+export async function recordEvent(
   projectId: number,
   userId: number | null,
   type: string,
@@ -101,7 +107,7 @@ async function recordEvent(
   return event;
 }
 
-function publishEvent(event: ProjectEvent) {
+export function publishEvent(event: ProjectEvent) {
   projectsBus.publish(projectTopic(event.project_id), "event", eventJson(event));
 }
 
@@ -114,7 +120,7 @@ const slugify = (name: string) =>
     .replace(/^-+|-+$/g, "")
     .slice(0, 100) || "project";
 
-async function uniqueSlug(ownerId: number, name: string): Promise<string> {
+export async function uniqueSlug(ownerId: number, name: string): Promise<string> {
   const base = slugify(name);
   const taken = new Set(
     (
@@ -161,10 +167,12 @@ export const listProjects = async (req: Request, res: Response) => {
       q: z.string().trim().max(100).optional(),
       kind: z.enum(["github", "tm"]).optional(),
       archived: z.enum(["exclude", "include", "only"]).default("exclude"),
+      // "active" = everything but removed (the default); "all" includes removed.
+      status: z.enum(["active", "all", "draft", "submitted", "graded", "removed"]).default("active"),
     })
     .safeParse(req.query);
   if (!parsed.success) return validation(res, parsed.error);
-  const { scope, q, kind, archived } = parsed.data;
+  const { scope, q, kind, archived, status } = parsed.data;
   const userId = Number(req.user.id);
 
   if (scope === "all" && !has(req, "PROJECTS_VIEW_ALL")) {
@@ -188,7 +196,22 @@ export const listProjects = async (req: Request, res: Response) => {
   if (kind) where.kind = kind;
   if (archived === "exclude") where.archived_at = null;
   if (archived === "only") where.archived_at = { [Op.ne]: null };
+  // Counts per status ignore the status filter, so the filter chips can show them.
+  const countWhere = { ...where };
+  if (status === "active") where.status = { [Op.ne]: "removed" };
+  else if (status !== "all") where.status = status;
   if (q) where[Op.or as any] = [{ name: { [Op.like]: `%${q}%` } }, { description: { [Op.like]: `%${q}%` } }];
+
+  const statusCounts: Record<ProjectStatus, number> = { draft: 0, submitted: 0, graded: 0, removed: 0 };
+  if (!(scope === "shared" && memberRoles.size === 0)) {
+    const grouped = (await Project.findAll({
+      where: countWhere,
+      attributes: ["status", [sequelize.fn("COUNT", sequelize.col("id")), "n"]],
+      group: ["status"],
+      raw: true,
+    })) as unknown as { status: ProjectStatus; n: number }[];
+    for (const g of grouped) statusCounts[g.status] = Number(g.n);
+  }
 
   const projects = scope === "shared" && memberRoles.size === 0
     ? []
@@ -201,7 +224,7 @@ export const listProjects = async (req: Request, res: Response) => {
         limit: 500,
       });
   const ids = projects.map((p) => p.id);
-  const [owners, heads, presence, links] = await Promise.all([
+  const [owners, heads, presence, links, assignments] = await Promise.all([
     usersById(projects.map((p) => p.owner_id)),
     ids.length
       ? ProjectRevision.findAll({
@@ -211,6 +234,7 @@ export const listProjects = async (req: Request, res: Response) => {
       : [],
     ids.length ? ProjectPresence.findAll({ where: { project_id: { [Op.in]: ids } } }) : [],
     ids.length ? ProjectActivityLink.findAll({ where: { project_id: { [Op.in]: ids } } }) : [],
+    assignmentBriefs(projects.map((p) => p.assignment_id)),
   ]);
   const headById = new Map(heads.map((r) => [r.id, r]));
   const now = Date.now();
@@ -220,13 +244,20 @@ export const listProjects = async (req: Request, res: Response) => {
     const myRole = p.owner_id === userId ? "owner" : memberRoles.get(p.id) ?? "admin";
     const head = p.head_revision_id ? headById.get(p.head_revision_id) : null;
     const pLinks = links.filter((l) => l.project_id === p.id);
+    const assignment = p.assignment_id ? assignments.get(p.assignment_id) ?? null : null;
+    // Admins (scope=all) don't see live status the owner chose not to share.
+    const hidePresence = myRole === "admin" && p.share_presence === false;
     return {
       ...projectCore(p, userBrief(owners.get(p.owner_id), p.owner_id), myRole),
+      assignment,
+      read_only: isReadOnlyStatus(assignment?.status),
       head: head ? revisionJson(head) : null,
-      presence: presenceSummary(
-        presence.filter((r) => r.project_id === p.id),
-        now,
-      ),
+      presence: hidePresence
+        ? { ...HIDDEN_PRESENCE }
+        : presenceSummary(
+            presence.filter((r) => r.project_id === p.id),
+            now,
+          ),
       links: {
         total: pLinks.length,
         submitted: pLinks.filter((l) => l.status === "submitted").length,
@@ -249,6 +280,7 @@ export const listProjects = async (req: Request, res: Response) => {
         .length,
       revisions: rows.reduce((n, r) => n + (r.head?.number ?? 0), 0),
       submissions: rows.reduce((n, r) => n + r.links.submitted, 0),
+      by_status: statusCounts,
     },
   });
 };
@@ -262,9 +294,15 @@ const createSchema = z.object({
   repo_url: repoUrlSchema.optional().nullable(),
   default_branch: z.string().trim().max(120).optional().nullable(),
   github_username: z.string().trim().regex(/^[A-Za-z0-9-]{1,39}$/).optional().nullable(),
+  /** Optional: create it as the caller's work for this assignment (links it, sets assignment_id). */
+  assignment_id: z.number().int().positive().optional().nullable(),
 });
 
-// @desc    Create a project (owner = the caller).
+// @desc    Create a project (owner = the caller). With `assignment_id`, it is
+//          created as the caller's work for that assignment: linked to it and
+//          set as their workspace. The assignment must accept TMCode projects,
+//          be open and in the caller's courses; an assignment with starter files
+//          is started instead (POST /assignments/:id/start seeds them).
 // @route   POST /api/tmcode/projects
 export const createProject = async (req: Request, res: Response) => {
   const parsed = createSchema.safeParse(req.body ?? {});
@@ -284,6 +322,51 @@ export const createProject = async (req: Request, res: Response) => {
     return tmcodeError(res, 422, "PROJECT_KIND", "Only GitHub projects have a repository URL.");
   }
 
+  let forAssignment: Awaited<ReturnType<typeof loadActivity>> = null;
+  if (body.assignment_id) {
+    forAssignment = await loadActivity("assignment", body.assignment_id);
+    if (!forAssignment) return tmcodeError(res, 404, "ACTIVITY_NOT_FOUND", "Assignment not found.");
+    if (!(await userMayUseActivity(req, forAssignment))) {
+      return tmcodeError(res, 403, "ACTIVITY_NOT_IN_SCOPE", "This assignment isn't in your courses.");
+    }
+    if (isReadOnlyStatus(forAssignment.status)) {
+      return tmcodeError(res, 409, "ASSIGNMENT_COMPLETED", "This assignment is completed; it can't be started any more.");
+    }
+    if (!forAssignment.open) return tmcodeError(res, 409, "ACTIVITY_CLOSED", "This assignment is closed.");
+    const a = await Assignment.findByPk(body.assignment_id, { attributes: ["id", "submission_type"] });
+    if (a?.submission_type !== "project") {
+      return tmcodeError(res, 422, "NOT_A_PROJECT_ASSIGNMENT", "This assignment doesn't take a TMCode project.");
+    }
+    const tm = await AssignmentTmcode.findByPk(body.assignment_id).catch(() => null);
+    if (tm?.tmcode_starter_project_id) {
+      return tmcodeError(
+        res,
+        409,
+        "USE_START",
+        "This assignment comes with starter files from your teacher. Start it instead, to get them.",
+        { assignment_id: body.assignment_id },
+      );
+    }
+    const mine = await Project.findAll({ where: { owner_id: userId }, attributes: ["id", "assignment_id", "status"] });
+    const already =
+      mine.find((x) => x.assignment_id === body.assignment_id && x.status !== "removed") ??
+      (mine.length
+        ? await ProjectActivityLink.findOne({
+            where: {
+              activity_type: "assignment",
+              activity_id: body.assignment_id,
+              project_id: { [Op.in]: mine.filter((x) => x.status !== "removed").map((x) => x.id) },
+            },
+          })
+        : null);
+    if (already) {
+      const projectId = "project_id" in already ? (already as ProjectActivityLink).project_id : (already as Project).id;
+      return tmcodeError(res, 409, "ALREADY_LINKED", "You already have a project for this assignment.", {
+        project_id: projectId,
+      });
+    }
+  }
+
   const transaction = await sequelize.transaction();
   let project: Project;
   let event: ProjectEvent;
@@ -301,9 +384,24 @@ export const createProject = async (req: Request, res: Response) => {
         repo_full_name: githubFullName(body.repo_url),
         default_branch: body.default_branch ?? null,
         last_activity_at: new Date(),
+        assignment_id: forAssignment && body.kind === "tm" ? forAssignment.id : null,
+        // a workspace is seen by the course's teachers
+        ...(forAssignment ? { visibility: "course" } : {}),
       } as any,
       { transaction },
     );
+    if (forAssignment) {
+      await ProjectActivityLink.create(
+        {
+          project_id: project.id,
+          activity_type: "assignment",
+          activity_id: forAssignment.id,
+          linked_by: userId,
+          status: "linked",
+        } as any,
+        { transaction },
+      );
+    }
     await ProjectMember.create(
       {
         project_id: project.id,
@@ -325,8 +423,15 @@ export const createProject = async (req: Request, res: Response) => {
   return res.status(201).json({ project: await projectDetails(req, (await Project.findByPk(project.id))!, "owner") });
 };
 
-async function projectDetails(req: Request, p: Project, myRole: string, access?: ProjectAccess) {
-  const [members, links, events, presence, head] = await Promise.all([
+/** May the owner turn "Share live status" off? Not for an open assignment's workspace. */
+const presenceShareLocked = (assignment: AssignmentBrief | null) => !!assignment && presenceLocked(assignment.status);
+
+/** Staff (admin / teacher) don't see the live status of a project that doesn't share it. */
+const hidesPresenceFrom = (p: Project, myRole: string) =>
+  p.share_presence === false && (myRole === "admin" || myRole === "teacher");
+
+export async function projectDetails(req: Request, p: Project, myRole: string, access?: ProjectAccess) {
+  const [members, links, events, rawPresence, head, briefs] = await Promise.all([
     ProjectMember.findAll({ where: { project_id: p.id, status: { [Op.ne]: "removed" } }, order: [["id", "ASC"]] }),
     ProjectActivityLink.findAll({ where: { project_id: p.id }, order: [["id", "ASC"]] }),
     ProjectEvent.findAll({ where: { project_id: p.id }, order: [["id", "DESC"]], limit: 20 }),
@@ -334,7 +439,11 @@ async function projectDetails(req: Request, p: Project, myRole: string, access?:
     p.head_revision_id
       ? ProjectRevision.findByPk(p.head_revision_id, { attributes: { exclude: ["manifest_gz"] } })
       : null,
+    assignmentBriefs([p.assignment_id]),
   ]);
+  const presence = hidesPresenceFrom(p, myRole) ? [] : rawPresence;
+  const assignment = p.assignment_id ? briefs.get(p.assignment_id) ?? null : null;
+  const readOnly = isReadOnlyStatus(assignment?.status);
   const users = await usersById([
     p.owner_id,
     ...members.map((m) => m.user_id),
@@ -354,6 +463,8 @@ async function projectDetails(req: Request, p: Project, myRole: string, access?:
   const now = Date.now();
   return {
     ...projectCore(p, userBrief(users.get(p.owner_id), p.owner_id), myRole),
+    assignment,
+    read_only: readOnly,
     head: head && canSeeHead ? revisionJson(head, users) : null,
     members: p.kind === "github" ? members.map((m) => memberJson(m, users)) : [],
     links: links.map((l, i) => linkJson(l, activities[i], l.revision_id ? revNumbers.get(l.revision_id) : null)),
@@ -362,9 +473,10 @@ async function projectDetails(req: Request, p: Project, myRole: string, access?:
     presence_summary: presenceSummary(presence, now),
     can: {
       edit: myRole === "owner",
-      save: myRole === "owner" && p.kind === "tm" && !p.archived_at,
+      save: myRole === "owner" && p.kind === "tm" && !p.archived_at && !readOnly,
       report_git: myRole === "owner" || myRole === "collaborator",
       read_all_revisions: canSeeHead,
+      share_presence: myRole === "owner" && !presenceShareLocked(assignment),
     },
   };
 }
@@ -385,6 +497,7 @@ const patchSchema = z.object({
   repo_url: repoUrlSchema.nullable().optional(),
   default_branch: z.string().trim().max(120).nullable().optional(),
   archived: z.boolean().optional(),
+  share_presence: z.boolean().optional(),
 });
 
 // @desc    Rename, describe, change visibility, archive / unarchive (owner).
@@ -414,6 +527,21 @@ export const updateProject = async (req: Request, res: Response) => {
     p.repo_full_name = githubFullName(body.repo_url);
     changed.push("repo_url");
   }
+  if (body.share_presence !== undefined && body.share_presence !== (p.share_presence !== false)) {
+    if (!body.share_presence && p.assignment_id) {
+      const brief = (await assignmentBriefs([p.assignment_id])).get(p.assignment_id) ?? null;
+      if (presenceShareLocked(brief)) {
+        return tmcodeError(
+          res,
+          409,
+          "PRESENCE_LOCKED",
+          "Live status stays on while the assignment is open, so your teacher can follow the practical.",
+        );
+      }
+    }
+    p.share_presence = body.share_presence;
+    changed.push("share_presence");
+  }
   let type = "updated";
   if (body.archived !== undefined && body.archived !== !!p.archived_at) {
     p.archived_at = body.archived ? new Date() : null;
@@ -425,6 +553,7 @@ export const updateProject = async (req: Request, res: Response) => {
   }
   p.last_activity_at = new Date();
   await p.save();
+  if (changed.includes("share_presence") && !p.share_presence) withdrawPresence(p.id);
   const event = await recordEvent(p.id, req.user.id, type, { fields: changed });
   publishEvent(event);
   const details = await projectDetails(req, p, access.role, access);
@@ -445,8 +574,23 @@ export const deleteProject = async (req: Request, res: Response) => {
   if (!access.isOwner) return ownerOnly(res);
   const p = access.project;
   const submitted = await ProjectActivityLink.count({ where: { project_id: p.id, status: "submitted" } });
-  if (submitted > 0) {
+  if (submitted > 0 || p.status === "submitted" || p.status === "graded") {
     return tmcodeError(res, 409, "PROJECT_SUBMITTED", "This project was submitted for an activity. Archive it instead.");
+  }
+
+  // Removing is a soft delete (status "removed"): the work stays on record for the
+  // teacher and the owner can restore it. Deleting for good is a second step, only
+  // for an already-removed project (?permanent=1).
+  const permanent = req.query.permanent === "1" || req.query.permanent === "true";
+  if (!permanent) {
+    if (p.status !== "removed") {
+      await p.update({ status: "removed", status_changed_at: new Date(), status_changed_by: Number(req.user.id) });
+      publishEvent(await recordEvent(p.id, req.user.id, "removed", {}));
+    }
+    return res.status(200).json({ ok: true, removed: true, status: "removed" });
+  }
+  if (p.status !== "removed") {
+    return tmcodeError(res, 409, "REMOVE_FIRST", "Remove the project first; it can then be deleted for good.");
   }
 
   const revisions = await ProjectRevision.findAll({ where: { project_id: p.id }, attributes: ["id", "manifest_gz"] });
@@ -544,6 +688,20 @@ export const commitRevision = async (req: Request, res: Response) => {
     return tmcodeError(res, 409, "PROJECT_KIND", "GitHub projects keep their files on GitHub; push there instead.");
   }
   if (p.archived_at) return tmcodeError(res, 409, "PROJECT_ARCHIVED", "This project is archived. Unarchive it to save.");
+  if (p.assignment_id) {
+    const brief = (await assignmentBriefs([p.assignment_id])).get(p.assignment_id);
+    if (isReadOnlyStatus(brief?.status)) {
+      return tmcodeError(
+        res,
+        409,
+        "ASSIGNMENT_READ_ONLY",
+        "This assignment is completed. Its workspace is read-only.",
+        { assignment_id: p.assignment_id },
+      );
+    }
+  }
+  const locked = lockReason(p.status);
+  if (locked) return tmcodeError(res, 409, locked.code, locked.message, { status: p.status });
 
   const limits = projectLimits();
   const files = Array.isArray(req.body?.files) ? req.body.files : null;
@@ -806,7 +964,12 @@ export const putPresence = async (req: Request, res: Response) => {
 
   const all = await ProjectPresence.findAll({ where: { project_id: p.id }, order: [["last_seen_at", "DESC"]] });
   const users = await usersById([p.owner_id, ...all.map((r) => r.user_id)]);
-  publishPresence(monitorProject(p, users.get(p.owner_id)), await projectCourseIds(p.id), presenceJson(row, users));
+  publishPresence(
+    monitorProject(p, users.get(p.owner_id)),
+    await projectCourseIds(p.id),
+    presenceJson(row, users),
+    p.share_presence !== false,
+  );
   return res.status(200).json({ presence: all.map((r) => presenceJson(r, users)) });
 };
 
@@ -823,17 +986,22 @@ export const projectLive = async (req: Request, res: Response) => {
       : null,
   ]);
   const users = await usersById([...presence.map((r) => r.user_id), head?.author_id]);
+  // Staff stop seeing presence as soon as the owner stops sharing it.
+  const staff = access.role === "admin" || access.role === "teacher";
+  let hidden = staff && p.share_presence === false;
 
   const stream = openSse(req, res);
   stream.send("hello", {
     project_id: p.id,
     head: head ? revisionJson(head, users) : null,
     git: p.git_state ?? null,
-    presence: presence.map((r) => presenceJson(r, users)),
+    presence: hidden ? [] : presence.map((r) => presenceJson(r, users)),
   });
-  const unsubscribe = projectsBus.subscribe(projectTopic(p.id), (event, data) => {
+  const unsubscribe = projectsBus.subscribe(projectTopic(p.id), (event, data: any) => {
     // A teacher limited to frozen revisions doesn't follow the head.
     if (event === "revision" && !access.allRevisions) return;
+    if (event === "project" && staff && typeof data?.share_presence === "boolean") hidden = !data.share_presence;
+    if (event === "presence" && hidden) return;
     stream.send(event, data);
     if (event === "deleted") stream.close();
   });
@@ -858,7 +1026,7 @@ export const monitorLive = async (req: Request, res: Response) => {
   const entries: MonitorEntry[] = [];
   for (const r of online) {
     const p = byId.get(r.project_id);
-    if (!p) continue;
+    if (!p || p.share_presence === false) continue;
     const courseIds = await projectCourseIds(p.id);
     if (!visible(courseIds)) continue;
     entries.push({ project: monitorProject(p, users.get(p.owner_id)), course_ids: courseIds, presence: presenceJson(r, users) });
@@ -1153,8 +1321,14 @@ export const submitLink = async (req: Request, res: Response) => {
   if (!parsed.success) return validation(res, parsed.error);
   const p = access.project;
 
+  if (p.status === "removed") {
+    return tmcodeError(res, 409, "PROJECT_REMOVED", "This project was removed. Restore it to submit it.");
+  }
   const activity = await loadActivity(link.activity_type, link.activity_id);
   if (!activity) return tmcodeError(res, 404, "ACTIVITY_NOT_FOUND", "The activity no longer exists.");
+  if (activity.type === "assignment" && isReadOnlyStatus(activity.status)) {
+    return tmcodeError(res, 409, "ASSIGNMENT_COMPLETED", "This assignment is completed; it no longer accepts submissions.");
+  }
   if (!activity.open) return tmcodeError(res, 409, "ACTIVITY_CLOSED", "This activity is closed.");
 
   let revision: ProjectRevision | null = null;
@@ -1172,13 +1346,17 @@ export const submitLink = async (req: Request, res: Response) => {
   const refused = await sequelize.transaction(async (transaction) => {
     if (link.activity_type === "assignment") {
       const studentId = p.owner_id;
-      const [row] = await sequelize.query<{ id: number; status: string }>(
-        "SELECT id, status FROM submissions WHERE assignment_id = ? AND student_id = ? LIMIT 1 FOR UPDATE",
+      const [row] = await sequelize.query<{ id: number; status: string; project_ref: unknown }>(
+        "SELECT id, status, project_ref FROM submissions WHERE assignment_id = ? AND student_id = ? LIMIT 1 FOR UPDATE",
         { replacements: [activity.id, studentId], type: QueryTypes.SELECT, transaction },
       );
       if (row?.status === "graded") return "ALREADY_GRADED";
       const isLate = !!activity.due_date && now.getTime() > new Date(activity.due_date).getTime();
-      const status = row && ["submitted", "late", "resubmitted"].includes(row.status) ? "resubmitted" : "submitted";
+      // Handing in again — including after a withdraw or a teacher's return,
+      // which leave a draft row that already carries a project — is a resubmission.
+      const handedInBefore =
+        !!row && (["submitted", "late", "resubmitted"].includes(row.status) || (row.status === "draft" && !!row.project_ref));
+      const status = handedInBefore ? "resubmitted" : "submitted";
       const text = revision
         ? `TMCode project "${p.name}", revision #${revision.number}`
         : `TMCode project "${p.name}", commit ${commit!.slice(0, 12)}${p.repo_url ? ` (${p.repo_url})` : ""}`;
@@ -1233,7 +1411,10 @@ export const submitLink = async (req: Request, res: Response) => {
       git_commit: commit,
     }),
   );
-  return res.status(200).json({ link: linkJson(link, activity, revision?.number ?? null), submission });
+  const projectStatus = await syncProjectStatus(p.id, Number(req.user.id));
+  return res
+    .status(200)
+    .json({ link: linkJson(link, activity, revision?.number ?? null), submission, project_status: projectStatus });
 };
 
 // @desc    Unlink (owner), only while not submitted.
@@ -1311,19 +1492,131 @@ export const activityProjects = async (req: Request, res: Response) => {
           project: {
             id: p.id,
             name: p.name,
+            status: p.status,
             kind: p.kind,
             language: p.language ?? null,
             visibility: p.visibility,
             repo_url: p.repo_url ?? null,
             git: p.git_state ?? null,
+            share_presence: p.share_presence !== false,
+            assignment_id: p.assignment_id ?? null,
           },
           owner: userBrief(users.get(p.owner_id), p.owner_id),
           frozen_revision: rev ? revisionJson(rev, users) : null,
-          presence: presenceSummary(
-            presence.filter((r) => r.project_id === p.id),
-            now,
-          ),
+          presence:
+            p.share_presence === false
+              ? { ...HIDDEN_PRESENCE }
+              : presenceSummary(
+                  presence.filter((r) => r.project_id === p.id),
+                  now,
+                ),
         };
       }),
   });
+};
+
+
+// ─── Status lifecycle (draft -> submitted -> graded, removed) ────────────────
+
+/** The link a project-level Submit / Withdraw acts on: its assignment. */
+async function assignmentLinkOf(p: Project): Promise<ProjectActivityLink | null> {
+  const links = await ProjectActivityLink.findAll({ where: { project_id: p.id, activity_type: "assignment" } });
+  if (p.assignment_id) return links.find((l) => l.activity_id === p.assignment_id) ?? null;
+  return links.length === 1 ? links[0] : null;
+}
+
+// @desc    Submit the project (owner): submits its assignment link, which
+//          freezes the latest saved version and hands it in. The project is
+//          then locked until withdrawn or returned.
+// @route   POST /api/tmcode/projects/:id/submit
+export const submitProject = async (req: Request, res: Response) => {
+  const access = await accessOr404(req, res);
+  if (!access) return;
+  if (!access.isOwner) return ownerOnly(res);
+  const link = await assignmentLinkOf(access.project);
+  if (!link) {
+    return tmcodeError(
+      res,
+      422,
+      "NO_ASSIGNMENT",
+      "Link this project to an assignment first; submitting hands it in for that assignment.",
+    );
+  }
+  req.params.linkId = String(link.id);
+  return submitLink(req, res);
+};
+
+// @desc    Withdraw a submission (owner): back to draft so the student can keep
+//          working, then submit again. Only while the assignment is open and the
+//          work isn't graded.
+// @route   POST /api/tmcode/projects/:id/withdraw
+export const withdrawProject = async (req: Request, res: Response) => {
+  const access = await accessOr404(req, res);
+  if (!access) return;
+  if (!access.isOwner) return ownerOnly(res);
+  const p = access.project;
+  const link = await assignmentLinkOf(p);
+  if (link) {
+    const activity = await loadActivity("assignment", link.activity_id);
+    if (activity && isReadOnlyStatus(activity.status)) {
+      return tmcodeError(res, 409, "ASSIGNMENT_COMPLETED", "This assignment is completed; it can't be changed any more.");
+    }
+    if (activity && !activity.open) return tmcodeError(res, 409, "ACTIVITY_CLOSED", "This assignment is closed.");
+  }
+  const result = await reopenProject(p, Number(req.user.id));
+  if (!result.ok) return tmcodeError(res, 409, result.code, result.message);
+  publishEvent(await recordEvent(p.id, req.user.id, "withdrawn", { link_ids: result.links.map((l) => l.id) }));
+  await p.reload();
+  // `project` has the GET /projects/:id shape (TMCode reads it); `status` for the web.
+  return res.status(200).json({ status: p.status, project: await projectDetails(req, p, access.role, access) });
+};
+
+const returnSchema = z.object({ message: z.string().trim().max(2000).optional().nullable() });
+
+// @desc    Return a submitted project to the student for changes (teacher of
+//          its assignment): back to draft, the submission leaves the to-grade
+//          list, and the message is recorded on the project's activity.
+// @route   POST /api/tmcode/projects/:id/return
+export const returnProject = async (req: Request, res: Response) => {
+  const p = await Project.findByPk(Number(req.params.id));
+  if (!p) return tmcodeError(res, 404, "PROJECT_NOT_FOUND", "Project not found.");
+  const parsed = returnSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return validation(res, parsed.error);
+  const link = await assignmentLinkOf(p);
+  const activity = link ? await loadActivity("assignment", link.activity_id) : null;
+  if (!activity || !(await teacherCanSeeActivity(req, activity))) {
+    // Same answer for "not there" and "not yours".
+    return tmcodeError(res, 404, "PROJECT_NOT_FOUND", "Project not found.");
+  }
+  const result = await reopenProject(p, Number(req.user.id));
+  if (!result.ok) return tmcodeError(res, 409, result.code, result.message);
+  publishEvent(
+    await recordEvent(p.id, req.user.id, "returned", {
+      assignment_id: activity.id,
+      title: activity.title,
+      message: parsed.data.message ?? null,
+    }),
+  );
+  await p.reload();
+  const access = await resolveProjectAccess(req, p.id);
+  return res.status(200).json({
+    status: p.status,
+    project: access ? await projectDetails(req, p, access.role, access) : null,
+  });
+};
+
+// @desc    Restore a removed project (owner): back to draft (or to whatever its
+//          links and grades say, if it had been handed in).
+// @route   POST /api/tmcode/projects/:id/restore
+export const restoreProject = async (req: Request, res: Response) => {
+  const access = await accessOr404(req, res);
+  if (!access) return;
+  if (!access.isOwner) return ownerOnly(res);
+  const p = access.project;
+  if (p.status !== "removed") return res.status(200).json({ status: p.status });
+  await p.update({ status: "draft", status_changed_at: new Date(), status_changed_by: Number(req.user.id) });
+  const status = await syncProjectStatus(p.id, Number(req.user.id));
+  publishEvent(await recordEvent(p.id, req.user.id, "restored", {}));
+  await p.reload();
+  return res.status(200).json({ status, project: await projectDetails(req, p, access.role, access) });
 };

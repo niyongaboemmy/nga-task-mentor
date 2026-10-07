@@ -1,3 +1,4 @@
+import { syncProjectsForSubmission } from "../tmcode/projects/status";
 import { Request, Response } from "express";
 import { Assignment, Submission, User } from "../models";
 import { sequelize } from "../config/database";
@@ -19,6 +20,7 @@ import {
   handleMisError,
 } from "../utils/misUtils";
 import { getScopedSubjects } from "../utils/scopedSubjects";
+import { assignmentTmcodeSettings } from "./tmcodeAssignments.controller";
 import { canManageAssignment } from "../utils/ownership";
 import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
 import { cancelAssignment, syncAssignment } from "../services/reminderSync";
@@ -387,6 +389,8 @@ export const getAssignment = async (req: Request, res: Response) => {
         ...assignment.toJSON(),
         can_manage: canManageAssignment(req.user, assignment),
         can_grade: canGrade,
+        // TMCode practical settings (null = not a TMCode assignment)
+        tmcode: await assignmentTmcodeSettings(assignment.id),
       },
     });
   } catch (error) {
@@ -1407,6 +1411,9 @@ export const gradeUnsubmittedStudent = async (req: Request, res: Response) => {
         ],
       })) as any;
     }
+
+    // A TMCode project linked to this assignment is now graded (and locked).
+    await syncProjectsForSubmission(Number(assignmentId), Number(student.id), Number(req.user?.id) || null);
 
     res.status(200).json({ success: true, data: submission });
   } catch (error) {

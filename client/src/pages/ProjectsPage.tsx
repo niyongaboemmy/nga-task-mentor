@@ -27,7 +27,8 @@ import {
   type ProjectSummary,
 } from "../services/projectsApi";
 import { Skeleton, LoadingAnnouncer, TopProgressBar } from "../components/ui/Skeleton";
-import { KindBadge, LanguageBadge, LiveDot, Pill } from "../components/Projects/ProjectBadges";
+import { AssignmentBadge, KindBadge, LanguageBadge, LiveDot, Pill, ProjectStatusBadge, projectStatusLabel } from "../components/Projects/ProjectBadges";
+import { PROJECT_STATUSES, type ProjectStatus } from "../services/projectsApi";
 import NewProjectDialog from "../components/Projects/NewProjectDialog";
 import { formatBytes, languageMeta, summaryLine, timeAgo } from "../components/Projects/projectFormat";
 import Select from "../components/ui/Select";
@@ -63,6 +64,9 @@ const ProjectsPage: React.FC = () => {
   const kindFilter = params.get("kind") ?? "";
   const langFilter = params.get("lang") ?? "";
   const showArchived = params.get("archived") === "1";
+  // Status filter: "" = every project that isn't removed.
+  const statusParam = params.get("status");
+  const statusFilter: ProjectStatus | "" = (PROJECT_STATUSES as string[]).includes(statusParam ?? "") ? (statusParam as ProjectStatus) : "";
   const sort: Sort = (["name", "size"] as const).find((s) => s === params.get("sort")) ?? "recent";
 
   const [view, setViewState] = useState<View>(readView);
@@ -143,6 +147,7 @@ const ProjectsPage: React.FC = () => {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const rows = projects.filter((p) => {
+      if (statusFilter ? p.status !== statusFilter : p.status === "removed") return false;
       if (!showArchived && p.archived_at) return false;
       if (showArchived && !p.archived_at) return false;
       if (kindFilter && p.kind !== kindFilter) return false;
@@ -156,7 +161,13 @@ const ProjectsPage: React.FC = () => {
     return rows.sort((a, b) =>
       sort === "name" ? a.name.localeCompare(b.name) : sort === "size" ? b.size_bytes - a.size_bytes : lastAt(b) - lastAt(a),
     );
-  }, [projects, query, kindFilter, langFilter, showArchived, sort]);
+  }, [projects, query, kindFilter, langFilter, showArchived, sort, statusFilter]);
+
+  const statusCounts = useMemo(() => {
+    const c: Record<ProjectStatus, number> = { draft: 0, submitted: 0, graded: 0, removed: 0 };
+    projects.forEach((p) => (c[p.status] += 1));
+    return c;
+  }, [projects]);
 
   const archivedCount = projects.filter((p) => p.archived_at).length;
   const filtered = !!(query || kindFilter || langFilter);
@@ -243,7 +254,31 @@ const ProjectsPage: React.FC = () => {
             />
           </label>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex w-full flex-wrap gap-1.5" role="group" aria-label="Status">
+            {(["", ...PROJECT_STATUSES] as const).map((st) => {
+              const on = statusFilter === st;
+              const count = st ? statusCounts[st] : projects.length - statusCounts.removed;
+              return (
+                <button
+                  key={st || "all"}
+                  type="button"
+                  aria-pressed={on}
+                  data-testid={`status-filter-${st || "all"}`}
+                  onClick={() => setParam("status", st || null)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    on
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:bg-white/[0.1]"
+                  }`}
+                >
+                  {st ? projectStatusLabel(st) : "All"}
+                  <span className={`tabular-nums ${on ? "text-white/80" : "text-slate-400"}`}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <FilterSelect
               label="Kind"
               value={kindFilter}
@@ -275,7 +310,7 @@ const ProjectsPage: React.FC = () => {
               type="button"
               aria-pressed={showArchived}
               onClick={() => setParam("archived", showArchived ? null : "1")}
-              className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition ${
+              className={`inline-flex items-center justify-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition ${
                 showArchived
                   ? "border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-800 dark:bg-amber-900/20 dark:text-amber-300"
                   : "border-gray-200 text-slate-600 hover:bg-gray-50 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
@@ -284,7 +319,7 @@ const ProjectsPage: React.FC = () => {
               <Archive className="h-4 w-4" aria-hidden="true" />
               Archived{archivedCount ? ` (${archivedCount})` : ""}
             </button>
-            <div className="flex rounded-xl border border-gray-200 p-0.5 dark:border-gray-700" role="group" aria-label="Layout">
+            <div className="col-span-2 flex justify-self-end rounded-xl border border-gray-200 p-0.5 dark:border-gray-700 sm:ml-auto" role="group" aria-label="Layout">
               <button
                 type="button"
                 aria-label="Cards"
@@ -374,13 +409,13 @@ const FilterSelect: React.FC<{
   options: [string, string][];
   icon?: React.ReactNode;
 }> = ({ label, value, onChange, options, icon }) => (
-  <label className="relative">
+  <label className="min-w-0">
     <span className="sr-only">{label}</span>
-    {icon && <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400">{icon}</span>}
     <Select variant="outline"
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className={`rounded-xl border border-gray-200 bg-white py-2 pr-8 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark ${icon ? "pl-8" : "pl-3"}`}
+      icon={icon}
+      className="w-full sm:w-auto"
     >
       {options.map(([v, l]) => (
         <option key={v} value={v}>
@@ -400,26 +435,24 @@ const STAT_DEFS = [
 ] as const;
 
 const StatsStrip: React.FC<{ data: ProjectList | null; loading: boolean }> = ({ data, loading }) => (
-  <section aria-label="Project statistics" className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-    {STAT_DEFS.map(({ key, label, icon: Icon, accent }, i) => (
+  <section aria-label="Project statistics" className="grid grid-cols-3 gap-2 sm:grid-cols-5 sm:gap-3">
+    {STAT_DEFS.map(({ key, label, icon: Icon, accent }) => (
       <div
         key={key}
-        className={`rounded-2xl border border-white bg-card-light p-4 dark:border-border-dark/30 dark:bg-card-dark/30 ${
-          i === 0 ? "col-span-2 sm:col-span-1" : ""
-        }`}
+        className="flex min-w-0 flex-col rounded-2xl border border-white bg-card-light p-3 dark:border-border-dark/30 dark:bg-card-dark/30 sm:p-4"
       >
-        <div className="mb-2 flex items-center gap-2">
-          <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${accent}`}>
+        <div className="mb-1.5 flex min-h-[1.75rem] flex-col items-start gap-1 sm:mb-2 sm:flex-row sm:items-center sm:gap-2">
+          <span className={`hidden h-7 w-7 shrink-0 items-center justify-center rounded-lg sm:flex ${accent}`}>
             <Icon className="h-4 w-4" aria-hidden="true" />
           </span>
-          <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary-light dark:text-text-secondary-dark/70">
+          <span className="text-[10px] font-bold uppercase leading-tight tracking-wide text-text-secondary-light dark:text-text-secondary-dark/70 sm:tracking-widest">
             {label}
           </span>
         </div>
         {loading || !data ? (
           <Skeleton className="h-7 w-14" />
         ) : (
-          <p className="text-2xl font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark" data-testid={`stat-${key}`}>
+          <p className="mt-auto text-xl font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark sm:text-2xl" data-testid={`stat-${key}`}>
             {data.stats[key]}
           </p>
         )}
@@ -449,11 +482,20 @@ const ProjectCard: React.FC<{ project: ProjectSummary; showOwner: boolean }> = (
             <p className="truncate text-sm font-semibold text-text-primary-light group-hover:text-blue-700 dark:text-text-primary-dark dark:group-hover:text-blue-300">
               {p.name}
             </p>
-            <p className="mt-0.5 line-clamp-2 min-h-[2rem] text-xs text-slate-500 dark:text-slate-400">
-              {p.description || (p.kind === "github" ? p.repo_full_name : "No description")}
-            </p>
+            {p.assignment ? (
+              <p className="mt-1 flex min-h-[2rem] items-start">
+                <AssignmentBadge assignment={p.assignment} withTitle />
+              </p>
+            ) : (
+              <p className="mt-0.5 line-clamp-2 min-h-[2rem] text-xs text-slate-500 dark:text-slate-400">
+                {p.description || (p.kind === "github" ? p.repo_full_name : "No description")}
+              </p>
+            )}
           </div>
-          <KindBadge kind={p.kind} />
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <KindBadge kind={p.kind} />
+            <ProjectStatusBadge status={p.status} />
+          </div>
         </div>
 
         {live ? (
@@ -532,6 +574,8 @@ const ProjectTable: React.FC<{ projects: ProjectSummary[]; showOwner: boolean }>
                       >
                         {p.name}
                       </Link>
+                      <ProjectStatusBadge status={p.status} />
+                      {p.assignment && <AssignmentBadge assignment={p.assignment} />}
                       {p.archived_at && <Pill tone="amber">Archived</Pill>}
                     </div>
                   </td>

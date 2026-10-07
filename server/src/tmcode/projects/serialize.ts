@@ -144,6 +144,9 @@ export function projectCore(p: Project, owner: UserBrief | null, myRole: string)
     file_count: p.file_count,
     git: p.git_state ?? null,
     archived_at: iso(p.archived_at),
+    status: p.status ?? "draft",
+    status_changed_at: iso(p.status_changed_at),
+    share_presence: p.share_presence !== false,
     last_activity_at: iso(p.last_activity_at),
     created_at: iso(p.created_at),
     updated_at: iso(p.updated_at),
@@ -151,6 +154,15 @@ export function projectCore(p: Project, owner: UserBrief | null, myRole: string)
     my_role: myRole,
   };
 }
+
+/** What a teacher sees of a project whose owner doesn't share live status. */
+export const HIDDEN_PRESENCE = {
+  online: false,
+  devices_online: 0,
+  last_seen_at: null as string | null,
+  file: null as string | null,
+  dirty: 0,
+};
 
 /** Presence of one project boiled down for a list row. */
 export function presenceSummary(rows: ProjectPresence[], now = Date.now()) {

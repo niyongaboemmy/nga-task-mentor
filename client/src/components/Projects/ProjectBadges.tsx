@@ -1,6 +1,6 @@
 import React from "react";
-import { CheckCircle2, Cloud, GitBranch, Link2, Loader2, WifiOff } from "lucide-react";
-import type { LinkStatus, ProjectKind, SyncState } from "../../services/projectsApi";
+import { CheckCircle2, Cloud, GitBranch, GraduationCap, Link2, Loader2, Lock, PencilLine, Send, Trash2, WifiOff } from "lucide-react";
+import type { LinkStatus, ProjectAssignment, ProjectKind, ProjectStatus, SyncState } from "../../services/projectsApi";
 import type { LiveStatus } from "../../hooks/useEventSource";
 import { initials, languageMeta, syncMeta, TONE_CLASSES, type Tone } from "./projectFormat";
 
@@ -44,6 +44,23 @@ export const KindBadge: React.FC<{ kind: ProjectKind }> = ({ kind }) =>
       Task Mentor
     </Pill>
   );
+
+/** "Practical" / "Case study" on a student's assignment workspace (lock when completed). */
+export const AssignmentBadge: React.FC<{ assignment: ProjectAssignment; withTitle?: boolean }> = ({ assignment, withTitle = false }) => {
+  const kind = assignment.kind === "case_study" ? "Case study" : assignment.kind === "practical" ? "Practical" : "Assignment";
+  const closed = assignment.status === "completed";
+  return (
+    <Pill
+      tone={closed ? "slate" : "violet"}
+      icon={closed ? <Lock className="h-3 w-3" aria-hidden="true" /> : <GraduationCap className="h-3 w-3" aria-hidden="true" />}
+      title={`${kind}: ${assignment.title}${closed ? " (completed, read-only)" : ""}`}
+      testId="assignment-badge"
+      className="max-w-full"
+    >
+      <span className="truncate">{withTitle ? `${kind} · ${assignment.title}` : kind}</span>
+    </Pill>
+  );
+};
 
 /** Green pulsing dot while the project is open in TMCode somewhere. */
 export const LiveDot: React.FC<{ live: boolean; className?: string; label?: string }> = ({
@@ -146,5 +163,44 @@ export const Avatar: React.FC<{ name: string; src?: string | null; size?: "sm" |
     >
       {initials(name)}
     </span>
+  );
+};
+
+const STATUS_META: Record<ProjectStatus, { label: string; tone: Tone; icon: React.ReactNode; title: string }> = {
+  draft: {
+    label: "Draft",
+    tone: "amber",
+    icon: <PencilLine className="h-3 w-3" aria-hidden="true" />,
+    title: "Being worked on — saving is open",
+  },
+  submitted: {
+    label: "Submitted",
+    tone: "blue",
+    icon: <Send className="h-3 w-3" aria-hidden="true" />,
+    title: "Handed in — locked until withdrawn or returned",
+  },
+  graded: {
+    label: "Graded",
+    tone: "emerald",
+    icon: <CheckCircle2 className="h-3 w-3" aria-hidden="true" />,
+    title: "Graded — locked",
+  },
+  removed: {
+    label: "Removed",
+    tone: "slate",
+    icon: <Trash2 className="h-3 w-3" aria-hidden="true" />,
+    title: "Removed by its owner — can be restored",
+  },
+};
+
+export const projectStatusLabel = (s: ProjectStatus) => STATUS_META[s].label;
+
+/** Draft / Submitted / Graded / Removed. */
+export const ProjectStatusBadge: React.FC<{ status: ProjectStatus }> = ({ status }) => {
+  const m = STATUS_META[status] ?? STATUS_META.draft;
+  return (
+    <Pill tone={m.tone} icon={m.icon} title={m.title} testId="project-status">
+      {m.label}
+    </Pill>
   );
 };

@@ -572,7 +572,10 @@ describe("revisions", () => {
       { path: "s", b: shared },
       { path: "o", b: own },
     ]);
-    const del = await request(app).delete(`/api/tmcode/projects/${p.id}`).set("Authorization", tok(student));
+    // Removing is a soft delete; deleting for good is the second step.
+    const rm = await request(app).delete(`/api/tmcode/projects/${p.id}`).set("Authorization", tok(student));
+    expect(rm.body).toMatchObject({ removed: true, status: "removed" });
+    const del = await request(app).delete(`/api/tmcode/projects/${p.id}?permanent=1`).set("Authorization", tok(student));
     expect(del.status).toBe(200);
     await projectsController.pendingBlobGc;
     expect(await Project.findByPk(p.id)).toBeNull();
@@ -670,13 +673,22 @@ describe("activity links and submit (assignment)", () => {
     const ref = typeof row.project_ref === "string" ? JSON.parse(row.project_ref) : row.project_ref;
     expect(ref).toMatchObject({ project_id: project.id, link_id: linkId, revision_id: project.rev1.id, kind: "tm" });
 
-    // A newer save doesn't move the freeze; re-submitting does.
+    // Submitted work is locked: saving is refused until it is withdrawn.
     const f2 = blob(unique("print('v2')"));
     await upload(student, project.id, f2);
-    const c2 = await commit(student, project.id, project.rev1.id, [{ path: "main.py", b: f2 }]);
-    project.rev2 = c2.body.revision;
+    const locked = await commit(student, project.id, project.rev1.id, [{ path: "main.py", b: f2 }]);
+    expect(locked.status).toBe(409);
+    expect(locked.body.error_code).toBe("PROJECT_LOCKED");
     const link = await ProjectActivityLink.findByPk(linkId);
     expect(link?.revision_id).toBe(project.rev1.id);
+
+    // Withdraw, save again, and re-submitting moves the freeze.
+    const withdrawn = await request(app)
+      .post(`/api/tmcode/projects/${project.id}/withdraw`)
+      .set("Authorization", tok(student));
+    expect(withdrawn.body.status).toBe("draft");
+    const c2 = await commit(student, project.id, project.rev1.id, [{ path: "main.py", b: f2 }]);
+    project.rev2 = c2.body.revision;
 
     const again = await request(app)
       .post(`/api/tmcode/projects/${project.id}/links/${linkId}/submit`)

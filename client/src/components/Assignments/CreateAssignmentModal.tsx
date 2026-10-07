@@ -2,16 +2,23 @@ import React, { useEffect, useState } from "react";
 import type { AxiosProgressEvent } from "axios";
 import axios from "../../utils/axiosConfig";
 import AssignmentEditorForm from "./form/AssignmentEditorForm";
+import { usePermissions } from "../../hooks/usePermissions";
+import type { TmcodeSettings } from "../../services/tmcodeAssignmentsApi";
 
 interface CreateAssignmentProps {
   /** Sends the prepared multipart body; reject to keep the form filled in. */
-  onSubmit: (data: FormData, onUploadProgress: (e: AxiosProgressEvent) => void) => Promise<void>;
+  onSubmit: (
+    data: FormData,
+    onUploadProgress: (e: AxiosProgressEvent) => void,
+    tmcode: TmcodeSettings | null,
+  ) => Promise<void>;
   onCancel?: () => void;
   initialCourseId?: string;
 }
 
 const CreateAssignment: React.FC<CreateAssignmentProps> = ({ onSubmit, onCancel, initialCourseId }) => {
   const [courses, setCourses] = useState<{ id: string; title: string; code: string }[]>([]);
+  const { can } = usePermissions();
 
   useEffect(() => {
     axios
@@ -39,6 +46,7 @@ const CreateAssignment: React.FC<CreateAssignmentProps> = ({ onSubmit, onCancel,
         status: "draft",
       }}
       submit={onSubmit}
+      tmcodeEnabled={can("PROJECTS_USE")}
       onCancel={onCancel}
     />
   );

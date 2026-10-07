@@ -43,7 +43,7 @@ describe("projectsApi (server PROJECTS_API.md shapes)", () => {
   it("lists projects (archived included) with the server's stats and presence summaries", async () => {
     axiosMock.get.mockResolvedValue({ data: makeProjectList() });
     const list = await projectsApi.list("shared");
-    expect(axiosMock.get).toHaveBeenCalledWith("/tmcode/projects", { params: { scope: "shared", archived: "include" } });
+    expect(axiosMock.get).toHaveBeenCalledWith("/tmcode/projects", { params: { scope: "shared", archived: "include", status: "all" } });
     expect(list.projects).toHaveLength(3);
     expect(list.projects[0]).toMatchObject({
       id: 1,
@@ -54,12 +54,26 @@ describe("projectsApi (server PROJECTS_API.md shapes)", () => {
       presence_summary: { online: true, devices_online: 1, file: "src/main.cpp", dirty: 2 },
       links: { total: 1, submitted: 0 },
     });
-    expect(list.stats).toEqual({ total: 3, active_this_week: 2, revisions: 4, submissions: 1, live_now: 1 });
+    expect(list.stats).toEqual({
+      total: 3,
+      active_this_week: 2,
+      revisions: 4,
+      submissions: 1,
+      live_now: 1,
+      by_status: { draft: 3, submitted: 0, graded: 0, removed: 0 },
+    });
   });
 
   it("computes the stats strip when the server sends none", () => {
     const { projects } = makeProjectList();
-    expect(normalizeProjectList({ projects }).stats).toEqual({ total: 3, active_this_week: 2, revisions: 4, submissions: 1, live_now: 1 });
+    expect(normalizeProjectList({ projects }).stats).toEqual({
+      total: 3,
+      active_this_week: 2,
+      revisions: 4,
+      submissions: 1,
+      live_now: 1,
+      by_status: { draft: 3, submitted: 0, graded: 0, removed: 0 },
+    });
     expect(normalizeProjectList(projects).projects.map((p) => p.id)).toEqual([1, 2, 3]);
     expect(computeStats([]).live_now).toBe(0);
   });
@@ -73,7 +87,7 @@ describe("projectsApi (server PROJECTS_API.md shapes)", () => {
     expect(d.links[0]).toMatchObject({ activity_title: "Web portfolio", course: { id: 12, title: null }, activity_open: true, status: "submitted" });
     expect(d.git).toMatchObject({ branch: "main", ahead: 1, last_push: { message: "Contact form" } });
     expect(d.git?.updated_at).toBeTruthy();
-    expect(d.can).toEqual({ edit: true, save: false, report_git: true, read_all_revisions: true });
+    expect(d.can).toEqual({ edit: true, save: false, report_git: true, read_all_revisions: true, share_presence: true });
 
     const one = normalizeProjectDetail(makeProjectDetails(1));
     expect(one.presence[0]).toMatchObject({ user: { name: "John Doe" }, device_name: "MacBook", online: true });

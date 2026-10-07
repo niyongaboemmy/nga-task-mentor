@@ -1,12 +1,15 @@
 import React, { useEffect, useId, useState } from "react";
-import { Cloud, GitBranch, Loader2 } from "lucide-react";
+import { Cloud, GitBranch, GraduationCap, Loader2, Sparkles } from "lucide-react";
 import Modal from "../ui/Modal";
 import {
+  apiErrorCode,
   apiErrorMessage,
   projectsApi,
+  type LinkableActivity,
   type ProjectKind,
   type ProjectVisibility,
 } from "../../services/projectsApi";
+import { tmcodeAssignmentsApi } from "../../services/tmcodeAssignmentsApi";
 import { isGithubRepoUrl, LANGUAGE_CHOICES } from "./projectFormat";
 import Select from "../ui/Select";
 
@@ -22,7 +25,9 @@ const NewProjectDialog: React.FC<{
   open: boolean;
   onClose: () => void;
   onCreated: (project: { id: number; name: string }) => void;
-}> = ({ open, onClose, onCreated }) => {
+  /** Preselect this assignment ("Create a project for this assignment"). */
+  initialAssignmentId?: number;
+}> = ({ open, onClose, onCreated, initialAssignmentId }) => {
   const id = useId();
   const [kind, setKind] = useState<ProjectKind>("tm");
   const [name, setName] = useState("");
@@ -33,6 +38,11 @@ const NewProjectDialog: React.FC<{
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
+  // Optional: the assignment this project is the student's work for.
+  const [assignments, setAssignments] = useState<LinkableActivity[] | null>(null);
+  const [assignmentId, setAssignmentId] = useState<number | "">("");
+  // The assignment comes with starter files: Start it instead of creating an empty project.
+  const [useStart, setUseStart] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -44,7 +54,36 @@ const NewProjectDialog: React.FC<{
     setVisibility("private");
     setError(null);
     setTouched(false);
-  }, [open]);
+    setUseStart(null);
+    setAssignmentId(initialAssignmentId ?? "");
+    projectsApi
+      .linkable()
+      .then((all) =>
+        setAssignments(all.filter((a) => a.activity_type === "assignment" && (a.submission_type ?? "") === "project")),
+      )
+      .catch(() => setAssignments([]));
+  }, [open, initialAssignmentId]);
+
+  const chosen = assignments?.find((a) => a.activity_id === assignmentId) ?? null;
+  // A new project for an assignment is named after it unless the student names it.
+  useEffect(() => {
+    if (chosen && !name.trim()) setName(chosen.title);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [chosen?.activity_id]);
+
+  const startWithStarter = async () => {
+    if (!useStart) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { project } = await tmcodeAssignmentsApi.start(useStart);
+      onCreated(project);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't start the assignment."));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // A repo URL names the project when the name is still empty.
   const repoName = isGithubRepoUrl(repoUrl) ? repoUrl.trim().replace(/\.git\/?$|\/$/g, "").split("/").pop() ?? "" : "";
@@ -70,9 +109,14 @@ const NewProjectDialog: React.FC<{
         kind,
         visibility,
         ...(kind === "github" ? { repo_url: repoUrl.trim() } : {}),
+        ...(assignmentId ? { assignment_id: assignmentId } : {}),
       });
       onCreated(project);
     } catch (err) {
+      if (apiErrorCode(err) === "USE_START" && assignmentId) {
+        setUseStart(assignmentId);
+        return;
+      }
       setError(apiErrorMessage(err, "Couldn't create the project."));
     } finally {
       setBusy(false);
@@ -196,6 +240,62 @@ const NewProjectDialog: React.FC<{
             </Select>
           </div>
         </div>
+
+        <div>
+          <label htmlFor={`${id}-assignment`} className={labelCls}>
+            For an assignment <span className="font-normal text-slate-400">(optional)</span>
+          </label>
+          <Select
+            variant="outline"
+            id={`${id}-assignment`}
+            className="w-full"
+            value={assignmentId}
+            disabled={assignments === null}
+            onChange={(e) => {
+              setAssignmentId(e.target.value ? Number(e.target.value) : "");
+              setUseStart(null);
+            }}
+          >
+            <option value="">{assignments === null ? "Loading assignments…" : "None — a personal project"}</option>
+            {(assignments ?? []).map((a) => (
+              <option key={a.activity_id} value={a.activity_id}>
+                {a.title}
+                {a.course?.title ? ` · ${a.course.title}` : ""}
+              </option>
+            ))}
+          </Select>
+          <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
+            {chosen ? (
+              <span className="inline-flex items-center gap-1">
+                <GraduationCap className="h-3 w-3" aria-hidden="true" /> It's linked to the assignment and starts as a Draft. Submit it from the project when
+                you're done.
+              </span>
+            ) : assignments && assignments.length === 0 ? (
+              "No open assignment takes a TMCode project right now."
+            ) : (
+              "Link it now if it's your work for an assignment that takes a TMCode project."
+            )}
+          </p>
+        </div>
+
+        {useStart && (
+          <div
+            role="status"
+            data-testid="use-start"
+            className="flex flex-col gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2.5 text-sm text-violet-900 dark:border-violet-900/50 dark:bg-violet-950/30 dark:text-violet-200 sm:flex-row sm:items-center"
+          >
+            <span className="flex-1">Your teacher prepared starter files for this assignment. Start it to get them in your project.</span>
+            <button
+              type="button"
+              onClick={startWithStarter}
+              disabled={busy}
+              className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-violet-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-60"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Sparkles className="h-4 w-4" aria-hidden="true" />}
+              Start with the starter files
+            </button>
+          </div>
+        )}
 
         <div>
           <label htmlFor={`${id}-desc`} className={labelCls}>

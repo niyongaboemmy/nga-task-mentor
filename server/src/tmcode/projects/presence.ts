@@ -22,6 +22,8 @@ export interface MonitorEntry {
   project: MonitorProject;
   course_ids: number[];
   presence: PresenceJson;
+  /** The owner stopped sharing live status: monitors drop the row at once. */
+  withdrawn?: boolean;
 }
 
 const tracked = new Map<string, MonitorEntry>();
@@ -29,8 +31,17 @@ let sweeper: NodeJS.Timeout | null = null;
 
 const keyOf = (e: PresenceJson) => `${e.project_id}:${e.user_id}:${e.device_id}`;
 
-export function publishPresence(project: MonitorProject, courseIds: number[], entry: PresenceJson) {
+/**
+ * `shared` false (the owner turned "Share live status" off): the heartbeat
+ * still reaches the project's own stream (the owner's other devices; the
+ * stream itself hides it from teachers) but never the monitor.
+ */
+export function publishPresence(project: MonitorProject, courseIds: number[], entry: PresenceJson, shared = true) {
   projectsBus.publish(projectTopic(project.id), "presence", entry);
+  if (!shared) {
+    withdrawPresence(project.id);
+    return;
+  }
   const monitorEntry: MonitorEntry = { project, course_ids: courseIds, presence: entry };
   projectsBus.publish(MONITOR_TOPIC, "presence", monitorEntry);
   if (entry.online) tracked.set(keyOf(entry), monitorEntry);
@@ -39,6 +50,21 @@ export function publishPresence(project: MonitorProject, courseIds: number[], en
     sweeper = setInterval(() => sweepPresence(), 10_000);
     (sweeper as any).unref?.();
   }
+}
+
+/**
+ * Take a project off the monitors (sharing turned off): every device still
+ * tracked as online is announced offline on the monitor stream only.
+ */
+export function withdrawPresence(projectId: number): number {
+  let n = 0;
+  for (const [key, e] of tracked) {
+    if (e.project.id !== projectId) continue;
+    tracked.delete(key);
+    projectsBus.publish(MONITOR_TOPIC, "presence", { ...e, presence: { ...e.presence, online: false }, withdrawn: true });
+    n++;
+  }
+  return n;
 }
 
 /** Announce stale devices offline; returns how many. */

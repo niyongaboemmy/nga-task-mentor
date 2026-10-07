@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Download, Loader2, MonitorUp, X } from "lucide-react";
 import { apiErrorMessage, projectsApi } from "../../services/projectsApi";
@@ -8,13 +8,33 @@ import { apiErrorMessage, projectsApi } from "../../services/projectsApi";
 export const OPEN_FALLBACK_MS = 2000;
 
 /**
- * "Open in TMCode" for a project: asks Task Mentor for the deep link
- * (GET /tmcode/projects/:id/open-link) and hands it to the OS. When TMCode is
- * installed, the browser loses focus (the OS prompt or the app comes forward);
- * if nothing like that happens within ~2 s, TMCode probably isn't installed,
- * so a "Don't have TMCode? Download" hint appears.
+ * An "Open in TMCode" button for any tmcode:// deep link: asks Task Mentor
+ * for the link (`getLink`) and hands it to the OS. When TMCode is installed,
+ * the browser loses focus (the OS prompt or the app comes forward); if
+ * nothing like that happens within ~2 s, TMCode probably isn't installed:
+ * `fallback="hint"` shows a "Don't have TMCode? Download" hint, and
+ * `fallback="download"` goes to the /tmcode download page.
  */
-const OpenProjectInTmcode: React.FC<{ projectId: number; className?: string }> = ({ projectId, className = "" }) => {
+export const TmcodeDeepLinkButton: React.FC<{
+  getLink: () => Promise<string>;
+  label?: string;
+  trackKey?: string;
+  fallback?: "hint" | "download";
+  disabled?: boolean;
+  className?: string;
+  buttonClassName?: string;
+  testId?: string;
+}> = ({
+  getLink,
+  label = "Open in TMCode",
+  trackKey,
+  fallback = "hint",
+  disabled = false,
+  className = "",
+  buttonClassName = "",
+  testId,
+}) => {
+  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showFallback, setShowFallback] = useState(false);
@@ -28,7 +48,7 @@ const OpenProjectInTmcode: React.FC<{ projectId: number; className?: string }> =
     setError(null);
     setShowFallback(false);
     try {
-      const deeplink = await projectsApi.openLink(projectId);
+      const deeplink = await getLink();
       let handled = false;
       const markHandled = () => {
         handled = true;
@@ -38,7 +58,10 @@ const OpenProjectInTmcode: React.FC<{ projectId: number; className?: string }> =
       window.addEventListener("pagehide", markHandled);
       document.addEventListener("visibilitychange", onVisibility);
       const timer = window.setTimeout(() => {
-        if (!handled) setShowFallback(true);
+        if (!handled) {
+          if (fallback === "download") navigate("/tmcode");
+          else setShowFallback(true);
+        }
         cleanup.current?.();
       }, OPEN_FALLBACK_MS);
       cleanup.current = () => {
@@ -61,12 +84,13 @@ const OpenProjectInTmcode: React.FC<{ projectId: number; className?: string }> =
       <button
         type="button"
         onClick={open}
-        disabled={busy}
-        data-track="tm.project.open_in_tmcode"
-        className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-900/20 transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-60 dark:focus-visible:ring-offset-gray-900"
+        disabled={busy || disabled}
+        data-track={trackKey}
+        data-testid={testId}
+        className={`inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-900/20 transition hover:bg-blue-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:opacity-60 dark:focus-visible:ring-offset-gray-900 ${buttonClassName}`}
       >
         {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <MonitorUp className="h-4 w-4" aria-hidden="true" />}
-        Open in TMCode
+        {label}
       </button>
       <AnimatePresence>
         {showFallback && (
@@ -110,5 +134,14 @@ const OpenProjectInTmcode: React.FC<{ projectId: number; className?: string }> =
     </div>
   );
 };
+
+/** "Open in TMCode" for a project (GET /tmcode/projects/:id/open-link). */
+const OpenProjectInTmcode: React.FC<{ projectId: number; className?: string }> = ({ projectId, className }) => (
+  <TmcodeDeepLinkButton
+    getLink={() => projectsApi.openLink(projectId)}
+    trackKey="tm.project.open_in_tmcode"
+    className={className}
+  />
+);
 
 export default OpenProjectInTmcode;

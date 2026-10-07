@@ -181,8 +181,22 @@ export interface ProjectEvent {
   created_at: string;
 }
 
+/** The TMCode assignment a workspace project belongs to (ASSIGNMENTS_PLAN.md). */
+export interface ProjectAssignment {
+  id: number;
+  title: string;
+  status: "draft" | "published" | "completed" | "removed";
+  kind: "practical" | "case_study" | null;
+}
+
+/** draft -> submitted -> graded, or removed (server: tmcode/projects/status.ts). */
+export type ProjectStatus = "draft" | "submitted" | "graded" | "removed";
+export const PROJECT_STATUSES: ProjectStatus[] = ["draft", "submitted", "graded", "removed"];
+
 export interface ProjectSummary {
   id: number;
+  status: ProjectStatus;
+  status_changed_at?: string | null;
   name: string;
   slug: string;
   description?: string | null;
@@ -208,6 +222,12 @@ export interface ProjectSummary {
   presence_summary: PresenceSummary;
   links: LinkSummary;
   git?: GitState | null;
+  /** Set on a student's workspace for a TMCode assignment. */
+  assignment: ProjectAssignment | null;
+  /** The assignment is completed: viewable, no more saving or submitting. */
+  read_only: boolean;
+  /** Live status goes to teachers' monitors ("Share live status"). */
+  share_presence: boolean;
 }
 
 export interface ProjectCapabilities {
@@ -215,6 +235,8 @@ export interface ProjectCapabilities {
   save: boolean;
   report_git: boolean;
   read_all_revisions: boolean;
+  /** The owner may turn Share live status off (not while the assignment is open). */
+  share_presence: boolean;
 }
 
 export interface ProjectDetail extends Omit<ProjectSummary, "links"> {
@@ -230,6 +252,8 @@ export interface ProjectStats {
   revisions: number;
   submissions: number;
   live_now: number;
+  /** Counts per status (the list's status filter doesn't change them). */
+  by_status: Record<ProjectStatus, number>;
 }
 
 export interface ProjectList {
@@ -249,7 +273,9 @@ export interface LinkableActivity {
 /** One row of the teacher view of an activity (GET /activities/:type/:id/projects). */
 export interface ActivityProject {
   link: ProjectLink;
-  project: Pick<ProjectSummary, "id" | "name" | "kind" | "language" | "repo_url" | "repo_full_name">;
+  project: Pick<ProjectSummary, "id" | "name" | "kind" | "language" | "repo_url" | "repo_full_name"> & {
+    status?: ProjectStatus;
+  };
   owner: UserLite;
   revision: RevisionSummary | null;
 }
@@ -259,6 +285,8 @@ export interface MonitorEntry extends ProjectPresence {
   project: Pick<ProjectSummary, "id" | "name" | "kind" | "language"> & { owner?: UserLite | null };
   /** Only ids from the server (`course_ids`); titles are resolved by the page. */
   courses: CourseLite[];
+  /** The owner stopped sharing live status: drop the row. */
+  withdrawn?: boolean;
 }
 
 export interface CreateProjectInput {
@@ -270,6 +298,8 @@ export interface CreateProjectInput {
   visibility?: ProjectVisibility;
   default_branch?: string;
   github_username?: string;
+  /** Create it as the caller's work for this assignment (linked, in draft). */
+  assignment_id?: number;
 }
 
 export interface UpdateProjectInput {
@@ -278,6 +308,7 @@ export interface UpdateProjectInput {
   visibility?: ProjectVisibility;
   /** true archives, false restores. */
   archived?: boolean;
+  share_presence?: boolean;
 }
 
 export interface AddMemberInput {
@@ -477,6 +508,8 @@ export function normalizeProject(raw: unknown): ProjectSummary {
   const summary = normalizeSummary(p.presence_summary) ?? normalizeSummary(p.presence) ?? summarizePresence(presence);
   return {
     id: num(p.id),
+    status: (PROJECT_STATUSES as string[]).includes(String(p.status)) ? (p.status as ProjectStatus) : "draft",
+    status_changed_at: str(p.status_changed_at),
     name: str(p.name) ?? "Untitled project",
     slug: str(p.slug) ?? String(p.id ?? ""),
     description: str(p.description),
@@ -500,6 +533,20 @@ export function normalizeProject(raw: unknown): ProjectSummary {
     presence_summary: summary,
     links: normalizeLinkSummary(p.links),
     git: normalizeGit(p.git),
+    assignment: normalizeProjectAssignment(p.assignment),
+    read_only: p.read_only === true,
+    share_presence: p.share_presence !== false,
+  };
+}
+
+function normalizeProjectAssignment(raw: unknown): ProjectAssignment | null {
+  if (!isObj(raw) || raw.id == null) return null;
+  const kind = raw.kind === "practical" || raw.kind === "case_study" ? raw.kind : null;
+  return {
+    id: num(raw.id),
+    title: str(raw.title) ?? `Assignment #${raw.id}`,
+    status: (str(raw.status) as ProjectAssignment["status"]) ?? "published",
+    kind,
   };
 }
 
@@ -545,6 +592,7 @@ export function normalizeProjectDetail(raw: unknown): ProjectDetail {
       save: can ? can.save === true : owner,
       report_git: can ? can.report_git === true : owner || base.my_role === "collaborator",
       read_all_revisions: can ? can.read_all_revisions === true : true,
+      share_presence: typeof can?.share_presence === "boolean" ? can.share_presence : owner,
     },
   };
 }
@@ -565,6 +613,12 @@ export function computeStats(projects: ProjectSummary[], now = Date.now()): Proj
     revisions: projects.reduce((n, p) => n + (p.head?.number ?? 0), 0),
     submissions: projects.reduce((n, p) => n + p.links.submitted, 0),
     live_now: projects.filter((p) => p.presence_summary.online).length,
+    by_status: {
+      draft: projects.filter((p) => p.status === "draft").length,
+      submitted: projects.filter((p) => p.status === "submitted").length,
+      graded: projects.filter((p) => p.status === "graded").length,
+      removed: projects.filter((p) => p.status === "removed").length,
+    },
   };
 }
 
@@ -583,6 +637,14 @@ export function normalizeProjectList(body: unknown): ProjectList {
           revisions: num(serverStats.revisions, computed.revisions),
           submissions: num(serverStats.submissions, computed.submissions),
           live_now: num(serverStats.online ?? serverStats.live_now, computed.live_now),
+          by_status: isObj(serverStats.by_status)
+            ? {
+                draft: num(serverStats.by_status.draft),
+                submitted: num(serverStats.by_status.submitted),
+                graded: num(serverStats.by_status.graded),
+                removed: num(serverStats.by_status.removed),
+              }
+            : computed.by_status,
         }
       : computed,
   };
@@ -636,6 +698,7 @@ export function normalizeActivityProjects(body: unknown): ActivityProject[] {
       project: {
         id: project.id,
         name: project.name,
+        status: project.status,
         kind: project.kind,
         language: project.language,
         repo_url: project.repo_url,
@@ -672,6 +735,7 @@ export function normalizeMonitorEntry(raw: unknown): MonitorEntry {
     project_id: presence.project_id || project.id,
     project: { id: project.id, name: project.name, kind: project.kind, language: project.language, owner },
     courses,
+    ...(e.withdrawn === true ? { withdrawn: true } : {}),
   };
 }
 
@@ -701,9 +765,9 @@ const BASE = "/tmcode";
 const enc = encodeURIComponent;
 
 export const projectsApi = {
-  /** Archived projects are included; the page filters them. */
+  /** Archived and removed projects are included; pages filter them. */
   async list(scope: ProjectScope = "mine"): Promise<ProjectList> {
-    const res = await api.get(`${BASE}/projects`, { params: { scope, archived: "include" } });
+    const res = await api.get(`${BASE}/projects`, { params: { scope, archived: "include", status: "all" } });
     return normalizeProjectList(res.data);
   },
 
@@ -722,8 +786,41 @@ export const projectsApi = {
     return normalizeProjectDetail(unwrap(res.data));
   },
 
+  /** Soft delete: status "removed" (restorable). */
   async remove(id: number): Promise<void> {
     await api.delete(`${BASE}/projects/${id}`);
+  },
+
+  /** Delete for good — only an already-removed project that was never handed in. */
+  async deleteForGood(id: number): Promise<void> {
+    await api.delete(`${BASE}/projects/${id}`, { params: { permanent: 1 } });
+  },
+
+  async restore(id: number): Promise<ProjectStatus> {
+    const res = await api.post(`${BASE}/projects/${id}/restore`);
+    return (unwrap<Json>(res.data)?.status as ProjectStatus) ?? "draft";
+  },
+
+  /** Hand the project in for its assignment (freezes the latest saved version; locks saving). */
+  async submitProject(id: number): Promise<{ status: ProjectStatus; link: ProjectLink | null }> {
+    const res = await api.post(`${BASE}/projects/${id}/submit`);
+    const data = unwrap<Json>(res.data);
+    return {
+      status: (data?.project_status as ProjectStatus) ?? "submitted",
+      link: isObj(data) && isObj(data.link) ? normalizeLink(data.link) : null,
+    };
+  },
+
+  /** Take a submission back (before grading, while the assignment is open). */
+  async withdraw(id: number): Promise<ProjectStatus> {
+    const res = await api.post(`${BASE}/projects/${id}/withdraw`);
+    return (unwrap<Json>(res.data)?.status as ProjectStatus) ?? "draft";
+  },
+
+  /** Teacher: send a submitted project back to the student for changes. */
+  async returnForChanges(id: number, message?: string): Promise<ProjectStatus> {
+    const res = await api.post(`${BASE}/projects/${id}/return`, { message: message || null });
+    return (unwrap<Json>(res.data)?.status as ProjectStatus) ?? "draft";
   },
 
   async revisions(id: number, limit = 50): Promise<RevisionSummary[]> {

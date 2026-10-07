@@ -16,6 +16,7 @@ import {
 } from "../controllers/tmcode.controller";
 import { exchange, me } from "../controllers/tmcodeUser.controller";
 import * as projects from "../controllers/projects.controller";
+import * as tmAssignments from "../controllers/tmcodeAssignments.controller";
 import { requireTmPermission, tmcodeUserAuth } from "../middleware/tmcodeUserAuth";
 import { projectLimits } from "../tmcode/projects/limits";
 
@@ -102,6 +103,16 @@ router.get(`${p}/open-link`, read, wrap(projects.openLink));
 router.post(`${p}/links`, use, wrap(projects.createLink));
 router.post(`${p}/links/:linkId(\\d+)/submit`, use, wrap(projects.submitLink));
 router.delete(`${p}/links/:linkId(\\d+)`, use, wrap(projects.deleteLink));
+// Status lifecycle: submit / withdraw (owner), return for changes (teacher), restore (owner).
+router.post(`${p}/submit`, use, wrap(projects.submitProject));
+router.post(`${p}/withdraw`, use, wrap(projects.withdrawProject));
+router.post(`${p}/restore`, use, wrap(projects.restoreProject));
+router.post(
+  `${p}/return`,
+  tmcodeUserAuth,
+  requireTmPermission("PROJECTS_MONITOR", "PROJECTS_VIEW_ALL"),
+  wrap(projects.returnProject),
+);
 router.get("/activities/linkable", use, wrap(projects.linkableActivities));
 router.get(
   "/activities/:type/:id(\\d+)/projects",
@@ -115,5 +126,15 @@ router.get(
   requireTmPermission("PROJECTS_MONITOR", "PROJECTS_VIEW_ALL"),
   wrap(projects.monitorLive),
 );
+
+// ─── Practicals and case studies (ASSIGNMENTS_PLAN.md) ───────────────────────
+
+const as = "/assignments/:id(\\d+)";
+router.get("/assignments", read, wrap(tmAssignments.listAssignments));
+router.get(as, read, wrap(tmAssignments.getAssignment));
+router.post(`${as}/start`, use, wrap(tmAssignments.startAssignment));
+router.put(`${as}/tmcode`, tmcodeUserAuth, requireTmPermission("ASSIGNMENTS_EDIT"), wrap(tmAssignments.updateAssignmentTmcode));
+router.get(`${as}/workspaces`, read, wrap(tmAssignments.assignmentWorkspaces));
+router.get(`${as}/open-link`, read, wrap(tmAssignments.assignmentOpenLink));
 
 export default router;

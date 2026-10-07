@@ -40,8 +40,36 @@ export class Project extends Model {
   @Column({ type: DataType.JSON, allowNull: true }) git_state?: ProjectGitState | null;
   @Column({ type: DataType.DATE, allowNull: true }) last_activity_at?: Date | null;
   @Column({ type: DataType.DATE, allowNull: true }) archived_at?: Date | null;
+  /** The student's workspace for this TMCode assignment (ASSIGNMENTS_PLAN.md); unique per owner. */
+  @Column({ type: DataType.INTEGER, allowNull: true }) assignment_id?: number | null;
+  /** Live status (presence) goes to teachers' monitors. Locked on for open assignment workspaces. */
+  @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true }) share_presence!: boolean;
+  /** draft -> submitted -> graded, or removed (soft delete). Kept in sync by tmcode/projects/status.ts. */
+  @Column({ type: DataType.ENUM("draft", "submitted", "graded", "removed"), allowNull: false, defaultValue: "draft" })
+  status!: ProjectStatus;
+  @Column({ type: DataType.DATE, allowNull: true }) status_changed_at?: Date | null;
+  @Column({ type: DataType.INTEGER, allowNull: true }) status_changed_by?: number | null;
   declare created_at: Date;
   declare updated_at: Date;
+}
+
+export type ProjectStatus = "draft" | "submitted" | "graded" | "removed";
+
+export type TmcodeKind = "practical" | "case_study";
+
+/**
+ * The TMCode columns of `assignments` (migration 20261007090000). Kept off the
+ * Assignment model so code that runs before the migration doesn't SELECT
+ * columns that aren't there yet. Read and update only -- never create rows.
+ */
+@Table({ tableName: "assignments", timestamps: false, modelName: "AssignmentTmcode" })
+export class AssignmentTmcode extends Model {
+  @Column({ type: DataType.INTEGER, primaryKey: true }) id!: number;
+  @Column({ type: DataType.ENUM("practical", "case_study"), allowNull: true }) tmcode_kind?: TmcodeKind | null;
+  @Column({ type: DataType.STRING(40), allowNull: true }) tmcode_language?: string | null;
+  @Column({ type: DataType.INTEGER, allowNull: true }) tmcode_starter_project_id?: number | null;
+  @Column({ type: DataType.INTEGER, allowNull: true }) tmcode_starter_revision_id?: number | null;
+  @Column({ type: DataType.TEXT, allowNull: true }) tmcode_instructions?: string | null;
 }
 
 export type ProjectMemberRole = "owner" | "collaborator" | "viewer";
@@ -150,6 +178,7 @@ export class ProjectEvent extends Model {
 /** Register with sequelize.addModels next to the other models. */
 export const PROJECT_MODELS = [
   Project,
+  AssignmentTmcode,
   ProjectMember,
   ProjectRevision,
   ProjectBlob,

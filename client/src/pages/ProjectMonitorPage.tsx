@@ -1,3 +1,4 @@
+import AssignmentProgressBoard from "../components/Projects/AssignmentProgressBoard";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -56,6 +57,15 @@ const ProjectMonitorPage: React.FC = () => {
     },
     presence: (data) => {
       const e = normalizeMonitorEntry(data);
+      // The student turned Share live status off: drop the row at once.
+      if (e.withdrawn) {
+        setEntries((prev) => {
+          const next = new Map(prev);
+          next.delete(entryKey(e));
+          return next;
+        });
+        return;
+      }
       setEntries((prev) => {
         const next = new Map(prev);
         const old = next.get(entryKey(e));
@@ -154,6 +164,8 @@ const ProjectMonitorPage: React.FC = () => {
         <LiveIndicator status={live.status} onRetry={live.reconnect} />
       </div>
 
+      <AssignmentProgressBoard />
+
       <section aria-label="Monitor summary" className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[
           { label: "Students online", value: students, icon: Users, accent: "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-300" },
@@ -161,12 +173,12 @@ const ProjectMonitorPage: React.FC = () => {
           { label: "With unsaved work", value: unsaved, icon: TriangleAlert, accent: "bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-300" },
           { label: "Need attention", value: attention, icon: Play, accent: "bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-300" },
         ].map(({ label, value, icon: Icon, accent }) => (
-          <div key={label} className="rounded-2xl border border-white bg-card-light p-4 dark:border-border-dark/30 dark:bg-card-dark/30">
-            <div className="mb-2 flex items-center gap-2">
-              <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${accent}`}>
+          <div key={label} className="flex flex-col rounded-2xl border border-white bg-card-light p-3 dark:border-border-dark/30 dark:bg-card-dark/30 sm:p-4">
+            <div className="mb-2 flex min-h-[1.75rem] items-center gap-2">
+              <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-lg ${accent}`}>
                 <Icon className="h-4 w-4" aria-hidden="true" />
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-text-secondary-light dark:text-text-secondary-dark/70">{label}</span>
+              <span className="text-[10px] font-bold uppercase leading-tight tracking-wide text-text-secondary-light dark:text-text-secondary-dark/70 sm:tracking-widest">{label}</span>
             </div>
             {received ? (
               <p className="text-2xl font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark">{value}</p>
@@ -189,11 +201,12 @@ const ProjectMonitorPage: React.FC = () => {
             className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark"
           />
         </label>
-        <div className="flex flex-wrap gap-2">
-          <label className="relative">
+        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
+          <label className="min-w-0">
             <span className="sr-only">Course</span>
-            <BookOpen className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" aria-hidden="true" />
             <Select variant="outline"
+              className="w-full sm:w-auto"
+              icon={<BookOpen className="h-4 w-4 text-slate-400" aria-hidden="true" />}
               value={course}
               onChange={(e) => setCourse(e.target.value)}
             >
@@ -207,6 +220,7 @@ const ProjectMonitorPage: React.FC = () => {
             </Select>
           </label>
           <Select variant="outline"
+            className="w-full min-w-0 sm:w-auto"
             aria-label="Language"
             value={language}
             onChange={(e) => setLanguage(e.target.value)}
@@ -218,7 +232,7 @@ const ProjectMonitorPage: React.FC = () => {
               </option>
             ))}
           </Select>
-          <div role="radiogroup" aria-label="Show" className="flex rounded-xl bg-gray-100 p-1 dark:bg-white/[0.04]">
+          <div role="radiogroup" aria-label="Show" className="col-span-2 flex rounded-xl bg-gray-100 p-1 dark:bg-white/[0.04]">
             {(
               [
                 ["open", "Open now"],
@@ -233,7 +247,7 @@ const ProjectMonitorPage: React.FC = () => {
                 role="radio"
                 aria-checked={stateFilter === value}
                 onClick={() => setStateFilter(value)}
-                className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+                className={`flex-1 whitespace-nowrap rounded-lg px-2.5 py-1 text-xs font-medium transition sm:flex-none ${
                   stateFilter === value ? "bg-white text-blue-700 shadow-sm dark:bg-gray-800 dark:text-blue-300" : "text-slate-600 hover:text-slate-900 dark:text-slate-400 dark:hover:text-slate-200"
                 }`}
               >
