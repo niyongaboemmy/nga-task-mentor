@@ -105,40 +105,46 @@ const allowedOrigins = [
   .map((o) => o.trim())
   .filter((v, i, arr) => Boolean(v) && arr.indexOf(v) === i);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (like mobile apps or curl requests)
-      if (!origin) return callback(null, true);
+const appCors = cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
 
-      // Check if origin is in allowedOrigins list
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+    // Check if origin is in allowedOrigins list
+    if (allowedOrigins.includes(origin)) return callback(null, true);
 
-      // Additional check for known production domains and localhost
-      if (
-        origin.includes("nga.ac.rw") ||
-        origin.includes("hts.rw") ||
-        origin.startsWith("http://localhost") ||
-        origin.startsWith("http://127.0.0.1")
-      ) {
-        return callback(null, true);
-      }
+    // Additional check for known production domains and localhost
+    if (
+      origin.includes("nga.ac.rw") ||
+      origin.includes("hts.rw") ||
+      origin.startsWith("http://localhost") ||
+      origin.startsWith("http://127.0.0.1")
+    ) {
+      return callback(null, true);
+    }
 
-      callback(new Error(`CORS: origin ${origin} not allowed`));
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
-    allowedHeaders: [
-      "Content-Type",
-      "Authorization",
-      "x-mis-token",
-      "X-Db-Access-Token",
-      // Safe Exam Browser adds these to every request (lockdown_browser).
-      "X-SafeExamBrowser-ConfigKeyHash",
-      "X-SafeExamBrowser-RequestHash",
-    ],
-  }),
-);
+    callback(new Error(`CORS: origin ${origin} not allowed`));
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "x-mis-token",
+    "X-Db-Access-Token",
+    // Safe Exam Browser adds these to every request (lockdown_browser).
+    "X-SafeExamBrowser-ConfigKeyHash",
+    "X-SafeExamBrowser-RequestHash",
+  ],
+});
+
+// Project previews (GET /api/tmcode/preview/:token/*) run in a sandboxed
+// iframe, an opaque origin: its module scripts and fetches send "Origin:
+// null". The token in the path is the only credential, so these answer any
+// origin, without cookies; every other route keeps the allow-list above.
+const PREVIEW_PATH = /^\/api\/tmcode\/preview\//;
+const previewCors = cors({ origin: "*", credentials: false, methods: ["GET", "HEAD", "OPTIONS"] });
+app.use((req, res, next) => (PREVIEW_PATH.test(req.path) ? previewCors(req, res, next) : appCors(req, res, next)));
 
 // Platform usage analytics relay. Mounted before the global body parser: it
 // has its own 256 kB JSON/text parser (sendBeacon posts text/plain) and no
