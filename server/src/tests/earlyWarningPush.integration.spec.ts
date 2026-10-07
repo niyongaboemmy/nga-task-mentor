@@ -205,7 +205,7 @@ describe("runEarlyWarningPush", () => {
     for (const c of calls) expect(c.headers.Authorization).toBe(expectedAuth);
 
     const p = puts();
-    expect(p.map((c) => c.url)).toEqual(["https://mis.example.test/early-warning/signals", "https://mis.example.test/early-warning/signals"]);
+    expect(p.map((c) => c.url)).toEqual(["https://mis.example.test/early-warning/signals"]);
     expect(p.map((c) => (c.body as any).students.length)).toEqual([2]);
     for (const c of p) {
       expect(c.headers["Content-Type"]).toBe("application/json");
