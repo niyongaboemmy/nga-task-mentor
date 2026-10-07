@@ -19,6 +19,8 @@ const projects = {
   withdraw: vi.fn(),
   linkable: vi.fn(),
   create: vi.fn(),
+  manifest: vi.fn(),
+  openLink: vi.fn(),
 };
 vi.mock("../services/practicalsApi", async (orig) => ({
   ...(await orig<typeof import("../services/practicalsApi")>()),
@@ -35,16 +37,43 @@ vi.mock("../components/Projects/FilesTab", () => ({
     </div>
   ),
 }));
-vi.mock("../components/Projects/OpenProjectInTmcode", () => ({ default: () => <button type="button">Open in TMCode</button> }));
+vi.mock("../components/Projects/OpenProjectInTmcode", () => ({
+  default: () => <button type="button">Open in TMCode</button>,
+  TmcodeDeepLinkButton: ({ label, onOpened }: { label?: string; onOpened?: () => void }) => (
+    <button type="button" onClick={onOpened}>
+      {label ?? "Open in TMCode"}
+    </button>
+  ),
+}));
 vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.fn() } }));
 
 import PracticalGradingPage from "../pages/PracticalGradingPage";
 import TmcodePracticalQuestion from "../components/Quizzes/QuestionTypes/TmcodePracticalQuestion";
 import NewProjectDialog from "../components/Projects/NewProjectDialog";
 
+// Node 25's own (non-functional) localStorage shadows jsdom's: use a real one.
+const memoryStorage = (() => {
+  let data: Record<string, string> = {};
+  return {
+    getItem: (k: string) => (k in data ? data[k]! : null),
+    setItem: (k: string, v: string) => void (data[k] = String(v)),
+    removeItem: (k: string) => void delete data[k],
+    clear: () => void (data = {}),
+    key: (i: number) => Object.keys(data)[i] ?? null,
+    get length() {
+      return Object.keys(data).length;
+    },
+  };
+})();
+Object.defineProperty(window, "localStorage", { value: memoryStorage, configurable: true });
+Object.defineProperty(globalThis, "localStorage", { value: memoryStorage, configurable: true });
+
 beforeEach(() => {
   [...Object.values(practicals), ...Object.values(projects)].forEach((f) => f.mockReset());
   projects.revisions.mockResolvedValue([]);
+  projects.manifest.mockResolvedValue({ revision: null, files: [{ path: "index.html", sha256: "a", size: 10 }] });
+  // Drafts, quick comments and "opened in TMCode" live in localStorage.
+  window.localStorage.clear();
 });
 
 const row = (id: number, name: string, over: Record<string, unknown> = {}) => ({
@@ -98,12 +127,21 @@ describe("PracticalGradingPage", () => {
     practicals.saveGrade.mockResolvedValue({ score: 8, max_points: 10 });
     workspace();
 
-    expect(await screen.findAllByTestId("roster-row")).toHaveLength(2);
     // The first student to grade opens, with their code at the submitted revision.
     expect(await screen.findByTestId("files-tab")).toHaveTextContent("files of 101 at 301");
+    expect(screen.getByTestId("current-student")).toHaveTextContent("Ama");
+    // The class list is a dropdown: name, status and score per student.
+    await userEvent.click(screen.getByTestId("student-switcher"));
+    const rows = screen.getAllByTestId("roster-row");
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toHaveTextContent("Bo");
+    expect(rows[1]).toHaveTextContent("To grade");
+    expect(within(rows[1]!).getByTestId("roster-score")).toHaveTextContent("—/10");
+    await userEvent.click(screen.getByTestId("student-switcher"));
 
     const [layout, styling] = screen.getAllByTestId("criterion");
-    await userEvent.click(within(layout!).getByRole("button", { name: "Full" }));
+    // Up to 6 marks: one button per mark.
+    await userEvent.click(within(layout!).getByRole("button", { name: "6" }));
     const stylingInput = within(styling!).getByLabelText(/Styling score/);
     await userEvent.type(stylingInput, "2");
     expect(screen.getByTestId("grade-total")).toHaveTextContent(/^8\s*\/\s*10$/);
@@ -200,6 +238,44 @@ describe("PracticalGradingPage", () => {
       });
     await press("ArrowDown", "student=2");
     await press("ArrowUp", "student=1");
+  });
+
+  it("keeps unsaved scores as a draft when switching students, and restores them", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    workspace();
+    const [layout] = await screen.findAllByTestId("criterion");
+    await userEvent.click(within(layout!).getByRole("button", { name: "4" }));
+    // the draft is written shortly after the change
+    await new Promise((r) => setTimeout(r, 450));
+    await userEvent.click(screen.getByRole("button", { name: "Next student" }));
+    await waitFor(() => expect(screen.getByTestId("current-student")).toHaveTextContent("Bo"));
+    expect(screen.getByTestId("grade-total")).toHaveTextContent(/^0\s*\/\s*10$/);
+    await userEvent.click(screen.getByRole("button", { name: "Previous student" }));
+    expect(await screen.findByTestId("draft-restored")).toBeInTheDocument();
+    expect(screen.getByTestId("grade-total")).toHaveTextContent(/^4\s*\/\s*10$/);
+    // Discard goes back to the saved state.
+    await userEvent.click(screen.getByRole("button", { name: "Discard" }));
+    expect(screen.getByTestId("grade-total")).toHaveTextContent(/^0\s*\/\s*10$/);
+  });
+
+  it("adds quick comments to the feedback and remembers what the teacher opened in TMCode", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    workspace();
+    await userEvent.click(await screen.findByRole("button", { name: "Great attention to detail!" }));
+    expect(screen.getByPlaceholderText(/What went well/)).toHaveValue("Great attention to detail!");
+
+    expect(screen.queryByTestId("opened-in-tmcode")).toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Open in TMCode" }));
+    expect(await screen.findByTestId("opened-in-tmcode")).toHaveTextContent("rev #4");
+  });
+
+  it("warns that a package.json project needs TMCode to run", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    practicals.preview.mockResolvedValue({ url: "http://api.test/p/index.html", entry: "index.html" });
+    projects.manifest.mockResolvedValue({ revision: null, files: [{ path: "index.html", sha256: "a", size: 1 }, { path: "package.json", sha256: "b", size: 1 }] });
+    workspace();
+    await userEvent.click(await screen.findByRole("tab", { name: /Preview/ }));
+    expect(await screen.findByTestId("preview-needs-build")).toHaveTextContent("Open in TMCode");
   });
 
   it("can't grade a student who hasn't submitted", async () => {

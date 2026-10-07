@@ -65,7 +65,9 @@ const FilesTab: React.FC<{
   revisions: RevisionSummary[] | null;
   revisionId: number | null;
   onRevisionChange: (id: number | null) => void;
-}> = ({ projectId, revisions, revisionId, onRevisionChange }) => {
+  /** Fill the parent's height (the parent sets it); only the tree and the code scroll. */
+  fill?: boolean;
+}> = ({ projectId, revisions, revisionId, onRevisionChange, fill = false }) => {
   const [files, setFiles] = useState<ManifestFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
@@ -143,7 +145,7 @@ const FilesTab: React.FC<{
   const tree = useMemo(() => buildTree(files ?? []), [files]);
 
   return (
-    <div className="space-y-3">
+    <div className={fill ? "flex h-full min-h-0 flex-col gap-3" : "space-y-3"}>
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex min-w-0 max-w-full flex-1 items-center gap-2 text-sm sm:flex-none">
           <History className="h-4 w-4 shrink-0 text-slate-400" aria-hidden="true" />
@@ -184,8 +186,12 @@ const FilesTab: React.FC<{
           No files yet. Open the project in TMCode and use <strong>Save to Task Mentor</strong>.
         </div>
       ) : (
-        <div className="grid min-h-[420px] grid-cols-1 overflow-hidden rounded-2xl border border-gray-200/70 dark:border-border-dark/30 md:grid-cols-[minmax(200px,280px)_1fr]">
-          <div className="max-h-[60vh] overflow-auto border-b border-gray-200/70 bg-gray-50/60 p-2 dark:border-border-dark/30 dark:bg-white/[0.02] md:max-h-[70vh] md:border-b-0 md:border-r">
+        <div
+          className={`grid grid-cols-1 overflow-hidden rounded-2xl border border-gray-200/70 dark:border-border-dark/30 md:grid-cols-[minmax(200px,280px)_1fr] ${
+            fill ? "min-h-0 flex-1 grid-rows-[minmax(0,30%)_minmax(0,1fr)] md:grid-rows-1" : "min-h-[420px]"
+          }`}
+        >
+          <div className={`${fill ? "min-h-0" : "max-h-[60vh] md:max-h-[70vh]"} overflow-auto border-b border-gray-200/70 bg-gray-50/60 p-2 dark:border-border-dark/30 dark:bg-white/[0.02] md:border-b-0 md:border-r`}>
             {files === null ? (
               <div className="space-y-2 p-2" aria-hidden="true">
                 {Array.from({ length: 8 }, (_, i) => (
@@ -209,7 +215,7 @@ const FilesTab: React.FC<{
               />
             )}
           </div>
-          <div className="flex min-w-0 flex-col bg-white dark:bg-[#1e1e1e]">
+          <div className={`flex min-w-0 flex-col bg-white dark:bg-[#1e1e1e] ${fill ? "min-h-0" : ""}`}>
             <div className="flex items-center gap-2 border-b border-gray-200/70 px-3 py-2 text-xs dark:border-white/10">
               <FileCode2 className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
               <span className="truncate font-mono text-slate-700 dark:text-slate-200" data-testid="viewer-path">
@@ -219,7 +225,7 @@ const FilesTab: React.FC<{
                 Read-only
               </span>
             </div>
-            <div className="relative min-h-[360px] flex-1">
+            <div className={`relative flex-1 ${fill ? "min-h-0" : "min-h-[360px]"}`}>
               {contentError ? (
                 <p className="p-6 text-sm text-slate-500 dark:text-slate-400">{contentError}</p>
               ) : contentLoading || !content ? (

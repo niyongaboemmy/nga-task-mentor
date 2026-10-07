@@ -1,4 +1,5 @@
 import { syncProjectsForSubmission } from "../tmcode/projects/status";
+import { AssignmentTmcode } from "../models/Project.model";
 import { Request, Response } from "express";
 import { Submission, Assignment, User, Quiz, QuizSubmission } from "../models";
 import { Op } from "sequelize";
@@ -212,7 +213,7 @@ export const getGroupedSubmissions = async (req: Request, res: Response) => {
           status: { [Op.ne]: "removed" },
           ...termWhere,
         },
-        attributes: ["id", "title", "course_id", "status", "max_score"],
+        attributes: ["id", "title", "course_id", "status", "max_score", "submission_type"],
         include: [
           {
             model: Submission,
@@ -224,6 +225,25 @@ export const getGroupedSubmissions = async (req: Request, res: Response) => {
         ],
         order: [["due_date", "DESC"]],
       });
+
+      // Teachers grade TMCode practicals and project-only assignments in the
+      // grading workspace (it shows the project), not on the assignment page.
+      const tmcodeIds = new Set<number>();
+      if (canViewAll && rows.length) {
+        try {
+          const tm = await AssignmentTmcode.findAll({
+            where: { id: rows.map((r) => r.id), tmcode_kind: { [Op.ne]: null } } as any,
+            attributes: ["id"],
+          });
+          tm.forEach((t) => tmcodeIds.add(Number(t.id)));
+        } catch {
+          // Before migration 20261007090000 there are no TMCode practicals.
+        }
+      }
+      const gradingUrl = (a: Assignment) =>
+        canViewAll && (tmcodeIds.has(a.id) || String((a as any).submission_type ?? "").toLowerCase() === "project")
+          ? `/grading/practical/assignment/${a.id}`
+          : `/assignments/${a.id}`;
 
       for (const a of rows) {
         const subs: any[] = (a as any).submissions ?? [];
@@ -274,7 +294,7 @@ export const getGroupedSubmissions = async (req: Request, res: Response) => {
             const [n, d] = String(mine.grade).split("/").map(parseFloat);
             return d > 0 ? Math.round((n / d) * 100) : null;
           })(),
-          detail_url: `/assignments/${a.id}`,
+          detail_url: gradingUrl(a),
         });
       }
     }
