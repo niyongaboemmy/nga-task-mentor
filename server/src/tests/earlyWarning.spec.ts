@@ -148,7 +148,7 @@ describe("buildSignals", () => {
   it("keys by MIS id, reads rows by the linked local id, and drops students with nothing to report", () => {
     const out = buildSignals(NOW, [
       { mis_user_id: 9001, local_user_id: 11, subject_ids: [S] }, // handed in
-      { mis_user_id: 9002, local_user_id: null, subject_ids: [S] }, // no account: missed
+      { mis_user_id: 9002, local_user_id: null, subject_ids: [S] }, // no account: not sent (would look like all missed)
       { mis_user_id: 9003, local_user_id: 12, subject_ids: [777] }, // a low mark only
       { mis_user_id: 9004, local_user_id: 13, subject_ids: [888] }, // nothing at all
       { mis_user_id: 9001, local_user_id: 11, subject_ids: [S] }, // duplicate
@@ -156,7 +156,6 @@ describe("buildSignals", () => {
     ], rows as any);
     expect(out).toEqual([
       { student_id: 9001, metrics: { due_14d: 1, missed_14d: 0, avg_pct_30d: null, avg_pct_prev_30d: null, failed_30d: 0 } },
-      { student_id: 9002, metrics: { due_14d: 1, missed_14d: 1, avg_pct_30d: null, avg_pct_prev_30d: null, failed_30d: 0 } },
       { student_id: 9003, metrics: { due_14d: 0, missed_14d: 0, avg_pct_30d: 25, avg_pct_prev_30d: null, failed_30d: 1 } },
     ]);
   });

@@ -175,6 +175,10 @@ export function buildSignals(
   const seen = new Set<number>();
   for (const s of roster) {
     if (!Number.isInteger(s.mis_user_id) || s.mis_user_id <= 0 || seen.has(s.mis_user_id)) continue;
+    // No Task Mentor account (never signed in, or not linked yet): nothing to
+    // say. Counting all their work as missed would flag them falsely; MIS shows
+    // "no data from Task Mentor" instead.
+    if (s.local_user_id == null) continue;
     seen.add(s.mis_user_id);
     const subjectIds = [...new Set(s.subject_ids)];
     const metrics = computeStudentMetrics({
@@ -182,8 +186,8 @@ export function buildSignals(
       subjectIds,
       assignments: subjectIds.flatMap((id) => assignmentsBySubject.get(id) ?? []),
       quizzes: subjectIds.flatMap((id) => quizzesBySubject.get(id) ?? []),
-      submissions: s.local_user_id != null ? subsByStudent.get(s.local_user_id) ?? [] : [],
-      attempts: s.local_user_id != null ? attemptsByStudent.get(s.local_user_id) ?? [] : [],
+      submissions: subsByStudent.get(s.local_user_id) ?? [],
+      attempts: attemptsByStudent.get(s.local_user_id) ?? [],
     });
     if (hasSignal(metrics)) out.push({ student_id: s.mis_user_id, metrics });
   }

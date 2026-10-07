@@ -192,7 +192,9 @@ afterAll(async () => {
 describe("runEarlyWarningPush", () => {
   it("reads the roster, computes metrics from the DB and PUTs them in batches with Basic auth", async () => {
     const summary = await runEarlyWarningPush(now);
-    expect(summary).toMatchObject({ ok: true, roster: 3 + FILLERS, linked: 2, sent: 3 + FILLERS, batches: 2, failed_batches: 0 });
+    // Only students with a Task Mentor account are sent (fillers and MIS_C have none);
+    // splitting into batches of 1000 is covered by the chunk() unit test.
+    expect(summary).toMatchObject({ ok: true, roster: 3 + FILLERS, linked: 2, sent: 2, batches: 1, failed_batches: 0 });
 
     // Roster paging: reference once, people until nextCursor is null.
     const gets = calls.filter((c) => c.method === "GET").map((c) => new URL(c.url).pathname);
@@ -204,7 +206,7 @@ describe("runEarlyWarningPush", () => {
 
     const p = puts();
     expect(p.map((c) => c.url)).toEqual(["https://mis.example.test/early-warning/signals", "https://mis.example.test/early-warning/signals"]);
-    expect(p.map((c) => (c.body as any).students.length)).toEqual([1000, 3 + FILLERS - 1000]);
+    expect(p.map((c) => (c.body as any).students.length)).toEqual([2]);
     for (const c of p) {
       expect(c.headers["Content-Type"]).toBe("application/json");
       expect(Object.keys(c.body as any).sort()).toEqual(["as_of", "students"]);
@@ -222,7 +224,8 @@ describe("runEarlyWarningPush", () => {
       metrics: { due_14d: 2, missed_14d: 1, avg_pct_30d: 90, avg_pct_prev_30d: null, failed_30d: 0 },
     });
     // C never signed in: both missed. The old-year subject never counts.
-    expect(sentFor(MIS_C)?.metrics).toEqual({ due_14d: 2, missed_14d: 2, avg_pct_30d: null, avg_pct_prev_30d: null, failed_30d: 0 });
+    // No Task Mentor account: not sent (MIS shows "no data" rather than a false "all missed").
+    expect(sentFor(MIS_C)).toBeUndefined();
     expect(sentFor(MIS_TEACHER)).toBeUndefined();
     expect(sentFor(MIS_INACTIVE)).toBeUndefined();
     // No names or emails leave the app.
@@ -243,7 +246,7 @@ describe("runEarlyWarningPush", () => {
   it("a refused batch is reported, not thrown, and is not a success", async () => {
     putStatus = 400;
     const summary = await runEarlyWarningPush(now);
-    expect(summary).toMatchObject({ ok: false, batches: 2, failed_batches: 2 });
+    expect(summary).toMatchObject({ ok: false, batches: 1, failed_batches: 1 });
     expect(await getLastSuccess()).toBeNull();
   });
 
