@@ -9,12 +9,16 @@ import {
 } from "./testApp";
 import { sequelize } from "../config/database";
 import { Assignment, Permission, Role, RolePermission, Submission, User } from "../models";
+import { clearRankingCohortCaches } from "../utils/rankingCohorts";
+import { clearSchoolDirectoryCache } from "../services/schoolDirectory";
 
 /**
  * GET /api/rankings against the real dev DB and middleware chain, with MIS
  * mocked. Proves the access rules: a student only ever gets their own
  * position, never another student's name or score; a subject outside the
- * caller's scope is a 403; staff get a named leaderboard. Fixtures use subject
+ * caller's scope is a 403; staff get a named leaderboard. A student is ranked
+ * within their own class group (S4 A), not against another class (S4 B) that
+ * shares the subject. Staff can filter by class group and grade. Fixtures use subject
  * ids no real subject has and are removed afterwards. Run with --runInBand.
  */
 
@@ -32,32 +36,64 @@ const MIS_HEADER = { "x-mis-token": "test-mis-token" };
 let app: ReturnType<typeof buildTestApp>;
 let student: User;
 let classmate: User;
+let otherClass: User;
 let studentToken: string;
 let instructorToken: string;
+let adminToken: string;
+/** Set to make the student's class-group lookup fail. */
+let placementDown = false;
 let assignmentId: number | null = null;
 const submissionIds: number[] = [];
 
+// Two class groups of grade "Senior 4" (id 4) share SUBJ_A.
+const S4A = 990501;
+const S4B = 990502;
+const GROUPS = [
+  { class_group_id: S4A, name: "S4 A", class_group_name: "S4 A", grade_id: 4, grade_name: "Senior 4", academic_year_id: 7 },
+  { class_group_id: S4B, name: "S4 B", class_group_name: "S4 B", grade_id: 4, grade_name: "Senior 4", academic_year_id: 7 },
+];
+const ok = (data: unknown) => ({ data: { success: true, data } });
+
 function mockMis() {
-  mockedGet.mockImplementation(async (url: string) => {
+  mockedGet.mockImplementation(async (url: string, config?: { params?: Record<string, unknown> }) => {
     const u = String(url);
     if (u.includes("/enrolled-subjects")) {
-      return { data: { success: true, data: [{ subject_id: SUBJ_A, subject_name: `Rank Subject ${RUN}`, subject_code: "RNK" }] } };
+      return ok([{ subject_id: SUBJ_A, subject_name: `Rank Subject ${RUN}`, subject_code: "RNK" }]);
     }
     if (u.includes("/academics/my-assigned-subjects")) {
-      return { data: { success: true, data: [{ id: SUBJ_A, name: `Rank Subject ${RUN}`, code: "RNK" }] } };
+      return ok([{ subject_id: SUBJ_A, subject_name: `Rank Subject ${RUN}`, subject_code: "RNK", grades: GROUPS }]);
+    }
+    if (u.endsWith("/academics/subjects")) {
+      return ok([{ subject_id: SUBJ_A, name: `Rank Subject ${RUN}`, code: "RNK" }]);
+    }
+    if (u.endsWith(`/academics/students/${student.mis_user_id}/class-group`)) {
+      if (placementDown) throw Object.assign(new Error("MIS down"), { response: { status: 502 } });
+      return ok({ ...GROUPS[0] });
+    }
+    if (u.endsWith("/academics/class-groups")) return ok(GROUPS);
+    if (u.endsWith("/academics/teacher-assignments")) {
+      return ok(GROUPS.map((g) => ({ ...g, subject_id: SUBJ_A, user_id: 1, academic_year_id: 7 })));
+    }
+    if (u.includes(`/academics/class-groups/${S4A}/students`)) {
+      // Without the year the MIS would also list past cohorts of the label.
+      if (config?.params?.academic_year_id !== undefined && Number(config.params.academic_year_id) !== 7) return ok([]);
+      return ok([
+        { user_id: student.mis_user_id, first_name: "Jane", last_name: "Student" },
+        { user_id: classmate.mis_user_id, first_name: "Classmate", last_name: RUN },
+      ]);
+    }
+    if (u.includes(`/academics/class-groups/${S4B}/students`)) {
+      return ok([{ user_id: otherClass.mis_user_id, first_name: "Other", last_name: RUN }]);
     }
     if (u.includes(`/academics/subjects/${SUBJ_A}/terms/`)) {
-      return {
-        data: {
-          success: true,
-          data: [
-            { user_id: student.mis_user_id, first_name: "Jane", last_name: "Student", class_group_id: 1, class_group_name: "S4 A" },
-            { user_id: classmate.mis_user_id, first_name: "Classmate", last_name: RUN, class_group_id: 1, class_group_name: "S4 A" },
-          ],
-        },
-      };
+      // As the real admin endpoint: a class name, but no class group id.
+      return ok([
+        { user_id: student.mis_user_id, first_name: "Jane", last_name: "Student", class_group_name: "S4 A" },
+        { user_id: classmate.mis_user_id, first_name: "Classmate", last_name: RUN, class_group_name: "S4 A" },
+        { user_id: otherClass.mis_user_id, first_name: "Other", last_name: RUN, class_group_name: "S4 B" },
+      ]);
     }
-    return { data: { success: true, data: [] } };
+    return ok([]);
   });
 }
 
@@ -70,8 +106,10 @@ beforeAll(async () => {
   student = await findSeededUserByRole("student");
   if (!student.mis_user_id) throw new Error("The seeded student needs a mis_user_id for this spec");
   const instructor = await findSeededUserByRole("instructor");
+  const admin = await findSeededUserByRole("admin");
   studentToken = signTokenFor(student.id);
   instructorToken = signTokenFor(instructor.id);
+  adminToken = signTokenFor(admin.id);
 
   // A second "student" is any other local account with a MIS id; the ranking
   // only cares about marks, not the role.
@@ -86,6 +124,18 @@ beforeAll(async () => {
       role_id: student.role_id,
       mis_user_id: 990299,
     } as any));
+  // Another class taking the same subject, with a better mark than anyone in S4 A.
+  otherClass =
+    (await User.findOne({ where: { mis_user_id: 990298 } })) ??
+    (await User.create({
+      email: `rank.other.${RUN}@local.test`,
+      password: "MIS_AUTH",
+      first_name: "Other",
+      last_name: RUN,
+      role: "student",
+      role_id: student.role_id,
+      mis_user_id: 990298,
+    } as any));
 
   const assignment = await Assignment.create({
     title: `Rank essay ${RUN}`,
@@ -99,7 +149,7 @@ beforeAll(async () => {
   } as any);
   assignmentId = assignment.id!;
 
-  for (const [who, grade] of [[student, "6/10"], [classmate, "9/10"]] as const) {
+  for (const [who, grade] of [[student, "6/10"], [classmate, "9/10"], [otherClass, "10/10"]] as const) {
     const sub = await Submission.create({
       assignment_id: assignment.id,
       student_id: who.id,
@@ -115,6 +165,9 @@ beforeAll(async () => {
 beforeEach(() => {
   mockedGet.mockReset();
   mockMis();
+  placementDown = false;
+  clearRankingCohortCaches();
+  clearSchoolDirectoryCache();
 });
 
 // Roles with the ranking switched off (cloned from student / instructor minus
@@ -150,16 +203,22 @@ afterAll(async () => {
   if (submissionIds.length) await Submission.destroy({ where: { id: submissionIds } });
   if (assignmentId) await Assignment.destroy({ where: { id: assignmentId } });
   if (classmate?.email?.includes(RUN)) await classmate.destroy();
+  if (otherClass?.email?.includes(RUN)) await otherClass.destroy();
   await sequelize.close();
 });
 
 describe("GET /api/rankings — student", () => {
-  it("returns only the student's own position", async () => {
+  it("returns only the student's own position, within their class group", async () => {
     const res = await get();
     expect(res.status).toBe(200);
     const data = res.body.data;
     expect(data.view).toBe("student");
+    // S4 B's 100% shares the subject but not the class: 2nd of 2, not 3rd of 3.
     expect(data.overall).toMatchObject({ rank: 2, ranked_count: 2, score: 60 });
+    expect(data.cohort).toEqual({ type: "class_group", class_group_id: S4A, class_group_name: "S4 A", grade_name: "Senior 4" });
+    // The class roster was read for the placement's own year.
+    const rosterCall = mockedGet.mock.calls.find(([url]) => String(url).includes(`/class-groups/${S4A}/students`));
+    expect(rosterCall?.[1]?.params).toEqual({ academic_year_id: 7 });
     // Two ranked students is under the disclosure minimum.
     expect(data.overall.class_average).toBeNull();
     expect(data.overall.points_to_next).toBeNull();
@@ -167,6 +226,7 @@ describe("GET /api/rankings — student", () => {
     const json = JSON.stringify(res.body);
     expect(json).not.toContain("Classmate");
     expect(json).not.toContain(String(classmate.mis_user_id));
+    expect(json).not.toContain(String(otherClass.mis_user_id));
     expect(json).not.toContain('"score":90');
     expect(data.available_subjects.map((s: any) => s.course_id)).toEqual([String(SUBJ_A)]);
   });
@@ -178,15 +238,26 @@ describe("GET /api/rankings — student", () => {
     expect(res.body.data.subjects[0]).toMatchObject({ course_id: String(SUBJ_A), rank: 2, score: 60 });
   });
 
+  it("falls back to everyone in the subjects when the class can't be read, and says so", async () => {
+    placementDown = true;
+    const res = await get();
+    expect(res.status).toBe(200);
+    expect(res.body.data.cohort).toEqual({ type: "subjects" });
+    expect(res.body.data.overall).toMatchObject({ rank: 3, ranked_count: 3 });
+    expect(JSON.stringify(res.body)).not.toContain("Other");
+  });
+
   it("refuses a subject the student is not enrolled in", async () => {
     const res = await get(`?subjectId=${SUBJ_B}`);
     expect(res.status).toBe(403);
   });
 
-  it("ignores a class-group filter rather than widening the view", async () => {
-    const res = await get(`?classGroupId=1`);
+  it("ignores class-group and grade filters rather than widening the view", async () => {
+    const res = await get(`?classGroupId=${S4B}&gradeId=4`);
     expect(res.status).toBe(200);
     expect(res.body.data.view).toBe("student");
+    expect(res.body.data.cohort.class_group_id).toBe(S4A);
+    expect(res.body.data.overall).toMatchObject({ rank: 2, ranked_count: 2 });
     expect(JSON.stringify(res.body)).not.toContain("Classmate");
   });
 
@@ -198,6 +269,7 @@ describe("GET /api/rankings — student", () => {
       view: "student_summary",
       rank: 2,
       ranked_count: 2,
+      class_group_name: "S4 A",
       score: 60,
       class_average: null,
       gap: null,
@@ -225,11 +297,38 @@ describe("GET /api/rankings — teacher", () => {
     expect(res.status).toBe(200);
     const data = res.body.data;
     expect(data.view).toBe("staff");
-    expect(data.rows.map((r: any) => [r.rank, r.name, r.score])).toEqual([
-      [1, `Classmate ${RUN}`, 90],
-      [2, "Jane Student", 60],
+    expect(data.rows.map((r: any) => [r.rank, r.name, r.score, r.class_group_name, r.class_rank, r.grade_rank])).toEqual([
+      [1, `Other ${RUN}`, 100, "S4 B", 1, 1],
+      [2, `Classmate ${RUN}`, 90, "S4 A", 1, 2],
+      [3, "Jane Student", 60, "S4 A", 2, 3],
     ]);
-    expect(data.class_groups).toEqual([{ id: 1, name: "S4 A" }]);
+    expect(data.class_groups.map((g: any) => [g.id, g.name, g.grade_name])).toEqual([
+      [S4A, "S4 A", "Senior 4"],
+      [S4B, "S4 B", "Senior 4"],
+    ]);
+    expect(data.grades).toEqual([{ id: 4, name: "Senior 4" }]);
+    expect(data.groups.class_groups.map((g: any) => [g.name, g.ranked_count, g.average])).toEqual([
+      ["S4 A", 2, 75],
+      ["S4 B", 1, 100],
+    ]);
+  });
+
+  it("filters to a class group and ranks within it", async () => {
+    const res = await get(`?subjectId=${SUBJ_A}&classGroupId=${S4A}`, instructorToken);
+    expect(res.status).toBe(200);
+    expect(res.body.data.rows.map((r: any) => [r.rank, r.name])).toEqual([
+      [1, `Classmate ${RUN}`],
+      [2, "Jane Student"],
+    ]);
+    expect(res.body.data.scope).toMatchObject({ class_group_id: S4A, grade_id: null });
+  });
+
+  it("filters to a grade", async () => {
+    const res = await get(`?gradeId=4`, instructorToken);
+    expect(res.status).toBe(200);
+    expect(res.body.data.rows).toHaveLength(3);
+    expect((await get(`?gradeId=5`, instructorToken)).body.data.rows).toEqual([]);
+    expect((await get(`?gradeId=x`, instructorToken)).status).toBe(400);
   });
 
   it("gets no summary: the top-bar chip is for students only", async () => {
@@ -243,6 +342,19 @@ describe("GET /api/rankings — teacher", () => {
   it("refuses a subject the teacher doesn't teach", async () => {
     const res = await get(`?subjectId=${SUBJ_B}`, instructorToken);
     expect(res.status).toBe(403);
+  });
+});
+
+describe("GET /api/rankings — admin", () => {
+  it("gets class groups and grades even though the subject roster has no class ids", async () => {
+    const res = await get(`?subjectId=${SUBJ_A}`, adminToken);
+    expect(res.status).toBe(200);
+    const data = res.body.data;
+    expect(data.view).toBe("staff");
+    expect(data.class_groups.map((g: any) => g.id)).toEqual([S4A, S4B]);
+    expect(data.grades).toEqual([{ id: 4, name: "Senior 4" }]);
+    const byClass = await get(`?subjectId=${SUBJ_A}&classGroupId=${S4B}`, adminToken);
+    expect(byClass.body.data.rows.map((r: any) => r.name)).toEqual([`Other ${RUN}`]);
   });
 });
 

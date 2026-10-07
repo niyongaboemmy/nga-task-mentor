@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
-import RankingView, { type RankingFiltersState } from "../Ranking/RankingView";
+import RankingView from "../Ranking/RankingView";
+import { DEFAULT_RANKING_FILTERS, type RankingFiltersState } from "../Ranking/rankingFilters";
 
 /**
  * A subject's Ranking tab: the Overall Ranking view locked to this subject.
@@ -9,11 +10,7 @@ import RankingView, { type RankingFiltersState } from "../Ranking/RankingView";
  * a student, returns only their own position in it.
  */
 export default function CourseRankingPanel({ courseId }: { courseId: string }) {
-  const [filters, setFilters] = useState<RankingFiltersState>({
-    subjectId: courseId,
-    kind: "all",
-    classGroupId: null,
-  });
+  const [filters, setFilters] = useState<RankingFiltersState>({ ...DEFAULT_RANKING_FILTERS, subjectId: courseId });
 
   return (
     <div className="p-1 sm:p-2 space-y-3">

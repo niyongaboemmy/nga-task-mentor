@@ -7,6 +7,7 @@ const data = (overall: Partial<StudentRanking["overall"]> = {}, aggregatesHidden
   ({
     view: "student",
     scope: { subject_id: null, kind: "all" },
+    cohort: { type: "class_group", class_group_id: 1, class_group_name: "L5 SOD A", grade_name: "Level 5" },
     overall: {
       rank: 18, ranked_count: 18, score: 40, band: "Bottom quarter", top_percent: 100, class_average: 74.6,
       points_to_next: 13.3, marked_items: 1, status: "at_risk", ...overall,
@@ -44,7 +45,7 @@ describe("RankHero", () => {
     render(<RankHero data={data({ rank: 1, band: "Top of the cohort", top_percent: 6, score: 92, points_to_next: null, status: "excelling" })} subjectName="Web UI" />);
     expect(screen.getByText("You're at the top")).toBeInTheDocument();
     expect(screen.getByText("Top 6%")).toBeInTheDocument();
-    expect(screen.getByText("Your position in Web UI")).toBeInTheDocument();
+    expect(screen.getByText("Your position in Web UI · L5 SOD A")).toBeInTheDocument();
     expect(screen.getByText("+17.4 pts")).toBeInTheDocument();
   });
 

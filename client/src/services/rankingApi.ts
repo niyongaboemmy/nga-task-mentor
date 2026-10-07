@@ -56,9 +56,18 @@ export interface StudentSubjectView extends RankSubject {
   weakest: Array<{ kind: RankKind; item_id: number; title: string; pct: number }>;
 }
 
+/**
+ * Who the student is ranked against: their current class group, or (when the
+ * class roster couldn't be read) everyone with marks in their subjects.
+ */
+export type StudentCohort =
+  | { type: "class_group"; class_group_id: number; class_group_name: string; grade_name: string | null }
+  | { type: "subjects" };
+
 export interface StudentRanking {
   view: "student";
   scope: { subject_id: string | null; kind: RankKindFilter };
+  cohort: StudentCohort;
   overall: {
     rank: number | null;
     ranked_count: number;
@@ -82,7 +91,15 @@ export interface LeaderboardRow {
   key: string;
   mis_user_id: number | null;
   name: string;
+  class_group_id: number | null;
   class_group_name: string | null;
+  grade_id: number | null;
+  grade_name: string | null;
+  /** Place within the student's class group / grade, whatever the filter. */
+  class_rank: number | null;
+  class_size: number | null;
+  grade_rank: number | null;
+  grade_size: number | null;
   score: number;
   status: PerformanceStatus;
   marked_items: number;
@@ -91,22 +108,48 @@ export interface LeaderboardRow {
   by_kind: Partial<Record<RankKind, number>>;
 }
 
+export type Distribution = { excelling: number; on_track: number; needs_attention: number; at_risk: number };
+
+/** One class group or grade in the current selection; id null = none. */
+export interface GroupSummary {
+  id: number | null;
+  name: string;
+  grade_name: string | null;
+  ranked_count: number;
+  unranked_count: number;
+  average: number | null;
+  median: number | null;
+  highest: number | null;
+  lowest: number | null;
+  distribution: Distribution;
+}
+
 export interface StaffRanking {
   view: "staff";
-  scope: { subject_id: string | null; kind: RankKindFilter; class_group_id: number | null };
+  scope: { subject_id: string | null; kind: RankKindFilter; class_group_id: number | null; grade_id: number | null };
   subjects: Array<RankSubject & { ranked_count: number; average: number | null }>;
-  class_groups: Array<{ id: number; name: string }>;
+  class_groups: Array<{ id: number; name: string; grade_id: number | null; grade_name: string | null }>;
+  grades: Array<{ id: number; name: string }>;
   summary: {
     ranked_count: number;
     average: number | null;
     median: number | null;
     highest: number | null;
     lowest: number | null;
-    distribution: { excelling: number; on_track: number; needs_attention: number; at_risk: number };
+    distribution: Distribution;
     unranked_count: number;
   };
+  groups: { class_groups: GroupSummary[]; grades: GroupSummary[] };
   rows: LeaderboardRow[];
-  unranked: Array<{ key: string; mis_user_id: number | null; name: string; class_group_name: string | null }>;
+  unranked: Array<{
+    key: string;
+    mis_user_id: number | null;
+    name: string;
+    class_group_id: number | null;
+    class_group_name: string | null;
+    grade_id: number | null;
+    grade_name: string | null;
+  }>;
   available_subjects: RankSubject[];
   subject_scope: "all" | "assigned";
 }
@@ -117,6 +160,7 @@ export interface RankingFilters {
   subjectId?: string | null;
   kind?: RankKindFilter;
   classGroupId?: number | null;
+  gradeId?: number | null;
 }
 
 export class RankingError extends Error {
@@ -132,6 +176,7 @@ export const fetchRanking = async (filters: RankingFilters = {}): Promise<Rankin
   if (filters.subjectId) params.subjectId = filters.subjectId;
   if (filters.kind && filters.kind !== "all") params.kind = filters.kind;
   if (filters.classGroupId) params.classGroupId = filters.classGroupId;
+  if (filters.gradeId) params.gradeId = filters.gradeId;
   try {
     const res = await axios.get("/rankings", { params });
     if (!res.data?.success) throw new RankingError("Failed to load the ranking", null);
@@ -167,6 +212,8 @@ export interface StudentRankingSummary {
   view: "student_summary";
   rank: number | null;
   ranked_count: number;
+  /** The class group the rank is within; null when ranked across the subjects. */
+  class_group_name: string | null;
   score: number | null;
   band: string | null;
   status: PerformanceStatus;

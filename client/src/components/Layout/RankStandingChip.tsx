@@ -132,7 +132,7 @@ export default function RankStandingChip() {
   };
 
   const label = ranked
-    ? `Your overall position: ${ordinal(summary.rank!)} of ${summary.ranked_count}, average ${summary.score}%${atRisk ? ", at risk" : ""}`
+    ? `Your overall position: ${ordinal(summary.rank!)} of ${summary.ranked_count}${summary.class_group_name ? ` in ${summary.class_group_name}` : ""}, average ${summary.score}%${atRisk ? ", at risk" : ""}`
     : "Your overall position: not ranked yet";
 
   return (
@@ -200,7 +200,7 @@ export default function RankStandingChip() {
         >
           <div className="p-4">
             <p className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">
-              Overall standing · {summary.subject_count} subject
+              Overall standing{summary.class_group_name ? ` in ${summary.class_group_name}` : ""} · {summary.subject_count} subject
               {summary.subject_count === 1 ? "" : "s"}
             </p>
             <div className="mt-2 flex items-center gap-3">

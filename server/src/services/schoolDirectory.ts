@@ -21,6 +21,8 @@ import { getMisToken } from "../utils/misUtils";
 export interface DirectoryClassGroup {
   id: number;
   name: string;
+  /** Absent when the MIS row didn't carry it. */
+  grade_id?: number | null;
   grade_name: string | null;
   program_name: string | null;
 }
@@ -131,6 +133,7 @@ export async function loadSchoolDirectory(
     classGroups.set(id, {
       id,
       name: g.name ?? `Class ${id}`,
+      grade_id: Number.isFinite(Number(g.grade_id)) && g.grade_id != null ? Number(g.grade_id) : null,
       grade_name: g.grade_name ?? null,
       program_name: g.program_name ?? null,
     });
@@ -156,6 +159,7 @@ export async function loadSchoolDirectory(
         classGroups.set(cg, {
           id: cg,
           name: a.class_group_name ?? `Class ${cg}`,
+          grade_id: Number.isFinite(Number(a.grade_id)) && a.grade_id != null ? Number(a.grade_id) : null,
           grade_name: a.grade_name ?? null,
           program_name: a.program_name ?? null,
         });

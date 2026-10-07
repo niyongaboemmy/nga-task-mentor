@@ -2,17 +2,19 @@ import { useSearchParams } from "react-router-dom";
 import { CalendarDays, Trophy } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import { usePermissions } from "../hooks/usePermissions";
-import RankingView, { type RankingFiltersState } from "../components/Ranking/RankingView";
+import RankingView, { type RankingFiltersState, type RankingGroupBy } from "../components/Ranking/RankingView";
 import type { RankKindFilter } from "../services/rankingApi";
 
 /**
  * /ranking — Overall Ranking. Students see their own position across every
  * subject (and per subject), with what to do next; teachers and admins see a
- * leaderboard over the subjects they may see. Filters live in the URL
- * (?subject=&kind=&class=) so a subject's ranking can be bookmarked or linked.
+ * leaderboard over the subjects they may see, filtered and grouped by class
+ * group and grade. Filters live in the URL (?subject=&kind=&grade=&class=&group=)
+ * so a subject's ranking can be bookmarked or linked.
  */
 
 const KINDS: RankKindFilter[] = ["all", "assignment", "quiz", "recorded"];
+const GROUPS: RankingGroupBy[] = ["none", "class", "grade"];
 
 const positiveInt = (raw: string | null) => {
   const n = Number(raw);
@@ -25,17 +27,22 @@ export default function RankingPage() {
   const { can } = usePermissions();
 
   const kindParam = params.get("kind") as RankKindFilter | null;
+  const groupParam = params.get("group") as RankingGroupBy | null;
   const filters: RankingFiltersState = {
     subjectId: positiveInt(params.get("subject"))?.toString() ?? null,
     kind: kindParam && KINDS.includes(kindParam) ? kindParam : "all",
     classGroupId: positiveInt(params.get("class")),
+    gradeId: positiveInt(params.get("grade")),
+    groupBy: groupParam && GROUPS.includes(groupParam) ? groupParam : "none",
   };
 
   const onChange = (next: RankingFiltersState) => {
     const p = new URLSearchParams();
     if (next.subjectId) p.set("subject", next.subjectId);
     if (next.kind !== "all") p.set("kind", next.kind);
+    if (next.gradeId) p.set("grade", String(next.gradeId));
     if (next.classGroupId) p.set("class", String(next.classGroupId));
+    if (next.groupBy !== "none") p.set("group", next.groupBy);
     setParams(p, { replace: true });
   };
 
