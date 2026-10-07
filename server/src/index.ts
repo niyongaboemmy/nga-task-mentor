@@ -63,6 +63,7 @@ import { activityRelay } from "./activity/relay";
 import activityCatalog from "./activity/catalog.json";
 import aiService from "./services/ai/aiService";
 import { startReminderSweep } from "./services/reminderSync";
+import { startEarlyWarningSchedule } from "./services/earlyWarningPush";
 import { verifyReportCard } from "./controllers/reportCard.controller";
 
 import cookieParser from "cookie-parser";
@@ -358,6 +359,8 @@ const startServer = async (): Promise<void> => {
       );
       // Backstop for the per-request pushes to the MIS Reminder Hub.
       startReminderSweep();
+      // Daily early-warning signals (work due/missed, mark trends) to the MIS.
+      startEarlyWarningSchedule();
       // Judge runtimes (newest per language), daily health/quota check, and
       // re-grading of answers left pending while the judge was down.
       startJudgeMaintenance();
