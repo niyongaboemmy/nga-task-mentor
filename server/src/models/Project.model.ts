@@ -155,6 +155,8 @@ export class ProjectActivityLink extends Model {
   @Column({ type: DataType.ENUM("quiz", "assignment", "manual_assessment"), allowNull: false })
   activity_type!: ActivityType;
   @Column({ type: DataType.INTEGER, allowNull: false }) activity_id!: number;
+  /** Quiz links: the TMCode practical question (quiz_questions.id, as quiz_attempts use) the project answers. */
+  @Column({ type: DataType.INTEGER, allowNull: true }) question_id?: number | null;
   @Column({ type: DataType.INTEGER, allowNull: false }) linked_by!: number;
   @Column({ type: DataType.INTEGER, allowNull: true }) revision_id?: number | null;
   @Column({ type: DataType.STRING(64), allowNull: true }) git_commit?: string | null;

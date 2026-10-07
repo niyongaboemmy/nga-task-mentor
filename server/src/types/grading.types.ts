@@ -76,7 +76,9 @@ export type QuestionGradingConfig =
   | { type: "coding"; config: CodingGradingConfig }
   | { type: "algorithmic"; config: AlgorithmicGradingConfig }
   | { type: "logical_expression"; config: BaseGradingConfig }
-  | { type: "drag_drop"; config: BaseGradingConfig };
+  | { type: "drag_drop"; config: BaseGradingConfig }
+  /** Graded by the teacher with criteria; never scored automatically. */
+  | { type: "tmcode_practical"; config: BaseGradingConfig };
 
 export interface QuizGradingConfig {
   question_configs: Record<string, QuestionGradingConfig>; // question_type -> config

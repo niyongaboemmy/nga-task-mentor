@@ -10,6 +10,7 @@ import {
   type ProjectVisibility,
 } from "../../services/projectsApi";
 import { tmcodeAssignmentsApi } from "../../services/tmcodeAssignmentsApi";
+import { practicalsApi } from "../../services/practicalsApi";
 import { isGithubRepoUrl, LANGUAGE_CHOICES } from "./projectFormat";
 import Select from "../ui/Select";
 
@@ -38,9 +39,11 @@ const NewProjectDialog: React.FC<{
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [touched, setTouched] = useState(false);
-  // Optional: the assignment this project is the student's work for.
+  // Optional: the assignment (or quiz practical question) this project is the student's work for.
   const [assignments, setAssignments] = useState<LinkableActivity[] | null>(null);
+  const [practicals, setPracticals] = useState<{ quiz: LinkableActivity; question_id: number; title: string }[]>([]);
   const [assignmentId, setAssignmentId] = useState<number | "">("");
+  const [practicalKey, setPracticalKey] = useState<string>("");
   // The assignment comes with starter files: Start it instead of creating an empty project.
   const [useStart, setUseStart] = useState<number | null>(null);
 
@@ -56,15 +59,37 @@ const NewProjectDialog: React.FC<{
     setTouched(false);
     setUseStart(null);
     setAssignmentId(initialAssignmentId ?? "");
+    setPracticalKey("");
     projectsApi
       .linkable()
-      .then((all) =>
-        setAssignments(all.filter((a) => a.activity_type === "assignment" && (a.submission_type ?? "") === "project")),
-      )
+      .then((all) => {
+        setAssignments(all.filter((a) => a.activity_type === "assignment" && (a.submission_type ?? "") === "project"));
+        setPracticals(
+          all
+            .filter((a) => a.activity_type === "quiz")
+            .flatMap((quiz) => (quiz.practical_questions ?? []).map((q) => ({ quiz, question_id: q.question_id, title: q.title }))),
+        );
+      })
       .catch(() => setAssignments([]));
   }, [open, initialAssignmentId]);
 
   const chosen = assignments?.find((a) => a.activity_id === assignmentId) ?? null;
+  const chosenPractical = practicals.find((p) => `${p.quiz.activity_id}:${p.question_id}` === practicalKey) ?? null;
+
+  // A quiz practical gets its own project (with the teacher's starter files) from the quiz.
+  const startPractical = async () => {
+    if (!chosenPractical) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const { project } = await practicalsApi.startQuizPractical(chosenPractical.quiz.activity_id, chosenPractical.question_id);
+      onCreated(project);
+    } catch (err) {
+      setError(apiErrorMessage(err, "Couldn't start the quiz practical."));
+    } finally {
+      setBusy(false);
+    }
+  };
   // A new project for an assignment is named after it unless the student names it.
   useEffect(() => {
     if (chosen && !name.trim()) setName(chosen.title);
@@ -96,6 +121,7 @@ const NewProjectDialog: React.FC<{
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (chosenPractical) return void startPractical();
     setTouched(true);
     const finalName = name.trim() || (kind === "github" ? repoName : "");
     if (!finalName || (kind === "github" && !isGithubRepoUrl(repoUrl))) return;
@@ -243,35 +269,62 @@ const NewProjectDialog: React.FC<{
 
         <div>
           <label htmlFor={`${id}-assignment`} className={labelCls}>
-            For an assignment <span className="font-normal text-slate-400">(optional)</span>
+            For an assignment or quiz <span className="font-normal text-slate-400">(optional)</span>
           </label>
           <Select
             variant="outline"
             id={`${id}-assignment`}
             className="w-full"
-            value={assignmentId}
+            value={practicalKey ? `q:${practicalKey}` : assignmentId ? `a:${assignmentId}` : ""}
             disabled={assignments === null}
             onChange={(e) => {
-              setAssignmentId(e.target.value ? Number(e.target.value) : "");
+              const v = e.target.value;
+              setAssignmentId(v.startsWith("a:") ? Number(v.slice(2)) : "");
+              setPracticalKey(v.startsWith("q:") ? v.slice(2) : "");
               setUseStart(null);
             }}
           >
             <option value="">{assignments === null ? "Loading assignments…" : "None — a personal project"}</option>
-            {(assignments ?? []).map((a) => (
-              <option key={a.activity_id} value={a.activity_id}>
-                {a.title}
-                {a.course?.title ? ` · ${a.course.title}` : ""}
-              </option>
-            ))}
+            {practicals.length > 0 ? (
+              <optgroup label="Assignments">
+                {(assignments ?? []).map((a) => (
+                  <option key={a.activity_id} value={`a:${a.activity_id}`}>
+                    {a.title}
+                    {a.course?.title ? ` · ${a.course.title}` : ""}
+                  </option>
+                ))}
+              </optgroup>
+            ) : (
+              (assignments ?? []).map((a) => (
+                <option key={a.activity_id} value={`a:${a.activity_id}`}>
+                  {a.title}
+                  {a.course?.title ? ` · ${a.course.title}` : ""}
+                </option>
+              ))
+            )}
+            {practicals.length > 0 && (
+              <optgroup label="Quiz practicals">
+                {practicals.map((p) => (
+                  <option key={`${p.quiz.activity_id}:${p.question_id}`} value={`q:${p.quiz.activity_id}:${p.question_id}`}>
+                    {p.quiz.title} · {p.title}
+                  </option>
+                ))}
+              </optgroup>
+            )}
           </Select>
           <p className="mt-1 text-[11px] text-slate-500 dark:text-slate-400">
-            {chosen ? (
+            {chosenPractical ? (
+              <span className="inline-flex items-center gap-1">
+                <GraduationCap className="h-3 w-3" aria-hidden="true" /> Starts your project for this quiz question
+                {" "}(with your teacher&apos;s starter files). Submit it from the quiz when you&apos;re done.
+              </span>
+            ) : chosen ? (
               <span className="inline-flex items-center gap-1">
                 <GraduationCap className="h-3 w-3" aria-hidden="true" /> It's linked to the assignment and starts as a Draft. Submit it from the project when
                 you're done.
               </span>
-            ) : assignments && assignments.length === 0 ? (
-              "No open assignment takes a TMCode project right now."
+            ) : assignments && assignments.length === 0 && practicals.length === 0 ? (
+              "No open assignment or quiz takes a TMCode project right now."
             ) : (
               "Link it now if it's your work for an assignment that takes a TMCode project."
             )}
@@ -332,7 +385,7 @@ const NewProjectDialog: React.FC<{
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            Create project
+            {chosenPractical ? "Start the practical" : "Create project"}
           </button>
         </div>
       </form>

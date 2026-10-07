@@ -24,3 +24,4 @@ export {
   type HtmlKeywordsHelperType,
   type KeywordItem as HtmlKeywordItem,
 } from "./HtmlKeywordsHelperModule";
+export { TmcodePracticalQuestionForm } from "./TmcodePracticalQuestionForm";

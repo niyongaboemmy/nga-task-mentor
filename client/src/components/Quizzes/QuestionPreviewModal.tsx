@@ -69,6 +69,7 @@ export const QuestionPreviewModal: React.FC<QuestionPreviewModalProps> = ({
       logical_expression: "Logical Expression",
       drag_drop: "Drag & Drop",
       ordering: "Ordering",
+      tmcode_practical: "TMCode practical",
     };
     return typeMap[type] || type.replace("_", " ").toUpperCase();
   };

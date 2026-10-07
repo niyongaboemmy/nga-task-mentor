@@ -13,6 +13,7 @@ import {
   DropdownQuestionForm,
   AlgorithmicQuestionForm,
   CodingQuestionForm,
+  TmcodePracticalQuestionForm,
   SingleChoiceQuestionForm,
   MultipleChoiceQuestionForm,
   TrueFalseQuestionForm,
@@ -80,6 +81,8 @@ const createQuestionData = (type: QuestionType) => {
           { id: "2", text: "", order: 2 },
         ],
       } as OrderingData;
+    case "tmcode_practical":
+      return { kind: "practical", language: null, instructions: "", starter_project_id: null, starter_revision_id: null, rubric: [] } as any;
     case "drag_drop":
       return {
         drop_zones: [
@@ -375,6 +378,13 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
             onChange={handleQuestionDataChange}
           />
         );
+      case "tmcode_practical":
+        return (
+          <TmcodePracticalQuestionForm
+            data={formData.question_data as any}
+            onChange={handleQuestionDataChange as any}
+          />
+        );
       default:
         return null;
     }
@@ -475,6 +485,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                   <option value="dropdown">Dropdown</option>
                   <option value="algorithmic">Algorithmic</option>
                   <option value="coding">Coding Workflow Workspace</option>
+                  <option value="tmcode_practical">TMCode practical</option>
                 </Select>
               </div>
 

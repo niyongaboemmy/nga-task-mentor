@@ -78,6 +78,7 @@ const QUESTION_TYPES: { value: QuestionType; label: string; icon: string }[] = [
   { value: "logical_expression", label: "Logical Expression", icon: "🧩" },
   { value: "drag_drop", label: "Drag & Drop", icon: "🖐️" },
   { value: "ordering", label: "Ordering", icon: "🔡" },
+  { value: "tmcode_practical", label: "TMCode practical", icon: "🧪" },
   { value: "dropdown", label: "Dropdown", icon: "📋" },
 ];
 

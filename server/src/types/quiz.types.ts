@@ -13,7 +13,8 @@ export type QuestionType =
   | "coding"
   | "logical_expression"
   | "drag_drop"
-  | "ordering";
+  | "ordering"
+  | "tmcode_practical";
 
 export type DifficultyLevel = "EASY" | "MEDIUM" | "DIFFICULT";
 
@@ -252,7 +253,16 @@ export type AnswerDataType =
   | CodingAnswer
   | LogicalExpressionAnswer
   | DragDropAnswer
-  | OrderingAnswer;
+  | OrderingAnswer
+  | TmcodePracticalAnswer;
+
+/** tmcode_practical: the frozen TMCode project submitted for the question. */
+export interface TmcodePracticalAnswer {
+  project_id?: number;
+  link_id?: number;
+  revision_id?: number | null;
+  revision_number?: number | null;
+}
 
 // Quiz related types
 export type QuizStatus = "draft" | "published" | "completed";

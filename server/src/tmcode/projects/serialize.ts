@@ -82,6 +82,7 @@ export function linkJson(link: ProjectActivityLink, activity?: ActivityInfo | nu
     project_id: link.project_id,
     activity_type: link.activity_type,
     activity_id: link.activity_id,
+    question_id: link.question_id ?? null,
     activity: activity
       ? {
           title: activity.title,

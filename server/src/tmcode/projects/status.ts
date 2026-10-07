@@ -63,12 +63,23 @@ export async function syncProjectStatus(
   if (!p) return null;
   const links = await ProjectActivityLink.findAll({ where: { project_id: p.id }, transaction });
   const assignmentIds = links.filter((l) => l.activity_type === "assignment").map((l) => l.activity_id);
-  const submissions = assignmentIds.length
+  const submissions: { status: string }[] = assignmentIds.length
     ? await sequelize.query<{ status: string }>(
         `SELECT status FROM submissions WHERE student_id = ? AND assignment_id IN (${assignmentIds.map(() => "?").join(",")})`,
         { replacements: [p.owner_id, ...assignmentIds], type: QueryTypes.SELECT, transaction },
       )
     : [];
+  // Quiz practical questions: graded once the teacher graded that answer.
+  const quizLinks = links.filter((l) => l.activity_type === "quiz" && l.question_id);
+  for (const l of quizLinks) {
+    const [attempt] = await sequelize.query<{ details: unknown }>(
+      `SELECT grading_details AS details FROM quiz_attempts
+        WHERE quiz_id = ? AND question_id = ? AND student_id = ? ORDER BY id DESC LIMIT 1`,
+      { replacements: [l.activity_id, l.question_id, p.owner_id], type: QueryTypes.SELECT, transaction },
+    );
+    const d = typeof attempt?.details === "string" ? JSON.parse(attempt.details) : (attempt?.details as any);
+    if (d?.manual) submissions.push({ status: "graded" });
+  }
   const next = deriveProjectStatus({ removed: p.status === "removed", links, submissions });
   if (next !== p.status) {
     await p.update({ status: next, status_changed_at: new Date(), status_changed_by: changedBy }, { transaction });

@@ -1,3 +1,4 @@
+import { parsePracticalAnswer } from "../tmcode/practical/question";
 import { QuizQuestion, QuizAttempt } from "../models";
 import {
   AnswerDataType,
@@ -2190,6 +2191,16 @@ export class AdvancedQuizGrader {
         maximum_penalty_percentage: 0,
       },
     },
+    // Without this entry an unknown type falls back to single_choice grading.
+    tmcode_practical: {
+      type: "tmcode_practical",
+      config: {
+        strategy: "partial_credit",
+        enable_partial_credit: true,
+        minimum_score_percentage: 0,
+        maximum_penalty_percentage: 0,
+      },
+    },
   };
 
   static getDefaultConfig(questionType: string): QuestionGradingConfig {
@@ -2617,6 +2628,30 @@ export class AdvancedQuizGrader {
     // ────────────────────────────────────────────────────────────────────────
 
     switch (gradingConfig.type) {
+      case "tmcode_practical": {
+        // A submitted project waits for the teacher's criteria grading; no
+        // project means nothing was handed in.
+        const answer = parsePracticalAnswer(answerData);
+        if (!answer) {
+          return {
+            is_correct: false,
+            points_earned: 0,
+            max_points: maxPoints,
+            percentage: 0,
+            feedback: "No project was submitted for this practical.",
+          };
+        }
+        const pending = pendingCodeResult("Awaiting the teacher's grading", { practical: answer });
+        return {
+          is_correct: false,
+          points_earned: 0,
+          max_points: maxPoints,
+          percentage: 0,
+          feedback: pending.feedback ?? "Awaiting the teacher's grading",
+          // Same pending shape the coding grader passes through.
+          detailed_feedback: { ...(pending.detailed_feedback || {}), strategy_used: gradingConfig.config.strategy } as any,
+        };
+      }
       case "single_choice":
       case "true_false":
         return this.gradeChoiceQuestion(

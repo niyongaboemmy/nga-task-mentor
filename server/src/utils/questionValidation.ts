@@ -1,3 +1,4 @@
+import { validatePracticalData } from "../tmcode/practical/question";
 import {
   QuestionType,
   QuestionDataType,
@@ -41,6 +42,8 @@ export class QuestionValidator {
         return this.validateDragDrop(data);
       case "ordering":
         return this.validateOrdering(data);
+      case "tmcode_practical":
+        return validatePracticalData(data);
       default:
         errors.push(`Unknown question type: ${questionType}`);
         return { isValid: false, errors, warnings };
