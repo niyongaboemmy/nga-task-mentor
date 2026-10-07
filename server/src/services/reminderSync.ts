@@ -154,7 +154,7 @@ export function buildAssignmentPlan(a: AssignmentLike, now = new Date(), base = 
 // ── Transport ────────────────────────────────────────────────────────────
 
 export interface ReminderRequest {
-  method: "PUT" | "DELETE";
+  method: "GET" | "PUT" | "DELETE";
   url: string;
   headers: Record<string, string>;
   body?: unknown;
@@ -190,13 +190,19 @@ const fetchTransport: ReminderTransport = async (req) => {
 let transport: ReminderTransport = fetchTransport;
 let transportInjected = false;
 
-/** Tests swap the HTTP layer; pass null to restore fetch. */
+/**
+ * Tests swap the HTTP layer; pass null to restore fetch. It is the one
+ * MIS service transport, so it also carries the early-warning push
+ * (services/earlyWarningPush.ts).
+ */
 export function setReminderTransport(t: ReminderTransport | null) {
   transport = t ?? fetchTransport;
   transportInjected = t !== null;
 }
 
-const misBase = (env: NodeJS.ProcessEnv) => (env.NGA_MIS_BASE_URL || "").replace(/\/+$/, "");
+export const isMisTransportInjected = () => transportInjected;
+
+export const misBase = (env: NodeJS.ProcessEnv) => (env.NGA_MIS_BASE_URL || "").replace(/\/+$/, "");
 
 /**
  * Why syncing is off, or null when it's on. Off with REMINDERS_SYNC=false,
@@ -211,7 +217,12 @@ export function reminderSyncDisabledReason(env: NodeJS.ProcessEnv = process.env)
   return null;
 }
 
-async function call(method: "PUT" | "DELETE", path: string, body?: unknown): Promise<ReminderResponse> {
+/** One call to MIS as this app (SSO client credentials as HTTP Basic). */
+export async function misServiceCall(
+  method: ReminderRequest["method"],
+  path: string,
+  body?: unknown,
+): Promise<ReminderResponse> {
   return transport({
     method,
     url: `${misBase(process.env)}${path}`,
@@ -233,7 +244,7 @@ export async function sendItems(items: ReminderItem[]): Promise<number> {
   for (let i = 0; i < items.length; i += BATCH_SIZE) {
     const chunk = items.slice(i, i + BATCH_SIZE);
     try {
-      const res = await call("PUT", "/reminders/sources/batch", { items: chunk });
+      const res = await misServiceCall("PUT", "/reminders/sources/batch", { items: chunk });
       if (res.status < 200 || res.status >= 300) {
         warn(`batch of ${chunk.length} refused (HTTP ${res.status})${res.body?.message ? `: ${res.body.message}` : ""}`);
         continue;
@@ -255,7 +266,7 @@ export async function sendItems(items: ReminderItem[]): Promise<number> {
 export async function cancelItems(refs: ReminderRef[]): Promise<void> {
   for (const ref of refs) {
     try {
-      const res = await call(
+      const res = await misServiceCall(
         "DELETE",
         `/reminders/sources/${SOURCE_APP}/${ref.source_type}/${encodeURIComponent(ref.external_id)}`,
       );
