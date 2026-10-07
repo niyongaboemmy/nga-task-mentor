@@ -17,6 +17,7 @@ import {
 import { exchange, me } from "../controllers/tmcodeUser.controller";
 import * as projects from "../controllers/projects.controller";
 import * as tmAssignments from "../controllers/tmcodeAssignments.controller";
+import * as practicals from "../controllers/tmcodePracticals.controller";
 import { requireTmPermission, tmcodeUserAuth } from "../middleware/tmcodeUserAuth";
 import { projectLimits } from "../tmcode/projects/limits";
 
@@ -136,5 +137,20 @@ router.post(`${as}/start`, use, wrap(tmAssignments.startAssignment));
 router.put(`${as}/tmcode`, tmcodeUserAuth, requireTmPermission("ASSIGNMENTS_EDIT"), wrap(tmAssignments.updateAssignmentTmcode));
 router.get(`${as}/workspaces`, read, wrap(tmAssignments.assignmentWorkspaces));
 router.get(`${as}/open-link`, read, wrap(tmAssignments.assignmentOpenLink));
+
+// ─── Quiz practicals, grading workspace, web preview ─────────────────────────
+
+router.post(
+  "/quizzes/:quizId(\\d+)/questions/:questionId(\\d+)/start",
+  use,
+  wrap(practicals.startQuizPractical),
+);
+const grader = [tmcodeUserAuth, requireTmPermission("PROJECTS_MONITOR", "PROJECTS_VIEW_ALL")];
+router.get("/grading/:type(assignment|quiz)/:id(\\d+)", grader, wrap(practicals.gradingRoster));
+router.put("/grading/:type(assignment|quiz)/:id(\\d+)/students/:studentId(\\d+)", grader, wrap(practicals.saveGrade));
+router.post(`${p}/preview`, read, wrap(practicals.createPreview));
+// No auth: the signed, short-lived token in the path is the key (iframes send
+// no Authorization header) and responses are sandboxed.
+router.get("/preview/:token/*", wrap(practicals.servePreview));
 
 export default router;

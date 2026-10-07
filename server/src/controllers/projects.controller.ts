@@ -40,6 +40,7 @@ import { MonitorEntry, MonitorProject, publishPresence, withdrawPresence } from 
 import { AssignmentBrief, assignmentBriefs } from "../tmcode/assignments/load";
 import { isReadOnlyStatus, presenceLocked } from "../tmcode/assignments/state";
 import { lockReason, reopenProject, syncProjectStatus } from "../tmcode/projects/status";
+import { loadQuizPractical, practicalQuestionsOf } from "./tmcodePracticals.controller";
 import {
   HIDDEN_PRESENCE,
   eventJson,
@@ -265,6 +266,7 @@ export const listProjects = async (req: Request, res: Response) => {
           id: l.id,
           activity_type: l.activity_type,
           activity_id: l.activity_id,
+          question_id: l.question_id ?? null,
           status: l.status,
         })),
       },
@@ -1212,6 +1214,7 @@ export const linkableActivities = async (req: Request, res: Response) => {
     }),
     ManualAssessment.findAll({ where: courseWhere, order: [["created_at", "DESC"]], limit: 100 }),
   ]);
+  const practicals = await practicalQuestionsOf(quizzes.map((q) => q.id));
   const course = (id: number | null | undefined) => ({
     course_id: id ?? null,
     course_name: id != null ? names.get(Number(id)) ?? null : null,
@@ -1232,6 +1235,8 @@ export const linkableActivities = async (req: Request, res: Response) => {
         title: q.title,
         ...course(q.course_id),
         due_date: q.end_date ? new Date(q.end_date).toISOString() : null,
+        // TMCode practical questions in this quiz (link with question_id).
+        practical_questions: practicals.get(q.id) ?? [],
       })),
       ...manual.map((m) => ({
         type: "manual_assessment" as const,
@@ -1247,6 +1252,8 @@ export const linkableActivities = async (req: Request, res: Response) => {
 const linkSchema = z.object({
   activity_type: z.enum(["quiz", "assignment", "manual_assessment"]),
   activity_id: z.number().int().positive(),
+  /** Quizzes: the TMCode practical question (quiz_questions.id) the project answers. */
+  question_id: z.number().int().positive().optional().nullable(),
 });
 
 // @desc    Link the project to an activity (owner; the activity must be open
@@ -1261,6 +1268,10 @@ export const createLink = async (req: Request, res: Response) => {
   const parsed = linkSchema.safeParse(req.body ?? {});
   if (!parsed.success) return validation(res, parsed.error);
   const { activity_type, activity_id } = parsed.data;
+  const questionId = activity_type === "quiz" ? parsed.data.question_id ?? null : null;
+  if (questionId && !(await loadQuizPractical(activity_id, questionId))) {
+    return tmcodeError(res, 422, "NOT_A_PRACTICAL", "That question isn't a TMCode practical of this quiz.");
+  }
 
   const activity = await loadActivity(activity_type, activity_id);
   if (!activity) return tmcodeError(res, 404, "ACTIVITY_NOT_FOUND", "Activity not found.");
@@ -1271,7 +1282,13 @@ export const createLink = async (req: Request, res: Response) => {
 
   const mine = await Project.findAll({ where: { owner_id: p.owner_id }, attributes: ["id"] });
   const existing = await ProjectActivityLink.findOne({
-    where: { activity_type, activity_id, project_id: { [Op.in]: mine.map((x) => x.id) } },
+    where: {
+      activity_type,
+      activity_id,
+      // one project per practical question (a quiz can have several)
+      ...(questionId ? { question_id: questionId } : {}),
+      project_id: { [Op.in]: mine.map((x) => x.id) },
+    },
   });
   if (existing) {
     return tmcodeError(
@@ -1286,6 +1303,7 @@ export const createLink = async (req: Request, res: Response) => {
     project_id: p.id,
     activity_type,
     activity_id,
+    question_id: questionId,
     linked_by: req.user.id,
     status: "linked",
   } as any);
@@ -1391,6 +1409,45 @@ export const submitLink = async (req: Request, res: Response) => {
         submission = { id: Number(insertId), status, is_late: isLate };
       }
     }
+    if (link.activity_type === "quiz" && link.question_id) {
+      // A quiz practical: the frozen project is the student's answer to that
+      // question in the quiz they have open (it waits for the teacher).
+      const [open] = await sequelize.query<{ id: number }>(
+        "SELECT id FROM quiz_submissions WHERE quiz_id = ? AND student_id = ? AND status = 'in_progress' ORDER BY id DESC LIMIT 1",
+        { replacements: [link.activity_id, p.owner_id], type: QueryTypes.SELECT, transaction },
+      );
+      if (open) {
+        const answer = {
+          project_id: p.id,
+          link_id: link.id,
+          revision_id: revision?.id ?? null,
+          revision_number: revision?.number ?? null,
+        };
+        const details = { grade_status: "pending", pending_reason: "Awaiting the teacher's grading", practical: answer };
+        const [attempt] = await sequelize.query<{ id: number; details: unknown }>(
+          "SELECT id, grading_details AS details FROM quiz_attempts WHERE submission_id = ? AND question_id = ? LIMIT 1 FOR UPDATE",
+          { replacements: [open.id, link.question_id], type: QueryTypes.SELECT, transaction },
+        );
+        const prev = typeof attempt?.details === "string" ? JSON.parse(attempt.details) : (attempt?.details as any);
+        if (prev?.manual) return "ALREADY_GRADED";
+        if (attempt) {
+          await sequelize.query(
+            "UPDATE quiz_attempts SET submitted_answer = ?, grading_details = ?, is_correct = 0, points_earned = 0, updated_at = ? WHERE id = ?",
+            { replacements: [JSON.stringify(answer), JSON.stringify(details), now, attempt.id], transaction },
+          );
+        } else {
+          await sequelize.query(
+            `INSERT INTO quiz_attempts (quiz_id, question_id, student_id, submission_id, submitted_answer, grading_details,
+               is_correct, points_earned, status, started_at, completed_at, created_at, updated_at)
+             VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'in_progress', ?, NULL, ?, ?)`,
+            {
+              replacements: [link.activity_id, link.question_id, p.owner_id, open.id, JSON.stringify(answer), JSON.stringify(details), now, now, now],
+              transaction,
+            },
+          );
+        }
+      }
+    }
     await link.update(
       { status: "submitted", submitted_at: now, revision_id: revision?.id ?? null, git_commit: commit },
       { transaction },
@@ -1398,7 +1455,14 @@ export const submitLink = async (req: Request, res: Response) => {
     return null;
   });
   if (refused === "ALREADY_GRADED") {
-    return tmcodeError(res, 409, "ALREADY_GRADED", "This assignment was already graded; it can't be resubmitted.");
+    return tmcodeError(
+      res,
+      409,
+      "ALREADY_GRADED",
+      link.activity_type === "quiz"
+        ? "This practical was already graded; it can't be resubmitted."
+        : "This assignment was already graded; it can't be resubmitted.",
+    );
   }
   publishEvent(
     await recordEvent(p.id, req.user.id, "submitted", {

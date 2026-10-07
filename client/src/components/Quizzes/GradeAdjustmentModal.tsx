@@ -66,6 +66,7 @@ const QUESTION_TYPE_LABELS: Record<string, string> = {
   fill_blank: "Fill in Blank",
   matching: "Matching",
   ordering: "Ordering",
+  tmcode_practical: "TMCode practical",
   algorithmic: "Algorithmic",
   logical_expression: "Logical Expression",
   drag_drop: "Drag & Drop",

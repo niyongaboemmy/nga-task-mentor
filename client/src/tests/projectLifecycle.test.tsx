@@ -153,7 +153,7 @@ describe("NewProjectDialog — for an assignment", () => {
     start.mockResolvedValue({ project: { id: 88, name: "Calculator" }, created: true });
     const onCreated = vi.fn();
     render(<NewProjectDialog open onClose={() => {}} onCreated={onCreated} />);
-    pickOption(await screen.findByLabelText(/For an assignment/), "31");
+    pickOption(await screen.findByLabelText(/For an assignment/), "a:31");
     await userEvent.click(screen.getByRole("button", { name: "Create project" }));
     expect(await screen.findByTestId("use-start")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /Start with the starter files/ }));

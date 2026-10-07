@@ -13,7 +13,8 @@ export type QuestionType =
   | "coding"
   | "logical_expression"
   | "drag_drop"
-  | "ordering";
+  | "ordering"
+  | "tmcode_practical";
 
 export type DifficultyLevel = "EASY" | "MEDIUM" | "DIFFICULT";
 
@@ -201,7 +202,25 @@ export type QuestionDataType =
   | CodingData
   | LogicalExpressionData
   | DragDropData
-  | OrderingData;
+  | OrderingData
+  | TmcodePracticalData;
+
+/** tmcode_practical: answered with a TMCode project, graded by the teacher with criteria. */
+export interface TmcodePracticalData {
+  kind: "practical" | "case_study";
+  language: string | null;
+  instructions: string;
+  starter_project_id: number | null;
+  starter_revision_id: number | null;
+  rubric: { criteria: string; description?: string | null; max_score: number }[];
+}
+
+export interface TmcodePracticalAnswer {
+  project_id: number;
+  link_id: number;
+  revision_id: number | null;
+  revision_number: number | null;
+}
 
 // Answer interfaces
 export interface SingleChoiceAnswer {
@@ -278,7 +297,8 @@ export type AnswerDataType =
   | CodingAnswer
   | LogicalExpressionAnswer
   | DragDropAnswer
-  | OrderingAnswer;
+  | OrderingAnswer
+  | TmcodePracticalAnswer;
 
 // Quiz interfaces
 export interface Quiz {

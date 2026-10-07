@@ -30,6 +30,7 @@ const questionTypeLabels: Record<QuestionType, string> = {
   logical_expression: "Logical Expression",
   drag_drop: "Drag & Drop",
   ordering: "Ordering",
+  tmcode_practical: "TMCode practical",
 };
 
 export const BaseQuestion: React.FC<BaseQuestionProps> = ({

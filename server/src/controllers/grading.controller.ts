@@ -190,6 +190,7 @@ export const getSubmissionForGrading = async (req: Request, res: Response) => {
         quiz_title: quiz?.title,
         quiz_type: quiz?.type,
         course_name: (quiz as any)?.course?.title,
+        student_id: submission.student_id,
         student_name: (submission as any).submissionStudent?.full_name,
         student_email: (submission as any).submissionStudent?.email,
         attempt_number: submission.attempt_number,

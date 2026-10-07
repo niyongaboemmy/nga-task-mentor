@@ -22,7 +22,8 @@ export type QuestionType =
   | "coding"
   | "logical_expression"
   | "drag_drop"
-  | "ordering";
+  | "ordering"
+  | "tmcode_practical";
 
 export type DifficultyLevel = "EASY" | "MEDIUM" | "DIFFICULT";
 
@@ -96,6 +97,7 @@ export class QuestionBank extends Model<
       "logical_expression",
       "drag_drop",
       "ordering",
+      "tmcode_practical",
     ),
     allowNull: false,
     field: "question_type",

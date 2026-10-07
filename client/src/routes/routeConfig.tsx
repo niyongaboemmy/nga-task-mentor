@@ -76,6 +76,7 @@ const AdminSubjectsPage = lazyPage(() => import("../pages/AdminSubjectsPage"));
 const ProjectsPage = lazyPage(() => import("../pages/ProjectsPage"));
 const ProjectDetailPage = lazyPage(() => import("../pages/ProjectDetailPage"));
 const ProjectMonitorPage = lazyPage(() => import("../pages/ProjectMonitorPage"));
+const PracticalGradingPage = lazyPage(() => import("../pages/PracticalGradingPage"));
 
 // School-wide viewers get the subjects report; everyone else their course grid.
 const CoursesEntry = () => {
@@ -233,6 +234,12 @@ export const appRoutes: AppRoute[] = [
     path: "/projects/:id",
     element: <ProjectDetailPage />,
     permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL", "PROJECTS_MONITOR"],
+  },
+  {
+    // Grading workspace for TMCode practicals (assignment or quiz question).
+    path: "/grading/practical/:type/:id",
+    element: <PracticalGradingPage />,
+    permissions: ["PROJECTS_MONITOR", "PROJECTS_VIEW_ALL"],
   },
   {
     path: "/students",

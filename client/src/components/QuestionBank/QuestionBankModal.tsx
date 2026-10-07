@@ -60,6 +60,7 @@ const QUESTION_TYPES: { value: QuestionType; label: string; icon: string }[] = [
   { value: "logical_expression", label: "Logical Expression", icon: "🧩" },
   { value: "drag_drop", label: "Drag & Drop", icon: "🖐️" },
   { value: "ordering", label: "Ordering", icon: "🔡" },
+  { value: "tmcode_practical", label: "TMCode practical", icon: "🧪" },
   { value: "dropdown", label: "Dropdown", icon: "📋" },
 ];
 
@@ -229,6 +230,9 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
       case "drag_drop":
         defaultData = { drop_zones: [], draggable_items: [] };
         break;
+      case "tmcode_practical":
+        defaultData = { kind: "practical", language: null, instructions: "", starter_project_id: null, starter_revision_id: null, rubric: [] };
+        break;
     }
     setFormData((prev) => ({
       ...prev,
@@ -348,6 +352,8 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
         );
       case "drag_drop":
         return <QuestionForms.DragDropQuestionForm {...(props as any)} />;
+      case "tmcode_practical":
+        return <QuestionForms.TmcodePracticalQuestionForm {...(props as any)} />;
       default:
         return (
           <div className="p-4 text-center text-gray-500 italic">

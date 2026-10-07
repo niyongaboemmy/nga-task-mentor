@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, Code2, EyeOff, PenLine, RefreshCw, Search, TerminalSquare, Trash2, Undo2, Users } from "lucide-react";
+import { AlertCircle, ClipboardCheck, Code2, EyeOff, PenLine, RefreshCw, Search, TerminalSquare, Trash2, Undo2, Users } from "lucide-react";
 import ReturnForChangesDialog from "../../Projects/ReturnForChangesDialog";
 import { Skeleton } from "../../ui/Skeleton";
 import { Avatar, LiveDot, Pill } from "../../Projects/ProjectBadges";
 import { formatDateTime, timeAgo } from "../../Projects/projectFormat";
 import { apiErrorMessage } from "../../../services/projectsApi";
+import { gradingWorkspaceHref } from "../../../services/practicalsApi";
 import {
   KIND_LABEL,
   STATE_META,
@@ -112,14 +113,25 @@ const TmcodeWorkspacesPanel: React.FC<{
             </p>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={load}
-          disabled={loading}
-          className="inline-flex items-center justify-center gap-1.5 self-start rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800 sm:self-auto"
-        >
-          <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" /> Refresh
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto">
+          {onGrade && (
+            <Link
+              to={gradingWorkspaceHref("assignment", assignmentId)}
+              data-testid="open-grading-workspace"
+              className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"
+            >
+              <ClipboardCheck className="h-4 w-4" aria-hidden="true" /> Grade in workspace
+            </Link>
+          )}
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2 text-sm font-medium text-slate-600 hover:bg-gray-50 disabled:opacity-60 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" /> Refresh
+          </button>
+        </div>
       </header>
 
       {/* Counts */}
@@ -214,6 +226,7 @@ const TmcodeWorkspacesPanel: React.FC<{
                   key={r.user.id ?? `m${r.user.mis_user_id}`}
                   row={r}
                   now={now}
+                  assignmentId={assignmentId}
                   onGrade={onGrade}
                   onReturn={setReturning}
                 />
@@ -237,9 +250,10 @@ const TmcodeWorkspacesPanel: React.FC<{
 const WorkspaceRowItem: React.FC<{
   row: WorkspaceRow;
   now: number;
+  assignmentId: number;
   onGrade?: (row: WorkspaceRow) => void;
   onReturn?: (row: WorkspaceRow) => void;
-}> = ({ row: r, now, onGrade, onReturn }) => {
+}> = ({ row: r, now, assignmentId, onGrade, onReturn }) => {
   const meta = STATE_META[r.state];
   const href = workspaceCodeHref(r);
   const live = !!(r.presence?.shared && r.presence.online);
@@ -314,7 +328,22 @@ const WorkspaceRowItem: React.FC<{
             Return for changes
           </button>
         )}
-        {onGrade && (r.state === "submitted" || r.state === "graded" || r.user.mis_user_id) && (
+        {onGrade && r.project_id && r.user.id && (r.state === "submitted" || r.state === "graded") ? (
+          // A submitted project: grade it against the criteria in the workspace.
+          <Link
+            to={gradingWorkspaceHref("assignment", assignmentId, { studentId: r.user.id })}
+            data-track="tm.assignment.workspace_grade"
+            data-testid="workspace-grade"
+            className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${
+              r.state === "submitted"
+                ? "bg-blue-600 text-white hover:bg-blue-700"
+                : "text-blue-700 hover:bg-blue-50 dark:text-blue-300 dark:hover:bg-blue-900/20"
+            }`}
+          >
+            <PenLine className="h-3.5 w-3.5" aria-hidden="true" />
+            {r.state === "graded" ? "Regrade" : "Grade"}
+          </Link>
+        ) : onGrade && (r.state === "submitted" || r.state === "graded" || r.user.mis_user_id) && (
           <button
             type="button"
             onClick={() => onGrade(r)}

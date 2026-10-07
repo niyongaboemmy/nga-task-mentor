@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ExternalLink, FolderCode, RefreshCw, Search, Undo2 } from "lucide-react";
+import { ChevronDown, ClipboardCheck, ExternalLink, FolderCode, PenLine, RefreshCw, Search, Undo2 } from "lucide-react";
+import { gradingWorkspaceHref } from "../../services/practicalsApi";
 import ReturnForChangesDialog from "./ReturnForChangesDialog";
 import { Skeleton } from "../ui/Skeleton";
 import {
@@ -57,6 +58,14 @@ const LinkedProjectsPanel: React.FC<{
 
   const submitted = rows?.filter((r) => r.link.status === "submitted").length ?? 0;
 
+  // The grading workspace covers assignments and quiz practical questions.
+  const gradeHref = (r: ActivityProject | null): string | null => {
+    if (activityType === "assignment") return gradingWorkspaceHref("assignment", activityId, { studentId: r?.owner.id });
+    if (activityType !== "quiz") return null;
+    const questionId = r ? r.link.question_id : rows?.find((x) => x.link.question_id)?.link.question_id;
+    return questionId ? gradingWorkspaceHref("quiz", activityId, { questionId, studentId: r?.owner.id }) : null;
+  };
+
   const header = (
     <span className="flex min-w-0 items-center gap-2">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-300">
@@ -85,6 +94,15 @@ const LinkedProjectsPanel: React.FC<{
           </button>
         ) : (
           header
+        )}
+        {gradeHref(null) && rows?.some((r) => r.link.status === "submitted") && (
+          <Link
+            to={gradeHref(null)!}
+            data-testid="linked-open-grading"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+          >
+            <ClipboardCheck className="h-3.5 w-3.5" aria-hidden="true" /> Grade
+          </Link>
         )}
         {open && rows !== null && (
           <button type="button" onClick={load} aria-label="Refresh linked projects" className="rounded-lg p-1.5 text-slate-400 hover:bg-gray-100 hover:text-slate-600 dark:hover:bg-white/5">
@@ -160,6 +178,15 @@ const LinkedProjectsPanel: React.FC<{
                           >
                             Open
                           </Link>
+                          {r.link.status === "submitted" && gradeHref(r) && (
+                            <Link
+                              to={gradeHref(r)!}
+                              data-testid="linked-grade"
+                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-violet-700 hover:bg-violet-50 dark:text-violet-300 dark:hover:bg-violet-900/20"
+                            >
+                              <PenLine className="h-3.5 w-3.5" aria-hidden="true" /> {r.project.status === "graded" ? "Regrade" : "Grade"}
+                            </Link>
+                          )}
                           {r.project.status === "submitted" && (
                             <button
                               type="button"

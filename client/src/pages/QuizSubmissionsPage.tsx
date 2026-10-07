@@ -36,6 +36,7 @@ import { toast } from "react-toastify";
 import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
 import { usePermissions } from "../hooks/usePermissions";
 import LinkedProjectsPanel from "../components/Projects/LinkedProjectsPanel";
+import PracticalGradingBanner from "../components/Quizzes/PracticalGradingBanner";
 import { QuizApiService } from "../services/quizApi";
 import type { QuizQuestion } from "../types/quiz.types";
 import Select from "../components/ui/Select";
@@ -546,6 +547,11 @@ const QuizSubmissionsPage: React.FC = () => {
           </div>
         </div>
 
+        {/* TMCode practical questions: grade the submitted projects against their criteria. */}
+        {quizId && canGrade && (can("PROJECTS_MONITOR") || can("PROJECTS_VIEW_ALL")) && (
+          <PracticalGradingBanner quizId={Number(quizId)} className="mb-4 sm:mb-6" />
+        )}
+
         {/* TMCode projects students linked to this quiz (collapsed: most quizzes have none). */}
         {quizId && can("PROJECTS_MONITOR") && (
           <LinkedProjectsPanel
@@ -734,7 +740,7 @@ const QuizSubmissionsPage: React.FC = () => {
                       <Eye className="w-3 h-3 mr-1" />
                       View
                     </button>
-                    {canGrade && submission.grade_status !== "pending" && (
+                    {canGrade && submission.status !== "in_progress" && (
                       <button
                         onClick={() =>
                           setAdjustingSubmissionId(submission.submission_id)
@@ -742,7 +748,7 @@ const QuizSubmissionsPage: React.FC = () => {
                         className="inline-flex items-center px-3 py-2 bg-gradient-to-r from-blue-500 to-blue-500 text-white text-xs font-medium rounded-xl hover:from-blue-600 hover:to-blue-600 transition-all duration-200 hover:scale-105 shadow-lg hover:shadow-xl"
                       >
                         <PenLine className="w-3 h-3 mr-1" />
-                        Adjust
+                        {submission.grade_status === "pending" ? "Grade" : "Adjust"}
                       </button>
                     )}
                     {canManage && (
@@ -859,7 +865,7 @@ const QuizSubmissionsPage: React.FC = () => {
                               <Eye className="w-3 h-3 mr-1" />
                               View
                             </button>
-                            {canGrade && submission.grade_status !== "pending" && (
+                            {canGrade && submission.status !== "in_progress" && (
                               <button
                                 onClick={() =>
                                   setAdjustingSubmissionId(
@@ -869,7 +875,7 @@ const QuizSubmissionsPage: React.FC = () => {
                                 className="inline-flex items-center px-3 py-1 bg-gradient-to-r from-blue-500 to-blue-500 text-white text-xs font-medium rounded-lg hover:from-blue-600 hover:to-blue-600 transition-all duration-200 hover:scale-105"
                               >
                                 <PenLine className="w-3 h-3 mr-1" />
-                                Adjust
+                                {submission.grade_status === "pending" ? "Grade" : "Adjust"}
                               </button>
                             )}
                             {canManage && (

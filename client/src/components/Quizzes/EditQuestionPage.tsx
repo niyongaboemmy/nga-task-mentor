@@ -10,6 +10,7 @@ import {
   DropdownQuestionForm,
   AlgorithmicQuestionForm,
   CodingQuestionForm,
+  TmcodePracticalQuestionForm,
   SingleChoiceQuestionForm,
   MultipleChoiceQuestionForm,
   TrueFalseQuestionForm,
@@ -213,6 +214,13 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
           <DragDropQuestionForm
             data={getDragDropData()}
             onChange={handleQuestionDataChange}
+          />
+        );
+      case "tmcode_practical":
+        return (
+          <TmcodePracticalQuestionForm
+            data={formData.question_data as any}
+            onChange={handleQuestionDataChange as any}
           />
         );
       default:

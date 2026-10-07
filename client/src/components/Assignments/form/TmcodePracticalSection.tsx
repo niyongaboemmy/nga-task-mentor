@@ -51,7 +51,9 @@ const TmcodePracticalSection: React.FC<{
   value: TmcodeSettings;
   onChange: (next: TmcodeSettings) => void;
   disabled?: boolean;
-}> = ({ value, onChange, disabled = false }) => {
+  /** A quiz practical question is always on: no "Off" choice. */
+  alwaysOn?: boolean;
+}> = ({ value, onChange, disabled = false, alwaysOn = false }) => {
   const id = useId();
   const on = value.kind !== null;
   const set = (patch: Partial<TmcodeSettings>) => onChange({ ...value, ...patch });
@@ -137,7 +139,7 @@ const TmcodePracticalSection: React.FC<{
           aria-labelledby={`${id}-kind`}
           className="grid grid-cols-1 gap-1 rounded-2xl bg-gray-100 p-1 dark:bg-gray-800 sm:inline-grid sm:grid-cols-3"
         >
-          {KINDS.map((k) => {
+          {KINDS.filter((k) => !alwaysOn || k.value !== null).map((k) => {
             const active = value.kind === k.value;
             return (
               <button

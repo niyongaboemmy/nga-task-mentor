@@ -123,6 +123,8 @@ export interface ProjectLink {
   project_id: number;
   activity_type: ActivityType;
   activity_id: number;
+  /** Quiz links: the TMCode practical question (quiz_questions.id). */
+  question_id?: number | null;
   activity_title?: string | null;
   course?: CourseLite | null;
   due_date?: string | null;
@@ -140,7 +142,7 @@ export interface ProjectLink {
 export interface LinkSummary {
   total: number;
   submitted: number;
-  items: Pick<ProjectLink, "id" | "activity_type" | "activity_id" | "status" | "submitted_at" | "activity_title">[];
+  items: Pick<ProjectLink, "id" | "activity_type" | "activity_id" | "question_id" | "status" | "submitted_at" | "activity_title">[];
 }
 
 export interface GitPush {
@@ -268,6 +270,8 @@ export interface LinkableActivity {
   course?: CourseLite | null;
   due_date?: string | null;
   submission_type?: string | null;
+  /** Quiz: its TMCode practical questions (question_id = quiz_questions.id). */
+  practical_questions?: { question_id: number; title: string; points: number }[];
 }
 
 /** One row of the teacher view of an activity (GET /activities/:type/:id/projects). */
@@ -417,6 +421,7 @@ export function normalizeLink(raw: unknown): ProjectLink {
     project_id: num(l.project_id),
     activity_type: (str(l.activity_type) as ActivityType) ?? "assignment",
     activity_id: num(l.activity_id),
+    question_id: l.question_id == null ? null : num(l.question_id),
     activity_title: str(l.activity_title) ?? str(activity.title),
     course: normalizeCourse(l.course ?? activity.course ?? activity.course_id ?? l.course_id),
     due_date: str(l.due_date) ?? str(activity.due_date),
@@ -671,6 +676,13 @@ export function normalizeLinkable(body: unknown): LinkableActivity[] {
       course,
       due_date: str(raw.due_date) ?? str(raw.end_time) ?? str(raw.assessment_date),
       submission_type: str(raw.submission_type),
+      practical_questions: Array.isArray(raw.practical_questions)
+        ? raw.practical_questions.filter(isObj).map((q) => ({
+            question_id: num(q.question_id),
+            title: str(q.title) ?? "TMCode practical",
+            points: num(q.points),
+          }))
+        : undefined,
     };
   };
   if (Array.isArray(data)) return data.map((r) => toItem(r)).filter((x): x is LinkableActivity => !!x);

@@ -105,6 +105,7 @@ const QUESTION_TYPE_META: Record<string, { label: string; colorClass: string }> 
   fill_blank: { label: "Fill in Blank", colorClass: "bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-300" },
   matching: { label: "Matching", colorClass: "bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300" },
   ordering: { label: "Ordering", colorClass: "bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300" },
+  tmcode_practical: { label: "TMCode practical", colorClass: "bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300" },
   dropdown: { label: "Dropdown", colorClass: "bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-300" },
 };
 
