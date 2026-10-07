@@ -63,3 +63,15 @@ export type SubjectMappingSavePayload = z.infer<typeof subjectMappingSaveSchema>
 export type AttributesSavePayload = z.infer<typeof attributesSaveSchema>;
 export type GeneratePdfPayload = z.infer<typeof generatePdfSchema>;
 export type UpdateStatusPayload = z.infer<typeof updateStatusSchema>;
+
+/** POST /api/report-cards/ai-comment */
+export const aiCommentSchema = z.object({
+  term: z.string().trim().min(1).max(50),
+  academic_year: z.string().trim().min(1).max(20),
+  subjects: z.array(z.object({ name: z.string().trim().min(1).max(120), score: z.number().min(0).max(100).nullable() })).max(30).optional().default([]),
+  attributes: z.array(z.object({ attribute_name: z.string().trim().min(1).max(100), rating: z.enum(["Excellent", "Very good", "Good"] as const) })).max(20).optional().default([]),
+  attendance: z.enum(["present", "absent", "late"] as const).nullable().optional(),
+  tone: z.enum(["encouraging", "balanced", "concise"] as const).optional(),
+  current: z.string().max(2000).nullable().optional(),
+  provider: z.string().max(40).nullable().optional(),
+});

@@ -31,6 +31,8 @@ export default function GeneralAttributesPage() {
   const [loading, setLoading]         = useState(true);
   const [error, setError]             = useState<string | null>(null);
   const [initialData, setInitialData] = useState<Record<number, StudentInitialData>>({});
+  // Subject totals per student, for the AI comment drafts.
+  const [results, setResults] = useState<Record<number, Array<{ name: string; score: number | null }>>>({});
   const [formKey, setFormKey]         = useState(0);
 
   // Mark-all-complete state (shown after attributes are saved)
@@ -76,6 +78,7 @@ export default function GeneralAttributesPage() {
           );
 
           const data: Record<number, StudentInitialData> = {};
+          const totals: Record<number, Array<{ name: string; score: number | null }>> = {};
           results.forEach((result, i) => {
             if (result.status !== "fulfilled") return;
             const rc = result.value.data;
@@ -92,6 +95,11 @@ export default function GeneralAttributesPage() {
               attrs[item.attribute_name] = item.rating;
             }
 
+            totals[student.id] = (rc.grades ?? []).map((g) => ({
+              name: rc.subject_names?.[g.subject_id] || `Subject ${g.subject_id}`,
+              score: Number.isFinite(Number(g.total_score)) ? Math.max(0, Math.min(100, Number(g.total_score))) : null,
+            }));
+
             data[student.id] = {
               attendance,
               attributes: attrs as StudentInitialData["attributes"],
@@ -100,6 +108,7 @@ export default function GeneralAttributesPage() {
           });
 
           setInitialData(data);
+          setResults(totals);
           setFormKey((k) => k + 1); // remount form with pre-populated data
         }
       } catch {
@@ -229,6 +238,7 @@ export default function GeneralAttributesPage() {
       )}
 
       <GeneralAttributesForm
+        results={results}
         key={formKey}
         students={students}
         term={term}

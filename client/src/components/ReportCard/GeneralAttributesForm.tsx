@@ -12,6 +12,7 @@ import {
   Search,
   X,
   Zap,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "react-toastify";
 import { ReportCardApiService, type AttributeRating } from "../../services/reportCardApi";
@@ -90,6 +91,28 @@ export interface GeneralAttributesFormProps {
   academicYear: string;
   initialData?: Record<number, StudentInitialData>;
   onAllSaved?: (reportCardIds: number[]) => void;
+  /** The term's subject totals per student (out of 100), for AI comment drafts. */
+  results?: Record<number, Array<{ name: string; score: number | null }>>;
+}
+
+/** "Aline Uwase" -> "Aline": what replaces [NAME] in an AI draft. */
+export const firstName = (full: string) => full.trim().split(/\s+/)[0] || full;
+
+/** Small "Draft with AI" button beside a comment box. */
+function AiDraftButton({ student, busy, onDraft, compact }: { student: StudentRow; busy: boolean; onDraft: (s: StudentRow) => void; compact?: boolean }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onDraft(student)}
+      disabled={busy}
+      aria-label={`Draft a comment for ${student.name} with AI`}
+      title="Draft with AI (you can edit it before saving)"
+      className={`inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 font-semibold text-violet-700 transition-colors hover:bg-violet-100 disabled:opacity-50 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-200 ${compact ? "px-1.5 py-1 text-[10px]" : "px-2 py-1 text-[11px]"}`}
+    >
+      {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden /> : <Sparkles className="h-3 w-3" aria-hidden />}
+      {compact ? "AI" : "Draft with AI"}
+    </button>
+  );
 }
 
 function buildInitialState(
@@ -167,6 +190,8 @@ function MobileStudentCard({
   onAttributeChange,
   onCommentChange,
   onSave,
+  onDraft,
+  drafting = false,
 }: {
   student: StudentRow;
   state: StudentFormState;
@@ -174,6 +199,8 @@ function MobileStudentCard({
   onAttributeChange: (studentId: number, attr: GeneralAttribute, rating: AttributeRating) => void;
   onCommentChange: (studentId: number, comment: string) => void;
   onSave: (student: StudentRow) => Promise<void>;
+  onDraft?: (student: StudentRow) => void;
+  drafting?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -315,6 +342,11 @@ function MobileStudentCard({
                 <p className="text-[11px] uppercase tracking-wider font-semibold text-text-secondary-light dark:text-text-secondary-dark/60 mb-2 flex items-center gap-1.5">
                   <MessageSquare className="w-3 h-3" /> Teacher's Comment
                   <span className="normal-case font-normal text-text-secondary-light/60 dark:text-text-secondary-dark/40 ml-1">(optional)</span>
+                  {onDraft && (
+                    <span className="ml-auto normal-case tracking-normal">
+                      <AiDraftButton student={student} busy={drafting} onDraft={onDraft} />
+                    </span>
+                  )}
                 </p>
                 <textarea
                   value={state.comment}
@@ -365,12 +397,16 @@ function StudentTableRow({
   onAttendanceChange,
   onAttributeChange,
   onCommentChange,
+  onDraft,
+  drafting = false,
 }: {
   student: StudentRow;
   state: StudentFormState;
   onAttendanceChange: (studentId: number, value: AttendanceStatus) => void;
   onAttributeChange: (studentId: number, attr: GeneralAttribute, rating: AttributeRating) => void;
   onCommentChange: (studentId: number, comment: string) => void;
+  onDraft?: (student: StudentRow) => void;
+  drafting?: boolean;
 }) {
   return (
     <tr
@@ -436,6 +472,11 @@ function StudentTableRow({
           className="w-full text-xs bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-white/10 rounded-lg px-2.5 py-2 text-text-primary-light dark:text-white/80 placeholder-slate-400 dark:placeholder-white/25 resize-none focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400/60 focus:bg-white dark:focus:bg-slate-700 transition-colors scrollbar-thin"
           aria-label={`Comment for ${student.name}`}
         />
+        {onDraft && (
+          <div className="mt-1 flex justify-end">
+            <AiDraftButton student={student} busy={drafting} onDraft={onDraft} compact />
+          </div>
+        )}
         {state.error && (
           <p className="text-red-600 dark:text-red-400 text-[10px] mt-1 flex items-center gap-1">
             <AlertCircle className="w-3 h-3" /> {state.error}
@@ -454,11 +495,17 @@ export default function GeneralAttributesForm({
   academicYear,
   initialData,
   onAllSaved,
+  results,
 }: GeneralAttributesFormProps) {
   const [formState, setFormState] = useState<Record<number, StudentFormState>>(() =>
     buildInitialState(students, initialData),
   );
   const [isSavingAll, setIsSavingAll] = useState(false);
+  // AI comment drafts: who is being drafted now, and the bulk run's progress.
+  const [drafting, setDrafting] = useState<Record<number, boolean>>({});
+  const [bulk, setBulk] = useState<{ done: number; total: number } | null>(null);
+  const formStateRef = useRef(formState);
+  formStateRef.current = formState;
   const [query, setQuery] = useState("");
   const tableScrollRef = useRef<HTMLDivElement>(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
@@ -513,6 +560,52 @@ export default function GeneralAttributesForm({
     },
     [updateStudentField],
   );
+
+  /** Draft one student's comment with AI into the comment box (unsaved). Returns false on failure. */
+  const draftComment = async (student: StudentRow, quiet = false): Promise<boolean> => {
+    const state = formStateRef.current[student.id];
+    if (!state) return false;
+    setDrafting((d) => ({ ...d, [student.id]: true }));
+    try {
+      const res = await ReportCardApiService.draftComment({
+        term,
+        academic_year: academicYear,
+        subjects: results?.[student.id] ?? [],
+        attributes: GENERAL_ATTRIBUTES.filter((a) => state.attributes[a]).map((a) => ({ attribute_name: a, rating: state.attributes[a] as AttributeRating })),
+        attendance: state.attendance,
+        current: state.comment.trim() || null,
+      });
+      const text = res.data.comment.split("[NAME]").join(firstName(student.name));
+      setFormState((prev) => ({ ...prev, [student.id]: { ...prev[student.id], comment: text, saved: false } }));
+      return true;
+    } catch (e: any) {
+      if (!quiet) toast.error(e?.response?.data?.message || "The AI couldn't draft this comment. Try again.");
+      return false;
+    } finally {
+      setDrafting((d) => ({ ...d, [student.id]: false }));
+    }
+  };
+
+  /** Draft every empty comment (two at a time, so free AI tiers aren't flooded). */
+  const draftEmptyComments = async () => {
+    const todo = students.filter((s) => !formStateRef.current[s.id]?.comment.trim());
+    if (!todo.length) return;
+    setBulk({ done: 0, total: todo.length });
+    let failed = 0;
+    let next = 0;
+    const worker = async () => {
+      while (next < todo.length) {
+        const s = todo[next++];
+        if (!(await draftComment(s, true))) failed++;
+        setBulk((b) => (b ? { ...b, done: b.done + 1 } : b));
+      }
+    };
+    await Promise.all([worker(), worker()]);
+    setBulk(null);
+    if (failed) toast.error(`${failed} comment${failed === 1 ? "" : "s"} couldn't be drafted. Try those again.`);
+    else toast.success(`Drafted ${todo.length} comment${todo.length === 1 ? "" : "s"}. Check them, then save.`);
+  };
+  const emptyCount = students.filter((s) => !formState[s.id]?.comment.trim()).length;
 
   const saveStudent = async (student: StudentRow, notify = false): Promise<number | null> => {
     const state = formState[student.id];
@@ -693,6 +786,19 @@ export default function GeneralAttributesForm({
                 )}
               </div>
             )}
+            {students.length > 0 && (
+              <button
+                type="button"
+                onClick={() => void draftEmptyComments()}
+                disabled={!!bulk || emptyCount === 0}
+                data-testid="ai-draft-all"
+                title="Draft every empty comment with AI. Nothing is saved until you save."
+                className="flex items-center gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 text-sm font-semibold text-violet-700 transition-colors hover:bg-violet-100 disabled:opacity-40 dark:border-violet-400/30 dark:bg-violet-500/10 dark:text-violet-200"
+              >
+                {bulk ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
+                {bulk ? `Drafting ${bulk.done}/${bulk.total}…` : `Draft empty comments (${emptyCount})`}
+              </button>
+            )}
             {savedCount > 0 && (
               <span className="flex items-center gap-1.5 text-sm text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/20 rounded-full px-3 py-1">
                 <CheckCircle2 className="w-3.5 h-3.5" />
@@ -775,6 +881,8 @@ export default function GeneralAttributesForm({
                 onAttributeChange={handleAttributeChange}
                 onCommentChange={handleCommentChange}
                 onSave={async (s) => { await saveStudent(s, true); }}
+                onDraft={(s) => void draftComment(s)}
+                drafting={!!drafting[student.id]}
               />
             ))}
           </div>
@@ -846,6 +954,8 @@ export default function GeneralAttributesForm({
                       onAttendanceChange={handleAttendanceChange}
                       onAttributeChange={handleAttributeChange}
                       onCommentChange={handleCommentChange}
+                      onDraft={(s) => void draftComment(s)}
+                      drafting={!!drafting[student.id]}
                     />
                   ))}
                 </tbody>
