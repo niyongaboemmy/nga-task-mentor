@@ -40,6 +40,8 @@ export default function RankHero({ data, subjectName }: { data: StudentRanking; 
       ? Math.round((overall.score - overall.class_average) * 10) / 10
       : null;
   const topShare = ranked && overall.top_percent !== null && overall.top_percent <= 50 ? overall.top_percent : null;
+  // Older payloads have no cohort; treat them as the subject cohort.
+  const className = data.cohort?.type === "class_group" ? data.cohort.class_group_name : null;
 
   return (
     <section className={`${CARD} p-4 sm:p-6`} aria-label="Your position">
@@ -52,7 +54,7 @@ export default function RankHero({ data, subjectName }: { data: StudentRanking; 
             whileHover={{ y: -3 }}
             transition={{ type: "spring", stiffness: 260, damping: 20 }}
             className="flex flex-col items-center justify-center w-28 h-28 sm:w-32 sm:h-32 rounded-2xl bg-blue-600 text-white shadow-md shadow-blue-600/25 shrink-0"
-            title={ranked ? `You are ${ordinal(overall.rank!)} of ${of} ranked students` : undefined}
+            title={ranked ? `You are ${ordinal(overall.rank!)} of ${of} ranked students${className ? ` in ${className}` : ""}` : undefined}
           >
             <Trophy className="w-5 h-5 opacity-90 mb-1" aria-hidden />
             {ranked ? (
@@ -67,6 +69,7 @@ export default function RankHero({ data, subjectName }: { data: StudentRanking; 
           <div className="min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60">
               {subjectName ? `Your position in ${subjectName}` : "Your overall position"}
+              {className && ` · ${className}`}
             </p>
             <h2 className="mt-1 text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
               {ranked ? overall.band : "Get your first marks to be ranked"}
@@ -90,7 +93,7 @@ export default function RankHero({ data, subjectName }: { data: StudentRanking; 
           {/* Where I sit in the class */}
           <div className="rounded-xl bg-surface-light dark:bg-white/[0.03] p-4">
             <p className="text-xs font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark/70">
-              Place in class
+              {className ? `Place in ${className}` : "Place among students in your subjects"}
             </p>
             <div className="relative mt-6" role="img" aria-label={ranked ? `${ordinal(overall.rank!)} of ${of}: ${QUARTERS[q].label}` : "Not ranked yet"}>
               {pos !== null && (

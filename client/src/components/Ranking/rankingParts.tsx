@@ -157,8 +157,8 @@ export function HowItWorks({ audience }: { audience: "student" | "staff" }) {
         <li>Each subject's score is the average of its marked items. The overall score is the average of the subject scores, so every subject counts the same.</li>
         <li>
           {audience === "student"
-            ? "You're ranked against every student with marks in the same subjects. Students with equal scores share a place."
-            : "Students are ranked against everyone with marks in the selected subjects (or class). Equal scores share a place, and enrolled students with no marks are listed separately rather than ranked last."}
+            ? "You're ranked against the students in your own class group, overall and in each subject. Other classes taking the same subject don't count. Students with equal scores share a place."
+            : "Students are ranked against everyone with marks in the selected subjects, or only within the grade or class picked. Each student's place in their class and grade is shown too. Equal scores share a place, and enrolled students with no marks are listed separately rather than ranked last."}
         </li>
         <li>The ranking follows the academic year and term picked in the top bar.</li>
       </ul>

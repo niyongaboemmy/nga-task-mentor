@@ -26,6 +26,7 @@ const summary = (over: Partial<StudentRankingSummary> = {}): StudentRankingSumma
   view: "student_summary",
   rank: 18,
   ranked_count: 18,
+  class_group_name: "L5 SOD A",
   score: 40,
   band: "Bottom quarter",
   status: "at_risk",
@@ -62,7 +63,7 @@ describe("RankStandingChip", () => {
   it("flags an at-risk student and stops pulsing once they've looked", async () => {
     get.mockResolvedValue(ok(summary()));
     const { container } = renderChip();
-    const chip = await screen.findByRole("button", { name: /18th of 18, average 40%, at risk/ });
+    const chip = await screen.findByRole("button", { name: /18th of 18 in L5 SOD A, average 40%, at risk/ });
     expect(container.querySelector(".animate-ping")).not.toBeNull();
 
     fireEvent.click(chip);
@@ -105,7 +106,7 @@ describe("RankStandingChip", () => {
       points_to_next: null, at_risk_subjects: [], at_risk_count: 0, overdue_count: 0, top_suggestion: null,
     })));
     const { container } = renderChip();
-    fireEvent.click(await screen.findByRole("button", { name: /1st of 18, average 88%$/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /1st of 18 in L5 SOD A, average 88%$/ }));
     expect(container.querySelector(".animate-ping")).toBeNull();
     const dialog = screen.getByRole("dialog");
     expect(dialog).toHaveTextContent("+13.4");

@@ -18,9 +18,16 @@ import { gradePercentage } from "./studentStanding";
 //    the same however many items it has;
 //  - ties share a rank (1, 2, 2, 4).
 //
-// The cohort is everyone with at least one mark in the subjects being ranked.
-// That needs no MIS roster, so a student's own request (which can't read
-// rosters) ranks against exactly the same people a teacher's does.
+// The cohort is everyone with at least one mark in the subjects being ranked,
+// narrowed to a class group when one applies:
+//  - a student is always ranked within their current class group (overall
+//    and per subject). A subject is often taught to several class groups, so
+//    "everyone with marks in my subjects" would put other classes, and anyone
+//    sharing just one subject, into "my place in class". The class roster
+//    comes from MIS (utils/rankingCohorts); only when it can't be read does
+//    the student fall back to the subject cohort, and the view says so;
+//  - staff rank everyone in their subjects, and can narrow to a class group or
+//    a grade. Every row also carries its place within its class and grade.
 //
 // Privacy: the student view never carries another student's key, name or
 // score. Aggregates (class average, points to the next place) are only
@@ -242,6 +249,15 @@ export interface RankedStudent {
 
 const matchesKind = (m: Mark, kind: RankKindFilter) => kind === "all" || m.kind === kind;
 
+/** Shared ranks (1, 2, 2, 4) for a list already sorted best first. */
+const sharedRanks = (sorted: Array<{ score: number }>): number[] => {
+  let rank = 0;
+  return sorted.map((s, i) => {
+    if (i === 0 || s.score !== sorted[i - 1].score) rank = i + 1;
+    return rank;
+  });
+};
+
 /** Per-student, per-subject scores for the given subjects and kind. */
 export const scoreStudents = (
   marks: Mark[],
@@ -297,11 +313,8 @@ export const rankStudents = (
     };
   });
   scored.sort((a, b) => b.score - a.score || b.marked_items - a.marked_items || a.key.localeCompare(b.key));
-  let rank = 0;
-  return scored.map((s, i) => {
-    if (i === 0 || s.score !== scored[i - 1].score) rank = i + 1;
-    return { ...s, rank };
-  });
+  const ranks = sharedRanks(scored);
+  return scored.map((s, i) => ({ ...s, rank: ranks[i] }));
 };
 
 export interface CohortSummary {
@@ -461,9 +474,16 @@ export interface Suggestion {
   action?: { label: string; href: string };
 }
 
+/** Who a student is ranked against. */
+export type StudentCohort =
+  | { type: "class_group"; class_group_id: number; class_group_name: string; grade_name: string | null }
+  /** Class roster unavailable: everyone with marks in the student's subjects. */
+  | { type: "subjects" };
+
 export interface StudentView {
   view: "student";
   scope: { subject_id: string | null; kind: RankKindFilter };
+  cohort: StudentCohort;
   overall: {
     rank: number | null;
     ranked_count: number;
@@ -670,8 +690,17 @@ export const buildStudentView = (input: {
   pending: PendingItem[];
   kind: RankKindFilter;
   subjectId: string | null;
+  /**
+   * The student's class group and its members' keys. Everyone else's marks
+   * are dropped before ranking; null ranks against the whole subject cohort.
+   */
+  classCohort?: { class_group_id: number; class_group_name: string; grade_name: string | null; keys: Set<string> } | null;
 }): StudentView => {
-  const { meKey, marks, kind, subjectId } = input;
+  const { meKey, kind, subjectId } = input;
+  const classCohort = input.classCohort ?? null;
+  const marks = classCohort
+    ? input.marks.filter((m) => m.key === meKey || classCohort.keys.has(m.key))
+    : input.marks;
   const subjects = subjectId ? input.subjects.filter((s) => s.course_id === subjectId) : input.subjects;
   const courseIds = subjects.map((s) => s.course_id);
   const pending = input.pending.filter((p) => courseIds.includes(p.course_id));
@@ -732,6 +761,14 @@ export const buildStudentView = (input: {
   return {
     view: "student",
     scope: { subject_id: subjectId, kind },
+    cohort: classCohort
+      ? {
+          type: "class_group",
+          class_group_id: classCohort.class_group_id,
+          class_group_name: classCohort.class_group_name,
+          grade_name: classCohort.grade_name,
+        }
+      : { type: "subjects" },
     overall,
     subjects: subjectViews,
     pending: pending.slice(0, 20),
@@ -753,12 +790,28 @@ export interface RosterEntry {
   class_group_name: string | null;
 }
 
+/** A student's class group (and its grade) for the selected academic year. */
+export interface ClassPlacement {
+  class_group_id: number;
+  class_group_name: string;
+  grade_id: number | null;
+  grade_name: string | null;
+}
+
 export interface LeaderboardRow {
   rank: number;
   key: string;
   mis_user_id: number | null;
   name: string;
+  class_group_id: number | null;
   class_group_name: string | null;
+  grade_id: number | null;
+  grade_name: string | null;
+  /** Place within the student's class group / grade (same rules, ties shared). */
+  class_rank: number | null;
+  class_size: number | null;
+  grade_rank: number | null;
+  grade_size: number | null;
   score: number;
   status: PerformanceStatus;
   marked_items: number;
@@ -767,18 +820,46 @@ export interface LeaderboardRow {
   by_kind: Partial<Record<RankKind, number>>;
 }
 
+/** One class group or grade in the current selection; id null = no class group. */
+export interface GroupSummary {
+  id: number | null;
+  name: string;
+  grade_name: string | null;
+  ranked_count: number;
+  unranked_count: number;
+  average: number | null;
+  median: number | null;
+  highest: number | null;
+  lowest: number | null;
+  distribution: { excelling: number; on_track: number; needs_attention: number; at_risk: number };
+}
+
 export interface StaffView {
   view: "staff";
-  scope: { subject_id: string | null; kind: RankKindFilter; class_group_id: number | null };
+  scope: { subject_id: string | null; kind: RankKindFilter; class_group_id: number | null; grade_id: number | null };
   subjects: Array<SubjectInfo & { ranked_count: number; average: number | null }>;
-  class_groups: Array<{ id: number; name: string }>;
+  /** Filter options: every class group / grade with a student in the subjects. */
+  class_groups: Array<{ id: number; name: string; grade_id: number | null; grade_name: string | null }>;
+  grades: Array<{ id: number; name: string }>;
   summary: CohortSummary & {
     distribution: { excelling: number; on_track: number; needs_attention: number; at_risk: number };
     unranked_count: number;
   };
+  /** The current selection broken down by class group and by grade. */
+  groups: { class_groups: GroupSummary[]; grades: GroupSummary[] };
   rows: LeaderboardRow[];
-  unranked: Array<{ key: string; mis_user_id: number | null; name: string; class_group_name: string | null }>;
+  unranked: Array<{
+    key: string;
+    mis_user_id: number | null;
+    name: string;
+    class_group_id: number | null;
+    class_group_name: string | null;
+    grade_id: number | null;
+    grade_name: string | null;
+  }>;
 }
+
+const emptyDistribution = () => ({ excelling: 0, on_track: 0, needs_attention: 0, at_risk: 0 });
 
 export const buildStaffView = (input: {
   subjects: SubjectInfo[];
@@ -786,35 +867,92 @@ export const buildStaffView = (input: {
   roster: RosterEntry[];
   /** Names for students off the roster (local accounts). */
   fallbackNames: Map<string, { name: string; mis_user_id: number | null }>;
+  /** Student key -> class group and grade. A student missing here has no class group. */
+  placements?: Map<string, ClassPlacement>;
   kind: RankKindFilter;
   subjectId: string | null;
   classGroupId: number | null;
+  gradeId?: number | null;
 }): StaffView => {
   const { kind, subjectId, classGroupId } = input;
+  const gradeId = input.gradeId ?? null;
   const subjects = subjectId ? input.subjects.filter((s) => s.course_id === subjectId) : input.subjects;
   const courseIds = subjects.map((s) => s.course_id);
+  const courseSet = new Set(courseIds);
 
   const rosterByKey = new Map<string, RosterEntry>();
   for (const r of input.roster) if (!rosterByKey.has(r.key)) rosterByKey.set(r.key, r);
 
-  const classGroups = new Map<number, string>();
-  for (const r of input.roster) {
-    if (r.class_group_id !== null && r.class_group_name) classGroups.set(r.class_group_id, r.class_group_name);
+  // A placement from MIS class rosters wins; a roster row that names its class
+  // group (the teacher roster does) is the fallback.
+  const placements = new Map<string, ClassPlacement>(input.placements ?? []);
+  for (const r of rosterByKey.values()) {
+    if (!placements.has(r.key) && r.class_group_id !== null && r.class_group_name) {
+      placements.set(r.key, { class_group_id: r.class_group_id, class_group_name: r.class_group_name, grade_id: null, grade_name: null });
+    }
   }
 
-  // A class-group filter ranks within that class only.
-  const inGroup = (key: string) =>
-    classGroupId === null || input.roster.some((r) => r.key === key && r.class_group_id === classGroupId);
-  const marks = classGroupId === null ? input.marks : input.marks.filter((m) => inGroup(m.key));
+  // Everyone in these subjects (marked or enrolled) decides the filter options.
+  const inSubjects = new Set<string>(rosterByKey.keys());
+  for (const m of input.marks) if (courseSet.has(m.course_id)) inSubjects.add(m.key);
+  const classOptions = new Map<number, StaffView["class_groups"][number]>();
+  const gradeOptions = new Map<number, string>();
+  for (const key of inSubjects) {
+    const p = placements.get(key);
+    if (!p) continue;
+    if (!classOptions.has(p.class_group_id)) {
+      classOptions.set(p.class_group_id, { id: p.class_group_id, name: p.class_group_name, grade_id: p.grade_id, grade_name: p.grade_name });
+    }
+    if (p.grade_id !== null && !gradeOptions.has(p.grade_id)) gradeOptions.set(p.grade_id, p.grade_name ?? `Grade ${p.grade_id}`);
+  }
+
+  // Class-group and grade filters rank within that group only.
+  const inSelection = (key: string) => {
+    if (classGroupId === null && gradeId === null) return true;
+    const p = placements.get(key);
+    if (!p) return false;
+    return (classGroupId === null || p.class_group_id === classGroupId) && (gradeId === null || p.grade_id === gradeId);
+  };
+  const filtering = classGroupId !== null || gradeId !== null;
+  const marks = filtering ? input.marks.filter((m) => inSelection(m.key)) : input.marks;
 
   const ranked = rankStudents(marks, courseIds, kind);
   const summary = summarise(ranked);
 
+  // Place within class group and grade, over the whole subject cohort (the
+  // same numbers whichever filter is on).
+  const everyone = filtering ? rankStudents(input.marks, courseIds, kind) : ranked;
+  const classPlace = new Map<string, { rank: number; size: number }>();
+  const gradePlace = new Map<string, { rank: number; size: number }>();
+  const placeWithin = (groupOf: (key: string) => number | null, out: Map<string, { rank: number; size: number }>) => {
+    const byGroup = new Map<number, RankedStudent[]>();
+    for (const r of everyone) {
+      const g = groupOf(r.key);
+      if (g === null) continue;
+      const list = byGroup.get(g) ?? [];
+      list.push(r);
+      byGroup.set(g, list);
+    }
+    for (const list of byGroup.values()) {
+      const ranks = sharedRanks(list);
+      list.forEach((r, i) => out.set(r.key, { rank: ranks[i], size: list.length }));
+    }
+  };
+  placeWithin((k) => placements.get(k)?.class_group_id ?? null, classPlace);
+  placeWithin((k) => placements.get(k)?.grade_id ?? null, gradePlace);
+
   const identify = (key: string) => {
+    const p = placements.get(key);
+    const placement = {
+      class_group_id: p?.class_group_id ?? null,
+      class_group_name: p?.class_group_name ?? rosterByKey.get(key)?.class_group_name ?? null,
+      grade_id: p?.grade_id ?? null,
+      grade_name: p?.grade_name ?? null,
+    };
     const r = rosterByKey.get(key);
-    if (r) return { name: r.name, mis_user_id: r.mis_user_id, class_group_name: r.class_group_name };
+    if (r) return { name: r.name, mis_user_id: r.mis_user_id, ...placement };
     const f = input.fallbackNames.get(key);
-    return { name: f?.name ?? "Unknown student", mis_user_id: f?.mis_user_id ?? null, class_group_name: null };
+    return { name: f?.name ?? "Unknown student", mis_user_id: f?.mis_user_id ?? null, ...placement };
   };
 
   const rows: LeaderboardRow[] = ranked.map((r) => {
@@ -826,10 +964,16 @@ export const buildStaffView = (input: {
         t[1] += v.count;
       }
     }
+    const cp = classPlace.get(r.key);
+    const gp = gradePlace.get(r.key);
     return {
       rank: r.rank,
       key: r.key,
       ...identify(r.key),
+      class_rank: cp?.rank ?? null,
+      class_size: cp?.size ?? null,
+      grade_rank: gp?.rank ?? null,
+      grade_size: gp?.size ?? null,
       score: r.score,
       status: performanceStatus(r.score),
       marked_items: r.marked_items,
@@ -843,22 +987,60 @@ export const buildStaffView = (input: {
 
   const rankedKeys = new Set(ranked.map((r) => r.key));
   const unranked = [...rosterByKey.values()]
-    .filter((r) => !rankedKeys.has(r.key) && (classGroupId === null || inGroup(r.key)))
-    .map((r) => ({ key: r.key, mis_user_id: r.mis_user_id, name: r.name, class_group_name: r.class_group_name }))
+    .filter((r) => !rankedKeys.has(r.key) && inSelection(r.key))
+    .map((r) => ({ key: r.key, ...identify(r.key) }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  const distribution = { excelling: 0, on_track: 0, needs_attention: 0, at_risk: 0 };
+  const distribution = emptyDistribution();
   for (const row of rows) distribution[row.status as keyof typeof distribution] += 1;
+
+  // Breakdown of the current selection by class group and by grade.
+  const summariseGroups = (
+    idOf: (x: { class_group_id: number | null; grade_id: number | null }) => number | null,
+    labelOf: (x: { class_group_name: string | null; grade_name: string | null }) => { name: string; grade_name: string | null },
+    noneLabel: string,
+  ): GroupSummary[] => {
+    const groups = new Map<number | null, { name: string; grade_name: string | null; rows: LeaderboardRow[]; unranked: number }>();
+    const slot = (x: Parameters<typeof idOf>[0] & Parameters<typeof labelOf>[0]) => {
+      const id = idOf(x);
+      if (!groups.has(id)) groups.set(id, { ...(id === null ? { name: noneLabel, grade_name: null } : labelOf(x)), rows: [], unranked: 0 });
+      return groups.get(id)!;
+    };
+    for (const row of rows) slot(row).rows.push(row);
+    for (const u of unranked) slot(u).unranked += 1;
+    return [...groups]
+      .map(([id, g]) => {
+        const dist = emptyDistribution();
+        for (const row of g.rows) dist[row.status as keyof typeof dist] += 1;
+        return { id, name: g.name, grade_name: g.grade_name, ...summarise(g.rows), unranked_count: g.unranked, distribution: dist };
+      })
+      .sort((a, b) => (a.id === null ? 1 : b.id === null ? -1 : a.name.localeCompare(b.name, undefined, { numeric: true })));
+  };
 
   return {
     view: "staff",
-    scope: { subject_id: subjectId, kind, class_group_id: classGroupId },
+    scope: { subject_id: subjectId, kind, class_group_id: classGroupId, grade_id: gradeId },
     subjects: subjects.map((s) => {
       const sum = summarise(ranked.filter((r) => r.subjects[s.course_id]).map((r) => ({ score: r.subjects[s.course_id].score })));
       return { ...s, ranked_count: sum.ranked_count, average: sum.average };
     }),
-    class_groups: [...classGroups].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name)),
+    class_groups: [...classOptions.values()].sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
+    grades: [...gradeOptions]
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true })),
     summary: { ...summary, distribution, unranked_count: unranked.length },
+    groups: {
+      class_groups: summariseGroups(
+        (x) => x.class_group_id,
+        (x) => ({ name: x.class_group_name ?? "", grade_name: x.grade_name }),
+        "No class group",
+      ),
+      grades: summariseGroups(
+        (x) => x.grade_id,
+        (x) => ({ name: x.grade_name ?? "", grade_name: x.grade_name }),
+        "No grade",
+      ),
+    },
     rows,
     unranked,
   };
@@ -874,6 +1056,8 @@ export interface StudentSummary {
   view: "student_summary";
   rank: number | null;
   ranked_count: number;
+  /** The class group the rank is within; null when ranked across the subjects. */
+  class_group_name: string | null;
   score: number | null;
   band: string | null;
   status: PerformanceStatus;
@@ -897,6 +1081,7 @@ export const buildStudentSummary = (view: StudentView): StudentSummary => {
     view: "student_summary",
     rank: overall.rank,
     ranked_count: overall.ranked_count,
+    class_group_name: view.cohort.type === "class_group" ? view.cohort.class_group_name : null,
     score: overall.score,
     band: overall.band,
     status: overall.status,

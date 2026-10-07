@@ -16,7 +16,7 @@ vi.mock("../utils/axiosConfig", () => ({ default: { get: (...a: unknown[]) => ge
 
 import RankingPage from "../pages/RankingPage";
 import CourseRankingPanel from "../components/Courses/CourseRankingPanel";
-import { pickOption, selectValue, optionValues } from "./helpers/select";
+import { pickOption, optionValues } from "./helpers/select";
 
 const SUBJECTS = [
   { course_id: "8", name: "Graphic User Interface Design", code: "SPEGI302" },
@@ -26,6 +26,7 @@ const SUBJECTS = [
 const studentData = (over: Partial<StudentRanking> = {}): StudentRanking => ({
   view: "student",
   scope: { subject_id: null, kind: "all" },
+  cohort: { type: "class_group", class_group_id: 1, class_group_name: "L5 SOD A", grade_name: "Level 5" },
   overall: {
     rank: 4, ranked_count: 19, score: 68.5, band: "Upper half", top_percent: 21,
     class_average: 62.1, points_to_next: 1.5, marked_items: 7, status: "on_track",
@@ -54,20 +55,32 @@ const studentData = (over: Partial<StudentRanking> = {}): StudentRanking => ({
   ...over,
 });
 
+const L5 = { grade_id: 5, grade_name: "Level 5" };
+const L4 = { grade_id: 4, grade_name: "Level 4" };
+const group = (id: number | null, name: string, ranked: number, average: number | null, gradeName: string | null) => ({
+  id, name, grade_name: gradeName, ranked_count: ranked, unranked_count: 0, average, median: average,
+  highest: average, lowest: average, distribution: { excelling: 0, on_track: ranked, needs_attention: 0, at_risk: 0 },
+});
 const staffData = (): StaffRanking => ({
   view: "staff",
-  scope: { subject_id: null, kind: "all", class_group_id: null },
-  subjects: SUBJECTS.map((s) => ({ ...s, ranked_count: 2, average: 70 })),
-  class_groups: [{ id: 1, name: "L5 SOD A" }, { id: 2, name: "L5 SOD B" }],
+  scope: { subject_id: null, kind: "all", class_group_id: null, grade_id: null },
+  subjects: SUBJECTS.map((s) => ({ ...s, ranked_count: 3, average: 70 })),
+  class_groups: [{ id: 1, name: "L5 SOD A", ...L5 }, { id: 2, name: "L5 SOD B", ...L5 }, { id: 3, name: "L4 SOD A", ...L4 }],
+  grades: [{ id: 4, name: "Level 4" }, { id: 5, name: "Level 5" }],
   summary: {
-    ranked_count: 2, average: 70, median: 70, highest: 90, lowest: 50,
-    distribution: { excelling: 1, on_track: 0, needs_attention: 1, at_risk: 0 }, unranked_count: 1,
+    ranked_count: 3, average: 70, median: 70, highest: 90, lowest: 50,
+    distribution: { excelling: 1, on_track: 1, needs_attention: 1, at_risk: 0 }, unranked_count: 1,
+  },
+  groups: {
+    class_groups: [group(3, "L4 SOD A", 1, 70, "Level 4"), group(1, "L5 SOD A", 1, 90, "Level 5"), group(2, "L5 SOD B", 1, 50, "Level 5")],
+    grades: [group(4, "Level 4", 1, 70, "Level 4"), group(5, "Level 5", 2, 70, "Level 5")],
   },
   rows: [
-    { rank: 1, key: "m1", mis_user_id: 1, name: "Angelo IGIHOZO", class_group_name: "L5 SOD A", score: 90, status: "excelling", marked_items: 5, subjects_marked: 2, subject_scores: {}, by_kind: { quiz: 90 } },
-    { rank: 2, key: "m2", mis_user_id: 2, name: "Axel KUBAHO", class_group_name: "L5 SOD B", score: 50, status: "needs_attention", marked_items: 3, subjects_marked: 1, subject_scores: {}, by_kind: {} },
+    { rank: 1, key: "m1", mis_user_id: 1, name: "Angelo IGIHOZO", class_group_id: 1, class_group_name: "L5 SOD A", ...L5, class_rank: 1, class_size: 1, grade_rank: 1, grade_size: 2, score: 90, status: "excelling", marked_items: 5, subjects_marked: 2, subject_scores: {}, by_kind: { quiz: 90 } },
+    { rank: 2, key: "m4", mis_user_id: 4, name: "Cedric MUGISHA", class_group_id: 3, class_group_name: "L4 SOD A", ...L4, class_rank: 1, class_size: 1, grade_rank: 1, grade_size: 1, score: 70, status: "on_track", marked_items: 2, subjects_marked: 1, subject_scores: {}, by_kind: {} },
+    { rank: 3, key: "m2", mis_user_id: 2, name: "Axel KUBAHO", class_group_id: 2, class_group_name: "L5 SOD B", ...L5, class_rank: 1, class_size: 1, grade_rank: 2, grade_size: 2, score: 50, status: "needs_attention", marked_items: 3, subjects_marked: 1, subject_scores: {}, by_kind: {} },
   ],
-  unranked: [{ key: "m3", mis_user_id: 3, name: "Bella IRAKOZE", class_group_name: "L5 SOD A" }],
+  unranked: [{ key: "m3", mis_user_id: 3, name: "Bella IRAKOZE", class_group_id: 1, class_group_name: "L5 SOD A", ...L5 }],
   available_subjects: SUBJECTS,
   subject_scope: "assigned",
 });
@@ -106,6 +119,24 @@ describe("Overall Ranking — student", () => {
     // No leaderboard for a student.
     expect(screen.queryByText("Leaderboard")).not.toBeInTheDocument();
     expect(get).toHaveBeenCalledWith("/rankings", { params: {} });
+  });
+
+  it("says which class group the student is ranked in", async () => {
+    get.mockResolvedValue(ok(studentData()));
+    renderPage();
+    expect(await screen.findByText("Ranked within L5 SOD A")).toBeInTheDocument();
+    expect(screen.getByText("Place in L5 SOD A")).toBeInTheDocument();
+    expect(screen.getByText(/Your overall position · L5 SOD A/)).toBeInTheDocument();
+    // Class and grade pickers are staff-only.
+    expect(screen.queryByLabelText("Grade")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Class")).not.toBeInTheDocument();
+  });
+
+  it("flags the fallback when the class couldn't be read", async () => {
+    get.mockResolvedValue(ok(studentData({ cohort: { type: "subjects" } })));
+    renderPage();
+    expect(await screen.findByText("Ranked across your subjects")).toBeInTheDocument();
+    expect(screen.queryByText(/Ranked within/)).not.toBeInTheDocument();
   });
 
   it("filters by subject from the chips and keeps it in the URL", async () => {
@@ -158,6 +189,59 @@ describe("Overall Ranking — staff", () => {
     await waitFor(() => expect(get).toHaveBeenLastCalledWith("/rankings", { params: { classGroupId: 2 } }));
     fireEvent.click(screen.getByRole("button", { name: /Not ranked yet/ }));
     expect(screen.getByRole("link", { name: "Bella IRAKOZE" })).toBeInTheDocument();
+  });
+
+  it("filters by grade, narrowing the class list to that grade", async () => {
+    get.mockResolvedValue(ok(staffData()));
+    renderPage();
+    await screen.findByText("Leaderboard");
+    expect(optionValues(screen.getByLabelText("Class"))).toEqual(["", "1", "2", "3"]);
+    pickOption(screen.getByLabelText("Grade"), "5");
+    await waitFor(() => expect(get).toHaveBeenLastCalledWith("/rankings", { params: { gradeId: 5 } }));
+    expect(screen.getByTestId("location").textContent).toBe("?grade=5");
+    expect(optionValues(screen.getByLabelText("Class"))).toEqual(["", "1", "2"]);
+  });
+
+  it("drops a class outside a newly picked grade", async () => {
+    get.mockResolvedValue(ok(staffData()));
+    renderPage("/ranking?class=3");
+    await screen.findByText("Leaderboard");
+    expect(get).toHaveBeenCalledWith("/rankings", { params: { classGroupId: 3 } });
+    pickOption(screen.getByLabelText("Grade"), "5");
+    await waitFor(() => expect(get).toHaveBeenLastCalledWith("/rankings", { params: { gradeId: 5 } }));
+  });
+
+  it("groups the leaderboard by class with each student's place in class", async () => {
+    get.mockResolvedValue(ok(staffData()));
+    renderPage();
+    await screen.findByText("Leaderboard");
+    fireEvent.click(screen.getByRole("radio", { name: "By class" }));
+    expect(screen.getByTestId("location").textContent).toBe("?group=class");
+    expect(await screen.findByText("Classes compared")).toBeInTheDocument();
+    const sections = screen.getAllByRole("rowheader").map((h) => h.querySelector("span")?.textContent);
+    expect(sections).toEqual(["L4 SOD A", "L5 SOD A", "L5 SOD B"]);
+    expect(screen.getByRole("columnheader", { name: "In class" })).toBeInTheDocument();
+    expect(screen.getByText("#3 overall")).toBeInTheDocument();
+    // Grouping is client-side: no refetch.
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it("groups by grade and opens one grade from its card", async () => {
+    get.mockResolvedValue(ok(staffData()));
+    renderPage("/ranking?group=grade");
+    expect(await screen.findByText("Grades compared")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "In grade" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /^Level 5/ }));
+    await waitFor(() => expect(get).toHaveBeenLastCalledWith("/rankings", { params: { gradeId: 5 } }));
+    expect(screen.getByTestId("location").textContent).toBe("?grade=5&group=grade");
+  });
+
+  it("shows each student's place in class and grade", async () => {
+    get.mockResolvedValue(ok(staffData()));
+    renderPage();
+    await screen.findByText("Leaderboard");
+    expect(screen.getByLabelText("2nd of 2 in Level 5")).toBeInTheDocument();
+    expect(screen.getAllByLabelText(/1st of 1 in L5 SOD/)).toHaveLength(2);
   });
 
   it("searches the leaderboard", async () => {

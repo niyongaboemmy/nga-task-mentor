@@ -6,6 +6,7 @@ import { sendControllerError } from "../utils/controllerErrors";
 import { loadMarkSources } from "../utils/markSources";
 import { fetchEnrolledStudents, getMisToken, resolveAcademicTermId } from "../utils/misUtils";
 import { getScopedSubjects, type ScopedSubject } from "../utils/scopedSubjects";
+import { loadStaffPlacements, loadStudentClassCohort } from "../utils/rankingCohorts";
 import {
   buildStaffView,
   buildStudentSummary,
@@ -18,17 +19,18 @@ import {
 } from "../utils/overallRanking";
 
 // @desc    Overall ranking on assignments, quizzes and recorded marks
-// @route   GET /api/rankings?subjectId=&kind=&classGroupId=&summary=
+// @route   GET /api/rankings?subjectId=&kind=&classGroupId=&gradeId=&summary=
 // @access  Private (COURSES_VIEW + RANKINGS_VIEW_OWN or RANKINGS_VIEW_ALL) —
 //          the view is decided by the caller's subject scope
 //          (utils/scopedSubjects), never by a query parameter, and each view
 //          needs its own permission:
-//   - enrolled (students), RANKINGS_VIEW_OWN: their own position,
-//     per-subject standing, outstanding work and suggestions. No other
-//     student's name, key or score is ever returned; averages are hidden in
-//     small cohorts.
+//   - enrolled (students), RANKINGS_VIEW_OWN: their own position within
+//     their current class group, per-subject standing, outstanding work and
+//     suggestions. No other student's name, key or score is ever returned;
+//     averages are hidden in small cohorts. classGroupId/gradeId are ignored.
 //   - assigned / all (teachers, admins), RANKINGS_VIEW_ALL: a named
-//     leaderboard over the subjects they teach / every subject.
+//     leaderboard over the subjects they teach / every subject, filterable by
+//     class group and grade, with each student's place in class and grade.
 //   - none, or the view's permission missing: 403.
 // ?summary=1 is the top-bar chip: a student gets their overall standing only
 // (StudentSummary); staff get { view: "none" } without any work done. A role
@@ -39,6 +41,7 @@ export const rankingQuerySchema = z.object({
   subjectId: z.coerce.number().int().positive().optional(),
   kind: z.enum(["all", "assignment", "quiz", "recorded"]).default("all"),
   classGroupId: z.coerce.number().int().positive().optional(),
+  gradeId: z.coerce.number().int().positive().optional(),
   /** Top-bar summary: the student's overall standing only, no filters. */
   summary: z.enum(["1", "true", "0", "false"]).optional().transform((v) => v === "1" || v === "true"),
 });
@@ -104,7 +107,7 @@ export const getRanking = async (req: Request, res: Response) => {
         errors: parsed.error.issues.map((i) => ({ field: i.path.join("."), message: i.message })),
       });
     }
-    const { kind, classGroupId, summary } = parsed.data;
+    const { kind, classGroupId, gradeId, summary } = parsed.data;
     // The summary is always the overall standing on all work.
     const subjectId = summary ? undefined : parsed.data.subjectId;
 
@@ -131,14 +134,18 @@ export const getRanking = async (req: Request, res: Response) => {
     const subjectKey = subjectId !== undefined ? String(subjectId) : null;
 
     if (scope === "enrolled") {
-      // Students never get a class-group view: that filter is staff-only.
+      // A student is ranked within their own class group; the class-group and
+      // grade filters are staff-only and ignored here.
       const me = {
         mis_user_id: req.user?.mis_user_id ? Number(req.user.mis_user_id) : null,
         user_id: req.user?.id ? Number(req.user.id) : null,
       };
-      const sources = courseIds.length
-        ? await loadMarkSources(req, courseIds, termId, me.mis_user_id ? [me.mis_user_id] : [])
-        : null;
+      const [sources, classCohort] = await Promise.all([
+        courseIds.length
+          ? loadMarkSources(req, courseIds, termId, me.mis_user_id ? [me.mis_user_id] : [])
+          : Promise.resolve(null),
+        loadStudentClassCohort(req, me.mis_user_id),
+      ]);
       const marks = sources ? collectMarks(sources) : [];
       const pending = sources
         ? collectPending(sources, me, courseIds.map(String), new Date())
@@ -150,6 +157,7 @@ export const getRanking = async (req: Request, res: Response) => {
         pending,
         kind: summary ? "all" : kind,
         subjectId: subjectKey,
+        classCohort,
       });
       if (summary) {
         return res.status(200).json({ success: true, data: buildStudentSummary(view) });
@@ -164,11 +172,12 @@ export const getRanking = async (req: Request, res: Response) => {
     // Roster for names/class groups: the selected subject, or every subject
     // that has marks (an admin's catalogue can run to hundreds of subjects).
     const markedCourses = Array.from(new Set(marks.map((m) => Number(m.course_id))));
-    const roster = await loadRoster(
-      getMisToken(req, { quiet: true }),
-      subjectId !== undefined ? [subjectId] : markedCourses,
-      termId,
-    );
+    const [roster, placements] = await Promise.all([
+      loadRoster(getMisToken(req, { quiet: true }), subjectId !== undefined ? [subjectId] : markedCourses, termId),
+      // Class groups and grades come from class rosters: the admin subject
+      // roster names a student's class but not its id, and neither has grades.
+      loadStaffPlacements(req, scope, courseIds, termId),
+    ]);
 
     // With the roster in hand, recorded marks can be re-resolved against it
     // (an id on the roster is a MIS id even without a local account).
@@ -206,9 +215,11 @@ export const getRanking = async (req: Request, res: Response) => {
       marks,
       roster,
       fallbackNames,
+      placements,
       kind,
       subjectId: subjectKey,
       classGroupId: classGroupId ?? null,
+      gradeId: gradeId ?? null,
     });
     return res.status(200).json({
       success: true,

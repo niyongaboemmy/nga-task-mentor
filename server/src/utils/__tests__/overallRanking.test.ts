@@ -294,7 +294,10 @@ describe("buildStaffView", () => {
       [4, "Alice A", 60],
     ]);
     expect(view.unranked.map((u) => u.name)).toEqual(["Dan D"]);
-    expect(view.class_groups).toEqual([{ id: 100, name: "S4 A" }, { id: 200, name: "S4 B" }]);
+    expect(view.class_groups).toEqual([
+      { id: 100, name: "S4 A", grade_id: null, grade_name: null },
+      { id: 200, name: "S4 B", grade_id: null, grade_name: null },
+    ]);
     expect(view.summary.distribution).toEqual({ excelling: 1, on_track: 2, needs_attention: 1, at_risk: 0 });
   });
 
@@ -305,6 +308,124 @@ describe("buildStaffView", () => {
     expect(view.rows.map((r) => [r.rank, r.name])).toEqual([[1, "Cleo C"]]);
     expect(view.unranked.map((u) => u.name)).toEqual(["Dan D"]);
     expect(view.subjects.map((s) => s.course_id)).toEqual(["1"]);
+  });
+
+  // Two grades, three classes. Placements (from MIS class rosters) win over
+  // the subject roster, which for admins names a class but carries no id.
+  const placements = new Map([
+    ["m1", { class_group_id: 100, class_group_name: "S4 A", grade_id: 4, grade_name: "Senior 4" }],
+    ["m2", { class_group_id: 100, class_group_name: "S4 A", grade_id: 4, grade_name: "Senior 4" }],
+    ["m3", { class_group_id: 200, class_group_name: "S4 B", grade_id: 4, grade_name: "Senior 4" }],
+    ["m4", { class_group_id: 200, class_group_name: "S4 B", grade_id: 4, grade_name: "Senior 4" }],
+    ["m5", { class_group_id: 300, class_group_name: "S5 A", grade_id: 5, grade_name: "Senior 5" }],
+  ]);
+  const adminRoster = [1, 2, 3, 4, 5].map((id) => ({
+    key: `m${id}`, mis_user_id: id, name: `Student ${id}`, class_group_id: null, class_group_name: null,
+  }));
+  const gradeMarks = [mark("m1", "1", 60), mark("m2", "1", 80), mark("m3", "1", 90), mark("m5", "1", 85)];
+  const staff = (over: Partial<Parameters<typeof buildStaffView>[0]> = {}) =>
+    buildStaffView({
+      subjects, marks: gradeMarks, roster: adminRoster, fallbackNames: new Map(), placements,
+      kind: "all", subjectId: null, classGroupId: null, ...over,
+    });
+
+  it("offers class groups and grades from placements when the roster has no class ids", () => {
+    const view = staff();
+    expect(view.class_groups.map((g) => [g.id, g.grade_name])).toEqual([[100, "Senior 4"], [200, "Senior 4"], [300, "Senior 5"]]);
+    expect(view.grades).toEqual([{ id: 4, name: "Senior 4" }, { id: 5, name: "Senior 5" }]);
+    expect(view.rows.find((r) => r.key === "m5")).toMatchObject({ class_group_name: "S5 A", grade_name: "Senior 5" });
+  });
+
+  it("filters to a grade and ranks within it", () => {
+    const view = staff({ gradeId: 4 });
+    expect(view.rows.map((r) => [r.rank, r.key])).toEqual([[1, "m3"], [2, "m2"], [3, "m1"]]);
+    expect(view.unranked.map((u) => u.key)).toEqual(["m4"]);
+    expect(view.scope.grade_id).toBe(4);
+    // Options stay complete so the filter can be changed.
+    expect(view.grades).toHaveLength(2);
+  });
+
+  it("combines grade and class filters", () => {
+    expect(staff({ gradeId: 4, classGroupId: 100 }).rows.map((r) => r.key)).toEqual(["m2", "m1"]);
+    expect(staff({ gradeId: 5, classGroupId: 100 }).rows).toEqual([]);
+  });
+
+  it("gives every row its place in class and in grade, whatever the filter", () => {
+    const rows = new Map(staff().rows.map((r) => [r.key, r]));
+    expect(rows.get("m3")).toMatchObject({ rank: 1, class_rank: 1, class_size: 1, grade_rank: 1, grade_size: 3 });
+    expect(rows.get("m5")).toMatchObject({ rank: 2, class_rank: 1, class_size: 1, grade_rank: 1, grade_size: 1 });
+    expect(rows.get("m1")).toMatchObject({ rank: 4, class_rank: 2, class_size: 2, grade_rank: 3, grade_size: 3 });
+    const filtered = staff({ classGroupId: 100 }).rows.find((r) => r.key === "m1");
+    expect(filtered).toMatchObject({ rank: 2, class_rank: 2, grade_rank: 3, grade_size: 3 });
+  });
+
+  it("breaks the selection down by class group and by grade", () => {
+    const view = staff();
+    expect(view.groups.class_groups.map((g) => [g.id, g.ranked_count, g.unranked_count, g.average])).toEqual([
+      [100, 2, 0, 70],
+      [200, 1, 1, 90],
+      [300, 1, 0, 85],
+    ]);
+    expect(view.groups.grades.map((g) => [g.name, g.ranked_count, g.highest])).toEqual([
+      ["Senior 4", 3, 90],
+      ["Senior 5", 1, 85],
+    ]);
+  });
+
+  it("puts students without a class group in their own bucket, last", () => {
+    const view = staff({ marks: [...gradeMarks, mark("l9", "1", 50)], fallbackNames: new Map([["l9", { name: "Local", mis_user_id: null }]]) });
+    expect(view.groups.class_groups.at(-1)).toMatchObject({ id: null, name: "No class group", ranked_count: 1 });
+    expect(view.rows.find((r) => r.key === "l9")).toMatchObject({ class_rank: null, grade_rank: null });
+    // ...and a class filter leaves them out.
+    expect(staff({ marks: [...gradeMarks, mark("l9", "1", 50)], classGroupId: 100 }).rows.map((r) => r.key)).not.toContain("l9");
+  });
+});
+
+describe("buildStudentView — class-group cohort", () => {
+  const subjects = [
+    { course_id: "1", name: "Maths", code: null },
+    { course_id: "2", name: "Physics", code: null },
+  ];
+  // "me" and four classmates; S4 B shares Maths and has stronger marks; an
+  // S5 student shares only Physics.
+  const classmates = ["c1", "c2", "c3", "c4"];
+  const marks: Mark[] = [
+    mark("me", "1", 70), mark("me", "2", 70),
+    ...classmates.flatMap((k, i) => [mark(k, "1", 50 + i * 10), mark(k, "2", 60)]),
+    ...["b1", "b2", "b3"].map((k) => mark(k, "1", 95)),
+    mark("s5", "2", 99),
+  ];
+  const classCohort = { class_group_id: 100, class_group_name: "S4 A", grade_name: "Senior 4", keys: new Set(["me", ...classmates]) };
+  const build = (over: Partial<Parameters<typeof buildStudentView>[0]> = {}) =>
+    buildStudentView({ meKey: "me", subjects, marks, pending: [], kind: "all", subjectId: null, classCohort, ...over });
+
+  it("ranks overall within my class group only", () => {
+    const view = build();
+    expect(view.overall).toMatchObject({ rank: 1, ranked_count: 5 });
+    expect(view.cohort).toEqual({ type: "class_group", class_group_id: 100, class_group_name: "S4 A", grade_name: "Senior 4" });
+  });
+
+  it("ranks each subject within my class group too", () => {
+    const maths = build().subjects.find((s) => s.course_id === "1")!;
+    // Classmates have 50/60/70/80 in Maths: 80 beats me, 70 ties with me.
+    expect(maths).toMatchObject({ rank: 2, ranked_count: 5, class_average: 66 });
+  });
+
+  it("without a class cohort falls back to everyone in my subjects, and says so", () => {
+    const view = build({ classCohort: null });
+    expect(view.cohort).toEqual({ type: "subjects" });
+    expect(view.overall.ranked_count).toBe(9);
+    expect(view.overall.rank).not.toBe(1);
+  });
+
+  it("still ranks me when the class roster doesn't list me", () => {
+    const view = build({ classCohort: { ...classCohort, keys: new Set(classmates) } });
+    expect(view.overall).toMatchObject({ rank: 1, ranked_count: 5 });
+  });
+
+  it("puts the class name in the top-bar summary", () => {
+    expect(buildStudentSummary(build()).class_group_name).toBe("S4 A");
+    expect(buildStudentSummary(build({ classCohort: null })).class_group_name).toBeNull();
   });
 });
 
