@@ -13,6 +13,9 @@ import {
 import { protect, authorizePermission, checkEnrollment } from "../middleware/auth";
 import { intOrNull, trackOnSuccess } from "../activity/keyEvents";
 import { uploadSubmission } from "../middleware/submissionUpload";
+import { validateBody } from "../middleware/validation.middleware";
+import { draftFeedbackSchema } from "../validations/assignmentAi.validation";
+import { draftSubmissionFeedback } from "../controllers/submissionAi.controller";
 
 const router = Router();
 
@@ -78,6 +81,18 @@ router.patch(
     submission_id: intOrNull(req.params.id),
   })),
   gradeSubmission,
+);
+
+// AI marking draft for the teacher (nothing saved; see submissionAi.controller.ts)
+router.post(
+  "/:id/ai-feedback",
+  authorizePermission("SUBMISSIONS_GRADE"),
+  validateBody(draftFeedbackSchema),
+  trackOnSuccess("tm.grade.ai_draft", (req) => ({
+    kind: "assignment",
+    submission_id: intOrNull(req.params.id),
+  })),
+  draftSubmissionFeedback,
 );
 
 // Add comment to submission

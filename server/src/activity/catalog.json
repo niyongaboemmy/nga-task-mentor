@@ -65,6 +65,7 @@
     { "key": "tm.quiz.submit", "label": "Quiz submitted", "module": "Quizzes", "event": true, "key_event": true },
     { "key": "tm.assignment.submit", "label": "Assignment submitted", "module": "Assignments", "event": true, "key_event": true },
     { "key": "tm.grade.save", "label": "Grade saved", "module": "Grades", "event": true, "key_event": true },
+    { "key": "tm.grade.ai_draft", "label": "AI marking draft", "module": "Grades", "event": true },
     { "key": "tm.question.generate", "label": "AI questions generated", "module": "Question bank", "event": true, "key_event": true },
 
     { "key": "tm.quiz.submit_click", "label": "Clicked \"Submit quiz\"", "module": "Quizzes", "event": true },

@@ -4,6 +4,7 @@ import type { AssignmentInterface } from "./AssignmentCard";
 import { motion } from "framer-motion";
 import { MessageSquare, Star, Award } from "lucide-react";
 import ScoreRing from "../Common/ScoreRing";
+import AiMarkingAssistant from "./AiMarkingAssistant";
 
 export interface SubmissionItemInterface {
   id: string;
@@ -74,6 +75,8 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
     submission.feedback || "",
   );
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  /** The AI assistant's note per rubric criterion (teacher-only, never saved). */
+  const [aiNotes, setAiNotes] = React.useState<Record<number, string>>({});
 
   const rubric = React.useMemo(() => {
     if (!assignment.rubric) return [];
@@ -280,6 +283,16 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
         </div>
       </section>
 
+      <AiMarkingAssistant
+        submissionId={submission.id}
+        onApplyMarks={(scores, total) => {
+          setRubricScores(scores);
+          setScore(String(total));
+        }}
+        onUseFeedback={(text) => setFeedback(text)}
+        onCriterionNotes={setAiNotes}
+      />
+
       {/* Interactive Rubric Section */}
       {rubric && rubric.length > 0 && (
         <div className="space-y-6">
@@ -331,6 +344,11 @@ const SubmissionMarking: React.FC<SubmissionMarkingProps> = ({
                         {criterion.description ||
                           "No specific instructions provided for this criterion."}
                       </p>
+                      {aiNotes[index] && (
+                        <p className="ml-12 max-w-2xl rounded-lg bg-violet-50 px-3 py-1.5 text-xs text-violet-900 dark:bg-violet-500/10 dark:text-violet-100">
+                          <span className="font-semibold">AI note:</span> {aiNotes[index]}
+                        </p>
+                      )}
                     </div>
 
                     <div className="flex flex-col items-center md:items-end gap-4 ml-12 md:ml-0">
