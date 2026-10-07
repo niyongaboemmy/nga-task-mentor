@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { ChevronDown, ExternalLink, FolderCode, RefreshCw, Search } from "lucide-react";
+import { ChevronDown, ExternalLink, FolderCode, RefreshCw, Search, Undo2 } from "lucide-react";
+import ReturnForChangesDialog from "./ReturnForChangesDialog";
 import { Skeleton } from "../ui/Skeleton";
 import {
   apiErrorMessage,
@@ -9,7 +10,7 @@ import {
   type ActivityProject,
   type ActivityType,
 } from "../../services/projectsApi";
-import { Avatar, KindBadge, LanguageBadge, LinkStatusBadge } from "./ProjectBadges";
+import { Avatar, KindBadge, LanguageBadge, LinkStatusBadge, ProjectStatusBadge } from "./ProjectBadges";
 import { formatDateTime, frozenProjectHref, shortSha } from "./projectFormat";
 
 /**
@@ -32,6 +33,7 @@ const LinkedProjectsPanel: React.FC<{
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
+  const [returning, setReturning] = useState<{ projectId: number; name: string } | null>(null);
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -144,6 +146,7 @@ const LinkedProjectsPanel: React.FC<{
                           </p>
                         </div>
                         <KindBadge kind={r.project.kind} />
+                        {r.project.status && <ProjectStatusBadge status={r.project.status} />}
                         <LinkStatusBadge
                           status={r.link.status}
                           revisionNumber={r.link.revision_number ?? r.revision?.number}
@@ -157,6 +160,15 @@ const LinkedProjectsPanel: React.FC<{
                           >
                             Open
                           </Link>
+                          {r.project.status === "submitted" && (
+                            <button
+                              type="button"
+                              onClick={() => setReturning({ projectId: r.project.id, name: r.owner.name })}
+                              className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold text-slate-600 hover:bg-amber-50 hover:text-amber-700 dark:text-slate-300 dark:hover:bg-amber-900/20"
+                            >
+                              <Undo2 className="h-3.5 w-3.5" aria-hidden="true" /> Return
+                            </button>
+                          )}
                           {r.project.kind === "github" && r.project.repo_url && r.link.git_commit && (
                             <a
                               href={`${r.project.repo_url.replace(/\.git$/, "")}/tree/${r.link.git_commit}`}
@@ -179,6 +191,13 @@ const LinkedProjectsPanel: React.FC<{
           </motion.div>
         )}
       </AnimatePresence>
+      <ReturnForChangesDialog
+        open={!!returning}
+        projectId={returning?.projectId ?? null}
+        studentName={returning?.name ?? "the student"}
+        onClose={() => setReturning(null)}
+        onReturned={load}
+      />
     </section>
   );
 };

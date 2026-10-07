@@ -32,7 +32,9 @@ import {
 } from "../services/projectsApi";
 import { useEventSource } from "../hooks/useEventSource";
 import { Skeleton, LoadingAnnouncer } from "../components/ui/Skeleton";
-import { AssignmentBadge, KindBadge, LanguageBadge, Pill } from "../components/Projects/ProjectBadges";
+import { AssignmentBadge, KindBadge, LanguageBadge, Pill, ProjectStatusBadge } from "../components/Projects/ProjectBadges";
+import ProjectLifecycle from "../components/Projects/ProjectLifecycle";
+import { freezeTarget } from "../components/Projects/projectFormat";
 import OpenProjectInTmcode from "../components/Projects/OpenProjectInTmcode";
 import LivePanel from "../components/Projects/LivePanel";
 import FilesTab from "../components/Projects/FilesTab";
@@ -275,6 +277,7 @@ const ProjectDetailPage: React.FC = () => {
         <div className="min-w-0 space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-xl font-bold text-text-primary-light dark:text-text-primary-dark md:text-2xl">{project.name}</h1>
+            <ProjectStatusBadge status={project.status} />
             <KindBadge kind={project.kind} />
             {project.assignment && <AssignmentBadge assignment={project.assignment} />}
             {project.archived_at && <Pill tone="amber">Archived</Pill>}
@@ -313,6 +316,18 @@ const ProjectDetailPage: React.FC = () => {
         </div>
         {!readOnly && <OpenProjectInTmcode projectId={project.id} className="shrink-0 [&>button]:w-full md:[&>button]:w-auto" />}
       </motion.header>
+
+      {/* Draft -> Submitted -> Graded: where it is, and what the owner can do next. */}
+      <ProjectLifecycle
+        projectId={project.id}
+        status={project.status}
+        statusChangedAt={project.status_changed_at}
+        isOwner={project.my_role === "owner"}
+        hasAssignment={!!project.assignment || project.links.some((l) => l.activity_type === "assignment")}
+        canSubmitNow={!!freezeTarget(project)}
+        assignmentClosed={project.read_only}
+        onChanged={(next) => (next === "deleted" ? navigate("/projects", { replace: true }) : load())}
+      />
 
       {project.read_only && (
         <div

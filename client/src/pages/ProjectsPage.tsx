@@ -27,7 +27,8 @@ import {
   type ProjectSummary,
 } from "../services/projectsApi";
 import { Skeleton, LoadingAnnouncer, TopProgressBar } from "../components/ui/Skeleton";
-import { AssignmentBadge, KindBadge, LanguageBadge, LiveDot, Pill } from "../components/Projects/ProjectBadges";
+import { AssignmentBadge, KindBadge, LanguageBadge, LiveDot, Pill, ProjectStatusBadge, projectStatusLabel } from "../components/Projects/ProjectBadges";
+import { PROJECT_STATUSES, type ProjectStatus } from "../services/projectsApi";
 import NewProjectDialog from "../components/Projects/NewProjectDialog";
 import { formatBytes, languageMeta, summaryLine, timeAgo } from "../components/Projects/projectFormat";
 import Select from "../components/ui/Select";
@@ -63,6 +64,9 @@ const ProjectsPage: React.FC = () => {
   const kindFilter = params.get("kind") ?? "";
   const langFilter = params.get("lang") ?? "";
   const showArchived = params.get("archived") === "1";
+  // Status filter: "" = every project that isn't removed.
+  const statusParam = params.get("status");
+  const statusFilter: ProjectStatus | "" = (PROJECT_STATUSES as string[]).includes(statusParam ?? "") ? (statusParam as ProjectStatus) : "";
   const sort: Sort = (["name", "size"] as const).find((s) => s === params.get("sort")) ?? "recent";
 
   const [view, setViewState] = useState<View>(readView);
@@ -143,6 +147,7 @@ const ProjectsPage: React.FC = () => {
   const visible = useMemo(() => {
     const q = query.trim().toLowerCase();
     const rows = projects.filter((p) => {
+      if (statusFilter ? p.status !== statusFilter : p.status === "removed") return false;
       if (!showArchived && p.archived_at) return false;
       if (showArchived && !p.archived_at) return false;
       if (kindFilter && p.kind !== kindFilter) return false;
@@ -156,7 +161,13 @@ const ProjectsPage: React.FC = () => {
     return rows.sort((a, b) =>
       sort === "name" ? a.name.localeCompare(b.name) : sort === "size" ? b.size_bytes - a.size_bytes : lastAt(b) - lastAt(a),
     );
-  }, [projects, query, kindFilter, langFilter, showArchived, sort]);
+  }, [projects, query, kindFilter, langFilter, showArchived, sort, statusFilter]);
+
+  const statusCounts = useMemo(() => {
+    const c: Record<ProjectStatus, number> = { draft: 0, submitted: 0, graded: 0, removed: 0 };
+    projects.forEach((p) => (c[p.status] += 1));
+    return c;
+  }, [projects]);
 
   const archivedCount = projects.filter((p) => p.archived_at).length;
   const filtered = !!(query || kindFilter || langFilter);
@@ -242,6 +253,30 @@ const ProjectsPage: React.FC = () => {
               className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm text-text-primary-light focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 dark:border-gray-700 dark:bg-gray-800/60 dark:text-text-primary-dark"
             />
           </label>
+
+          <div className="flex w-full flex-wrap gap-1.5" role="group" aria-label="Status">
+            {(["", ...PROJECT_STATUSES] as const).map((st) => {
+              const on = statusFilter === st;
+              const count = st ? statusCounts[st] : projects.length - statusCounts.removed;
+              return (
+                <button
+                  key={st || "all"}
+                  type="button"
+                  aria-pressed={on}
+                  data-testid={`status-filter-${st || "all"}`}
+                  onClick={() => setParam("status", st || null)}
+                  className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+                    on
+                      ? "bg-blue-600 text-white shadow-sm"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-white/[0.06] dark:text-slate-300 dark:hover:bg-white/[0.1]"
+                  }`}
+                >
+                  {st ? projectStatusLabel(st) : "All"}
+                  <span className={`tabular-nums ${on ? "text-white/80" : "text-slate-400"}`}>{count}</span>
+                </button>
+              );
+            })}
+          </div>
 
           <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
             <FilterSelect
@@ -457,7 +492,10 @@ const ProjectCard: React.FC<{ project: ProjectSummary; showOwner: boolean }> = (
               </p>
             )}
           </div>
-          <KindBadge kind={p.kind} />
+          <div className="flex shrink-0 flex-col items-end gap-1">
+            <KindBadge kind={p.kind} />
+            <ProjectStatusBadge status={p.status} />
+          </div>
         </div>
 
         {live ? (
@@ -536,6 +574,7 @@ const ProjectTable: React.FC<{ projects: ProjectSummary[]; showOwner: boolean }>
                       >
                         {p.name}
                       </Link>
+                      <ProjectStatusBadge status={p.status} />
                       {p.assignment && <AssignmentBadge assignment={p.assignment} />}
                       {p.archived_at && <Pill tone="amber">Archived</Pill>}
                     </div>

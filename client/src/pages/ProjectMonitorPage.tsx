@@ -1,3 +1,4 @@
+import AssignmentProgressBoard from "../components/Projects/AssignmentProgressBoard";
 import React, { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
@@ -162,6 +163,8 @@ const ProjectMonitorPage: React.FC = () => {
         </div>
         <LiveIndicator status={live.status} onRetry={live.reconnect} />
       </div>
+
+      <AssignmentProgressBoard />
 
       <section aria-label="Monitor summary" className="grid grid-cols-2 gap-3 md:grid-cols-4">
         {[

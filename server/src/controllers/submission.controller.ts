@@ -1,3 +1,4 @@
+import { syncProjectsForSubmission } from "../tmcode/projects/status";
 import { Request, Response } from "express";
 import { Submission, Assignment, User, Quiz, QuizSubmission } from "../models";
 import { Op } from "sequelize";
@@ -908,6 +909,15 @@ export const gradeSubmission = async (req: Request, res: Response) => {
         },
       ],
     })) as any;
+
+    // A TMCode project submitted for this assignment is now graded (and locked).
+    if (updatedSubmission) {
+      await syncProjectsForSubmission(
+        Number(updatedSubmission.assignment_id),
+        Number(updatedSubmission.student_id),
+        Number(req.user?.id) || null,
+      );
+    }
 
     res.status(200).json({
       success: true,

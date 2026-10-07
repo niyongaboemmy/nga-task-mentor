@@ -44,9 +44,16 @@ export class Project extends Model {
   @Column({ type: DataType.INTEGER, allowNull: true }) assignment_id?: number | null;
   /** Live status (presence) goes to teachers' monitors. Locked on for open assignment workspaces. */
   @Column({ type: DataType.BOOLEAN, allowNull: false, defaultValue: true }) share_presence!: boolean;
+  /** draft -> submitted -> graded, or removed (soft delete). Kept in sync by tmcode/projects/status.ts. */
+  @Column({ type: DataType.ENUM("draft", "submitted", "graded", "removed"), allowNull: false, defaultValue: "draft" })
+  status!: ProjectStatus;
+  @Column({ type: DataType.DATE, allowNull: true }) status_changed_at?: Date | null;
+  @Column({ type: DataType.INTEGER, allowNull: true }) status_changed_by?: number | null;
   declare created_at: Date;
   declare updated_at: Date;
 }
+
+export type ProjectStatus = "draft" | "submitted" | "graded" | "removed";
 
 export type TmcodeKind = "practical" | "case_study";
 

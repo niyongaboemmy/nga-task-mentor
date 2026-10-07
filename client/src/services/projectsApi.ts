@@ -189,8 +189,14 @@ export interface ProjectAssignment {
   kind: "practical" | "case_study" | null;
 }
 
+/** draft -> submitted -> graded, or removed (server: tmcode/projects/status.ts). */
+export type ProjectStatus = "draft" | "submitted" | "graded" | "removed";
+export const PROJECT_STATUSES: ProjectStatus[] = ["draft", "submitted", "graded", "removed"];
+
 export interface ProjectSummary {
   id: number;
+  status: ProjectStatus;
+  status_changed_at?: string | null;
   name: string;
   slug: string;
   description?: string | null;
@@ -246,6 +252,8 @@ export interface ProjectStats {
   revisions: number;
   submissions: number;
   live_now: number;
+  /** Counts per status (the list's status filter doesn't change them). */
+  by_status: Record<ProjectStatus, number>;
 }
 
 export interface ProjectList {
@@ -265,7 +273,9 @@ export interface LinkableActivity {
 /** One row of the teacher view of an activity (GET /activities/:type/:id/projects). */
 export interface ActivityProject {
   link: ProjectLink;
-  project: Pick<ProjectSummary, "id" | "name" | "kind" | "language" | "repo_url" | "repo_full_name">;
+  project: Pick<ProjectSummary, "id" | "name" | "kind" | "language" | "repo_url" | "repo_full_name"> & {
+    status?: ProjectStatus;
+  };
   owner: UserLite;
   revision: RevisionSummary | null;
 }
@@ -288,6 +298,8 @@ export interface CreateProjectInput {
   visibility?: ProjectVisibility;
   default_branch?: string;
   github_username?: string;
+  /** Create it as the caller's work for this assignment (linked, in draft). */
+  assignment_id?: number;
 }
 
 export interface UpdateProjectInput {
@@ -496,6 +508,8 @@ export function normalizeProject(raw: unknown): ProjectSummary {
   const summary = normalizeSummary(p.presence_summary) ?? normalizeSummary(p.presence) ?? summarizePresence(presence);
   return {
     id: num(p.id),
+    status: (PROJECT_STATUSES as string[]).includes(String(p.status)) ? (p.status as ProjectStatus) : "draft",
+    status_changed_at: str(p.status_changed_at),
     name: str(p.name) ?? "Untitled project",
     slug: str(p.slug) ?? String(p.id ?? ""),
     description: str(p.description),
@@ -599,6 +613,12 @@ export function computeStats(projects: ProjectSummary[], now = Date.now()): Proj
     revisions: projects.reduce((n, p) => n + (p.head?.number ?? 0), 0),
     submissions: projects.reduce((n, p) => n + p.links.submitted, 0),
     live_now: projects.filter((p) => p.presence_summary.online).length,
+    by_status: {
+      draft: projects.filter((p) => p.status === "draft").length,
+      submitted: projects.filter((p) => p.status === "submitted").length,
+      graded: projects.filter((p) => p.status === "graded").length,
+      removed: projects.filter((p) => p.status === "removed").length,
+    },
   };
 }
 
@@ -617,6 +637,14 @@ export function normalizeProjectList(body: unknown): ProjectList {
           revisions: num(serverStats.revisions, computed.revisions),
           submissions: num(serverStats.submissions, computed.submissions),
           live_now: num(serverStats.online ?? serverStats.live_now, computed.live_now),
+          by_status: isObj(serverStats.by_status)
+            ? {
+                draft: num(serverStats.by_status.draft),
+                submitted: num(serverStats.by_status.submitted),
+                graded: num(serverStats.by_status.graded),
+                removed: num(serverStats.by_status.removed),
+              }
+            : computed.by_status,
         }
       : computed,
   };
@@ -670,6 +698,7 @@ export function normalizeActivityProjects(body: unknown): ActivityProject[] {
       project: {
         id: project.id,
         name: project.name,
+        status: project.status,
         kind: project.kind,
         language: project.language,
         repo_url: project.repo_url,
@@ -736,9 +765,9 @@ const BASE = "/tmcode";
 const enc = encodeURIComponent;
 
 export const projectsApi = {
-  /** Archived projects are included; the page filters them. */
+  /** Archived and removed projects are included; pages filter them. */
   async list(scope: ProjectScope = "mine"): Promise<ProjectList> {
-    const res = await api.get(`${BASE}/projects`, { params: { scope, archived: "include" } });
+    const res = await api.get(`${BASE}/projects`, { params: { scope, archived: "include", status: "all" } });
     return normalizeProjectList(res.data);
   },
 
@@ -757,8 +786,41 @@ export const projectsApi = {
     return normalizeProjectDetail(unwrap(res.data));
   },
 
+  /** Soft delete: status "removed" (restorable). */
   async remove(id: number): Promise<void> {
     await api.delete(`${BASE}/projects/${id}`);
+  },
+
+  /** Delete for good — only an already-removed project that was never handed in. */
+  async deleteForGood(id: number): Promise<void> {
+    await api.delete(`${BASE}/projects/${id}`, { params: { permanent: 1 } });
+  },
+
+  async restore(id: number): Promise<ProjectStatus> {
+    const res = await api.post(`${BASE}/projects/${id}/restore`);
+    return (unwrap<Json>(res.data)?.status as ProjectStatus) ?? "draft";
+  },
+
+  /** Hand the project in for its assignment (freezes the latest saved version; locks saving). */
+  async submitProject(id: number): Promise<{ status: ProjectStatus; link: ProjectLink | null }> {
+    const res = await api.post(`${BASE}/projects/${id}/submit`);
+    const data = unwrap<Json>(res.data);
+    return {
+      status: (data?.project_status as ProjectStatus) ?? "submitted",
+      link: isObj(data) && isObj(data.link) ? normalizeLink(data.link) : null,
+    };
+  },
+
+  /** Take a submission back (before grading, while the assignment is open). */
+  async withdraw(id: number): Promise<ProjectStatus> {
+    const res = await api.post(`${BASE}/projects/${id}/withdraw`);
+    return (unwrap<Json>(res.data)?.status as ProjectStatus) ?? "draft";
+  },
+
+  /** Teacher: send a submitted project back to the student for changes. */
+  async returnForChanges(id: number, message?: string): Promise<ProjectStatus> {
+    const res = await api.post(`${BASE}/projects/${id}/return`, { message: message || null });
+    return (unwrap<Json>(res.data)?.status as ProjectStatus) ?? "draft";
   },
 
   async revisions(id: number, limit = 50): Promise<RevisionSummary[]> {

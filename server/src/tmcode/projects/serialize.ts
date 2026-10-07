@@ -144,6 +144,8 @@ export function projectCore(p: Project, owner: UserBrief | null, myRole: string)
     file_count: p.file_count,
     git: p.git_state ?? null,
     archived_at: iso(p.archived_at),
+    status: p.status ?? "draft",
+    status_changed_at: iso(p.status_changed_at),
     share_presence: p.share_presence !== false,
     last_activity_at: iso(p.last_activity_at),
     created_at: iso(p.created_at),

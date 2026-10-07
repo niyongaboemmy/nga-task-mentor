@@ -1,3 +1,4 @@
+import { syncProjectStatus } from "../tmcode/projects/status";
 import { Request, Response } from "express";
 import { z } from "zod";
 import { Op, UniqueConstraintError } from "sequelize";
@@ -100,6 +101,8 @@ async function isTeacherOf(req: Request, a: Assignment): Promise<boolean> {
 
 export interface MyWork {
   project_id: number | null;
+  /** The stored status of the student's project (tmcode/projects/status.ts). */
+  project_status: string | null;
   link_id: number | null;
   state: WorkState;
   submitted_at: string | null;
@@ -148,7 +151,7 @@ async function myWork(userId: number, assignments: Assignment[]): Promise<Map<nu
   const ids = assignments.map((a) => a.id);
   const out = new Map<number, MyWork>();
   if (ids.length === 0) return out;
-  const mine = await Project.findAll({ where: { owner_id: userId }, attributes: ["id", "assignment_id"] });
+  const mine = await Project.findAll({ where: { owner_id: userId }, attributes: ["id", "assignment_id", "status"] });
   const [links, submissions] = await Promise.all([
     mine.length
       ? ProjectActivityLink.findAll({
@@ -175,8 +178,10 @@ async function myWork(userId: number, assignments: Assignment[]): Promise<Map<nu
     const link = links.find((l) => l.activity_id === a.id) ?? null;
     const submission = submissions.find((s) => s.assignment_id === a.id) ?? null;
     const projectId = workspace?.id ?? link?.project_id ?? null;
+    const ownProject = workspace ?? (link ? mine.find((p) => p.id === link.project_id) : null) ?? null;
     out.set(a.id, {
       project_id: projectId,
+      project_status: ownProject?.status ?? null,
       link_id: link?.id ?? null,
       state: workState({ project: projectId ? { id: projectId } : null, link, submission }),
       submitted_at: iso(link?.submitted_at ?? (submission?.status !== "draft" ? submission?.submitted_at : null)),
@@ -459,7 +464,14 @@ export const startAssignment = async (req: Request, res: Response) => {
     });
 
   const existing = await workspaceOf(userId, a.id);
-  if (existing) return answer(existing, false);
+  if (existing) {
+    // Starting again after removing the workspace brings it back.
+    if (existing.status === "removed") {
+      await existing.update({ status: "draft", status_changed_at: new Date(), status_changed_by: userId });
+      await syncProjectStatus(existing.id, userId);
+    }
+    return answer(existing, false);
+  }
   if (isReadOnlyStatus(a.status)) {
     return tmcodeError(res, 409, "ASSIGNMENT_COMPLETED", "This assignment is completed; it can't be started any more.");
   }
@@ -725,6 +737,7 @@ export const assignmentWorkspaces = async (req: Request, res: Response) => {
     return {
       user,
       project_id: project?.id ?? null,
+      project_status: project?.status ?? null,
       link_id: link?.id ?? null,
       submission_id: submission?.id ?? null,
       state: workState({ project, link, submission }),

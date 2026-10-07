@@ -1,3 +1,4 @@
+import type { ProjectStatus } from "./projectsApi";
 import api from "../utils/axiosConfig";
 import { normalizeProjectDetail, unwrap, type PresenceSummary, type ProjectDetail } from "./projectsApi";
 
@@ -31,6 +32,8 @@ export const EMPTY_TMCODE: TmcodeSettings = {
 
 export interface MyWork {
   project_id: number | null;
+  /** Stored status of the student's project (draft / submitted / graded / removed). */
+  project_status?: ProjectStatus | null;
   link_id: number | null;
   state: WorkState;
   submitted_at: string | null;
@@ -83,6 +86,7 @@ export interface WorkspaceUser {
 export interface WorkspaceRow {
   user: WorkspaceUser;
   project_id: number | null;
+  project_status?: ProjectStatus | null;
   link_id: number | null;
   submission_id: number | null;
   state: WorkState;

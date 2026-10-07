@@ -28,6 +28,7 @@ import {
   type AssignmentDetail,
 } from "../../../services/tmcodeAssignmentsApi";
 import { dueCountdown } from "./tmcodeFormat";
+import ProjectLifecycle from "../../Projects/ProjectLifecycle";
 
 /**
  * A student's TMCode practical or case study on the assignment page:
@@ -183,6 +184,19 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
           </div>
         )}
 
+        {/* Draft -> Submitted -> Graded, with Submit / Withdraw right here. */}
+        {my?.project_id && my.project_status && (
+          <ProjectLifecycle
+            projectId={my.project_id}
+            status={my.project_status}
+            isOwner
+            hasAssignment
+            canSubmitNow
+            assignmentClosed={data.read_only || data.status !== "published"}
+            onChanged={() => load()}
+            compact
+          />
+        )}
         {my?.project_id && (my.state === "submitted" || my.state === "graded") && my.revision_number && (
           <SubmittedCode projectId={my.project_id} revisionNumber={my.revision_number} />
         )}

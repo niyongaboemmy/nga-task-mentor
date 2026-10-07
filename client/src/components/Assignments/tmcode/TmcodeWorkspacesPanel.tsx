@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlertCircle, Code2, EyeOff, PenLine, RefreshCw, Search, TerminalSquare, Users } from "lucide-react";
+import { AlertCircle, Code2, EyeOff, PenLine, RefreshCw, Search, TerminalSquare, Trash2, Undo2, Users } from "lucide-react";
+import ReturnForChangesDialog from "../../Projects/ReturnForChangesDialog";
 import { Skeleton } from "../../ui/Skeleton";
 import { Avatar, LiveDot, Pill } from "../../Projects/ProjectBadges";
 import { formatDateTime, timeAgo } from "../../Projects/projectFormat";
@@ -23,7 +24,7 @@ import {
  * grading dialog.
  */
 
-type Filter = "all" | WorkState | "live";
+type Filter = "all" | WorkState | "live" | "removed";
 const POLL_MS = 30_000;
 
 /** Where "View code" goes: the submitted revision, else the latest save. */
@@ -43,6 +44,7 @@ const TmcodeWorkspacesPanel: React.FC<{
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [now, setNow] = useState(() => Date.now());
+  const [returning, setReturning] = useState<WorkspaceRow | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -71,7 +73,9 @@ const TmcodeWorkspacesPanel: React.FC<{
     const q = query.trim().toLowerCase();
     return (data?.workspaces ?? []).filter((r) => {
       if (filter === "live" && !(r.presence?.shared && r.presence.online)) return false;
-      if (filter !== "all" && filter !== "live" && r.state !== filter) return false;
+      if (filter === "removed") {
+        if (r.project_status !== "removed") return false;
+      } else if (filter !== "all" && filter !== "live" && r.state !== filter) return false;
       return !q || r.user.name.toLowerCase().includes(q) || (r.user.email ?? "").toLowerCase().includes(q);
     });
   }, [data, filter, query]);
@@ -85,6 +89,8 @@ const TmcodeWorkspacesPanel: React.FC<{
     { value: "graded", label: "Graded", count: counts?.graded },
     { value: "not_started", label: "Not started", count: data?.workspaces.filter((r) => r.state === "not_started").length },
   ];
+  const removedCount = data?.workspaces.filter((r) => r.project_status === "removed").length ?? 0;
+  if (removedCount) chips.push({ value: "removed", label: "Removed", count: removedCount });
 
   return (
     <section
@@ -204,17 +210,36 @@ const TmcodeWorkspacesPanel: React.FC<{
           <ul className="divide-y divide-gray-100 overflow-hidden rounded-xl border border-gray-100 dark:divide-white/5 dark:border-white/5">
             <AnimatePresence initial={false}>
               {rows.map((r) => (
-                <WorkspaceRowItem key={r.user.id ?? `m${r.user.mis_user_id}`} row={r} now={now} onGrade={onGrade} />
+                <WorkspaceRowItem
+                  key={r.user.id ?? `m${r.user.mis_user_id}`}
+                  row={r}
+                  now={now}
+                  onGrade={onGrade}
+                  onReturn={setReturning}
+                />
               ))}
             </AnimatePresence>
           </ul>
         )}
       </div>
+
+      <ReturnForChangesDialog
+        open={!!returning}
+        projectId={returning?.project_id ?? null}
+        studentName={returning?.user.name ?? "the student"}
+        onClose={() => setReturning(null)}
+        onReturned={load}
+      />
     </section>
   );
 };
 
-const WorkspaceRowItem: React.FC<{ row: WorkspaceRow; now: number; onGrade?: (row: WorkspaceRow) => void }> = ({ row: r, now, onGrade }) => {
+const WorkspaceRowItem: React.FC<{
+  row: WorkspaceRow;
+  now: number;
+  onGrade?: (row: WorkspaceRow) => void;
+  onReturn?: (row: WorkspaceRow) => void;
+}> = ({ row: r, now, onGrade, onReturn }) => {
   const meta = STATE_META[r.state];
   const href = workspaceCodeHref(r);
   const live = !!(r.presence?.shared && r.presence.online);
@@ -252,6 +277,11 @@ const WorkspaceRowItem: React.FC<{ row: WorkspaceRow; now: number; onGrade?: (ro
           {meta.label}
           {r.revision_number ? ` · rev ${r.revision_number}` : ""}
         </Pill>
+        {r.project_status === "removed" && (
+          <Pill tone="slate" icon={<Trash2 className="h-3 w-3" aria-hidden="true" />} title="The student removed this project">
+            Removed
+          </Pill>
+        )}
         {r.presence && !r.presence.shared && (
           <Pill tone="slate" icon={<EyeOff className="h-3 w-3" aria-hidden="true" />} title="The student turned Share live status off">
             Live status not shared
@@ -272,6 +302,17 @@ const WorkspaceRowItem: React.FC<{ row: WorkspaceRow; now: number; onGrade?: (ro
             <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
             {r.revision_id ? `Code at rev ${r.revision_number ?? ""}`.trim() : "View code"}
           </Link>
+        )}
+        {onReturn && r.project_id && r.state === "submitted" && r.project_status === "submitted" && (
+          <button
+            type="button"
+            onClick={() => onReturn(r)}
+            data-testid="workspace-return"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-amber-300 hover:text-amber-700 dark:border-gray-700 dark:text-slate-200 dark:hover:text-amber-300"
+          >
+            <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+            Return for changes
+          </button>
         )}
         {onGrade && (r.state === "submitted" || r.state === "graded" || r.user.mis_user_id) && (
           <button

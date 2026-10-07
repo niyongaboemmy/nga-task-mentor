@@ -356,7 +356,9 @@ const DeleteProjectDialog: React.FC<{
     setBusy(true);
     setError(null);
     try {
-      await projectsApi.remove(project.id);
+      // The server removes first (soft) and deletes for good only a removed project.
+      if (project.status !== "removed") await projectsApi.remove(project.id);
+      await projectsApi.deleteForGood(project.id);
       toast.success(`“${project.name}” deleted.`);
       onDeleted();
     } catch (err) {
