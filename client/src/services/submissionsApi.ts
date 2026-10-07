@@ -9,6 +9,20 @@ export interface SubmissionListItem extends SubmissionItemInterface {
   };
 }
 
+/** POST /submissions/:id/ai-feedback (server services/ai/feedbackDrafter.ts). */
+export interface AiMarkingDraft {
+  rubric_scores: Record<number, number>;
+  criteria: Array<{ index: number; criteria: string; score: number; max_score: number; comment: string }>;
+  score: number;
+  max_score: number;
+  feedback: string;
+  strengths: string[];
+  next_steps: string[];
+  confidence: "low" | "medium" | "high";
+  warnings: string[];
+  provider_used: string;
+}
+
 export interface SubmissionListFilters {
   course_id?: string | number;
   assignment_id?: string | number;
@@ -107,6 +121,15 @@ export class SubmissionsApiService {
     },
   ): Promise<{ success: boolean; message: string; data: SubmissionListItem }> {
     const response = await api.patch(`/submissions/${id}/grade`, payload);
+    return response.data;
+  }
+
+  /** AI marking draft for the teacher to check (nothing is saved). */
+  static async draftFeedback(
+    id: string | number,
+    payload: { tone?: "encouraging" | "neutral" | "direct"; instructions?: string },
+  ): Promise<{ success: boolean; data: AiMarkingDraft }> {
+    const response = await api.post(`/submissions/${id}/ai-feedback`, payload);
     return response.data;
   }
 

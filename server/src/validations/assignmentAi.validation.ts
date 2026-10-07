@@ -34,3 +34,10 @@ export const generateRubricSchema = z.object({
 export const importEditorImageSchema = z.object({
   url: z.string().trim().url("Enter a valid image address").max(4000),
 });
+
+/** POST /api/submissions/:id/ai-feedback */
+export const draftFeedbackSchema = z.object({
+  tone: z.enum(["encouraging", "neutral", "direct"]).optional(),
+  instructions: z.string().max(500).optional(),
+  provider: z.string().max(40).nullable().optional(),
+});
