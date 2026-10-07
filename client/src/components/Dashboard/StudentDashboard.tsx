@@ -1,13 +1,24 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { motion } from "framer-motion";
-import { AlertTriangle, BookOpen } from "lucide-react";
+import { AlertTriangle, BookOpen, FileText } from "lucide-react";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
 import { usePermissions } from "../../hooks/usePermissions";
 import { dashboardContainerVariants, dashboardItemVariants } from "./dashboardUi";
 import ReportCardPanel from "./student/ReportCardPanel";
-import { ComingUp, FocusHero, MarksBars, SubjectCard, focusCard, focusInk, type SubjectCardData } from "./student/FocusDashboard";
+import { FocusHero, SubjectCard, focusCard, focusInk, type SubjectCardData } from "./student/FocusDashboard";
+import {
+  AtAGlance,
+  MarksSection,
+  RemindersSection,
+  Section,
+  TaskBoard,
+  TipsSection,
+  WeekSection,
+  type Suggestion,
+  type TaskTab,
+} from "./student/FocusSections";
 import { STUDENT_DASHBOARD_DEMO, demoOverview, demoStanding } from "./student/demoData";
 import {
   getStudentOverview,
@@ -19,13 +30,15 @@ import {
 import { publishAlerts } from "../../services/alertStore";
 
 /**
- * Student dashboard ("Focus", picked from three mockups):
+ * Student dashboard ("Focus", picked from three mockups), top to bottom:
  *   1. a blue hero that says in words what to do next, with the action button,
  *      and this week's progress, average and class rank beside it,
- *   2. subject cards, busiest first, each with its own next step or latest mark,
- *   3. what's coming up (and anything missed), and recent marks with the
- *      report card.
- * Reminders go to the notification bell (publishAlerts), not onto the page.
+ *   2. at a glance: my tasks by state, work handed in, my average against the
+ *      class, and my standing,
+ *   3. reminders (also published to the notification bell) and this week,
+ *   4. every task by what it needs, and my marks over time,
+ *   5. subject cards, busiest first, each with its next step and me vs class,
+ *   6. tips (from the ranking) and the report cards.
  * Data: GET /dashboard/student/overview; averages including teacher-recorded
  * marks and the rank come from GET /rankings (optional, and only asked for
  * while the role holds RANKINGS_VIEW_OWN: without it there is no rank in the
@@ -48,7 +61,16 @@ interface StandingResponse {
     status: string;
   };
   subjects?: Array<{ course_id: string; score: number | null; class_average: number | null; status: string }>;
+  suggestions?: Suggestion[];
 }
+
+/** "2026 - 2027" from the user's academic period, whatever shape it arrives in. */
+const periodName = (p: unknown): string => {
+  if (!p) return "";
+  if (typeof p === "string") return p;
+  const o = p as { name?: string; academic_year_name?: string; term_name?: string };
+  return o.name ?? o.academic_year_name ?? o.term_name ?? "";
+};
 
 function greeting(d = new Date()) {
   const h = d.getHours();
@@ -75,6 +97,7 @@ const StudentDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [staleError, setStaleError] = useState<string | null>(null);
   const [allSubjects, setAllSubjects] = useState(false);
+  const [tab, setTab] = useState<TaskTab>("todo");
   const hasData = useRef(false);
   const seq = useRef(0);
 
@@ -133,6 +156,10 @@ const StudentDashboard: React.FC = () => {
   }, [overview, location.hash]);
 
   const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView?.({ behavior: "smooth", block: "start" });
+  const openTasks = (t: TaskTab) => {
+    setTab(t);
+    scrollTo("tasks");
+  };
 
   if (loading) return <Skeleton />;
   if (!overview) {
@@ -195,6 +222,7 @@ const StudentDashboard: React.FC = () => {
         a.subject.subject_name.localeCompare(b.subject.subject_name),
     );
   const shownCards = allSubjects ? cards : cards.slice(0, SUBJECTS_SHOWN);
+  const tips = standing?.suggestions ?? [];
 
   return (
     <motion.div variants={dashboardContainerVariants} initial="hidden" animate="visible" className="space-y-8" aria-busy={refreshing}>
@@ -208,6 +236,9 @@ const StudentDashboard: React.FC = () => {
       <motion.div variants={dashboardItemVariants}>
         <FocusHero
           greeting={`${greeting()}, ${user?.first_name || "there"}`}
+          period={[periodName(user?.currentAcademicYear), periodName(user?.currentAcademicTerm)].filter(Boolean).join(" · ")}
+          newMarks={overview.summary.new_results}
+          onSeeMarks={() => scrollTo("results")}
           first={first}
           second={second}
           upcomingLater={upcomingLater}
@@ -223,6 +254,32 @@ const StudentDashboard: React.FC = () => {
         />
       </motion.div>
 
+      <motion.div variants={dashboardItemVariants}>
+        <AtAGlance
+          summary={overview.summary}
+          todo={tasks.filter((t) => TODO_STATES.includes(t.state)).length}
+          average={average}
+          averageIsOverall={overall?.score != null}
+          classAverage={overall?.class_average ?? null}
+          rank={overall?.rank ?? null}
+          rankedCount={overall?.ranked_count ?? 0}
+          band={overall?.band ?? null}
+          showRank={canSeeRanking}
+          onOpenTasks={openTasks}
+          onOpenMarks={() => scrollTo("results")}
+        />
+      </motion.div>
+
+      <motion.div variants={dashboardItemVariants} className="grid gap-6 lg:grid-cols-5">
+        <RemindersSection reminders={overview.reminders} className="lg:col-span-2" />
+        <WeekSection tasks={tasks} className="lg:col-span-3" />
+      </motion.div>
+
+      <motion.div variants={dashboardItemVariants} className="grid gap-6 lg:grid-cols-5">
+        <TaskBoard tasks={tasks} tab={tab} onTab={setTab} className="lg:col-span-3" />
+        <MarksSection tasks={tasks} className="lg:col-span-2" />
+      </motion.div>
+
       {overview.subjects.length === 0 ? (
         <div className={`${focusCard} p-10 text-center`}>
           <BookOpen className="w-8 h-8 mx-auto text-blue-500 mb-2" />
@@ -232,9 +289,12 @@ const StudentDashboard: React.FC = () => {
       ) : (
         <motion.section variants={dashboardItemVariants} aria-labelledby="my-subjects">
           <div className="mb-3 flex items-baseline justify-between">
-            <h2 id="my-subjects" className={`text-lg font-semibold ${focusInk.primary}`}>
-              Your subjects
-            </h2>
+            <div>
+              <h2 id="my-subjects" className={`text-lg font-semibold ${focusInk.primary}`}>
+                My subjects
+              </h2>
+              <p className={`text-xs ${focusInk.secondary}`}>You (bar) against the class average (tick) · tap to open</p>
+            </div>
             {cards.length > SUBJECTS_SHOWN && (
               <button
                 type="button"
@@ -254,27 +314,12 @@ const StudentDashboard: React.FC = () => {
         </motion.section>
       )}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <motion.section variants={dashboardItemVariants} id="coming-up" aria-labelledby="coming-up-title" className={`${focusCard} p-6 scroll-mt-24`}>
-          <h2 id="coming-up-title" className={`text-lg font-semibold ${focusInk.primary}`}>
-            Coming up
-          </h2>
-          <div className="mt-3">
-            <ComingUp tasks={tasks} />
-          </div>
-        </motion.section>
-        <motion.section variants={dashboardItemVariants} id="results" aria-labelledby="marks-title" className={`${focusCard} p-6 scroll-mt-24`}>
-          <h2 id="marks-title" className={`text-lg font-semibold ${focusInk.primary}`}>
-            Recent marks
-          </h2>
-          <div className="mt-4">
-            <MarksBars tasks={tasks} />
-          </div>
-          <div id="report-card" className="mt-5 border-t border-slate-100 dark:border-white/[0.06] pt-4">
-            <ReportCardPanel />
-          </div>
-        </motion.section>
-      </div>
+      <motion.div variants={dashboardItemVariants} className={`grid gap-6 ${tips.length ? "lg:grid-cols-3" : ""}`}>
+        {tips.length > 0 && <TipsSection tips={tips} />}
+        <Section id="report-card" title="My report cards" icon={<FileText className="h-4 w-4" />} className={tips.length ? "lg:col-span-2" : ""}>
+          <ReportCardPanel />
+        </Section>
+      </motion.div>
     </motion.div>
   );
 };
@@ -287,9 +332,9 @@ const Skeleton: React.FC = () => (
         <div key={i} className="h-48 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40" />
       ))}
     </div>
-    <div className="grid gap-6 lg:grid-cols-2">
-      <div className="h-64 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40" />
-      <div className="h-64 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40" />
+    <div className="grid gap-6 lg:grid-cols-5">
+      <div className="h-64 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40 lg:col-span-2" />
+      <div className="h-64 rounded-2xl bg-gray-200/70 dark:bg-gray-700/40 lg:col-span-3" />
     </div>
   </div>
 );

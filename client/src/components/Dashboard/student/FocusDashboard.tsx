@@ -2,18 +2,13 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, RefreshCw } from "lucide-react";
 import { useNow, formatRemaining } from "../../Common/LiveCountdown";
-import {
-  PASS_MARK,
-  subjectLabel,
-  TODO_STATES,
-  type StudentSubjectSummary,
-  type StudentTask,
-} from "../../../services/studentOverviewApi";
+import { subjectLabel, type StudentSubjectSummary, type StudentTask } from "../../../services/studentOverviewApi";
 
 /**
  * The student dashboard's building blocks ("Focus" layout, chosen from three
- * mockups): one blue hero that says in words what to do next, subject cards
- * that each carry their own next step, then what's coming up and recent marks.
+ * mockups): one blue hero that says in words what to do next, and subject
+ * cards that each carry their own next step. The other sections are in
+ * FocusSections.tsx.
  */
 
 const card = "rounded-2xl bg-card-light dark:bg-card-dark/30 shadow-sm ring-1 ring-slate-200/70 dark:ring-white/[0.06]";
@@ -59,6 +54,10 @@ function detail(t: StudentTask, now: number): string | null {
 
 export const FocusHero: React.FC<{
   greeting: string;
+  /** "2026 - 2027 · Term 1" */
+  period: string;
+  newMarks: number;
+  onSeeMarks: () => void;
   first: StudentTask | null;
   second: StudentTask | null;
   upcomingLater: number;
@@ -71,7 +70,7 @@ export const FocusHero: React.FC<{
   refreshing: boolean;
   onRefresh: () => void;
   onSeeWeek: () => void;
-}> = ({ greeting, first, second, upcomingLater, weekDone, weekTotal, average, rank, rankedCount, showRank, refreshing, onRefresh, onSeeWeek }) => {
+}> = ({ greeting, period, newMarks, onSeeMarks, first, second, upcomingLater, weekDone, weekTotal, average, rank, rankedCount, showRank, refreshing, onRefresh, onSeeWeek }) => {
   const now = useNow();
   const lines = [first, second].filter((t): t is StudentTask => !!t).map((t) => detail(t, now)).filter(Boolean);
   const pct = weekTotal ? Math.round((weekDone / weekTotal) * 100) : 0;
@@ -100,6 +99,16 @@ export const FocusHero: React.FC<{
           <p className="text-sm font-medium text-blue-100">
             {greeting} · {date}
           </p>
+          {(period || newMarks > 0) && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-semibold">
+              {period && <span className="rounded-full bg-white/15 px-2.5 py-1">{period}</span>}
+              {newMarks > 0 && (
+                <button type="button" onClick={onSeeMarks} className="rounded-full bg-white px-2.5 py-1 text-blue-700 hover:bg-blue-50">
+                  {newMarks} new {newMarks === 1 ? "mark" : "marks"}
+                </button>
+              )}
+            </div>
+          )}
           <h2 className="mt-2 whitespace-pre-line text-2xl sm:text-3xl font-bold leading-tight">{headline(first, second)}</h2>
           {lines.length > 0 ? (
             <p className="mt-2 text-blue-100">{lines.join(" · ")}</p>
@@ -221,6 +230,12 @@ export const SubjectCard: React.FC<{ data: SubjectCardData; index: number }> = (
       <p className={`text-xs ${ink.secondary}`}>
         {me == null ? "no marks yet" : classAvg != null ? `class ${Math.round(classAvg)}%${below ? " · below average" : ""}` : subjectLabel(subject)}
       </p>
+      {(me != null || classAvg != null) && (
+        <div className="relative mt-3 h-1.5 rounded-full bg-slate-100 dark:bg-white/[0.08]" role="img" aria-label={`You ${me == null ? "no mark" : `${Math.round(me)}%`}, class ${classAvg == null ? "unknown" : `${Math.round(classAvg)}%`}`}>
+          {me != null && <div className={`h-full rounded-full ${below ? "bg-amber-500" : "bg-blue-600"}`} style={{ width: `${Math.max(2, Math.min(100, me))}%` }} />}
+          {classAvg != null && <span className="absolute -top-1 h-3.5 w-0.5 rounded bg-slate-700 dark:bg-slate-200" style={{ left: `calc(${Math.min(100, classAvg)}% - 1px)` }} aria-hidden />}
+        </div>
+      )}
       <div className="mt-auto pt-4">
         {next ? (
           <div className={`rounded-xl px-3 py-2 text-sm ${next.state === "due_today" || next.state === "in_progress" ? "bg-red-50 dark:bg-red-500/10" : "bg-blue-50/70 dark:bg-blue-500/10"}`}>
@@ -241,81 +256,6 @@ export const SubjectCard: React.FC<{ data: SubjectCardData; index: number }> = (
         )}
       </div>
     </Link>
-  );
-};
-
-// ─── Coming up ────────────────────────────────────────────────────────────────
-
-export const ComingUp: React.FC<{ tasks: StudentTask[] }> = ({ tasks }) => {
-  const now = Date.now();
-  const upcoming = tasks
-    .filter((t) => TODO_STATES.includes(t.state) || t.state === "not_open")
-    .map((t) => ({ t, at: t.state === "not_open" ? t.opens_at : t.due_at }))
-    // What's running now first, then by time.
-    .sort((a, b) => Number(b.t.state === "in_progress") - Number(a.t.state === "in_progress") || (a.at ?? "9").localeCompare(b.at ?? "9"));
-  const missed = tasks.filter((t) => t.state === "missed");
-
-  if (upcoming.length === 0 && missed.length === 0) {
-    return <p className={`py-6 text-center text-sm ${ink.secondary}`}>Nothing due. New work shows up here as soon as it's set.</p>;
-  }
-  return (
-    <ul className="divide-y divide-slate-100 dark:divide-white/[0.06] text-sm">
-      {upcoming.map(({ t, at }) => {
-        const urgent = t.state === "in_progress" || t.state === "due_today";
-        return (
-          <li key={`${t.kind}-${t.id}`}>
-            <Link to={t.action?.url ?? "#"} className="-mx-2 flex items-center gap-3 rounded-lg px-2 py-3 hover:bg-slate-50 dark:hover:bg-white/[0.04]">
-              <span className={`w-28 shrink-0 font-semibold tabular-nums ${urgent ? "text-red-600 dark:text-red-400" : ink.secondary}`}>
-                {t.state === "in_progress" ? "In progress" : at ? whenLabel(at, now) : "Open"}
-              </span>
-              <span className={`min-w-0 flex-1 truncate font-medium ${ink.primary}`}>
-                {t.title}
-                {t.kind === "quiz" && <span className={`font-normal ${ink.secondary}`}> · {kindWord(t)}{t.state === "not_open" ? " opens" : ""}</span>}
-              </span>
-              <span className={`hidden shrink-0 sm:inline ${ink.secondary}`}>{t.subject_name}</span>
-            </Link>
-          </li>
-        );
-      })}
-      {missed.map((t) => (
-        <li key={`${t.kind}-${t.id}`} className="flex items-center gap-3 py-3">
-          <span className="w-28 shrink-0 font-semibold text-red-600 dark:text-red-400">Missed</span>
-          <span className={`min-w-0 flex-1 truncate font-medium ${ink.primary}`}>{t.title}</span>
-          <span className={`hidden shrink-0 sm:inline ${ink.secondary}`}>{t.subject_name}</span>
-        </li>
-      ))}
-    </ul>
-  );
-};
-
-// ─── Recent marks ─────────────────────────────────────────────────────────────
-
-export const MarksBars: React.FC<{ tasks: StudentTask[]; limit?: number }> = ({ tasks, limit = 6 }) => {
-  const marks = tasks
-    .filter((t) => t.state === "graded" && t.score_pct != null)
-    .sort((a, b) => (a.graded_at ?? "").localeCompare(b.graded_at ?? ""))
-    .slice(-limit);
-  if (marks.length === 0) {
-    return <p className={`py-6 text-center text-sm ${ink.secondary}`}>No marks yet this term.</p>;
-  }
-  const latest = marks[marks.length - 1];
-  return (
-    <div className="flex h-36 items-end gap-3" role="img" aria-label={`Recent marks: ${marks.map((m) => `${m.title} ${Math.round(m.score_pct!)}%`).join(", ")}`}>
-      {marks.map((m) => {
-        const pct = Math.max(4, Math.round(m.score_pct!));
-        const low = pct < PASS_MARK;
-        const tone = low ? "bg-red-400" : m === latest ? "bg-blue-600" : "bg-blue-300 dark:bg-blue-500/60";
-        return (
-          <Link key={`${m.kind}-${m.id}`} to={m.action?.url ?? "#"} title={`${m.title}: ${pct}%`} className="group flex h-full min-w-0 flex-1 flex-col justify-end text-center">
-            <span className={`text-xs font-semibold tabular-nums ${low ? "text-red-600 dark:text-red-400" : ink.primary}`}>{pct}</span>
-            <div className="mt-1 flex min-h-0 flex-1 items-end justify-center">
-              <div className={`w-full max-w-[2.5rem] rounded-t-lg ${tone} transition-opacity group-hover:opacity-80`} style={{ height: `${pct}%` }} />
-            </div>
-            <p className={`mt-1.5 truncate text-[11px] ${ink.secondary}`}>{subjectLabel(m)}</p>
-          </Link>
-        );
-      })}
-    </div>
   );
 };
 

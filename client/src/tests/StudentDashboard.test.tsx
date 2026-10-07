@@ -130,8 +130,9 @@ describe("StudentDashboard", () => {
 
   it("shows the week's progress, the average and the class rank", async () => {
     renderDash();
-    expect(await screen.findByRole("img", { name: /of \d+ done this week/ })).toBeInTheDocument();
-    expect(screen.getByText("71%")).toBeInTheDocument();
+    const hero = await screen.findByRole("region", { name: "What to do next" });
+    expect(within(hero).getByRole("img", { name: /of \d+ done this week/ })).toBeInTheDocument();
+    expect(within(hero).getByText("71%")).toBeInTheDocument();
     const rank = screen.getByRole("link", { name: "Open my ranking" });
     expect(within(rank).getByText("#4")).toBeInTheDocument();
     expect(within(rank).getByText("of 36 in class")).toBeInTheDocument();
@@ -149,17 +150,37 @@ describe("StudentDashboard", () => {
     expect(await screen.findByText("course page")).toBeInTheDocument();
   });
 
-  it("lists what's coming up with the running quiz first and the missed work last", async () => {
+  it("sorts every task by what it needs: the running quiz first under To do, the missed work under Missed", async () => {
     renderDash();
-    const list = (await screen.findByRole("heading", { name: "Coming up" })).closest("section")!;
-    const rows = within(list).getAllByRole("listitem").map((li) => li.textContent);
-    expect(rows[0]).toMatch(/In progress.*JS basics/);
-    expect(rows[rows.length - 1]).toMatch(/Missed.*CSS lab/);
+    const board = (await screen.findByRole("heading", { name: "My tasks" })).closest("section")!;
+    const rows = () => within(board).getAllByRole("listitem").map((li) => li.textContent);
+    expect(rows()[0]).toMatch(/In progress.*JS basics/);
+    fireEvent.click(within(board).getByRole("tab", { name: /Missed/ }));
+    expect(rows()).toEqual([expect.stringMatching(/Missed.*CSS lab/)]);
   });
 
-  it("charts recent marks and keeps the report card", async () => {
+  it("shows at a glance: tasks by state, work handed in, my average and my standing", async () => {
     renderDash();
-    expect(await screen.findByRole("img", { name: /Recent marks: .*HTML basics 80%/ })).toBeInTheDocument();
+    const glance = await screen.findByRole("region", { name: "At a glance" });
+    expect(within(glance).getByText("My tasks")).toBeInTheDocument();
+    expect(within(glance).getByText("Handed in")).toBeInTheDocument();
+    const standing = within(glance).getByRole("link", { name: "Open my standing" });
+    expect(within(standing).getByText("#4")).toBeInTheDocument();
+  });
+
+  it("lists reminders on the page and lets one be dismissed", async () => {
+    renderDash();
+    const box = (await screen.findByRole("heading", { name: "Reminders" })).closest("section")!;
+    const first = within(box).getAllByRole("button", { name: /^Dismiss: / })[0]!;
+    const title = first.getAttribute("aria-label")!.replace("Dismiss: ", "");
+    fireEvent.click(first);
+    expect(within(box).queryByRole("button", { name: `Dismiss: ${title}` })).toBeNull();
+  });
+
+  it("charts my marks over time and keeps the report card", async () => {
+    renderDash();
+    const marks = (await screen.findByRole("heading", { name: "My marks" })).closest("section")!;
+    expect(within(marks).getByText("HTML basics")).toBeInTheDocument();
     expect(screen.getByTestId("report-card")).toBeInTheDocument();
   });
 
@@ -198,10 +219,10 @@ describe("StudentDashboard", () => {
 
   it("keeps the last tasks when a refresh fails", async () => {
     renderDash();
-    await screen.findByRole("heading", { name: "Coming up" });
+    await screen.findByRole("heading", { name: "My tasks" });
     getOverview.mockRejectedValueOnce({ response: { data: { message: "Network error" } } });
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
     expect(await screen.findByText(/Couldn't refresh \(Network error\)/)).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Coming up" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "My tasks" })).toBeInTheDocument();
   });
 });
