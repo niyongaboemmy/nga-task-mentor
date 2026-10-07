@@ -146,6 +146,7 @@ router.post(
   wrap(practicals.startQuizPractical),
 );
 const grader = [tmcodeUserAuth, requireTmPermission("PROJECTS_MONITOR", "PROJECTS_VIEW_ALL")];
+router.get("/grading", grader, wrap(practicals.listGradable));
 router.get("/grading/:type(assignment|quiz)/:id(\\d+)", grader, wrap(practicals.gradingRoster));
 router.put("/grading/:type(assignment|quiz)/:id(\\d+)/students/:studentId(\\d+)", grader, wrap(practicals.saveGrade));
 router.post(`${p}/preview`, read, wrap(practicals.createPreview));

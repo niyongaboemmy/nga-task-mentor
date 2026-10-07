@@ -233,6 +233,14 @@ describe("quiz practicals", () => {
     expect(res.body.counts.to_grade).toBeGreaterThanOrEqual(1);
     expect((await api(student).get(`/grading/quiz/${quiz.id}?question_id=${qq.id}`)).status).toBe(403);
 
+    // TMCode's Grading view lists the quiz with its practical question; students can't list.
+    const listed = await api(teacher).get("/grading");
+    expect(listed.status).toBe(200);
+    expect(listed.body.activities).toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: "quiz", id: quiz.id, course_name: "Web", questions: [expect.objectContaining({ question_id: qq.id, points: 10 })] })]),
+    );
+    expect((await api(student).get("/grading")).status).toBe(403);
+
     // No question picked: the quiz's first practical, with every practical listed to switch between.
     const first = await api(teacher).get(`/grading/quiz/${quiz.id}`);
     expect(first.status).toBe(200);
