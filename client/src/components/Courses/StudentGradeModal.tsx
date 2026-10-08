@@ -1,4 +1,5 @@
 import React from "react";
+import { getProfileImageUrl } from "../../utils/imageUrl";
 import { ASSESSMENT_TYPE_LABELS } from "../../services/manualAssessmentApi";
 
 /** One teacher-recorded mark, as returned by GET /courses/:id/grades. */
@@ -62,7 +63,7 @@ const StudentGradeModal: React.FC<StudentGradeModalProps> = ({
                 <div className="flex-shrink-0 h-12 w-12 bg-white/20 rounded-full flex items-center justify-center border-2 border-white/30">
                   {student.student.profile_image ? (
                     <img
-                      src={student.student.profile_image}
+                      src={getProfileImageUrl(student.student.profile_image) || undefined}
                       alt=""
                       className="h-12 w-12 rounded-full object-cover"
                     />

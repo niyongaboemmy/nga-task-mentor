@@ -55,7 +55,12 @@ const Profile: React.FC = () => {
   const handleProfilePictureUpdate = async (imageUrl: string) => {
     try {
       await updateProfileImage(imageUrl);
-      setMessage({ type: "success", text: "Profile picture updated!" });
+      // MIS-linked accounts share one picture across NGA MIS, Task Mentor, Tendo and Tupo.
+      const where = user?.mis_user_id ? " in every NGA app" : "";
+      setMessage({
+        type: "success",
+        text: imageUrl ? `Profile picture updated${where}!` : `Profile picture removed${where}.`,
+      });
       setTimeout(() => setMessage(null), 3000);
     } catch (error) {
       console.error(error);

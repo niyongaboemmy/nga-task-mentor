@@ -11,6 +11,13 @@ import { User } from "../models/User.model";
 import { Role } from "../models/Role.model";
 import { Permission } from "../models/Permission.model";
 import { uploadProfilePicture } from "../middleware/upload";
+import {
+  applyMisAvatar,
+  isMisAvatarUrl,
+  misAvatarFrom,
+  removeAvatarFromMis,
+  uploadAvatarToMis,
+} from "../services/misAvatar";
 import fileServer from "../utils/fileServer";
 import { generateUniqueFilename, sanitizeKeepExtension } from "../utils/uploadFilename";
 import { upsertMisUser } from "../services/misUserSync";
@@ -226,6 +233,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
     let currentAcademicYear = data.currentAcademicYear;
     let currentAcademicTerms = data.currentAcademicTerms;
     let systems: any[] = [];
+    let misAvatar = misAvatarFrom(data);
 
     try {
       const profileResponse = await axios.get(
@@ -249,6 +257,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
       currentAcademicTerms = profileData.currentAcademicTerms || [];
       forcePasswordChange = profileData.forcePasswordChange;
       systems = profileData.systems || [];
+      misAvatar = misAvatarFrom(profileData) ?? misAvatar;
     } catch (profileError) {
       console.warn(
         "⚠️ Could not fetch full profile after OTP verification, using verify-otp payload",
@@ -350,6 +359,7 @@ export const verifyOtp = async (req: Request, res: Response) => {
       await localUser.save();
       console.log("✅ Updated user role to:", localUser.role);
     }
+    await applyMisAvatar(localUser, misAvatar);
 
     const effectiveRole = localUser.role_id
       ? await Role.findByPk(localUser.role_id, { include: [Permission] })
@@ -556,6 +566,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
     let currentAcademicYear: any = null;
     let currentAcademicTerms: any[] = [];
     let preferred_theme: string | null = null;
+    let misAvatar = misAvatarFrom(misResponse.data.data);
 
     try {
       const profileResponse = await axios.get(
@@ -573,6 +584,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
       currentAcademicYear = profileData.currentAcademicYear;
       currentAcademicTerms = profileData.currentAcademicTerms || [];
       preferred_theme = profileData.user?.preferred_theme || null;
+      misAvatar = misAvatarFrom(profileData) ?? misAvatar;
       if (profileData.systems) {
         systems = profileData.systems;
       }
@@ -594,6 +606,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
       });
     }
     console.log("✅ Local user synced:", localUser.id);
+    await applyMisAvatar(localUser, misAvatar);
 
     const effectiveRole = localUser.role_id
       ? await Role.findByPk(localUser.role_id, { include: [Permission] })
@@ -839,7 +852,20 @@ export const verifyMisSession = async (req: Request, res: Response) => {
     // Access control v2: a changed access_version invalidates the cached
     // access snapshot, so the next request re-fetches GET /access/me.
     noteAccessVersion(req.user?.mis_user_id, response.data?.data?.access_version);
-    return res.status(200).json({ success: true, data: response.data });
+    // MIS reports the current picture on every poll: a picture changed in MIS (or
+    // another NGA app) reaches this app's top bar within a minute.
+    let profileImage: string | null | undefined;
+    const avatar = misAvatarFrom(response.data?.data);
+    if (avatar !== undefined && req.user?.id) {
+      try {
+        const local = await User.findByPk(req.user.id);
+        await applyMisAvatar(local, avatar);
+        profileImage = local?.profile_image ?? null;
+      } catch (err: any) {
+        console.warn("⚠️ Could not sync MIS profile picture:", err?.message);
+      }
+    }
+    return res.status(200).json({ success: true, data: response.data, profile_image: profileImage });
   } catch (error: any) {
     if (error.response?.status === 401) {
       return res
@@ -1005,6 +1031,10 @@ export const getMe = async (req: Request, res: Response) => {
       );
 
       const misData = misResponse.data.data;
+      // The picture is managed in MIS; keep our copy of the link current.
+      await applyMisAvatar(user, misAvatarFrom(misData)).catch((err) =>
+        console.warn("⚠️ Could not sync MIS profile picture:", err?.message),
+      );
 
       return res.status(200).json({
         success: true,
@@ -1102,6 +1132,43 @@ export const uploadProfileImage = async (req: Request, res: Response) => {
         });
       }
 
+      // MIS-linked accounts: the picture is the central NGA one. MIS resizes and
+      // compresses it and every NGA app shows it (services/misAvatar.ts).
+      const misToken = getMisToken(req, { quiet: true });
+      if (misToken && user.mis_user_id) {
+        try {
+          const avatar = await uploadAvatarToMis(misToken, req.file, req.body?.crop);
+          const legacy =
+            user.profile_image && !isMisAvatarUrl(user.profile_image) ? user.profile_image : null;
+          user.profile_image = avatar.md;
+          await user.save();
+          if (legacy) {
+            fileServer
+              .deleteFile(`profile-pictures/${legacy}`)
+              .catch((e) => console.error("Failed to delete old profile picture:", e));
+          }
+          return res.status(200).json({
+            success: true,
+            data: { profile_image: avatar.md, avatar },
+            message: "Profile picture updated in every NGA app",
+          });
+        } catch (misErr: any) {
+          const status = misErr?.response?.status;
+          const message = misErr?.response?.data?.message;
+          if (status && status < 500) {
+            return res.status(status === 413 ? 413 : status === 401 ? 401 : 400).json({
+              success: false,
+              message: message || "The picture could not be saved",
+            });
+          }
+          console.error("MIS avatar upload failed:", message || misErr?.message);
+          return res.status(502).json({
+            success: false,
+            message: "Could not reach NGA MIS to save the picture. Please try again.",
+          });
+        }
+      }
+
       const filename = generateUniqueFilename(
         `profile-${userId}`,
         req.file.originalname,
@@ -1172,7 +1239,26 @@ export const deleteProfileImage = async (req: Request, res: Response) => {
       });
     }
 
-    await fileServer.deleteFile(`profile-pictures/${user.profile_image}`);
+    if (isMisAvatarUrl(user.profile_image)) {
+      const misToken = getMisToken(req, { quiet: true });
+      if (!misToken) {
+        return res.status(401).json({
+          success: false,
+          message: "Sign in again to change your NGA profile picture",
+        });
+      }
+      try {
+        await removeAvatarFromMis(misToken);
+      } catch (misErr: any) {
+        console.error("MIS avatar removal failed:", misErr?.response?.data?.message || misErr?.message);
+        return res.status(502).json({
+          success: false,
+          message: "Could not reach NGA MIS to remove the picture. Please try again.",
+        });
+      }
+    } else {
+      await fileServer.deleteFile(`profile-pictures/${user.profile_image}`);
+    }
 
     // Update user record
     user.profile_image = null;

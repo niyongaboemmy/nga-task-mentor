@@ -254,7 +254,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
     const verifyMisSession = async () => {
       try {
-        await apiAxios.get("/auth/verify-mis");
+        const res = await apiAxios.get("/auth/verify-mis");
+        // The profile picture is managed in NGA MIS; the poll carries the current
+        // one, so a change made in MIS (or another app) shows up here too.
+        const image: string | null | undefined = res?.data?.profile_image;
+        if (image !== undefined && (image || undefined) !== (user?.profile_image || undefined)) {
+          const next = { ...user!, profile_image: image || undefined };
+          setUser(next);
+          dispatch(loginSuccess(next));
+        }
       } catch (error: any) {
         if (error.response?.status === 401) {
           console.log("ℹ️ MIS session ended — logging out here too");

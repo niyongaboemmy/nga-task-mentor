@@ -20,7 +20,8 @@ export const uploadProfilePicture = multer({
   storage: storage,
   fileFilter: fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
+    // Matches NGA MIS's own avatar limit -- MIS resizes and compresses it.
+    fileSize: 10 * 1024 * 1024, // 10MB limit
   },
 });
 
@@ -30,7 +31,7 @@ export const handleMulterError = (error: any, req: Request, res: any, next: any)
     if (error.code === 'LIMIT_FILE_SIZE') {
       return res.status(400).json({
         success: false,
-        message: 'File too large. Maximum size is 5MB.',
+        message: 'File too large. Maximum size is 10MB.',
       });
     }
   }
