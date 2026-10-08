@@ -59,6 +59,7 @@ import {
   deleteBloomsTaxonomyLevel,
 } from "../controllers/bloomsTaxonomy.controller";
 import { protect, authorizePermission } from "../middleware/auth";
+import { getPaperSheet, savePaperResults } from "../controllers/paperSheets.controller";
 import { intOrNull, trackOnSuccess } from "../activity/keyEvents";
 import { validateBody } from "../middleware/validation.middleware";
 import { codeRunLimiter } from "../middleware/rateLimiter.middleware";
@@ -278,6 +279,15 @@ router.post(
   "/:quizId/submissions/initialize-manual",
   authorizePermission("QUIZZES_GRADE", "QUIZZES_EDIT"),
   initializeManualSubmission,
+);
+
+// Paper answer sheets: print, scan, review, save (services/paperSheets.ts)
+router.get("/:quizId/paper-sheet", authorizePermission("QUIZZES_GRADE"), getPaperSheet);
+router.post(
+  "/:quizId/paper-results",
+  authorizePermission("QUIZZES_GRADE"),
+  trackOnSuccess("tm.quiz.paper_results", (req) => ({ quiz_id: intOrNull(req.params.quizId) })),
+  savePaperResults,
 );
 
 // Quiz submissions and analytics
