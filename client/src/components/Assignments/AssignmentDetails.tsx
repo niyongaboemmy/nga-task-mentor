@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { LearningOutcomesPanel } from "../competency/LearningOutcomesPanel";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
@@ -555,6 +556,12 @@ const AssignmentDetails = () => {
             canManageAssignment={canManageAssignment}
             onStatusChange={handleStatusChange}
           />
+
+          {canGradeSubmissions && assignment?.id ? (
+            <div className="px-6 pb-2 pt-2">
+              <LearningOutcomesPanel taskType="assignment" taskId={Number(assignment.id)} />
+            </div>
+          ) : null}
 
           {/* Attachments Section */}
           {assignment?.attachments && assignment.attachments.length > 0 && (

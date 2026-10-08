@@ -63,6 +63,8 @@ import { activityRelay } from "./activity/relay";
 import activityCatalog from "./activity/catalog.json";
 import aiService from "./services/ai/aiService";
 import { startReminderSweep } from "./services/reminderSync";
+import { startCompetencyPush } from "./services/competencyEvidence";
+import competencyRoutes from "./routes/competency";
 import { startEarlyWarningSchedule } from "./services/earlyWarningPush";
 import { verifyReportCard } from "./controllers/reportCard.controller";
 
@@ -320,6 +322,7 @@ const startServer = async (): Promise<void> => {
     // MIS -> Task Mentor server-to-server reads (MIS bearer token, read-only)
     app.use("/api/integration", integrationRoutes);
     app.use("/api/media", mediaRoutes);
+    app.use("/api/competency", competencyRoutes);
     // Public (no auth) — QR code verification
     app.get("/api/public/verify/report-card/:uuid", verifyReportCard);
 
@@ -367,6 +370,8 @@ const startServer = async (): Promise<void> => {
       startReminderSweep();
       // Daily early-warning signals (work due/missed, mark trends) to the MIS.
       startEarlyWarningSchedule();
+      // Graded results of quizzes/assignments tagged with learning outcomes, to the MIS competency map.
+      startCompetencyPush();
       // Judge runtimes (newest per language), daily health/quota check, and
       // re-grading of answers left pending while the judge was down.
       startJudgeMaintenance();
