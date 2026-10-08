@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { LearningOutcomesPanel } from "../competency/LearningOutcomesPanel";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { toast } from "react-toastify";
@@ -290,6 +291,7 @@ const QuizHeader: React.FC<{
               </p>
             </div>
           )}
+          {quiz.id ? <LearningOutcomesPanel taskType="quiz" taskId={quiz.id} /> : null}
         </div>
 
         {/* Right Column - Action Buttons */}
