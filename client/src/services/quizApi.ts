@@ -420,6 +420,22 @@ export class QuizApiService {
     return response.data;
   }
 
+  /** Paper answer sheets: what to print (choice questions, bubbles, sheet key; never answers). */
+  static async getPaperSheet(quizId: number): Promise<{ success: boolean; data: PaperSheetSpec }> {
+    const response = await axios.get(`/quizzes/${quizId}/paper-sheet`);
+    return response.data;
+  }
+
+  /** Reviewed scans → stored and scored like online attempts. */
+  static async savePaperResults(
+    quizId: number,
+    key: string,
+    results: Array<{ studentId: number; answers: Record<string, number[]> }>,
+  ): Promise<{ success: boolean; data: PaperSaveResult[] }> {
+    const response = await axios.post(`/quizzes/${quizId}/paper-results`, { key, results });
+    return response.data;
+  }
+
   static async getQuizStudents(
     quizId: number,
     search?: string,
@@ -747,4 +763,24 @@ export async function handleQuizApiCall<T>(
       throw new QuizApiError(error.message || "Unknown error occurred", 0);
     }
   }
+}
+
+/** GET /quizzes/:id/paper-sheet (server services/paperSheets.ts). */
+export interface PaperSheetSpec {
+  quizId: number;
+  title: string;
+  key: string;
+  questions: Array<{ id: number; number: number; type: "single_choice" | "multiple_choice" | "true_false"; options: number; points: number }>;
+  manual: number[];
+  maxScore: number;
+}
+export interface PaperSaveResult {
+  ok: boolean;
+  studentId: number;
+  submissionId?: number;
+  score?: number;
+  maxScore?: number;
+  percentage?: number;
+  updated?: boolean;
+  message?: string;
 }

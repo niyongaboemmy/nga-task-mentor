@@ -45,6 +45,7 @@ const Profile = lazyPage(() => import("../components/Profile/Profile"));
 const QuizTakingPage = lazyPage(() => import("../pages/QuizTakingPage"));
 const QuizResultsPage = lazyPage(() => import("../pages/QuizResultsPage"));
 const QuizSubmissionsPage = lazyPage(() => import("../pages/QuizSubmissionsPage"));
+const PaperSheetsPage = lazyPage(() => import("../pages/PaperSheetsPage"));
 const StudentQuizzesPage = lazyPage(() => import("../pages/StudentQuizzesPage"));
 const CreateQuizPage = lazyPage(() => import("../components/Quizzes/CreateQuizPage"));
 const EditQuizPage = lazyPage(() => import("../components/Quizzes/EditQuizPage"));
@@ -357,6 +358,11 @@ export const appRoutes: AppRoute[] = [
   {
     path: "/quizzes/:quizId/submissions",
     element: <QuizSubmissionsPage />,
+    permissions: ["QUIZZES_GRADE"],
+  },
+  {
+    path: "/quizzes/:quizId/paper-sheets",
+    element: <PaperSheetsPage />,
     permissions: ["QUIZZES_GRADE"],
   },
   {

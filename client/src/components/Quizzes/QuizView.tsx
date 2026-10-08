@@ -10,6 +10,7 @@ import {
   Plus,
   Clock,
   Users,
+  ScanLine,
   BookOpen,
   CheckCircle,
   GripVertical,
@@ -344,6 +345,13 @@ const QuizHeader: React.FC<{
           >
             <Users className="w-4 h-4" />
             View Submissions
+          </button>
+          <button
+            onClick={() => onNavigate(`/quizzes/${quiz.id}/paper-sheets`)}
+            className="w-full px-4 py-3 flex items-center justify-center gap-2 text-sm font-medium border border-emerald-300 text-emerald-700 dark:text-emerald-300 dark:border-emerald-600 dark:hover:bg-emerald-900 rounded-2xl hover:bg-emerald-50 transition-all duration-200 hover:scale-105 transform"
+          >
+            <ScanLine className="w-4 h-4" />
+            Paper answer sheets
           </button>
           {canManage && onResetAllSubmissions && (
             <button

@@ -37,6 +37,7 @@
     { "key": "tm.quiz.analytics", "label": "Quiz analytics", "module": "Quizzes", "patterns": ["/quizzes/:quizId/analytics"] },
     { "key": "tm.quiz.submissions", "label": "Quiz submissions (grading)", "module": "Quizzes", "patterns": ["/quizzes/:quizId/submissions"] },
     { "key": "tm.quiz.submission", "label": "Grading a quiz submission", "module": "Quizzes", "patterns": ["/quizzes/:quizId/submissions/:submissionId"] },
+    { "key": "tm.quiz.paper_sheets", "label": "Paper answer sheets", "module": "Quizzes", "patterns": ["/quizzes/:quizId/paper-sheets"] },
     { "key": "tm.my_quizzes", "label": "My quizzes", "module": "Quizzes", "patterns": ["/my-quizzes"] },
     { "key": "tm.quiz.take", "label": "Taking a quiz", "module": "Quizzes", "patterns": ["/quizzes/:id/take", "/quiz/:submissionId"] },
     { "key": "tm.quiz.results", "label": "Quiz results", "module": "Quizzes", "patterns": ["/quizzes/:id/results", "/quiz/:submissionId/results"] },
@@ -66,6 +67,7 @@
     { "key": "tm.assignment.submit", "label": "Assignment submitted", "module": "Assignments", "event": true, "key_event": true },
     { "key": "tm.grade.save", "label": "Grade saved", "module": "Grades", "event": true, "key_event": true },
     { "key": "tm.grade.ai_draft", "label": "AI marking draft", "module": "Grades", "event": true, "key_event": true },
+    { "key": "tm.quiz.paper_results", "label": "Paper answer sheets saved", "module": "Grades", "event": true, "key_event": true },
     { "key": "tm.question.generate", "label": "AI questions generated", "module": "Question bank", "event": true, "key_event": true },
 
     { "key": "tm.quiz.submit_click", "label": "Clicked \"Submit quiz\"", "module": "Quizzes", "event": true },
