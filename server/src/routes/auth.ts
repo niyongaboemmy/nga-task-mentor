@@ -6,8 +6,6 @@ import {
   forgotPassword,
   resetPassword,
   getMe,
-  uploadProfileImage,
-  deleteProfileImage,
   updateProfileDetails,
   updatePassword,
   logout,
@@ -32,7 +30,6 @@ import {
 } from "../middleware/rateLimiter.middleware";
 import { protect, authorizePermission } from "../middleware/auth";
 import { backchannelLogout } from "../controllers/backchannelLogout.controller";
-import { handleMulterError } from "../middleware/upload";
 
 const router = Router();
 
@@ -67,13 +64,8 @@ router.put(
   validate(changePasswordSchema),
   updatePassword,
 );
-router.post(
-  "/upload-profile-image",
-  protect,
-  handleMulterError,
-  uploadProfileImage,
-);
-router.delete("/delete-profile-image", protect, deleteProfileImage);
+// No profile-picture upload here: the picture is managed in NGA MIS only, and
+// reaches this app as an absolute link in users.profile_image (services/misAvatar.ts).
 
 router.post(
   "/confirm-db-access",

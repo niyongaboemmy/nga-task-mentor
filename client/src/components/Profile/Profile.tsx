@@ -1,7 +1,8 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
-import ProfilePictureUpload from "./ProfilePictureUpload";
+import { getProfileImageUrl } from "../../utils/imageUrl";
+import { misProfileUrl } from "../../utils/misLinks";
 import {
   User,
   MapPin,
@@ -13,6 +14,9 @@ import {
   Check,
   CalendarClock,
   ShieldCheck,
+  Camera,
+  ExternalLink,
+  Image as ImageIcon,
 } from "lucide-react";
 
 const containerVariants = {
@@ -39,37 +43,15 @@ const itemVariants = {
 };
 
 const Profile: React.FC = () => {
-  const { user, updateProfileImage } = useAuth();
-  const [message, setMessage] = useState<{
-    type: "success" | "error";
-    text: string;
-  } | null>(null);
+  const { user } = useAuth();
+  const [photoFailed, setPhotoFailed] = useState(false);
+  const [coverFailed, setCoverFailed] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const handleCopy = (label: string, value: string) => {
     navigator.clipboard.writeText(value);
     setCopiedField(label);
     setTimeout(() => setCopiedField(null), 1500);
-  };
-
-  const handleProfilePictureUpdate = async (imageUrl: string) => {
-    try {
-      await updateProfileImage(imageUrl);
-      // MIS-linked accounts share one picture across NGA MIS, Task Mentor, Tendo and Tupo.
-      const where = user?.mis_user_id ? " in every NGA app" : "";
-      setMessage({
-        type: "success",
-        text: imageUrl ? `Profile picture updated${where}!` : `Profile picture removed${where}.`,
-      });
-      setTimeout(() => setMessage(null), 3000);
-    } catch (error) {
-      console.error(error);
-      setMessage({
-        type: "error",
-        text: "Failed to update profile picture.",
-      });
-      setTimeout(() => setMessage(null), 3000);
-    }
   };
 
   if (!user)
@@ -82,6 +64,25 @@ const Profile: React.FC = () => {
           </p>
         </div>
       </div>
+    );
+
+  // Photo and cover are NGA MIS's: shown here, changed there.
+  const misLinked = !!user.mis_user_id;
+  const coverUrl = user.cover_url || null;
+  const photoUrl = getProfileImageUrl(user.profile_image);
+  const initials = `${user.first_name?.[0] ?? ""}${user.last_name?.[0] ?? ""}`.toUpperCase() || "?";
+  const avatar =
+    photoUrl && !photoFailed ? (
+      <img
+        src={photoUrl}
+        alt={`${user.first_name} ${user.last_name}`}
+        onError={() => setPhotoFailed(true)}
+        className="w-24 h-24 rounded-full object-cover"
+      />
+    ) : (
+      <span className="w-24 h-24 rounded-full bg-blue-600 text-white text-2xl font-bold flex items-center justify-center" role="img" aria-label={`${user.first_name} ${user.last_name}`}>
+        {initials}
+      </span>
     );
 
   const completenessFields = [
@@ -190,36 +191,54 @@ const Profile: React.FC = () => {
         variants={itemVariants}
         className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm overflow-hidden"
       >
-        <div className="h-32 sm:h-40 bg-gradient-to-br from-blue-500 via-blue-600 to-indigo-700 relative overflow-hidden">
-          <div className="absolute inset-0 bg-[url('/grid-pattern.svg')] opacity-20" />
-          <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/[0.06] to-transparent" />
-          <div className="absolute -right-10 -top-10 w-48 h-48 bg-white/10 rounded-full blur-3xl" />
-          <div className="absolute left-1/3 -bottom-10 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-
-          {/* Message Toast */}
-          {message && (
-            <motion.div
-              initial={{ opacity: 0, y: -8 }}
-              animate={{ opacity: 1, y: 0 }}
-              className={`absolute top-4 right-4 px-4 py-2 rounded-full text-sm font-medium shadow-lg ${message.type === "success" ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-900/90 dark:text-emerald-300" : "bg-red-50 text-red-700 dark:bg-red-900/90 dark:text-red-300"}`}
+        {/* Cover: the banner chosen in NGA MIS, or the plain system blue. */}
+        <div className="relative h-32 sm:h-44 bg-blue-600 overflow-hidden" data-testid="profile-cover">
+          {coverUrl && !coverFailed && (
+            <>
+              <img
+                src={coverUrl}
+                alt=""
+                onError={() => setCoverFailed(true)}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/30 to-transparent" />
+            </>
+          )}
+          {misLinked && (
+            <a
+              href={misProfileUrl()}
+              target="_blank"
+              className="absolute top-3 right-3 inline-flex items-center gap-1.5 rounded-full bg-black/35 hover:bg-black/50 backdrop-blur px-3 py-1.5 text-xs font-semibold text-white transition"
+              title="Your photo and cover are managed in NGA MIS"
             >
-              {message.text}
-            </motion.div>
+              <ImageIcon size={14} />
+              Edit photo &amp; cover in NGA MIS
+              <ExternalLink size={12} />
+            </a>
           )}
         </div>
         <div className="px-6 pb-6">
           <div className="flex flex-col sm:flex-row sm:items-end gap-4">
-            {/* Profile Picture & Upload — floats up over the gradient banner
-                independently of the text below, which stays put in the
-                white area. */}
+            {/* Profile picture (managed in NGA MIS) — floats up over the
+                banner independently of the text below. */}
             <div className="relative shrink-0 -mt-12 sm:-mt-14 p-1 bg-card-light dark:bg-card-dark rounded-full shadow-lg w-fit">
-              <ProfilePictureUpload
-                compact
-                onUploadSuccess={handleProfilePictureUpdate}
-                onUploadError={(msg) =>
-                  setMessage({ type: "error", text: msg })
-                }
-              />
+              {misLinked ? (
+                <a
+                  href={misProfileUrl()}
+                  target="_blank"
+                  className="group relative block rounded-full"
+                  title="Change your photo in NGA MIS"
+                  aria-label="Change your photo in NGA MIS"
+                >
+                  {avatar}
+                  <span className="absolute inset-0 rounded-full bg-black/45 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 transition-opacity flex flex-col items-center justify-center gap-0.5 text-white text-[11px] font-semibold">
+                    <Camera size={18} />
+                    Change in MIS
+                  </span>
+                </a>
+              ) : (
+                avatar
+              )}
               <span
                 className="absolute bottom-1 right-1 w-4 h-4 bg-emerald-400 rounded-full border-2 border-card-light dark:border-card-dark"
                 title="Active now"
