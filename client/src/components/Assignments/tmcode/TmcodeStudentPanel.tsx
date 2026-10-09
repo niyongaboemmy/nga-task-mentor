@@ -14,6 +14,7 @@ import {
   RefreshCw,
   Rocket,
   TerminalSquare,
+  Undo2,
 } from "lucide-react";
 import { Skeleton } from "../../ui/Skeleton";
 import { Pill, LanguageBadge } from "../../Projects/ProjectBadges";
@@ -90,7 +91,10 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
   const my = data.my;
   const state = my?.state ?? "not_started";
   const meta = STATE_META[state];
-  const due = dueCountdown(data.due_date);
+  const handedIn = state === "submitted" || state === "graded";
+  // The countdown is for work still to hand in; handed-in work shows its own receipt.
+  const due = handedIn ? null : dueCountdown(data.due_date);
+  const lateReceipt = handedIn && my?.is_late != null ? my.is_late : null;
   const fileCount = data.starter?.file_count ?? 0;
 
   return (
@@ -117,6 +121,11 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
               {data.read_only && (
                 <Pill tone="amber" icon={<Lock className="h-3 w-3" aria-hidden="true" />}>
                   Read-only
+                </Pill>
+              )}
+              {lateReceipt !== null && (
+                <Pill tone={lateReceipt ? "rose" : "emerald"} testId="late-receipt">
+                  {lateReceipt ? "Handed in late" : "Handed in on time"}
                 </Pill>
               )}
               <LanguageBadge language={data.language} />
@@ -150,6 +159,25 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
             <Lock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
             Your teacher marked this assignment completed. You can still open your work, but it can&apos;t be saved or submitted any more.
           </p>
+        )}
+
+        {my?.returned_at && !handedIn && (
+          <div
+            role="status"
+            data-testid="returned-banner"
+            className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm text-amber-900 dark:border-amber-900/40 dark:bg-amber-900/20 dark:text-amber-200"
+          >
+            <Undo2 className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
+            <div className="min-w-0">
+              <p className="font-semibold">
+                Returned by your teacher{my.returned_message ? ":" : " for changes."}
+                {my.returned_message && <span className="whitespace-pre-wrap font-normal"> {my.returned_message}</span>}
+              </p>
+              <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+                {formatDateTime(my.returned_at)} · Make the changes, then submit again.
+              </p>
+            </div>
+          </div>
         )}
 
         <WorkspaceSteps data={data} fileCount={fileCount} />

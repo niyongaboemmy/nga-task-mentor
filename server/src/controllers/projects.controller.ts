@@ -40,6 +40,7 @@ import { MonitorEntry, MonitorProject, publishPresence, withdrawPresence } from 
 import { AssignmentBrief, assignmentBriefs } from "../tmcode/assignments/load";
 import { isReadOnlyStatus, presenceLocked } from "../tmcode/assignments/state";
 import { lockReason, reopenProject, syncProjectStatus } from "../tmcode/projects/status";
+import { handInIsLate, pastDue } from "../tmcode/projects/lateness";
 import { loadQuizPractical, practicalQuestionsOf } from "./tmcodePracticals.controller";
 import {
   HIDDEN_PRESENCE,
@@ -1364,12 +1365,19 @@ export const submitLink = async (req: Request, res: Response) => {
   const refused = await sequelize.transaction(async (transaction) => {
     if (link.activity_type === "assignment") {
       const studentId = p.owner_id;
-      const [row] = await sequelize.query<{ id: number; status: string; project_ref: unknown }>(
-        "SELECT id, status, project_ref FROM submissions WHERE assignment_id = ? AND student_id = ? LIMIT 1 FOR UPDATE",
+      const [row] = await sequelize.query<{ id: number; status: string; project_ref: unknown; is_late: unknown }>(
+        "SELECT id, status, project_ref, is_late FROM submissions WHERE assignment_id = ? AND student_id = ? LIMIT 1 FOR UPDATE",
         { replacements: [activity.id, studentId], type: QueryTypes.SELECT, transaction },
       );
       if (row?.status === "graded") return "ALREADY_GRADED";
-      const isLate = !!activity.due_date && now.getTime() > new Date(activity.due_date).getTime();
+      // After the due date, re-handing in the very version that was on time stays on time.
+      const isLate = handInIsLate({
+        now,
+        due: activity.due_date,
+        previous: row ?? null,
+        revisionId: revision?.id ?? null,
+        commit,
+      });
       // Handing in again — including after a withdraw or a teacher's return,
       // which leave a draft row that already carries a project — is a resubmission.
       const handedInBefore =
@@ -1416,36 +1424,37 @@ export const submitLink = async (req: Request, res: Response) => {
         "SELECT id FROM quiz_submissions WHERE quiz_id = ? AND student_id = ? AND status = 'in_progress' ORDER BY id DESC LIMIT 1",
         { replacements: [link.activity_id, p.owner_id], type: QueryTypes.SELECT, transaction },
       );
-      if (open) {
-        const answer = {
-          project_id: p.id,
-          link_id: link.id,
-          revision_id: revision?.id ?? null,
-          revision_number: revision?.number ?? null,
-        };
-        const details = { grade_status: "pending", pending_reason: "Awaiting the teacher's grading", practical: answer };
-        const [attempt] = await sequelize.query<{ id: number; details: unknown }>(
-          "SELECT id, grading_details AS details FROM quiz_attempts WHERE submission_id = ? AND question_id = ? LIMIT 1 FOR UPDATE",
-          { replacements: [open.id, link.question_id], type: QueryTypes.SELECT, transaction },
+      // No open attempt: there is nowhere to record the answer, so nothing is
+      // handed in (the link stays as it was) and the student is told why.
+      if (!open) return "QUIZ_NOT_OPEN";
+      const answer = {
+        project_id: p.id,
+        link_id: link.id,
+        revision_id: revision?.id ?? null,
+        revision_number: revision?.number ?? null,
+      };
+      const details = { grade_status: "pending", pending_reason: "Awaiting the teacher's grading", practical: answer };
+      const [attempt] = await sequelize.query<{ id: number; details: unknown }>(
+        "SELECT id, grading_details AS details FROM quiz_attempts WHERE submission_id = ? AND question_id = ? LIMIT 1 FOR UPDATE",
+        { replacements: [open.id, link.question_id], type: QueryTypes.SELECT, transaction },
+      );
+      const prev = typeof attempt?.details === "string" ? JSON.parse(attempt.details) : (attempt?.details as any);
+      if (prev?.manual) return "ALREADY_GRADED";
+      if (attempt) {
+        await sequelize.query(
+          "UPDATE quiz_attempts SET submitted_answer = ?, grading_details = ?, is_correct = 0, points_earned = 0, updated_at = ? WHERE id = ?",
+          { replacements: [JSON.stringify(answer), JSON.stringify(details), now, attempt.id], transaction },
         );
-        const prev = typeof attempt?.details === "string" ? JSON.parse(attempt.details) : (attempt?.details as any);
-        if (prev?.manual) return "ALREADY_GRADED";
-        if (attempt) {
-          await sequelize.query(
-            "UPDATE quiz_attempts SET submitted_answer = ?, grading_details = ?, is_correct = 0, points_earned = 0, updated_at = ? WHERE id = ?",
-            { replacements: [JSON.stringify(answer), JSON.stringify(details), now, attempt.id], transaction },
-          );
-        } else {
-          await sequelize.query(
-            `INSERT INTO quiz_attempts (quiz_id, question_id, student_id, submission_id, submitted_answer, grading_details,
-               is_correct, points_earned, status, started_at, completed_at, created_at, updated_at)
-             VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'in_progress', ?, NULL, ?, ?)`,
-            {
-              replacements: [link.activity_id, link.question_id, p.owner_id, open.id, JSON.stringify(answer), JSON.stringify(details), now, now, now],
-              transaction,
-            },
-          );
-        }
+      } else {
+        await sequelize.query(
+          `INSERT INTO quiz_attempts (quiz_id, question_id, student_id, submission_id, submitted_answer, grading_details,
+             is_correct, points_earned, status, started_at, completed_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, 0, 0, 'in_progress', ?, NULL, ?, ?)`,
+          {
+            replacements: [link.activity_id, link.question_id, p.owner_id, open.id, JSON.stringify(answer), JSON.stringify(details), now, now, now],
+            transaction,
+          },
+        );
       }
     }
     await link.update(
@@ -1454,6 +1463,11 @@ export const submitLink = async (req: Request, res: Response) => {
     );
     return null;
   });
+  if (refused === "QUIZ_NOT_OPEN") {
+    return tmcodeError(res, 409, "QUIZ_NOT_OPEN", "Open the quiz in Task Mentor, then submit again.", {
+      code: "QUIZ_NOT_OPEN",
+    });
+  }
   if (refused === "ALREADY_GRADED") {
     return tmcodeError(
       res,
@@ -1620,8 +1634,10 @@ export const withdrawProject = async (req: Request, res: Response) => {
   if (!access.isOwner) return ownerOnly(res);
   const p = access.project;
   const link = await assignmentLinkOf(p);
+  let dueDate: Date | string | null = null;
   if (link) {
     const activity = await loadActivity("assignment", link.activity_id);
+    dueDate = activity?.due_date ?? null;
     if (activity && isReadOnlyStatus(activity.status)) {
       return tmcodeError(res, 409, "ASSIGNMENT_COMPLETED", "This assignment is completed; it can't be changed any more.");
     }
@@ -1632,7 +1648,13 @@ export const withdrawProject = async (req: Request, res: Response) => {
   publishEvent(await recordEvent(p.id, req.user.id, "withdrawn", { link_ids: result.links.map((l) => l.id) }));
   await p.reload();
   // `project` has the GET /projects/:id shape (TMCode reads it); `status` for the web.
-  return res.status(200).json({ status: p.status, project: await projectDetails(req, p, access.role, access) });
+  // `will_be_late`: the due date has passed, so handing in a CHANGED version
+  // will be late (the same version again keeps its on-time flag, handInIsLate).
+  return res.status(200).json({
+    status: p.status,
+    project: await projectDetails(req, p, access.role, access),
+    will_be_late: pastDue(dueDate),
+  });
 };
 
 const returnSchema = z.object({ message: z.string().trim().max(2000).optional().nullable() });

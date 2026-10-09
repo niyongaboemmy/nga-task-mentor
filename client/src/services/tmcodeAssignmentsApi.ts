@@ -41,6 +41,11 @@ export interface MyWork {
   grade: number | null;
   max_points: number;
   feedback: string | null;
+  /** The hand-in's own late flag; null until handed in. (Optional: older servers.) */
+  is_late?: boolean | null;
+  /** The teacher's latest "Return for changes" not yet answered by a new hand-in. */
+  returned_at?: string | null;
+  returned_message?: string | null;
 }
 
 export interface TeachingCounts {
@@ -61,6 +66,7 @@ export interface AssignmentSummary {
   points: number;
   language: string | null;
   read_only: boolean;
+  /** The due date has passed (countdown only; a hand-in's lateness is `my.is_late`). */
   late: boolean;
   my: MyWork | null;
   teaching?: TeachingCounts;

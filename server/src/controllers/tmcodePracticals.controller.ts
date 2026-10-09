@@ -33,6 +33,7 @@ import { readBlobGz, readManifest } from "../tmcode/projects/storage";
 import { userBrief, usersById } from "../tmcode/projects/serialize";
 import { syncProjectStatus } from "../tmcode/projects/status";
 import { parsePracticalData, PRACTICAL_TYPE, PracticalCriterion } from "../tmcode/practical/question";
+import { composeFeedback, parseCriteriaNotes, RubricScore, rubricScoresWithComments } from "../tmcode/practical/criteriaNotes";
 import { rebasePreviewRoots } from "../tmcode/practical/preview";
 import { canGradeAssignment, canGradeQuiz } from "../utils/gradingAccess";
 import { isPassed } from "../utils/quizStudentView";
@@ -302,20 +303,6 @@ async function gradingContext(type: string, id: number, questionId: number | nul
   return null;
 }
 
-/** Comments per criterion travel inside the feedback the student reads. */
-function composeFeedback(feedback: string, rubric: PracticalCriterion[], scores: RubricScore[]): string {
-  const notes = scores
-    .map((s) => (s.comment?.trim() ? `• ${rubric[s.index]?.criteria ?? `Criterion ${s.index + 1}`}: ${s.comment.trim()}` : null))
-    .filter(Boolean);
-  return [feedback.trim(), notes.length ? `Criteria notes:\n${notes.join("\n")}` : ""].filter(Boolean).join("\n\n");
-}
-
-interface RubricScore {
-  index: number;
-  score: number;
-  comment?: string | null;
-}
-
 // @desc    Grading workspace roster: every student with a project or a hand-in
 //          for this assignment / quiz practical question, their frozen
 //          revision, status and current grade, plus the criteria.
@@ -343,10 +330,10 @@ export const gradingRoster = async (req: Request, res: Response) => {
     for (const s of subs) {
       const g = String(s.grade ?? "");
       const score = s.status === "graded" && g ? Number(g.split("/")[0]) : null;
-      const rs = s.rubric_scores && typeof s.rubric_scores === "object" ? (s.rubric_scores as Record<string, number>) : null;
       grades.set(Number(s.student_id), {
         score: Number.isFinite(score as number) ? score : null,
-        rubric: rs ? Object.entries(rs).map(([k, v]) => ({ index: Number(k), score: Number(v) })) : null,
+        // { index, score, comment }: the notes come back out of the feedback.
+        rubric: rubricScoresWithComments(s.rubric_scores, s.feedback, ctx.rubric),
         feedback: s.feedback ?? null,
         graded_at: s.status === "graded" ? iso((s as any).updated_at) : null,
         status: s.status,
@@ -364,7 +351,7 @@ export const gradingRoster = async (req: Request, res: Response) => {
       const manual = d.manual ?? null;
       grades.set(sid, {
         score: manual ? Number(a.points_earned) : null,
-        rubric: manual?.rubric_scores ?? null,
+        rubric: manual ? rubricScoresWithComments(manual.rubric_scores, manual.feedback, ctx.rubric) : null,
         feedback: manual?.feedback ?? null,
         graded_at: manual?.graded_at ?? null,
         status: manual ? "graded" : d.grade_status === "pending" ? "submitted" : a.status,
@@ -479,6 +466,12 @@ export const saveGrade = async (req: Request, res: Response) => {
         return tmcodeError(res, 422, "SCORE_TOO_HIGH", `“${c.criteria}” is out of ${c.max_score}.`);
       }
       scores.push({ index: s.index, score: s.score, comment: s.comment ?? null });
+    }
+    // A client that sent no comment at all (not even null) but kept the notes
+    // block in the feedback: keep those notes rather than wipe them.
+    if (body.rubric_scores.every((s) => s.comment === undefined)) {
+      const kept = parseCriteriaNotes(body.feedback, ctx.rubric);
+      for (const s of scores) s.comment = kept.get(s.index) ?? null;
     }
     total = round2(scores.reduce((n, s) => n + s.score, 0));
   } else {

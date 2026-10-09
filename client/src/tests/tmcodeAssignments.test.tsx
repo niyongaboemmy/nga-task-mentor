@@ -378,6 +378,57 @@ describe("student TMCode panel", () => {
     expect(await screen.findByText(/marked this assignment completed/)).toBeInTheDocument();
     expect(screen.getByTestId("open-assignment-in-tmcode")).toHaveTextContent("View in TMCode");
   });
+
+  it("past the due date, on-time work says so instead of a late countdown", async () => {
+    const pastDue = { due_date: new Date(Date.now() - 3 * 3_600_000).toISOString(), late: true };
+    routeGets({
+      "/tmcode/assignments/77": detail(
+        { ...notStarted, state: "submitted", project_id: 5, submitted_at: iso(86_400_000), revision_number: 2, is_late: false },
+        pastDue,
+      ),
+    });
+    const { unmount } = render(
+      <MemoryRouter>
+        <TmcodeStudentPanel assignmentId={77} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByTestId("late-receipt")).toHaveTextContent("Handed in on time");
+    expect(screen.queryByText(/Late by/)).not.toBeInTheDocument();
+    unmount();
+
+    routeGets({
+      "/tmcode/assignments/77": detail(
+        { ...notStarted, state: "submitted", project_id: 5, submitted_at: iso(1000), revision_number: 3, is_late: true },
+        pastDue,
+      ),
+    });
+    render(
+      <MemoryRouter>
+        <TmcodeStudentPanel assignmentId={77} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByTestId("late-receipt")).toHaveTextContent("Handed in late");
+  });
+
+  it("shows the teacher's Return for changes, with the message", async () => {
+    routeGets({
+      "/tmcode/assignments/77": detail({
+        ...notStarted,
+        state: "in_progress",
+        project_id: 5,
+        is_late: null,
+        returned_at: iso(600_000),
+        returned_message: "Handle empty input",
+      }),
+    });
+    render(
+      <MemoryRouter>
+        <TmcodeStudentPanel assignmentId={77} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByTestId("returned-banner")).toHaveTextContent("Returned by your teacher: Handle empty input");
+    expect(screen.queryByTestId("late-receipt")).not.toBeInTheDocument();
+  });
 });
 
 // ─── Teacher workspaces ─────────────────────────────────────────────────────
