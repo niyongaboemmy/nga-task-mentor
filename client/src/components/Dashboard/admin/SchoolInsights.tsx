@@ -1,3 +1,4 @@
+import UserAvatar from "../../ui/UserAvatar";
 import React, { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -161,9 +162,14 @@ export const TeacherTable: React.FC<{ teachers: TeacherRow[] }> = ({ teachers })
             {shown.map((t) => (
               <tr key={t.mis_user_id} className="border-b last:border-0 border-border-light/70 dark:border-border-dark/30 align-top">
                 <td className="pl-5 pr-3 py-2.5">
-                  <div className={`font-medium ${ink.primary}`}>{t.name}</div>
+                  <div className="flex items-center gap-2.5">
+                    <UserAvatar decorative misUserId={t.mis_user_id} name={t.name} size={32} />
+                    <div className="min-w-0">
+                    <div className={`font-medium ${ink.primary}`}>{t.name}</div>
                   <div className={`text-xs ${ink.muted} line-clamp-1`} title={t.subjects.map((s) => s.name).join(", ")}>
                     {t.subjects.length} subject{t.subjects.length === 1 ? "" : "s"} · {t.subjects.map((s) => s.code || s.name).join(", ")}
+                  </div>
+                    </div>
                   </div>
                 </td>
                 <td className="px-3 py-2.5">

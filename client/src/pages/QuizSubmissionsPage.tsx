@@ -1,3 +1,4 @@
+import UserAvatar from "../components/ui/UserAvatar";
 import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import axios from "../utils/axiosConfig";
@@ -656,9 +657,7 @@ const QuizSubmissionsPage: React.FC = () => {
                   <div className="flex-1">
                     <div className="flex items-start sm:items-center gap-3 mb-3">
                       <div className="relative">
-                        <div className="w-10 h-10 bg-gradient-to-br from-blue-400 to-blue-500 rounded-xl flex items-center justify-center">
-                          <User className="w-5 h-5 text-white" />
-                        </div>
+                        <UserAvatar decorative userId={submission.student_id} name={submission.student_name || "Student"} size={40} shape="rounded" />
                         {pct(submission) >= 90 && (
                           <Crown className="absolute -top-1 -right-1 w-4 h-4 text-yellow-500 animate-pulse" />
                         )}
@@ -809,9 +808,7 @@ const QuizSubmissionsPage: React.FC = () => {
                       >
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center">
-                              <User className="w-4 h-4 text-white" />
-                            </div>
+                            <UserAvatar decorative userId={submission.student_id} name={submission.student_name || "Student"} size={32} shape="rounded" />
                             <div>
                               <div className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">
                                 {submission.student_name || "Unknown"}
@@ -1007,9 +1004,7 @@ const QuizSubmissionsPage: React.FC = () => {
                             onClick={() => setManualStudent(s)}
                             className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${manualStudent?.id === s.id ? "bg-blue-50 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700" : "hover:bg-gray-50 dark:hover:bg-gray-800 border border-transparent"}`}
                           >
-                            <div className="w-8 h-8 bg-gradient-to-br from-blue-400 to-blue-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                              <User className="w-4 h-4 text-white" />
-                            </div>
+                            <UserAvatar decorative userId={s.id} name={s.name} size={32} shape="rounded" />
                             <div className="min-w-0">
                               <div className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark truncate">
                                 {s.name}
