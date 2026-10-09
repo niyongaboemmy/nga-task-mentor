@@ -208,7 +208,10 @@ describe("quiz practicals", () => {
     } as any);
     submissionId = sub.id;
     const head = (await Project.findByPk(projectId))!.head_revision_id!;
-    await save(student, projectId, head, { "index.html": "<h1>My page</h1><link rel=stylesheet href=css/site.css>", "css/site.css": "h1{color:red}" });
+    await save(student, projectId, head, {
+      "index.html": '<h1>My page</h1><link rel=stylesheet href=css/site.css><script type="module" src="/js/app.js"></script>',
+      "css/site.css": "h1{color:red}",
+    });
 
     const res = await api(student).post(`/projects/${projectId}/links/${linkId}/submit`);
     expect(res.status).toBe(200);
@@ -294,6 +297,8 @@ describe("quiz practicals", () => {
     expect(page.headers["content-security-policy"]).toMatch(/^sandbox allow-scripts/);
     expect(page.headers["x-frame-options"]).toBeUndefined();
     expect(page.text).toContain("My page");
+    // A root-relative link stays inside the preview, not at the API's root.
+    expect(page.text).toContain(`src="${url.pathname.replace(/index\.html$/, "")}js/app.js"`);
     const css = await request(app).get(url.pathname.replace(/index\.html$/, "css/site.css"));
     expect(css.headers["content-type"]).toMatch(/text\/css/);
     expect(css.text).toBe("h1{color:red}");
