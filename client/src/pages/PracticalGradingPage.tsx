@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import UserAvatar from "../components/ui/UserAvatar";
 import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -79,14 +80,6 @@ const STATE_META: Record<GradingRow["state"], { label: string; dot: string; pill
     pill: "bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-400",
   },
 };
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join("");
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -519,9 +512,7 @@ const StudentSwitcher: React.FC<{
       >
         {current ? (
           <>
-            <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-blue-600 text-[11px] font-bold text-white">
-              {initials(current.student?.name ?? "?")}
-            </span>
+            <UserAvatar decorative src={current.student?.avatar_url} userId={current.student?.id} name={current.student?.name ?? "?"} size={28} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-semibold" data-testid="current-student">
                 {current.student?.name ?? "Unknown student"}
@@ -604,9 +595,7 @@ const StudentSwitcher: React.FC<{
                         sel ? "bg-blue-50 ring-1 ring-blue-200 dark:bg-blue-500/10 dark:ring-blue-500/30" : "hover:bg-slate-50 dark:hover:bg-white/5"
                       }`}
                     >
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[11px] font-bold text-slate-700 dark:bg-white/10 dark:text-slate-200">
-                        {initials(r.student?.name ?? "?")}
-                      </span>
+                      <UserAvatar decorative src={r.student?.avatar_url} userId={r.student?.id} name={r.student?.name ?? "?"} size={32} />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-medium">{r.student?.name ?? "Unknown student"}</span>
                         <span className="mt-0.5 flex flex-wrap items-center gap-1.5">

@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
+import UserAvatar from "../ui/UserAvatar";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import AssignmentStatusToggle from "./AssignmentStatusToggle";
 import { Clock, Calendar, Timer } from "lucide-react";
 import { formatDateTimeLocal } from "../../utils/dateUtils";
-import { getProfileImageUrl } from "../../utils/imageUrl";
 import { usePermissions } from "../../hooks/usePermissions";
 import { Award, CheckCircle2 } from "lucide-react";
 
@@ -407,21 +407,7 @@ const AssignmentCard: React.FC<AssignmentCardProps> = ({
                           marginLeft: index > 0 ? "-4px" : "0",
                         }}
                       >
-                        {submission.user?.profile_image ? (
-                          <img
-                            src={
-                              getProfileImageUrl(
-                                submission.user.profile_image,
-                              ) || ""
-                            }
-                            alt={`${submission.user.first_name} ${submission.user.last_name}`}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
-                          <span className="text-xs">
-                            {submission.user?.first_name?.charAt(0)}
-                          </span>
-                        )}
+                        <UserAvatar src={submission.user?.profile_image} userId={Number(submission.user?.id) || null} name={`${submission.user?.first_name ?? ""} ${submission.user?.last_name ?? ""}`.trim() || "?"} size={24} />
                       </div>
                     ))}
                   {submissionCount > 3 && (

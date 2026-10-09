@@ -1,5 +1,5 @@
 import React from "react";
-import { getProfileImageUrl } from "../../utils/imageUrl";
+import UserAvatar from "../ui/UserAvatar";
 
 export interface SubmissionItemInterface {
   id: string;
@@ -66,60 +66,16 @@ const SubmissionSummaryItem: React.FC<SubmissionSummaryItemProps> = ({
         <div className="flex items-center gap-4 flex-1 min-w-0">
           {/* Profile Avatar */}
           <div className="flex-shrink-0">
-            {submission.student?.profile_image ? (
-              <div className="relative">
-                <img
-                  src={
-                    getProfileImageUrl(submission.student.profile_image) || ""
-                  }
-                  alt={`${submission.student.first_name} ${submission.student.last_name}`}
-                  className="h-12 w-12 sm:h-14 sm:w-14 rounded-2xl object-cover border border-gray-200 dark:border-gray-600 group-hover:border-gray-300 dark:group-hover:border-gray-500 transition-colors"
-                />
-                {submission.grade && (
-                  <div className="absolute -top-1 -right-1 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-3 h-3 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="relative h-12 w-12 sm:h-14 sm:w-14 bg-gray-200 dark:bg-gray-700 rounded-2xl flex items-center justify-center border border-gray-200 dark:border-gray-600 group-hover:border-gray-300 dark:group-hover:border-gray-500 transition-colors">
-                <span className="text-text-secondary-light dark:text-text-secondary-dark font-semibold text-lg">
-                  {submission.student?.first_name?.[0] || "?"}
+            <div className="relative">
+              <UserAvatar decorative src={submission.student?.profile_image} userId={Number(submission.student?.id) || null} name={`${submission.student?.first_name ?? ""} ${submission.student?.last_name ?? ""}`.trim() || "?"} size={52} shape="rounded" />
+              {submission.grade && (
+                <span className="absolute -top-1 -right-1 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center ring-2 ring-white dark:ring-gray-900" aria-label="Graded">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
                 </span>
-                <span className="text-text-secondary-light dark:text-text-secondary-dark font-semibold text-lg ml-0.5">
-                  {submission.student?.last_name?.[0] || ""}
-                </span>
-                {submission.grade && (
-                  <div className="absolute -top-1 -right-1 h-5 w-5 bg-green-500 rounded-full flex items-center justify-center">
-                    <svg
-                      className="w-3 h-3 text-white"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M5 13l4 4L19 7"
-                      />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           {/* Student Details */}

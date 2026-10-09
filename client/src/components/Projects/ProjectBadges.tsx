@@ -1,8 +1,9 @@
+import UserAvatar from "../ui/UserAvatar";
 import React from "react";
 import { CheckCircle2, Cloud, GitBranch, GraduationCap, Link2, Loader2, Lock, PencilLine, Send, Trash2, WifiOff } from "lucide-react";
 import type { LinkStatus, ProjectAssignment, ProjectKind, ProjectStatus, SyncState } from "../../services/projectsApi";
 import type { LiveStatus } from "../../hooks/useEventSource";
-import { initials, languageMeta, syncMeta, TONE_CLASSES, type Tone } from "./projectFormat";
+import { languageMeta, syncMeta, TONE_CLASSES, type Tone } from "./projectFormat";
 
 /** Small rounded label used across the Projects pages. */
 export const Pill: React.FC<{
@@ -152,19 +153,7 @@ export const Avatar: React.FC<{ name: string; src?: string | null; size?: "sm" |
   name,
   src,
   size = "sm",
-}) => {
-  const cls = size === "sm" ? "h-7 w-7 text-[11px]" : "h-9 w-9 text-xs";
-  return src ? (
-    <img src={src} alt="" className={`${cls} shrink-0 rounded-full object-cover`} />
-  ) : (
-    <span
-      aria-hidden="true"
-      className={`${cls} inline-flex shrink-0 items-center justify-center rounded-full bg-blue-100 font-bold text-blue-700 dark:bg-blue-900/40 dark:text-blue-300`}
-    >
-      {initials(name)}
-    </span>
-  );
-};
+}) => <UserAvatar decorative src={src} name={name} size={size === "sm" ? 28 : 36} />;
 
 const STATUS_META: Record<ProjectStatus, { label: string; tone: Tone; icon: React.ReactNode; title: string }> = {
   draft: {

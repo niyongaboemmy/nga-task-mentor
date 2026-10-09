@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import UserAvatar from "../ui/UserAvatar";
 import { Link, useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
@@ -59,14 +60,6 @@ const selectCls =
 const periodName = (p: unknown): string | undefined =>
   p && typeof p === "object" && "name" in p ? String((p as { name: unknown }).name) : undefined;
 const num = (v: string | null) => (v && /^\d+$/.test(v) ? Number(v) : undefined);
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase() || "?";
 
 const StatusPill: React.FC<{ status: PerformanceStatus }> = ({ status }) => (
   <span className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap ${STATUS_META[status].cls}`}>
@@ -508,9 +501,7 @@ const Chip: React.FC<{ active: boolean; onClick: () => void; children: React.Rea
 const StudentName: React.FC<{ row: AdminStudentRow }> = ({ row: r }) => {
   const inner = (
     <>
-      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
-        {initials(r.name)}
-      </span>
+      <UserAvatar decorative misUserId={r.mis_user_id} name={r.name} size={36} />
       <span className="min-w-0">
         <span className={`block truncate font-medium ${ink.primary} group-hover:text-blue-600 dark:group-hover:text-blue-400`}>{r.name}</span>
         <span className={`block truncate text-xs ${ink.muted}`}>

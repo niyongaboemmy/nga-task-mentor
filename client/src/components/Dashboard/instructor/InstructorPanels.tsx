@@ -1,3 +1,4 @@
+import UserAvatar from "../../ui/UserAvatar";
 import React, { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -629,7 +630,7 @@ export const StudentWatchlist: React.FC<{ atRisk: StudentSummary[]; top: Student
                     tab === "risk" ? STAT_COLORS.red : STAT_COLORS.emerald
                   }`}
                 >
-                  {tab === "top" ? i + 1 : initials(s.name)}
+                  {tab === "top" ? i + 1 : <UserAvatar decorative misUserId={s.mis_user_id} userId={s.mis_user_id ? null : s.local_id} name={s.name} size={32} />}
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium truncate ${ink.primary}`}>{s.name}</p>
@@ -685,14 +686,6 @@ const TabButton: React.FC<{ active: boolean; onClick: () => void; children: Reac
     {children}
   </button>
 );
-
-const initials = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]!.toUpperCase())
-    .join("");
 
 export const EmptyLine: React.FC<{ icon: React.ReactNode; text: string }> = ({ icon, text }) => (
   <div className={`flex items-center gap-2 py-6 justify-center text-sm ${ink.secondary}`}>

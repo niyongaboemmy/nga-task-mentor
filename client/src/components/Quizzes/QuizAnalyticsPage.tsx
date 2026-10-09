@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import UserAvatar from "../ui/UserAvatar";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "../ui/Card";
 import { Button } from "../ui/Button";
@@ -310,9 +311,7 @@ export const QuizAnalyticsPage: React.FC<QuizAnalyticsPageProps> = () => {
                   >
                     <div className="flex items-center gap-2.5">
                       <div className="w-7 h-7 bg-blue-100 dark:bg-blue-900/30 rounded-full flex items-center justify-center shrink-0">
-                        <span className="text-xs font-medium text-blue-600 dark:text-blue-400">
-                          {(student.student_name || student.student_email || "?").charAt(0).toUpperCase()}
-                        </span>
+                        <UserAvatar decorative userId={Number(student.student_id) || null} name={student.student_name || student.student_email || "?"} size={28} />
                       </div>
                       <div>
                         <p className="text-xs font-medium text-gray-900 dark:text-white">

@@ -1529,7 +1529,7 @@ export const getProctoringAnalytics = async (req: Request, res: Response) => {
         where: { quiz_id: quizId, ...dateFilter },
         include: [
           { model: ProctoringEvent, as: "events", attributes: ["event_type", "severity"] },
-          { model: User, as: "student", attributes: ["id", "first_name", "last_name"] },
+          { model: User, as: "student", attributes: ["id", "first_name", "last_name", "profile_image"] },
         ],
       });
     } catch (e) {
@@ -1584,6 +1584,9 @@ export const getProctoringAnalytics = async (req: Request, res: Response) => {
       student_name: s.student
         ? `${s.student.first_name} ${s.student.last_name}`
         : `Student #${s.student_id}`,
+      // Local user id + stored photo, so the session list shows faces.
+      student_id: s.student_id ?? null,
+      student_avatar: s.student?.profile_image ?? null,
       risk_score: toNum(s.risk_score),
       violations: (s.events || []).filter((e: any) => !LIFECYCLE_EVENTS.has(e.event_type)).length,
       status: s.status,

@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import { startAvatarSync } from "./services/misAvatar";
 import dotenv from "dotenv";
 import path from "path";
 
@@ -372,6 +373,8 @@ const startServer = async (): Promise<void> => {
       startEarlyWarningSchedule();
       // Graded results of quizzes/assignments tagged with learning outcomes, to the MIS competency map.
       startCompetencyPush();
+      // Everyone's NGA profile photo from the MIS, every 15 minutes.
+      startAvatarSync();
       // Judge runtimes (newest per language), daily health/quota check, and
       // re-grading of answers left pending while the judge was down.
       startJudgeMaintenance();

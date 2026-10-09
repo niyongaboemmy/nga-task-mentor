@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import UserAvatar from "../ui/UserAvatar";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
@@ -111,14 +112,6 @@ const formatDate = (iso: string | null) => {
     : d.toLocaleDateString(undefined, { day: "numeric", month: "short" });
 };
 
-const initialsOf = (name: string) =>
-  name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((p) => p[0]?.toUpperCase())
-    .join("") || "?";
-
 // ─── Small pieces ─────────────────────────────────────────────────────────────
 
 function SubjectInfoCard({
@@ -161,21 +154,17 @@ function StudentRow({
   student,
   href,
   trailing,
+  misUserId,
 }: {
   student: StudentStat;
   href: string | null;
+  /** The roster's MIS id for this student (matched by email), for their photo. */
+  misUserId?: number | null;
   trailing: React.ReactNode;
 }) {
-  const color = bandMeta(student.band).color;
   const body = (
     <>
-      <span
-        className="w-8 h-8 rounded-xl flex items-center justify-center text-[11px] font-bold text-white flex-shrink-0"
-        style={{ backgroundColor: color }}
-        aria-hidden
-      >
-        {initialsOf(student.name)}
-      </span>
+      <UserAvatar decorative src={student.profileImage} misUserId={misUserId} name={student.name} size={32} shape="rounded" />
       <span className="flex-1 min-w-0">
         <span className="block text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
           {student.name}
@@ -294,6 +283,17 @@ export default function CourseOverviewPanel({
     return map;
   }, [roster]);
   const hrefOf = (s: StudentStat) => hrefByEmail.get((s.email || "").toLowerCase()) ?? null;
+  // Photos: the roster's MIS id (user.user_id), matched by email like the links above.
+  const misIdByEmail = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of roster) {
+      const email = (s.user?.email || "").toLowerCase();
+      const misId = Number(s.user?.user_id);
+      if (email && misId) map.set(email, misId);
+    }
+    return map;
+  }, [roster]);
+  const misIdOf = (s: StudentStat) => misIdByEmail.get((s.email || "").toLowerCase()) ?? null;
 
   // Same id derivation as SubjectReportCardDashboard, so statuses line up.
   const reportCardIds = useMemo(
@@ -666,6 +666,7 @@ export default function CourseOverviewPanel({
                         key={s.id}
                         student={s}
                         href={hrefOf(s)}
+                        misUserId={misIdOf(s)}
                         trailing={
                           <span className="flex flex-col items-end gap-1">
                             <span className="text-sm font-bold tabular-nums">{s.overallPct}%</span>
@@ -690,6 +691,7 @@ export default function CourseOverviewPanel({
                       key={s.id}
                       student={s}
                       href={hrefOf(s)}
+                      misUserId={misIdOf(s)}
                       trailing={
                         <span className="flex items-center gap-2">
                           {i === 0 && <Award className="w-4 h-4 text-amber-500" aria-label="Top of the class" />}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import UserAvatar from "../ui/UserAvatar";
 import { useParams, Link } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import { motion } from "framer-motion";
@@ -605,17 +606,13 @@ const StudentsList: React.FC<{
               const lastName = student.profile?.last_name || student.user?.last_name || "";
               const fullName = `${firstName} ${lastName}`.trim() || "Unknown";
               const email = student.user?.email || "";
-              const avatarColor = AVATAR_COLORS[idx % AVATAR_COLORS.length];
-              const initials = `${firstName[0] || ""}${lastName[0] || ""}`.toUpperCase() || "?";
 
               return (
                 <div
                   key={id}
                   className="grid grid-cols-[auto_1fr_auto] sm:grid-cols-[auto_1fr_1fr_auto] items-center gap-3 sm:gap-4 px-3 sm:px-4 py-3 hover:bg-blue-50/40 dark:hover:bg-blue-900/10 transition-colors group"
                 >
-                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${avatarColor} flex items-center justify-center text-white text-xs font-bold flex-shrink-0`}>
-                    {initials}
-                  </div>
+                  <UserAvatar decorative misUserId={Number(student.user?.user_id) || null} name={fullName} size={36} shape="rounded" />
                   <Link to={`/students/${id}`} className="min-w-0">
                     <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">
                       {fullName}

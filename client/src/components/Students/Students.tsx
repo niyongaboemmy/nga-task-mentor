@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import UserAvatar from "../ui/UserAvatar";
 import { Link } from "react-router-dom";
 import axios from "../../utils/axiosConfig";
 import { useAuth } from "../../contexts/AuthContext";
@@ -79,10 +80,6 @@ interface FlatUser {
 const SUBJECT_HUES = [211, 262, 340, 24, 152, 190, 45, 288];
 const hueFor = (id: number) => SUBJECT_HUES[Math.abs(id) % SUBJECT_HUES.length];
 
-const initials = (first?: string | null, last?: string | null) =>
-  `${(first || "").trim()[0] || ""}${(last || "").trim()[0] || ""}`.toUpperCase() ||
-  "?";
-
 const StatCard: React.FC<{
   icon: React.ReactNode;
   value: number | string;
@@ -119,9 +116,7 @@ const StudentRow: React.FC<{ student: MyStudent }> = ({ student }) => (
     to={`/students/${student.user_id}`}
     className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-surface-light dark:hover:bg-surface-dark/60"
   >
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-xs font-bold text-white">
-      {initials(student.first_name, student.last_name)}
-    </div>
+    <UserAvatar decorative misUserId={student.user_id} name={`${student.first_name ?? ""} ${student.last_name ?? ""}`.trim() || "?"} size={36} />
     <div className="min-w-0 flex-1">
       <div className="flex items-center gap-2">
         <span className="truncate text-sm font-medium text-text-primary-light group-hover:text-blue-600 dark:text-text-primary-dark dark:group-hover:text-blue-400">
@@ -632,9 +627,7 @@ const AllStudentsView: React.FC = () => {
                 to={`/students/${s.user_id}`}
                 className="group flex items-center gap-3 rounded-2xl border border-white/60 bg-card-light p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md dark:border-border-dark/30 dark:bg-card-dark/30"
               >
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-sm font-bold text-white">
-                  {initials(s.first_name, s.last_name)}
-                </div>
+                <UserAvatar decorative misUserId={Number(s.user_id) || null} name={`${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || "?"} size={44} />
                 <div className="min-w-0">
                   <div className="truncate text-sm font-medium text-text-primary-light group-hover:text-blue-600 dark:text-text-primary-dark dark:group-hover:text-blue-400">
                     {s.first_name} {s.last_name}

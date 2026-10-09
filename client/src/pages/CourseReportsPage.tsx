@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import UserAvatar from "../components/ui/UserAvatar";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSelector, useDispatch } from "react-redux";
@@ -749,9 +750,7 @@ export default function CourseReportsPage() {
                         <tr key={s.id} onClick={() => setOpenStudent(s)} className="group cursor-pointer">
                           <td className="sticky left-0 z-10 bg-card-light dark:bg-[#1c2635] group-hover:bg-surface-light/80 dark:group-hover:bg-surface-dark/60 px-3 py-2.5 border-t border-border-light dark:border-border-dark/30 transition-colors">
                             <span className="flex items-center gap-2.5 min-w-0">
-                              <span className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                                {s.name.charAt(0).toUpperCase()}
-                              </span>
+                              <UserAvatar decorative src={s.profileImage} name={s.name} size={32} />
                               <span className="min-w-0">
                                 <span className="block text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate max-w-[150px]">
                                   {s.name}

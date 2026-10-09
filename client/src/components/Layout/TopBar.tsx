@@ -1,9 +1,9 @@
 import React, { useEffect, useRef, useState } from "react";
+import UserAvatar from "../ui/UserAvatar";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Menu, LayoutGrid, LogOut, User as UserIcon, Code2 } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
-import { getProfileImageUrl } from "../../utils/imageUrl";
 import { ThemeToggle } from "../ThemeToggle";
 import SystemsMenu from "./SystemsMenu";
 import AcademicPeriodSwitcher from "./AcademicPeriodSwitcher";
@@ -129,20 +129,10 @@ const TopBar: React.FC<TopBarProps> = ({ onOpenMobileMenu }) => {
             aria-label="Account menu"
             aria-expanded={isUserMenuOpen}
           >
-            {user?.profile_image ? (
-              <img
-                src={getProfileImageUrl(user.profile_image) || ""}
-                alt={`${user.first_name} ${user.last_name}`}
-                className="w-9 h-9 rounded-full object-cover border-2 border-border-light dark:border-gray-700 shadow-sm"
-              />
-            ) : (
-              <div className="w-9 h-9 rounded-full bg-surface-light dark:bg-surface-dark/50 flex items-center justify-center overflow-hidden">
-                <span className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-blue-600 text-white text-sm font-semibold flex items-center justify-center">
-                  {user?.first_name?.[0] || "U"}
-                </span>
-                <div className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white dark:border-gray-900" />
-              </div>
-            )}
+            <span className="relative inline-flex">
+              <UserAvatar src={user?.profile_image} name={`${user?.first_name ?? ""} ${user?.last_name ?? ""}`.trim() || "U"} size={36} className="border-2 border-border-light dark:border-gray-700 shadow-sm" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-green-400 rounded-full border-2 border-white dark:border-gray-900" />
+            </span>
           </motion.button>
 
           {isUserMenuOpen && (
