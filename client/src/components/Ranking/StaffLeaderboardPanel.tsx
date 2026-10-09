@@ -1,3 +1,4 @@
+import UserAvatar from "../ui/UserAvatar";
 import { Fragment, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart3, ChevronDown, Layers, Medal, Search, UserX, Users } from "lucide-react";
@@ -271,6 +272,9 @@ export default function StaffLeaderboardPanel({ data, onSelectSubject, scopedToS
                       )}
                     </td>
                     <td className="px-2 py-2.5 min-w-[10rem]">
+                      <span className="flex items-center gap-2.5">
+                      <UserAvatar decorative misUserId={r.mis_user_id} name={r.name} size={28} />
+                      <span className="min-w-0">
                       {r.mis_user_id ? (
                         <Link to={`/students/${r.mis_user_id}`} className="font-semibold text-text-primary-light dark:text-text-primary-dark hover:text-blue-600 dark:hover:text-blue-400">
                           {r.name}
@@ -278,6 +282,8 @@ export default function StaffLeaderboardPanel({ data, onSelectSubject, scopedToS
                       ) : (
                         <span className="font-semibold text-text-primary-light dark:text-text-primary-dark">{r.name}</span>
                       )}
+                      </span>
+                      </span>
                       <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
                         {r.class_group_name ?? "No class group"}
                         {r.grade_name && groupBy !== "grade" && ` · ${r.grade_name}`}

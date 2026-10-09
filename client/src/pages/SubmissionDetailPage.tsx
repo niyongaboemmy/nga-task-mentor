@@ -1,3 +1,4 @@
+import UserAvatar from "../components/ui/UserAvatar";
 import React, { useState, useEffect } from "react";
 import { Link, useParams, useNavigate } from "react-router-dom";
 import axios from "../utils/axiosConfig";
@@ -7,15 +8,13 @@ import {
   XCircle,
   Clock,
   Trophy,
-  User,
   BookOpen,
   ChevronDown,
   ChevronUp,
   AlertTriangle,
   Target,
   Calendar,
-  BarChart3,
-} from "lucide-react";
+  BarChart3 } from "lucide-react";
 import RichTextDisplay from "../components/Common/RichTextDisplay";
 import CodeTestResults from "../components/Quizzes/CodeTestResults";
 import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
@@ -683,9 +682,7 @@ const SubmissionDetailPage: React.FC = () => {
       <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 mb-6 shadow-sm">
         <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
           <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center flex-shrink-0">
-              <User className="w-6 h-6 text-white" />
-            </div>
+            <UserAvatar decorative userId={detail.student_id} name={detail.student_name || "Student"} size={48} shape="rounded" />
             <div>
               <h1 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark">
                 {detail.student_name || "Unknown Student"}

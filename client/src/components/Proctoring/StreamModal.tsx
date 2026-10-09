@@ -1,3 +1,4 @@
+import UserAvatar from "../ui/UserAvatar";
 import React, { useState, useRef, useEffect } from "react";
 import Modal from "../ui/Modal";
 import { ProctoringApiService } from "../../services/proctoringApi";
@@ -748,6 +749,8 @@ const StreamModal: React.FC<StreamModalProps> = ({
       onClose={onClose}
       title={
         <div className="flex items-center justify-between w-full">
+          <div className="flex items-center gap-3">
+          <UserAvatar decorative userId={stream.student.id} name={`${stream.student.first_name} ${stream.student.last_name}`} size={40} />
           <div>
             <span className="text-lg font-bold text-gray-800 dark:text-white">
               {stream.student.first_name} {stream.student.last_name}
@@ -756,6 +759,7 @@ const StreamModal: React.FC<StreamModalProps> = ({
               <Terminal className="w-3 h-3" />
               {stream.quiz.title}
             </div>
+          </div>
           </div>
         </div>
       }
