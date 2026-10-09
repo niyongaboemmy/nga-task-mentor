@@ -33,6 +33,7 @@ import { readBlobGz, readManifest } from "../tmcode/projects/storage";
 import { userBrief, usersById } from "../tmcode/projects/serialize";
 import { syncProjectStatus } from "../tmcode/projects/status";
 import { parsePracticalData, PRACTICAL_TYPE, PracticalCriterion } from "../tmcode/practical/question";
+import { rebasePreviewRoots } from "../tmcode/practical/preview";
 import { canGradeAssignment, canGradeQuiz } from "../utils/gradingAccess";
 import { isPassed } from "../utils/quizStudentView";
 import { getScopedSubjects } from "../utils/scopedSubjects";
@@ -664,8 +665,14 @@ export const servePreview = async (req: Request, res: Response) => {
   res.setHeader("X-Content-Type-Options", "nosniff");
   res.setHeader("Cache-Control", "private, max-age=300");
   res.setHeader("Referrer-Policy", "no-referrer");
-  res.type(MIME[path.extname(entry.path).toLowerCase()] ?? "application/octet-stream");
-  return res.status(200).send(zlib.gunzipSync(gz));
+  const ext = path.extname(entry.path).toLowerCase();
+  res.type(MIME[ext] ?? "application/octet-stream");
+  const body = zlib.gunzipSync(gz);
+  const kind = ext === ".html" || ext === ".htm" ? "html" : ext === ".css" ? "css" : null;
+  if (!kind) return res.status(200).send(body);
+  // Keep root-relative links ("/style.css", "/src/main.tsx") inside the preview.
+  const base = `${req.baseUrl}/preview/${encodeURIComponent(req.params.token)}/`;
+  return res.status(200).send(rebasePreviewRoots(body.toString("utf8"), base, kind));
 };
 
 // ─── GET /grading: what the caller can grade ─────────────────────────────────
