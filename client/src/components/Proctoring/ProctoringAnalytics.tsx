@@ -1,3 +1,4 @@
+import UserAvatar from "../ui/UserAvatar";
 import React, { useState, useEffect } from "react";
 import axios from "../../utils/axiosConfig";
 import Select from "../ui/Select";
@@ -14,6 +15,8 @@ interface AnalyticsData {
   riskDistribution: { low: number; medium: number; high: number; critical: number };
   commonViolations: Array<{ type: string; count: number; percentage: number }>;
   sessionDetails: Array<{
+    student_id?: number | null;
+    student_avatar?: string | null;
     student_name: string;
     risk_score: number;
     violations: number;
@@ -269,15 +272,12 @@ const ProctoringAnalytics: React.FC<ProctoringAnalyticsProps> = ({ quizId }) => 
             <tbody className="divide-y divide-gray-50 dark:divide-gray-800">
               {analytics.sessionDetails.map((s, i) => {
                 const colors = riskColor(s.risk_score);
-                const initials = s.student_name.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase();
                 return (
                   <tr key={i} className="hover:bg-gray-50/60 dark:hover:bg-gray-800/30 transition-colors">
                     <td className="px-5 py-3.5 text-xs text-gray-400 dark:text-gray-600 font-mono">{i + 1}</td>
                     <td className="px-5 py-3.5">
                       <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white text-[10px] font-bold flex-shrink-0">
-                          {initials}
-                        </div>
+                        <UserAvatar decorative src={s.student_avatar} userId={s.student_id} name={s.student_name} size={28} shape="rounded" />
                         <span className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">{s.student_name}</span>
                       </div>
                     </td>

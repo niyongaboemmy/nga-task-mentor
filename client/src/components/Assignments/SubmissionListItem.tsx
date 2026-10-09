@@ -1,5 +1,5 @@
 import React from "react";
-import { getProfileImageUrl } from "../../utils/imageUrl";
+import UserAvatar from "../ui/UserAvatar";
 import SubmissionDetailsModal from "./SubmissionDetailsModal";
 import { toast } from "react-toastify";
 import type { AssignmentInterface } from "./AssignmentCard";
@@ -155,22 +155,7 @@ const SubmissionListItem: React.FC<SubmissionListItemProps> = ({
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-4">
             <div className="flex-shrink-0">
-              {submission.student?.profile_image ? (
-                <img
-                  src={
-                    getProfileImageUrl(submission.student.profile_image) || ""
-                  }
-                  alt={`${submission.student.first_name} ${submission.student.last_name}`}
-                  className="h-11 w-11 rounded-full object-cover shadow-lg"
-                />
-              ) : (
-                <div className="h-11 w-11 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
-                  <span className="text-white font-bold text-lg">
-                    {submission.student?.first_name?.[0] || "?"}
-                    {submission.student?.last_name?.[0] || "?"}
-                  </span>
-                </div>
-              )}
+              <UserAvatar decorative src={submission.student?.profile_image} userId={Number(submission.student?.id) || null} name={`${submission.student?.first_name ?? ""} ${submission.student?.last_name ?? ""}`.trim() || "?"} size={44} />
             </div>
             <div>
               <h4 className="font-semibold text-text-primary-light dark:text-text-primary-dark text-lg">

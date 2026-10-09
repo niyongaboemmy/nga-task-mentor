@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import UserAvatar from "../components/ui/UserAvatar";
 import { Link, useParams } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -655,9 +656,7 @@ export default function SubjectAssessmentReportPage() {
                       onClick={() => setOpenStudent(s)}
                       className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-surface-light/70 dark:hover:bg-surface-dark/50 transition-colors group"
                     >
-                      <span className="w-9 h-9 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 flex items-center justify-center text-xs font-bold flex-shrink-0">
-                        {s.name.charAt(0).toUpperCase()}
-                      </span>
+                      <UserAvatar decorative src={s.profileImage} name={s.name} size={36} />
 
                       <span className="flex-1 min-w-0">
                         <span className="block text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">

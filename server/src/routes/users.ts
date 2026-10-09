@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { lookupAvatars } from "../services/misAvatar";
 import {
   getUsers,
   getMyStudents,
@@ -24,6 +25,16 @@ router.get("/profile-picture/:filename", getProfilePicture);
 
 // All other routes are protected
 router.use(protect);
+
+// Photos for the people on a page (batched by the client; MIS is the source).
+router.post("/avatars/lookup", async (req, res) => {
+  try {
+    res.set("Cache-Control", "private, max-age=60");
+    res.json({ success: true, data: await lookupAvatars(req.body ?? {}) });
+  } catch (err: any) {
+    res.status(err?.status === 400 ? 400 : 500).json({ success: false, message: err?.status === 400 ? err.message : "Could not load photos" });
+  }
+});
 
 router
   .route("/")
