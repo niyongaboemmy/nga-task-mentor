@@ -1,7 +1,9 @@
 import {
+  alertTargets,
   bandOf,
   buildInstructorOverview,
   OverviewInput,
+  overviewAlertTargets,
   weekStart,
 } from "../services/instructorOverview.service";
 
@@ -274,6 +276,20 @@ describe("instructor overview analytics", () => {
       const order = { critical: 0, warning: 1, info: 2, success: 3 } as const;
       const ranks = o.alerts.map((a) => order[a.severity]);
       expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+    });
+
+    it("exposes the targets behind its alerts (the MIS Home summary's source), consistent with the alert ids", () => {
+      const t = overviewAlertTargets(o)!;
+      expect(t).not.toBeNull();
+      const ids = new Set(o.alerts.map((a) => a.id));
+      for (const s of t.atRiskSubjects) expect(ids.has(`subject-risk-${s.subject_id}`)).toBe(true);
+      for (const u of t.lowClosing.slice(0, 3)) expect(ids.has(`due-low-${u.kind}-${u.id}`)).toBe(true);
+      for (const a of t.closedMissing.slice(0, 3)) expect(ids.has(`closed-missing-${a.kind}-${a.id}`)).toBe(true);
+      for (const a of t.lowScores.slice(0, 3)) expect(ids.has(`low-score-${a.kind}-${a.id}`)).toBe(true);
+      expect(ids.has("subjects-empty")).toBe(t.emptySubjects.length > 0);
+      // Same rules from the (capped) response lists when no stash exists.
+      expect(overviewAlertTargets({ ...o })).toBeNull();
+      expect(alertTargets({ ...o, nowMs: NOW.getTime() }).atRiskSubjects).toEqual(t.atRiskSubjects);
     });
   });
 });

@@ -112,6 +112,16 @@ describe("student overview: task states", () => {
     expect(task("quiz", 23).state).toBe("missed");
   });
 
+  it("reads MySQL's 0/1 `passed` as a boolean (raw rows), so the retake reminder still fires", () => {
+    const base = input();
+    const raw = buildStudentOverview({
+      ...base,
+      attempts: base.attempts.map((a) => (a.passed === false ? { ...a, passed: 0 } : a.passed === true ? { ...a, passed: 1 } : a)),
+    });
+    expect(raw.tasks.find((t) => t.kind === "quiz" && t.id === 22)).toMatchObject({ passed: false, can_retake: true });
+    expect(raw.reminders.map((r) => r.id)).toContain("retake-22");
+  });
+
   it("orders the list by urgency", () => {
     const order = o.tasks.map((t) => t.state);
     expect(order.indexOf("in_progress")).toBe(0);

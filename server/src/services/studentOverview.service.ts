@@ -89,7 +89,7 @@ export interface MyAttemptRow {
   percentage?: number | string | null;
   total_score?: number | string | null;
   max_score?: number | string | null;
-  passed?: boolean | null;
+  passed?: boolean | number | null;
   started_at?: Date | string | null;
   end_time?: Date | string | null;
   completed_at?: Date | string | null;
@@ -238,7 +238,8 @@ const plural = (n: number, word: string, many = `${word}s`) => `${n} ${n === 1 ?
 
 const FINISHED = new Set(["completed", "timed_out"]);
 const GRADED = new Set(["graded", "auto_graded"]);
-const HANDED_IN = new Set(["submitted", "late", "resubmitted", "graded"]);
+/** Submission statuses that count as handed in (a draft does not). */
+export const HANDED_IN = new Set(["submitted", "late", "resubmitted", "graded"]);
 
 /** "in 3h 20m" / "in 2 days" / "5h ago" — for reminder text only (the UI ticks live). */
 export function relTime(target: Date, nowMs: number): string {
@@ -428,7 +429,8 @@ export function buildStudentOverview(input: StudentOverviewInput): StudentOvervi
       const max = num(best.max_score);
       t.score_display = got != null && max ? `${fmtScore(got)}/${fmtScore(max)}` : null;
       const passMark = q.passing_score ?? PASS_MARK;
-      t.passed = best.passed ?? t.score_pct >= passMark;
+      // MySQL hands tinyint(1) back as 0/1 from raw queries: compare as a boolean.
+      t.passed = best.passed == null ? t.score_pct >= passMark : Boolean(Number(best.passed));
       t.has_feedback = hasText(best.feedback);
       t.graded_at = iso(toDate(best.graded_at) ?? toDate(best.completed_at));
     }
@@ -588,10 +590,41 @@ export function buildStudentOverview(input: StudentOverviewInput): StudentOvervi
 // ─── Reminders ────────────────────────────────────────────────────────────────
 
 const MAX_ITEM_REMINDERS = 3;
+/** Missed work stays a reminder for this long after its deadline. */
+export const MISSED_REMINDER_DAYS = 7;
+/** A quiz opening within this many days gets an "opens soon" reminder. */
+export const OPENS_SOON_DAYS = 2;
+
+/**
+ * Which tasks each reminder is about, before it is worded: the one rule set
+ * behind buildStudentReminders and the MIS Home summary
+ * (integration/homeSummary.ts). Lists are uncapped. Pass public tasks only.
+ */
+export function reminderTargets(tasks: StudentTask[], now: Date) {
+  const nowMs = now.getTime();
+  return {
+    running: tasks.filter((x) => x.state === "in_progress"),
+    dueToday: tasks.filter((t) => t.state === "due_today"),
+    drafts: tasks.filter((t) => t.has_draft && t.state !== "due_today" && ["due_soon", "upcoming"].includes(t.state)),
+    dueSoon: tasks.filter((t) => t.state === "due_soon"),
+    recentlyMissed: tasks.filter(
+      (t) => t.state === "missed" && t.due_at && nowMs - new Date(t.due_at).getTime() <= MISSED_REMINDER_DAYS * DAY,
+    ),
+    retakes: tasks.filter((t) => t.kind === "quiz" && t.can_retake && t.passed === false),
+    opening: tasks.filter(
+      (t) => t.state === "not_open" && t.opens_at && new Date(t.opens_at).getTime() - nowMs <= OPENS_SOON_DAYS * DAY,
+    ),
+    fresh: tasks
+      .filter((t) => t.state === "graded" && t.graded_at && nowMs - new Date(t.graded_at).getTime() <= 7 * DAY)
+      .sort((a, b) => b.graded_at!.localeCompare(a.graded_at!)),
+    newWork: tasks.filter((t) => t.is_new && t.state !== "due_today" && t.state !== "in_progress"),
+  };
+}
 
 export function buildStudentReminders(tasks: StudentTask[], now: Date): StudentReminder[] {
   const nowMs = now.getTime();
   const out: StudentReminder[] = [];
+  const targets = reminderTargets(tasks, now);
   const label = (t: StudentTask) => t.subject_code || t.subject_name;
   const capped = (items: StudentReminder[], rollup: (rest: number) => StudentReminder) => {
     out.push(...items.slice(0, MAX_ITEM_REMINDERS));
@@ -599,7 +632,7 @@ export function buildStudentReminders(tasks: StudentTask[], now: Date): StudentR
   };
 
   // Running quiz: the most time-critical thing a student can have.
-  for (const t of tasks.filter((x) => x.state === "in_progress")) {
+  for (const t of targets.running) {
     const end = t.countdown_to ? new Date(t.countdown_to) : null;
     out.push({
       id: `running-${t.id}`,
@@ -615,8 +648,7 @@ export function buildStudentReminders(tasks: StudentTask[], now: Date): StudentR
   }
 
   capped(
-    tasks
-      .filter((t) => t.state === "due_today")
+    targets.dueToday
       .map((t) => ({
         id: `due-today-${t.kind}-${t.id}`,
         severity: "critical" as const,
@@ -640,7 +672,7 @@ export function buildStudentReminders(tasks: StudentTask[], now: Date): StudentR
     }),
   );
 
-  const drafts = tasks.filter((t) => t.has_draft && t.state !== "due_today" && ["due_soon", "upcoming"].includes(t.state));
+  const drafts = targets.drafts;
   if (drafts.length > 0) {
     out.push({
       id: "drafts",
@@ -654,8 +686,7 @@ export function buildStudentReminders(tasks: StudentTask[], now: Date): StudentR
   }
 
   capped(
-    tasks
-      .filter((t) => t.state === "due_soon")
+    targets.dueSoon
       .map((t) => ({
         id: `due-soon-${t.kind}-${t.id}`,
         severity: "warning" as const,
@@ -676,9 +707,7 @@ export function buildStudentReminders(tasks: StudentTask[], now: Date): StudentR
     }),
   );
 
-  const recentlyMissed = tasks.filter(
-    (t) => t.state === "missed" && t.due_at && nowMs - new Date(t.due_at).getTime() <= 7 * DAY,
-  );
+  const recentlyMissed = targets.recentlyMissed;
   if (recentlyMissed.length > 0) {
     out.push({
       id: "missed",
@@ -696,8 +725,7 @@ export function buildStudentReminders(tasks: StudentTask[], now: Date): StudentR
 
   // Failed but can try again while the quiz is still open.
   capped(
-    tasks
-      .filter((t) => t.kind === "quiz" && t.can_retake && t.passed === false)
+    targets.retakes
       .map((t) => ({
         id: `retake-${t.id}`,
         severity: "warning" as const,
@@ -718,9 +746,7 @@ export function buildStudentReminders(tasks: StudentTask[], now: Date): StudentR
     }),
   );
 
-  const opening = tasks.filter(
-    (t) => t.state === "not_open" && t.opens_at && new Date(t.opens_at).getTime() - nowMs <= 2 * DAY,
-  );
+  const opening = targets.opening;
   for (const t of opening.slice(0, MAX_ITEM_REMINDERS)) {
     out.push({
       id: `opens-${t.id}`,
@@ -733,9 +759,7 @@ export function buildStudentReminders(tasks: StudentTask[], now: Date): StudentR
     });
   }
 
-  const fresh = tasks
-    .filter((t) => t.state === "graded" && t.graded_at && nowMs - new Date(t.graded_at).getTime() <= 7 * DAY)
-    .sort((a, b) => b.graded_at!.localeCompare(a.graded_at!));
+  const fresh = targets.fresh;
   capped(
     fresh.map((t) => ({
       id: `result-${t.kind}-${t.id}`,
@@ -757,7 +781,7 @@ export function buildStudentReminders(tasks: StudentTask[], now: Date): StudentR
     }),
   );
 
-  const newWork = tasks.filter((t) => t.is_new && t.state !== "due_today" && t.state !== "in_progress");
+  const newWork = targets.newWork;
   if (newWork.length > 0) {
     out.push({
       id: "new-work",

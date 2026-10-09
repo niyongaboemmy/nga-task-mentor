@@ -3,7 +3,7 @@ import axios from "axios";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 import { QueryTypes } from "sequelize";
-import { buildTestApp, ensureModelsRegistered } from "./testApp";
+import { buildTestApp, ensureModelsRegistered, signTokenFor } from "./testApp";
 import { sequelize } from "../config/database";
 import { Role } from "../models";
 import type { AccessSnapshot, CapabilityEntry } from "../vendor/nga-access";
@@ -12,6 +12,7 @@ import { clearTargetCaches } from "../access/targets";
 import { __resetShadowThrottle, flushShadowWork } from "../access/policy";
 import { clearMisBearerCache } from "../middleware/misBearerAuth";
 import { integrationLimiter } from "../middleware/rateLimiter.middleware";
+import { clearInstructorOverviewCache } from "../controllers/instructorOverview.controller";
 import { lensForClassGroups, lensForScope, parseLenses, teachingLens } from "../integration/homeSummary";
 
 /**
@@ -28,26 +29,43 @@ jest.mock("axios", () => {
 const mockedGet = axios.get as jest.Mock;
 
 const RUN = crypto.randomBytes(3).toString("hex");
+/**
+ * MIS user / subject ids are unique per run: a run that dies before afterAll
+ * leaves its rows behind, and a later run reusing the same ids would read
+ * them (users are resolved by mis_user_id, work by subject id).
+ */
+const SLOT = (parseInt(RUN, 16) % 4000) * 200;
+const M = (n: number) => 4_000_000 + SLOT + n;
 const MIS = {
-  teacherA: 970001,
-  teacherB: 970002,
-  student1: 970003,
-  student2: 970004,
-  admin: 970005,
-  teacherP: 970006, // bulk fixtures: 20 subjects x 10 students
-  learnerBulk: 970007,
-  student5: 970008, // fixed-clock fixtures (SUBJ_E)
-  stranger: 970099,
+  teacherA: M(1),
+  teacherB: M(2),
+  student1: M(3),
+  student2: M(4),
+  admin: M(5),
+  teacherP: M(6), // bulk fixtures: 20 subjects x 10 students
+  learnerBulk: M(7),
+  student5: M(8), // fixed-clock fixtures (SUBJ_E)
+  student6: M(9), // the newer learner signals (SUBJ_F)
+  teacherG1: M(10), // instructor-dashboard fixtures (SUBJ_G): author
+  teacherG2: M(11), // co-teacher of SUBJ_G, also teaches the empty SUBJ_H
+  studentG3: M(12),
+  studentG4: M(13),
+  stranger: M(99),
 };
-const BULK_SUBJECTS = Array.from({ length: 20 }, (_, i) => 981000 + i);
+const S = (n: number) => 5_000_000 + SLOT + n;
+const BULK_SUBJECTS = Array.from({ length: 20 }, (_, i) => S(100 + i));
 const BULK_CLASS = 9;
-const BULK_STUDENTS = Array.from({ length: 10 }, (_, i) => 970100 + i);
-const SUBJ_A = 980001;
-const SUBJ_B = 980002;
-const SUBJ_C = 980003; // nobody here is enrolled in / assigned to it
-const SUBJ_E = 980005; // fixed-clock fixtures, far from the real "now"
+const BULK_STUDENTS = Array.from({ length: 10 }, (_, i) => M(100 + i));
+const SUBJ_A = S(1);
+const SUBJ_B = S(2);
+const SUBJ_C = S(3); // nobody here is enrolled in / assigned to it
+const SUBJ_E = S(5); // fixed-clock fixtures, far from the real "now"
+const SUBJ_F = S(6);
+const SUBJ_G = S(7);
+const SUBJ_H = S(8); // assigned to teacher G2, nothing published
 const CLASS = 7;
 const OTHER_CLASS = 8;
+const CLASS_G = 10;
 const TERM = `HOME-T-${RUN}`;
 const YEAR = `HOME-Y-${RUN}`;
 const now = Date.now();
@@ -87,6 +105,7 @@ const rosterOf: Record<number, number[]> = {
   [CLASS]: [MIS.student1],
   [OTHER_CLASS]: [MIS.student2],
   [BULK_CLASS]: BULK_STUDENTS,
+  [CLASS_G]: [MIS.student1, MIS.student2, MIS.studentG3, MIS.studentG4],
 };
 
 function misRouter(url: string, cfg: any) {
@@ -110,12 +129,13 @@ function misRouter(url: string, cfg: any) {
   let m = url.match(/\/academics\/students\/(\d+)\/class-group$/);
   if (m) return ok({ class_group_id: placementOf[Number(m[1])] ?? null, grade_id: 3, program_id: 1 });
   m = url.match(/\/academics\/class-groups\/(\d+)\/students$/);
-  if (m) return ok((rosterOf[Number(m[1])] ?? []).map((user_id) => ({ user_id })));
+  if (m) return ok((rosterOf[Number(m[1])] ?? []).map((user_id) => ({ user_id, first_name: "Pupil", last_name: String(user_id) })));
   m = url.match(/\/academics\/students\/(\d+)\/enrolled-subjects$/);
   if (m && Number(m[1]) === MIS.learnerBulk) {
     return ok(BULK_SUBJECTS.map((id) => ({ subject_id: id, subject_name: `Bulk ${id}` })));
   }
   if (m && Number(m[1]) === MIS.student5) return ok([{ subject_id: SUBJ_E, subject_name: "Home Clock" }]);
+  if (m && Number(m[1]) === MIS.student6) return ok([{ subject_id: SUBJ_F, subject_name: "Home Art" }]);
   if (m) {
     return ok([
       { subject_id: SUBJ_A, subject_name: "Home Maths" },
@@ -131,6 +151,14 @@ function misRouter(url: string, cfg: any) {
     if (who === "teacherA") return ok([{ id: SUBJ_A, name: "Home Maths" }]);
     if (who === "teacherB") return ok([{ id: SUBJ_B, name: "Home Physics" }]);
     if (who === "teacherP") return ok(BULK_SUBJECTS.map((id) => ({ id, name: `Bulk ${id}` })));
+    const groupG = [{ class_group_id: CLASS_G, class_group_name: "Home G", academic_year_id: 55 }];
+    if (who === "teacherG1") return ok([{ id: SUBJ_G, name: "Home Bio", grades: groupG }]);
+    if (who === "teacherG2") {
+      return ok([
+        { id: SUBJ_G, name: "Home Bio", grades: groupG },
+        { id: SUBJ_H, name: "Home Drama", grades: groupG },
+      ]);
+    }
     return ok([]);
   }
   if (url.endsWith("/academics/subjects")) {
@@ -173,13 +201,18 @@ const created: Record<string, number[]> = {
   quiz_submissions: [],
   proctoring_sessions: [],
   report_cards: [],
+  projects: [],
+  project_events: [],
+  question_bank: [],
 };
 const savedMode = process.env.ACCESS_V2_MODE;
 const savedBase = process.env.NGA_MIS_BASE_URL;
 const savedFrontend = process.env.FRONTEND_URL;
 
 async function insert(table: string, row: Record<string, any>): Promise<number> {
-  const full: Record<string, any> = { created_at: new Date(), updated_at: new Date(), ...row };
+  // project_events has no updated_at.
+  const stamps = table === "project_events" ? { created_at: new Date() } : { created_at: new Date(), updated_at: new Date() };
+  const full: Record<string, any> = { ...stamps, ...row };
   const cols = Object.keys(full);
   const [id] = await sequelize.query(
     `INSERT INTO ${table} (${cols.join(", ")}) VALUES (${cols.map(() => "?").join(", ")})`,
@@ -215,7 +248,8 @@ const assignment = (title: string, course_id: number, created_by: number, due: n
     status: "published",
   });
 
-const quiz = (title: string, course_id: number, created_by: number, start: number, end: number) =>
+/** Publicly accessible unless `extra` says otherwise: only public work raises student reminders. */
+const quiz = (title: string, course_id: number, created_by: number, start: number, end: number, extra: Record<string, any> = {}) =>
   insert("quizzes", {
     title,
     description: "home summary spec",
@@ -225,6 +259,22 @@ const quiz = (title: string, course_id: number, created_by: number, start: numbe
     created_by,
     start_date: new Date(start),
     end_date: new Date(end),
+    is_public: 1,
+    ...extra,
+  });
+
+const attempt = (quiz_id: number, student_id: number, row: Record<string, any>) =>
+  insert("quiz_submissions", {
+    quiz_id,
+    student_id,
+    total_score: 0,
+    max_score: 10,
+    percentage: 0,
+    time_taken: 0,
+    started_at: new Date(now - 2 * H),
+    passed: 0,
+    attempt_number: 1,
+    ...row,
   });
 
 beforeAll(async () => {
@@ -316,6 +366,95 @@ beforeAll(async () => {
       status,
     });
   }
+
+  // ── Instructor dashboard (SUBJ_G, class G: student1, student2, G3, G4) ──
+  await user("teacherG1", "instructor", MIS.teacherG1, "Gil");
+  await user("teacherG2", "instructor", MIS.teacherG2, "Gwen");
+  await user("studentG3", "student", MIS.studentG3, "Gus");
+  await user("studentG4", "student", MIS.studentG4, "Gia");
+  // Teacher G1's quiz, still open: attempts waiting for a grade (T-07 for co-teacher G2).
+  ids.bioQuiz = await quiz("Home bio quiz", SUBJ_G, ids.teacherG1, now - 10 * D, now + 5 * D);
+  await attempt(ids.bioQuiz, ids.student2, { status: "timed_out", grade_status: "pending", completed_at: new Date(now - D) });
+  await attempt(ids.bioQuiz, ids.studentG3, { status: "completed", grade_status: "pending", completed_at: new Date(now - 8 * D) });
+  await attempt(ids.bioQuiz, ids.studentG4, { status: "in_progress", grade_status: "pending", end_time: new Date(now + H) });
+  await attempt(ids.bioQuiz, ids.student1, {
+    status: "completed",
+    grade_status: "auto_graded",
+    percentage: 90,
+    passed: 1,
+    completed_at: new Date(now - 2 * D),
+    graded_at: new Date(now - 2 * D),
+  });
+  // T-17: closes in 10 h, nobody has submitted.
+  ids.bioClosing = await assignment("Home bio closing", SUBJ_G, ids.teacherG1, now + 10 * H);
+  // T-18: closed 2 days ago, 1 of 4 submitted.
+  ids.bioMissing = await assignment("Home bio missing", SUBJ_G, ids.teacherG1, now - 2 * D);
+  await insert("submissions", {
+    assignment_id: ids.bioMissing,
+    student_id: ids.studentG4,
+    status: "graded",
+    grade: "4/10",
+    submitted_at: new Date(now - 3 * D),
+    is_late: 0,
+  });
+  // T-19 (+ T-16 subject at risk, T-20 students): closed 3 days ago, 3 graded, average 30%.
+  ids.bioTest = await assignment("Home bio test", SUBJ_G, ids.teacherG1, now - 3 * D);
+  for (const [key, grade] of [
+    ["student2", "2/10"],
+    ["studentG3", "3/10"],
+    ["studentG4", "4/10"],
+  ] as const) {
+    await insert("submissions", {
+      assignment_id: ids.bioTest,
+      student_id: ids[key],
+      status: "graded",
+      grade,
+      submitted_at: new Date(now - 4 * D),
+      is_late: 0,
+    });
+  }
+  // T-23: a draft.
+  ids.bioDraft = await insert("assignments", {
+    title: "Home bio draft",
+    description: "home summary spec",
+    due_date: new Date(now + 9 * D),
+    max_score: 10,
+    submission_type: "text",
+    course_id: SUBJ_G,
+    created_by: ids.teacherG1,
+    status: "draft",
+  });
+  // T-21 / T-22: one live proctoring session, one left open with no heartbeat.
+  await insert("proctoring_sessions", {
+    quiz_id: ids.bioQuiz,
+    student_id: ids.studentG4,
+    session_token: `home-${RUN}-live`,
+    status: "active",
+    is_connected: 1,
+    last_connection_time: new Date(),
+    start_time: new Date(now - H),
+    flags_count: 0,
+  });
+  await insert("proctoring_sessions", {
+    quiz_id: ids.bioQuiz,
+    student_id: ids.student2,
+    session_token: `home-${RUN}-stale`,
+    status: "active",
+    is_connected: 0,
+    last_connection_time: new Date(now - 3 * H),
+    start_time: new Date(now - 4 * H),
+    flags_count: 0,
+  });
+  // T-24 negative: SUBJ_G's bank has 10 questions (enough); SUBJ_H has none.
+  for (let n = 0; n < 10; n++) {
+    await insert("question_bank", {
+      course_id: SUBJ_G,
+      question_type: "single_choice",
+      question_text: `Home bank question ${n}`,
+      question_data: JSON.stringify({ options: ["a", "b"], correct_answer: "a" }),
+      created_by: ids.teacherG1,
+    });
+  }
 });
 
 beforeEach(async () => {
@@ -331,6 +470,7 @@ beforeEach(async () => {
   clearSnapshotCache();
   clearTargetCaches();
   clearMisBearerCache();
+  clearInstructorOverviewCache();
   __resetShadowThrottle();
 });
 
@@ -345,7 +485,17 @@ afterAll(async () => {
   if (savedFrontend === undefined) delete process.env.FRONTEND_URL;
   else process.env.FRONTEND_URL = savedFrontend;
   await flushShadowWork();
-  for (const table of ["proctoring_sessions", "quiz_submissions", "submissions", "report_cards", "quizzes", "assignments"]) {
+  for (const table of [
+    "project_events",
+    "projects",
+    "question_bank",
+    "proctoring_sessions",
+    "quiz_submissions",
+    "submissions",
+    "report_cards",
+    "quizzes",
+    "assignments",
+  ]) {
     if (created[table].length) await sequelize.query(`DELETE FROM ${table} WHERE id IN (?)`, { replacements: [created[table]] });
   }
   if (created.users.length) {
@@ -499,21 +649,38 @@ describe("authentication", () => {
 
 // ───────────────────────────────────────────────────────────────────────────
 describe("learner (student1)", () => {
-  it("S-01 overdue, S-02 due soon, S-03 quiz closing, tile and results update", async () => {
+  it("S-01 missed, S-02 due within 24 h, S-03 quiz closing, tile and results update", async () => {
     const res = await summaryFor("student1");
     expect(res.status).toBe(200);
     expect(res.body.provisioned).toBe(true);
 
+    // Missed in the last 7 days: the overdue essay and both closed exams. Late
+    // work is refused, so it says "talk to your teacher", never "Submit".
     const s01 = item(res, "S-01");
-    expect(s01).toMatchObject({ id: "taskmentor:S-01:SELF", tier: "blocking", lens: "SELF", depth: "detail", count: 1 });
-    expect(s01.entities).toEqual(["Home overdue essay · Home Maths"]);
-    expect(s01.cta).toEqual({ label: "Submit", href: `https://tm.test/assignments/${ids.overdue}`, external: true });
+    expect(s01).toMatchObject({
+      id: "taskmentor:S-01:SELF",
+      tier: "blocking",
+      lens: "SELF",
+      depth: "detail",
+      count: 3,
+      title: "3 tasks missed in the last 7 days",
+    });
+    expect([...s01.entities].sort()).toEqual(["Home exam A · Home Maths", "Home exam B · Home Physics", "Home overdue essay · Home Maths"]);
+    expect(s01.why).toMatch(/talk to your teacher/i);
+    expect(s01.why).not.toMatch(/until you submit/i);
+    expect(s01.cta).toEqual({ label: "See work", href: "https://tm.test/dashboard", external: true });
     // not enrolled in SUBJ_C: its overdue task never shows
     expect(JSON.stringify(res.body)).not.toContain("Home chemistry task");
 
-    expect(item(res, "S-02")).toMatchObject({ tier: "slipping", count: 1, entities: ["Home due soon lab · Home Physics"] });
+    expect(item(res, "S-02")).toMatchObject({
+      tier: "blocking",
+      count: 1,
+      title: "1 assignment due within 24 hours",
+      entities: ["Home due soon lab · Home Physics"],
+      cta: { label: "Submit", href: `https://tm.test/assignments/${ids.dueSoon}`, external: true },
+    });
 
-    // Both open quizzes close within 24 h; the soonest (3 h) makes it blocking.
+    // Both open quizzes close within 24 h (the dashboard's "due today").
     const s03 = item(res, "S-03");
     expect(s03).toMatchObject({ tier: "blocking", count: 2 });
     expect(s03.entities).toEqual(["Home closing quiz · Home Physics", "Home quiet quiz · Home Maths"]);
@@ -557,6 +724,21 @@ describe("teaching", () => {
     expect(item(res, "T-15")).toMatchObject({ tier: "tidy", count: 1, entities: ["Home quiet quiz"] });
     expect(res.body.tiles).toEqual([expect.objectContaining({ label: "To grade", value: "2", status: "critical" })]);
     expect(item(res, "S-01")).toBeUndefined();
+  });
+
+  it("T-07 is the dashboard queue: a co-teacher's quiz attempts (completed or timed out), blocking past the SLA", async () => {
+    const res = await summaryFor("teacherG2");
+    const t07 = item(res, "T-07");
+    // Two ungraded finished attempts on teacher G1's quiz; not the running one,
+    // nor the auto-graded one.
+    expect(t07).toMatchObject({ tier: "blocking", count: 2, entities: ["Home bio quiz · 2"] });
+    expect(t07.cta.href).toBe(`https://tm.test/quizzes/${ids.bioQuiz}/submissions`);
+    expect(Math.abs(Date.parse(t07.waiting_since) - (now - 8 * D))).toBeLessThan(2000);
+    expect(t07.why).toMatch(/over 7 days/);
+  });
+
+  it("T-07 negative: a school-wide admin doesn't get the whole school's queue (own assessments only)", async () => {
+    expect(item(await summaryFor("admin"), "T-07")).toBeUndefined();
   });
 
   it("scope: teacher B sees only his own submissions/sessions, never teacher A's", async () => {
@@ -840,7 +1022,8 @@ describe("edge cases", () => {
     expect(item(a, "T-14").title).toBe("1 proctored session flagged in the last 7 days");
     const s = await summaryFor("student1");
     expect(item(s, "S-03").title).toBe("2 quizzes closing within 24 hours");
-    expect(item(s, "S-01").title).toBe("1 assignment overdue and not submitted");
+    expect(item(s, "S-01").title).toBe("3 tasks missed in the last 7 days");
+    expect(item(s, "S-02").title).toBe("1 assignment due within 24 hours");
   });
 
   it("ids are stable across calls", async () => {
@@ -870,6 +1053,244 @@ describe("edge cases", () => {
     } finally {
       await sequelize.query("DELETE FROM report_cards WHERE id = ?", { replacements: [card] });
     }
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+describe("learner: the student dashboard's other reminders (student6, SUBJ_F)", () => {
+  const old = new Date(now - 5 * D); // created long enough ago not to be "new"
+  beforeAll(async () => {
+    await user("student6", "student", MIS.student6, "Ivy");
+    const t = ids.teacherA;
+    // S-05: an attempt running on an open quiz.
+    ids.f_running = await quiz("Art running quiz", SUBJ_F, t, now - H, now + 5 * D, { created_at: old });
+    await attempt(ids.f_running, ids.student6, { status: "in_progress", grade_status: "pending", end_time: new Date(now + 30 * 60 * 1000) });
+    // S-03 negative: closes in 3 h but isn't publicly accessible.
+    ids.f_private = await quiz("Art private quiz", SUBJ_F, t, now - D, now + 3 * H, { is_public: 0, created_at: old });
+    // S-10 + S-06: due in 2 days, a saved draft.
+    ids.f_draft = await insert("assignments", {
+      title: "Art draft poster",
+      description: "home summary spec",
+      due_date: new Date(now + 2 * D),
+      max_score: 10,
+      submission_type: "text",
+      course_id: SUBJ_F,
+      created_by: t,
+      status: "published",
+      created_at: old,
+    });
+    await insert("submissions", { assignment_id: ids.f_draft, student_id: ids.student6, status: "draft", is_late: 0 });
+    // S-04: posted today, due in 5 days.
+    ids.f_new = await assignment("Art new sketch", SUBJ_F, t, now + 5 * D);
+    // S-07: failed a still-open quiz with attempts left.
+    ids.f_retake = await quiz("Art retake quiz", SUBJ_F, t, now - 2 * D, now + 4 * D, {
+      max_attempts: 3,
+      passing_score: 50,
+      created_at: old,
+    });
+    await attempt(ids.f_retake, ids.student6, {
+      status: "completed",
+      grade_status: "auto_graded",
+      percentage: 30,
+      total_score: 3,
+      passed: 0,
+      completed_at: new Date(now - D),
+      graded_at: new Date(now - D),
+    });
+    // S-08: opens tomorrow; negative: opens in 5 days.
+    ids.f_opens = await quiz("Art opening quiz", SUBJ_F, t, now + D, now + 3 * D, { created_at: old });
+    ids.f_later = await quiz("Art later quiz", SUBJ_F, t, now + 5 * D, now + 6 * D, { created_at: old });
+    // S-01: a 'completed' (closed) assignment never handed in counts as missed;
+    // negative: missed 10 days ago is outside the reminder window.
+    ids.f_completed = await insert("assignments", {
+      title: "Art completed task",
+      description: "home summary spec",
+      due_date: new Date(now + D),
+      max_score: 10,
+      submission_type: "text",
+      course_id: SUBJ_F,
+      created_by: t,
+      status: "completed",
+      created_at: old,
+    });
+    ids.f_oldMissed = await insert("assignments", {
+      title: "Art ancient task",
+      description: "home summary spec",
+      due_date: new Date(now - 10 * D),
+      max_score: 10,
+      submission_type: "text",
+      course_id: SUBJ_F,
+      created_by: t,
+      status: "published",
+      created_at: new Date(now - 20 * D),
+    });
+    // S-09: returned for changes and still a draft; negatives: withdrawn by the
+    // student after the return, and resubmitted after the return.
+    const project = (name: string, status: string, changedAt: number) =>
+      insert("projects", {
+        owner_id: ids.student6,
+        name,
+        slug: `${name.toLowerCase().replace(/\W+/g, "-")}-${RUN}`,
+        kind: "tm",
+        visibility: "private",
+        status,
+        status_changed_at: new Date(changedAt),
+      });
+    const returned = (project_id: number, at: number) =>
+      insert("project_events", { project_id, user_id: ids.teacherA, type: "returned", data: JSON.stringify({ message: "fix it" }), created_at: new Date(at) });
+    ids.p_returned = await project("Art returned app", "draft", now - 2 * H);
+    await returned(ids.p_returned, now - 2 * H + 1000);
+    ids.p_withdrawn = await project("Art withdrawn app", "draft", now - H);
+    await returned(ids.p_withdrawn, now - 3 * H);
+    ids.p_resubmitted = await project("Art resubmitted app", "submitted", now - H);
+    await returned(ids.p_resubmitted, now - 3 * H);
+  });
+
+  it("every reminder kind, with the dashboard's tiers and deep links", async () => {
+    const res = await summaryFor("student6");
+    expect(res.status).toBe(200);
+    expect(res.body.items.map((i: any) => i.kind).sort()).toEqual(["S-01", "S-04", "S-05", "S-06", "S-07", "S-08", "S-09", "S-10"]);
+
+    expect(item(res, "S-05")).toMatchObject({
+      tier: "blocking",
+      count: 1,
+      title: "1 quiz in progress",
+      entities: ["Art running quiz · Home Art"],
+      cta: { label: "Resume", href: `https://tm.test/quizzes/${ids.f_running}/take`, external: true },
+    });
+    expect(item(res, "S-01")).toMatchObject({
+      tier: "blocking",
+      count: 1,
+      entities: ["Art completed task · Home Art"],
+      cta: { label: "See work", href: `https://tm.test/assignments/${ids.f_completed}`, external: true },
+    });
+    expect(item(res, "S-10")).toMatchObject({ tier: "slipping", count: 1, title: "1 task due in the next 3 days", entities: ["Art draft poster · Home Art"] });
+    expect(item(res, "S-06")).toMatchObject({
+      tier: "slipping",
+      count: 1,
+      title: "1 draft not submitted",
+      cta: { label: "Finish & submit", href: `https://tm.test/assignments/${ids.f_draft}`, external: true },
+    });
+    expect(item(res, "S-04")).toMatchObject({ tier: "tidy", count: 1, title: "1 new task posted", entities: ["Art new sketch · Home Art"] });
+    expect(item(res, "S-07")).toMatchObject({
+      tier: "tidy",
+      count: 1,
+      title: "1 quiz you can retake",
+      cta: { label: "Retake", href: `https://tm.test/quizzes/${ids.f_retake}/take`, external: true },
+    });
+    expect(item(res, "S-08")).toMatchObject({ tier: "tidy", count: 1, entities: ["Art opening quiz · Home Art"] });
+    expect(item(res, "S-09")).toMatchObject({
+      tier: "slipping",
+      count: 1,
+      title: "1 project returned for changes",
+      entities: ["Art returned app"],
+      cta: { label: "Open", href: `https://tm.test/projects/${ids.p_returned}`, external: true },
+    });
+
+    const text = JSON.stringify(res.body);
+    for (const absent of ["Art private quiz", "Art ancient task", "Art later quiz", "Art withdrawn app", "Art resubmitted app"]) {
+      expect(text).not.toContain(absent);
+    }
+    // Tile: published + completed assignments, none handed in (a draft isn't).
+    expect(res.body.tiles).toEqual([expect.objectContaining({ label: "Assignments done", value: "0/4", status: "warning" })]);
+  });
+
+  it("the Home items agree with the student dashboard's own reminders", async () => {
+    const dash = await request(app)
+      .get("/api/dashboard/student/overview")
+      .set("Authorization", `Bearer ${signTokenFor(ids.student6)}`)
+      .set("x-mis-token", TOKEN.student6);
+    expect(dash.status).toBe(200);
+    const reminderIds = dash.body.data.reminders.map((r: any) => r.id);
+    expect(reminderIds).toEqual(expect.arrayContaining([`running-${ids.f_running}`, "drafts", "missed", `retake-${ids.f_retake}`, `opens-${ids.f_opens}`, "new-work"]));
+  });
+
+  it("no learner items without the learner permissions (a teacher's assigned subjects are never read as enrolment)", async () => {
+    const res = await summaryFor("teacherG2");
+    for (const kind of ["S-01", "S-02", "S-03", "S-04", "S-05", "S-06", "S-07", "S-08", "S-10"]) expect(item(res, kind)).toBeUndefined();
+  });
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+describe("instructor dashboard alerts (T-16…T-25) for a subject teacher", () => {
+  it("teacher G2: each alert of the dashboard as a counted Home item", async () => {
+    const res = await summaryFor("teacherG2");
+    expect(res.status).toBe(200);
+    const kinds = res.body.items.map((i: any) => i.kind);
+    for (const k of ["T-07", "T-16", "T-17", "T-18", "T-19", "T-20", "T-21", "T-22", "T-23", "T-24", "T-25"]) expect(kinds).toContain(k);
+
+    expect(item(res, "T-16")).toMatchObject({
+      id: "taskmentor:T-16:TEACHING",
+      tier: "slipping",
+      lens: "TEACHING",
+      count: 1,
+      title: "1 subject at risk",
+      entities: ["Home Bio"],
+      cta: { label: "Open subject", href: `https://tm.test/courses/${SUBJ_G}`, external: true },
+    });
+    expect(item(res, "T-17")).toMatchObject({
+      tier: "blocking",
+      count: 1,
+      title: "1 assessment closing within 48 hours with low submissions",
+      entities: ["Home bio closing · 0%"],
+      cta: { href: `https://tm.test/assignments/${ids.bioClosing}` },
+    });
+    expect(item(res, "T-18")).toMatchObject({ tier: "slipping", count: 1, entities: ["Home bio missing · 3 missing"] });
+    expect(item(res, "T-19")).toMatchObject({ tier: "tidy", count: 1, entities: ["Home bio test · 30%"] });
+    const t20 = item(res, "T-20");
+    expect(t20).toMatchObject({ tier: "slipping", depth: "detail", count: 4, title: "4 students needing support" });
+    expect(t20.entities).toEqual(expect.arrayContaining([`Pupil ${MIS.student1}`, `Pupil ${MIS.studentG4}`]));
+    expect(item(res, "T-21")).toMatchObject({ count: 1, title: "1 student taking a proctored quiz now", cta: { href: "https://tm.test/proctoring/live" } });
+    expect(item(res, "T-22")).toMatchObject({ tier: "tidy", count: 1, title: "1 proctoring session left open" });
+    expect(item(res, "T-23")).toMatchObject({ tier: "tidy", count: 1, title: "1 draft not yet published" });
+    expect(item(res, "T-24")).toMatchObject({
+      tier: "tidy",
+      count: 1,
+      title: "1 subject with an empty or thin question bank",
+      entities: ["Home Drama · 0 questions"],
+      cta: { href: "https://tm.test/question-bank" },
+    });
+    expect(item(res, "T-25")).toMatchObject({ tier: "tidy", count: 1, entities: ["Home Drama"], cta: { href: "https://tm.test/assignments/create" } });
+  });
+
+  it("matches the instructor dashboard's own alerts for the same teacher", async () => {
+    const res = await summaryFor("teacherG2");
+    // The dashboard raises exactly these alert ids for G2's fixtures.
+    const dash = await request(app)
+      .get("/api/dashboard/instructor/overview")
+      .set("Authorization", `Bearer ${signTokenFor(ids.teacherG2)}`)
+      .set("x-mis-token", TOKEN.teacherG2);
+    expect(dash.status).toBe(200);
+    const alertIds: string[] = dash.body.data.alerts.map((a: any) => a.id);
+    const expectKind: Record<string, string> = {
+      [`subject-risk-${SUBJ_G}`]: "T-16",
+      [`due-low-assignment-${ids.bioClosing}`]: "T-17",
+      [`closed-missing-assignment-${ids.bioMissing}`]: "T-18",
+      [`low-score-assignment-${ids.bioTest}`]: "T-19",
+      "students-at-risk": "T-20",
+      "proctoring-live": "T-21",
+      "proctoring-stale": "T-22",
+      drafts: "T-23",
+      "subjects-empty": "T-25",
+    };
+    for (const [alertId, kind] of Object.entries(expectKind)) {
+      expect(alertIds).toContain(alertId);
+      expect(item(res, kind)).toBeDefined();
+    }
+  });
+
+  it("negatives: no dashboard alerts for a learner, nor for a school-wide admin", async () => {
+    const learner = await summaryFor("student1");
+    const admin = await summaryFor("admin");
+    for (const res of [learner, admin]) {
+      for (const k of ["T-16", "T-17", "T-18", "T-19", "T-20", "T-21", "T-22", "T-23", "T-24", "T-25"]) expect(item(res, k)).toBeUndefined();
+    }
+  });
+
+  it("teacher A: T-17…T-23 absent when nothing qualifies; empty bank still flagged", async () => {
+    const res = await summaryFor("teacherA");
+    for (const k of ["T-16", "T-17", "T-18", "T-19", "T-20", "T-21", "T-22", "T-23", "T-25"]) expect(item(res, k)).toBeUndefined();
+    expect(item(res, "T-24")).toMatchObject({ count: 1, entities: ["Home Maths · 0 questions"] });
   });
 });
 
@@ -924,12 +1345,34 @@ describe("bulk fixtures (200 submissions over 20 subjects)", () => {
     expect(elapsed).toBeLessThan(3000);
   });
 
-  it("a learner with 20 overdue assignments: counted, 8 chips, tile 0/20", async () => {
+  it("off mode, cold dashboard cache: T-07 + dashboard alerts + question bank stay within a bounded query count", async () => {
+    await summaryFor("teacherP"); // warm the verify cache
+    clearInstructorOverviewCache(); // the measured call builds the dashboard overview from scratch
+    mockedGet.mockClear();
+    const spy = jest.spyOn(sequelize, "query");
+    const res = await summaryFor("teacherP");
+    const queries = spy.mock.calls.length;
+    spy.mockRestore();
+
+    expect(item(res, "T-07")).toMatchObject({ count: 200 });
+    // 20 empty banks: counted, 8 chips.
+    expect(item(res, "T-24")).toMatchObject({ count: 20, title: "20 subjects with an empty or thin question bank" });
+    expect(item(res, "T-24").entities).toHaveLength(8);
+    // A fixed set of statements (T-07, T-14, T-15, computeOverview's batch
+    // reads, the question-bank count, the request's user lookup: 11 today),
+    // none per subject or per row.
+    expect(queries).toBeLessThanOrEqual(12);
+    // MIS: the summary's subjects (memoised) + computeOverview's subjects and
+    // assignment/class-group read; rosters are cached.
+    expect(mockedGet.mock.calls.length).toBeLessThanOrEqual(3);
+  });
+
+  it("a learner with 20 missed assignments: counted, 8 chips, tile 0/20", async () => {
     const res = await summaryFor("learnerBulk");
     const s01 = item(res, "S-01");
-    expect(s01).toMatchObject({ count: 20, title: "20 assignments overdue and not submitted" });
+    expect(s01).toMatchObject({ count: 20, title: "20 tasks missed in the last 7 days" });
     expect(s01.entities).toHaveLength(8);
-    expect(s01.cta.href).toBe("https://tm.test/assignments");
+    expect(s01.cta.href).toBe("https://tm.test/dashboard");
     expect(res.body.tiles).toEqual([expect.objectContaining({ value: "0/20", status: "warning" })]);
   });
 });
@@ -973,9 +1416,10 @@ describe("hardening: lens hints", () => {
   });
 
   it("the TEACHING lens is found by its type, whatever its key", async () => {
-    expect(teachingLens(parseLenses([{ key: "TEACHING:970001", type: "TEACHING", class_group_ids: [7] }]))).toBe("TEACHING:970001");
-    const res = await summaryFor("teacherA", { lenses: [{ key: "TEACHING:970001", type: "TEACHING", class_group_ids: [CLASS] }] });
-    expect(item(res, "T-07")).toMatchObject({ lens: "TEACHING:970001", id: "taskmentor:T-07:TEACHING:970001" });
+    const key = `TEACHING:${MIS.teacherA}`;
+    expect(teachingLens(parseLenses([{ key, type: "TEACHING", class_group_ids: [7] }]))).toBe(key);
+    const res = await summaryFor("teacherA", { lenses: [{ key, type: "TEACHING", class_group_ids: [CLASS] }] });
+    expect(item(res, "T-07")).toMatchObject({ lens: key, id: `taskmentor:T-07:${key}` });
   });
 });
 
@@ -999,11 +1443,11 @@ describe("hardening: time windows (server TZ=UTC, school Africa/Kigali = UTC+2)"
     ids.clockQuiz = await quiz("Clock quiz", SUBJ_E, ids.teacherA, K - 48 * H, QUIZ_END);
   });
 
-  it("due 23:30 Kigali: due soon at 23:00 Kigali, overdue at 00:01 Kigali (same UTC day)", async () => {
+  it("due 23:30 Kigali: due within 24 h at 23:00 Kigali, missed at 00:01 Kigali (same UTC day)", async () => {
     freeze(K - 30 * 60 * 1000);
     let res = await summaryFor("student5");
     expect(item(res, "S-01")).toBeUndefined();
-    expect(item(res, "S-02")).toMatchObject({ count: 1, entities: ["Clock essay · Home Clock"], due_at: new Date(K).toISOString() });
+    expect(item(res, "S-02")).toMatchObject({ tier: "blocking", count: 1, entities: ["Clock essay · Home Clock"], due_at: new Date(K).toISOString() });
     jest.setSystemTime(K + 31 * 60 * 1000);
     res = await summaryFor("student5");
     expect(item(res, "S-01")).toMatchObject({ tier: "blocking", count: 1 });
@@ -1022,24 +1466,33 @@ describe("hardening: time windows (server TZ=UTC, school Africa/Kigali = UTC+2)"
     }
   });
 
-  it("S-02 48 h window edges", async () => {
-    freeze(K - 47 * H);
-    expect(item(await summaryFor("student5"), "S-02")).toMatchObject({ count: 1 });
-    jest.setSystemTime(K - 49 * H);
-    const res = await summaryFor("student5");
+  it("S-02 (≤ 24 h, blocking) and S-10 (≤ 3 days, slipping) window edges", async () => {
+    freeze(K - 23 * H);
+    let res = await summaryFor("student5");
+    expect(item(res, "S-02")).toMatchObject({ tier: "blocking", count: 1 });
+    jest.setSystemTime(K - 25 * H);
+    res = await summaryFor("student5");
     expect(item(res, "S-02")).toBeUndefined();
-    expect(item(res, "S-01")).toBeUndefined();
+    // Essay (25 h) and quiz (37 h) are both "due soon" on the dashboard.
+    expect(item(res, "S-10")).toMatchObject({ tier: "slipping", count: 2, title: "2 tasks due in the next 3 days" });
+    jest.setSystemTime(K - 3 * D - H);
+    res = await summaryFor("student5");
+    for (const kind of ["S-01", "S-02", "S-03", "S-10"]) expect(item(res, kind)).toBeUndefined();
+    // ...but the quiz opens 25 h later: S-08.
+    expect(item(res, "S-08")).toMatchObject({ tier: "tidy", count: 1, title: "1 quiz opening within 2 days" });
   });
 
-  it("S-03: slipping 7 h before close, blocking at 5 h, absent beyond 24 h and after close", async () => {
+  it("S-03: blocking within 24 h of close, absent beyond 24 h; after close it is missed (S-01)", async () => {
     freeze(QUIZ_END - 7 * H);
-    expect(item(await summaryFor("student5"), "S-03")).toMatchObject({ tier: "slipping", count: 1, title: "1 quiz closing within 24 hours" });
-    jest.setSystemTime(QUIZ_END - 5 * H);
-    expect(item(await summaryFor("student5"), "S-03")).toMatchObject({ tier: "blocking", count: 1 });
+    expect(item(await summaryFor("student5"), "S-03")).toMatchObject({ tier: "blocking", count: 1, title: "1 quiz closing within 24 hours" });
     jest.setSystemTime(QUIZ_END - 25 * H);
-    expect(item(await summaryFor("student5"), "S-03")).toBeUndefined();
+    const early = await summaryFor("student5");
+    expect(item(early, "S-03")).toBeUndefined();
+    expect(item(early, "S-10").entities).toContain("Clock quiz · Home Clock");
     jest.setSystemTime(QUIZ_END + 1000);
-    expect(item(await summaryFor("student5"), "S-03")).toBeUndefined();
+    const late = await summaryFor("student5");
+    expect(item(late, "S-03")).toBeUndefined();
+    expect(item(late, "S-01").entities).toContain("Clock quiz · Home Clock");
   });
 
   it("entity chips stay short however long the record title is", async () => {

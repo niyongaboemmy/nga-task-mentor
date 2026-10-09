@@ -137,7 +137,7 @@ export function buildAlerts(subjects: SubjectBankStats[]): BankAlert[] {
   return alerts.sort((a, b) => order[a.severity] - order[b.severity]);
 }
 
-function emptyStats(subject: ScopedSubject): SubjectBankStats {
+export function emptyStats(subject: ScopedSubject): SubjectBankStats {
   return {
     subject_id: subject.id,
     subject_name: subject.name,
