@@ -20,6 +20,21 @@ export const TM_ATTRS = [
   "tmcode_instructions",
 ];
 
+/**
+ * An assignment is a TMCode assignment when its "TMCode practical" section is
+ * on (tmcode_kind) or when it is handed in as a TMCode project: the form's
+ * "TMCode" submission type (submission_type 'project') with the practical
+ * section left off. The latter is a practical without starter files; its kind
+ * is derived here, in memory only (the settings endpoint writes explicit values).
+ */
+export const DERIVED_KIND: TmcodeKind = "practical";
+export const handedInAsProject = (a: Pick<Assignment, "submission_type">) => String(a.submission_type ?? "").toLowerCase() === "project";
+
+function deriveKind(tm: AssignmentTmcode) {
+  if (!tm.tmcode_kind) tm.setDataValue("tmcode_kind", DERIVED_KIND);
+  tm.changed("tmcode_kind", false);
+}
+
 export async function loadTmAssignment(id: number): Promise<TmAssignment | null> {
   if (!Number.isInteger(id) || id <= 0) return null;
   const [assignment, tm] = await Promise.all([
@@ -27,18 +42,27 @@ export async function loadTmAssignment(id: number): Promise<TmAssignment | null>
     AssignmentTmcode.findByPk(id, { attributes: TM_ATTRS }),
   ]);
   if (!assignment || !tm) return null;
+  if (!tm.tmcode_kind && handedInAsProject(assignment)) deriveKind(tm);
   return { assignment, tm };
 }
 
-/** Ids of every TMCode assignment (tmcode_kind set) with their TMCode columns. */
+/** Ids of every TMCode assignment (see above) with their TMCode columns. */
 export async function tmcodeColumns(ids?: number[]): Promise<Map<number, AssignmentTmcode>> {
-  const where: any = { tmcode_kind: { [Op.ne]: null } };
-  if (ids) {
-    if (ids.length === 0) return new Map();
-    where.id = { [Op.in]: ids };
+  if (ids && ids.length === 0) return new Map();
+  const only = ids ? { id: { [Op.in]: ids } } : {};
+  const [explicit, projects] = await Promise.all([
+    AssignmentTmcode.findAll({ where: { tmcode_kind: { [Op.ne]: null }, ...only } as any, attributes: TM_ATTRS }),
+    Assignment.findAll({ where: { submission_type: "project", ...only } as any, attributes: ["id"] }),
+  ]);
+  const map = new Map(explicit.map((r) => [r.id, r]));
+  const derived = projects.map((a) => a.id).filter((id) => !map.has(id));
+  if (derived.length) {
+    for (const r of await AssignmentTmcode.findAll({ where: { id: { [Op.in]: derived } }, attributes: TM_ATTRS })) {
+      deriveKind(r);
+      map.set(r.id, r);
+    }
   }
-  const rows = await AssignmentTmcode.findAll({ where, attributes: TM_ATTRS });
-  return new Map(rows.map((r) => [r.id, r]));
+  return map;
 }
 
 export interface AssignmentBrief {

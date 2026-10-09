@@ -70,6 +70,20 @@ async function courseNames(req: Request): Promise<Map<number, string>> {
   return new Map(subjects.map((s) => [Number(s.id), s.name]));
 }
 
+/**
+ * Subjects come from MIS, asked with the caller's MIS token (X-MIS-Token from
+ * TMCode, the misToken cookie on the web). Without one, every scoped caller
+ * looks enrolled in nothing: say so instead of answering an empty list or
+ * NOT_ENROLLED (TMCode up to 0.10.0 sent it only on /activities and /links).
+ */
+async function scopeUnavailable(req: Request, res: Response): Promise<boolean> {
+  const { scope, subjects } = await scoped(req);
+  // "none" is the role's own answer (no subjects to have), not a missing token.
+  if (scope === "all" || scope === "none" || subjects.length > 0 || getMisToken(req, { quiet: true })) return false;
+  tmcodeError(res, 409, "MIS_SCOPE_UNAVAILABLE", "Task Mentor couldn't check your subjects with Central MIS. Update TMCode, or sign out and sign in again.");
+  return true;
+}
+
 /** Is the course among the caller's subjects ("all" scope: every course)? */
 async function inScope(req: Request, courseId: number | null | undefined): Promise<boolean> {
   if (courseId == null) return false;
@@ -314,6 +328,7 @@ export const listAssignments = async (req: Request, res: Response) => {
   }
 
   if (scope === "none" || (scope !== "all" && courseIds.length === 0)) {
+    if (await scopeUnavailable(req, res)) return;
     return res.status(200).json({ assignments: [] });
   }
   const rows = await Assignment.findAll({
@@ -356,6 +371,7 @@ async function assignmentFor(req: Request, res: Response): Promise<(TmAssignment
     return null;
   }
   if (!(await inScope(req, t.assignment.course_id))) {
+    if (await scopeUnavailable(req, res)) return null;
     tmcodeError(res, 403, "NOT_ENROLLED", "You aren't enrolled in this assignment's course.");
     return null;
   }
