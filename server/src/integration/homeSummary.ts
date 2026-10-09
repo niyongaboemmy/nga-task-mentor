@@ -8,6 +8,27 @@ import { allowedStudentIds, misIdsForLocalUsers, reportCardStudentMisIds } from 
 import { AccessSnapshot, scopeFor, scopeUnion, ScopeEntry } from "../vendor/nga-access";
 import { getScopedSubjects, ScopedSubject, SubjectScope } from "../utils/scopedSubjects";
 import { getCurrentTermId, getMisToken, resolveCurrentAcademicPeriodNames } from "../utils/misUtils";
+import { loadStudentOverview, LoadedStudentOverview } from "../services/studentOverview.loader";
+import {
+  DUE_SOON_DAYS,
+  HANDED_IN,
+  MISSED_REMINDER_DAYS,
+  NEW_TASK_DAYS,
+  OPENS_SOON_DAYS,
+  reminderTargets,
+  StudentTask,
+} from "../services/studentOverview.service";
+import { computeOverview } from "../controllers/instructorOverview.controller";
+import {
+  alertTargets,
+  CLOSING_SOON_HOURS,
+  GRADING_SLA_DAYS,
+  LIVE_HEARTBEAT_MINUTES,
+  LOW_PARTICIPATION,
+  overviewAlertTargets,
+  PASS_MARK,
+} from "../services/instructorOverview.service";
+import { buildAlerts as bankAlerts, emptyStats, THIN_BANK_THRESHOLD } from "../controllers/questionBankHub.controller";
 
 /**
  * Task Mentor's answer to the MIS Home page (HOME_OVERVIEW_IMPLEMENTATION_PLAN
@@ -20,10 +41,19 @@ import { getCurrentTermId, getMisToken, resolveCurrentAcademicPeriodNames } from
  * -- so off/shadow/enforce behave exactly like the rest of the app. The MIS's
  * `lenses` only choose each item's label.
  *
- * Signals: S-01, S-02, S-03 (learner) · T-07, T-14, T-15 (teaching) ·
- * C-06 (class-teacher comment) · P-05 (approve/publish). Not here (yet):
- * T-06 marks-not-entered and D-02 moderation (no closed-assessment/moderation
- * state in the data model).
+ * Signals -- each one the same rule the app's own dashboard applies:
+ *   learner (student dashboard, studentOverview.loader + reminderTargets):
+ *     S-05 quiz in progress · S-01 missed this week · S-02 assignments due
+ *     ≤ 24 h · S-03 quizzes closing ≤ 24 h · S-10 due ≤ 3 days · S-06 drafts ·
+ *     S-04 new work · S-07 retake after failing · S-08 quiz opens ≤ 2 days ·
+ *     S-09 TMCode project returned for changes
+ *   teaching: T-07 grading queue (instructor dashboard rules) · T-14 flagged
+ *     proctoring · T-15 own quiz closing with nobody started · T-16…T-23,
+ *     T-25 instructor dashboard alerts (computeOverview + alertTargets) ·
+ *     T-24 empty/thin question banks (Question Bank hub rules)
+ *   report cards: C-06 class-teacher comment · P-05 approve/publish
+ * Not here (yet): T-06 marks-not-entered and D-02 moderation (no
+ * closed-assessment/moderation state in the data model).
  */
 
 // ─── Contract ────────────────────────────────────────────────────────────────
@@ -99,6 +129,8 @@ const MAX_CHIP = 60;
  * date-only MIS dates ("2026-12-11") as the end of that school day.
  */
 const SCHOOL_UTC_OFFSET = "+02:00";
+/** S-09 looks back this far for a teacher's "returned for changes". */
+const RETURNED_WINDOW_DAYS = 30;
 /** Body caps: the MIS sends a handful of lenses; anything bigger is ignored. */
 const MAX_LENSES = 50;
 const MAX_LENS_CLASS_GROUPS = 1000;
@@ -391,151 +423,221 @@ async function filterCardStudents(ctx: Ctx, ids: number[], caps: string[], label
   );
 }
 
-// ─── Learner signals (S-01, S-02, S-03) + "Assignments done" tile ───────────
+// ─── Learner signals (S-01…S-10) + "Assignments done" tile ──────────────────
+//
+// Built from the student dashboard's own loader and rules
+// (services/studentOverview.loader.ts → buildStudentOverview →
+// reminderTargets), so Home shows exactly what the student dashboard's
+// reminders show: public work only, late submissions refused (past due =
+// missed), due today ≤ 24 h, due soon ≤ DUE_SOON_DAYS.
 
-interface LearnerAssignment {
-  id: number;
-  title: string;
-  due_date: Date | null;
-  course_id: number | null;
-  submitted: number;
+/** The student overview, for learners only (getScopedSubjects scope "enrolled"). */
+async function learnerOverview(ctx: Ctx): Promise<LoadedStudentOverview | null> {
+  if (!ctx.has("SUBMISSIONS_CREATE", "QUIZZES_ATTEMPT")) return null;
+  const scoped = await ctx.subjects();
+  if (scoped.scope !== "enrolled") return null;
+  return loadStudentOverview(ctx.req, ctx.userId, { now: ctx.now, scoped, termId: await ctx.termId() });
 }
 
-/** Same set getEnrolledAssignments serves: published, enrolled subjects, current term. */
-async function learnerAssignments(ctx: Ctx): Promise<{ rows: LearnerAssignment[]; names: Map<number, string> } | null> {
-  if (!ctx.has("SUBMISSIONS_CREATE")) return null;
-  const { scope, subjects } = await ctx.subjects();
-  if (scope !== "enrolled") return null;
-  const names = new Map(subjects.map((s) => [s.id, s.name]));
-  if (subjects.length === 0) return { rows: [], names };
-  const ids = subjects.map((s) => s.id);
-  const term = await ctx.termClause("a");
-  const rows = await select<LearnerAssignment>(
-    `SELECT a.id, a.title, a.due_date, a.course_id,
-            (SELECT COUNT(*) FROM submissions s
-              WHERE s.assignment_id = a.id AND s.student_id = ? AND s.status <> 'draft') AS submitted
-       FROM assignments a
-      WHERE a.status = 'published' AND a.course_id IN (${inList(ids)})${term.sql}
-      ORDER BY a.due_date ASC`,
-    [ctx.userId, ...ids, ...term.params],
+const taskChip = (t: StudentTask) => `${t.title} · ${t.subject_name}`;
+const earliest = (dates: Array<string | null | undefined>): string | null =>
+  dates.filter((d): d is string => !!d).sort()[0] ?? null;
+
+function learnerItems(ctx: Ctx, data: LoadedStudentOverview): AttentionItem[] {
+  // Reminders cover publicly accessible work only (buildStudentOverview), and
+  // each kind of work only for a caller who may hand it in.
+  const allowAssignments = ctx.has("SUBMISSIONS_CREATE");
+  const allowQuizzes = ctx.has("QUIZZES_ATTEMPT");
+  const tasks = data.overview.tasks.filter(
+    (t) => t.is_public && (t.kind === "assignment" ? allowAssignments : allowQuizzes),
   );
-  return { rows: rows.map((r) => ({ ...r, submitted: Number(r.submitted) })), names };
-}
-
-function learnerItems(ctx: Ctx, data: NonNullable<Awaited<ReturnType<typeof learnerAssignments>>>): AttentionItem[] {
-  const now = ctx.now.getTime();
-  const open = data.rows.filter((a) => a.submitted === 0 && a.due_date);
-  const chip = (a: LearnerAssignment) =>
-    a.course_id != null && data.names.has(a.course_id) ? `${a.title} · ${data.names.get(a.course_id)}` : a.title;
-  const ctaFor = (list: LearnerAssignment[], label: string) => ({
-    label,
-    href: ctx.href(list.length === 1 ? `/assignments/${list[0].id}` : "/assignments"),
-    external: true as const,
-  });
+  const r = reminderTargets(tasks, ctx.now);
   const items: AttentionItem[] = [];
 
-  const overdue = open.filter((a) => new Date(a.due_date!).getTime() < now);
-  if (overdue.length > 0) {
+  const push = (
+    kind: string,
+    tier: Tier,
+    list: StudentTask[],
+    title: string,
+    why: string,
+    cta: { label: string; one: (t: StudentTask) => string; many: string },
+    due_at: string | null = null,
+  ) => {
+    if (list.length === 0) return;
     items.push({
-      id: "taskmentor:S-01:SELF",
+      id: `taskmentor:${kind}:SELF`,
       source: "taskmentor",
-      kind: "S-01",
-      tier: "blocking",
+      kind,
+      tier,
       lens: "SELF",
       via: [],
       depth: "detail",
-      count: overdue.length,
-      title: `${plural(overdue.length, "assignment")} overdue and not submitted`,
-      entities: overdue.slice(0, MAX_ENTITIES).map(chip),
-      why: "Overdue work counts against your results until you submit it.",
-      cta: ctaFor(overdue, "Submit"),
-      due_at: iso(overdue[0].due_date),
+      count: list.length,
+      title,
+      entities: list.slice(0, MAX_ENTITIES).map(taskChip),
+      why,
+      cta: { label: cta.label, href: ctx.href(list.length === 1 ? cta.one(list[0]) : cta.many), external: true },
+      due_at,
     });
-  }
+  };
+  const actionUrl = (t: StudentTask) => t.action?.url ?? (t.kind === "quiz" ? "/my-quizzes" : `/assignments/${t.id}`);
+  const dueOf = (list: StudentTask[]) => earliest(list.map((t) => t.countdown_to ?? t.due_at));
 
-  const dueSoon = open.filter((a) => {
-    const t = new Date(a.due_date!).getTime();
-    return t >= now && t <= now + 48 * HOUR;
-  });
-  if (dueSoon.length > 0) {
-    items.push({
-      id: "taskmentor:S-02:SELF",
-      source: "taskmentor",
-      kind: "S-02",
-      tier: "slipping",
-      lens: "SELF",
-      via: [],
-      depth: "detail",
-      count: dueSoon.length,
-      title: `${plural(dueSoon.length, "assignment")} due in the next 48 hours`,
-      entities: dueSoon.slice(0, MAX_ENTITIES).map(chip),
-      why: "These close within two days and become overdue if they are not submitted.",
-      cta: ctaFor(dueSoon, "Open"),
-      due_at: iso(dueSoon[0].due_date),
-    });
-  }
+  // S-05: a quiz attempt is running -- the most time-critical thing a student can have.
+  push(
+    "S-05",
+    "blocking",
+    r.running,
+    `${plural(r.running.length, "quiz", "quizzes")} in progress`,
+    "Your attempt is running. Answers not submitted before it ends may be lost.",
+    { label: "Resume", one: (t) => `/quizzes/${t.id}/take`, many: "/my-quizzes" },
+    dueOf(r.running),
+  );
+
+  // S-01: missed in the last week. Late submissions are refused, so this asks
+  // for a conversation with the teacher, never a submission.
+  push(
+    "S-01",
+    "blocking",
+    r.recentlyMissed,
+    `${plural(r.recentlyMissed.length, "task")} missed in the last ${MISSED_REMINDER_DAYS} days`,
+    "The deadline has passed and late work isn't accepted. Talk to your teacher about catching up.",
+    { label: "See work", one: actionUrl, many: "/dashboard" },
+  );
+
+  // S-02 / S-03: due within 24 hours (the dashboard's "due today").
+  const dueTodayAssignments = r.dueToday.filter((t) => t.kind === "assignment");
+  const dueTodayQuizzes = r.dueToday.filter((t) => t.kind === "quiz");
+  push(
+    "S-02",
+    "blocking",
+    dueTodayAssignments,
+    `${plural(dueTodayAssignments.length, "assignment")} due within 24 hours`,
+    "Late submissions aren't accepted, so submit before the deadline.",
+    { label: "Submit", one: actionUrl, many: "/assignments" },
+    dueOf(dueTodayAssignments),
+  );
+  push(
+    "S-03",
+    "blocking",
+    dueTodayQuizzes,
+    `${plural(dueTodayQuizzes.length, "quiz", "quizzes")} closing within 24 hours`,
+    "A quiz can't be taken after it closes.",
+    { label: "Start", one: (t) => `/quizzes/${t.id}/take`, many: "/my-quizzes" },
+    dueOf(dueTodayQuizzes),
+  );
+
+  // S-10: due soon (after the next 24 hours, within DUE_SOON_DAYS).
+  push(
+    "S-10",
+    "slipping",
+    r.dueSoon,
+    `${plural(r.dueSoon.length, "task")} due in the next ${DUE_SOON_DAYS} days`,
+    "Plan time for these now. Work can't be handed in after its deadline.",
+    { label: "Open", one: actionUrl, many: "/dashboard" },
+    dueOf(r.dueSoon),
+  );
+
+  // S-06: saved drafts on work that is still open (due today is S-02 already).
+  push(
+    "S-06",
+    "slipping",
+    r.drafts,
+    `${plural(r.drafts.length, "draft")} not submitted`,
+    "A draft doesn't count until you submit it.",
+    { label: "Finish & submit", one: actionUrl, many: "/assignments" },
+    dueOf(r.drafts),
+  );
+
+  // S-04: new work posted in the last NEW_TASK_DAYS days, not handed in.
+  push(
+    "S-04",
+    "tidy",
+    r.newWork,
+    `${plural(r.newWork.length, "new task")} posted`,
+    `Posted in the last ${NEW_TASK_DAYS} days and not handed in yet.`,
+    { label: "Open", one: actionUrl, many: "/dashboard" },
+  );
+
+  // S-07: failed a quiz that can still be retaken.
+  push(
+    "S-07",
+    "tidy",
+    r.retakes,
+    `${plural(r.retakes.length, "quiz", "quizzes")} you can retake`,
+    "Your best score is below the pass mark and the quiz is still open. Another attempt can raise it.",
+    { label: "Retake", one: (t) => `/quizzes/${t.id}/take`, many: "/my-quizzes" },
+    dueOf(r.retakes),
+  );
+
+  // S-08: a quiz opens within OPENS_SOON_DAYS.
+  push(
+    "S-08",
+    "tidy",
+    r.opening,
+    `${plural(r.opening.length, "quiz", "quizzes")} opening within ${OPENS_SOON_DAYS} days`,
+    "Be ready: check the time and how long it takes.",
+    { label: "View", one: actionUrl, many: "/my-quizzes" },
+  );
   return items;
 }
 
-function learnerTile(ctx: Ctx, data: NonNullable<Awaited<ReturnType<typeof learnerAssignments>>>): GlanceTile | null {
-  const total = data.rows.length;
+/** Published (or completed) assignments this term vs those handed in -- the student dashboard's rows. */
+function learnerTile(ctx: Ctx, data: LoadedStudentOverview): GlanceTile | null {
+  if (!ctx.has("SUBMISSIONS_CREATE")) return null;
+  const total = data.input.assignments.length;
   if (total === 0) return null;
-  const done = data.rows.filter((a) => a.submitted > 0).length;
-  const overdue = data.rows.some(
-    (a) => a.submitted === 0 && a.due_date && new Date(a.due_date).getTime() < ctx.now.getTime(),
+  const handedIn = new Set(
+    data.input.submissions.filter((s) => HANDED_IN.has(s.status)).map((s) => Number(s.assignment_id)),
   );
+  const done = data.input.assignments.filter((a) => handedIn.has(Number(a.id))).length;
+  const missed = data.overview.tasks.some((t) => t.kind === "assignment" && t.state === "missed");
   return {
     id: "taskmentor:tile:assignments-done:SELF",
     source: "taskmentor",
     lens: "SELF",
     label: "Assignments done",
     value: `${done}/${total}`,
-    hint: "Published assignments this term that you have submitted",
-    status: overdue ? "warning" : "good",
+    hint: "Assignments this term that you have handed in",
+    status: missed ? "warning" : "good",
     href: ctx.href("/assignments"),
   };
 }
 
-/** S-03: an enrolled-subject quiz that is open, closes within 24 h and isn't finished. */
-async function quizClosingItem(ctx: Ctx): Promise<AttentionItem | null> {
-  if (!ctx.has("QUIZZES_ATTEMPT")) return null;
-  const { scope, subjects } = await ctx.subjects();
-  if (scope !== "enrolled" || subjects.length === 0) return null;
-  const ids = subjects.map((s) => s.id);
-  const term = await ctx.termClause("q");
-  const now = ctx.now;
-  const rows = await select<{ id: number; title: string; end_date: Date; course_id: number }>(
-    `SELECT q.id, q.title, q.end_date, q.course_id
-       FROM quizzes q
-      WHERE q.status = 'published' AND q.course_id IN (${inList(ids)})${term.sql}
-        AND (q.start_date IS NULL OR q.start_date <= ?)
-        AND q.end_date > ? AND q.end_date <= ?
-        AND NOT EXISTS (SELECT 1 FROM quiz_submissions qs
-                         WHERE qs.quiz_id = q.id AND qs.student_id = ? AND qs.status = 'completed')
-      ORDER BY q.end_date ASC`,
-    [...ids, ...term.params, now, now, new Date(now.getTime() + DAY), ctx.userId],
+/**
+ * S-09: the caller's own TMCode project a teacher returned for changes
+ * (project_events type 'returned') and that is still a draft -- the return is
+ * the latest status change, so neither a resubmit nor the student's own
+ * withdraw has happened since.
+ */
+async function returnedProjectsItem(ctx: Ctx): Promise<AttentionItem | null> {
+  if (!ctx.has("PROJECTS_USE")) return null;
+  const rows = await select<{ id: number; name: string; returned_at: Date }>(
+    `SELECT p.id, p.name, MAX(pe.created_at) AS returned_at
+       FROM projects p
+       JOIN project_events pe ON pe.project_id = p.id AND pe.type = 'returned'
+      WHERE p.owner_id = ? AND p.status = 'draft' AND p.archived_at IS NULL
+        AND pe.created_at >= COALESCE(p.status_changed_at, p.created_at)
+        AND pe.created_at >= ?
+      GROUP BY p.id, p.name
+      ORDER BY returned_at DESC`,
+    [ctx.userId, new Date(ctx.now.getTime() - RETURNED_WINDOW_DAYS * DAY)],
   );
   if (rows.length === 0) return null;
-  const names = new Map(subjects.map((s) => [s.id, s.name]));
-  const soonest = new Date(rows[0].end_date).getTime();
   return {
-    id: "taskmentor:S-03:SELF",
+    id: "taskmentor:S-09:SELF",
     source: "taskmentor",
-    kind: "S-03",
-    tier: soonest - now.getTime() <= 6 * HOUR ? "blocking" : "slipping",
+    kind: "S-09",
+    tier: "slipping",
     lens: "SELF",
     via: [],
     depth: "detail",
     count: rows.length,
-    title: `${plural(rows.length, "quiz", "quizzes")} closing within 24 hours`,
-    entities: rows.slice(0, MAX_ENTITIES).map((q) => (names.has(q.course_id) ? `${q.title} · ${names.get(q.course_id)}` : q.title)),
-    why: "A quiz can't be taken after it closes.",
-    cta: {
-      label: "Start",
-      href: ctx.href(rows.length === 1 ? `/quizzes/${rows[0].id}/take` : "/my-quizzes"),
-      external: true,
-    },
-    due_at: iso(rows[0].end_date),
+    title: `${plural(rows.length, "project")} returned for changes`,
+    entities: rows.slice(0, MAX_ENTITIES).map((p) => p.name),
+    why: "Your teacher sent it back. Make the changes and submit it again.",
+    cta: { label: "Open", href: ctx.href(rows.length === 1 ? `/projects/${rows[0].id}` : "/projects"), external: true },
+    waiting_since: iso(rows[rows.length - 1].returned_at),
   };
 }
 
@@ -555,14 +657,18 @@ interface PendingRow {
   title: string;
   course_id: number | null;
   student_id: number;
-  due: Date | null;
   waiting_since: Date | null;
 }
 
 /**
- * T-07: ungraded submissions on the viewer's OWN assessments (created_by),
- * within their subject scope, restricted to the students their grading
- * scope covers. Not /quizzes/submissions/pending (school-wide).
+ * T-07: the instructor dashboard's grading queue (computeOverview): every
+ * handed-in, ungraded assignment submission and finished (completed or timed
+ * out) quiz attempt without a grade, on any assessment in the teacher's
+ * assigned subjects -- co-teachers' included -- this term; blocking once one
+ * has waited over GRADING_SLA_DAYS. Restricted to the students the caller's
+ * grading scope covers. A school-wide (scope "all") caller isn't a subject
+ * teacher: they keep only their own assessments, so Home isn't the whole
+ * school's queue.
  */
 async function toGradeItem(ctx: Ctx): Promise<AttentionItem | null> {
   const gradesAssignments = ctx.has("SUBMISSIONS_GRADE");
@@ -571,35 +677,38 @@ async function toGradeItem(ctx: Ctx): Promise<AttentionItem | null> {
   const subjectIds = await teachingSubjects(ctx);
   if (subjectIds === "none" || (Array.isArray(subjectIds) && subjectIds.length === 0)) return null;
 
-  const subjectSql = (alias: string) => (subjectIds ? ` AND ${alias}.course_id IN (${inList(subjectIds)})` : "");
-  const subjectParams = subjectIds ?? [];
+  const whose = (alias: string) =>
+    subjectIds
+      ? { sql: ` AND ${alias}.course_id IN (${inList(subjectIds)})`, params: subjectIds as any[] }
+      : { sql: ` AND ${alias}.created_by = ?`, params: [ctx.userId] as any[] };
   let rows: PendingRow[] = [];
 
   if (gradesAssignments) {
     const term = await ctx.termClause("a");
+    const scope = whose("a");
     const found = await select<any>(
-      `SELECT a.id AS assessment_id, a.title, a.course_id, a.due_date AS due,
-              s.student_id, COALESCE(s.submitted_at, s.created_at) AS waiting_since
+      `SELECT a.id AS assessment_id, a.title, a.course_id,
+              s.student_id, COALESCE(s.submitted_at, s.updated_at) AS waiting_since
          FROM submissions s
          JOIN assignments a ON a.id = s.assignment_id
-        WHERE a.created_by = ? AND a.status <> 'removed'
-          AND s.status IN ('submitted', 'late', 'resubmitted')
-          AND (s.grade IS NULL OR s.grade = '')${subjectSql("a")}${term.sql}`,
-      [ctx.userId, ...subjectParams, ...term.params],
+        WHERE a.status <> 'removed'
+          AND s.status IN ('submitted', 'late', 'resubmitted')${scope.sql}${term.sql}`,
+      [...scope.params, ...term.params],
     );
     rows = rows.concat(found.map((r) => ({ ...r, kind: "assignment" as const })));
   }
   if (gradesQuizzes) {
     const term = await ctx.termClause("q");
-    // One row per student per quiz (several attempts wait as one).
+    const scope = whose("q");
+    // One row per finished attempt, as the dashboard counts them.
     const found = await select<any>(
-      `SELECT q.id AS assessment_id, q.title, q.course_id, q.end_date AS due,
-              qs.student_id, MIN(COALESCE(qs.completed_at, qs.created_at)) AS waiting_since
+      `SELECT q.id AS assessment_id, q.title, q.course_id,
+              qs.student_id, COALESCE(qs.completed_at, qs.updated_at) AS waiting_since
          FROM quiz_submissions qs
          JOIN quizzes q ON q.id = qs.quiz_id
-        WHERE q.created_by = ? AND qs.status = 'completed' AND qs.grade_status = 'pending'${subjectSql("q")}${term.sql}
-        GROUP BY q.id, q.title, q.course_id, q.end_date, qs.student_id`,
-      [ctx.userId, ...subjectParams, ...term.params],
+        WHERE qs.status IN ('completed', 'timed_out')
+          AND (qs.grade_status IS NULL OR qs.grade_status NOT IN ('graded', 'auto_graded'))${scope.sql}${term.sql}`,
+      [...scope.params, ...term.params],
     );
     rows = rows.concat(found.map((r) => ({ ...r, kind: "quiz" as const })));
   }
@@ -607,27 +716,27 @@ async function toGradeItem(ctx: Ctx): Promise<AttentionItem | null> {
   rows = await filterRowsByStudentScope(ctx, rows, ["SUBMISSIONS_GRADE", "QUIZZES_GRADE"], "home:T-07");
   if (rows.length === 0) return null;
 
-  const staleBefore = ctx.now.getTime() - 7 * DAY;
-  const blocking = rows.some((r) => r.due && new Date(r.due).getTime() < staleBefore);
-  const assessments = new Map(rows.map((r) => [`${r.kind}:${r.assessment_id}`, r]));
-  const only = assessments.size === 1 ? rows[0] : null;
   const oldest = rows
     .map((r) => (r.waiting_since ? new Date(r.waiting_since).getTime() : Infinity))
     .reduce((a, b) => Math.min(a, b), Infinity);
+  const blocking = oldest < ctx.now.getTime() - GRADING_SLA_DAYS * DAY;
+  const assessments = new Map(rows.map((r) => [`${r.kind}:${r.assessment_id}`, r]));
+  const only = assessments.size === 1 ? rows[0] : null;
+  const lens = teachingLens(ctx.lenses);
 
   return {
-    id: `taskmentor:T-07:${teachingLens(ctx.lenses)}`,
+    id: `taskmentor:T-07:${lens}`,
     source: "taskmentor",
     kind: "T-07",
     tier: blocking ? "blocking" : "slipping",
-    lens: teachingLens(ctx.lenses),
+    lens,
     via: await ctx.via(["SUBMISSIONS_GRADE", "QUIZZES_GRADE"]),
     depth: "write",
     count: rows.length,
     title: `${plural(rows.length, "submission")} waiting to be graded`,
     entities: countChips(rows.map((r) => ({ label: r.title }))),
     why: blocking
-      ? "Some of this work was due over a week ago and students are still waiting for their marks."
+      ? `Some of this work has waited over ${GRADING_SLA_DAYS} days and students are still waiting for their marks.`
       : "Students are waiting for feedback, and ungraded work holds back their results.",
     cta: {
       label: "Grade",
@@ -637,6 +746,208 @@ async function toGradeItem(ctx: Ctx): Promise<AttentionItem | null> {
       external: true,
     },
     waiting_since: Number.isFinite(oldest) ? new Date(oldest).toISOString() : null,
+  };
+}
+
+// ─── Instructor dashboard alerts (T-16…T-25) ─────────────────────────────────
+//
+// The instructor dashboard's own decision board (computeOverview, 60 s cache
+// shared with the dashboard and the notification bell) mapped item by item
+// through alertTargets -- the rule set behind its alerts. Only for subject
+// teachers (scope "assigned") holding DASHBOARD_VIEW_INSTRUCTOR: a school-wide
+// caller's computeOverview loads every class roster in the school from MIS,
+// which is too heavy for a login-time summary, so admins get none of these.
+
+const subjectLabel = (s: { subject_code: string | null; subject_name: string }) => s.subject_code || s.subject_name;
+
+async function instructorItems(ctx: Ctx): Promise<AttentionItem[]> {
+  if (!ctx.has("DASHBOARD_VIEW_INSTRUCTOR")) return [];
+  const { scope, subjects } = await ctx.subjects();
+  if (scope !== "assigned" || subjects.length === 0) return [];
+  const { overview } = await computeOverview(ctx.req);
+  const nowMs = Date.parse(overview.generated_at);
+  const t = overviewAlertTargets(overview) ?? alertTargets({ ...overview, nowMs });
+  const totals = overview.totals;
+  const lens = teachingLens(ctx.lenses);
+  const via = await ctx.via(["DASHBOARD_VIEW_INSTRUCTOR"]);
+  const items: AttentionItem[] = [];
+
+  const push = (
+    kind: string,
+    tier: Tier,
+    count: number,
+    title: string,
+    why: string,
+    entities: string[],
+    cta: { label: string; path: string },
+    extra: Partial<AttentionItem> = {},
+  ) => {
+    if (count <= 0) return;
+    items.push({
+      id: `taskmentor:${kind}:${lens}`,
+      source: "taskmentor",
+      kind,
+      tier,
+      lens,
+      via,
+      depth: "detail",
+      count,
+      title,
+      entities: entities.slice(0, MAX_ENTITIES),
+      why,
+      cta: { label: cta.label, href: ctx.href(cta.path), external: true },
+      ...extra,
+    });
+  };
+  const one = <T>(list: T[], path: (x: T) => string, many = "/dashboard") => (list.length === 1 ? path(list[0]) : many);
+
+  // T-16: subjects at risk (low class average or participation).
+  push(
+    "T-16",
+    "slipping",
+    t.atRiskSubjects.length,
+    `${plural(t.atRiskSubjects.length, "subject")} at risk`,
+    t.atRiskSubjects.length === 1
+      ? `${t.atRiskSubjects[0].health_reasons.join(". ")}.`
+      : "Class averages or participation are below where they should be.",
+    t.atRiskSubjects.map(subjectLabel),
+    { label: "Open subject", path: one(t.atRiskSubjects, (s) => `/courses/${s.subject_id}`) },
+  );
+
+  // T-17: closing within 48 h with under half the class submitted.
+  const closingIn24h = t.lowClosing.some((u) => new Date(u.due_at!).getTime() <= nowMs + DAY);
+  push(
+    "T-17",
+    closingIn24h ? "blocking" : "slipping",
+    t.lowClosing.length,
+    `${plural(t.lowClosing.length, "assessment")} closing within ${CLOSING_SOON_HOURS} hours with low submissions`,
+    "Fewer than half of the class has submitted. Consider a reminder before it closes.",
+    t.lowClosing.map((u) => `${u.title} · ${u.participation}%`),
+    { label: "View", path: one(t.lowClosing, (u) => u.url) },
+    { due_at: earliest(t.lowClosing.map((u) => u.due_at)) },
+  );
+
+  // T-18: closed in the last week with missing work.
+  push(
+    "T-18",
+    "slipping",
+    t.closedMissing.length,
+    `${plural(t.closedMissing.length, "assessment")} closed with missing work`,
+    `Under ${LOW_PARTICIPATION}% of the class submitted before it closed. Follow up or reopen it.`,
+    t.closedMissing.map((a) => `${a.title} · ${a.expected! - Math.min(a.submitted, a.expected!)} missing`),
+    { label: "View", path: one(t.closedMissing, (a) => a.url) },
+  );
+
+  // T-19: the class struggled on a graded assessment.
+  push(
+    "T-19",
+    "tidy",
+    t.lowScores.length,
+    `${plural(t.lowScores.length, "assessment")} with a class average below ${PASS_MARK}%`,
+    "Consider reteaching the topic or a remedial activity.",
+    t.lowScores.map((a) => `${a.title} · ${a.avg_score}%`),
+    { label: "See results", path: one(t.lowScores, (a) => a.url) },
+  );
+
+  // T-20: students needing support -- names only at detail depth.
+  const depth = (await ctx.readDepth("DASHBOARD_VIEW_INSTRUCTOR")) ?? "summary";
+  const atRisk = overview.students.at_risk;
+  push(
+    "T-20",
+    "slipping",
+    totals.at_risk_students,
+    `${plural(totals.at_risk_students, "student")} needing support`,
+    `Below ${PASS_MARK}% or with 2+ missing submissions across your subjects.`,
+    depth === "detail" ? atRisk.map((s) => s.name) : [],
+    {
+      label: "See students",
+      path: totals.at_risk_students === 1 && atRisk[0]?.url ? atRisk[0].url : "/dashboard",
+    },
+    { depth },
+  );
+
+  // T-21 / T-22: proctoring sessions running now / left open.
+  const proctoringPath = ctx.has("PROCTORING_JOIN_LIVE_STREAM") ? "/proctoring/live" : "/dashboard";
+  push(
+    "T-21",
+    "slipping",
+    totals.live_proctoring,
+    `${plural(totals.live_proctoring, "student")} taking a proctored quiz now`,
+    "Watch the live sessions for integrity events.",
+    [],
+    { label: "Watch live", path: proctoringPath },
+  );
+  push(
+    "T-22",
+    "tidy",
+    totals.stale_proctoring,
+    `${plural(totals.stale_proctoring, "proctoring session")} left open`,
+    `Marked active but with no heartbeat in the last ${LIVE_HEARTBEAT_MINUTES} minutes. Review and close them.`,
+    [],
+    { label: "Review", path: proctoringPath },
+  );
+
+  // T-23: drafts students can't see yet.
+  push(
+    "T-23",
+    "tidy",
+    totals.drafts,
+    `${plural(totals.drafts, "draft")} not yet published`,
+    "Students can't see drafts. Publish them when they're ready.",
+    [],
+    { label: "Assignments", path: "/assignments" },
+  );
+
+  // T-25: subjects with nothing published this term.
+  push(
+    "T-25",
+    "tidy",
+    t.emptySubjects.length,
+    `${plural(t.emptySubjects.length, "subject")} with no published assessment`,
+    "Nothing students can work on yet this term.",
+    t.emptySubjects.map(subjectLabel),
+    { label: "Create assignment", path: ctx.has("ASSIGNMENTS_CREATE") ? "/assignments/create" : "/dashboard" },
+  );
+  return items;
+}
+
+/**
+ * T-24: the Question Bank hub's "empty" and "thin" alerts (buildAlerts, same
+ * thresholds) for the teacher's assigned subjects: one COUNT per subject, no
+ * term filter (the bank is reusable, as in the hub).
+ */
+async function questionBankItem(ctx: Ctx): Promise<AttentionItem | null> {
+  if (!ctx.has("QUESTION_BANK_HUB_VIEW")) return null;
+  const { scope, subjects } = await ctx.subjects();
+  if (scope !== "assigned" || subjects.length === 0) return null;
+  const counts = await select<{ course_id: number; total: number }>(
+    `SELECT qb.course_id, COUNT(*) AS total FROM question_bank qb
+      WHERE qb.course_id IN (${inList(subjects.map((s) => s.id))}) GROUP BY qb.course_id`,
+    subjects.map((s) => s.id),
+  );
+  const totals = new Map(counts.map((r) => [Number(r.course_id), Number(r.total)]));
+  const stats = subjects.map((s) => ({ ...emptyStats(s), total: totals.get(s.id) ?? 0 }));
+  const flagged = new Set(
+    bankAlerts(stats)
+      .filter((a) => a.subject_id != null && (a.id.startsWith("empty:") || a.id.startsWith("thin:")))
+      .map((a) => a.subject_id as number),
+  );
+  const list = stats.filter((s) => flagged.has(s.subject_id)).sort((a, b) => a.total - b.total);
+  if (list.length === 0) return null;
+  const lens = teachingLens(ctx.lenses);
+  return {
+    id: `taskmentor:T-24:${lens}`,
+    source: "taskmentor",
+    kind: "T-24",
+    tier: "tidy",
+    lens,
+    via: await ctx.via(["QUESTION_BANK_HUB_VIEW"]),
+    depth: "detail",
+    count: list.length,
+    title: `${plural(list.length, "subject")} with an empty or thin question bank`,
+    entities: list.slice(0, MAX_ENTITIES).map((s) => `${s.subject_code || s.subject_name} · ${plural(s.total, "question")}`),
+    why: `Aim for at least ${THIN_BANK_THRESHOLD} questions per subject so quizzes can draw varied questions.`,
+    cta: { label: "Question bank", href: ctx.href("/question-bank"), external: true },
   };
 }
 
@@ -917,25 +1228,30 @@ export async function buildHomeSummary(
 ): Promise<HomeSummary> {
   const ctx = new Ctx(req, parseLenses(opts.lenses), opts.now ?? new Date(), appUrl());
 
-  const learner = await safe("learner assignments", () => learnerAssignments(ctx), null);
-  const [s03, t07, t14, t15, c06, p05, updates] = await Promise.all([
-    safe("S-03", () => quizClosingItem(ctx), null),
+  const [learner, s09, t07, t14, t15, dashboardAlerts, t24, c06, p05, updates] = await Promise.all([
+    safe("learner overview", () => learnerOverview(ctx), null),
+    safe("S-09", () => returnedProjectsItem(ctx), null),
     safe("T-07", () => toGradeItem(ctx), null),
     safe("T-14", () => flaggedSessionsItem(ctx), null),
     safe("T-15", () => unattemptedQuizItem(ctx), null),
+    safe("instructor alerts", () => instructorItems(ctx), [] as AttentionItem[]),
+    safe("T-24", () => questionBankItem(ctx), null),
     safe("C-06", () => commentItem(ctx), null),
     safe("P-05", () => approveItem(ctx), null),
     safe("updates", () => resultUpdates(ctx), [] as UpdateItem[]),
   ]);
+  const learnerSignals = learner
+    ? await safe("learner items", async () => learnerItems(ctx, learner), [] as AttentionItem[])
+    : [];
 
-  const items = [...(learner ? learnerItems(ctx, learner) : []), s03, t07, t14, t15, c06, p05]
+  const items = [...learnerSignals, s09, t07, t14, t15, ...dashboardAlerts, t24, c06, p05]
     .filter((i): i is AttentionItem => i !== null)
     // Contract: summary depth never carries entity chips; chips are short.
     .map((i) => ({ ...i, entities: i.depth === "summary" ? [] : i.entities.slice(0, MAX_ENTITIES).map(shortChip) }))
     .sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier]);
 
   const tiles: GlanceTile[] = [];
-  const done = learner ? learnerTile(ctx, learner) : null;
+  const done = learner ? await safe("assignments tile", async () => learnerTile(ctx, learner), null) : null;
   if (done) tiles.push(done);
   if (ctx.has("SUBMISSIONS_GRADE", "QUIZZES_GRADE") && (await safe("to-grade tile", () => teachingSubjects(ctx), "none" as const)) !== "none") {
     const lens = teachingLens(ctx.lenses);
@@ -945,7 +1261,7 @@ export async function buildHomeSummary(
       lens,
       label: "To grade",
       value: String(t07?.count ?? 0),
-      hint: "Submissions on your assessments waiting for a grade",
+      hint: "Submissions in your subjects waiting for a grade",
       status: !t07 ? "good" : t07.tier === "blocking" ? "critical" : "warning",
       href: ctx.href("/submissions"),
     });

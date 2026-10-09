@@ -786,7 +786,8 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
     graded_last_week: weekOf(1).graded,
   };
 
-  return {
+  const alertContext: AlertContext = { totals, subjects, grading_queue, upcoming, assessments, nowMs };
+  const overview: InstructorOverview = {
     generated_at: now.toISOString(),
     academic_term_id: input.academic_term_id,
     rosters_available: input.rosters != null,
@@ -802,8 +803,23 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
       top: top.slice(0, 8),
       ...(input.include_all_students ? { all: studentSummaries } : {}),
     },
-    alerts: buildAlerts({ totals, subjects, grading_queue, upcoming, assessments, nowMs }),
+    alerts: buildAlerts(alertContext),
   };
+  // The uncapped lists behind the alerts (the response caps upcoming/assessments).
+  targetsByOverview.set(overview, alertTargets(alertContext));
+  return overview;
+}
+
+export type AlertTargets = ReturnType<typeof alertTargets>;
+const targetsByOverview = new WeakMap<InstructorOverview, AlertTargets>();
+
+/**
+ * What the alerts of an overview built by buildInstructorOverview were about
+ * (alertTargets over the full, uncapped lists), for the MIS Home summary.
+ * Null for an object that didn't come from buildInstructorOverview.
+ */
+export function overviewAlertTargets(overview: InstructorOverview): AlertTargets | null {
+  return targetsByOverview.get(overview) ?? null;
 }
 
 // ─── Alerts ───────────────────────────────────────────────────────────────────
@@ -811,22 +827,61 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
 /** Per-assessment alerts of one kind beyond this are folded into one summary. */
 const MAX_ITEM_ALERTS = 3;
 /** "Just closed" window for follow-up alerts on missing work / low scores. */
-const RECENT_CLOSE_DAYS = 7;
-const LOW_SCORE_MIN_RESULTS = 3;
-const LOW_PARTICIPATION = 60;
+export const RECENT_CLOSE_DAYS = 7;
+export const LOW_SCORE_MIN_RESULTS = 3;
+export const LOW_PARTICIPATION = 60;
+/** "Closing soon" window for the low-submissions alert. */
+export const CLOSING_SOON_HOURS = 48;
 
 const plural = (n: number, word: string, many = `${word}s`) => `${n} ${n === 1 ? word : many}`;
 
-export function buildAlerts(ctx: {
+export interface AlertContext {
   totals: InstructorOverview["totals"];
   subjects: SubjectSummary[];
   grading_queue: GradingQueueItem[];
   upcoming: AssessmentSummary[];
   assessments?: AssessmentSummary[];
   nowMs: number;
-}): DashboardAlert[] {
-  const { totals, subjects, grading_queue, upcoming, nowMs } = ctx;
+}
+
+/**
+ * What each dashboard alert is about, before it is worded: the one rule set
+ * behind buildAlerts and the MIS Home summary (integration/homeSummary.ts),
+ * so both always pick the same subjects and assessments. Lists are uncapped.
+ */
+export function alertTargets(ctx: AlertContext) {
+  const { subjects, upcoming, nowMs } = ctx;
   const assessments = ctx.assessments ?? [];
+  const atRiskSubjects = subjects.filter((s) => s.health === "at_risk");
+  const soon = nowMs + CLOSING_SOON_HOURS * 60 * 60 * 1000;
+  const closingSoon = upcoming.filter((u) => new Date(u.due_at!).getTime() <= soon);
+  const lowClosing = closingSoon.filter((u) => u.participation != null && u.participation < 50);
+  const dueToday = upcoming.filter(
+    (u) => new Date(u.due_at!).getTime() <= nowMs + DAY_MS && !lowClosing.includes(u),
+  );
+  const recentCutoff = nowMs - RECENT_CLOSE_DAYS * DAY_MS;
+  const closedMissing = assessments
+    .filter(
+      (a) => a.is_closed && a.due_at && new Date(a.due_at).getTime() >= recentCutoff && new Date(a.due_at).getTime() <= nowMs,
+    )
+    .filter((a) => a.expected != null && a.expected > 0 && a.participation != null && a.participation < LOW_PARTICIPATION);
+  const lowScores = assessments
+    .filter(
+      (a) =>
+        a.is_closed &&
+        a.avg_score != null &&
+        a.avg_score < PASS_MARK &&
+        a.graded >= LOW_SCORE_MIN_RESULTS &&
+        (!a.due_at || new Date(a.due_at).getTime() >= nowMs - 3 * RECENT_CLOSE_DAYS * DAY_MS),
+    )
+    .sort((x, y) => x.avg_score! - y.avg_score!);
+  const emptySubjects = subjects.filter((s) => s.health === "no_data");
+  return { atRiskSubjects, lowClosing, dueToday, closedMissing, lowScores, emptySubjects };
+}
+
+export function buildAlerts(ctx: AlertContext): DashboardAlert[] {
+  const { totals, subjects, grading_queue, nowMs } = ctx;
+  const targets = alertTargets(ctx);
   const alerts: DashboardAlert[] = [];
   const label = (s: { subject_code: string | null; subject_name: string }) => s.subject_code || s.subject_name;
 
@@ -861,25 +916,20 @@ export function buildAlerts(ctx: {
   }
 
   // ── Subjects at risk ──
-  for (const s of subjects) {
-    if (s.health === "at_risk") {
-      alerts.push({
-        id: `subject-risk-${s.subject_id}`,
-        severity: "critical",
-        title: `${label(s)} needs attention`,
-        message: s.health_reasons.join(". ") + ".",
-        subject_id: s.subject_id,
-        action: { label: "Open subject", url: `/courses/${s.subject_id}` },
-      });
-    }
+  for (const s of targets.atRiskSubjects) {
+    alerts.push({
+      id: `subject-risk-${s.subject_id}`,
+      severity: "critical",
+      title: `${label(s)} needs attention`,
+      message: s.health_reasons.join(". ") + ".",
+      subject_id: s.subject_id,
+      action: { label: "Open subject", url: `/courses/${s.subject_id}` },
+    });
   }
 
   // ── Deadlines closing within 48h ──
-  const soon = nowMs + 48 * 60 * 60 * 1000;
-  const closingSoon = upcoming.filter((u) => new Date(u.due_at!).getTime() <= soon);
-  const lowClosing = closingSoon.filter((u) => u.participation != null && u.participation < 50);
   pushCapped(
-    lowClosing.map((u) => ({
+    targets.lowClosing.map((u) => ({
       id: `due-low-${u.kind}-${u.id}`,
       severity: "warning" as const,
       title: `"${u.title}" closes ${relTime(u.due_at!, nowMs)} with ${u.participation}% submitted`,
@@ -896,9 +946,7 @@ export function buildAlerts(ctx: {
       action: { label: "Deadlines", url: "#upcoming" },
     }),
   );
-  const dueToday = upcoming.filter(
-    (u) => new Date(u.due_at!).getTime() <= nowMs + DAY_MS && !lowClosing.includes(u),
-  );
+  const dueToday = targets.dueToday;
   if (dueToday.length > 0) {
     const first = dueToday[0];
     alerts.push({
@@ -918,21 +966,15 @@ export function buildAlerts(ctx: {
   }
 
   // ── Just-closed work: students who didn't submit ──
-  const recentCutoff = nowMs - RECENT_CLOSE_DAYS * DAY_MS;
-  const recentlyClosed = assessments.filter(
-    (a) => a.is_closed && a.due_at && new Date(a.due_at).getTime() >= recentCutoff && new Date(a.due_at).getTime() <= nowMs,
-  );
   pushCapped(
-    recentlyClosed
-      .filter((a) => a.expected != null && a.expected > 0 && a.participation != null && a.participation < LOW_PARTICIPATION)
-      .map((a) => ({
-        id: `closed-missing-${a.kind}-${a.id}`,
-        severity: "warning" as const,
-        title: `${plural(a.expected! - Math.min(a.submitted, a.expected!), "student")} didn't submit "${a.title}"`,
-        message: `It closed ${relTime(a.due_at!, nowMs)} in ${label(a)} with ${a.participation}% submitted. Follow up or reopen it.`,
-        subject_id: a.subject_id,
-        action: { label: "View", url: a.url },
-      })),
+    targets.closedMissing.map((a) => ({
+      id: `closed-missing-${a.kind}-${a.id}`,
+      severity: "warning" as const,
+      title: `${plural(a.expected! - Math.min(a.submitted, a.expected!), "student")} didn't submit "${a.title}"`,
+      message: `It closed ${relTime(a.due_at!, nowMs)} in ${label(a)} with ${a.participation}% submitted. Follow up or reopen it.`,
+      subject_id: a.subject_id,
+      action: { label: "View", url: a.url },
+    })),
     (rest) => ({
       id: "closed-missing-more",
       severity: "warning",
@@ -945,24 +987,14 @@ export function buildAlerts(ctx: {
 
   // ── Class struggled on a graded assessment ──
   pushCapped(
-    assessments
-      .filter(
-        (a) =>
-          a.is_closed &&
-          a.avg_score != null &&
-          a.avg_score < PASS_MARK &&
-          a.graded >= LOW_SCORE_MIN_RESULTS &&
-          (!a.due_at || new Date(a.due_at).getTime() >= nowMs - 3 * RECENT_CLOSE_DAYS * DAY_MS),
-      )
-      .sort((x, y) => x.avg_score! - y.avg_score!)
-      .map((a) => ({
-        id: `low-score-${a.kind}-${a.id}`,
-        severity: "warning" as const,
-        title: `Class struggled on "${a.title}": average ${a.avg_score}%`,
-        message: `${label(a)} · ${a.pass_rate ?? 0}% passed. Consider reteaching or a remedial activity.`,
-        subject_id: a.subject_id,
-        action: { label: "See results", url: a.url },
-      })),
+    targets.lowScores.map((a) => ({
+      id: `low-score-${a.kind}-${a.id}`,
+      severity: "warning" as const,
+      title: `Class struggled on "${a.title}": average ${a.avg_score}%`,
+      message: `${label(a)} · ${a.pass_rate ?? 0}% passed. Consider reteaching or a remedial activity.`,
+      subject_id: a.subject_id,
+      action: { label: "See results", url: a.url },
+    })),
     (rest) => ({
       id: "low-score-more",
       severity: "warning",
@@ -1028,7 +1060,7 @@ export function buildAlerts(ctx: {
       action: { label: "Submissions", url: "/submissions" },
     });
   }
-  const empty = subjects.filter((s) => s.health === "no_data");
+  const empty = targets.emptySubjects;
   if (empty.length > 0) {
     alerts.push({
       id: "subjects-empty",
