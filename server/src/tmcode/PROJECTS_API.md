@@ -152,7 +152,9 @@ The teacher view `GET /activities/:type/:id/projects` returns:
    - `assignments.submission_type` gains `'project'` (model, controller validation and enum);
    - the submit writes the student's `submissions` row with raw SQL: the status, `is_late`, a readable `text_submission` such as `TMCode project "X", revision #3`, and `project_ref = {project_id, link_id, kind, revision_id, revision_number, git_commit, repo_url, submitted_at}`;
    - the `Submission` model doesn't map `project_ref`, so code deployed before the migration runs keeps working;
-   - a `graded` submission refuses a resubmit with `409 ALREADY_GRADED`.
+   - a `graded` submission refuses a resubmit with `409 ALREADY_GRADED`;
+   - `is_late` is "handed in after the due date", except that handing in again the same frozen revision (or git commit) that was on time keeps it on time, so withdrawing after the due date doesn't make unchanged on-time work late. `POST /projects/:id/withdraw` answers `will_be_late: true` when the due date has passed (a changed version will be late);
+   - a quiz practical link is handed in only into the student's open (`in_progress`) quiz attempt; without one the submit answers `409 {error_code: "QUIZ_NOT_OPEN", code: "QUIZ_NOT_OPEN", message: "Open the quiz in Task Mentor, then submit again."}` and nothing is marked submitted.
 3. **Monitor scoping is by links.** "Students in their scoped courses" means projects linked to an activity whose course is in the teacher's `getScopedSubjects`. Projects have no course of their own, and no roster calls are made.
 4. **Submitted projects can't be deleted.** `DELETE` answers `409 PROJECT_SUBMITTED` while any link is submitted (archive the project instead), and `DELETE …/links/:linkId` answers `409 LINK_SUBMITTED`.
 5. **Linking rules:**
@@ -197,9 +199,14 @@ The `assignments.tmcode_*` columns are read through the `AssignmentTmcode` model
 
 ```ts
 AssignmentSummary = { id, title, kind: "practical"|"case_study"|null, course_id, course_name,
-  status, due_date, points, language, read_only, late,
+  status, due_date, points, language, read_only,
+  late,   // the due date has passed (for a countdown); NOT the hand-in's lateness
   my: { project_id, link_id, state: "not_started"|"in_progress"|"submitted"|"graded",
-        submitted_at, revision_number, grade: number|null, max_points, feedback } | null,
+        submitted_at, revision_number, grade: number|null, max_points, feedback,
+        is_late: boolean|null,          // submissions.is_late; null until handed in
+        returned_at: string|null,       // the teacher's latest "Return for changes" not yet
+        returned_message: string|null   //   answered by a new hand-in (null once resubmitted)
+      } | null,
   teaching?: { students, started, submitted, graded } }   // submitted counts graded work too
 AssignmentDetail = AssignmentSummary & { description_html /* untrusted, sanitise */, instructions,
   attachments: [{name, url /* absolute */}], rubric, starter: {project_id, revision_id, file_count, size_bytes} | null }
@@ -215,3 +222,4 @@ counts = { students, started, submitted, graded, live }
 - **Projects additions**: every project shape has `share_presence`; `GET /projects` rows and `GET /projects/:id` have `assignment: {id, title, status, kind} | null` and `read_only`; `can.share_presence` says whether the owner may turn sharing off; `PATCH /projects/:id {share_presence}` answers `409 PRESENCE_LOCKED` when turning it off on a workspace of a published assignment.
 - **share_presence false**: heartbeats are stored and reach the project stream for the owner, but never `/monitor/live` (hello or events); admins/teachers get `presence: []` / zeroed summaries on `/projects/:id`, `/projects/:id/live`, `/activities/:type/:id/projects` (rows also carry `project.share_presence`). Turning it off sends one `presence` on the monitor stream with `online: false` and `withdrawn: true`.
 - `GET /api/assignments/:id` (web) carries `tmcode: {kind, language, starter_project_id, starter_revision_id, instructions} | null`.
+- **Grading rubric scores** (`GET /grading/:type/:id`, `PUT /grading/:type/:id/students/:studentId`): `grade.rubric_scores` is `[{index, score, comment}]`. For assignments `submissions.rubric_scores` stays the index→score map the web marking shares, and the comments live in the feedback's "Criteria notes" block (the text the student reads); the roster parses them back out, so re-saving what it returned keeps them. A PUT whose scores carry no `comment` key at all keeps the notes found in the sent feedback.

@@ -133,10 +133,15 @@ const DEFAULT_SNIPPETS = [
 
 // ─── Scores ─────────────────────────────────────────────────────────────────
 
-/** The server's rubric_scores may be a list or an index→score map (assignments). */
-function scoresOf(row: GradingRow | null, count: number): { score: string; comment: string }[] {
+/**
+ * The saved scores and notes per criterion. The server sends
+ * { index, score, comment }; older servers sent an index→score map for
+ * assignments, with the notes only in the feedback's "Criteria notes" block,
+ * so missing comments are read back from there (else Save would wipe them).
+ */
+function scoresOf(row: GradingRow | null, rubric: { criteria: string }[]): { score: string; comment: string }[] {
   const raw = row?.grade?.rubric_scores as unknown;
-  const out = Array.from({ length: count }, () => ({ score: "", comment: "" }));
+  const out = Array.from({ length: rubric.length }, () => ({ score: "", comment: "" }));
   if (Array.isArray(raw)) {
     for (const s of raw as CriterionScore[]) {
       if (out[s.index]) out[s.index] = { score: s.score == null ? "" : String(s.score), comment: s.comment ?? "" };
@@ -147,11 +152,35 @@ function scoresOf(row: GradingRow | null, count: number): { score: string; comme
       if (out[i] && v != null) out[i] = { score: String(v), comment: "" };
     }
   }
-  return out;
+  const notes = criteriaNotes(row?.grade?.feedback, rubric);
+  return out.map((s, i) => (s.comment ? s : { ...s, comment: notes.get(i) ?? "" }));
 }
 
 /** Strip the "Criteria notes" block the server composes into the feedback. */
 const overallFeedback = (f: string | null | undefined) => String(f ?? "").split(/\n*Criteria notes:\n/)[0] ?? "";
+
+/** The notes in that block ("• <criterion>: <note>", a note may span lines), by criterion index. */
+function criteriaNotes(feedback: string | null | undefined, rubric: { criteria: string }[]): Map<number, string> {
+  const out = new Map<number, string>();
+  const text = String(feedback ?? "");
+  const m = /\n*Criteria notes:\n/.exec(text);
+  if (!m) return out;
+  const prefixes = rubric
+    .map((c, index) => ({ index, prefix: `• ${c.criteria}: ` }))
+    .sort((x, y) => y.prefix.length - x.prefix.length);
+  let current: number | null = null;
+  for (const line of text.slice(m.index + m[0].length).split("\n")) {
+    const hit = prefixes.find((p) => line.startsWith(p.prefix));
+    if (hit && !out.has(hit.index)) {
+      current = hit.index;
+      out.set(current, line.slice(hit.prefix.length));
+    } else if (current != null) {
+      out.set(current, `${out.get(current)}\n${line}`);
+    }
+  }
+  for (const [k, v] of out) out.set(k, v.trim());
+  return out;
+}
 
 /** Quick score buttons: every value for a small whole-number maximum, else quarters. */
 function quickScores(max: number): { label: string; value: number }[] {
@@ -1135,7 +1164,7 @@ const CriteriaScorer: React.FC<{
     const savedAt = row.grade?.graded_at ? Date.parse(row.grade.graded_at) : 0;
     if (draft && Date.parse(draft.at) > savedAt && draft.scores.length === rubric.length) return { ...draft, restored: true };
     return {
-      scores: scoresOf(row, rubric.length),
+      scores: scoresOf(row, rubric),
       overall: !hasRubric && row.grade?.score != null ? String(row.grade.score) : "",
       feedback: overallFeedback(row.grade?.feedback),
       restored: false,
@@ -1179,7 +1208,7 @@ const CriteriaScorer: React.FC<{
   };
   const discardDraft = () => {
     store.set(key, null);
-    setScores(scoresOf(row, rubric.length));
+    setScores(scoresOf(row, rubric));
     setOverall(!hasRubric && row.grade?.score != null ? String(row.grade.score) : "");
     setFeedback(overallFeedback(row.grade?.feedback));
     setDirty(false);

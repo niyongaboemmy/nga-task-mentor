@@ -201,6 +201,15 @@ describe("quiz practicals", () => {
     expect(res.status).toBe(422);
   });
 
+  it("refuses to submit while the quiz isn't open (409 QUIZ_NOT_OPEN) and hands nothing in", async () => {
+    const res = await api(student).post(`/projects/${projectId}/links/${linkId}/submit`);
+    expect(res.status).toBe(409);
+    expect(res.body).toMatchObject({ code: "QUIZ_NOT_OPEN", error_code: "QUIZ_NOT_OPEN", message: "Open the quiz in Task Mentor, then submit again." });
+    expect((await ProjectActivityLink.findByPk(linkId))!.status).toBe("linked");
+    expect((await Project.findByPk(projectId))!.status).toBe("draft");
+    expect(await QuizAttempt.count({ where: { quiz_id: quiz.id, question_id: qq.id, student_id: student.id } })).toBe(0);
+  });
+
   it("submitting from TMCode records the project as the open quiz answer, pending", async () => {
     const sub = await QuizSubmission.create({
       quiz_id: quiz.id, student_id: student.id, total_score: 0, max_score: 12, percentage: 0, status: "in_progress",
@@ -343,5 +352,30 @@ describe("assignment practical grading", () => {
     expect(sub!.feedback).toContain("Good work");
     expect(sub!.feedback).toContain("• Styling: Clean CSS");
     expect((await Project.findByPk(p.id))!.status).toBe("graded");
+
+    // The roster gives the notes back as { index, score, comment }…
+    const graded = (await api(teacher).get(`/grading/assignment/${a.id}`)).body.rows.find((r: any) => r.student.id === student.id);
+    expect(graded.grade.rubric_scores).toEqual([
+      { index: 0, score: 3, comment: null },
+      { index: 1, score: 3, comment: "Clean CSS" },
+      { index: 2, score: 2, comment: null },
+    ]);
+    // …so re-saving what it returned keeps them.
+    const again = await api(teacher).put(`/grading/assignment/${a.id}/students/${student.id}`, {
+      rubric_scores: graded.grade.rubric_scores.map((s: any) => (s.index === 2 ? { ...s, score: 3 } : s)),
+      feedback: "Good work",
+    });
+    expect(again.status).toBe(200);
+    const resaved = await Submission.findOne({ where: { assignment_id: a.id, student_id: student.id } });
+    expect(resaved).toMatchObject({ grade: "9/10", rubric_scores: { 0: 3, 1: 3, 2: 3 } });
+    expect(resaved!.feedback).toBe(`Good work\n\nCriteria notes:\n• ${RUBRIC[1].criteria}: Clean CSS`);
+
+    // A client that sends no comments but keeps the notes in the feedback doesn't lose them either.
+    const legacy = await api(teacher).put(`/grading/assignment/${a.id}/students/${student.id}`, {
+      rubric_scores: [{ index: 0, score: 3 }, { index: 1, score: 3 }, { index: 2, score: 3 }],
+      feedback: resaved!.feedback,
+    });
+    expect(legacy.status).toBe(200);
+    expect((await Submission.findOne({ where: { assignment_id: a.id, student_id: student.id } }))!.feedback).toBe(resaved!.feedback);
   });
 });

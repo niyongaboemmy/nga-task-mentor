@@ -554,3 +554,78 @@ describe("share_presence", () => {
     }
   });
 });
+
+describe("the student's receipts: is_late, returns, withdrawing after the due date", () => {
+  let a: Assignment;
+  let wsId: number;
+  let linkId: number;
+  let head: number;
+  const mine = async () =>
+    (await request(app).get(`/api/tmcode/assignments/${a.id}`).set("Authorization", tok(student))).body.assignment;
+  const submit = () =>
+    request(app).post(`/api/tmcode/projects/${wsId}/links/${linkId}/submit`).set("Authorization", tok(student));
+  const withdraw = () => request(app).post(`/api/tmcode/projects/${wsId}/withdraw`).set("Authorization", tok(student));
+
+  beforeAll(async () => {
+    const spy = jest.spyOn(scoped, "getScopedSubjects").mockResolvedValue({ scope: "assigned", subjects: programming } as any);
+    a = await createAssignment();
+    spy.mockRestore();
+  });
+
+  it("hands in on time: my.is_late false; nothing returned", async () => {
+    const on = await request(app)
+      .put(`/api/tmcode/assignments/${a.id}/tmcode`)
+      .set("Authorization", tok(teacher))
+      .send({ kind: "practical", language: "python" });
+    expect(on.status).toBe(200);
+    const started = await start(student, a.id);
+    expect([200, 201]).toContain(started.status);
+    wsId = started.body.project.id;
+    projectIds.add(wsId);
+    linkId = started.body.project.links[0].id;
+    expect((await mine()).my).toMatchObject({ state: "in_progress", is_late: null, returned_at: null, returned_message: null });
+
+    const saved = await saveFiles(student, wsId, (await Project.findByPk(wsId))!.head_revision_id ?? null, [{ path: "main.py", b: blob(`print(1) # ${Date.now()}`) }]);
+    expect(saved.status).toBe(201);
+    head = saved.body.revision.id;
+    expect((await submit()).status).toBe(200);
+    expect((await mine()).my).toMatchObject({ state: "submitted", is_late: false, returned_at: null });
+  });
+
+  it("shows the teacher's Return for changes until the student hands in again", async () => {
+    const r = await request(app).post(`/api/tmcode/projects/${wsId}/return`).set("Authorization", tok(teacher)).send({ message: "Handle empty input" });
+    expect(r.status).toBe(200);
+    const back = (await mine()).my;
+    expect(back).toMatchObject({ state: "in_progress", is_late: null, returned_message: "Handle empty input" });
+    expect(new Date(back.returned_at).getTime()).toBeGreaterThan(Date.now() - 60_000);
+    // The list carries it too.
+    const listed = (await request(app).get("/api/tmcode/assignments").set("Authorization", tok(student))).body.assignments.find(
+      (x: any) => x.id === a.id,
+    );
+    expect(listed.my).toMatchObject({ returned_message: "Handle empty input" });
+
+    expect((await submit()).status).toBe(200);
+    expect((await mine()).my).toMatchObject({ state: "submitted", is_late: false, returned_at: null, returned_message: null });
+  });
+
+  it("after the due date: withdraw warns, the same version stays on time, a changed one is late", async () => {
+    await Assignment.update({ due_date: new Date(Date.now() - 3_600_000) }, { where: { id: a.id } });
+    const before = await mine();
+    expect(before.late).toBe(true); // the assignment is past due…
+    expect(before.my.is_late).toBe(false); // …but this work was handed in on time
+
+    const w = await withdraw();
+    expect(w.status).toBe(200);
+    expect(w.body.will_be_late).toBe(true);
+    expect((await submit()).status).toBe(200);
+    expect((await mine()).my).toMatchObject({ state: "submitted", is_late: false });
+
+    expect((await withdraw()).status).toBe(200);
+    const changed = await saveFiles(student, wsId, head, [{ path: "main.py", b: blob(`print(2) # ${Date.now()}`) }]);
+    expect(changed.status).toBe(201);
+    const late = await submit();
+    expect(late.status).toBe(200);
+    expect(late.body.submission).toMatchObject({ is_late: true });
+    expect((await mine()).my).toMatchObject({ state: "submitted", is_late: true });
+  });
+});

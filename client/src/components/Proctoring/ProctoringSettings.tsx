@@ -635,61 +635,83 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
               const policy = { ...TMCODE_POLICY_DEFAULTS, ...(settings.tmcode_policy ?? {}) };
               const setPolicy = (patch: Partial<TmcodePolicy>) =>
                 handleInputChange("tmcode_policy", { ...policy, ...patch });
-              const select = (
-                id: keyof TmcodePolicy,
-                label: string,
-                options: Array<[string, string]>,
-              ) => (
-                <div>
-                  <label htmlFor={`tmcode-${id}`} className="block text-xs mb-1 text-text-secondary-light dark:text-text-secondary-dark">
-                    {label}
-                  </label>
-                  <Select variant="outline"
-                    id={`tmcode-${id}`}
-                    value={String(policy[id])}
-                    onChange={(e) => setPolicy({ [id]: e.target.value } as Partial<TmcodePolicy>)}
-                    className="w-full"
-                  >
-                    {options.map(([v, l]) => (
-                      <option key={v} value={v}>
-                        {l}
-                      </option>
-                    ))}
-                  </Select>
-                </div>
-              );
+              // [value, label, one-line help for that choice, not available yet?]
+              type PolicyOption = [string, string, string, boolean?];
+              const help = "mt-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70";
+              const select = (id: keyof TmcodePolicy, label: string, options: PolicyOption[]) => {
+                const current = options.find(([v]) => v === String(policy[id]));
+                return (
+                  <div>
+                    <label htmlFor={`tmcode-${id}`} className="block text-xs mb-1 text-text-secondary-light dark:text-text-secondary-dark">
+                      {label}
+                    </label>
+                    <Select variant="outline"
+                      id={`tmcode-${id}`}
+                      value={String(policy[id])}
+                      onChange={(e) => setPolicy({ [id]: e.target.value } as Partial<TmcodePolicy>)}
+                      className="w-full"
+                    >
+                      {options.map(([v, l, , unavailable]) => (
+                        // A value saved before it was marked unavailable still shows as selected.
+                        <option key={v} value={v} disabled={!!unavailable && v !== String(policy[id])}>
+                          {l}
+                        </option>
+                      ))}
+                    </Select>
+                    {current && (
+                      <p className={help} data-testid={`tmcode-${id}-help`}>
+                        {current[2]}
+                      </p>
+                    )}
+                  </div>
+                );
+              };
               return (
                 <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
                   {select("mode", "Mode", [
-                    ["practice", "Practice (no restrictions)"],
-                    ["monitored", "Monitored (logged)"],
-                    ["secure", "Secure (lab lockdown)"],
+                    ["practice", "Practice (no restrictions)", "No exam rules: students work as they would at home."],
+                    ["monitored", "Monitored (logged)", "Students work normally; TMCode records the session for you to review."],
+                    [
+                      "secure",
+                      "Secure (lab lockdown) — not available yet",
+                      "Not available yet: TMCode can't lock down the computer, so choose Monitored.",
+                      true,
+                    ],
                   ])}
                   {select("intelligence", "Editor help", [
-                    ["none", "None"],
-                    ["basic", "Basic (syntax colours, brackets)"],
-                    ["diagnostics", "Diagnostics (errors shown)"],
-                    ["full", "Full (completion, no AI)"],
+                    ["none", "None", "A plain editor: no suggestions, hover tips or error markers."],
+                    ["basic", "Basic (syntax colours, brackets)", "Syntax colours and bracket matching only; no suggestions."],
+                    ["diagnostics", "Diagnostics (errors shown)", "Errors are marked as students type; no code completion."],
+                    ["full", "Full (completion, no AI)", "Code completion and hover tips, never AI."],
                   ])}
                   {select("paste", "Paste", [
-                    ["allow", "Allow"],
-                    ["internal_only", "Only text copied inside the exam"],
-                    ["block", "Block"],
+                    ["allow", "Allow", "Students can paste anything into the editor."],
+                    ["internal_only", "Only text copied inside the exam", "Students can paste only text they copied inside this exam."],
+                    ["block", "Block", "Pasting into the editor and the terminal is blocked."],
                   ])}
                   {select("terminal", "Terminal", [
-                    ["off", "Off"],
-                    ["restricted", "Restricted console"],
-                    ...(policy.mode === "practice" ? [["full", "Full (practice only)"] as [string, string]] : []),
+                    ["off", "Off", "No terminal in TMCode."],
+                    [
+                      "restricted",
+                      "Restricted console (currently: terminal off)",
+                      "For now this turns the terminal off, exactly like Off. A limited console comes later.",
+                    ],
+                    ...(policy.mode === "practice"
+                      ? [["full", "Full (practice only)", "A full terminal on the student's computer. Practice mode only."] as PolicyOption]
+                      : []),
                   ])}
-                  <label className="flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
-                    <input
-                      type="checkbox"
-                      className="mr-2"
-                      checked={policy.internet_in_preview}
-                      onChange={(e) => setPolicy({ internet_in_preview: e.target.checked })}
-                    />
-                    Internet in the web preview
-                  </label>
+                  <div>
+                    <label className="flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                      <input
+                        type="checkbox"
+                        className="mr-2"
+                        checked={policy.internet_in_preview}
+                        onChange={(e) => setPolicy({ internet_in_preview: e.target.checked })}
+                      />
+                      Internet in the web preview
+                    </label>
+                    <p className={help}>Lets a student's web page load files and fonts from the internet in the preview.</p>
+                  </div>
                   <div>
                     <label htmlFor="tmcode-grace" className="block text-xs mb-1 text-text-secondary-light dark:text-text-secondary-dark">
                       Offline grace after the deadline (minutes, 0–30)
@@ -707,6 +729,7 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                       }
                       className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
                     />
+                    <p className={help}>Work saved offline before the deadline can still be uploaded for this many minutes.</p>
                   </div>
                 </div>
               );

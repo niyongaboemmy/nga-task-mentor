@@ -31,7 +31,14 @@ import {
 } from "../tmcode/projects/access";
 import { HIDDEN_PRESENCE, presenceSummary, userName, usersById } from "../tmcode/projects/serialize";
 import { loadTmAssignment, tmcodeColumns, TmAssignment } from "../tmcode/assignments/load";
-import { gradeNumber, isReadOnlyStatus, STUDENT_STATUSES, WorkState, workState } from "../tmcode/assignments/state";
+import {
+  gradeNumber,
+  isReadOnlyStatus,
+  pendingReturn,
+  STUDENT_STATUSES,
+  WorkState,
+  workState,
+} from "../tmcode/assignments/state";
 
 /**
  * TMCode practicals and case studies (ASSIGNMENTS_PLAN.md "API"): the
@@ -110,6 +117,11 @@ export interface MyWork {
   grade: number | null;
   max_points: number;
   feedback: string | null;
+  /** The hand-in's own late flag (submissions.is_late); null until handed in. */
+  is_late: boolean | null;
+  /** The teacher's latest "Return for changes" not yet answered by a new hand-in. */
+  returned_at: string | null;
+  returned_message: string | null;
 }
 
 export interface TeachingCounts {
@@ -138,6 +150,7 @@ function summaryJson(
     points: Number(a.max_score),
     language: t.tm.tmcode_language ?? null,
     read_only: isReadOnlyStatus(a.status),
+    /** The due date has passed (for the countdown); a hand-in's lateness is `my.is_late`. */
     late: !!due && due.getTime() < Date.now(),
     my,
     ...(teaching ? { teaching } : {}),
@@ -164,9 +177,16 @@ async function myWork(userId: number, assignments: Assignment[]): Promise<Map<nu
       : [],
     Submission.findAll({
       where: { assignment_id: { [Op.in]: ids }, student_id: userId },
-      attributes: ["id", "assignment_id", "status", "grade", "feedback", "submitted_at"],
+      attributes: ["id", "assignment_id", "status", "grade", "feedback", "submitted_at", "is_late"],
     }),
   ]);
+  // Returns and hand-ins on the student's projects (for "Returned by your teacher").
+  const events = mine.length
+    ? await ProjectEvent.findAll({
+        where: { project_id: { [Op.in]: mine.map((p) => p.id) }, type: { [Op.in]: ["returned", "submitted"] } },
+        attributes: ["id", "project_id", "type", "data", "created_at"],
+      })
+    : [];
   const frozen = links.map((l) => l.revision_id).filter((x): x is number => !!x);
   const revNumbers = new Map(
     (frozen.length ? await ProjectRevision.findAll({ where: { id: frozen }, attributes: ["id", "number"] }) : []).map(
@@ -179,16 +199,29 @@ async function myWork(userId: number, assignments: Assignment[]): Promise<Map<nu
     const submission = submissions.find((s) => s.assignment_id === a.id) ?? null;
     const projectId = workspace?.id ?? link?.project_id ?? null;
     const ownProject = workspace ?? (link ? mine.find((p) => p.id === link.project_id) : null) ?? null;
+    const state = workState({ project: projectId ? { id: projectId } : null, link, submission });
+    const handedIn = !!submission && submission.status !== "draft";
+    // Only while the work is back with the student: a new hand-in or a grade clears it.
+    const returned =
+      projectId && (state === "in_progress" || state === "not_started")
+        ? pendingReturn(
+            events.filter((e) => e.project_id === projectId),
+            a.id,
+          )
+        : null;
     out.set(a.id, {
       project_id: projectId,
       project_status: ownProject?.status ?? null,
       link_id: link?.id ?? null,
-      state: workState({ project: projectId ? { id: projectId } : null, link, submission }),
+      state,
       submitted_at: iso(link?.submitted_at ?? (submission?.status !== "draft" ? submission?.submitted_at : null)),
       revision_number: link?.revision_id ? revNumbers.get(link.revision_id) ?? null : null,
       grade: submission?.status === "graded" ? gradeNumber(submission.grade) : null,
       max_points: Number(a.max_score),
       feedback: submission?.status === "graded" ? submission.feedback ?? null : null,
+      is_late: handedIn ? !!submission!.is_late : null,
+      returned_at: returned?.returned_at ?? null,
+      returned_message: returned?.returned_message ?? null,
     });
   }
   return out;

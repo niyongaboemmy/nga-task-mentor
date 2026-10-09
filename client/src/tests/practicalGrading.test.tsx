@@ -225,6 +225,55 @@ describe("PracticalGradingPage", () => {
     );
   });
 
+  it("keeps the per-criterion notes on a re-save (comments from the server, or read back from the feedback)", async () => {
+    practicals.roster.mockResolvedValue({
+      ...roster(),
+      rows: [
+        row(1, "Ama", {
+          state: "graded",
+          grade: {
+            score: 7,
+            // An older server: index→score map, notes only in the feedback.
+            rubric_scores: { 0: 5, 1: 2 } as any,
+            feedback: "Good\n\nCriteria notes:\n• Layout: Header is off\nand the footer",
+            graded_at: "2026-10-07T09:00:00Z",
+            ref_id: 1,
+          },
+        }),
+        row(2, "Kofi", {
+          state: "graded",
+          grade: {
+            score: 6,
+            rubric_scores: [
+              { index: 0, score: 4, comment: null },
+              { index: 1, score: 2, comment: "Tidy CSS" },
+            ],
+            feedback: "Fine\n\nCriteria notes:\n• Styling: Tidy CSS",
+            graded_at: "2026-10-07T09:00:00Z",
+            ref_id: 2,
+          },
+        }),
+      ],
+      counts: { total: 2, to_grade: 0, graded: 2 },
+    });
+    practicals.saveGrade.mockResolvedValue({ score: 7, max_points: 10 });
+    workspace("/grading/practical/assignment/7?student=1");
+    expect(await screen.findByTestId("grade-total")).toHaveTextContent(/^7\s*\/\s*10$/);
+    expect(screen.getByPlaceholderText(/What went well/)).toHaveValue("Good");
+    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await waitFor(() =>
+      expect(practicals.saveGrade).toHaveBeenCalledWith("assignment", 7, 1, {
+        question_id: null,
+        rubric_scores: [
+          { index: 0, score: 5, comment: "Header is off\nand the footer" },
+          { index: 1, score: 2, comment: null },
+        ],
+        score: null,
+        feedback: "Good",
+      }),
+    );
+  });
+
   it("moves between students with Alt+↓ / Alt+↑", async () => {
     practicals.roster.mockResolvedValue(roster());
     workspace();
@@ -342,6 +391,21 @@ describe("TmcodePracticalQuestion", () => {
     await waitFor(() => expect(projects.submit).toHaveBeenCalledWith(101, 201));
     expect(onAnswerChange).toHaveBeenCalledWith({ project_id: 101, link_id: 201, revision_id: 302, revision_number: 2 }, true);
     expect(await screen.findByTestId("practical-withdraw")).toBeInTheDocument();
+  });
+
+  it("says to open the quiz when the server has no open attempt to record the answer (409 QUIZ_NOT_OPEN)", async () => {
+    projects.list.mockResolvedValue({ projects: [projectWith("draft", 2)] });
+    projects.submit.mockRejectedValue({
+      response: {
+        status: 409,
+        data: { error_code: "QUIZ_NOT_OPEN", code: "QUIZ_NOT_OPEN", message: "Open the quiz in Task Mentor, then submit again." },
+      },
+    });
+    const { onAnswerChange } = mount();
+    await userEvent.click(await screen.findByTestId("practical-submit"));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Open the quiz in Task Mentor, then submit again.");
+    expect(onAnswerChange).not.toHaveBeenCalled();
+    expect(screen.getByTestId("practical-submit")).toBeInTheDocument();
   });
 
   it("won't submit before anything was saved from TMCode", async () => {
