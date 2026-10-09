@@ -1,4 +1,3 @@
-import axios from "axios";
 import { User } from "../models/User.model";
 
 /**
@@ -10,7 +9,7 @@ import { User } from "../models/User.model";
  *    a legacy Task Mentor upload, still served from /users/profile-picture/.
  *  - The link is refreshed whenever MIS is asked about the user anyway: sign-in,
  *    GET /auth/me and the minute-by-minute /auth/verify-mis poll.
- *  - Uploading or removing a picture here is forwarded to MIS.
+ *  - Pictures are changed in MIS only (its profile page); this app has no upload.
  */
 
 export const isMisAvatarUrl = (value: string | null | undefined): boolean =>
@@ -44,32 +43,15 @@ export async function applyMisAvatar(user: User | null | undefined, url: string 
   return true;
 }
 
-const misBase = () => process.env.NGA_MIS_BASE_URL;
-
-/** PUT /users/me/avatar on MIS; MIS resizes/compresses and answers with the new links. */
-export async function uploadAvatarToMis(
-  misToken: string,
-  file: { buffer: Buffer; originalname?: string; mimetype?: string },
-  crop?: string,
-): Promise<{ version: number; sm: string; md: string; lg: string }> {
-  const form = new FormData();
-  if (crop) form.append("crop", crop);
-  form.append(
-    "avatar",
-    new Blob([new Uint8Array(file.buffer)], { type: file.mimetype || "application/octet-stream" }),
-    file.originalname || "avatar",
-  );
-  const res = await axios.put(`${misBase()}/users/me/avatar`, form, {
-    headers: { Authorization: `Bearer ${misToken}` },
-    timeout: 60000,
-    maxBodyLength: Infinity,
-  });
-  return res.data.data.avatar;
-}
-
-export async function removeAvatarFromMis(misToken: string): Promise<void> {
-  await axios.delete(`${misBase()}/users/me/avatar`, {
-    headers: { Authorization: `Bearer ${misToken}` },
-    timeout: 15000,
-  });
+/**
+ * The profile cover (wide banner) MIS reports, as its large link. Not stored here: it is
+ * only shown on the profile page, which reads it fresh from MIS via GET /auth/me.
+ * null = none (the page uses the system blue); undefined = this payload is silent.
+ */
+export function misCoverFrom(data: any): string | null | undefined {
+  if (!data || typeof data !== "object") return undefined;
+  const valid = (u: unknown) => (typeof u === "string" && /^https?:\/\//i.test(u) ? u : null);
+  if (data.cover !== undefined) return data.cover ? valid(data.cover.lg) : null;
+  if (data.user && data.user.cover_url !== undefined) return valid(data.user.cover_url);
+  return undefined;
 }

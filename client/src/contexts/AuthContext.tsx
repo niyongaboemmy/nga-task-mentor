@@ -42,6 +42,8 @@ interface User {
   roleName?: string | null;
   localPermissions: string[];
   profile_image?: string;
+  /** Wide profile banner chosen in NGA MIS (null = plain system blue). */
+  cover_url?: string | null;
   department?: string;
   user_type?: string;
   mis_user_id?: number;
@@ -64,8 +66,6 @@ interface AuthContextType {
   sessionExpired: boolean;
   logoutUser: () => void;
   updateProfile: (userData: Partial<User>) => Promise<void>;
-  updateProfileImage: (imageUrl: string) => Promise<void>;
-  removeProfileImage: () => Promise<void>;
   checkAuth: () => Promise<void>;
   loginWithSSOData: (callbackResponse: any) => void;
   /** Bumped every time the viewed academic year/term changes -- use as a
@@ -159,6 +159,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
           roleName: (responseData.user as any)?.roleName ?? null,
           localPermissions: (responseData.user as any)?.localPermissions || [],
           profile_image: responseData.user?.profile_image,
+          cover_url: (responseData.user as any)?.cover_url ?? null,
           department: undefined,
           user_type:
             responseData.profile?.user_type || responseData.user?.role,
@@ -345,6 +346,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
         roleName: localUser?.roleName ?? null,
         localPermissions: localUser?.localPermissions || [],
         profile_image: localUser?.profile_image,
+        cover_url: localUser?.cover_url ?? null,
         user_type: misProfile?.user_type || localUser?.role,
         mis_user_id: localUser?.mis_user_id,
         preferred_theme: preferred_theme,
@@ -395,34 +397,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
       dispatch(loginSuccess(updatedUser));
     } catch (error) {
       console.error("Profile update failed:", error);
-      throw error;
-    }
-  };
-
-  const updateProfileImage = async (imageUrl: string) => {
-    try {
-      setUser((prevUser) =>
-        prevUser ? { ...prevUser, profile_image: imageUrl } : null,
-      );
-      if (user) {
-        dispatch(loginSuccess({ ...user, profile_image: imageUrl }));
-      }
-    } catch (error) {
-      console.error("Profile image update failed:", error);
-      throw error;
-    }
-  };
-
-  const removeProfileImage = async () => {
-    try {
-      setUser((prevUser) =>
-        prevUser ? { ...prevUser, profile_image: undefined } : null,
-      );
-      if (user) {
-        dispatch(loginSuccess({ ...user, profile_image: undefined }));
-      }
-    } catch (error) {
-      console.error("Profile image removal failed:", error);
       throw error;
     }
   };
@@ -491,8 +465,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
     sessionExpired,
     logoutUser,
     updateProfile,
-    updateProfileImage,
-    removeProfileImage,
     checkAuth,
     loginWithSSOData,
     academicPeriodVersion,
