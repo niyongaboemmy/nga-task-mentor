@@ -317,6 +317,23 @@ const PracticalGradingPage: React.FC = () => {
   }, [prevRow, nextRow, select, close]);
 
   const a = roster?.activity;
+  const [releasing, setReleasing] = useState(false);
+  const releaseAll = useCallback(async () => {
+    if (!a) return;
+    setReleasing(true);
+    try {
+      const r = await practicalsApi.releaseDrafts(type, activityId, a.question?.id ?? null);
+      toast.success(
+        `Released ${r.released} grade${r.released === 1 ? "" : "s"}: students can see ${r.released === 1 ? "it" : "them"} now.` +
+          (r.skipped.length ? ` ${r.skipped.length} changed meanwhile and were left as drafts.` : ""),
+      );
+      await load();
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Couldn't release the drafts."));
+    } finally {
+      setReleasing(false);
+    }
+  }, [a, type, activityId, load]);
   const pct = roster && roster.counts.total ? Math.round((roster.counts.graded / roster.counts.total) * 100) : 0;
   const hasDraft = useCallback(
     (r: GradingRow) => !!a && !!store.get<Draft | null>(draftKey(type, activityId, a.question?.id, r.student?.id), null),
@@ -416,6 +433,19 @@ const PracticalGradingPage: React.FC = () => {
               <div className="h-full rounded-full bg-blue-600 transition-all" style={{ width: `${pct}%` }} />
             </div>
           </div>
+        )}
+        {roster && a?.can_grade && (roster.counts.drafts ?? 0) > 0 && (
+          <button
+            type="button"
+            onClick={releaseAll}
+            disabled={releasing}
+            data-testid="release-drafts"
+            title="Students see a grade only once it is released"
+            className="hidden shrink-0 items-center gap-1.5 rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60 sm:inline-flex"
+          >
+            {releasing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+            Release {roster.counts.drafts} draft{roster.counts.drafts === 1 ? "" : "s"}
+          </button>
         )}
         <button
           type="button"
@@ -772,7 +802,8 @@ const StudentWorkspace: React.FC<{
                   </span>
                 )}
                 <TmcodeDeepLinkButton
-                  getLink={() => projectsApi.openLink(projectId)}
+                  // Lands in TMCode's grading view on this student (G9), not an editable copy.
+                  getLink={() => practicalsApi.gradingLink(type, activityId, { questionId: a.question?.id ?? null, studentId: row.student?.id ?? null })}
                   label="Open in TMCode"
                   trackKey="tm.grading.open_in_tmcode"
                   testId="grading-open-tmcode"
@@ -843,6 +874,7 @@ const StudentWorkspace: React.FC<{
         open={returnOpen}
         projectId={projectId}
         studentName={name}
+        allowResubmission={row.state === "graded"}
         onClose={() => setReturnOpen(false)}
         onReturned={() => void onSaved()}
       />
@@ -1232,7 +1264,7 @@ const CriteriaScorer: React.FC<{
     store.set(SNIPPETS_KEY, next);
   };
 
-  const save = async (advance: boolean) => {
+  const save = async (advance: boolean, release = true) => {
     if (!row.student || !gradable) return;
     setError(null);
     for (let i = 0; i < scores.length; i++) {
@@ -1248,19 +1280,30 @@ const CriteriaScorer: React.FC<{
     }
     setSaving(true);
     try {
-      await practicalsApi.saveGrade(a.type, a.id, row.student.id, {
+      const saved = await practicalsApi.saveGrade(a.type, a.id, row.student.id, {
         question_id: a.question?.id ?? null,
         rubric_scores: hasRubric ? scores.map((s, index) => ({ index, score: Number(s.score), comment: s.comment.trim() || null })) : [],
         score: hasRubric ? null : Number(overall),
         feedback: feedback.trim(),
+        release,
+        if_version: row.grade?.version ?? null,
       });
       store.set(key, null);
       setDirty(false);
-      toast.success(`Saved ${row.student.name}'s grade: ${total}/${max}.`);
+      if (!release) toast.success(`Draft saved for ${row.student.name}: ${total}/${max}. They won't see it until you release it.`);
+      else if (saved?.locks_student) toast.success(`Released ${row.student.name}'s grade: ${total}/${max}. Their project is now read-only.`);
+      else toast.success(`Released ${row.student.name}'s grade: ${total}/${max}. They can see it now.`);
       await onSaved();
       if (advance && nextRow) onSelect(nextRow.student?.id);
     } catch (e) {
-      setError(apiErrorMessage(e, "Couldn't save the grade."));
+      if (apiErrorCode(e) === "GRADE_CHANGED") {
+        // Keep this teacher's scores as a local draft, show the newer grade.
+        store.set(key, { scores, overall, feedback, at: new Date().toISOString() } satisfies Draft);
+        toast.error("Someone else changed this grade. Their version is shown; your scores are kept as a draft on this device.");
+        await onSaved();
+      } else {
+        setError(apiErrorMessage(e, "Couldn't save the grade."));
+      }
     } finally {
       setSaving(false);
     }
@@ -1303,12 +1346,35 @@ const CriteriaScorer: React.FC<{
             {hasRubric && a.type === "quiz" && rubricMax !== a.max_points ? ` · question worth ${a.max_points} pts` : ""}
           </p>
         </div>
-        {row.state === "graded" && !dirty && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
-            <CheckCircle2 className="h-3.5 w-3.5" /> Graded
+        {row.grade?.status === "draft" && !dirty ? (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-1 text-[11px] font-semibold text-amber-800 dark:bg-amber-500/15 dark:text-amber-300"
+            data-testid="grade-draft-badge"
+            title="Saved as a draft: the student doesn't see it yet"
+          >
+            <Save className="h-3.5 w-3.5" /> Draft
           </span>
+        ) : (
+          row.state === "graded" &&
+          !dirty && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-semibold text-emerald-800 dark:bg-emerald-500/15 dark:text-emerald-300">
+              <CheckCircle2 className="h-3.5 w-3.5" /> Graded
+            </span>
+          )
         )}
       </div>
+      {(row.grade?.graded_by || row.grade?.status === "draft") && (
+        <p className="shrink-0 border-b border-slate-200 px-4 py-1.5 text-[11px] text-slate-500 dark:border-white/10" data-testid="graded-by">
+          {row.grade?.status === "draft" ? "Draft saved" : "Graded"}
+          {row.grade?.graded_by ? ` by ${row.grade.graded_by.name}` : ""}
+          {row.grade?.graded_at ? ` · ${formatDateTime(row.grade.graded_at)}` : ""}
+          {row.grade?.status === "draft"
+            ? row.grade.released_score != null
+              ? ` · the student still sees ${row.grade.released_score}/${max}`
+              : " · not released to the student"
+            : ""}
+        </p>
+      )}
 
       {!gradable && (
         <p className="mx-4 mt-3 flex shrink-0 items-start gap-1.5 rounded-xl bg-slate-100 p-2.5 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">
@@ -1413,6 +1479,24 @@ const CriteriaScorer: React.FC<{
         </div>
       </div>
 
+      {(row.grade?.annotations?.length ?? 0) > 0 && (
+        <div className="max-h-32 shrink-0 overflow-y-auto border-t border-slate-200 px-4 py-2 dark:border-white/10" data-testid="grade-annotations">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+            Line comments ({row.grade!.annotations!.length}) · added in TMCode, kept when you save here
+          </p>
+          <ul className="space-y-0.5 text-xs">
+            {row.grade!.annotations!.map((n, i) => (
+              <li key={i} className="truncate" title={n.text}>
+                <span className="font-mono text-slate-500">
+                  {n.path}:{n.line}
+                </span>{" "}
+                {n.text}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Actions: fixed at the bottom */}
       <div className="shrink-0 space-y-2 border-t border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-900">
         {error && (
@@ -1423,13 +1507,23 @@ const CriteriaScorer: React.FC<{
         <div className="flex gap-2">
           <button
             type="button"
+            onClick={() => save(false, false)}
+            disabled={!gradable || saving}
+            data-testid="save-draft"
+            title="Save without showing it to the student"
+            className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-dashed border-slate-300 px-3 py-2.5 text-sm font-semibold text-slate-600 hover:bg-slate-50 disabled:opacity-50 dark:border-white/15 dark:text-slate-300 dark:hover:bg-white/5"
+          >
+            Save draft
+          </button>
+          <button
+            type="button"
             onClick={() => save(false)}
             disabled={!gradable || saving}
-            title="Ctrl/⌘ + S"
+            title="Save and release to the student (Ctrl/⌘ + S)"
             className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50 dark:border-white/10 dark:hover:bg-white/5"
           >
             {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-            Save
+            Release
           </button>
           <button
             type="button"
@@ -1440,13 +1534,13 @@ const CriteriaScorer: React.FC<{
             className="inline-flex flex-[1.5] items-center justify-center gap-1.5 rounded-xl bg-blue-600 px-3 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
           >
             <CheckCircle2 className="h-4 w-4" />
-            {nextRow ? "Save & next" : "Save grade"}
+            {nextRow ? "Release & next" : "Release grade"}
           </button>
         </div>
         <div className="flex min-h-[1rem] items-center justify-between gap-2 text-[11px]">
-          {row.state === "submitted" && a.can_grade && row.project ? (
+          {(row.state === "submitted" || row.state === "graded") && a.can_grade && row.project && a.type === "assignment" && a.can_return !== false ? (
             <button type="button" onClick={onReturn} className="inline-flex items-center gap-1 font-semibold text-amber-700 hover:underline dark:text-amber-300">
-              <Undo2 className="h-3.5 w-3.5" /> Return for changes
+              <Undo2 className="h-3.5 w-3.5" /> {row.state === "graded" ? "Allow resubmission" : "Return for changes"}
             </button>
           ) : (
             <span />

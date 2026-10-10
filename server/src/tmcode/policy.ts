@@ -18,6 +18,8 @@ export interface Policy {
   require_seb: boolean;
   allow_offline_grace_minutes: number;
   locked_settings: string[];
+  /** Run and Debug (breakpoints, stepping) in the exam. Off unless the teacher turns it on. */
+  debugger: boolean;
 }
 
 export const EXAM_POLICY_DEFAULTS: Policy = {
@@ -29,6 +31,7 @@ export const EXAM_POLICY_DEFAULTS: Policy = {
   require_seb: false,
   allow_offline_grace_minutes: 10,
   locked_settings: [],
+  debugger: false,
 };
 
 const pick = <T extends string>(v: unknown, allowed: readonly T[], dflt: T): T =>
@@ -57,12 +60,30 @@ export function normalizePolicy(raw: unknown, lockdownBrowser = false): Policy {
     locked_settings: Array.isArray(p.locked_settings)
       ? p.locked_settings.filter((s): s is string => typeof s === "string")
       : [],
+    debugger: p.debugger === true,
   };
 }
 
 export interface QuizTmcodeSettings {
   delivery: TmcodeDelivery;
   policy: Policy;
+  /** Oldest TMCode version allowed for this exam; null = any. */
+  min_app_version: string | null;
+}
+
+const VERSION = /^\d+\.\d+\.\d+$/;
+
+/**
+ * A quiz's minimum TMCode version: `min_app_version` in its stored
+ * tmcode_policy (set from the proctoring settings form), else the
+ * TMCODE_MIN_APP_VERSION env var, else null. Only "x.y.z" counts.
+ */
+export function minAppVersion(raw: unknown, env = process.env.TMCODE_MIN_APP_VERSION): string | null {
+  const p = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
+  const own = typeof p.min_app_version === "string" ? p.min_app_version.trim() : "";
+  if (VERSION.test(own)) return own;
+  const fallback = (env ?? "").trim();
+  return VERSION.test(fallback) ? fallback : null;
 }
 
 export async function tmcodeSettingsFor(quizId: number): Promise<QuizTmcodeSettings> {
@@ -74,5 +95,6 @@ export async function tmcodeSettingsFor(quizId: number): Promise<QuizTmcodeSetti
   return {
     delivery,
     policy: normalizePolicy(s?.tmcode_policy, !!s?.enabled && !!s?.lockdown_browser),
+    min_app_version: minAppVersion(s?.tmcode_policy),
   };
 }

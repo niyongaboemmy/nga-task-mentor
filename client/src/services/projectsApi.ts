@@ -830,8 +830,12 @@ export const projectsApi = {
   },
 
   /** Teacher: send a submitted project back to the student for changes. */
-  async returnForChanges(id: number, message?: string): Promise<ProjectStatus> {
-    const res = await api.post(`${BASE}/projects/${id}/return`, { message: message || null });
+  /** Teacher: back to the student. Graded work needs `allowResubmission` (the grade is taken back). */
+  async returnForChanges(id: number, message?: string, opts: { allowResubmission?: boolean } = {}): Promise<ProjectStatus> {
+    const res = await api.post(`${BASE}/projects/${id}/return`, {
+      message: message || null,
+      ...(opts.allowResubmission ? { allow_resubmission: true } : {}),
+    });
     return (unwrap<Json>(res.data)?.status as ProjectStatus) ?? "draft";
   },
 

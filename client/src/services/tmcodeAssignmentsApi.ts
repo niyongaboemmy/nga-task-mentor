@@ -48,6 +48,8 @@ export interface MyWork {
   returned_message?: string | null;
   /** Per criterion (index into `rubric`), once graded; null before or without a rubric grade. (Optional: older servers.) */
   rubric_scores?: RubricScore[] | null;
+  /** The teacher's line comments on the files, once graded (released only). (Optional: older servers.) */
+  annotations?: { path: string; line: number; text: string }[];
 }
 
 export interface RubricCriterion {

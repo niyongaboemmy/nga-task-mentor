@@ -4,6 +4,7 @@ import { Button } from "../ui/Button";
 import LiveProctoringDashboard from "../Proctoring/LiveProctoringDashboard";
 import axios from "../../utils/axiosConfig";
 import { ArrowLeft, Eye } from "lucide-react";
+import TmcodeSessionsPanel from "./TmcodeSessionsPanel";
 
 interface QuizProctoringMonitoringPageProps {}
 
@@ -66,6 +67,8 @@ export const QuizProctoringMonitoringPage: React.FC<
     <div className="min-h-screen fixed top-0 bottom-0 left-0 right-0 z-50 bg-white dark:bg-black overflow-y-auto">
       <div className="">
         <div className="space-y-4">
+          {/* TMCode exam sessions (renders nothing for quizzes nobody opened in TMCode). */}
+          {quizId && <TmcodeSessionsPanel quizId={Number(quizId)} className="mx-4 mt-4" />}
           {/* Live Monitoring Dashboard */}
           <div className="animate-slide-in-left">
             <div className="bg-white/80 dark:bg-black backdrop-blur-xl rounded-2xl border border-gray-200/80 dark:border-gray-800/50 shadow-lg card-hover">

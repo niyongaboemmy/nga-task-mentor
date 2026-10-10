@@ -1,6 +1,7 @@
 import { Op, QueryTypes, Transaction } from "sequelize";
 import { sequelize } from "../../config/database";
 import { Project, ProjectActivityLink, ProjectStatus } from "../../models";
+import { AssignmentGradeMeta, assignmentMeta, gradeFingerprint, parseJson, withMeta } from "../practical/gradeMeta";
 
 /**
  * A project's status: draft -> submitted -> graded, or removed.
@@ -149,4 +150,86 @@ export async function reopenProject(
     return { ok: false, code: "PROJECT_GRADED", message: "This project has been graded; it can't be reopened." };
   }
   return { ok: true, links };
+}
+
+/**
+ * "Allow resubmission" on graded assignment work (teacher): the released grade
+ * is taken back (kept in project_ref.grading.previous for the record, cleared
+ * from what students and the gradebook read), the submission goes back to
+ * draft, the project's assignment links back to "linked", and the project to
+ * draft so the student can work and hand in again. Assignments only.
+ */
+export async function reopenGradedProject(
+  p: Project,
+  assignmentId: number,
+  by: number,
+): Promise<{ ok: true; links: ProjectActivityLink[] } | { ok: false; code: string; message: string }> {
+  if (p.status !== "graded") return { ok: false, code: "NOT_GRADED", message: "This project isn't graded." };
+  const links = await ProjectActivityLink.findAll({
+    where: { project_id: p.id, activity_type: "assignment", activity_id: assignmentId },
+  });
+  await sequelize.transaction(async (transaction) => {
+    const [row] = await sequelize.query<{ id: number; status: string; grade: string | null; feedback: string | null; rubric_scores: unknown; project_ref: unknown }>(
+      "SELECT id, status, grade, feedback, rubric_scores, project_ref FROM submissions WHERE assignment_id = ? AND student_id = ? LIMIT 1 FOR UPDATE",
+      { replacements: [assignmentId, p.owner_id], type: QueryTypes.SELECT, transaction },
+    );
+    if (row) {
+      const meta = assignmentMeta(row.project_ref);
+      const now = new Date();
+      const next: AssignmentGradeMeta = {
+        ...meta,
+        draft: null,
+        annotations: [],
+        graded_by: null,
+        graded_at: null,
+        fp: null,
+        saved_at: now.toISOString(),
+        previous: {
+          grade: row.grade ?? null,
+          feedback: row.feedback ?? null,
+          rubric_scores: parseJson(row.rubric_scores),
+          graded_by: meta.graded_by ?? null,
+          graded_at: meta.graded_at ?? null,
+          at: now.toISOString(),
+        },
+      };
+      await sequelize.query(
+        "UPDATE submissions SET status = 'draft', grade = NULL, feedback = NULL, rubric_scores = NULL, project_ref = ?, updated_at = ? WHERE id = ?",
+        { replacements: [withMeta(row.project_ref, next), now, row.id], transaction },
+      );
+    }
+    for (const link of links) await link.update({ status: "linked", submitted_at: null }, { transaction });
+    await syncProjectStatus(p.id, by, transaction);
+  });
+  return { ok: true, links };
+}
+
+/**
+ * The web marking modal graded a submission: record who and when in
+ * project_ref.grading (as the TMCode grading workspace does), and drop any
+ * TMCode draft, which that grade replaces. Never fails the grading.
+ */
+export async function recordWebGrade(submissionId: number, graderId: number | null): Promise<void> {
+  try {
+    const [row] = await sequelize.query<{ id: number; grade: string | null; feedback: string | null; project_ref: unknown }>(
+      "SELECT id, grade, feedback, project_ref FROM submissions WHERE id = ? LIMIT 1",
+      { replacements: [submissionId], type: QueryTypes.SELECT },
+    );
+    if (!row) return;
+    const now = new Date().toISOString();
+    const next: AssignmentGradeMeta = {
+      ...assignmentMeta(row.project_ref),
+      draft: null,
+      annotations: [],
+      graded_by: graderId,
+      graded_at: now,
+      fp: gradeFingerprint(row.grade, row.feedback),
+      saved_at: now,
+    };
+    await sequelize.query("UPDATE submissions SET project_ref = ? WHERE id = ?", {
+      replacements: [withMeta(row.project_ref, next), row.id],
+    });
+  } catch (e: any) {
+    console.error("[projects] recording the web grade failed:", e?.message);
+  }
 }

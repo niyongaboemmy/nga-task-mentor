@@ -1,4 +1,4 @@
-import { syncProjectsForSubmission } from "../tmcode/projects/status";
+import { recordWebGrade, syncProjectsForSubmission } from "../tmcode/projects/status";
 import { AssignmentTmcode } from "../models/Project.model";
 import { Request, Response } from "express";
 import { Submission, Assignment, User, Quiz, QuizSubmission } from "../models";
@@ -929,6 +929,9 @@ export const gradeSubmission = async (req: Request, res: Response) => {
         },
       ],
     })) as any;
+
+    // Who graded it and when (read by the TMCode grading workspace).
+    await recordWebGrade(Number(req.params.id), Number(req.user?.id) || null);
 
     // A TMCode project submitted for this assignment is now graded (and locked).
     if (updatedSubmission) {

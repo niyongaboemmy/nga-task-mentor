@@ -9,6 +9,8 @@ import { pickOption } from "./helpers/select";
 const practicals = {
   roster: vi.fn(),
   saveGrade: vi.fn(),
+  releaseDrafts: vi.fn(),
+  gradingLink: vi.fn(),
   preview: vi.fn(),
   startQuizPractical: vi.fn(),
 };
@@ -160,6 +162,8 @@ describe("PracticalGradingPage", () => {
         ],
         score: null,
         feedback: "Nice work",
+        release: true,
+        if_version: null,
       }),
     );
     await waitFor(() => expect(screen.getByTestId("where")).toHaveTextContent("student=2"));
@@ -219,7 +223,7 @@ describe("PracticalGradingPage", () => {
     expect(screen.getByPlaceholderText(/What went well/)).toHaveValue("Good");
     expect(practicals.roster).toHaveBeenCalledWith("quiz", 9, 55);
 
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Release" }));
     await waitFor(() =>
       expect(practicals.saveGrade).toHaveBeenCalledWith("quiz", 9, 1, expect.objectContaining({ question_id: 55 })),
     );
@@ -260,7 +264,7 @@ describe("PracticalGradingPage", () => {
     workspace("/grading/practical/assignment/7?student=1");
     expect(await screen.findByTestId("grade-total")).toHaveTextContent(/^7\s*\/\s*10$/);
     expect(screen.getByPlaceholderText(/What went well/)).toHaveValue("Good");
-    await userEvent.click(screen.getByRole("button", { name: "Save" }));
+    await userEvent.click(screen.getByRole("button", { name: "Release" }));
     await waitFor(() =>
       expect(practicals.saveGrade).toHaveBeenCalledWith("assignment", 7, 1, {
         question_id: null,
@@ -270,6 +274,8 @@ describe("PracticalGradingPage", () => {
         ],
         score: null,
         feedback: "Good",
+        release: true,
+        if_version: null,
       }),
     );
   });
@@ -473,6 +479,118 @@ describe("PracticalGradeSummary", () => {
 
   it("renders nothing before grading", () => {
     const { container } = render(<PracticalGradeSummary questionData={qd} details={{ grade_status: "pending" }} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+});
+
+import { toast } from "react-toastify";
+import LineComments from "../components/Projects/LineComments";
+
+describe("PracticalGradingPage — drafts, versions, resubmission (G1, G4, G5, G8)", () => {
+  const drafted = (over: Record<string, unknown> = {}) => ({
+    ...roster(),
+    rows: [
+      row(1, "Ama", {
+        grade: {
+          score: 7,
+          rubric_scores: [{ index: 0, score: 5, comment: null }, { index: 1, score: 2, comment: null }],
+          feedback: "Good",
+          graded_at: "2026-10-07T09:00:00Z",
+          ref_id: 1,
+          annotations: [{ path: "index.html", line: 3, text: "Use <main>" }],
+          released: false,
+          status: "draft",
+          graded_by: { id: 9, name: "Mr Teacher" },
+          released_score: null,
+          version: "v-1",
+        },
+      }),
+      row(2, "Bo"),
+    ],
+    counts: { total: 2, to_grade: 2, graded: 0, drafts: 1 },
+    ...over,
+  });
+
+  it("shows a draft as a draft (not released), who saved it, and the line comments", async () => {
+    practicals.roster.mockResolvedValue(drafted());
+    workspace("/grading/practical/assignment/7?student=1");
+    expect(await screen.findByTestId("grade-draft-badge")).toHaveTextContent("Draft");
+    expect(screen.getByTestId("graded-by")).toHaveTextContent("Draft saved by Mr Teacher");
+    expect(screen.getByTestId("graded-by")).toHaveTextContent("not released to the student");
+    expect(screen.getByTestId("grade-annotations")).toHaveTextContent("index.html:3 Use <main>");
+  });
+
+  it("saves a draft with release:false and the version it edited", async () => {
+    practicals.roster.mockResolvedValue(drafted());
+    practicals.saveGrade.mockResolvedValue({ score: 7, max_points: 10, released: false });
+    workspace("/grading/practical/assignment/7?student=1");
+    await screen.findByTestId("grade-draft-badge");
+    await userEvent.click(screen.getByTestId("save-draft"));
+    await waitFor(() =>
+      expect(practicals.saveGrade).toHaveBeenCalledWith("assignment", 7, 1, expect.objectContaining({ release: false, if_version: "v-1" })),
+    );
+    // Annotations aren't sent from the web, so the server keeps TMCode's.
+    expect(practicals.saveGrade.mock.calls[0][3]).not.toHaveProperty("annotations");
+  });
+
+  it("releases every draft from the top bar", async () => {
+    practicals.roster.mockResolvedValue(drafted());
+    practicals.releaseDrafts.mockResolvedValue({ released: 1, skipped: [] });
+    workspace("/grading/practical/assignment/7?student=1");
+    await userEvent.click(await screen.findByTestId("release-drafts"));
+    await waitFor(() => expect(practicals.releaseDrafts).toHaveBeenCalledWith("assignment", 7, null));
+    expect(practicals.roster).toHaveBeenCalledTimes(2);
+  });
+
+  it("on 409 GRADE_CHANGED keeps the teacher's scores locally and reloads the newer grade", async () => {
+    practicals.roster.mockResolvedValue(drafted());
+    practicals.saveGrade.mockRejectedValue({ response: { status: 409, data: { error_code: "GRADE_CHANGED", code: "GRADE_CHANGED" } } });
+    workspace("/grading/practical/assignment/7?student=1");
+    await screen.findByTestId("grade-draft-badge");
+    await userEvent.click(screen.getByRole("button", { name: "Release" }));
+    await waitFor(() => expect(toast.error).toHaveBeenCalledWith(expect.stringMatching(/Someone else changed this grade/)));
+    expect(practicals.roster).toHaveBeenCalledTimes(2);
+  });
+
+  it("offers Allow resubmission on graded assignment work, and no return at all for quiz practicals", async () => {
+    practicals.roster.mockResolvedValue({
+      ...roster(),
+      rows: [row(1, "Ama", { state: "graded", grade: { score: 7, rubric_scores: [], feedback: "", graded_at: null, ref_id: 1, status: "released", released: true } })],
+      counts: { total: 1, to_grade: 0, graded: 1 },
+    });
+    const first = workspace("/grading/practical/assignment/7?student=1");
+    expect(await screen.findByRole("button", { name: /Allow resubmission/ })).toBeInTheDocument();
+    first.unmount();
+
+    practicals.roster.mockResolvedValue({
+      ...roster({ type: "quiz", id: 9, question: { id: 55, text: "Q", instructions: "" }, can_return: false }),
+      rows: [row(1, "Ama")],
+      counts: { total: 1, to_grade: 1, graded: 0 },
+    });
+    workspace("/grading/practical/quiz/9?question=55");
+    await screen.findByTestId("criteria-scorer");
+    expect(screen.queryByRole("button", { name: /Return for changes/ })).toBeNull();
+  });
+});
+
+describe("LineComments", () => {
+  it("groups a released grade's comments by file, in line order", () => {
+    render(
+      <LineComments
+        items={[
+          { path: "b.js", line: 9, text: "late" },
+          { path: "a.js", line: 4, text: "second" },
+          { path: "a.js", line: 2, text: "first" },
+        ]}
+      />,
+    );
+    const box = screen.getByTestId("line-comments");
+    expect(box).toHaveTextContent("Comments on your code (3)");
+    expect(box.textContent).toMatch(/b\.js.*a\.js|a\.js.*b\.js/);
+    expect(box.textContent!.indexOf("first")).toBeLessThan(box.textContent!.indexOf("second"));
+  });
+  it("renders nothing without comments", () => {
+    const { container } = render(<LineComments items={[]} />);
     expect(container).toBeEmptyDOMElement();
   });
 });

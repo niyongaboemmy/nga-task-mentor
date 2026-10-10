@@ -48,9 +48,10 @@ Implements PROJECTS_PLAN.md §1–§3. Everything lives under `/api/tmcode`. Cod
 | `POST /projects/:id/members` `{user_id \| email, github_username?, role?: "collaborator"\|"viewer"}` | owner, github | `201` (new) or `200` (updated) `{member}` |
 | `DELETE /projects/:id/members/:userId` | owner, or the member leaving | `200 {ok: true}` |
 | `GET /projects/:id/open-link` | reader | `200 {deeplink: "tmcode://project?id=<id>&api=<origin>"}` |
-| `GET /activities/linkable` | USE | `200 {activities: [{type, id, title, course_id, course_name, due_date, submission_type?}]}` |
+| `GET /activities/linkable` | USE | `200 {activities: [{type, id, title, course_id, course_name, due_date, submission_type?}]}`; quiz rows add `start_date`, `attempt_open`, `practical_questions[]` (see "Grading v2") |
 | `POST /projects/:id/links` `{activity_type, activity_id}` | owner | `201 {link}` |
 | `POST /projects/:id/links/:linkId/submit` `{git_commit?}` | owner | `200 {link, submission: {id, status, is_late} \| null}` |
+| `POST /projects/:id/return` `{message?, allow_resubmission?}` | MONITOR or VIEW_ALL, teacher of the linked assignment | `200 {status, project}`; see "Return for changes" |
 | `DELETE /projects/:id/links/:linkId` | owner | `200 {ok: true}` |
 | `GET /activities/:type/:id/projects` | MONITOR or VIEW_ALL, with access to the activity | `200 {activity, projects: [...]}` |
 
@@ -236,3 +237,137 @@ counts = { students, started, submitted, graded, live }
 - **share_presence false**: heartbeats are stored and reach the project stream for the owner, but never `/monitor/live` (hello or events); admins/teachers get `presence: []` / zeroed summaries on `/projects/:id`, `/projects/:id/live`, `/activities/:type/:id/projects` (rows also carry `project.share_presence`). Turning it off sends one `presence` on the monitor stream with `online: false` and `withdrawn: true`.
 - `GET /api/assignments/:id` (web) carries `tmcode: {kind, language, starter_project_id, starter_revision_id, instructions} | null`.
 - **Grading rubric scores** (`GET /grading/:type/:id`, `PUT /grading/:type/:id/students/:studentId`): `grade.rubric_scores` is `[{index, score, comment}]`. For assignments `submissions.rubric_scores` stays the index→score map the web marking shares, and the comments live in the feedback's "Criteria notes" block (the text the student reads); the roster parses them back out, so re-saving what it returned keeps them. A PUT whose scores carry no `comment` key at all keeps the notes found in the sent feedback.
+
+## Grading v2 (TMCode 0.12: UX gap review G1–G14, S8, S10, E4, E10, E12)
+
+Code: `controllers/tmcodePracticals.controller.ts`, `controllers/tmcodeSessions.controller.ts`,
+`tmcode/practical/gradeMeta.ts`, `tmcode/projects/status.ts` (`reopenGradedProject`, `recordWebGrade`).
+Tests: `tests/tmcodePracticals.integration.spec.ts`, `tests/tmcode.integration.spec.ts` ("session views"),
+`tmcode/practical/__tests__/gradeMeta.test.ts`. **No migration.**
+
+### Endpoints
+
+| Method and path | Who | Success response |
+|---|---|---|
+| `GET /grading` | MONITOR or VIEW_ALL | `200 {activities: [...]}` (unchanged) |
+| `GET /grading/:type(assignment\|quiz)/:id?question_id=` | MONITOR or VIEW_ALL + teacher of the activity | `200 {activity, counts, rows: GradingRow[]}` |
+| `PUT /grading/:type/:id/students/:studentId` `GradePut` | grader of the activity (subject teacher, creator, MANAGE_ANY) | `200 GradePutResult`; `409 GRADE_CHANGED`, `409 DRAFT_NEEDS_SUBMISSION`, `409 NOT_ANSWERED`, `422 SCORE_TOO_HIGH\|UNKNOWN_CRITERION\|SCORE_REQUIRED` |
+| `POST /grading/:type/:id/release` `{question_id?}` | grader | `200 {released: number, student_ids: number[], skipped: [{student_id, code}], locked_students: number}` |
+| `GET /grading/:type/:id/open-link?question_id=&student_id=` | MONITOR or VIEW_ALL + teacher | `200 {deeplink: "tmcode://grading?type=<assignment\|quiz>&id=<id>&question=<qq id>&student=<local user id>&api=<origin>"}` (question/student only when known) |
+| `GET /quizzes/:quizId/sessions` | MONITOR or VIEW_ALL + teacher of the quiz | `200 QuizSessions` |
+| `GET /quizzes/:quizId/my-session` | any token (the caller's own attempt) | `200 {session: MySession \| null}` |
+
+```ts
+GradingRow = {
+  student: UserBrief, state: "submitted"|"in_progress"|"graded"|"not_started",   // graded = a RELEASED grade
+  project: {...} | null, link: {...} | null, submitted_at, late,
+  grade: Grade | null,
+  starter_revision: number | null,          // number of the project revision holding the starter files ("Starter files", #1)
+  revisions: { revision: number, at: string, id: number }[],   // every revision the caller may read, oldest first
+}
+Grade = {
+  score: number | null, rubric_scores: [{index, score, comment}] | null, feedback: string | null, ref_id: number | null,
+  annotations: { path: string, line: number, text: string }[],
+  released: boolean,                        // false: nothing released, or what is shown is an unreleased draft
+  status: "ungraded" | "draft" | "released",
+  graded_by: { id: number, name: string } | null,
+  graded_at: string | null,                 // a real grading time (never updated_at); null for grades older than 0.12
+  released_score: number | null,            // what the student sees now (a released grade under a draft)
+  version: string,                          // opaque; changes on every save (and on any web re-grade)
+}
+// graded_by/graded_at describe the grade SHOWN: a draft's author and save time, else the release.
+counts = { total, to_grade, graded, drafts }
+activity.can_return: boolean               // Return for changes / Allow resubmission exist for assignments only
+
+GradePut = { question_id?, rubric_scores?: [{index, score, comment?}], score?, feedback?,
+  annotations?: {path, line, text}[],      // MISSING = keep the saved ones (old clients never wipe them); [] clears
+  release?: boolean,                       // MISSING = true (the pre-0.12 behaviour)
+  if_version?: string }                    // the Grade.version you edited
+GradePutResult = { ok: true, score, max_points, released: boolean,
+  locks_student: boolean,                  // S10: this release graded work the student was still editing; it is now read-only
+  grade: Grade, version: string }
+409 GRADE_CHANGED = { code: "GRADE_CHANGED", error_code: "GRADE_CHANGED", message, grade: Grade | null }  // the current grade
+409 DRAFT_NEEDS_SUBMISSION                 // assignment with no submission row: no draft (a row would show the student
+                                           // "Submitted"); save with release:true to grade unsubmitted work
+```
+
+**Loading a version for grading** (G2): every `revisions[].id` (and `starter_revision`'s) loads with
+`GET /projects/:id/revisions/<id>/manifest` then `GET /projects/:id/blobs/<sha>` (or one file with
+`GET /projects/:id/files/<path>?rev=<id>`). A teacher reads every revision of a `visibility: "course"` project
+(practicals always are), otherwise only the frozen one, which is all `revisions` lists then.
+
+**Drafts never reach students.** Storage, without a migration:
+- Assignments: `submissions.project_ref.grading = {draft, annotations, graded_by, graded_at, fp, saved_at, previous}`.
+  `project_ref` isn't mapped by the `Submission` model, so no web or student endpoint returns it. A draft writes only
+  there: `grade`, `feedback`, `rubric_scores` and `status` (what every student view, the gradebook and the web read)
+  are written on release only. The submit keeps `grading` when it rewrites `project_ref`. `fp` (hash of grade+feedback)
+  tells whether a later re-grade on the web replaced ours: then `graded_by/graded_at/annotations` come from the web
+  marking stamp (`recordWebGrade`, written by `PATCH /api/submissions/:id/grade`) or are null.
+- Quiz practicals: `quiz_attempts.grading_details.draft`; students get `grading_details` only through
+  `studentGradingDetails` (a whitelist), the attempt stays `pending`, and the quiz total isn't recomputed until release.
+  The released grade is `grading_details.manual` as before, now with `annotations`.
+- A draft doesn't lock the project or make it graded; only a release does (`locks_student` warns).
+- Released annotations reach students as `my.annotations` (`GET /assignments[/:id]`) and
+  `grading_details.manual.annotations` in quiz results.
+
+**Release all** releases each draft as saved, guarded by the version it read (a draft changed meanwhile is skipped
+with `GRADE_CHANGED`).
+
+### Return for changes (G5)
+
+`POST /projects/:id/return {message?, allow_resubmission?}` (the web's ReturnForChangesDialog uses it):
+- submitted assignment work: back to draft (as before);
+- graded assignment work: `409 {code: "PROJECT_GRADED", allow_resubmission: true}` unless `allow_resubmission: true`,
+  which takes the grade back (kept in `project_ref.grading.previous`; `grade/feedback/rubric_scores` cleared,
+  submission `draft`), unlinks the freeze and reopens the project. The next hand-in is a `resubmitted` row;
+- quiz practicals: `409 {code: "RETURN_NOT_SUPPORTED", error_code: "RETURN_NOT_SUPPORTED"}` (the attempt is over).
+
+### Quiz rows of `GET /activities/linkable` (S8)
+
+Quiz rows add `start_date: string | null`, `attempt_open: boolean` (the caller has an `in_progress` attempt; a practical
+can be handed in only then) and, per `practical_questions[]`, the caller's
+`state: "not_started"|"in_progress"|"submitted"|"graded"` and `grade: number` only once released (teacher released AND
+the quiz's result rules show the score; never a draft).
+
+### TMCode exam sessions (E4, E10)
+
+```ts
+QuizSessions = { quiz: {id, title}, generated_at, stale_after_s: 90,
+  counts: { total, active, offline, submitted, flagged },
+  sessions: [{ student: UserBrief, submission_id, session_id, status: "active"|"offline"|"submitted", mode,
+    started_at, last_heartbeat, last_sync /* newest snapshot server_ts */, submitted_at,
+    current_task: {question_id, title} | null, focus, app_version, os,
+    flags: [{ rule, severity, at, question_id, explanation /* one line for teachers */ }] }],
+  explanations: Record<rule, string> }
+MySession = { submission_id, status, active: boolean, last_saved_at, last_heartbeat, app_version }
+```
+One row per student (newest session). active = heartbeat within 90 s; submitted = the session ended or the attempt
+isn't `in_progress`; else offline. `focus_out` is derived from the last heartbeat, not a stored flag. The web shows
+the sessions on the quiz submissions page and the proctoring monitor; the quiz page asks `my-session` when the submit
+dialog opens and warns while a session exists ("Coding questions are open in TMCode: last saved 10:41 ...").
+
+### Exam protocol additions (nga-tmcode/docs/PROTOCOL.md)
+
+- **Policy** (`GET /sessions/:sid/package` `policy`): `debugger: boolean` (false unless the teacher ticks
+  "Debugger" in the quiz's TMCode settings; stored in `proctoring_settings.tmcode_policy.debugger`).
+- **`min_app_version: string | null`** in the package: `tmcode_policy.min_app_version` ("x.y.z", the
+  "Minimum TMCode version" field of the quiz's TMCode settings), else the `TMCODE_MIN_APP_VERSION` env var, else null.
+- **Server-run 429**: `{error_code: "RATE_LIMITED", message, retry_after_s: number}` plus a `Retry-After` header
+  (seconds until the 1-minute window resets).
+- **Results** (`GET /sessions/:sid/results`): each test may carry
+  `verdict: "passed"|"wrong_answer"|"time_limit"|"runtime_error"|"compile_error"` (memory/output limits count as
+  runtime_error; omitted when the grader didn't record one).
+- **`GET /profiles`** sends `Access-Control-Expose-Headers: Date` for TMCode's clock check.
+- **Not done: starting the attempt clock after TMCode's pre-exam check.** The attempt's clock starts in
+  `POST /launch` (`startOrResumeAttempt`, shared with the web), and the deadline (`attemptDeadline`: `end_time` /
+  `started_at` + time limit) is enforced by the web submit, the snapshot/offline-grace rules and the auto-submit sweep.
+  Moving the start means a "not started" attempt state those paths would all have to honour (and a cap so a student
+  can't hold the clock indefinitely), so it isn't a small change.
+
+### Web
+
+- Grading page `/grading/practical/:type/:id?question=<quiz_questions.id>&student=<local user id>` (TMCode links back
+  with these). Buttons: Save draft (`release:false`) / Release / Release & next, "Release N drafts", draft and
+  "Graded by X · time" lines, line comments (read-only, kept on save), `if_version` on every save (409: the newer
+  grade loads and the teacher's scores stay as a local draft), Allow resubmission on graded assignment work, no Return
+  for quiz practicals. "Open in TMCode" uses `GET /grading/:type/:id/open-link`.

@@ -1,5 +1,6 @@
 import React from "react";
 import { ClipboardCheck } from "lucide-react";
+import LineComments from "../Projects/LineComments";
 
 /**
  * A graded TMCode practical: the score per criterion with the teacher's
@@ -35,7 +36,8 @@ const PracticalGradeSummary: React.FC<{ details: unknown; questionData: unknown;
     : [];
   const feedback = String(manual.feedback ?? "").split(/\n*Criteria notes:\n/)[0]?.trim();
 
-  if (!scores.length && !feedback) return null;
+  const annotations = Array.isArray(manual.annotations) ? manual.annotations : [];
+  if (!scores.length && !feedback && !annotations.length) return null;
 
   return (
     <div
@@ -79,6 +81,7 @@ const PracticalGradeSummary: React.FC<{ details: unknown; questionData: unknown;
           {feedback}
         </p>
       )}
+      <LineComments items={annotations} className="mt-3" />
     </div>
   );
 };

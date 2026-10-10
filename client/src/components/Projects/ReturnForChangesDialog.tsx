@@ -15,7 +15,9 @@ const ReturnForChangesDialog: React.FC<{
   studentName: string;
   onClose: () => void;
   onReturned: () => void;
-}> = ({ open, projectId, studentName, onClose, onReturned }) => {
+  /** Graded work: "Allow resubmission" takes the grade back so the student can hand in again. */
+  allowResubmission?: boolean;
+}> = ({ open, projectId, studentName, onClose, onReturned, allowResubmission = false }) => {
   const id = useId();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
@@ -33,8 +35,8 @@ const ReturnForChangesDialog: React.FC<{
     setBusy(true);
     setError(null);
     try {
-      await projectsApi.returnForChanges(projectId, message.trim() || undefined);
-      toast.success(`Returned to ${studentName} for changes.`);
+      await projectsApi.returnForChanges(projectId, message.trim() || undefined, { allowResubmission });
+      toast.success(allowResubmission ? `${studentName} can hand in again.` : `Returned to ${studentName} for changes.`);
       onReturned();
       onClose();
     } catch (e) {
@@ -45,12 +47,19 @@ const ReturnForChangesDialog: React.FC<{
   };
 
   return (
-    <Modal isOpen={open} onClose={onClose} title="Return for changes" size="md">
+    <Modal isOpen={open} onClose={onClose} title={allowResubmission ? "Allow resubmission" : "Return for changes"} size="md">
       <div className="space-y-3">
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          {studentName}&apos;s project goes back to <span className="font-semibold">Draft</span> so they can keep working
-          and submit again. It leaves your to-grade list until then.
-        </p>
+        {allowResubmission ? (
+          <p className="text-sm text-slate-600 dark:text-slate-300" data-testid="allow-resubmission-note">
+            This work is graded. Allowing resubmission <span className="font-semibold">takes the grade back</span>: the student
+            no longer sees it, their project goes back to Draft, and you grade the new version when they hand it in.
+          </p>
+        ) : (
+          <p className="text-sm text-slate-600 dark:text-slate-300">
+            {studentName}&apos;s project goes back to <span className="font-semibold">Draft</span> so they can keep working
+            and submit again. It leaves your to-grade list until then.
+          </p>
+        )}
         <div>
           <label htmlFor={`${id}-msg`} className="mb-1.5 block text-xs font-semibold text-slate-700 dark:text-slate-200">
             What should they change? <span className="font-normal text-slate-400">(optional)</span>
@@ -85,7 +94,7 @@ const ReturnForChangesDialog: React.FC<{
             className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Undo2 className="h-4 w-4" aria-hidden="true" />}
-            Return to student
+            {allowResubmission ? "Allow resubmission" : "Return to student"}
           </button>
         </div>
       </div>
