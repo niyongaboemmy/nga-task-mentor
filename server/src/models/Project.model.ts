@@ -75,7 +75,16 @@ export class AssignmentTmcode extends Model {
 export type ProjectMemberRole = "owner" | "collaborator" | "viewer";
 export type ProjectMemberStatus = "invited" | "active" | "removed";
 
-@Table({ tableName: "project_members", timestamps: true, underscored: true, modelName: "ProjectMember" })
+@Table({
+  tableName: "project_members",
+  timestamps: true,
+  underscored: true,
+  modelName: "ProjectMember",
+  indexes: [
+    { unique: true, fields: ["project_id", "user_id"], name: "project_members_project_user" },
+    { fields: ["user_id", "status"], name: "project_members_user_id_status" },
+  ],
+})
 export class ProjectMember extends Model {
   @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true }) id!: number;
   @Column({ type: DataType.INTEGER, allowNull: false }) project_id!: number;
@@ -91,7 +100,12 @@ export class ProjectMember extends Model {
 
 export type RevisionSource = "save" | "auto" | "submit";
 
-@Table({ tableName: "project_revisions", timestamps: false, modelName: "ProjectRevision" })
+@Table({
+  tableName: "project_revisions",
+  timestamps: false,
+  modelName: "ProjectRevision",
+  indexes: [{ unique: true, fields: ["project_id", "number"], name: "project_revisions_project_number" }],
+})
 export class ProjectRevision extends Model {
   @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true }) id!: number;
   @Column({ type: DataType.INTEGER, allowNull: false }) project_id!: number;
@@ -135,7 +149,18 @@ export interface PresenceState {
   [k: string]: unknown;
 }
 
-@Table({ tableName: "project_presence", timestamps: false, modelName: "ProjectPresence" })
+// The indexes are declared here too: on a fresh database, sequelize.sync()
+// creates these tables before their migration runs, and the migration then
+// skips them (and their indexes). See migration 20261010110000.
+@Table({
+  tableName: "project_presence",
+  timestamps: false,
+  modelName: "ProjectPresence",
+  indexes: [
+    { unique: true, fields: ["project_id", "user_id", "device_id"], name: "project_presence_project_user_device" },
+    { fields: ["last_seen_at"], name: "project_presence_last_seen_at" },
+  ],
+})
 export class ProjectPresence extends Model {
   @Column({ type: DataType.INTEGER, autoIncrement: true, primaryKey: true }) id!: number;
   @Column({ type: DataType.INTEGER, allowNull: false }) project_id!: number;
@@ -167,7 +192,12 @@ export class ProjectActivityLink extends Model {
   declare updated_at: Date;
 }
 
-@Table({ tableName: "project_events", timestamps: false, modelName: "ProjectEvent" })
+@Table({
+  tableName: "project_events",
+  timestamps: false,
+  modelName: "ProjectEvent",
+  indexes: [{ fields: ["project_id", "id"], name: "project_events_project_id_id" }],
+})
 export class ProjectEvent extends Model {
   @Column({ type: DataType.BIGINT, autoIncrement: true, primaryKey: true }) id!: number;
   @Column({ type: DataType.INTEGER, allowNull: false }) project_id!: number;

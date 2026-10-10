@@ -806,6 +806,43 @@ describe("presence and live streams", () => {
     expect(stranger.status).toBe(404);
   });
 
+  it("keeps one fresh row per device even without the unique index (production ran without it)", async () => {
+    const p = await createProject(student);
+    const q = ProjectPresence.sequelize!;
+    const [ix]: any = await q.query("SHOW INDEX FROM project_presence WHERE Key_name = 'project_presence_project_user_device'");
+    if (ix.length) await q.query("ALTER TABLE project_presence DROP INDEX project_presence_project_user_device");
+    try {
+      const seen: any[] = [];
+      const off = projectsBus.subscribe(projectTopic(p.id), (event, data) => seen.push({ event, data }));
+      const key = { project_id: p.id, user_id: student.id, device_id: "win-1" };
+      // What production had: a row per heartbeat, the oldest an hour old.
+      await ProjectPresence.create({ ...key, state: { open: true, file: "old.html" }, last_seen_at: new Date(Date.now() - 3600_000) } as any);
+      await ProjectPresence.create({ ...key, state: { open: true, file: "index.html" }, last_seen_at: new Date(Date.now() - 20_000) } as any);
+
+      const r = await request(app)
+        .put(`/api/tmcode/projects/${p.id}/presence`)
+        .set("Authorization", tok(student))
+        .send({ device_id: "win-1", app_version: "0.11.0", state: { file: "style.css" } });
+      expect(r.status).toBe(200);
+      expect(r.body.presence).toHaveLength(1);
+      expect(r.body.presence[0]).toMatchObject({ device_id: "win-1", online: true, state: { file: "style.css" } });
+      expect(await ProjectPresence.count({ where: key })).toBe(1);
+      // Still online from the last heartbeat: not a new "opened".
+      expect(seen.filter((s) => s.event === "event" && s.data.type === "opened")).toHaveLength(0);
+      const pushed = seen.filter((s) => s.event === "presence").pop();
+      expect(pushed.data).toMatchObject({ online: true, state: { file: "style.css" } });
+
+      const details = await request(app).get(`/api/tmcode/projects/${p.id}`).set("Authorization", tok(student));
+      expect(details.body.project.presence_summary).toMatchObject({ online: true, file: "style.css" });
+      off();
+    } finally {
+      await ProjectPresence.destroy({ where: { project_id: p.id } });
+      if (ix.length) {
+        await q.query("ALTER TABLE project_presence ADD UNIQUE INDEX project_presence_project_user_device (project_id, user_id, device_id)");
+      }
+    }
+  });
+
   /** Open an SSE stream on a real port; collects everything it receives. */
   async function openStream(path: string, u: User) {
     const port = (app.address() as any).port;

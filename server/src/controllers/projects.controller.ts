@@ -1,7 +1,7 @@
 import zlib from "zlib";
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Op, QueryTypes, Transaction } from "sequelize";
+import { Op, QueryTypes, Transaction, UniqueConstraintError } from "sequelize";
 import { sequelize } from "../config/database";
 import {
   ActivityType,
@@ -952,14 +952,29 @@ export const putPresence = async (req: Request, res: Response) => {
   const p = access.project;
   const userId = Number(req.user.id);
   const key = { project_id: p.id, user_id: userId, device_id };
-  const before = await ProjectPresence.findOne({ where: key });
   const now = new Date();
-  await ProjectPresence.bulkCreate([{ ...key, app_version: app_version ?? null, state, last_seen_at: now } as any], {
-    updateOnDuplicate: ["app_version", "state", "last_seen_at"],
-  });
-  const row = (await ProjectPresence.findOne({ where: key }))!;
-
+  const fields = { app_version: app_version ?? null, state, last_seen_at: now };
+  // One row per device. Don't lean on the unique index alone: production ran
+  // without it (the tables came from sequelize.sync before their migration),
+  // an upsert then inserted a row per heartbeat and every read got the oldest.
+  const rows = await ProjectPresence.findAll({ where: key, order: [["last_seen_at", "DESC"], ["id", "DESC"]] });
+  const before = rows[0] ?? null;
   const wasOnline = before ? isOnline(before, now.getTime()) : false;
+  let row: ProjectPresence;
+  if (before) {
+    row = await before.update(fields);
+    if (rows.length > 1) await ProjectPresence.destroy({ where: { id: rows.slice(1).map((r) => r.id) } });
+  } else {
+    try {
+      row = await ProjectPresence.create({ ...key, ...fields } as any);
+    } catch (e) {
+      // Two first heartbeats at once, with the unique index in place.
+      if (!(e instanceof UniqueConstraintError)) throw e;
+      row = (await ProjectPresence.findOne({ where: key }))!;
+      await row.update(fields);
+    }
+  }
+
   if (state.open !== false && !wasOnline) {
     publishEvent(await recordEvent(p.id, userId, "opened", { device_id, file: (state as any).file ?? null }));
   }
