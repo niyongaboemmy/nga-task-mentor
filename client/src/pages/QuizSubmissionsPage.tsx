@@ -38,6 +38,7 @@ import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
 import { usePermissions } from "../hooks/usePermissions";
 import LinkedProjectsPanel from "../components/Projects/LinkedProjectsPanel";
 import PracticalGradingBanner from "../components/Quizzes/PracticalGradingBanner";
+import TmcodeSessionsPanel from "../components/Quizzes/TmcodeSessionsPanel";
 import { QuizApiService } from "../services/quizApi";
 import type { QuizQuestion } from "../types/quiz.types";
 import Select from "../components/ui/Select";
@@ -551,6 +552,11 @@ const QuizSubmissionsPage: React.FC = () => {
         {/* TMCode practical questions: grade the submitted projects against their criteria. */}
         {quizId && canGrade && (can("PROJECTS_MONITOR") || can("PROJECTS_VIEW_ALL")) && (
           <PracticalGradingBanner quizId={Number(quizId)} className="mb-4 sm:mb-6" />
+        )}
+
+        {/* TMCode exam sessions, live (renders nothing until someone opens the quiz in TMCode). */}
+        {quizId && (can("PROJECTS_MONITOR") || can("PROJECTS_VIEW_ALL")) && (
+          <TmcodeSessionsPanel quizId={Number(quizId)} className="mb-4 sm:mb-6" />
         )}
 
         {/* TMCode projects students linked to this quiz (collapsed: most quizzes have none). */}

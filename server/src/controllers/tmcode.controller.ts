@@ -251,7 +251,7 @@ export const getPackage = async (req: Request, res: Response) => {
   const submission = await QuizSubmission.findByPk(session.submission_id);
   const quiz = await Quiz.findByPk(session.quiz_id);
   if (!submission || !quiz) return tmcodeError(res, 404, "NOT_FOUND", "Attempt not found.");
-  const { policy } = await tmcodeSettingsFor(quiz.id);
+  const { policy, min_app_version } = await tmcodeSettingsFor(quiz.id);
 
   const questions = await codeQuestionsOf(quiz.id);
   const unsupported = questions.filter((q) => !profileForQuestion(q));
@@ -274,6 +274,8 @@ export const getPackage = async (req: Request, res: Response) => {
     deadline: attemptDeadline(submission, quiz).toISOString(),
     server_time: new Date().toISOString(),
     policy,
+    // Oldest TMCode that may take this exam (tmcode_policy.min_app_version, else TMCODE_MIN_APP_VERSION); null: any.
+    min_app_version,
     journal_nonce: session.journal_nonce,
     profiles,
     toolchains: toolchainsOf(profiles),
@@ -654,6 +656,37 @@ export const submit = async (req: Request, res: Response) => {
   return res.status(200).json({ status: "grading" });
 };
 
+/**
+ * The protocol's per-test verdict from what the grader stored (coderunner
+ * Verdict, e.g. "wrong-answer"); undefined when it isn't known.
+ */
+export function testVerdict(t: { passed?: unknown; verdict?: unknown }):
+  | "passed"
+  | "wrong_answer"
+  | "time_limit"
+  | "runtime_error"
+  | "compile_error"
+  | undefined {
+  if (t.passed === true) return "passed";
+  switch (String(t.verdict ?? "")) {
+    case "accepted":
+    case "ok":
+      return "passed";
+    case "wrong-answer":
+      return "wrong_answer";
+    case "time-limit":
+      return "time_limit";
+    case "runtime-error":
+    case "memory-limit":
+    case "output-limit":
+      return "runtime_error";
+    case "compile-error":
+      return "compile_error";
+    default:
+      return undefined;
+  }
+}
+
 // ─── GET /sessions/:sid/results ────────────────────────────────────────────
 
 // @desc    Results once released by the quiz's visibility rules.
@@ -689,6 +722,7 @@ export const results = async (req: Request, res: Response) => {
           name: testCases.find((tc) => String(tc.id) === String(t.testCaseId))?.name ?? `Test ${i + 1}`,
           hidden: !!t.is_hidden,
           passed: t.passed === true,
+          ...(testVerdict(t) ? { verdict: testVerdict(t) } : {}),
         })),
       };
     }),
@@ -701,6 +735,8 @@ export const results = async (req: Request, res: Response) => {
 // @route   GET /api/tmcode/profiles
 export const getProfiles = (_req: Request, res: Response) => {
   res.set("Cache-Control", "public, max-age=300");
+  // TMCode reads the Date header for its clock check (cross-origin from the webview).
+  res.set("Access-Control-Expose-Headers", "Date");
   res.status(200).json({ profiles: PROFILES });
 };
 

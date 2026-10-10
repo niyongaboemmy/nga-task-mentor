@@ -18,6 +18,7 @@ import { exchange, me } from "../controllers/tmcodeUser.controller";
 import * as projects from "../controllers/projects.controller";
 import * as tmAssignments from "../controllers/tmcodeAssignments.controller";
 import * as practicals from "../controllers/tmcodePracticals.controller";
+import * as tmSessions from "../controllers/tmcodeSessions.controller";
 import { requireTmPermission, tmcodeUserAuth } from "../middleware/tmcodeUserAuth";
 import { projectLimits } from "../tmcode/projects/limits";
 
@@ -42,8 +43,13 @@ const serverRunLimiter = rateLimit({
   windowMs: 60_000,
   max: Number(process.env.CODE_RUN_RATE_LIMIT_PER_MIN) || 10,
   keyGenerator: (req) => `tmcode-run:${(req as any).tmcodeSession?.user_id ?? req.ip}`,
-  handler: (_req, res) =>
-    tmcodeError(res, 429, "RATE_LIMITED", "Too many server runs — wait a minute and try again."),
+  handler: (req, res) => {
+    // Seconds until the window resets (TMCode shows a countdown), also as Retry-After.
+    const reset = (req as any).rateLimit?.resetTime as Date | undefined;
+    const retryAfter = Math.max(1, Math.ceil(((reset ? reset.getTime() : Date.now() + 60_000) - Date.now()) / 1000));
+    res.setHeader("Retry-After", String(retryAfter));
+    return tmcodeError(res, 429, "RATE_LIMITED", "Too many server runs — wait a minute and try again.", { retry_after_s: retryAfter });
+  },
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -149,7 +155,12 @@ const grader = [tmcodeUserAuth, requireTmPermission("PROJECTS_MONITOR", "PROJECT
 router.get("/grading", grader, wrap(practicals.listGradable));
 router.get("/grading/:type(assignment|quiz)/:id(\\d+)", grader, wrap(practicals.gradingRoster));
 router.put("/grading/:type(assignment|quiz)/:id(\\d+)/students/:studentId(\\d+)", grader, wrap(practicals.saveGrade));
+router.post("/grading/:type(assignment|quiz)/:id(\\d+)/release", grader, wrap(practicals.releaseDrafts));
+router.get("/grading/:type(assignment|quiz)/:id(\\d+)/open-link", grader, wrap(practicals.gradingOpenLink));
 router.post(`${p}/preview`, read, wrap(practicals.createPreview));
+// TMCode exam sessions: the teacher's live view, and the student's own (web quiz page).
+router.get("/quizzes/:quizId(\\d+)/sessions", grader, wrap(tmSessions.quizSessions));
+router.get("/quizzes/:quizId(\\d+)/my-session", read, wrap(tmSessions.mySession));
 // No auth: the signed, short-lived token in the path is the key (iframes send
 // no Authorization header) and responses are sandboxed.
 router.get("/preview/:token/*", wrap(practicals.servePreview));

@@ -129,11 +129,24 @@ describe("studentGradingDetails", () => {
   it("shows a practical's criteria grading (not the grader) once the score is released", () => {
     const stored = {
       grade_status: "graded",
-      manual: { rubric_scores: [{ index: 0, score: 5, comment: "Neat" }], feedback: "Good", graded_by: 7, graded_at: "2026-10-07T10:00:00Z" },
+      manual: {
+        rubric_scores: [{ index: 0, score: 5, comment: "Neat" }],
+        feedback: "Good",
+        annotations: [{ path: "main.py", line: 3, text: "Name this" }],
+        graded_by: 7,
+        graded_at: "2026-10-07T10:00:00Z",
+      },
+      // A teacher's unreleased draft never reaches the student.
+      draft: { score: 1, rubric_scores: [], feedback: "secret draft", annotations: [], by: 7, at: "2026-10-07T11:00:00Z" },
     };
     expect(studentGradingDetails(stored, { includeHidden: true })).toEqual({
       grade_status: "graded",
-      manual: { rubric_scores: [{ index: 0, score: 5, comment: "Neat" }], feedback: "Good", graded_at: "2026-10-07T10:00:00Z" },
+      manual: {
+        rubric_scores: [{ index: 0, score: 5, comment: "Neat" }],
+        feedback: "Good",
+        graded_at: "2026-10-07T10:00:00Z",
+        annotations: [{ path: "main.py", line: 3, text: "Name this" }],
+      },
     });
     expect(studentGradingDetails(stored, { includeHidden: false })).toEqual({ grade_status: "graded" });
   });

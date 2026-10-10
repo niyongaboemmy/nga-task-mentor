@@ -3,7 +3,7 @@ import zlib from "zlib";
 import path from "path";
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Op, QueryTypes, UniqueConstraintError } from "sequelize";
+import { Op, QueryTypes, Transaction, UniqueConstraintError } from "sequelize";
 import { sequelize } from "../config/database";
 import {
   Assignment,
@@ -35,10 +35,25 @@ import { syncProjectStatus } from "../tmcode/projects/status";
 import { parsePracticalData, PRACTICAL_TYPE, PracticalCriterion } from "../tmcode/practical/question";
 import { composeFeedback, parseCriteriaNotes, RubricScore, rubricScoresWithComments } from "../tmcode/practical/criteriaNotes";
 import { rebasePreviewRoots } from "../tmcode/practical/preview";
+import {
+  Annotation,
+  annotationsSchema,
+  AssignmentGradeMeta,
+  assignmentMeta,
+  cleanAnnotations,
+  DraftGrade,
+  gradeFingerprint,
+  NO_GRADE_VERSION,
+  parseJson,
+  releasedAnnotations,
+  versionOf,
+  withMeta,
+} from "../tmcode/practical/gradeMeta";
 import { canGradeAssignment, canGradeQuiz } from "../utils/gradingAccess";
-import { isPassed } from "../utils/quizStudentView";
+import { isPassed, resultVisibility } from "../utils/quizStudentView";
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { tmcodeColumns } from "../tmcode/assignments/load";
+import { apiOrigin } from "./tmcode.controller";
 
 /**
  * TMCode practicals beyond assignments, and the grading of every practical:
@@ -89,6 +104,48 @@ export async function practicalQuestionsOf(quizIds: number[]): Promise<Map<numbe
     }
   } catch {
     // Before migration 20261007150000 the enum value doesn't exist yet.
+  }
+  return out;
+}
+
+export type PracticalState = "not_started" | "in_progress" | "submitted" | "graded";
+
+/**
+ * For the linkable activities list (S8): per quiz, whether the caller has an
+ * open (in_progress) attempt, and per practical question where they stand and
+ * their grade, only once it is released (the teacher released it AND the
+ * quiz's result rules show the score; never a draft).
+ */
+export async function studentQuizStates(
+  userId: number,
+  quizzes: Quiz[],
+  practicals: Map<number, { question_id: number }[]>,
+): Promise<Map<number, { attempt_open: boolean; questions: Map<number, { state: PracticalState; grade?: number }> }>> {
+  const out = new Map<number, { attempt_open: boolean; questions: Map<number, { state: PracticalState; grade?: number }> }>();
+  const ids = quizzes.map((q) => q.id);
+  if (!ids.length) return out;
+  const [subs, attempts, mine] = await Promise.all([
+    QuizSubmission.findAll({ where: { quiz_id: { [Op.in]: ids }, student_id: userId }, order: [["id", "DESC"]] }),
+    QuizAttempt.findAll({ where: { quiz_id: { [Op.in]: ids }, student_id: userId }, order: [["id", "DESC"]] }),
+    Project.findAll({ where: { owner_id: userId, status: { [Op.ne]: "removed" } }, attributes: ["id"] }),
+  ]);
+  const links = mine.length
+    ? await ProjectActivityLink.findAll({
+        where: { activity_type: "quiz", activity_id: { [Op.in]: ids }, project_id: { [Op.in]: mine.map((p) => p.id) } },
+      })
+    : [];
+  for (const quiz of quizzes) {
+    const questions = new Map<number, { state: PracticalState; grade?: number }>();
+    for (const { question_id } of practicals.get(quiz.id) ?? []) {
+      const link = links.find((l) => l.activity_id === quiz.id && l.question_id === question_id) ?? null;
+      const attempt = attempts.find((a) => Number(a.quiz_id) === quiz.id && Number(a.question_id) === question_id) ?? null;
+      const manual = attempt ? (parseJson<any>(attempt.grading_details) ?? {}).manual : null;
+      const sub = attempt?.submission_id ? subs.find((x) => x.id === Number(attempt.submission_id)) ?? null : null;
+      const showScore = !!manual && !!sub && sub.status !== "in_progress" && resultVisibility(quiz, sub).show_score;
+      const state: PracticalState = manual ? "graded" : link?.status === "submitted" ? "submitted" : link ? "in_progress" : "not_started";
+      questions.set(question_id, { state, ...(showScore ? { grade: Number(attempt!.points_earned) || 0 } : {}) });
+    }
+    out.set(quiz.id, { attempt_open: subs.some((x) => Number(x.quiz_id) === quiz.id && x.status === "in_progress"), questions });
   }
   return out;
 }
@@ -305,7 +362,9 @@ async function gradingContext(type: string, id: number, questionId: number | nul
 
 // @desc    Grading workspace roster: every student with a project or a hand-in
 //          for this assignment / quiz practical question, their frozen
-//          revision, status and current grade, plus the criteria.
+//          revision, status and current grade (draft or released, with line
+//          annotations, who graded it and an opaque version), every revision
+//          of their project, plus the criteria.
 // @route   GET /api/tmcode/grading/:type/:id?question_id=
 export const gradingRoster = async (req: Request, res: Response) => {
   const questionId = req.query.question_id ? Number(req.query.question_id) : null;
@@ -323,42 +382,14 @@ export const gradingRoster = async (req: Request, res: Response) => {
   const linkedIds = links.map((l) => l.project_id).filter((pid) => !workspaces.some((w) => w.id === pid));
   const projects = [...workspaces, ...(linkedIds.length ? await Project.findAll({ where: { id: { [Op.in]: linkedIds } } }) : [])];
 
-  type Grade = { score: number | null; rubric: RubricScore[] | null; feedback: string | null; graded_at: string | null; status: string; ref_id: number | null; submitted_at: string | null; late: boolean };
-  const grades = new Map<number, Grade>();
+  const sources = new Map<number, GradeSource>();
   if (ctx.type === "assignment") {
-    const subs = await Submission.findAll({ where: { assignment_id: ctx.id } });
-    for (const s of subs) {
-      const g = String(s.grade ?? "");
-      const score = s.status === "graded" && g ? Number(g.split("/")[0]) : null;
-      grades.set(Number(s.student_id), {
-        score: Number.isFinite(score as number) ? score : null,
-        // { index, score, comment }: the notes come back out of the feedback.
-        rubric: rubricScoresWithComments(s.rubric_scores, s.feedback, ctx.rubric),
-        feedback: s.feedback ?? null,
-        graded_at: s.status === "graded" ? iso((s as any).updated_at) : null,
-        status: s.status,
-        ref_id: s.id,
-        submitted_at: s.status === "draft" ? null : iso(s.submitted_at),
-        late: !!s.is_late,
-      });
-    }
+    for (const s of await assignmentSubmissionRows(ctx.id)) sources.set(Number(s.student_id), { kind: "assignment", row: s });
   } else {
     const attempts = await QuizAttempt.findAll({ where: { quiz_id: ctx.id, question_id: ctx.question!.id }, order: [["id", "DESC"]] });
     for (const a of attempts) {
       const sid = Number(a.student_id);
-      if (grades.has(sid)) continue; // newest attempt per student
-      const d = (a.grading_details ?? {}) as any;
-      const manual = d.manual ?? null;
-      grades.set(sid, {
-        score: manual ? Number(a.points_earned) : null,
-        rubric: manual ? rubricScoresWithComments(manual.rubric_scores, manual.feedback, ctx.rubric) : null,
-        feedback: manual?.feedback ?? null,
-        graded_at: manual?.graded_at ?? null,
-        status: manual ? "graded" : d.grade_status === "pending" ? "submitted" : a.status,
-        ref_id: a.id,
-        submitted_at: iso(a.completed_at),
-        late: false,
-      });
+      if (!sources.has(sid)) sources.set(sid, { kind: "quiz", attempt: a }); // newest attempt per student
     }
   }
 
@@ -367,15 +398,32 @@ export const gradingRoster = async (req: Request, res: Response) => {
     ? await ProjectRevision.findAll({ where: { id: frozenIds }, attributes: { exclude: ["manifest_gz"] } })
     : [];
   const revById = new Map(frozen.map((r) => [r.id, r]));
-  const users = await usersById([...projects.map((p) => p.owner_id), ...grades.keys()]);
+  const graderIds = [...sources.values()].map(graderOf);
+  const users = await usersById([...projects.map((p) => p.owner_id), ...sources.keys(), ...graderIds]);
 
-  const studentIds = new Set<number>([...projects.map((p) => p.owner_id), ...grades.keys()]);
+  const studentIds = new Set<number>([...projects.map((p) => p.owner_id), ...sources.keys()]);
+  const projectOf = (sid: number) =>
+    projects.find((p) => p.owner_id === sid && p.status !== "removed") ?? projects.find((p) => p.owner_id === sid) ?? null;
+  const chosen = [...studentIds].map((sid) => projectOf(sid)).filter((p): p is Project => !!p);
+  const history = await revisionHistory(req, chosen, links);
+
   const rows = [...studentIds].map((sid) => {
-    const project = projects.find((p) => p.owner_id === sid && p.status !== "removed") ?? projects.find((p) => p.owner_id === sid) ?? null;
+    const project = projectOf(sid);
     const link = project ? links.find((l) => l.project_id === project.id) ?? null : null;
     const rev = link?.revision_id ? revById.get(link.revision_id) : null;
-    const g = grades.get(sid) ?? null;
-    const state = g?.status === "graded" ? "graded" : link?.status === "submitted" ? "submitted" : project ? "in_progress" : g ? "submitted" : "not_started";
+    const src = sources.get(sid) ?? null;
+    const grade = src ? gradeView(src, ctx, users) : null;
+    const released = src ? isReleased(src) : false;
+    const state = released
+      ? "graded"
+      : link?.status === "submitted"
+        ? "submitted"
+        : project
+          ? "in_progress"
+          : src
+            ? "submitted"
+            : "not_started";
+    const hist = project ? history.get(project.id) : undefined;
     return {
       student: userBrief(users.get(sid), sid),
       state,
@@ -392,11 +440,12 @@ export const gradingRoster = async (req: Request, res: Response) => {
             git_commit: link.git_commit ?? null,
           }
         : null,
-      grade: g
-        ? { score: g.score, rubric_scores: g.rubric, feedback: g.feedback, graded_at: g.graded_at, ref_id: g.ref_id }
-        : null,
-      submitted_at: link?.submitted_at ? iso(link.submitted_at) : g?.submitted_at ?? null,
-      late: !!g?.late || (!!ctx.due_date && !!link?.submitted_at && new Date(link.submitted_at) > new Date(ctx.due_date)),
+      grade,
+      submitted_at: link?.submitted_at ? iso(link.submitted_at) : submittedAtOf(src),
+      late: lateOf(src) || (!!ctx.due_date && !!link?.submitted_at && new Date(link.submitted_at) > new Date(ctx.due_date)),
+      // Load any of them with GET /projects/:id/revisions/:revision_id/manifest (+ blobs or files?rev=).
+      starter_revision: hist?.starter ?? null,
+      revisions: hist?.list ?? [],
     };
   });
   const order: Record<string, number> = { submitted: 0, in_progress: 1, graded: 2, not_started: 3 };
@@ -417,15 +466,194 @@ export const gradingRoster = async (req: Request, res: Response) => {
       // Every practical question of the quiz, for switching between them.
       questions: ctx.type === "quiz" ? ((await practicalQuestionsOf([ctx.id])).get(ctx.id) ?? []) : [],
       can_grade: !!canGrade,
+      // Return for changes / Allow resubmission exist for assignments only.
+      can_return: ctx.type === "assignment",
     },
     counts: {
       total: rows.length,
       to_grade: rows.filter((r) => r.state === "submitted").length,
       graded: rows.filter((r) => r.state === "graded").length,
+      drafts: rows.filter((r) => r.grade?.status === "draft").length,
     },
     rows,
   });
 };
+
+// ─── Grade sources (what is stored) and the grade object (what is returned) ──
+
+interface SubmissionRow {
+  id: number;
+  student_id: number;
+  status: string;
+  grade: string | null;
+  feedback: string | null;
+  rubric_scores: unknown;
+  submitted_at: Date | string | null;
+  is_late: unknown;
+  project_ref: unknown;
+}
+
+type GradeSource = { kind: "assignment"; row: SubmissionRow } | { kind: "quiz"; attempt: QuizAttempt };
+
+/** Raw SQL: project_ref (where the grading data lives) isn't mapped by the Submission model. */
+async function assignmentSubmissionRows(assignmentId: number, studentId?: number, transaction?: Transaction): Promise<SubmissionRow[]> {
+  return sequelize.query<SubmissionRow>(
+    `SELECT id, student_id, status, grade, feedback, rubric_scores, submitted_at, is_late, project_ref
+       FROM submissions WHERE assignment_id = ?${studentId != null ? " AND student_id = ?" : ""}${transaction ? " FOR UPDATE" : ""}`,
+    {
+      replacements: studentId != null ? [assignmentId, studentId] : [assignmentId],
+      type: QueryTypes.SELECT,
+      transaction,
+    },
+  );
+}
+
+const quizDetails = (a: QuizAttempt) => (parseJson<Record<string, any>>(a.grading_details) ?? {}) as Record<string, any>;
+
+function versionOfSource(src: GradeSource | null): string {
+  if (!src) return NO_GRADE_VERSION;
+  if (src.kind === "assignment") {
+    const s = src.row;
+    return versionOf(["a", s.id, s.status, s.grade ?? null, s.feedback ?? null, parseJson(s.rubric_scores), assignmentMeta(s.project_ref)]);
+  }
+  return versionOf(["q", src.attempt.id, String(src.attempt.points_earned ?? ""), quizDetails(src.attempt)]);
+}
+
+function isReleased(src: GradeSource): boolean {
+  return src.kind === "assignment" ? src.row.status === "graded" : !!quizDetails(src.attempt).manual;
+}
+
+function graderOf(src: GradeSource): number | null {
+  if (src.kind === "assignment") {
+    const m = assignmentMeta(src.row.project_ref);
+    return Number(m.draft?.by ?? m.graded_by) || null;
+  }
+  const d = quizDetails(src.attempt);
+  return Number(d.draft?.by ?? d.manual?.graded_by) || null;
+}
+
+const submittedAtOf = (src: GradeSource | null) =>
+  !src ? null : src.kind === "assignment" ? (src.row.status === "draft" ? null : iso(src.row.submitted_at)) : iso(src.attempt.completed_at);
+const lateOf = (src: GradeSource | null) => (src?.kind === "assignment" ? !!Number(src.row.is_late) || src.row.is_late === true : false);
+
+/** "Graded by X": a user brief, or null. */
+const graderBrief = (id: unknown, users: Map<number, any>) => {
+  const n = Number(id);
+  if (!n) return null;
+  const b = userBrief(users.get(n), n);
+  return b ? { id: n, name: b.name } : null;
+};
+
+/**
+ * The grade object of a roster row. When a draft exists it is what the
+ * teacher sees (`released: false`, `status: "draft"`), and `released_score`
+ * is what the student still sees (null when nothing was released).
+ * `graded_by` / `graded_at` describe the grade shown: the draft's author and
+ * save time, or the release.
+ */
+function gradeView(src: GradeSource, ctx: GradingContext, users: Map<number, any>) {
+  const version = versionOfSource(src);
+  if (src.kind === "assignment") {
+    const s = src.row;
+    const meta = assignmentMeta(s.project_ref);
+    const released = s.status === "graded";
+    const parsedScore = released && s.grade ? Number(String(s.grade).split("/")[0]) : null;
+    const releasedScore = Number.isFinite(parsedScore as number) ? parsedScore : null;
+    // Meta written by our own release (or the web marking): still describes this grade?
+    const metaValid = released && !!meta.fp && meta.fp === gradeFingerprint(s.grade, s.feedback);
+    if (meta.draft) {
+      const d = meta.draft;
+      return {
+        score: d.score,
+        rubric_scores: d.rubric_scores,
+        feedback: d.feedback,
+        graded_at: d.at ?? null,
+        ref_id: s.id,
+        annotations: cleanAnnotations(d.annotations),
+        released: false,
+        status: "draft" as const,
+        graded_by: graderBrief(d.by, users),
+        released_score: releasedScore,
+        version,
+      };
+    }
+    return {
+      score: releasedScore,
+      // { index, score, comment }: the notes come back out of the feedback.
+      rubric_scores: rubricScoresWithComments(parseJson(s.rubric_scores), s.feedback, ctx.rubric),
+      feedback: s.feedback ?? null,
+      graded_at: metaValid ? meta.graded_at ?? null : null,
+      ref_id: s.id,
+      annotations: metaValid ? cleanAnnotations(meta.annotations) : [],
+      released,
+      status: released ? ("released" as const) : ("ungraded" as const),
+      graded_by: metaValid ? graderBrief(meta.graded_by, users) : null,
+      released_score: releasedScore,
+      version,
+    };
+  }
+  const a = src.attempt;
+  const d = quizDetails(a);
+  const manual = d.manual ?? null;
+  const releasedScore = manual ? Number(a.points_earned) : null;
+  if (d.draft) {
+    const dr = d.draft as DraftGrade;
+    return {
+      score: dr.score,
+      rubric_scores: rubricScoresWithComments(dr.rubric_scores, dr.feedback, ctx.rubric),
+      feedback: dr.feedback ?? null,
+      graded_at: dr.at ?? null,
+      ref_id: a.id,
+      annotations: cleanAnnotations(dr.annotations),
+      released: false,
+      status: "draft" as const,
+      graded_by: graderBrief(dr.by, users),
+      released_score: releasedScore,
+      version,
+    };
+  }
+  return {
+    score: releasedScore,
+    rubric_scores: manual ? rubricScoresWithComments(manual.rubric_scores, manual.feedback, ctx.rubric) : null,
+    feedback: manual?.feedback ?? null,
+    graded_at: manual?.graded_at ?? null,
+    ref_id: a.id,
+    annotations: manual ? cleanAnnotations(manual.annotations) : [],
+    released: !!manual,
+    status: manual ? ("released" as const) : ("ungraded" as const),
+    graded_by: manual ? graderBrief(manual.graded_by, users) : null,
+    released_score: releasedScore,
+    version,
+  };
+}
+
+/**
+ * Per project: every revision the caller may read ({revision, at, id}), oldest
+ * first, and the number of the revision that holds the starter files (null
+ * when the project didn't start from any). A teacher reads every revision of a
+ * "course" project (practicals always are), else only the frozen one.
+ */
+async function revisionHistory(req: Request, projects: Project[], links: ProjectActivityLink[]) {
+  const out = new Map<number, { starter: number | null; list: { revision: number; at: string; id: number }[] }>();
+  if (!projects.length) return out;
+  const all = await ProjectRevision.findAll({
+    where: { project_id: { [Op.in]: projects.map((p) => p.id) } },
+    attributes: ["id", "project_id", "number", "message", "created_at"],
+    order: [["number", "ASC"]],
+  });
+  const viewAll = !!req.user?.permissions?.has("PROJECTS_VIEW_ALL");
+  for (const p of projects) {
+    const frozen = new Set(links.filter((l) => l.project_id === p.id && l.status === "submitted" && l.revision_id).map((l) => l.revision_id!));
+    const readable = (r: ProjectRevision) => viewAll || p.visibility === "course" || frozen.has(r.id);
+    const mine = all.filter((r) => r.project_id === p.id);
+    const first = mine[0];
+    out.set(p.id, {
+      starter: first && first.number === 1 && first.message === "Starter files" && readable(first) ? 1 : null,
+      list: mine.filter(readable).map((r) => ({ revision: r.number, at: iso(r.created_at)!, id: r.id })),
+    });
+  }
+  return out;
+}
 
 const gradeSchema = z.object({
   question_id: z.number().int().positive().optional().nullable(),
@@ -435,12 +663,237 @@ const gradeSchema = z.object({
   /** Used when the activity has no criteria. */
   score: z.number().min(0).optional().nullable(),
   feedback: z.string().max(10_000).default(""),
+  /** Line comments on the student's files. Missing: keep the ones already saved (old clients). */
+  annotations: annotationsSchema.optional(),
+  /** false: save a draft the student doesn't see. Missing: release (the old behaviour). */
+  release: z.boolean().default(true),
+  /** The `grade.version` the client edited; a different current version answers 409 GRADE_CHANGED. */
+  if_version: z.string().max(64).optional().nullable(),
 });
 
-// @desc    Save a criteria grade for one student. Assignments: the submission
-//          row (grade "x/max", rubric_scores, feedback, status graded). Quiz
-//          practical: the question's attempt (points + grading_details.manual),
-//          then the quiz submission's total. The project becomes graded.
+interface GradeInput {
+  scores: RubricScore[];
+  total: number;
+  /** As typed (assignments compose the criteria notes into it). */
+  feedback: string;
+  /** undefined: keep the saved ones. */
+  annotations?: Annotation[];
+}
+
+class GradeChanged extends Error {
+  constructor(public src: GradeSource | null) {
+    super("GRADE_CHANGED");
+  }
+}
+class Refused extends Error {
+  constructor(public status: number, public code: string, message: string) {
+    super(message);
+  }
+}
+
+/** The student's projects linked to this activity (question). */
+async function linkedProjectsOf(ctx: GradingContext, studentId: number): Promise<Project[]> {
+  const mine = await Project.findAll({ where: { owner_id: studentId } });
+  if (!mine.length) return [];
+  const linkWhere: any = { activity_type: ctx.type, activity_id: ctx.id, project_id: { [Op.in]: mine.map((p) => p.id) } };
+  if (ctx.type === "quiz") linkWhere.question_id = ctx.question!.id;
+  const links = await ProjectActivityLink.findAll({ where: linkWhere, attributes: ["project_id"] });
+  const ids = new Set(links.map((l) => l.project_id));
+  return mine.filter((p) => ids.has(p.id));
+}
+
+/**
+ * Write one grade, draft or released, under a row lock, after the optional
+ * version check. Releasing writes what students read (as before); a draft
+ * writes only the hidden grading data.
+ */
+async function writeGrade(
+  ctx: GradingContext,
+  studentId: number,
+  input: GradeInput,
+  opts: { release: boolean; ifVersion?: string | null; graderId: number },
+): Promise<void> {
+  const now = new Date();
+  const nowIso = now.toISOString();
+  const draftOf = (annotations: Annotation[]): DraftGrade => ({
+    score: input.total,
+    rubric_scores: input.scores,
+    feedback: ctx.type === "assignment" ? composeFeedback(input.feedback, ctx.rubric, input.scores) : input.feedback,
+    annotations,
+    by: opts.graderId,
+    at: nowIso,
+  });
+  await sequelize.transaction(async (transaction) => {
+    if (ctx.type === "assignment") {
+      const [row] = await assignmentSubmissionRows(ctx.id, studentId, transaction);
+      const src: GradeSource | null = row ? { kind: "assignment", row } : null;
+      if (opts.ifVersion && opts.ifVersion !== versionOfSource(src)) throw new GradeChanged(src);
+      const meta: AssignmentGradeMeta = row ? assignmentMeta(row.project_ref) : {};
+      const kept = meta.draft?.annotations ?? (row && releasedAnnotations(row).length ? meta.annotations : undefined) ?? [];
+      const annotations = input.annotations ?? cleanAnnotations(kept);
+      const draft = draftOf(annotations);
+      if (!opts.release) {
+        if (!row) {
+          // A draft lives on the student's submission row; creating one would
+          // show the student a "Submitted" assignment they never handed in.
+          throw new Refused(
+            409,
+            "DRAFT_NEEDS_SUBMISSION",
+            "There's nothing handed in to keep a draft on yet. Save & release to grade work that wasn't submitted.",
+          );
+        }
+        const next: AssignmentGradeMeta = { ...meta, draft, saved_at: nowIso };
+        await sequelize.query("UPDATE submissions SET project_ref = ? WHERE id = ?", {
+          replacements: [withMeta(row.project_ref, next), row.id],
+          transaction,
+        });
+        return;
+      }
+      const grade = `${input.total}/${ctx.max_points}`;
+      const feedback = draft.feedback;
+      const rubricMap = input.scores.length ? Object.fromEntries(input.scores.map((s) => [s.index, s.score])) : null;
+      const next: AssignmentGradeMeta = {
+        ...meta,
+        draft: null,
+        annotations,
+        graded_by: opts.graderId,
+        graded_at: nowIso,
+        fp: gradeFingerprint(grade, feedback),
+        saved_at: nowIso,
+      };
+      if (row) {
+        await sequelize.query(
+          "UPDATE submissions SET grade = ?, status = 'graded', feedback = ?, rubric_scores = ?, project_ref = ?, updated_at = ? WHERE id = ?",
+          {
+            replacements: [grade, feedback, rubricMap ? JSON.stringify(rubricMap) : null, withMeta(row.project_ref, next), now, row.id],
+            transaction,
+          },
+        );
+      } else {
+        // Grading work that was never handed in (today's behaviour): a graded row.
+        await sequelize.query(
+          `INSERT INTO submissions (assignment_id, student_id, submitted_by, status, submitted_at, text_submission,
+             file_submissions, resubmissions, is_late, comments, grade, feedback, rubric_scores, project_ref, created_at, updated_at)
+           VALUES (?, ?, ?, 'graded', ?, NULL, NULL, '[]', ?, '[]', ?, ?, ?, ?, ?, ?)`,
+          {
+            replacements: [
+              ctx.id,
+              studentId,
+              opts.graderId,
+              now,
+              !!ctx.due_date && now > new Date(ctx.due_date),
+              grade,
+              feedback,
+              rubricMap ? JSON.stringify(rubricMap) : null,
+              withMeta(null, next),
+              now,
+              now,
+            ],
+            type: QueryTypes.INSERT,
+            transaction,
+          },
+        );
+      }
+      return;
+    }
+
+    const attempt = await QuizAttempt.findOne({
+      where: { quiz_id: ctx.id, question_id: ctx.question!.id, student_id: studentId },
+      order: [["id", "DESC"]],
+      lock: transaction.LOCK.UPDATE,
+      transaction,
+    });
+    const src: GradeSource | null = attempt ? { kind: "quiz", attempt } : null;
+    if (opts.ifVersion && opts.ifVersion !== versionOfSource(src)) throw new GradeChanged(src);
+    if (!attempt) throw new Refused(409, "NOT_ANSWERED", "This student hasn't answered the practical yet.");
+    const details = { ...quizDetails(attempt) };
+    const annotations = input.annotations ?? cleanAnnotations(details.draft?.annotations ?? details.manual?.annotations ?? []);
+    details.saved_at = nowIso;
+    if (!opts.release) {
+      details.draft = draftOf(annotations);
+      await attempt.update({ grading_details: details } as any, { transaction });
+      return;
+    }
+    delete details.draft;
+    details.grade_status = "graded";
+    details.manual = {
+      rubric_scores: input.scores,
+      feedback: input.feedback,
+      annotations,
+      graded_by: opts.graderId,
+      graded_at: nowIso,
+    };
+    await attempt.update({ points_earned: input.total, is_correct: input.total > 0, grading_details: details } as any, { transaction });
+  });
+  if (opts.release && ctx.type === "quiz") {
+    const attempt = await QuizAttempt.findOne({
+      where: { quiz_id: ctx.id, question_id: ctx.question!.id, student_id: studentId },
+      order: [["id", "DESC"]],
+    });
+    if (attempt?.submission_id) await recomputeQuizSubmission(Number(attempt.submission_id), opts.graderId);
+  }
+}
+
+/** Re-read one student's grade object (after a write, or for a 409). */
+async function currentGrade(ctx: GradingContext, studentId: number) {
+  let src: GradeSource | null = null;
+  if (ctx.type === "assignment") {
+    const [row] = await assignmentSubmissionRows(ctx.id, studentId);
+    if (row) src = { kind: "assignment", row };
+  } else {
+    const attempt = await QuizAttempt.findOne({
+      where: { quiz_id: ctx.id, question_id: ctx.question!.id, student_id: studentId },
+      order: [["id", "DESC"]],
+    });
+    if (attempt) src = { kind: "quiz", attempt };
+  }
+  if (!src) return null;
+  return gradeView(src, ctx, await usersById([graderOf(src)]));
+}
+
+/** Validate the criteria scores; the total (each capped by its max) or a refusal. */
+function gradeInputOf(
+  ctx: GradingContext,
+  body: { rubric_scores: { index: number; score: number; comment?: string | null }[]; score?: number | null; feedback: string; annotations?: Annotation[] },
+): GradeInput | Refused {
+  let total: number;
+  const scores: RubricScore[] = [];
+  if (ctx.rubric.length) {
+    for (const s of body.rubric_scores) {
+      const c = ctx.rubric[s.index];
+      if (!c) return new Refused(422, "UNKNOWN_CRITERION", `There is no criterion #${s.index + 1}.`);
+      if (s.score > c.max_score) return new Refused(422, "SCORE_TOO_HIGH", `“${c.criteria}” is out of ${c.max_score}.`);
+      scores.push({ index: s.index, score: s.score, comment: s.comment ?? null });
+    }
+    // A client that sent no comment at all (not even null) but kept the notes
+    // block in the feedback: keep those notes rather than wipe them.
+    if (body.rubric_scores.every((s) => s.comment === undefined)) {
+      const kept = parseCriteriaNotes(body.feedback, ctx.rubric);
+      for (const s of scores) s.comment = kept.get(s.index) ?? null;
+    }
+    total = round2(scores.reduce((n, s) => n + s.score, 0));
+  } else {
+    if (body.score == null) return new Refused(422, "SCORE_REQUIRED", "Enter a score.");
+    total = body.score;
+  }
+  if (total > ctx.max_points + 0.001) return new Refused(422, "SCORE_TOO_HIGH", `The total can't be more than ${ctx.max_points}.`);
+  return { scores, total, feedback: body.feedback, annotations: body.annotations };
+}
+
+const gradeChanged = async (res: Response, ctx: GradingContext, studentId: number) =>
+  tmcodeError(res, 409, "GRADE_CHANGED", "Someone else changed this grade since you opened it. Review their version, then save again.", {
+    code: "GRADE_CHANGED",
+    grade: await currentGrade(ctx, studentId),
+  });
+
+// @desc    Save a criteria grade for one student, as a draft (`release: false`,
+//          hidden from the student) or released (the default). Released
+//          assignments: the submission row (grade "x/max", rubric_scores,
+//          feedback, status graded). Released quiz practical: the question's
+//          attempt (points + grading_details.manual), then the quiz
+//          submission's total. A release locks the student's project
+//          (`locks_student` says it was still being worked on); a draft never.
+//          `if_version` guards against overwriting someone else's save.
 // @route   PUT /api/tmcode/grading/:type/:id/students/:studentId
 export const saveGrade = async (req: Request, res: Response) => {
   const parsed = gradeSchema.safeParse(req.body ?? {});
@@ -455,82 +908,90 @@ export const saveGrade = async (req: Request, res: Response) => {
     ctx.type === "assignment" ? await canGradeAssignment(req, ctx.assignment as any) : await canGradeQuiz(req, ctx.quiz as any);
   if (!allowed) return tmcodeError(res, 403, "FORBIDDEN", "Only a teacher of this subject, the creator or a super admin can grade this.");
 
-  // Total from the criteria (each capped by its max), else the overall score.
-  let total: number;
-  const scores: RubricScore[] = [];
-  if (ctx.rubric.length) {
-    for (const s of body.rubric_scores) {
-      const c = ctx.rubric[s.index];
-      if (!c) return tmcodeError(res, 422, "UNKNOWN_CRITERION", `There is no criterion #${s.index + 1}.`);
-      if (s.score > c.max_score) {
-        return tmcodeError(res, 422, "SCORE_TOO_HIGH", `“${c.criteria}” is out of ${c.max_score}.`);
-      }
-      scores.push({ index: s.index, score: s.score, comment: s.comment ?? null });
-    }
-    // A client that sent no comment at all (not even null) but kept the notes
-    // block in the feedback: keep those notes rather than wipe them.
-    if (body.rubric_scores.every((s) => s.comment === undefined)) {
-      const kept = parseCriteriaNotes(body.feedback, ctx.rubric);
-      for (const s of scores) s.comment = kept.get(s.index) ?? null;
-    }
-    total = round2(scores.reduce((n, s) => n + s.score, 0));
-  } else {
-    if (body.score == null) return tmcodeError(res, 422, "SCORE_REQUIRED", "Enter a score.");
-    total = body.score;
-  }
-  if (total > ctx.max_points + 0.001) {
-    return tmcodeError(res, 422, "SCORE_TOO_HIGH", `The total can't be more than ${ctx.max_points}.`);
-  }
+  const input = gradeInputOf(ctx, body);
+  if (input instanceof Refused) return tmcodeError(res, input.status, input.code, input.message, { code: input.code });
   const graderId = Number(req.user.id);
-  const now = new Date();
 
+  // Releasing on work the student is still editing makes it read-only for them (S10).
+  const projects = await linkedProjectsOf(ctx, studentId);
+  const locksStudent = body.release && projects.some((p) => p.status === "draft");
+  try {
+    await writeGrade(ctx, studentId, input, { release: body.release, ifVersion: body.if_version, graderId });
+  } catch (e) {
+    if (e instanceof GradeChanged) return gradeChanged(res, ctx, studentId);
+    if (e instanceof Refused) return tmcodeError(res, e.status, e.code, e.message, { code: e.code });
+    throw e;
+  }
+  if (body.release) for (const p of projects) await syncProjectStatus(p.id, graderId);
+  const grade = await currentGrade(ctx, studentId);
+  return res.status(200).json({
+    ok: true,
+    score: input.total,
+    max_points: ctx.max_points,
+    released: body.release,
+    locks_student: locksStudent,
+    grade,
+    version: grade?.version ?? NO_GRADE_VERSION,
+  });
+};
+
+// @desc    Release every draft grade of an activity (quiz: of one practical
+//          question): each becomes the student's grade, as a PUT with
+//          release:true would. Drafts are released as saved.
+// @route   POST /api/tmcode/grading/:type/:id/release   {question_id?}
+export const releaseDrafts = async (req: Request, res: Response) => {
+  const questionId = req.body?.question_id ? Number(req.body.question_id) : req.query.question_id ? Number(req.query.question_id) : null;
+  const ctx = await gradingContext(String(req.params.type), Number(req.params.id), questionId);
+  if (!ctx) return notFound(res, "Activity not found.");
+  const allowed =
+    ctx.type === "assignment" ? await canGradeAssignment(req, ctx.assignment as any) : await canGradeQuiz(req, ctx.quiz as any);
+  if (!allowed) return tmcodeError(res, 403, "FORBIDDEN", "Only a teacher of this subject, the creator or a super admin can grade this.");
+  const graderId = Number(req.user.id);
+
+  const drafts: { studentId: number; draft: DraftGrade; version: string }[] = [];
   if (ctx.type === "assignment") {
-    const feedback = composeFeedback(body.feedback, ctx.rubric, scores);
-    const rubricMap = scores.length ? Object.fromEntries(scores.map((s) => [s.index, s.score])) : null;
-    const existing = await Submission.findOne({ where: { assignment_id: ctx.id, student_id: studentId } });
-    const grade = `${total}/${ctx.max_points}`;
-    if (existing) {
-      await Submission.update({ grade, status: "graded", feedback, rubric_scores: rubricMap } as any, { where: { id: existing.id } });
-    } else {
-      await Submission.create({
-        assignment_id: ctx.id,
-        student_id: studentId,
-        submitted_by: graderId,
-        status: "graded",
-        submitted_at: now,
-        is_late: !!ctx.due_date && now > new Date(ctx.due_date),
-        grade,
-        feedback,
-        rubric_scores: rubricMap,
-      } as any);
+    for (const row of await assignmentSubmissionRows(ctx.id)) {
+      const d = assignmentMeta(row.project_ref).draft;
+      if (d) drafts.push({ studentId: Number(row.student_id), draft: d, version: versionOfSource({ kind: "assignment", row }) });
     }
   } else {
-    const attempt = await QuizAttempt.findOne({
-      where: { quiz_id: ctx.id, question_id: ctx.question!.id, student_id: studentId },
-      order: [["id", "DESC"]],
-    });
-    if (!attempt) return tmcodeError(res, 409, "NOT_ANSWERED", "This student hasn't answered the practical yet.");
-    const details = { ...((attempt.grading_details ?? {}) as any) };
-    details.grade_status = "graded";
-    details.manual = {
-      rubric_scores: scores,
-      feedback: body.feedback,
-      graded_by: graderId,
-      graded_at: now.toISOString(),
-    };
-    await attempt.update({ points_earned: total, is_correct: total > 0, grading_details: details } as any);
-    if (attempt.submission_id) await recomputeQuizSubmission(Number(attempt.submission_id), graderId);
+    const attempts = await QuizAttempt.findAll({ where: { quiz_id: ctx.id, question_id: ctx.question!.id }, order: [["id", "DESC"]] });
+    const seen = new Set<number>();
+    for (const a of attempts) {
+      const sid = Number(a.student_id);
+      if (seen.has(sid)) continue;
+      seen.add(sid);
+      const d = quizDetails(a).draft as DraftGrade | undefined;
+      if (d) drafts.push({ studentId: sid, draft: d, version: versionOfSource({ kind: "quiz", attempt: a }) });
+    }
   }
 
-  // The student's project for this activity is now graded (and locked).
-  const linkWhere: any = { activity_type: ctx.type, activity_id: ctx.id };
-  if (ctx.type === "quiz") linkWhere.question_id = ctx.question!.id;
-  const mine = await Project.findAll({ where: { owner_id: studentId }, attributes: ["id"] });
-  if (mine.length) {
-    const links = await ProjectActivityLink.findAll({ where: { ...linkWhere, project_id: { [Op.in]: mine.map((p) => p.id) } } });
-    for (const l of links) await syncProjectStatus(l.project_id, graderId);
+  const released: number[] = [];
+  const skipped: { student_id: number; code: string }[] = [];
+  let locks = 0;
+  for (const { studentId, draft, version } of drafts) {
+    const input: GradeInput = {
+      scores: draft.rubric_scores ?? [],
+      total: Number(draft.score) || 0,
+      // Assignment drafts hold the composed feedback; composing again keeps it as is.
+      feedback: draft.feedback ?? "",
+      annotations: cleanAnnotations(draft.annotations),
+    };
+    const projects = await linkedProjectsOf(ctx, studentId);
+    try {
+      await writeGrade(ctx, studentId, input, { release: true, ifVersion: version, graderId });
+    } catch (e) {
+      if (e instanceof GradeChanged || e instanceof Refused) {
+        skipped.push({ student_id: studentId, code: e instanceof Refused ? e.code : "GRADE_CHANGED" });
+        continue;
+      }
+      throw e;
+    }
+    if (projects.some((p) => p.status === "draft")) locks += 1;
+    for (const p of projects) await syncProjectStatus(p.id, graderId);
+    released.push(studentId);
   }
-  return res.status(200).json({ ok: true, score: total, max_points: ctx.max_points });
+  return res.status(200).json({ released: released.length, student_ids: released, skipped, locked_students: locks });
 };
 
 /** Sum the attempts, then graded only when no answer is still waiting for review. */
@@ -555,6 +1016,32 @@ export async function recomputeQuizSubmission(submissionId: number, graderId: nu
     ...(stillPending ? {} : { graded_at: new Date(), graded_by: graderId }),
   } as any);
 }
+
+/** tmcode://grading?type=&id=&question=&student=&api= (question and student optional). */
+export function gradingDeeplink(api: string, type: ActivityKind, id: number, questionId?: number | null, studentId?: number | null): string {
+  const q = new URLSearchParams({ type, id: String(id) });
+  if (questionId) q.set("question", String(questionId));
+  if (studentId) q.set("student", String(studentId));
+  q.set("api", api);
+  return `tmcode://grading?${q.toString()}`;
+}
+
+// @desc    Deep link that opens TMCode's grading view on this activity (and
+//          question / student when given), for the web grading page (G9).
+// @route   GET /api/tmcode/grading/:type/:id/open-link?question_id=&student_id=
+export const gradingOpenLink = async (req: Request, res: Response) => {
+  const questionId = req.query.question_id ? Number(req.query.question_id) : null;
+  const ctx = await gradingContext(String(req.params.type), Number(req.params.id), questionId);
+  if (!ctx) return notFound(res, "Activity not found.");
+  const activity = await loadActivity(ctx.type, ctx.id);
+  if (!activity || !(await teacherCanSeeActivity(req, activity))) {
+    return tmcodeError(res, 403, "FORBIDDEN", "This activity isn't in your courses.");
+  }
+  const studentId = req.query.student_id ? Number(req.query.student_id) : null;
+  return res.status(200).json({
+    deeplink: gradingDeeplink(apiOrigin(req), ctx.type, ctx.id, ctx.question?.id ?? null, Number.isInteger(studentId) ? studentId : null),
+  });
+};
 
 // ─── Web preview ─────────────────────────────────────────────────────────────
 

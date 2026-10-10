@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { practicalsApi } from "../services/practicalsApi";
+import { tmcodeSubmitWarning } from "../utils/tmcodeSubmitWarning";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import axios from "../utils/axiosConfig";
 import { QuizApiService } from "../services/quizApi";
@@ -165,6 +167,8 @@ const QuizTakingPage: React.FC = () => {
     "ordering",
   ];
   const [showConfirmSubmit, setShowConfirmSubmit] = useState(false);
+  // The attempt's TMCode session, asked for when the submit dialog opens (E10).
+  const [tmcodeWarning, setTmcodeWarning] = useState<string | null>(null);
   const [showInstructions, setShowInstructions] = useState(true);
   const [currentInstructionStep, setCurrentInstructionStep] = useState(0);
   const [existingSubmission, setExistingSubmission] =
@@ -1699,6 +1703,22 @@ const QuizTakingPage: React.FC = () => {
   useEffect(() => {
     submitQuizRef.current = submitQuiz;
   }, [submitQuiz]);
+
+  // Before a web submit: is this attempt open in TMCode? (Coding answers saved there could be lost.)
+  useEffect(() => {
+    if (!showConfirmSubmit || tmcodeDelivery === "web" || !id) {
+      setTmcodeWarning(null);
+      return;
+    }
+    let cancelled = false;
+    practicalsApi
+      .mySession(Number(id))
+      .then((session) => !cancelled && setTmcodeWarning(tmcodeSubmitWarning(session)))
+      .catch(() => !cancelled && setTmcodeWarning(null));
+    return () => {
+      cancelled = true;
+    };
+  }, [showConfirmSubmit, tmcodeDelivery, id]);
 
   // The quiz's browser restrictions (copy/paste, right click, leaving the
   // window), while the student is answering. Over max_flags_allowed with
@@ -3550,6 +3570,16 @@ const QuizTakingPage: React.FC = () => {
                     ? `Unanswered questions score 0. Once you submit, you can't come back to answer or change anything — this can't be undone.`
                     : "Once you submit, you can't change your answers — this can't be undone."}
                 </div>
+
+                {tmcodeWarning && (
+                  <div
+                    role="alert"
+                    data-testid="tmcode-submit-warning"
+                    className="mt-3 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-left text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-900/20 dark:text-amber-200"
+                  >
+                    {tmcodeWarning}
+                  </div>
+                )}
 
                 {needsAck && (
                   <label className="mt-3 flex cursor-pointer items-start gap-2 rounded-xl px-1 text-left text-sm text-gray-700 dark:text-gray-200">

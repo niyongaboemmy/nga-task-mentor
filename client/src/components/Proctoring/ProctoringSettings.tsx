@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { tmcodePolicySummary } from "../../utils/tmcodePolicySummary";
 import { toast } from "react-toastify";
 import { Button } from "../ui/Button";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
@@ -59,6 +60,10 @@ interface TmcodePolicy {
   terminal: "off" | "restricted" | "full";
   internet_in_preview: boolean;
   allow_offline_grace_minutes: number;
+  /** Run and Debug in the exam (off unless turned on). */
+  debugger: boolean;
+  /** Oldest TMCode version that may take the exam ("x.y.z"); empty = any. */
+  min_app_version?: string;
 }
 
 const TMCODE_POLICY_DEFAULTS: TmcodePolicy = {
@@ -68,6 +73,7 @@ const TMCODE_POLICY_DEFAULTS: TmcodePolicy = {
   terminal: "off",
   internet_in_preview: false,
   allow_offline_grace_minutes: 10,
+  debugger: false,
 };
 
 const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
@@ -713,6 +719,19 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                     <p className={help}>Lets a student's web page load files and fonts from the internet in the preview.</p>
                   </div>
                   <div>
+                    <label className="flex items-center text-sm text-text-secondary-light dark:text-text-secondary-dark">
+                      <input
+                        type="checkbox"
+                        className="mr-2"
+                        data-testid="tmcode-debugger"
+                        checked={!!policy.debugger}
+                        onChange={(e) => setPolicy({ debugger: e.target.checked })}
+                      />
+                      Debugger (breakpoints, stepping)
+                    </label>
+                    <p className={help}>Students can pause their program and inspect it. Running code is always allowed.</p>
+                  </div>
+                  <div>
                     <label htmlFor="tmcode-grace" className="block text-xs mb-1 text-text-secondary-light dark:text-text-secondary-dark">
                       Offline grace after the deadline (minutes, 0–30)
                     </label>
@@ -730,6 +749,32 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
                       className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
                     />
                     <p className={help}>Work saved offline before the deadline can still be uploaded for this many minutes.</p>
+                  </div>
+                  <div>
+                    <label htmlFor="tmcode-min-version" className="block text-xs mb-1 text-text-secondary-light dark:text-text-secondary-dark">
+                      Minimum TMCode version (optional)
+                    </label>
+                    <input
+                      id="tmcode-min-version"
+                      type="text"
+                      inputMode="decimal"
+                      placeholder="e.g. 0.12.0"
+                      value={policy.min_app_version ?? ""}
+                      onChange={(e) => setPolicy({ min_app_version: e.target.value.trim() })}
+                      className="w-full p-2 border border-gray-300 dark:border-gray-700 dark:bg-gray-800 rounded-xl text-sm"
+                    />
+                    <p className={help}>Older TMCode apps are asked to update before the exam. Leave empty to allow any version.</p>
+                  </div>
+                  <div
+                    className="md:col-span-2 rounded-xl border border-blue-100 bg-blue-50/60 p-3 dark:border-blue-900/40 dark:bg-blue-950/20"
+                    data-testid="tmcode-policy-summary"
+                  >
+                    <p className="mb-1 text-xs font-semibold text-blue-900 dark:text-blue-200">What students will see</p>
+                    <ul className="list-disc space-y-0.5 pl-4 text-xs text-blue-900/90 dark:text-blue-100/90">
+                      {tmcodePolicySummary(policy, settings.tmcode_delivery ?? "web").map((line) => (
+                        <li key={line}>{line}</li>
+                      ))}
+                    </ul>
                   </div>
                 </div>
               );

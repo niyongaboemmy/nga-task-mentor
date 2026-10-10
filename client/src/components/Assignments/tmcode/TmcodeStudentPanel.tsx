@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
+import LineComments from "../../Projects/LineComments";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -241,6 +242,8 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
             )}
           </div>
         )}
+
+        {my?.state === "graded" && <LineComments items={my.annotations} />}
 
         {/* Draft -> Submitted -> Graded, with Submit / Withdraw right here. */}
         {my?.project_id && my.project_status && (

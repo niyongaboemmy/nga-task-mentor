@@ -18,6 +18,7 @@ import {
   User,
   AssignmentTmcode,
 } from "../models";
+import { assignmentMeta, isHandIn } from "../tmcode/practical/gradeMeta";
 import { tmcodeError } from "../middleware/tmcodeAuth";
 import { apiOrigin } from "./tmcode.controller";
 import { getScopedSubjects } from "../utils/scopedSubjects";
@@ -39,9 +40,9 @@ import { invalidPathReason } from "../tmcode/projects/paths";
 import { MonitorEntry, MonitorProject, publishPresence, withdrawPresence } from "../tmcode/projects/presence";
 import { AssignmentBrief, assignmentBriefs } from "../tmcode/assignments/load";
 import { isReadOnlyStatus, presenceLocked } from "../tmcode/assignments/state";
-import { lockReason, reopenProject, syncProjectStatus } from "../tmcode/projects/status";
+import { lockReason, reopenGradedProject, reopenProject, syncProjectStatus } from "../tmcode/projects/status";
 import { handInIsLate, pastDue } from "../tmcode/projects/lateness";
-import { loadQuizPractical, practicalQuestionsOf } from "./tmcodePracticals.controller";
+import { loadQuizPractical, practicalQuestionsOf, studentQuizStates } from "./tmcodePracticals.controller";
 import {
   HIDDEN_PRESENCE,
   eventJson,
@@ -1216,6 +1217,7 @@ export const linkableActivities = async (req: Request, res: Response) => {
     ManualAssessment.findAll({ where: courseWhere, order: [["created_at", "DESC"]], limit: 100 }),
   ]);
   const practicals = await practicalQuestionsOf(quizzes.map((q) => q.id));
+  const mineIn = await studentQuizStates(Number(req.user.id), quizzes, practicals);
   const course = (id: number | null | undefined) => ({
     course_id: id ?? null,
     course_name: id != null ? names.get(Number(id)) ?? null : null,
@@ -1236,8 +1238,13 @@ export const linkableActivities = async (req: Request, res: Response) => {
         title: q.title,
         ...course(q.course_id),
         due_date: q.end_date ? new Date(q.end_date).toISOString() : null,
-        // TMCode practical questions in this quiz (link with question_id).
-        practical_questions: practicals.get(q.id) ?? [],
+        // When the quiz opens (TMCode shows "Opens Fri 9:00"), and whether the
+        // caller has an attempt in progress (a practical can be handed in only then).
+        start_date: q.start_date ? new Date(q.start_date).toISOString() : null,
+        attempt_open: mineIn.get(q.id)?.attempt_open ?? false,
+        // TMCode practical questions in this quiz (link with question_id), with
+        // the caller's `state` and, once released, `grade`.
+        practical_questions: (practicals.get(q.id) ?? []).map((pq) => ({ ...pq, ...(mineIn.get(q.id)?.questions.get(pq.question_id) ?? {}) })),
       })),
       ...manual.map((m) => ({
         type: "manual_assessment" as const,
@@ -1381,12 +1388,15 @@ export const submitLink = async (req: Request, res: Response) => {
       // Handing in again — including after a withdraw or a teacher's return,
       // which leave a draft row that already carries a project — is a resubmission.
       const handedInBefore =
-        !!row && (["submitted", "late", "resubmitted"].includes(row.status) || (row.status === "draft" && !!row.project_ref));
+        !!row && (["submitted", "late", "resubmitted"].includes(row.status) || (row.status === "draft" && isHandIn(row.project_ref)));
       const status = handedInBefore ? "resubmitted" : "submitted";
       const text = revision
         ? `TMCode project "${p.name}", revision #${revision.number}`
         : `TMCode project "${p.name}", commit ${commit!.slice(0, 12)}${p.repo_url ? ` (${p.repo_url})` : ""}`;
+      // The teacher's grading data (a draft grade, annotations) stays with the row.
+      const grading = assignmentMeta(row?.project_ref ?? null);
       const ref = JSON.stringify({
+        ...(Object.keys(grading).length ? { grading } : {}),
         project_id: p.id,
         link_id: link.id,
         kind: p.kind,
@@ -1657,12 +1667,19 @@ export const withdrawProject = async (req: Request, res: Response) => {
   });
 };
 
-const returnSchema = z.object({ message: z.string().trim().max(2000).optional().nullable() });
+const returnSchema = z.object({
+  message: z.string().trim().max(2000).optional().nullable(),
+  /** Graded work: take the grade back so the student can hand in again. */
+  allow_resubmission: z.boolean().optional(),
+});
 
 // @desc    Return a submitted project to the student for changes (teacher of
 //          its assignment): back to draft, the submission leaves the to-grade
 //          list, and the message is recorded on the project's activity.
-// @route   POST /api/tmcode/projects/:id/return
+//          Graded work needs `allow_resubmission: true` (the grade is taken
+//          back). Quiz practicals answer 409 RETURN_NOT_SUPPORTED: the answer
+//          belongs to a quiz attempt, which can't be reopened.
+// @route   POST /api/tmcode/projects/:id/return   {message?, allow_resubmission?}
 export const returnProject = async (req: Request, res: Response) => {
   const p = await Project.findByPk(Number(req.params.id));
   if (!p) return tmcodeError(res, 404, "PROJECT_NOT_FOUND", "Project not found.");
@@ -1671,16 +1688,43 @@ export const returnProject = async (req: Request, res: Response) => {
   const link = await assignmentLinkOf(p);
   const activity = link ? await loadActivity("assignment", link.activity_id) : null;
   if (!activity || !(await teacherCanSeeActivity(req, activity))) {
+    // A quiz practical the teacher can see: say why, rather than "not found".
+    if (!link) {
+      const quizLink = await ProjectActivityLink.findOne({ where: { project_id: p.id, activity_type: "quiz" } });
+      const quiz = quizLink ? await loadActivity("quiz", quizLink.activity_id) : null;
+      if (quiz && (await teacherCanSeeActivity(req, quiz))) {
+        return tmcodeError(
+          res,
+          409,
+          "RETURN_NOT_SUPPORTED",
+          "Quiz answers can't be returned for changes: the quiz attempt is over. Grade it as it is.",
+          { code: "RETURN_NOT_SUPPORTED" },
+        );
+      }
+    }
     // Same answer for "not there" and "not yours".
     return tmcodeError(res, 404, "PROJECT_NOT_FOUND", "Project not found.");
   }
-  const result = await reopenProject(p, Number(req.user.id));
-  if (!result.ok) return tmcodeError(res, 409, result.code, result.message);
+  const allowResubmission = parsed.data.allow_resubmission === true;
+  if (p.status === "graded" && !allowResubmission) {
+    return tmcodeError(
+      res,
+      409,
+      "PROJECT_GRADED",
+      "This project has been graded. Allow resubmission to take the grade back and let the student hand it in again.",
+      { code: "PROJECT_GRADED", allow_resubmission: true },
+    );
+  }
+  const wasGraded = p.status === "graded";
+  const result = wasGraded
+    ? await reopenGradedProject(p, activity.id, Number(req.user.id)) : await reopenProject(p, Number(req.user.id));
+  if (!result.ok) return tmcodeError(res, 409, result.code, result.message, { code: result.code });
   publishEvent(
     await recordEvent(p.id, req.user.id, "returned", {
       assignment_id: activity.id,
       title: activity.title,
       message: parsed.data.message ?? null,
+      ...(wasGraded ? { allow_resubmission: true } : {}),
     }),
   );
   await p.reload();

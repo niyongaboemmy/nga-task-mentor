@@ -211,7 +211,7 @@ describe("ReturnForChangesDialog", () => {
     );
     await userEvent.type(screen.getByLabelText(/What should they change/), "Handle empty input");
     await userEvent.click(screen.getByRole("button", { name: "Return to student" }));
-    await waitFor(() => expect(api.returnForChanges).toHaveBeenCalledWith(5, "Handle empty input"));
+    await waitFor(() => expect(api.returnForChanges).toHaveBeenCalledWith(5, "Handle empty input", { allowResubmission: false }));
     expect(onReturned).toHaveBeenCalled();
   });
 });

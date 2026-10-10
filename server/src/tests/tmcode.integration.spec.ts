@@ -351,8 +351,8 @@ describe("snapshots, submit and grading (PROTOCOL.md §3–4)", () => {
     const results = await c.call("get", "/results");
     expect(results.body).toMatchObject({ status: "released", score: 1, max_score: 4 });
     expect(results.body.questions[0].tests).toEqual([
-      { id: "v1", name: "example", hidden: false, passed: true },
-      { id: "h1", name: "Test 2", hidden: true, passed: false },
+      { id: "v1", name: "example", hidden: false, passed: true, verdict: "passed" },
+      { id: "h1", name: "Test 2", hidden: true, passed: false, verdict: "wrong_answer" },
     ]);
     expect(JSON.stringify(results.body)).not.toContain("HIDDEN-");
   });
@@ -410,5 +410,83 @@ describe("snapshots, submit and grading (PROTOCOL.md §3–4)", () => {
     } as any);
     expect(t).toBeTruthy();
     expect((await redeem("late-ticket-xxxxxxxxxxxx")).body.error_code).toBe("ATTEMPT_TIME_EXPIRED");
+  });
+});
+
+describe("session views (UX gap review E4, E10)", () => {
+  it("shows the teacher each student's session (status, last sync, task, version, flags) and the student their own", async () => {
+    const { quiz, question } = await makeQuiz();
+    const { c, submissionId } = await open(quiz.id);
+    expect((await c.snapshot(c.record(question.id, "auto", FILES))).status).toBe(200);
+    await c.call("post", "/heartbeat").send({ current_question: question.id, focus: "in" });
+    await TmcodeFlag.create({
+      session_id: c.sid, submission_id: submissionId, question_id: question.id, rule: "journal_tampered", severity: "high", evidence: {}, at: new Date(),
+    } as any);
+
+    const admin = `Bearer ${signTokenFor(adminId)}`;
+    const res = await request(app).get(`/api/tmcode/quizzes/${quiz.id}/sessions`).set("Authorization", admin);
+    expect(res.status).toBe(200);
+    expect(res.body.counts).toMatchObject({ total: 1, active: 1, flagged: 1 });
+    const row = res.body.sessions[0];
+    expect(row).toMatchObject({
+      submission_id: submissionId,
+      session_id: c.sid,
+      status: "active",
+      app_version: "0.1.0",
+      current_task: { question_id: question.id, title: "Add two numbers" },
+    });
+    expect(row.student.id).toBe(studentId);
+    expect(Date.parse(row.last_sync)).toBeGreaterThan(Date.now() - 60_000);
+    expect(row.flags).toEqual([expect.objectContaining({ rule: "journal_tampered", explanation: expect.stringMatching(/signature/) })]);
+    expect(res.body.explanations.offline_final_late).toBeTruthy();
+    // Students can't see the teacher view.
+    expect((await asStudent(request(app).get(`/api/tmcode/quizzes/${quiz.id}/sessions`))).status).toBe(403);
+
+    // The web quiz page asks for the student's own session (to warn before a web submit).
+    const mine = await asStudent(request(app).get(`/api/tmcode/quizzes/${quiz.id}/my-session`));
+    expect(mine.status).toBe(200);
+    expect(mine.body.session).toMatchObject({ submission_id: submissionId, status: "active", active: true, app_version: "0.1.0" });
+    expect(mine.body.session.last_saved_at).toBe(row.last_sync);
+
+    // Stale heartbeat: offline. Submitted attempt: submitted, and no session for the web page.
+    await TmcodeSession.update({ last_heartbeat: new Date(Date.now() - 5 * 60_000) } as any, { where: { id: c.sid } });
+    const stale = await request(app).get(`/api/tmcode/quizzes/${quiz.id}/sessions`).set("Authorization", admin);
+    expect(stale.body.sessions[0].status).toBe("offline");
+    await QuizSubmission.update({ status: "completed", completed_at: new Date() } as any, { where: { id: submissionId } });
+    const done = await request(app).get(`/api/tmcode/quizzes/${quiz.id}/sessions`).set("Authorization", admin);
+    expect(done.body.sessions[0].status).toBe("submitted");
+    expect((await asStudent(request(app).get(`/api/tmcode/quizzes/${quiz.id}/my-session`))).body.session).toBeNull();
+  });
+
+  it("passes the debugger setting and the minimum TMCode version through (E12)", async () => {
+    const { quiz } = await makeQuiz();
+    const plain = await open(quiz.id);
+    expect(plain.pkg.min_app_version).toBeNull();
+    await ProctoringSettings.update(
+      { tmcode_policy: { mode: "monitored", debugger: true, min_app_version: "0.12.0" } } as any,
+      { where: { quiz_id: quiz.id } },
+    );
+    const { pkg } = await open(quiz.id);
+    expect(pkg.policy).toMatchObject({ debugger: true, mode: "monitored" });
+    expect(pkg.min_app_version).toBe("0.12.0");
+  });
+
+  it("server-run 429 says when to retry; /profiles exposes Date for the clock check", async () => {
+    const { quiz, question } = await makeQuiz();
+    const { c } = await open(quiz.id);
+    stubJudge(true);
+    let last: request.Response | null = null;
+    for (let i = 0; i < 12; i++) {
+      last = await c.call("post", "/server-run").send({ question_id: question.id, files: FILES });
+      if (last.status === 429) break;
+    }
+    expect(last!.status).toBe(429);
+    expect(last!.body).toMatchObject({ error_code: "RATE_LIMITED" });
+    expect(last!.body.retry_after_s).toBeGreaterThan(0);
+    expect(last!.body.retry_after_s).toBeLessThanOrEqual(60);
+    expect(last!.headers["retry-after"]).toBe(String(last!.body.retry_after_s));
+
+    const profiles = await request(app).get("/api/tmcode/profiles");
+    expect(profiles.headers["access-control-expose-headers"]).toMatch(/Date/);
   });
 });

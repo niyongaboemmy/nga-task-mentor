@@ -1,7 +1,8 @@
 import { syncProjectStatus } from "../tmcode/projects/status";
 import { Request, Response } from "express";
 import { z } from "zod";
-import { Op, UniqueConstraintError } from "sequelize";
+import { Op, QueryTypes, UniqueConstraintError } from "sequelize";
+import { releasedAnnotations } from "../tmcode/practical/gradeMeta";
 import { sequelize } from "../config/database";
 import {
   Assignment,
@@ -133,6 +134,8 @@ export interface MyWork {
   /** The teacher's latest "Return for changes" not yet answered by a new hand-in. */
   returned_at: string | null;
   returned_message: string | null;
+  /** The teacher's line comments on the files, once graded (released only). */
+  annotations: { path: string; line: number; text: string }[];
 }
 
 export interface TeachingCounts {
@@ -193,6 +196,20 @@ async function myWork(userId: number, assignments: Assignment[]): Promise<Map<nu
       attributes: ["id", "assignment_id", "status", "grade", "feedback", "rubric_scores", "submitted_at", "is_late"],
     }),
   ]);
+  // Line annotations of released grades (project_ref isn't mapped by the model).
+  const gradedIds = submissions.filter((s) => s.status === "graded").map((s) => s.id);
+  const refs = new Map<number, unknown>();
+  if (gradedIds.length) {
+    try {
+      const rows = await sequelize.query<{ id: number; project_ref: unknown }>(
+        `SELECT id, project_ref FROM submissions WHERE id IN (${gradedIds.map(() => "?").join(",")})`,
+        { replacements: gradedIds, type: QueryTypes.SELECT },
+      );
+      for (const r of rows) refs.set(Number(r.id), r.project_ref);
+    } catch {
+      // No project_ref column: no annotations.
+    }
+  }
   // Returns and hand-ins on the student's projects (for "Returned by your teacher").
   const events = mine.length
     ? await ProjectEvent.findAll({
@@ -236,6 +253,7 @@ async function myWork(userId: number, assignments: Assignment[]): Promise<Map<nu
       is_late: handedIn ? !!submission!.is_late : null,
       returned_at: returned?.returned_at ?? null,
       returned_message: returned?.returned_message ?? null,
+      annotations: submission ? releasedAnnotations({ ...submission.get({ plain: true }), project_ref: refs.get(submission.id) }) : [],
     });
   }
   return out;

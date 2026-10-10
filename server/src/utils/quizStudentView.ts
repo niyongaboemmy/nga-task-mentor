@@ -337,6 +337,9 @@ export function studentGradingDetails(
         rubric_scores: Array.isArray(d.manual.rubric_scores) ? d.manual.rubric_scores : [],
         feedback: d.manual.feedback ?? null,
         graded_at: d.manual.graded_at ?? null,
+        // Line comments on the student's files ({path, line, text}); a draft
+        // (grading_details.draft) is never included.
+        annotations: Array.isArray(d.manual.annotations) ? d.manual.annotations : [],
       };
     }
   }
