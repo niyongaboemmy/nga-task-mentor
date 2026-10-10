@@ -12,6 +12,7 @@ dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 import express, { Application, Request, Response, NextFunction } from "express";
 import cors from "cors";
+import { syncModels } from "./utils/syncModels";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { startJudgeMaintenance } from "./services/codeRegrade.service";
@@ -286,9 +287,12 @@ const initializeDatabase = async (): Promise<void> => {
     const models = await import("./models");
     models.setupAssociations();
 
-    // Sync all models (use alter: true to update schema if needed, but currently causing too many keys error)
-    await sequelizeInstance.sync({ alter: false });
-    console.log("Database synchronized");
+    // Create missing tables (alter: true causes a "too many keys" error). An
+    // index the data can't take yet is logged, not fatal: see syncModels.
+    const synced = await syncModels(sequelizeInstance, { alter: false });
+    console.log(
+      `Database synchronized${synced.skippedIndexes.length ? ` (${synced.skippedIndexes.length} index(es) skipped)` : ""}`,
+    );
 
     // Add any additional initialization here
   } catch (error) {
