@@ -629,3 +629,76 @@ describe("the student's receipts: is_late, returns, withdrawing after the due da
     expect((await mine()).my).toMatchObject({ state: "submitted", is_late: true });
   });
 });
+
+describe("how it's graded: typed rubric, per-criterion scores once graded, one cutoff", () => {
+  const RUBRIC = [
+    { criteria: "Correct output", max_score: 6, description: "All cases print the right thing" },
+    { criteria: "Readable code", max_score: 4 },
+  ];
+  let a: Assignment;
+  const mine = async () =>
+    (await request(app).get(`/api/tmcode/assignments/${a.id}`).set("Authorization", tok(student))).body.assignment;
+
+  beforeAll(async () => {
+    const spy = jest.spyOn(scoped, "getScopedSubjects").mockResolvedValue({ scope: "assigned", subjects: programming } as any);
+    a = await createAssignment({ max_score: 10, rubric: RUBRIC });
+    spy.mockRestore();
+  });
+
+  it("sends the rubric typed, the cutoff, and no scores before grading", async () => {
+    const on = await request(app)
+      .put(`/api/tmcode/assignments/${a.id}/tmcode`)
+      .set("Authorization", tok(teacher))
+      .send({ kind: "practical", language: "python" });
+    expect(on.status).toBe(200);
+    const detail = await mine();
+    expect(detail.rubric).toEqual([
+      { criteria: "Correct output", description: "All cases print the right thing", max_score: 6 },
+      { criteria: "Readable code", description: null, max_score: 4 },
+    ]);
+    expect(detail).toMatchObject({ accepts_submissions: true, late_policy: "until_closed", accepts_late_until: null });
+    expect(detail.my.rubric_scores).toBeNull();
+    const listed = (await request(app).get("/api/tmcode/assignments").set("Authorization", tok(student))).body.assignments.find(
+      (x: any) => x.id === a.id,
+    );
+    expect(listed).toMatchObject({ accepts_submissions: true, late_policy: "until_closed", accepts_late_until: null });
+    expect(listed.my.rubric_scores).toBeNull();
+  });
+
+  it("shows the student each criterion's score and note only once graded", async () => {
+    const started = await start(student, a.id);
+    expect([200, 201]).toContain(started.status);
+    const wsId = started.body.project.id;
+    projectIds.add(wsId);
+    const linkId = started.body.project.links[0].id;
+    const saved = await saveFiles(student, wsId, (await Project.findByPk(wsId))!.head_revision_id ?? null, [
+      { path: "main.py", b: blob(`print(3) # ${Date.now()}`) },
+    ]);
+    expect(saved.status).toBe(201);
+    const sub = await request(app).post(`/api/tmcode/projects/${wsId}/links/${linkId}/submit`).set("Authorization", tok(student));
+    expect(sub.status).toBe(200);
+    expect((await mine()).my).toMatchObject({ state: "submitted", grade: null, feedback: null, rubric_scores: null });
+
+    const graded = await request(app)
+      .put(`/api/tmcode/grading/assignment/${a.id}/students/${student.id}`)
+      .set("Authorization", tok(teacher))
+      .send({ rubric_scores: [{ index: 0, score: 5, comment: "Misses the empty case" }, { index: 1, score: 4 }], feedback: "Nice work" });
+    expect(graded.status).toBe(200);
+    const my = (await mine()).my;
+    expect(my).toMatchObject({ state: "graded", grade: 9, max_points: 10 });
+    expect(my.rubric_scores).toEqual([
+      { index: 0, score: 5, comment: "Misses the empty case" },
+      { index: 1, score: 4, comment: null },
+    ]);
+    expect(my.feedback).toContain("Nice work");
+
+    // Another student never sees them.
+    const other = (await request(app).get(`/api/tmcode/assignments/${a.id}`).set("Authorization", tok(student2))).body.assignment;
+    expect(other.my.rubric_scores).toBeNull();
+  });
+
+  it("stops accepting work once the teacher closes it", async () => {
+    await Assignment.update({ status: "completed" }, { where: { id: a.id } });
+    expect(await mine()).toMatchObject({ accepts_submissions: false, read_only: true, accepts_late_until: null });
+  });
+});

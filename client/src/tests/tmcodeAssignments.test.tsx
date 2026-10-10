@@ -24,7 +24,6 @@ import TmcodeStudentPanel from "../components/Assignments/tmcode/TmcodeStudentPa
 import TmcodeWorkspacesPanel, { workspaceCodeHref } from "../components/Assignments/tmcode/TmcodeWorkspacesPanel";
 import { dueCountdown } from "../components/Assignments/tmcode/tmcodeFormat";
 import { ShareLiveStatus } from "../components/Projects/ProjectAdminTabs";
-import { OPEN_FALLBACK_MS } from "../components/Projects/OpenProjectInTmcode";
 import { normalizeMonitorEntry, normalizeProject, normalizeProjectDetail } from "../services/projectsApi";
 import { EMPTY_TMCODE, sameTmcode, type TmcodeSettings, type WorkspaceRow } from "../services/tmcodeAssignmentsApi";
 import { pickOption } from "./helpers/select";
@@ -305,7 +304,7 @@ describe("student TMCode panel", () => {
     return href;
   };
 
-  it("opens the assignment deep link, then falls back to the download page", async () => {
+  it("opens the assignment deep link and offers the install inline, never leaving the page", async () => {
     const href = stubLocation();
     routeGets({
       "/tmcode/assignments/77/open-link": { deeplink: "tmcode://assignment?id=77&api=https%3A%2F%2Fx" },
@@ -323,14 +322,116 @@ describe("student TMCode panel", () => {
     expect(screen.getByTestId("tmcode-steps")).toHaveTextContent("Start copies 2 starter files");
     expect(screen.getByText("Run main.py")).toBeInTheDocument();
 
+    expect(screen.getByTestId("tmcode-cutoff")).toHaveTextContent("Late work accepted until your teacher closes the assignment");
+
     vi.useFakeTimers({ shouldAdvanceTime: true });
     fireEvent.click(screen.getByTestId("open-assignment-in-tmcode"));
     await waitFor(() => expect(href).toHaveBeenCalledWith("tmcode://assignment?id=77&api=https%3A%2F%2Fx"));
+    const hint = await screen.findByTestId("tmcode-fallback");
+    expect(hint).toHaveTextContent("Didn't open? Install TMCode");
+    expect(within(hint).getByRole("link", { name: /Install TMCode/ })).toHaveAttribute("href", "/tmcode");
+    expect(within(hint).getByTestId("tmcode-unsigned-tip")).toHaveTextContent(/Open Anyway|SmartScreen/);
     await act(async () => {
-      vi.advanceTimersByTime(OPEN_FALLBACK_MS + 10);
+      vi.advanceTimersByTime(10_000);
     });
-    expect(await screen.findByText("Download TMCode page")).toBeInTheDocument();
+    // Still here: the browser's "Open TMCode?" prompt may be showing.
+    expect(screen.queryByText("Download TMCode page")).toBeNull();
+    expect(screen.getByTestId("tmcode-student-panel")).toBeInTheDocument();
     vi.useRealTimers();
+  });
+
+  it("renders Markdown instructions, and the rubric as How it's graded", async () => {
+    routeGets({
+      "/tmcode/assignments/77": detail(notStarted, {
+        instructions: "## Steps\n\n1. Run **main.py**\n2. Fix `sort()`\n\n<script>alert(1)</script>",
+        rubric: [
+          { criteria: "Correct output", description: "All cases pass", max_score: 12 },
+          { criteria: "Readable code", description: null, max_score: 8 },
+        ],
+      }),
+    });
+    render(
+      <MemoryRouter>
+        <TmcodeStudentPanel assignmentId={77} />
+      </MemoryRouter>,
+    );
+    const box = await screen.findByTestId("tmcode-instructions");
+    await waitFor(() => expect(box.querySelector("h2")).toHaveTextContent("Steps"));
+    expect(box.querySelector("strong")).toHaveTextContent("main.py");
+    expect(box.querySelector("code")).toHaveTextContent("sort()");
+    expect(box.querySelectorAll("ol li")).toHaveLength(2);
+    expect(box.querySelector("script")).toBeNull();
+    const rubric = screen.getByTestId("tmcode-rubric");
+    expect(rubric).toHaveTextContent("How it's graded");
+    expect(within(rubric).getByTestId("rubric-row-0")).toHaveTextContent("Correct output");
+    expect(within(rubric).getByTestId("rubric-row-0")).toHaveTextContent("All cases pass");
+    expect(within(rubric).getByTestId("rubric-row-0")).toHaveTextContent("12");
+    expect(rubric).toHaveTextContent("Total20");
+    expect(rubric).not.toHaveTextContent("Teacher's note");
+  });
+
+  it("after grading, shows each criterion's score and note, and the overall feedback alone", async () => {
+    routeGets({
+      "/tmcode/assignments/77": detail(
+        {
+          project_id: 5,
+          link_id: 8,
+          state: "graded",
+          submitted_at: iso(3600_000),
+          revision_number: 3,
+          grade: 17,
+          max_points: 20,
+          feedback: "Neat work.\n\nCriteria notes:\n• Correct output: Misses the empty list",
+          rubric_scores: [
+            { index: 0, score: 10, comment: "Misses the empty list" },
+            { index: 1, score: 7, comment: null },
+          ],
+        },
+        {
+          rubric: [
+            { criteria: "Correct output", description: null, max_score: 12 },
+            { criteria: "Readable code", description: null, max_score: 8 },
+          ],
+        },
+      ),
+    });
+    render(
+      <MemoryRouter>
+        <TmcodeStudentPanel assignmentId={77} />
+      </MemoryRouter>,
+    );
+    const rubric = await screen.findByTestId("tmcode-rubric");
+    expect(rubric).toHaveTextContent("Your scores");
+    expect(within(rubric).getByTestId("rubric-row-0")).toHaveTextContent("10 / 12");
+    expect(within(rubric).getByTestId("rubric-row-0")).toHaveTextContent("Misses the empty list");
+    expect(within(rubric).getByTestId("rubric-row-1")).toHaveTextContent("7 / 8");
+    const grade = screen.getByTestId("tmcode-grade");
+    expect(grade).toHaveTextContent("Neat work.");
+    expect(grade).not.toHaveTextContent("Criteria notes");
+    expect(screen.getByTestId("tmcode-steps")).toHaveTextContent("Version 3");
+  });
+
+  it("uses the shared vocabulary: Returned, Closed", async () => {
+    routeGets({
+      "/tmcode/assignments/77": detail({ ...notStarted, state: "in_progress", project_id: 5, returned_at: iso(60_000), returned_message: "Fix it" }),
+    });
+    const { unmount } = render(
+      <MemoryRouter>
+        <TmcodeStudentPanel assignmentId={77} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByTestId("work-state")).toHaveTextContent("Returned");
+    unmount();
+    routeGets({
+      "/tmcode/assignments/77": detail({ ...notStarted, state: "in_progress", project_id: 5 }, { status: "completed", read_only: true, accepts_submissions: false }),
+    });
+    render(
+      <MemoryRouter>
+        <TmcodeStudentPanel assignmentId={77} />
+      </MemoryRouter>,
+    );
+    expect(await screen.findByTestId("work-state")).toHaveTextContent("Closed");
+    expect(screen.getByTestId("tmcode-cutoff")).toHaveTextContent("Closed: no more submissions");
   });
 
   it("shows the grade, the feedback and the submitted code", async () => {
@@ -364,7 +465,7 @@ describe("student TMCode panel", () => {
     expect(screen.getByTestId("work-state")).toHaveTextContent("Graded");
     expect(screen.getByTestId("open-assignment-in-tmcode")).toHaveTextContent("Continue in TMCode");
 
-    fireEvent.click(screen.getByRole("button", { name: /What you submitted · revision #3/ }));
+    fireEvent.click(screen.getByRole("button", { name: /What you submitted · version 3/ }));
     await waitFor(() => expect(axiosMock.get).toHaveBeenCalledWith("/tmcode/projects/5/revisions/203/manifest"));
   });
 
@@ -502,7 +603,7 @@ describe("teacher Workspaces panel", () => {
     const ama = rows.find((r) => r.textContent?.includes("Ama Live"))!;
     expect(within(ama).getByRole("img", { name: "Open in TMCode now" })).toBeInTheDocument();
     expect(ama).toHaveTextContent("editing main.py");
-    expect(within(ama).getByTestId("workspace-state")).toHaveTextContent("Working");
+    expect(within(ama).getByTestId("workspace-state")).toHaveTextContent("In progress");
 
     const bo = rows.find((r) => r.textContent?.includes("Bo Private"))!;
     expect(bo).toHaveTextContent("Live status not shared");

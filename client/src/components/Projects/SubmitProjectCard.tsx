@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useId, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { toast } from "react-toastify";
-import { FolderCode, Loader2, Plus, Send } from "lucide-react";
+import { Clock, FolderCode, Loader2, Plus, Send } from "lucide-react";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { Skeleton } from "../ui/Skeleton";
 import { apiErrorMessage, projectsApi, type ProjectSummary } from "../../services/projectsApi";
@@ -10,6 +10,7 @@ import { formatDateTime, freezeTarget } from "./projectFormat";
 import Select from "../ui/Select";
 import NewProjectDialog from "./NewProjectDialog";
 import ProjectLifecycle from "./ProjectLifecycle";
+import { cutoffText } from "../Assignments/tmcode/tmcodeFormat";
 
 /**
  * "Submit a project" on an assignment whose submission_type allows `project`:
@@ -20,10 +21,12 @@ import ProjectLifecycle from "./ProjectLifecycle";
 const SubmitProjectCard: React.FC<{
   assignmentId: number;
   assignmentTitle: string;
-  /** The assignment is closed (overdue / not published): view only. */
+  /** The teacher closed the assignment (not published): view only. Past the due date it still takes late work. */
   closed?: boolean;
+  /** The due date, for "Late work accepted until …" once it has passed. */
+  dueDate?: string | Date | null;
   onSubmitted?: () => void;
-}> = ({ assignmentId, assignmentTitle, closed = false, onSubmitted }) => {
+}> = ({ assignmentId, assignmentTitle, closed = false, dueDate = null, onSubmitted }) => {
   const id = useId();
   const [projects, setProjects] = useState<ProjectSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -101,6 +104,8 @@ const SubmitProjectCard: React.FC<{
   };
 
   const submittedLink = existing?.link.status === "submitted" ? existing : null;
+  const pastDue = !!dueDate && new Date(dueDate).getTime() < Date.now();
+  const cutoff = cutoffText({ accepts_submissions: !closed }, formatDateTime);
 
   return (
     <section
@@ -160,7 +165,7 @@ const SubmitProjectCard: React.FC<{
                 {projects.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
-                    {p.kind === "tm" ? (p.head ? ` · revision #${p.head.number}` : " · not saved yet") : " · GitHub"}
+                    {p.kind === "tm" ? (p.head ? ` · version ${p.head.number}` : " · not saved yet") : " · GitHub"}
                   </option>
                 ))}
               </Select>
@@ -184,7 +189,17 @@ const SubmitProjectCard: React.FC<{
                 : "TMCode hasn't reported a commit for this project yet: push from TMCode first."}
             </p>
           )}
-          {closed && !submittedLink && <p className="text-xs text-slate-500 dark:text-slate-400">This assignment is closed for submissions.</p>}
+          {closed && !submittedLink && (
+            <p className="text-xs text-slate-500 dark:text-slate-400" data-testid="project-cutoff">
+              Closed: this assignment no longer takes submissions.
+            </p>
+          )}
+          {!closed && pastDue && !submittedLink && (
+            <p className="flex items-center gap-1 text-xs font-medium text-amber-700 dark:text-amber-400" data-testid="project-cutoff">
+              <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+              Past the due date. {cutoff.text}; it will be marked late.
+            </p>
+          )}
           {existing && (
             <ProjectLifecycle
               projectId={existing.project.id}

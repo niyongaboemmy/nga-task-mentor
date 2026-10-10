@@ -1,25 +1,22 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { AnimatePresence, motion } from "framer-motion";
-import { Download, Loader2, MonitorUp, X } from "lucide-react";
+import React, { useMemo, useState } from "react";
+import { Loader2, MonitorUp } from "lucide-react";
 import { apiErrorMessage, projectsApi } from "../../services/projectsApi";
-
-/** How long to wait for the OS to hand the tmcode:// link to TMCode. */
-export const OPEN_FALLBACK_MS = 2000;
+import { unsupportedDevice } from "../../utils/tmcodeRelease";
+import TmcodeInstallHint from "./TmcodeInstallHint";
 
 /**
  * An "Open in TMCode" button for any tmcode:// deep link: asks Task Mentor
- * for the link (`getLink`) and hands it to the OS. When TMCode is installed,
- * the browser loses focus (the OS prompt or the app comes forward); if
- * nothing like that happens within ~2 s, TMCode probably isn't installed:
- * `fallback="hint"` shows a "Don't have TMCode? Download" hint, and
- * `fallback="download"` goes to the /tmcode download page.
+ * for the link (`getLink`) and hands it to the OS. The page never moves on
+ * its own (the browser's "Open TMCode?" prompt may still be showing): after
+ * the click an inline hint offers "Didn't open? Install TMCode" with the
+ * tip for the unsigned installers. On a phone, tablet or Chromebook the
+ * link isn't opened; the hint says TMCode needs a Windows, macOS or Linux
+ * computer.
  */
 export const TmcodeDeepLinkButton: React.FC<{
   getLink: () => Promise<string>;
   label?: string;
   trackKey?: string;
-  fallback?: "hint" | "download";
   disabled?: boolean;
   className?: string;
   buttonClassName?: string;
@@ -30,51 +27,28 @@ export const TmcodeDeepLinkButton: React.FC<{
   getLink,
   label = "Open in TMCode",
   trackKey,
-  fallback = "hint",
   disabled = false,
   className = "",
   buttonClassName = "",
   testId,
   onOpened,
 }) => {
-  const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showFallback, setShowFallback] = useState(false);
-  const cleanup = useRef<(() => void) | null>(null);
-
-  useEffect(() => () => cleanup.current?.(), []);
+  const [showHint, setShowHint] = useState(false);
+  const unsupported = useMemo(() => unsupportedDevice(), []);
 
   const open = async () => {
-    cleanup.current?.();
-    setBusy(true);
     setError(null);
-    setShowFallback(false);
+    if (unsupported) {
+      setShowHint(true);
+      return;
+    }
+    setBusy(true);
     try {
       const deeplink = await getLink();
-      let handled = false;
-      const markHandled = () => {
-        handled = true;
-      };
-      const onVisibility = () => document.visibilityState === "hidden" && markHandled();
-      window.addEventListener("blur", markHandled);
-      window.addEventListener("pagehide", markHandled);
-      document.addEventListener("visibilitychange", onVisibility);
-      const timer = window.setTimeout(() => {
-        if (!handled) {
-          if (fallback === "download") navigate("/tmcode");
-          else setShowFallback(true);
-        }
-        cleanup.current?.();
-      }, OPEN_FALLBACK_MS);
-      cleanup.current = () => {
-        window.clearTimeout(timer);
-        window.removeEventListener("blur", markHandled);
-        window.removeEventListener("pagehide", markHandled);
-        document.removeEventListener("visibilitychange", onVisibility);
-        cleanup.current = null;
-      };
       window.location.href = deeplink;
+      setShowHint(true);
       onOpened?.();
     } catch (e) {
       setError(apiErrorMessage(e, "Couldn't get a TMCode link. Try again."));
@@ -84,7 +58,7 @@ export const TmcodeDeepLinkButton: React.FC<{
   };
 
   return (
-    <div className={`relative ${className}`}>
+    <div className={`flex flex-col items-stretch gap-1.5 ${className}`}>
       <button
         type="button"
         onClick={open}
@@ -96,42 +70,9 @@ export const TmcodeDeepLinkButton: React.FC<{
         {busy ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <MonitorUp className="h-4 w-4" aria-hidden="true" />}
         {label}
       </button>
-      <AnimatePresence>
-        {showFallback && (
-          <motion.div
-            initial={{ opacity: 0, y: -4 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -4 }}
-            transition={{ duration: 0.15 }}
-            role="status"
-            data-testid="tmcode-fallback"
-            className="absolute right-0 top-full z-30 mt-2 w-72 rounded-2xl border border-gray-200 bg-white p-3 text-sm shadow-xl dark:border-gray-700 dark:bg-gray-900"
-          >
-            <div className="flex items-start gap-2">
-              <p className="flex-1 text-slate-700 dark:text-slate-200">
-                Nothing opened? TMCode may not be installed on this computer.
-              </p>
-              <button
-                type="button"
-                onClick={() => setShowFallback(false)}
-                aria-label="Dismiss"
-                className="rounded-lg p-0.5 text-slate-400 hover:bg-gray-100 hover:text-slate-600 dark:hover:bg-white/10"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-            <Link
-              to="/tmcode"
-              className="mt-2 inline-flex items-center gap-1.5 rounded-xl bg-gray-900 px-3 py-2 text-xs font-semibold text-white hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-gray-100"
-            >
-              <Download className="h-3.5 w-3.5" aria-hidden="true" />
-              Don&apos;t have TMCode? Download
-            </Link>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {showHint && <TmcodeInstallHint unsupported={unsupported} onDismiss={() => setShowHint(false)} className="max-w-xs" />}
       {error && (
-        <p role="alert" className="mt-1.5 max-w-xs text-xs text-rose-600 dark:text-rose-400">
+        <p role="alert" className="max-w-xs text-xs text-rose-600 dark:text-rose-400">
           {error}
         </p>
       )}

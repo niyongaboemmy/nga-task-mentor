@@ -46,6 +46,20 @@ export interface MyWork {
   /** The teacher's latest "Return for changes" not yet answered by a new hand-in. */
   returned_at?: string | null;
   returned_message?: string | null;
+  /** Per criterion (index into `rubric`), once graded; null before or without a rubric grade. (Optional: older servers.) */
+  rubric_scores?: RubricScore[] | null;
+}
+
+export interface RubricCriterion {
+  criteria: string;
+  description?: string | null;
+  max_score: number;
+}
+
+export interface RubricScore {
+  index: number;
+  score: number;
+  comment: string | null;
 }
 
 export interface TeachingCounts {
@@ -68,6 +82,11 @@ export interface AssignmentSummary {
   read_only: boolean;
   /** The due date has passed (countdown only; a hand-in's lateness is `my.is_late`). */
   late: boolean;
+  /** Hand-ins are accepted now (published); late work is taken until the teacher closes it. (Optional: older servers.) */
+  accepts_submissions?: boolean;
+  late_policy?: "until_closed";
+  /** A fixed last moment for late work; null = until the teacher closes the assignment. */
+  accepts_late_until?: string | null;
   my: MyWork | null;
   teaching?: TeachingCounts;
 }
@@ -76,7 +95,7 @@ export interface AssignmentDetail extends AssignmentSummary {
   description_html: string;
   instructions: string | null;
   attachments: { name: string; url: string }[];
-  rubric: { criteria: string; max_score: number; description?: string }[];
+  rubric: RubricCriterion[];
   starter: { project_id: number; revision_id: number | null; file_count: number; size_bytes: number } | null;
 }
 
@@ -128,10 +147,36 @@ export const KIND_LABEL: Record<TmcodeKind, string> = {
 
 export const STATE_META: Record<WorkState, { label: string; tone: "slate" | "blue" | "emerald" | "violet" }> = {
   not_started: { label: "Not started", tone: "slate" },
-  in_progress: { label: "Working", tone: "blue" },
+  in_progress: { label: "In progress", tone: "blue" },
   submitted: { label: "Submitted", tone: "violet" },
   graded: { label: "Graded", tone: "emerald" },
 };
+
+/** The one status vocabulary shown to students (UX review S17), shared with TMCode. */
+export type StudentStatus = "not_started" | "in_progress" | "submitted" | "returned" | "graded" | "closed";
+
+export const STUDENT_STATUS_META: Record<StudentStatus, { label: string; tone: "slate" | "blue" | "emerald" | "violet" | "amber" }> = {
+  not_started: { label: "Not started", tone: "slate" },
+  in_progress: { label: "In progress", tone: "blue" },
+  submitted: { label: "Submitted", tone: "violet" },
+  returned: { label: "Returned", tone: "amber" },
+  graded: { label: "Graded", tone: "emerald" },
+  closed: { label: "Closed", tone: "slate" },
+};
+
+/**
+ * Graded and Submitted win (they are receipts); then work returned for
+ * changes; then Closed when the assignment no longer takes work; else
+ * where the workspace is.
+ */
+export function studentStatus(a: Pick<AssignmentSummary, "my" | "read_only" | "accepts_submissions" | "status">): StudentStatus {
+  const state = a.my?.state ?? "not_started";
+  if (state === "graded" || state === "submitted") return state;
+  if (a.my?.returned_at) return "returned";
+  const open = a.accepts_submissions ?? (a.status === "published" && !a.read_only);
+  if (!open) return "closed";
+  return state;
+}
 
 const BASE = "/tmcode/assignments";
 

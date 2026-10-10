@@ -102,6 +102,30 @@ export function detectOs(nav: NavigatorLike | undefined = typeof navigator !== "
   return "unknown";
 }
 
+/** Why this device can't run TMCode, or null when it can (or we can't tell). */
+export type UnsupportedDevice = "mobile" | "chromeos";
+
+/**
+ * TMCode is a desktop app for Windows, macOS and Linux: phones, tablets and
+ * Chromebooks can't run it (a Chromebook reports itself as Linux to
+ * `detectOs`, so it is checked here first).
+ */
+export function unsupportedDevice(
+  nav: NavigatorLike | undefined = typeof navigator !== "undefined" ? navigator : undefined,
+): UnsupportedDevice | null {
+  if (!nav) return null;
+  const platform = (nav.userAgentData?.platform || "").toLowerCase().replace(/\s+/g, "");
+  if (platform === "chromeos" || /\bCrOS\b/.test(nav.userAgent ?? "")) return "chromeos";
+  return detectOs(nav) === "mobile" ? "mobile" : null;
+}
+
+/** The one-line tip for the unsigned installers (the download page has the full steps). */
+export function unsignedInstallerTip(os: DetectedOs): string {
+  if (os === "mac") return "First launch on macOS: if it says TMCode can't be opened, go to System Settings › Privacy & Security › Open Anyway.";
+  if (os === "windows") return "On Windows, if SmartScreen warns you, click More info › Run anyway (TMCode isn't code-signed yet).";
+  return "TMCode isn't code-signed yet: on macOS use System Settings › Privacy & Security › Open Anyway; on Windows, SmartScreen › More info › Run anyway.";
+}
+
 export interface TmcodeRelease {
   tag_name: string;
   published_at: string | null;

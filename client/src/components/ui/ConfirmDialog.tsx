@@ -1,10 +1,12 @@
+import type React from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlertTriangle, HelpCircle, X } from "lucide-react";
 
 export interface ConfirmDialogProps {
   open: boolean;
   title: string;
-  description: string;
+  /** Text, or inline content (it renders inside a <p>). */
+  description: React.ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
   /** Styles the confirm button and icon as a destructive action (orange, not red — see project palette). */
