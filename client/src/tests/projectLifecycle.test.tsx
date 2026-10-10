@@ -7,6 +7,7 @@ import { pickOption } from "./helpers/select";
 /** Project status lifecycle on the web: Submit / Withdraw / Remove / Restore, create-for-assignment, Return. */
 
 const api = {
+  get: vi.fn(),
   submitProject: vi.fn(),
   withdraw: vi.fn(),
   remove: vi.fn(),
@@ -71,6 +72,43 @@ describe("ProjectLifecycle", () => {
     await confirm("Submit");
     await waitFor(() => expect(api.submitProject).toHaveBeenCalledWith(5));
     expect(onChanged).toHaveBeenCalledWith("submitted");
+  });
+
+  it("says which version it submits, and warns when TMCode has unsaved changes", async () => {
+    api.get.mockResolvedValue({
+      kind: "tm",
+      head: { number: 4, created_at: new Date().toISOString() },
+      git: null,
+      presence: [
+        {
+          project_id: 5,
+          user_id: 1,
+          device_id: "d1",
+          device_name: "MacBook",
+          online: true,
+          last_seen_at: new Date().toISOString(),
+          state: { open: true, dirty: 2 },
+        },
+      ],
+    });
+    api.submitProject.mockResolvedValue({ status: "submitted", link: null });
+    lifecycle();
+    await userEvent.click(screen.getByTestId("lifecycle-submit"));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(api.get).toHaveBeenCalledWith(5);
+    expect(within(dialog).getByTestId("submit-what")).toHaveTextContent(/^Submitting version 4, saved .+\.$/);
+    expect(within(dialog).getByTestId("submit-unsaved-warning")).toHaveTextContent("TMCode on MacBook has unsaved changes");
+    await confirm("Submit");
+    await waitFor(() => expect(api.submitProject).toHaveBeenCalledWith(5));
+  });
+
+  it("still lets you submit when the project can't be looked at first", async () => {
+    api.get.mockRejectedValue(new Error("offline"));
+    lifecycle();
+    await userEvent.click(screen.getByTestId("lifecycle-submit"));
+    const dialog = await screen.findByRole("alertdialog");
+    expect(within(dialog).queryByTestId("submit-unsaved-warning")).toBeNull();
+    expect(dialog).toHaveTextContent("Your latest saved version is handed in");
   });
 
   it("can't submit without an assignment, a saved version, or after the assignment closed", () => {

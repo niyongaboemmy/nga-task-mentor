@@ -10,7 +10,7 @@ vi.mock("react-toastify", () => ({ toast: { success: vi.fn(), error: vi.fn() } }
 import LinksTab from "../components/Projects/LinksTab";
 import SubmitProjectCard from "../components/Projects/SubmitProjectCard";
 import LinkedProjectsPanel from "../components/Projects/LinkedProjectsPanel";
-import OpenProjectInTmcode, { OPEN_FALLBACK_MS } from "../components/Projects/OpenProjectInTmcode";
+import OpenProjectInTmcode from "../components/Projects/OpenProjectInTmcode";
 import { normalizeProjectDetail, type ProjectDetail, type ProjectLink } from "../services/projectsApi";
 import { makeActivityProjects, makeLinkable, makeProjectDetails, makeProjectList } from "./fixtures/projects";
 import { pickOption, selectValue, optionValues } from "./helpers/select";
@@ -37,7 +37,7 @@ describe("Links tab: link and submit", () => {
     fireEvent.click(within(row).getByRole("button", { name: /Submit/ }));
 
     const dialog = await screen.findByRole("alertdialog");
-    expect(dialog).toHaveTextContent("This submits revision #3 to “Sorting lab”");
+    expect(dialog).toHaveTextContent("This submits version 3 to “Sorting lab”");
     expect(axiosMock.post).not.toHaveBeenCalled();
     fireEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
 
@@ -118,7 +118,7 @@ describe("Submit a project (assignment page)", () => {
     pickOption(select, "1");
     fireEvent.click(screen.getByRole("button", { name: /Submit project/ }));
     const dialog = await screen.findByRole("alertdialog");
-    expect(dialog).toHaveTextContent("Sorting algorithms (revision #3)");
+    expect(dialog).toHaveTextContent("Sorting algorithms (version 3)");
     fireEvent.click(within(dialog).getByRole("button", { name: "Submit" }));
 
     await waitFor(() => expect(onSubmitted).toHaveBeenCalled());
@@ -204,43 +204,42 @@ describe("Open in TMCode (project)", () => {
     return href;
   };
 
-  it("hands the deep link to the OS and offers the download when nothing opens", async () => {
+  it("hands the deep link to the OS, then offers the install inline without leaving the page", async () => {
     const href = stubLocation();
     axiosMock.get.mockResolvedValue({ data: { deeplink: "tmcode://project?id=1&api=https%3A%2F%2Fx" } });
-    vi.useFakeTimers({ shouldAdvanceTime: true });
     render(
       <MemoryRouter>
         <OpenProjectInTmcode projectId={1} />
       </MemoryRouter>,
     );
+    expect(screen.queryByTestId("tmcode-fallback")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: /Open in TMCode/ }));
     await waitFor(() => expect(href).toHaveBeenCalledWith("tmcode://project?id=1&api=https%3A%2F%2Fx"));
     expect(axiosMock.get).toHaveBeenCalledWith("/tmcode/projects/1/open-link");
+    const hint = await screen.findByTestId("tmcode-fallback");
+    expect(hint).toHaveTextContent("Didn't open? Install TMCode");
+    expect(within(hint).getByRole("link", { name: /Install TMCode/ })).toHaveAttribute("href", "/tmcode");
+    expect(within(hint).getByTestId("tmcode-unsigned-tip")).toBeInTheDocument();
+    fireEvent.click(within(hint).getByRole("button", { name: "Dismiss" }));
     expect(screen.queryByTestId("tmcode-fallback")).toBeNull();
-    await act(async () => {
-      vi.advanceTimersByTime(OPEN_FALLBACK_MS + 10);
-    });
-    expect(screen.getByTestId("tmcode-fallback")).toHaveTextContent("Don't have TMCode? Download");
-    expect(screen.getByRole("link", { name: /Download/ })).toHaveAttribute("href", "/tmcode");
-    vi.useRealTimers();
   });
 
-  it("stays quiet when the app takes focus", async () => {
-    stubLocation();
-    axiosMock.get.mockResolvedValue({ data: { deeplink: "tmcode://project?id=1" } });
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+  it("on a phone or Chromebook, says TMCode needs a computer instead of opening the link", async () => {
+    const href = stubLocation();
+    const ua = vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(
+      "Mozilla/5.0 (X11; CrOS x86_64 14541.0.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0 Safari/537.36",
+    );
     render(
       <MemoryRouter>
         <OpenProjectInTmcode projectId={1} />
       </MemoryRouter>,
     );
     fireEvent.click(screen.getByRole("button", { name: /Open in TMCode/ }));
-    await waitFor(() => expect(axiosMock.get).toHaveBeenCalled());
-    await act(async () => {
-      window.dispatchEvent(new Event("blur"));
-      vi.advanceTimersByTime(OPEN_FALLBACK_MS + 10);
-    });
-    expect(screen.queryByTestId("tmcode-fallback")).toBeNull();
-    vi.useRealTimers();
+    expect(await screen.findByTestId("tmcode-fallback")).toHaveTextContent(
+      "TMCode needs a Windows, macOS or Linux computer: it doesn't run on Chromebooks.",
+    );
+    expect(href).not.toHaveBeenCalled();
+    expect(axiosMock.get).not.toHaveBeenCalled();
+    ua.mockRestore();
   });
 });

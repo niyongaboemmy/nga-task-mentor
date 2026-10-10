@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import {
@@ -9,7 +9,9 @@ import {
   Clock,
   Code2,
   FolderCode,
+  ListChecks,
   Lock,
+  MonitorX,
   MessageSquareText,
   RefreshCw,
   Rocket,
@@ -24,22 +26,35 @@ import { formatDateTime } from "../../Projects/projectFormat";
 import { apiErrorMessage, projectsApi, type RevisionSummary } from "../../../services/projectsApi";
 import {
   KIND_LABEL,
-  STATE_META,
+  STUDENT_STATUS_META,
+  studentStatus,
   tmcodeAssignmentsApi,
   type AssignmentDetail,
 } from "../../../services/tmcodeAssignmentsApi";
-import { dueCountdown } from "./tmcodeFormat";
+import { cutoffText, dueCountdown } from "./tmcodeFormat";
 import ProjectLifecycle from "../../Projects/ProjectLifecycle";
+import RichTextDisplay from "../../Common/RichTextDisplay";
+import { briefToHtml } from "../../../utils/briefMarkdown";
+import { unsupportedDevice } from "../../../utils/tmcodeRelease";
+import { TMCODE_DOWNLOAD_ROUTE, unsupportedDeviceText } from "../../Projects/TmcodeInstallHint";
+
+/** The feedback without its "Criteria notes" block (shown per criterion instead). */
+const overallFeedback = (feedback: string) => feedback.split(/\n*Criteria notes:\n/)[0] ?? "";
 
 /**
  * A student's TMCode practical or case study on the assignment page:
  * Open in TMCode (tmcode://assignment?id=…, download page if nothing opens),
  * where their workspace is at, what they submitted (with a code viewer at
- * the submitted revision) and the grade and feedback.
+ * the submitted version), how it's graded (the rubric) and, once graded,
+ * the grade, feedback and each criterion's score and note. Statuses use the
+ * shared vocabulary: Not started · In progress · Submitted · Returned ·
+ * Graded · Closed.
  */
 const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }) => {
   const [data, setData] = useState<AssignmentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const unsupported = useMemo(() => unsupportedDevice(), []);
+  const instructionsHtml = useMemo(() => briefToHtml(data?.instructions), [data?.instructions]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -90,7 +105,9 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
 
   const my = data.my;
   const state = my?.state ?? "not_started";
-  const meta = STATE_META[state];
+  const status = studentStatus(data);
+  const meta = STUDENT_STATUS_META[status];
+  const cutoff = cutoffText(data, formatDateTime);
   const handedIn = state === "submitted" || state === "graded";
   // The countdown is for work still to hand in; handed-in work shows its own receipt.
   const due = handedIn ? null : dueCountdown(data.due_date);
@@ -118,9 +135,9 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
               <Pill tone={meta.tone} testId="work-state">
                 {meta.label}
               </Pill>
-              {data.read_only && (
-                <Pill tone="amber" icon={<Lock className="h-3 w-3" aria-hidden="true" />}>
-                  Read-only
+              {cutoff.closed && status !== "closed" && (
+                <Pill tone="amber" icon={<Lock className="h-3 w-3" aria-hidden="true" />} testId="closed-pill">
+                  Closed
                 </Pill>
               )}
               {lateReceipt !== null && (
@@ -129,27 +146,38 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
                 </Pill>
               )}
               <LanguageBadge language={data.language} />
-              {due && !data.read_only && (
+              {due && !cutoff.closed && (
                 <span className={`inline-flex items-center gap-1 text-xs font-medium ${due.tone}`}>
                   <Clock className="h-3.5 w-3.5" aria-hidden="true" />
                   {due.text}
                 </span>
               )}
             </div>
+            {!handedIn && (
+              <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark" data-testid="tmcode-cutoff">
+                {cutoff.text}
+              </p>
+            )}
           </div>
         </div>
         <div className="flex flex-col items-stretch gap-1.5 sm:flex-row sm:items-center md:flex-col md:items-end">
           <TmcodeDeepLinkButton
             getLink={() => tmcodeAssignmentsApi.openLink(assignmentId)}
             label={state === "not_started" && !data.read_only ? "Open in TMCode" : data.read_only ? "View in TMCode" : "Continue in TMCode"}
-            fallback="download"
             trackKey="tm.assignment.open_in_tmcode"
             testId="open-assignment-in-tmcode"
             buttonClassName="w-full sm:w-auto"
           />
-          <Link to="/tmcode" className="text-center text-[11px] font-medium text-slate-500 hover:text-blue-600 hover:underline dark:text-slate-400">
-            Don&apos;t have TMCode? Download it
-          </Link>
+          {unsupported ? (
+            <p className="flex max-w-xs items-start gap-1 text-[11px] font-medium text-amber-700 dark:text-amber-400" data-testid="tmcode-unsupported">
+              <MonitorX className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+              {unsupportedDeviceText(unsupported)}
+            </p>
+          ) : (
+            <Link to={TMCODE_DOWNLOAD_ROUTE} className="text-center text-[11px] font-medium text-slate-500 hover:text-blue-600 hover:underline dark:text-slate-400">
+              Don&apos;t have TMCode? Download it
+            </Link>
+          )}
         </div>
       </div>
 
@@ -182,12 +210,14 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
 
         <WorkspaceSteps data={data} fileCount={fileCount} />
 
-        {data.instructions && (
-          <div className="rounded-xl border border-gray-200/80 bg-white p-3 dark:border-gray-800 dark:bg-gray-900/60">
+        {instructionsHtml && (
+          <div className="rounded-xl border border-gray-200/80 bg-white p-3 dark:border-gray-800 dark:bg-gray-900/60" data-testid="tmcode-instructions">
             <p className="mb-1 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">Instructions</p>
-            <p className="whitespace-pre-wrap text-sm text-text-primary-light dark:text-text-primary-dark">{data.instructions}</p>
+            <RichTextDisplay content={instructionsHtml} className="text-sm" />
           </div>
         )}
+
+        {data.rubric?.length > 0 && <RubricTable data={data} />}
 
         {my?.state === "graded" && (
           <div className="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 dark:border-emerald-900/40 dark:bg-emerald-950/20 sm:flex-row" data-testid="tmcode-grade">
@@ -206,7 +236,7 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
             {my.feedback && (
               <p className="flex flex-1 items-start gap-2 text-sm text-emerald-900 dark:text-emerald-100 sm:border-l sm:border-emerald-200 sm:pl-3 dark:sm:border-emerald-900/40">
                 <MessageSquareText className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-                <span className="whitespace-pre-wrap">{my.feedback}</span>
+                <span className="whitespace-pre-wrap">{my.rubric_scores?.length ? overallFeedback(my.feedback) : my.feedback}</span>
               </p>
             )}
           </div>
@@ -220,7 +250,7 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
             isOwner
             hasAssignment
             canSubmitNow
-            assignmentClosed={data.read_only || data.status !== "published"}
+            assignmentClosed={cutoff.closed}
             onChanged={() => load()}
             compact
           />
@@ -261,7 +291,7 @@ const WorkspaceSteps: React.FC<{ data: AssignmentDetail; fileCount: number }> = 
     {
       key: "save",
       icon: Code2,
-      title: "Work and save",
+      title: "Work in TMCode",
       body: "Save to Task Mentor as you go; your teacher can follow along.",
       done: done.submitted,
     },
@@ -270,7 +300,7 @@ const WorkspaceSteps: React.FC<{ data: AssignmentDetail; fileCount: number }> = 
       icon: CheckCircle2,
       title: done.submitted ? "Submitted" : "Submit",
       body: done.submitted
-        ? `Revision #${my?.revision_number ?? "?"}${my?.submitted_at ? ` · ${formatDateTime(my.submitted_at)}` : ""}`
+        ? `Version ${my?.revision_number ?? "?"}${my?.submitted_at ? ` · ${formatDateTime(my.submitted_at)}` : ""}`
         : "Submit from TMCode when you're done. You can resubmit until it's graded.",
       done: done.submitted,
     },
@@ -314,7 +344,72 @@ const WorkspaceSteps: React.FC<{ data: AssignmentDetail; fileCount: number }> = 
   );
 };
 
-/** The submitted revision in a read-only code viewer (opens on demand). */
+/**
+ * "How it's graded": the rubric criteria with their points and, once graded,
+ * the student's score and the teacher's note on each.
+ */
+const RubricTable: React.FC<{ data: AssignmentDetail }> = ({ data }) => {
+  const scores = data.my?.state === "graded" ? data.my.rubric_scores ?? null : null;
+  const byIndex = new Map((scores ?? []).map((s) => [s.index, s]));
+  const total = data.rubric.reduce((sum, c) => sum + (Number(c.max_score) || 0), 0);
+  return (
+    <div className="rounded-xl border border-gray-200/80 bg-white dark:border-gray-800 dark:bg-gray-900/60" data-testid="tmcode-rubric">
+      <p className="flex items-center gap-1.5 px-3 pt-3 text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+        <ListChecks className="h-3.5 w-3.5" aria-hidden="true" />
+        {scores ? "Your scores" : "How it's graded"}
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-left text-sm">
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <th scope="col" className="px-3 py-2 font-semibold">Criterion</th>
+              <th scope="col" className="px-3 py-2 text-right font-semibold">{scores ? "Score" : "Points"}</th>
+              {scores && <th scope="col" className="px-3 py-2 font-semibold">Teacher&apos;s note</th>}
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100 dark:divide-white/5">
+            {data.rubric.map((c, i) => {
+              const s = byIndex.get(i);
+              return (
+                <tr key={i} data-testid={`rubric-row-${i}`}>
+                  <td className="px-3 py-2 align-top">
+                    <span className="block font-medium text-text-primary-light dark:text-text-primary-dark">{c.criteria}</span>
+                    {c.description && <span className="block text-xs text-text-secondary-light dark:text-text-secondary-dark">{c.description}</span>}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right align-top tabular-nums text-text-primary-light dark:text-text-primary-dark">
+                    {scores ? (
+                      <>
+                        <span className="font-semibold">{s ? s.score : "—"}</span>
+                        <span className="text-xs text-slate-500"> / {c.max_score}</span>
+                      </>
+                    ) : (
+                      c.max_score
+                    )}
+                  </td>
+                  {scores && (
+                    <td className="whitespace-pre-wrap px-3 py-2 align-top text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                      {s?.comment ?? ""}
+                    </td>
+                  )}
+                </tr>
+              );
+            })}
+          </tbody>
+          {!scores && total > 0 && (
+            <tfoot>
+              <tr className="text-xs text-slate-500 dark:text-slate-400">
+                <td className="px-3 py-2">Total</td>
+                <td className="px-3 py-2 text-right tabular-nums">{total}</td>
+              </tr>
+            </tfoot>
+          )}
+        </table>
+      </div>
+    </div>
+  );
+};
+
+/** The submitted version in a read-only code viewer (opens on demand). */
 const SubmittedCode: React.FC<{ projectId: number; revisionNumber: number }> = ({ projectId, revisionNumber }) => {
   const [open, setOpen] = useState(false);
   const [revisions, setRevisions] = useState<RevisionSummary[] | null>(null);
@@ -335,7 +430,7 @@ const SubmittedCode: React.FC<{ projectId: number; revisionNumber: number }> = (
         className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm font-semibold text-text-primary-light hover:bg-gray-50 dark:text-text-primary-dark dark:hover:bg-white/5"
       >
         <FolderCode className="h-4 w-4 text-blue-600 dark:text-blue-400" aria-hidden="true" />
-        <span className="flex-1">What you submitted · revision #{revisionNumber}</span>
+        <span className="flex-1">What you submitted · version {revisionNumber}</span>
         <ChevronDown className={`h-4 w-4 text-slate-400 transition ${open ? "rotate-180" : ""}`} aria-hidden="true" />
       </button>
       <AnimatePresence initial={false}>
@@ -352,7 +447,7 @@ const SubmittedCode: React.FC<{ projectId: number; revisionNumber: number }> = (
               ) : submitted ? (
                 <FilesTab projectId={projectId} revisions={[submitted]} revisionId={submitted.id} onRevisionChange={() => {}} />
               ) : (
-                <p className="text-sm text-slate-500">That revision isn&apos;t available.</p>
+                <p className="text-sm text-slate-500">That version isn&apos;t available.</p>
               )}
             </div>
           </motion.div>

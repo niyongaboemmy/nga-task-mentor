@@ -16,3 +16,17 @@ export function dueCountdown(due: string | null | undefined, now = Date.now()): 
     late: false,
   };
 }
+
+/**
+ * The one cutoff (UX review S6), from the server's submission window: late
+ * work is accepted until the teacher closes the assignment.
+ */
+export function cutoffText(
+  a: { accepts_submissions?: boolean; accepts_late_until?: string | null; status?: string; read_only?: boolean },
+  formatDate: (iso: string) => string,
+): { text: string; closed: boolean } {
+  const open = a.accepts_submissions ?? (a.status === "published" && !a.read_only);
+  if (!open) return { text: "Closed: no more submissions", closed: true };
+  if (a.accepts_late_until) return { text: `Late work accepted until ${formatDate(a.accepts_late_until)}`, closed: false };
+  return { text: "Late work accepted until your teacher closes the assignment", closed: false };
+}

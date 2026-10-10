@@ -201,15 +201,28 @@ The `assignments.tmcode_*` columns are read through the `AssignmentTmcode` model
 AssignmentSummary = { id, title, kind: "practical"|"case_study"|null, course_id, course_name,
   status, due_date, points, language, read_only,
   late,   // the due date has passed (for a countdown); NOT the hand-in's lateness
+  // The one cutoff (same for every caller, `my`-independent). TMCode hand-ins are taken
+  // while the assignment is published, marked late after due_date, until the teacher closes it:
+  accepts_submissions: boolean,       // status === "published"
+  late_policy: "until_closed",        // late work accepted until the teacher closes the assignment
+  accepts_late_until: string|null,    // a fixed last moment for late work; null = no fixed date (until closed)
   my: { project_id, link_id, state: "not_started"|"in_progress"|"submitted"|"graded",
         submitted_at, revision_number, grade: number|null, max_points, feedback,
         is_late: boolean|null,          // submissions.is_late; null until handed in
         returned_at: string|null,       // the teacher's latest "Return for changes" not yet
-        returned_message: string|null   //   answered by a new hand-in (null once resubmitted)
+        returned_message: string|null,  //   answered by a new hand-in (null once resubmitted)
+        rubric_scores: [{index: number, score: number, comment: string|null}] | null
+                                        // per criterion (index into `rubric`), only once graded
+                                        // (same visibility as grade/feedback); null otherwise or
+                                        // when the grade didn't use the rubric. Comments come from
+                                        // the feedback's "Criteria notes" block, which `feedback`
+                                        // still contains (split on /\n*Criteria notes:\n/ to show it alone)
       } | null,
   teaching?: { students, started, submitted, graded } }   // submitted counts graded work too
 AssignmentDetail = AssignmentSummary & { description_html /* untrusted, sanitise */, instructions,
-  attachments: [{name, url /* absolute */}], rubric, starter: {project_id, revision_id, file_count, size_bytes} | null }
+  attachments: [{name, url /* absolute */}],
+  rubric: [{criteria: string, description: string|null, max_score: number}],   // [] = no rubric
+  starter: {project_id, revision_id, file_count, size_bytes} | null }
 WorkspaceRow = { user: {id /* local, null if never signed in */, mis_user_id, name, email, avatar_url},
   project_id, link_id, submission_id, state, last_activity_at,
   presence: (PresenceSummary & {shared: boolean}) | null,   // shared:false -> zeros, "Live status not shared"

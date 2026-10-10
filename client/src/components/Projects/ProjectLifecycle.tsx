@@ -1,15 +1,17 @@
 import React, { useState } from "react";
 import { toast } from "react-toastify";
-import { CheckCircle2, Loader2, Lock, PencilLine, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, Lock, PencilLine, RotateCcw, Send, Trash2, Undo2 } from "lucide-react";
 import ConfirmDialog from "../ui/ConfirmDialog";
 import { apiErrorMessage, projectsApi, type ProjectStatus } from "../../services/projectsApi";
-import { formatDateTime } from "./projectFormat";
+import { formatDateTime, submitPreview } from "./projectFormat";
 
 /**
  * The project's lifecycle for its owner: Draft -> Submitted -> Graded (or
  * Removed), where it is now, and the one or two things they can do next.
  * Submitting hands it in for its assignment and locks saving; Withdraw takes
- * it back (while the assignment is open and it isn't graded).
+ * it back (while the assignment is open and it isn't graded). Before a
+ * Submit it says which version goes in ("Submitting version 4, saved
+ * 14:02") and warns when TMCode reports unsaved changes on a device.
  */
 
 const STEPS: { key: Exclude<ProjectStatus, "removed">; label: string; icon: React.ElementType }[] = [
@@ -64,6 +66,22 @@ const ProjectLifecycle: React.FC<{
 }> = ({ projectId, status, statusChangedAt, isOwner, hasAssignment, canSubmitNow, assignmentClosed = false, onChanged, compact = false }) => {
   const [confirm, setConfirm] = useState<Action | null>(null);
   const [busy, setBusy] = useState<Action | null>(null);
+  const [preview, setPreview] = useState<ReturnType<typeof submitPreview> | null>(null);
+
+  // Submit: look at the project first (head version, live TMCode windows).
+  const ask = async (a: Action) => {
+    if (a !== "submit") return setConfirm(a);
+    setPreview(null);
+    setBusy("submit");
+    try {
+      setPreview(submitPreview(await projectsApi.get(projectId)));
+    } catch {
+      // Unknown: the dialog falls back to the general wording.
+    } finally {
+      setBusy(null);
+    }
+    setConfirm("submit");
+  };
 
   const run = async (a: Action) => {
     setConfirm(null);
@@ -98,7 +116,7 @@ const ProjectLifecycle: React.FC<{
   const btn = (a: Action, label: string, Icon: React.ElementType, tone: "primary" | "plain" | "danger", disabled = false, title?: string) => (
     <button
       type="button"
-      onClick={() => setConfirm(a)}
+      onClick={() => ask(a)}
       disabled={!!busy || disabled}
       title={title}
       data-testid={`lifecycle-${a}`}
@@ -211,7 +229,33 @@ const ProjectLifecycle: React.FC<{
         <ConfirmDialog
           open
           title={CONFIRM[confirm].title}
-          description={CONFIRM[confirm].description}
+          description={
+            confirm === "submit" && preview ? (
+              <>
+                {preview.what && (
+                  <span className="mb-1 block font-semibold text-text-primary-light dark:text-text-primary-dark" data-testid="submit-what">
+                    {preview.what}.
+                  </span>
+                )}
+                {preview.unsavedOn.length > 0 && (
+                  <span
+                    role="alert"
+                    data-testid="submit-unsaved-warning"
+                    className="mb-1 flex items-start gap-1 font-semibold text-amber-700 dark:text-amber-400"
+                  >
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
+                    <span>
+                      TMCode on {preview.unsavedOn.join(" and ")} has unsaved changes. Save in TMCode first, or they won&apos;t be
+                      included.
+                    </span>
+                  </span>
+                )}
+                {CONFIRM.submit.description}
+              </>
+            ) : (
+              CONFIRM[confirm].description
+            )
+          }
           confirmLabel={CONFIRM[confirm].label}
           danger={CONFIRM[confirm].danger}
           onConfirm={() => run(confirm)}

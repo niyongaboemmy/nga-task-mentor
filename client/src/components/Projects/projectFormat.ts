@@ -6,6 +6,7 @@ import type {
   ProjectPresence,
   SyncState,
 } from "../../services/projectsApi";
+import { isPresenceLive } from "../../services/projectsApi";
 
 /** Display helpers shared by the Projects pages. */
 
@@ -213,7 +214,7 @@ export const isGithubRepoUrl = (url: string): boolean => GITHUB_URL.test(url.tri
 
 /** What submitting will freeze, in words; null when there is nothing to freeze yet. */
 export function freezeTarget(project: Pick<ProjectDetail, "kind" | "head" | "git">): string | null {
-  if (project.kind === "tm") return project.head ? `revision #${project.head.number}` : null;
+  if (project.kind === "tm") return project.head ? `version ${project.head.number}` : null;
   return project.git?.head_commit ? `commit ${shortSha(project.git.head_commit)}` : null;
 }
 
@@ -224,3 +225,36 @@ export const frozenProjectHref = (row: Pick<ActivityProject, "link" | "project">
   if (row.project.kind === "tm") return `/projects/${row.project.id}?tab=files${rev ? `&rev=${rev}` : ""}`;
   return `/projects/${row.project.id}?tab=git`;
 };
+
+/** "14:02" today, else "3 Oct, 14:02". */
+export function savedAt(iso: string, now = Date.now()): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const today = new Date(now).toDateString() === d.toDateString();
+  return today ? d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) : formatDateTime(iso);
+}
+
+/**
+ * What the web Submit hands in, in words, and the TMCode windows that would
+ * be left behind: live devices reporting unsaved editor buffers (`dirty`)
+ * or, for a TM project, edits not saved to Task Mentor yet (`changes`).
+ */
+export function submitPreview(
+  project: Pick<ProjectDetail, "kind" | "head" | "git" | "presence">,
+  now = Date.now(),
+): { what: string | null; unsavedOn: string[] } {
+  let what: string | null = null;
+  if (project.kind === "tm" && project.head) {
+    what = `Submitting version ${project.head.number}, saved ${savedAt(project.head.created_at, now)}`;
+  } else if (project.kind !== "tm" && project.git?.head_commit) {
+    what = `Submitting commit ${shortSha(project.git.head_commit)}`;
+  }
+  const unsavedOn = (project.presence ?? [])
+    .filter((p) => isPresenceLive(p, now))
+    .filter((p) => {
+      const dirty = Array.isArray(p.state.dirty) ? p.state.dirty.length : Number(p.state.dirty) || 0;
+      return dirty > 0 || (project.kind === "tm" && (Number(p.state.changes) || 0) > 0);
+    })
+    .map((p) => p.device_name || p.state.device_name || "another device");
+  return { what, unsavedOn: [...new Set(unsavedOn)] };
+}

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import { KindBadge, LanguageBadge, LinkStatusBadge, LiveDot, LiveIndicator, SyncBadge } from "../components/Projects/ProjectBadges";
 import LivePanel from "../components/Projects/LivePanel";
-import { formatBytes, freezeTarget, frozenProjectHref, isGithubRepoUrl, presenceLine, timeAgo } from "../components/Projects/projectFormat";
+import { formatBytes, freezeTarget, frozenProjectHref, isGithubRepoUrl, presenceLine, timeAgo, submitPreview } from "../components/Projects/projectFormat";
 import { normalizePresence } from "../services/projectsApi";
 
 describe("Project status badges", () => {
@@ -108,9 +108,45 @@ describe("project formatting helpers", () => {
 
   it("says what a submission freezes and where the teacher opens it", () => {
     expect(freezeTarget({ kind: "tm", head: null, git: null })).toBeNull();
-    expect(freezeTarget({ kind: "tm", head: { number: 3 } as never, git: null })).toBe("revision #3");
+    expect(freezeTarget({ kind: "tm", head: { number: 3 } as never, git: null })).toBe("version 3");
     expect(freezeTarget({ kind: "github", head: null, git: { head_commit: "abcdef123456" } })).toBe("commit abcdef1");
     expect(frozenProjectHref({ link: { revision_id: 9003 } as never, project: { id: 1, kind: "tm" } as never })).toBe("/projects/1?tab=files&rev=9003");
     expect(frozenProjectHref({ link: {} as never, project: { id: 2, kind: "github" } as never })).toBe("/projects/2?tab=git");
+  });
+});
+
+describe("submitPreview (web Submit)", () => {
+  const now = new Date("2026-10-10T14:30:00Z").getTime();
+  const live = (over: Record<string, unknown>) => ({
+    project_id: 1,
+    user_id: 1,
+    device_id: "d1",
+    online: true,
+    last_seen_at: new Date(now - 10_000).toISOString(),
+    state: { open: true },
+    ...over,
+  });
+  it("names the version and when it was saved", () => {
+    const r = submitPreview({ kind: "tm", head: { number: 4, created_at: "2026-10-10T14:02:00Z" } as never, git: null, presence: [] }, now);
+    expect(r.what).toMatch(/^Submitting version 4, saved \d{1,2}[:.]02/);
+    expect(r.unsavedOn).toEqual([]);
+  });
+  it("warns about live TMCode windows with unsaved changes, by device", () => {
+    const r = submitPreview(
+      {
+        kind: "tm",
+        head: null,
+        git: null,
+        presence: [
+          live({ device_name: "MacBook", state: { open: true, dirty: ["main.py"] } }),
+          live({ device_id: "d2", state: { open: true, device_name: "Lab PC", changes: 2 } }),
+          live({ device_id: "d3", device_name: "Old", last_seen_at: new Date(now - 600_000).toISOString(), state: { open: true, dirty: 3 } }),
+          live({ device_id: "d4", device_name: "Clean", state: { open: true, dirty: 0 } }),
+        ] as never,
+      },
+      now,
+    );
+    expect(r.what).toBeNull();
+    expect(r.unsavedOn).toEqual(["MacBook", "Lab PC"]);
   });
 });

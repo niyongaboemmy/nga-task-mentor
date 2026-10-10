@@ -39,6 +39,11 @@ import {
   WorkState,
   workState,
 } from "../tmcode/assignments/state";
+import {
+  studentRubricScores,
+  submissionWindow,
+  typedRubric,
+} from "../tmcode/assignments/brief";
 
 /**
  * TMCode practicals and case studies (ASSIGNMENTS_PLAN.md "API"): the
@@ -117,6 +122,12 @@ export interface MyWork {
   grade: number | null;
   max_points: number;
   feedback: string | null;
+  /**
+   * Per-criterion scores and the teacher's note on each, once graded (same
+   * visibility as `grade`/`feedback`); null before that or when the grade
+   * didn't use the rubric. `index` is the position in the assignment's `rubric`.
+   */
+  rubric_scores: { index: number; score: number; comment: string | null }[] | null;
   /** The hand-in's own late flag (submissions.is_late); null until handed in. */
   is_late: boolean | null;
   /** The teacher's latest "Return for changes" not yet answered by a new hand-in. */
@@ -152,6 +163,8 @@ function summaryJson(
     read_only: isReadOnlyStatus(a.status),
     /** The due date has passed (for the countdown); a hand-in's lateness is `my.is_late`. */
     late: !!due && due.getTime() < Date.now(),
+    // One cutoff for every client: late work is taken until the teacher closes it.
+    ...submissionWindow(a.status),
     my,
     ...(teaching ? { teaching } : {}),
   };
@@ -177,7 +190,7 @@ async function myWork(userId: number, assignments: Assignment[]): Promise<Map<nu
       : [],
     Submission.findAll({
       where: { assignment_id: { [Op.in]: ids }, student_id: userId },
-      attributes: ["id", "assignment_id", "status", "grade", "feedback", "submitted_at", "is_late"],
+      attributes: ["id", "assignment_id", "status", "grade", "feedback", "rubric_scores", "submitted_at", "is_late"],
     }),
   ]);
   // Returns and hand-ins on the student's projects (for "Returned by your teacher").
@@ -219,6 +232,7 @@ async function myWork(userId: number, assignments: Assignment[]): Promise<Map<nu
       grade: submission?.status === "graded" ? gradeNumber(submission.grade) : null,
       max_points: Number(a.max_score),
       feedback: submission?.status === "graded" ? submission.feedback ?? null : null,
+      rubric_scores: studentRubricScores(submission, typedRubric(a.rubric)),
       is_late: handedIn ? !!submission!.is_late : null,
       returned_at: returned?.returned_at ?? null,
       returned_message: returned?.returned_message ?? null,
@@ -435,7 +449,7 @@ async function detailJson(req: Request, t: TmAssignment & { role: Role }) {
       name: String(f?.name ?? "file"),
       url: /^https?:\/\//.test(String(f?.url ?? "")) ? f.url : `${origin}${String(f?.url ?? "").startsWith("/") ? "" : "/"}${f?.url ?? ""}`,
     })),
-    rubric: parseJsonArray(a.rubric),
+    rubric: typedRubric(a.rubric),
     starter: t.tm.tmcode_starter_project_id
       ? {
           project_id: t.tm.tmcode_starter_project_id,

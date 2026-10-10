@@ -638,7 +638,10 @@ const AssignmentDetails = () => {
             <SubmitProjectCard
               assignmentId={Number(assignment.id)}
               assignmentTitle={assignment.title}
-              closed={isOverdue || assignment.status !== "published"}
+              // Same rule as the server (POST …/links/:linkId/submit): late
+              // work is accepted, marked late, until the teacher closes it.
+              closed={assignment.status !== "published"}
+              dueDate={assignment.due_date}
               onSubmitted={fetchSubmissions}
             />
           )}
