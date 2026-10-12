@@ -80,3 +80,23 @@ export function firstFileToOpen(paths: string[], entry?: string | null): string 
     paths[0]
   );
 }
+
+const LANGUAGE_EXT: Record<string, string> = {
+  python: "py",
+  javascript: "js",
+  typescript: "ts",
+  c: "c",
+  cpp: "cpp",
+  java: "java",
+  go: "go",
+  rust: "rs",
+  csharp: "cs",
+  kotlin: "kt",
+  php: "php",
+  ruby: "rb",
+  swift: "swift",
+};
+
+/** The file name a single-file answer gets (Java's is Main.java). */
+export const entryFileFor = (language: string | null | undefined) =>
+  language === "java" ? "Main.java" : `main.${LANGUAGE_EXT[language ?? ""] ?? "txt"}`;

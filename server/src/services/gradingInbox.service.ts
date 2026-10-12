@@ -40,7 +40,7 @@ export function gradingInboxItems(
       waiting_days: q.waiting_days,
       oldest_at: q.oldest_at,
       code,
-      grade_url: isAssignment && code ? `/grading/practical/assignment/${q.id}` : q.url,
+      grade_url: isAssignment && code ? `/grading/assignment/${q.id}` : q.url,
     };
   });
 }

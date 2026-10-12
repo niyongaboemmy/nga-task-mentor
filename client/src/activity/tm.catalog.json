@@ -61,7 +61,7 @@
     { "key": "tm.project.editor", "label": "Project editor", "module": "Projects", "patterns": ["/code/projects/:id/edit"] },
     { "key": "tm.project", "label": "Project details", "module": "Projects", "patterns": ["/code/projects/:id", "/projects/:id"] },
     { "key": "tm.projects.monitor", "label": "Live coding", "module": "Projects", "patterns": ["/code/live", "/projects/monitor"] },
-    { "key": "tm.grading.practical", "label": "Practical grading", "module": "Projects", "patterns": ["/grading/practical/:type/:id"] },
+    { "key": "tm.grading.practical", "label": "Grading", "module": "Projects", "patterns": ["/grading/:type/:id", "/grading/practical/:type/:id"] },
 
     { "key": "tm.admin.blooms", "label": "Bloom's taxonomy", "module": "Administration", "patterns": ["/admin/blooms-taxonomy"] },
     { "key": "tm.admin.database", "label": "Database management", "module": "Administration", "patterns": ["/admin/database-management"] },

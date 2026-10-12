@@ -298,10 +298,14 @@ export const appRoutes: AppRoute[] = [
   { path: "/projects/:id", element: <Redirect to="/code/projects/:id" /> },
   {
     // Grading workspace for TMCode practicals (assignment or quiz question).
-    path: "/grading/practical/:type/:id",
+    path: "/grading/:type/:id",
     element: <PracticalGradingPage />,
     permissions: ["PROJECTS_MONITOR", "PROJECTS_VIEW_ALL"],
+    // A full-screen page of its own (no app shell underneath).
+    noLayout: true,
   },
+  // TMCode desktop and older links open the old address.
+  { path: "/grading/practical/:type/:id", element: <Redirect to="/grading/:type/:id" /> },
   {
     path: "/students",
     element: <Students />,
