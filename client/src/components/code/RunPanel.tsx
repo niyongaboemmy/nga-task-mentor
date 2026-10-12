@@ -6,7 +6,7 @@ import type { IoTest } from "./tests";
 
 /**
  * The bottom panel of the code workspace (CODE_RUNNER_PLAN.md §6.3):
- * Output — run with your own input; Tests — the visible input/output tests.
+ * Output — run with your own input (a live terminal when the runner supports it); Tests — the visible input/output tests.
  * Verdicts use icon + words, never colour alone.
  */
 
@@ -66,8 +66,11 @@ const RunPanel: React.FC<{
   onRun: () => void;
   onRunTests: () => void;
   canRun: boolean;
-}> = ({ tab, onTab, stdin, onStdin, tests, state, onRun, onRunTests, canRun }) => {
-  const running = state.status === "running";
+  /** An interactive terminal replaces the input box and output when the runner supports it. */
+  terminal?: React.ReactNode;
+  terminalBusy?: boolean;
+}> = ({ tab, onTab, stdin, onStdin, tests, state, onRun, onRunTests, canRun, terminal, terminalBusy }) => {
+  const running = state.status === "running" || (tab === "output" && !!terminalBusy);
   const result = state.result;
   const compileFailed = !!result?.compile && !result.compile.ok;
   const own = state.kind === "output" ? result?.tests[0] : undefined;
@@ -122,7 +125,9 @@ const RunPanel: React.FC<{
           </div>
         )}
 
-        {tab === "output" ? (
+        {tab === "output" && terminal ? (
+          <div className="h-full min-h-[12rem]">{terminal}</div>
+        ) : tab === "output" ? (
           <div className="grid gap-3 lg:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Input</span>

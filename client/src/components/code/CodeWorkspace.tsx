@@ -6,6 +6,8 @@ import { codeApi, type CodeFile } from "../../services/codeApi";
 import { runErrorMessage } from "../../utils/runErrors";
 import FileTree from "./FileTree";
 import RunPanel, { type BottomTab, type RunState } from "./RunPanel";
+import InteractiveTerminal from "./InteractiveTerminal";
+import { interactiveAvailable, useInteractiveRun } from "./useInteractiveRun";
 import { firstFileToOpen, monacoLanguage } from "./languages";
 import { isHiddenFile, readIoTests } from "./tests";
 
@@ -85,6 +87,24 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   const [stdin, setStdin] = useState("");
   const [state, setState] = useState<RunState>({ status: "idle" });
   const [mobile, setMobile] = useState<"task" | "code" | "output">("code");
+  // Interactive runs only with the standard runner (a custom `run` means a special context, e.g. grading).
+  const [interactive, setInteractive] = useState(false);
+  const term = useInteractiveRun();
+  const startTerm = term.start;
+  const customRun = run !== codeApi.run;
+  useEffect(() => {
+    if (customRun) return;
+    let live = true;
+    void interactiveAvailable().then((ok) => live && setInteractive(ok));
+    return () => {
+      live = false;
+    };
+  }, [customRun]);
+  useEffect(() => {
+    if (!term.unavailable) return;
+    setInteractive(false);
+    setState({ status: "error", kind: "output", error: "Live runs aren't available right now: type the input in the box and press Run." });
+  }, [term.unavailable]);
 
   useEffect(() => {
     try {
@@ -130,6 +150,10 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
       setMobile("output");
       setLayout((l) => ({ ...l, bottom: true }));
       if (kind === "tests" && io.tests.length === 0) return;
+      if (kind === "output" && interactive) {
+        void startTerm({ files: files.filter((f) => !isHiddenFile(f.path)), language: language ?? null, entry: io.entry ?? null });
+        return;
+      }
       setState({ status: "running", kind });
       try {
         const result = await run({
@@ -146,7 +170,7 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
         setState({ status: "error", kind, error: runErrorMessage(e) });
       }
     },
-    [files, io, language, run, state.status, stdin],
+    [files, io, language, run, state.status, stdin, interactive, startTerm],
   );
 
   useImperativeHandle(ref, () => ({ run: () => void doRun("output"), runTests: () => void doRun("tests") }), [doRun]);
@@ -307,6 +331,21 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
       onRun={() => void doRun("output")}
       onRunTests={() => void doRun("tests")}
       canRun={visible.length > 0}
+      terminalBusy={term.status === "starting" || term.status === "running"}
+      terminal={
+        interactive ? (
+          <InteractiveTerminal
+            status={term.status}
+            lines={term.lines}
+            exit={term.exit}
+            error={term.error}
+            onSend={(l) => void term.send(l)}
+            onInterrupt={() => void term.interrupt()}
+            onEndInput={() => void term.endInput()}
+            onStop={() => void term.stop()}
+          />
+        ) : undefined
+      }
     />
   );
 
