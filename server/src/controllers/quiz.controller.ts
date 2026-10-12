@@ -1477,10 +1477,8 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         // manual review it is the instructor's starting point.
         // Use advanced grading for all question types for consistency and to trigger AI grading
         try {
-          gradingResult = await AdvancedQuizGrader.gradeWithConfig(
-            question,
-            answer.answer,
-          );
+          // Code answers are queued and graded in the background.
+          gradingResult = await AdvancedQuizGrader.gradeInRequest(question, answer.answer);
           isCorrect = gradingResult.is_correct;
           pointsEarned = gradingResult.points_earned;
           if (isPendingGrade(gradingResult)) anyPendingReview = true;

@@ -164,6 +164,22 @@ const QuizResultsPage: React.FC = () => {
     location.state?.completedResults || null,
   );
 
+  // Code answers still being graded in the background: refresh quietly
+  // every 5 s (for up to 3 minutes) until their grade arrives.
+  const gradingInProgress = !!result?.answers?.some(
+    (a: any) => a.grading_details?.pending_reason === "Being graded automatically…",
+  );
+  useEffect(() => {
+    if (!gradingInProgress || !id) return;
+    const started = Date.now();
+    const t = window.setInterval(() => {
+      if (Date.now() - started > 180_000) return window.clearInterval(t);
+      void fetchResults(true);
+    }, 5000);
+    return () => window.clearInterval(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gradingInProgress, id]);
+
   // Expand all questions when data loads
   useEffect(() => {
     if (result?.answers?.length) {
@@ -259,10 +275,10 @@ const QuizResultsPage: React.FC = () => {
     }
   };
 
-  const fetchResults = async () => {
+  const fetchResults = async (quiet = false) => {
     if (!id) return;
     try {
-      setLoading(true);
+      if (!quiet) setLoading(true);
       setFetchError(null);
       const response = await axios.get(`/quizzes/${id}/results`);
       const apiData = response.data.data;
@@ -309,6 +325,7 @@ const QuizResultsPage: React.FC = () => {
 
       setResult(transformedResult);
     } catch (error: any) {
+      if (quiet) return; // a background refresh keeps what's on screen
       console.error("Error fetching quiz results:", error);
       setFetchError(
         error?.response?.data?.message ||
@@ -436,7 +453,7 @@ const QuizResultsPage: React.FC = () => {
             <p className="text-text-secondary-light dark:text-text-secondary-dark mb-6">{fetchError}</p>
             <div className="flex flex-col sm:flex-row gap-3 justify-center">
               <button
-                onClick={fetchResults}
+                onClick={() => void fetchResults()}
                 className="inline-flex items-center justify-center px-6 py-3 bg-blue-500 text-white rounded-full hover:bg-blue-600 transition-all"
               >
                 <Loader2 className="h-4 w-4 mr-2" />
@@ -664,6 +681,18 @@ const QuizResultsPage: React.FC = () => {
               Back to Quizzes
             </Link>
           </div>
+
+          {gradingInProgress && (
+            <p
+              className="mb-6 flex items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-900 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-100"
+              role="status"
+              aria-live="polite"
+              data-testid="grading-in-progress"
+            >
+              <Clock className="h-4 w-4 shrink-0 animate-pulse" aria-hidden="true" />
+              Your code is being graded. Your score updates here in a moment.
+            </p>
+          )}
 
           <div className="relative overflow-hidden bg-white/40 dark:bg-gray-900/40 backdrop-blur-xl rounded-2xl p-8 md:p-12 animate-in slide-in-from-bottom-8 duration-700 delay-100 border-4 shadow-sm border-white/20 dark:border-gray-800/50">
             <div className={`absolute top-0 right-0 w-64 h-64 bg-gradient-to-br ${getGradeTheme(result.grade).primary} opacity-10 blur-3xl -mr-32 -mt-32`}></div>

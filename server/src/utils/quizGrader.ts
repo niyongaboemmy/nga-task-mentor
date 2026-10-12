@@ -1812,6 +1812,30 @@ export function pendingCodeResult(
   };
 }
 
+/**
+ * A coding/algorithmic answer the runner will run (code present, a language
+ * it supports): graded in the background, not in the request.
+ */
+export function willQueueCodeGrading(question: QuizQuestion, answerData: any): boolean {
+  if (process.env.CODE_GRADING_INLINE === "1") return false;
+  const type = question.questionBank?.question_type;
+  if (type !== "coding" && type !== "algorithmic") return false;
+  const answer = typeof answerData === "string" ? safeParse(answerData) : answerData;
+  const code = answer?.code ?? answer?.answer?.code;
+  if (typeof code !== "string" || !code.trim()) return false;
+  const questionData = typeof question.questionBank?.question_data === "string" ? safeParse(question.questionBank.question_data) : question.questionBank?.question_data;
+  const language = resolveAnswerLanguage(questionData, answer?.language ?? answer?.answer?.language);
+  return !!language && !isWebLanguage(language) && getCodeRunner().supportsLanguage(language);
+}
+
+const safeParse = (v: string) => {
+  try {
+    return JSON.parse(v);
+  } catch {
+    return null;
+  }
+};
+
 /** True when a grading result (or stored grading_details) awaits review. */
 export const isPendingGrade = (resultOrDetails: any): boolean => {
   let d = resultOrDetails?.detailed_feedback ?? resultOrDetails;
@@ -2602,6 +2626,46 @@ export class AdvancedQuizGrader {
       data: normalizedData,
       explanation: question.questionBank?.explanation || undefined,
     };
+  }
+
+  /**
+   * Grading inside a request (answer save, quiz submit). A code answer gets
+   * CODE_GRADE_INLINE_BUDGET_MS (default 8 s) to be graded right away — the
+   * usual case, so results can show at once. If the runner is slower, the
+   * answer is queued instead (grade_status "pending", queued) and graded in
+   * the background by services/codeRegrade, so a slow judge never holds the
+   * request or its database transaction. Everything else is graded as before.
+   */
+  static async gradeInRequest(question: QuizQuestion, answerData: AnswerDataType): Promise<AdvancedGradingResult> {
+    if (!willQueueCodeGrading(question, answerData)) return this.gradeWithConfig(question, answerData);
+    const budget = Number(process.env.CODE_GRADE_INLINE_BUDGET_MS ?? 8000);
+    const queued = (): AdvancedGradingResult =>
+      ({
+        is_correct: false,
+        points_earned: 0,
+        max_points: parseFloat(String(question.points || 0)),
+        percentage: 0,
+        feedback: "Being graded automatically…",
+        detailed_feedback: {
+          grade_status: "pending",
+          queued: true,
+          queued_at: new Date().toISOString(),
+          pending_reason: "Being graded automatically…",
+        },
+      }) as unknown as AdvancedGradingResult;
+    if (!(budget > 0)) return queued();
+    let timer: NodeJS.Timeout | undefined;
+    const late = new Promise<null>((resolve) => {
+      timer = setTimeout(() => resolve(null), budget);
+    });
+    const grading = this.gradeWithConfig(question, answerData);
+    // A grade that finishes after the budget is dropped: the queue re-grades it.
+    grading.catch(() => undefined);
+    try {
+      return (await Promise.race([grading, late])) ?? queued();
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   static async gradeWithConfig(
