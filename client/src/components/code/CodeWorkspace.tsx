@@ -37,6 +37,13 @@ export interface CodeWorkspaceProps {
   storageKey: string;
   /** Run unsaved files (default) — a caller can replace it. */
   run?: typeof codeApi.run;
+  /** Live terminal for Run (default: only with the standard runner). */
+  interactive?: boolean;
+  /** No adding, renaming or deleting files (e.g. a one-file quiz answer). */
+  fixedFiles?: boolean;
+  /** The Monaco editor, e.g. for the quiz's paste rules. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onEditorMount?: (editor: any) => void;
 }
 
 interface Layout {
@@ -47,8 +54,9 @@ interface Layout {
   leftTab: "task" | "files";
 }
 
-const loadLayout = (key: string, hasTask: boolean): Layout => {
-  const fallback: Layout = { left: true, bottom: true, leftWidth: 260, bottomHeight: 260, leftTab: hasTask ? "task" : "files" };
+const loadLayout = (key: string, hasTask: boolean, oneFile = false): Layout => {
+  // A single file with no task needs no left panel at first.
+  const fallback: Layout = { left: hasTask || !oneFile, bottom: true, leftWidth: 260, bottomHeight: 260, leftTab: hasTask ? "task" : "files" };
   try {
     const raw = localStorage.getItem(`tm.code.layout.${key}`);
     return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
@@ -75,9 +83,12 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   onSave,
   storageKey,
   run = codeApi.run,
+  interactive: interactiveProp,
+  fixedFiles,
+  onEditorMount,
 }, ref) {
   const { theme } = useTheme();
-  const [layout, setLayout] = useState<Layout>(() => loadLayout(storageKey, !!task));
+  const [layout, setLayout] = useState<Layout>(() => loadLayout(storageKey, !!task, files.filter((f) => !isHiddenFile(f.path)).length <= 1));
   const visible = useMemo(() => files.filter((f) => !isHiddenFile(f.path)), [files]);
   const io = useMemo(() => readIoTests(files), [files]);
   const [openTabs, setOpenTabs] = useState<string[]>(() => {
@@ -102,15 +113,16 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   const term = useInteractiveRun();
   const startTerm = term.start;
   const customRun = run !== codeApi.run;
+  const wantInteractive = interactiveProp ?? !customRun;
   useEffect(() => {
-    if (customRun) return;
+    if (!wantInteractive && customRun) return;
     let live = true;
-    void interactiveAvailable().then((ok) => live && setInteractive(ok));
+    if (wantInteractive) void interactiveAvailable().then((ok) => live && setInteractive(ok));
     void codeApi.capabilities().then((c) => live && setUnitLanguages(c.unit_test_languages));
     return () => {
       live = false;
     };
-  }, [customRun]);
+  }, [customRun, wantInteractive]);
   useEffect(() => {
     if (!term.unavailable) return;
     setInteractive(false);
@@ -296,7 +308,7 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
             {task}
           </div>
         ) : (
-          <FileTree files={files} active={active} readOnly={readOnly} onOpen={open} {...fileOps} />
+          <FileTree files={files} active={active} readOnly={readOnly} onOpen={open} {...(fixedFiles ? {} : fileOps)} />
         )}
       </div>
     </div>
@@ -330,6 +342,7 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
             value={activeFile.content}
             theme={theme === "dark" ? "vs-dark" : "light"}
             onChange={(v) => setContent(v ?? "")}
+            onMount={(editor) => onEditorMount?.(editor)}
             options={{
               readOnly,
               minimap: { enabled: false },

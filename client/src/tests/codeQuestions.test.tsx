@@ -17,6 +17,11 @@ const quizApi = vi.hoisted(() => ({
   submitQuestionAnswer: vi.fn(),
 }));
 vi.mock("../services/quizApi", () => ({ QuizApiService: quizApi }));
+vi.mock("../contexts/ThemeContext", () => ({ useTheme: () => ({ theme: "light" }) }));
+vi.mock("../services/codeApi", async (orig) => {
+  const mod = await orig<typeof import("../services/codeApi")>();
+  return { ...mod, codeApi: { ...mod.codeApi, capabilities: async () => ({ interactive: false, unit_tests: false, unit_test_languages: [] }) } };
+});
 
 import { QuestionRenderer } from "../components/Quizzes/QuestionRenderer";
 import { pickOption, selectValue, optionValues } from "./helpers/select";
@@ -111,6 +116,23 @@ const coding = {
 describe("Run tests (TM-FIX-7)", () => {
   beforeEach(() => vi.clearAllMocks());
 
+  it("Run sends the student's input to the run endpoint and shows the output", async () => {
+    quizApi.runCode.mockResolvedValue({ success: true, data: { stdout: "3\n", stderr: null, status: "Accepted", exit_code: 0, execution_time: 9, memory_used: null, web_preview: false } });
+    render(<QuestionRenderer question={coding} onAnswerChange={() => {}} submissionId={77} />);
+    fireEvent.change(screen.getByTestId("run-stdin"), { target: { value: "1 2" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Run" })[0]!);
+    expect(await screen.findByTestId("run-output")).toHaveTextContent("3");
+    expect(quizApi.runCode).toHaveBeenCalledWith(12, { code: "print(3)", language: "python", stdin: "1 2" });
+  });
+
+  it("hidden tests aren't listed to the student", () => {
+    const q = { ...coding, question_data: { ...coding.question_data, test_cases: [...coding.question_data.test_cases, { id: "h1", input: "SECRET", expected_output: "x", is_hidden: true, points: 1 }] } };
+    render(<QuestionRenderer question={q} onAnswerChange={() => {}} submissionId={77} />);
+    fireEvent.click(screen.getByRole("tab", { name: /Tests/ }));
+    expect(screen.getAllByTestId("io-test")).toHaveLength(1);
+    expect(screen.queryByText("SECRET")).toBeNull();
+  });
+
   it("runs the visible tests through the run endpoint and never saves a graded answer", async () => {
     quizApi.runTests.mockResolvedValue({
       success: true,
@@ -123,8 +145,11 @@ describe("Run tests (TM-FIX-7)", () => {
       },
     });
     render(<QuestionRenderer question={coding} onAnswerChange={() => {}} submissionId={77} />);
-    fireEvent.click(screen.getByText("Test"));
-    expect(await screen.findByText(/1\/1 visible tests passed/)).toBeInTheDocument();
+    // The workspace is there at once (no "Start coding" gate); the visible test is listed.
+    expect(screen.getByTestId("quiz-code-answer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: /Tests/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Run tests" }));
+    expect(await screen.findByText("1/1 tests passed")).toBeInTheDocument();
     expect(quizApi.runTests).toHaveBeenCalledWith(12, { code: "print(3)", language: "python" });
     expect(quizApi.submitQuestionAnswer).not.toHaveBeenCalled();
   });

@@ -109,8 +109,10 @@ export function useInteractiveRun() {
           else if (event === "error") setError(String(data?.message ?? "The run failed."));
         }
       } catch (e) {
-        const code = (e as { response?: { data?: { error_code?: string; code?: string } } })?.response?.data;
-        if (code?.error_code === "INTERACTIVE_UNAVAILABLE" || code?.code === "INTERACTIVE_UNAVAILABLE") {
+        const res = (e as { response?: { status?: number; data?: { error_code?: string; code?: string } } })?.response;
+        const code = res?.data;
+        // Not available here (or not allowed for this person): the batch Run takes over.
+        if (code?.error_code === "INTERACTIVE_UNAVAILABLE" || code?.code === "INTERACTIVE_UNAVAILABLE" || res?.status === 403) {
           codeApi.withoutInteractive();
           setUnavailable(true);
           setError("Live runs aren't available right now: type the input in the box and press Run.");
