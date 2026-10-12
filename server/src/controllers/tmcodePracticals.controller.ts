@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { assignmentMaxPoints } from "../tmcode/practical/maxPoints";
 import zlib from "zlib";
 import path from "path";
 import { Request, Response } from "express";
@@ -269,14 +270,15 @@ async function gradingContext(type: string, id: number, questionId: number | nul
   if (type === "assignment") {
     const a = await Assignment.findByPk(id);
     if (!a) return null;
+    const rubric = parseAssignmentRubric((a as any).rubric);
     return {
       type: "assignment",
       id: a.id,
       title: a.title,
       course_id: a.course_id ?? null,
       due_date: a.due_date ?? null,
-      max_points: Number(a.max_score),
-      rubric: parseAssignmentRubric((a as any).rubric),
+      max_points: assignmentMaxPoints(Number(a.max_score), rubric),
+      rubric,
       question: null,
       assignment: a,
     };
@@ -717,7 +719,7 @@ export const listGradable = async (req: Request, res: Response) => {
         ...course(a.course_id),
         due_date: iso(a.due_date),
         status: a.status,
-        max_points: Number(a.max_score),
+        max_points: assignmentMaxPoints(Number(a.max_score), parseAssignmentRubric((a as any).rubric)),
         kind: tm.get(a.id)?.tmcode_kind ?? null,
         questions: null,
       })),
