@@ -77,6 +77,8 @@ const DatabaseManagementPage = lazyPage(() => import("../pages/DatabaseManagemen
 const RolesPermissionsPage = lazyPage(() => import("../pages/Admin/RolesPermissionsPage"));
 const CodeRunnerPage = lazyPage(() => import("../pages/Admin/CodeRunnerPage"));
 const ToGradePage = lazyPage(() => import("../pages/grading/ToGradePage"));
+const PlaygroundPage = lazyPage(() => import("../pages/code/PlaygroundPage"));
+const ProjectEditorPage = lazyPage(() => import("../pages/code/ProjectEditorPage"));
 const RankingPage = lazyPage(() => import("../pages/RankingPage"));
 const AdminSubjectsPage = lazyPage(() => import("../pages/AdminSubjectsPage"));
 const ProjectsPage = lazyPage(() => import("../pages/ProjectsPage"));
@@ -241,6 +243,19 @@ export const appRoutes: AppRoute[] = [
     element: <ProjectsPage />,
     permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL"],
     navItem: { label: "Code", icon: Code2, group: "General" },
+  },
+  {
+    // Full-screen pages (no app shell): practise, or edit a project.
+    path: "/code/playground",
+    element: <PlaygroundPage />,
+    permissions: ["PROJECTS_USE"],
+    noLayout: true,
+  },
+  {
+    path: "/code/projects/:id/edit",
+    element: <ProjectEditorPage />,
+    permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL", "PROJECTS_MONITOR"],
+    noLayout: true,
   },
   {
     path: "/code/projects/:id",
