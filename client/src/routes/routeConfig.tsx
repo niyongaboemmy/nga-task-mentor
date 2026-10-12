@@ -1,5 +1,6 @@
+import type React from "react";
 import type { ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -16,9 +17,10 @@ import {
   Award,
   Library,
   Trophy,
-  FolderCode,
   MonitorDot,
   ListChecks,
+  Code2,
+  ClipboardCheck,
   Cpu,
 } from "lucide-react";
 
@@ -74,6 +76,7 @@ const AssessmentMarksPage = lazyPage(() => import("../pages/AssessmentMarksPage"
 const DatabaseManagementPage = lazyPage(() => import("../pages/DatabaseManagementPage"));
 const RolesPermissionsPage = lazyPage(() => import("../pages/Admin/RolesPermissionsPage"));
 const CodeRunnerPage = lazyPage(() => import("../pages/Admin/CodeRunnerPage"));
+const ToGradePage = lazyPage(() => import("../pages/grading/ToGradePage"));
 const RankingPage = lazyPage(() => import("../pages/RankingPage"));
 const AdminSubjectsPage = lazyPage(() => import("../pages/AdminSubjectsPage"));
 const ProjectsPage = lazyPage(() => import("../pages/ProjectsPage"));
@@ -121,12 +124,22 @@ const QuizResultsWrapper = () => {
   return <QuizResults submissionId={parseInt(submissionId!)} />;
 };
 
+/** A moved page: keeps the :params and the query string. */
+const Redirect: React.FC<{ to: string }> = ({ to }) => {
+  const params = useParams();
+  const { search, hash } = useLocation();
+  const path = to.replace(/:(\w+)/g, (_, k: string) => encodeURIComponent(params[k] ?? ""));
+  return <Navigate to={`${path}${search}${hash}`} replace />;
+};
+
 export interface NavItemConfig {
   label: string;
   icon: LucideIcon;
   group: "General" | "Teaching" | "Admin";
   /** Hide the item when the user holds any of these (one item per job, e.g. one "Quizzes"). */
   hideIfCan?: string[];
+  /** A live count shown beside the label. */
+  badge?: "to_grade";
 }
 
 export interface AppRoute {
@@ -221,25 +234,37 @@ export const appRoutes: AppRoute[] = [
     navItem: { label: "Submissions", icon: FileText, group: "General" },
   },
   {
-    // TMCode Projects (PROJECTS_PLAN.md §5): personal coding projects worked
-    // on in TMCode. VIEW_ALL / MONITOR holders reach other people's projects
-    // read-only, so the project page accepts any of the three keys.
-    path: "/projects",
+    // Code (CODE_RUNNER_PLAN.md §5): the student's projects. VIEW_ALL /
+    // MONITOR holders reach other people's projects read-only, so the
+    // project page accepts any of the three keys.
+    path: "/code/projects",
     element: <ProjectsPage />,
     permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL"],
-    navItem: { label: "Projects", icon: FolderCode, group: "General" },
+    navItem: { label: "Code", icon: Code2, group: "General" },
   },
   {
-    path: "/projects/monitor",
+    path: "/code/projects/:id",
+    element: <ProjectDetailPage />,
+    permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL", "PROJECTS_MONITOR"],
+  },
+  {
+    // To grade: every activity with work waiting, one button to grade it.
+    path: "/grading",
+    element: <ToGradePage />,
+    permissions: ["DASHBOARD_VIEW_INSTRUCTOR"],
+    navItem: { label: "To grade", icon: ClipboardCheck, group: "Teaching", badge: "to_grade" },
+  },
+  {
+    path: "/code/live",
     element: <ProjectMonitorPage />,
     permissions: ["PROJECTS_MONITOR"],
     navItem: { label: "Live coding", icon: MonitorDot, group: "Teaching" },
   },
-  {
-    path: "/projects/:id",
-    element: <ProjectDetailPage />,
-    permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL", "PROJECTS_MONITOR"],
-  },
+  // Old addresses keep working.
+  { path: "/code", element: <Redirect to="/code/projects" /> },
+  { path: "/projects", element: <Redirect to="/code/projects" /> },
+  { path: "/projects/monitor", element: <Redirect to="/code/live" /> },
+  { path: "/projects/:id", element: <Redirect to="/code/projects/:id" /> },
   {
     // Grading workspace for TMCode practicals (assignment or quiz question).
     path: "/grading/practical/:type/:id",

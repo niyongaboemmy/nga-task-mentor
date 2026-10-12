@@ -191,7 +191,7 @@ const ProjectDetailPage: React.FC = () => {
     },
     deleted: () => {
       toast.info("This project was deleted.");
-      navigate("/projects", { replace: true });
+      navigate("/code/projects", { replace: true });
     },
   });
 
@@ -326,7 +326,7 @@ const ProjectDetailPage: React.FC = () => {
         hasAssignment={!!project.assignment || project.links.some((l) => l.activity_type === "assignment")}
         canSubmitNow={!!freezeTarget(project)}
         assignmentClosed={project.read_only}
-        onChanged={(next) => (next === "deleted" ? navigate("/projects", { replace: true }) : load())}
+        onChanged={(next) => (next === "deleted" ? navigate("/code/projects", { replace: true }) : load())}
       />
 
       {project.read_only && (
@@ -413,7 +413,7 @@ const ProjectDetailPage: React.FC = () => {
               {tab === "links" && <LinksTab project={project} canEdit={owner} onLinksChange={(links) => patch((p) => ({ ...p, links }))} />}
               {tab === "members" && <MembersTab project={project} canEdit={owner} onMembersChange={(members) => patch((p) => ({ ...p, members }))} />}
               {tab === "settings" && owner && (
-                <SettingsTab project={project} onUpdated={(changes) => patch((p) => ({ ...p, ...changes }))} onDeleted={() => navigate("/projects", { replace: true })} />
+                <SettingsTab project={project} onUpdated={(changes) => patch((p) => ({ ...p, ...changes }))} onDeleted={() => navigate("/code/projects", { replace: true })} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -425,7 +425,7 @@ const ProjectDetailPage: React.FC = () => {
 
 const BackLink: React.FC = () => (
   <Link
-    to="/projects"
+    to="/code/projects"
     className="inline-flex items-center gap-2 rounded-full border border-gray-200/50 bg-white/80 px-3 py-2 text-xs font-medium text-text-secondary-light shadow-sm transition hover:bg-white hover:text-gray-900 hover:shadow-md dark:border-gray-700/50 dark:bg-gray-800/80 dark:text-text-secondary-dark dark:hover:bg-gray-800 dark:hover:text-white"
   >
     <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Projects

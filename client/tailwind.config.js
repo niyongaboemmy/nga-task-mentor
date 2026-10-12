@@ -3,7 +3,22 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
+      // Stacking order (CODE_RUNNER_PLAN.md §6.4): use these, not ad-hoc values.
+      zIndex: {
+        sticky: "10",
+        dropdown: "30",
+        drawer: "40",
+        modal: "50",
+        toast: "60",
+        tooltip: "70",
+      },
       colors: {
+        // Brand colour for primary actions (was blue-600 written by hand).
+        primary: {
+          DEFAULT: "#2563eb",
+          hover: "#1d4ed8",
+          soft: "#eff6ff",
+        },
         // Shared with MIS (nga_central_mis/frontend) for cross-app visual parity
         background: {
           light: "#ffffff",

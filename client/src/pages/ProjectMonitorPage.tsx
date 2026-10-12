@@ -315,7 +315,7 @@ const MonitorCard: React.FC<{ entry: MonitorEntry; now: number }> = ({ entry: e,
             {e.user?.name ?? `Student #${e.user_id}`}
             <LiveDot live={isLive} />
           </p>
-          <Link to={`/projects/${e.project.id}`} className="block truncate text-xs font-medium text-blue-600 hover:underline dark:text-blue-400">
+          <Link to={`/code/projects/${e.project.id}`} className="block truncate text-xs font-medium text-blue-600 hover:underline dark:text-blue-400">
             {e.project.name}
           </Link>
         </div>

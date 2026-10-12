@@ -30,7 +30,7 @@ const POLL_MS = 30_000;
 
 /** Where "View code" goes: the submitted revision, else the latest save. */
 export const workspaceCodeHref = (row: Pick<WorkspaceRow, "project_id" | "revision_id">): string | null =>
-  row.project_id ? `/projects/${row.project_id}?tab=files${row.revision_id ? `&rev=${row.revision_id}` : ""}` : null;
+  row.project_id ? `/code/projects/${row.project_id}?tab=files${row.revision_id ? `&rev=${row.revision_id}` : ""}` : null;
 
 const TmcodeWorkspacesPanel: React.FC<{
   assignmentId: number;

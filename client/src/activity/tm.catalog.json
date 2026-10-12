@@ -54,14 +54,15 @@
     { "key": "tm.grades.subject_report", "label": "Subject assessment report", "module": "Grades", "patterns": ["/grades/subjects/:courseId/report"] },
     { "key": "tm.grades.marks", "label": "Entering marks", "module": "Grades", "patterns": ["/grades/:assessmentId/marks"] },
 
-    { "key": "tm.projects", "label": "Projects", "module": "Projects", "patterns": ["/projects"] },
-    { "key": "tm.project", "label": "Project details", "module": "Projects", "patterns": ["/projects/:id"] },
-    { "key": "tm.projects.monitor", "label": "Project monitor", "module": "Projects", "patterns": ["/projects/monitor"] },
+    { "key": "tm.projects", "label": "Projects", "module": "Projects", "patterns": ["/code/projects", "/code", "/projects"] },
+    { "key": "tm.project", "label": "Project details", "module": "Projects", "patterns": ["/code/projects/:id", "/projects/:id"] },
+    { "key": "tm.projects.monitor", "label": "Live coding", "module": "Projects", "patterns": ["/code/live", "/projects/monitor"] },
     { "key": "tm.grading.practical", "label": "Practical grading", "module": "Projects", "patterns": ["/grading/practical/:type/:id"] },
 
     { "key": "tm.admin.blooms", "label": "Bloom's taxonomy", "module": "Administration", "patterns": ["/admin/blooms-taxonomy"] },
     { "key": "tm.admin.database", "label": "Database management", "module": "Administration", "patterns": ["/admin/database-management"] },
     { "key": "tm.admin.roles", "label": "Roles & permissions", "module": "Administration", "patterns": ["/admin/roles-permissions"] },
+    { "key": "tm.grading.inbox", "label": "To grade", "module": "Grading", "patterns": ["/grading"] },
     { "key": "tm.admin.code_runner", "label": "Code runner", "module": "Administration", "patterns": ["/admin/code-runner"] },
 
     { "key": "tm.quiz.submit", "label": "Quiz submitted", "module": "Quizzes", "event": true, "key_event": true },

@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Cpu, RefreshCw, XCircle } from "lucide-rea
 import api from "../../utils/axiosConfig";
 import { Button } from "../../components/ui/Button";
 import { Skeleton } from "../../components/ui/Skeleton";
+import PageHeader from "../../components/ui/PageHeader";
 
 /**
  * Admin → Code runner: which engine runs students' code, whether it is
@@ -115,27 +116,23 @@ const CodeRunnerPage: React.FC = () => {
 
   return (
     <div className="space-y-6" data-testid="code-runner-page">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">Admin</p>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-text-primary-light dark:text-text-primary-dark md:text-2xl">
-            <Cpu className="h-6 w-6 text-blue-600" aria-hidden="true" /> Code runner
-          </h1>
-          <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Runs students' code for quizzes, assignments and grading.
-            {status && ` Checked ${fmtTime(status.checked_at)}.`}
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => void load()}
-          disabled={loading}
-          icon={<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />}
-        >
-          Refresh
-        </Button>
-      </header>
+      <PageHeader
+        breadcrumb={[{ label: "Admin" }, { label: "Code runner" }]}
+        title="Code runner"
+        icon={<Cpu className="h-6 w-6 text-primary" aria-hidden="true" />}
+        description={<>Runs students' code for quizzes, assignments and grading.{status && ` Checked ${fmtTime(status.checked_at)}.`}</>}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void load()}
+            disabled={loading}
+            icon={<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />}
+          >
+            Refresh
+          </Button>
+        }
+      />
 
       {error && (
         <p className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200" role="alert">

@@ -217,7 +217,7 @@ const WorkspaceSteps: React.FC<{ data: AssignmentDetail; fileCount: number }> = 
       title: done.started ? "Project ready" : "Start in TMCode",
       body: done.started ? (
         my?.project_id ? (
-          <Link to={`/projects/${my.project_id}`} className="font-semibold text-blue-700 hover:underline dark:text-blue-300">
+          <Link to={`/code/projects/${my.project_id}`} className="font-semibold text-blue-700 hover:underline dark:text-blue-300">
             Open your project
           </Link>
         ) : (

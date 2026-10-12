@@ -190,7 +190,7 @@ const ProjectsPage: React.FC = () => {
         <div className="flex flex-wrap items-center gap-2">
           {can("PROJECTS_MONITOR") && (
             <Link
-              to="/projects/monitor"
+              to="/code/live"
               className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 px-3 py-2.5 text-sm font-medium text-slate-600 hover:bg-gray-50 dark:border-gray-700 dark:text-slate-300 dark:hover:bg-gray-800"
             >
               <Radio className="h-4 w-4" aria-hidden="true" /> Monitor
@@ -393,7 +393,7 @@ const ProjectsPage: React.FC = () => {
         onClose={() => setNewOpen(false)}
         onCreated={(p) => {
           setNewOpen(false);
-          navigate(`/projects/${p.id}`);
+          navigate(`/code/projects/${p.id}`);
         }}
       />
     </div>
@@ -472,7 +472,7 @@ const ProjectCard: React.FC<{ project: ProjectSummary; showOwner: boolean }> = (
       transition={{ duration: 0.18 }}
     >
       <Link
-        to={`/projects/${p.id}`}
+        to={`/code/projects/${p.id}`}
         className="group flex h-full flex-col rounded-2xl border border-gray-200/70 bg-card-light p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 dark:border-border-dark/30 dark:bg-card-dark/30 dark:hover:border-blue-800"
         aria-label={`${p.name}${live ? ", open in TMCode now" : ""}`}
       >
@@ -562,13 +562,13 @@ const ProjectTable: React.FC<{ projects: ProjectSummary[]; showOwner: boolean }>
                 <tr
                   key={p.id}
                   className="cursor-pointer transition hover:bg-blue-50/40 dark:hover:bg-blue-900/10"
-                  onClick={() => navigate(`/projects/${p.id}`)}
+                  onClick={() => navigate(`/code/projects/${p.id}`)}
                 >
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2.5">
                       <LiveDot live={live} />
                       <Link
-                        to={`/projects/${p.id}`}
+                        to={`/code/projects/${p.id}`}
                         onClick={(e) => e.stopPropagation()}
                         className="font-semibold text-text-primary-light hover:text-blue-700 focus:outline-none focus-visible:underline dark:text-text-primary-dark dark:hover:text-blue-300"
                       >

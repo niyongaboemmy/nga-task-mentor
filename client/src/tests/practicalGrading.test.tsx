@@ -387,7 +387,7 @@ describe("PracticalGradingPage", () => {
     const brief = await screen.findByTestId("details-brief");
     expect(within(brief).getByText("Use semantic tags.")).toBeInTheDocument();
     expect(within(brief).getByRole("link", { name: /design.pdf/ })).toHaveAttribute("href", "https://files.test/design.pdf");
-    expect(within(brief).getByRole("link", { name: /Starter files/ })).toHaveAttribute("href", "/projects/9");
+    expect(within(brief).getByRole("link", { name: /Starter files/ })).toHaveAttribute("href", "/code/projects/9");
     expect(within(screen.getByTestId("details-rubric")).getByText("Semantic HTML")).toBeInTheDocument();
     const checks = await screen.findByTestId("details-checks");
     await waitFor(() => expect(checks).toHaveTextContent("Late by 2 h"));
@@ -486,7 +486,7 @@ describe("TmcodePracticalQuestion", () => {
 
   it("shows the submitted revision in review", () => {
     mount({ readOnlyReview: true, answer: { project_id: 101, link_id: 201, revision_id: 302, revision_number: 2 } });
-    expect(screen.getByRole("link", { name: "View the code" })).toHaveAttribute("href", "/projects/101?tab=files&rev=302");
+    expect(screen.getByRole("link", { name: "View the code" })).toHaveAttribute("href", "/code/projects/101?tab=files&rev=302");
     expect(projects.list).not.toHaveBeenCalled();
   });
 });

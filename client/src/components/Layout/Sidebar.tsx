@@ -6,6 +6,7 @@ import AcademicPeriodSwitcher from "./AcademicPeriodSwitcher";
 import { useAuth } from "../../contexts/AuthContext";
 import { usePermissions } from "../../hooks/usePermissions";
 import { appRoutes, type NavItemConfig } from "../../routes/routeConfig";
+import { useToGradeCount } from "../../hooks/useToGradeCount";
 
 const GROUP_ORDER: NavItemConfig["group"][] = ["General", "Teaching", "Admin"];
 const COLLAPSE_STORAGE_KEY = "tm_sidebar_collapsed";
@@ -44,6 +45,9 @@ interface SidebarContentProps {
 const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onNavigate }) => {
   const location = useLocation();
   const groups = useVisibleNavGroups();
+  const hasToGrade = groups.some((g) => g.items.some((i) => i.navItem.badge === "to_grade"));
+  const toGrade = useToGradeCount(hasToGrade);
+  const badgeOf = (item: NavItemConfig) => (item.badge === "to_grade" && toGrade ? toGrade : 0);
   // A deeper item (e.g. /projects/monitor) wins over its parent (/projects).
   const allPaths = groups.flatMap((g) => g.items.map((i) => i.path));
   const matches = (path: string) =>
@@ -64,12 +68,13 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onNavigate }
             {items.map(({ path, navItem }) => {
               const Icon = navItem.icon;
               const isCurrent = matches(path) && !shadowedByDeeper(path);
+              const badge = badgeOf(navItem);
               return (
                 <Link
                   key={path}
                   to={path}
                   onClick={onNavigate}
-                  title={collapsed ? navItem.label : undefined}
+                  title={collapsed ? (badge ? `${navItem.label} (${badge})` : navItem.label) : undefined}
                   aria-current={isCurrent ? "page" : undefined}
                   className={`group flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm transition-all duration-150 ${
                     isCurrent
@@ -77,9 +82,18 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onNavigate }
                       : "font-light text-text-secondary-light dark:text-text-secondary-dark/70 hover:bg-surface-light dark:hover:bg-surface-dark hover:text-text-primary-light dark:hover:text-text-primary-dark"
                   } ${collapsed ? "justify-center" : ""}`}
                 >
-                  <motion.span whileHover={{ x: collapsed ? 0 : 2 }} className="flex items-center gap-2.5">
+                  <motion.span whileHover={{ x: collapsed ? 0 : 2 }} className="relative flex flex-1 items-center gap-2.5">
                     <Icon className={`${collapsed ? "w-[18px] h-[18px]" : "w-4 h-4"} shrink-0`} strokeWidth={1.75} />
-                    {!collapsed && <span>{navItem.label}</span>}
+                    {!collapsed && <span className="flex-1">{navItem.label}</span>}
+                    {badge > 0 && (
+                      <span
+                        className={`rounded-full bg-amber-500 px-1.5 text-[10px] font-bold leading-4 text-white ${collapsed ? "absolute -right-2.5 -top-2" : ""}`}
+                        aria-label={`${badge} to grade`}
+                        data-testid="nav-badge"
+                      >
+                        {badge > 99 ? "99+" : badge}
+                      </span>
+                    )}
                   </motion.span>
                 </Link>
               );

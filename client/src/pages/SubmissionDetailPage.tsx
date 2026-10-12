@@ -207,7 +207,7 @@ function renderAnswer(
       <span className="flex flex-wrap items-center gap-2">
         <span>Submitted project{a.revision_number ? ` · revision #${a.revision_number}` : ""}</span>
         <Link
-          to={`/projects/${a.project_id}${a.revision_id ? `?tab=files&rev=${a.revision_id}` : ""}`}
+          to={`/code/projects/${a.project_id}${a.revision_id ? `?tab=files&rev=${a.revision_id}` : ""}`}
           className="font-semibold text-blue-700 hover:underline dark:text-blue-300"
         >
           View the code

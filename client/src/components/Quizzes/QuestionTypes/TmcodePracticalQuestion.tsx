@@ -182,7 +182,7 @@ export const TmcodePracticalQuestion: React.FC<QuestionComponentProps> = ({
               <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />
               Submitted project{submitted.revision_number ? ` (revision #${submitted.revision_number})` : ""}.
               <Link
-                to={`/projects/${submitted.project_id}${submitted.revision_id ? `?tab=files&rev=${submitted.revision_id}` : ""}`}
+                to={`/code/projects/${submitted.project_id}${submitted.revision_id ? `?tab=files&rev=${submitted.revision_id}` : ""}`}
                 className="font-semibold text-blue-700 hover:underline dark:text-blue-300"
               >
                 View the code
@@ -263,7 +263,7 @@ export const TmcodePracticalQuestion: React.FC<QuestionComponentProps> = ({
                   Withdraw to keep editing
                 </button>
               ) : null}
-              <Link to={`/projects/${project.id}`} className="text-xs font-semibold text-blue-700 hover:underline dark:text-blue-300">
+              <Link to={`/code/projects/${project.id}`} className="text-xs font-semibold text-blue-700 hover:underline dark:text-blue-300">
                 Open the project page
               </Link>
             </div>

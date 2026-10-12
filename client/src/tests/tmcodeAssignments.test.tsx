@@ -112,8 +112,8 @@ describe("helpers", () => {
   });
 
   it("links a workspace row to its submitted revision", () => {
-    expect(workspaceCodeHref({ project_id: 4, revision_id: 77 })).toBe("/projects/4?tab=files&rev=77");
-    expect(workspaceCodeHref({ project_id: 4, revision_id: null })).toBe("/projects/4?tab=files");
+    expect(workspaceCodeHref({ project_id: 4, revision_id: 77 })).toBe("/code/projects/4?tab=files&rev=77");
+    expect(workspaceCodeHref({ project_id: 4, revision_id: null })).toBe("/code/projects/4?tab=files");
     expect(workspaceCodeHref({ project_id: null, revision_id: null })).toBeNull();
   });
 });
@@ -456,7 +456,7 @@ describe("teacher Workspaces panel", () => {
     const bo = rows.find((r) => r.textContent?.includes("Bo Private"))!;
     expect(bo).toHaveTextContent("Live status not shared");
     expect(within(bo).queryByRole("img", { name: /TMCode/ })).toBeNull();
-    expect(within(bo).getByRole("link", { name: /Code at rev 3/ })).toHaveAttribute("href", "/projects/12?tab=files&rev=77");
+    expect(within(bo).getByRole("link", { name: /Code at rev 3/ })).toHaveAttribute("href", "/code/projects/12?tab=files&rev=77");
     // A submitted project is graded against the criteria in the grading workspace.
     expect(within(bo).getByRole("link", { name: "Grade" })).toHaveAttribute("href", "/grading/practical/assignment/77?student=2");
     expect(screen.getByTestId("open-grading-workspace")).toHaveAttribute("href", "/grading/practical/assignment/77");

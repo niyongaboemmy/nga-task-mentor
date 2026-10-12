@@ -217,7 +217,7 @@ const TmcodePracticalSection: React.FC<{
               <div>
                 <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">Starter files</p>
-                  <Link to="/projects" target="_blank" className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400">
+                  <Link to="/code/projects" target="_blank" className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400">
                     Manage projects
                   </Link>
                 </div>

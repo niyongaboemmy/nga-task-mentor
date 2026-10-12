@@ -232,8 +232,8 @@ test.describe("Teacher: TMCode practical in the assignment form", () => {
     const section = page.getByTestId("tmcode-section");
     await section.scrollIntoViewIfNeeded();
     await shot(page, "form-tmcode-off", false);
-    await section.getByRole("radio", { name: /Practical/ }).click();
-    await expect(page.getByRole("radio", { name: /TMCode project/ })).toHaveAttribute("aria-checked", "true");
+    await section.getByRole("radio", { name: /Code assignment/ }).click();
+    await expect(page.getByRole("radio", { name: /Code project/ })).toHaveAttribute("aria-checked", "true");
 
     const starter = section.getByTestId("starter-1");
     await expect(starter).toContainText("Sorting algorithms");
@@ -314,17 +314,17 @@ test.describe("Teacher: Workspaces", () => {
     await expect(rows.filter({ hasText: "Grace Uwase" })).toContainText("Live status not shared");
     await expect(rows.filter({ hasText: "Grace Uwase" }).getByRole("link", { name: /Code at rev 3/ })).toHaveAttribute(
       "href",
-      "/taskmentor/projects/6?tab=files&rev=9003",
+      "/taskmentor/code/projects/6?tab=files&rev=9003",
     );
     await expect(rows.filter({ hasText: "Patrick Nshuti" })).toContainText("hasn't signed in");
     await shot(page, "teacher-workspaces");
 
-    await rows.filter({ hasText: "Grace Uwase" }).getByRole("button", { name: "Grade" }).click();
-    await expect(page.getByRole("dialog").or(page.locator("[role=dialog], .fixed.inset-0")).first()).toBeVisible();
-    await expect(page.getByText(/revision #3/).first()).toBeVisible();
-    await shot(page, "teacher-grade-dialog", false);
+    // Grading opens on the student's submitted work (one place to grade).
+    await expect(rows.filter({ hasText: "Grace Uwase" }).getByRole("link", { name: /^(Grade|Regrade)$/ })).toHaveAttribute(
+      "href",
+      /\/grading\/practical\/assignment\/\d+\?student=\d+/,
+    );
 
-    await page.keyboard.press("Escape");
     await panel.getByRole("radio", { name: /To grade/ }).click();
     await expect(rows).toHaveCount(1);
   });
@@ -333,8 +333,8 @@ test.describe("Teacher: Workspaces", () => {
 test.describe("Workspace project", () => {
   test("Share live status is locked on while the assignment is open", async ({ page }) => {
     const calls = await setup(page, "student");
-    await go(page, "/projects/5?tab=settings");
-    await expect(page.getByTestId("assignment-badge")).toContainText("Practical");
+    await go(page, "/code/projects/5?tab=settings");
+    await expect(page.getByTestId("assignment-badge")).toContainText("Code assignment");
     const sw = page.getByRole("switch", { name: "Share live status" });
     await expect(sw).toHaveAttribute("aria-checked", "true");
     await expect(sw).toHaveAttribute("aria-disabled", "true");
@@ -346,7 +346,7 @@ test.describe("Workspace project", () => {
 
   test("completed: read-only banner, and sharing can be turned off", async ({ page }) => {
     const calls = await setup(page, "student", { readOnly: true });
-    await go(page, "/projects/5?tab=settings");
+    await go(page, "/code/projects/5?tab=settings");
     await expect(page.getByTestId("read-only-banner")).toBeVisible();
     const sw = page.getByRole("switch", { name: "Share live status" });
     await sw.click();
