@@ -2,11 +2,13 @@ import React, { useState, useMemo, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch, shallowEqual } from "react-redux";
 import { motion } from "framer-motion";
-import { BookOpen } from "lucide-react";
+import { ArrowRight, ClipboardList, Gauge, LayoutGrid, List, PenLine, Search } from "lucide-react";
 import { usePermissions } from "../../hooks/usePermissions";
-import CourseCard from "./CourseCard";
+import SubjectIcon from "./subjectIcons";
 import type { RootState, AppDispatch } from "../../store";
+import type { Course } from "../../types/course.types";
 import { fetchCourses } from "../../store/slices/courseSlice";
+import { getStudentOverview, type StudentSubjectSummary } from "../../services/studentOverviewApi";
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -31,6 +33,23 @@ const itemVariants = {
   },
 };
 
+// Grid by default, like the MIS's My Subjects; the choice is remembered.
+const VIEW_KEY = "tm.courses.view";
+type View = "grid" | "list";
+const readView = (): View => {
+  try {
+    return localStorage.getItem(VIEW_KEY) === "list" ? "list" : "grid";
+  } catch {
+    return "grid";
+  }
+};
+
+const ink = {
+  primary: "text-text-primary-light dark:text-text-primary-dark",
+  secondary: "text-text-secondary-light dark:text-text-secondary-dark",
+  muted: "text-text-secondary-light/70 dark:text-text-secondary-dark/60",
+};
+
 const Courses: React.FC = () => {
   const { can } = usePermissions();
   const isCourseManager = can("COURSES_VIEW_STUDENTS");
@@ -38,6 +57,11 @@ const Courses: React.FC = () => {
   const dispatch = useDispatch<AppDispatch>();
   const [filter, _setFilter] = useState<"all" | "enrolled" | "teaching">("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const [view, setView] = useState<View>(readView);
+  // A student's own numbers per subject (work set, to do, average). Optional:
+  // the grid still renders without them.
+  const isStudent = !isCourseManager && can("SUBMISSIONS_CREATE");
+  const [summaries, setSummaries] = useState<Map<number, StudentSubjectSummary>>(new Map());
 
   // Get courses from Redux store with defensive checks
   const { courses, loading, error } = useSelector(
@@ -57,6 +81,28 @@ const Courses: React.FC = () => {
       dispatch(fetchCourses());
     }
   }, [courses.length, loading, error, dispatch]);
+
+  useEffect(() => {
+    if (!isStudent) return;
+    let cancelled = false;
+    getStudentOverview()
+      .then((o) => {
+        if (!cancelled) setSummaries(new Map(o.subjects.map((s) => [s.subject_id, s])));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [isStudent]);
+
+  const chooseView = (v: View) => {
+    setView(v);
+    try {
+      localStorage.setItem(VIEW_KEY, v);
+    } catch {
+      // Private mode: the choice just isn't remembered.
+    }
+  };
 
   // Filter courses based on search query
   const filteredCourses = useMemo(() => {
@@ -91,6 +137,9 @@ const Courses: React.FC = () => {
     );
   }
 
+  const withWork = [...summaries.values()].filter((x) => x.total > 0).length;
+  const open = (course: Course) => navigate(`/courses/${course.id}`, { state: { course } });
+
   return (
     <motion.div
       className="space-y-4 md:space-y-6"
@@ -99,82 +148,70 @@ const Courses: React.FC = () => {
       animate="visible"
     >
       {/* Header */}
-      <motion.div
-        variants={itemVariants}
-        className="bg-card-light dark:bg-card-dark/30 rounded-2xl shadow-sm border border-white dark:border-border-dark/30 px-4 md:px-6 py-4 md:py-5"
-      >
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-blue-100 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 flex items-center justify-center">
-              <BookOpen className="w-6 h-6 md:w-7 md:h-7" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">
-                Courses
-              </h1>
-              <p className="text-text-secondary-light dark:text-text-secondary-dark text-sm mt-1">
-                {!isCourseManager
-                  ? "Your enrolled courses"
-                  : filter === "all"
-                    ? "All available courses"
-                    : filter === "enrolled"
-                      ? "Courses you're enrolled in"
-                      : "Courses you're teaching"}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 md:gap-3">
-            <span className="px-3 py-1 rounded-full text-xs font-medium bg-surface-light dark:bg-surface-dark text-text-secondary-light dark:text-text-secondary-dark">
-              {courses.length} course{courses.length === 1 ? "" : "s"}
-            </span>
-          </div>
+      <motion.div variants={itemVariants} className="space-y-4">
+        <div>
+          <h1 className={`text-2xl sm:text-3xl font-bold tracking-tight ${ink.primary}`}>
+            Courses
+          </h1>
+          <p className={`mt-1 text-sm ${ink.secondary}`}>
+            <span className={`font-semibold ${ink.primary}`}>{courses.length}</span>{" "}
+            {!isCourseManager
+              ? `subject${courses.length === 1 ? "" : "s"} this term`
+              : filter === "all"
+                ? `course${courses.length === 1 ? "" : "s"} available`
+                : filter === "enrolled"
+                  ? `course${courses.length === 1 ? "" : "s"} you're enrolled in`
+                  : `course${courses.length === 1 ? "" : "s"} you're teaching`}
+            {isStudent && summaries.size > 0 && (
+              <>
+                {" · "}
+                <span className={`font-semibold ${ink.primary}`}>{withWork}</span> with work set
+              </>
+            )}
+          </p>
         </div>
 
-        {/* Search Input */}
-        <div className="relative mt-4">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <svg
-              className="h-5 w-5 text-text-secondary-light dark:text-text-secondary-dark/60"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 ${ink.muted}`} aria-hidden />
+            <input
+              type="text"
+              aria-label="Search subjects"
+              placeholder="Search subjects by name or code…"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="block w-full pl-10 pr-4 py-2.5 text-sm rounded-full bg-card-light dark:bg-card-dark/30 border border-border-light dark:border-border-dark/40 placeholder-text-secondary-light dark:placeholder-text-secondary-dark/60 text-text-primary-light dark:text-text-primary-dark focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500"
+            />
           </div>
-          <input
-            type="text"
-            placeholder="Search courses by title, code, or description..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="block w-full font-normal pl-10 pr-3 py-2.5 text-sm rounded-2xl leading-5 bg-surface-light dark:bg-surface-dark/50 placeholder-text-secondary-light dark:placeholder-text-secondary-dark/60 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-text-primary-light dark:text-text-primary-dark border border-transparent"
-          />
+          <div role="group" aria-label="Layout" className="inline-flex items-center gap-1">
+            {[
+              { key: "grid" as const, Icon: LayoutGrid, label: "Grid view" },
+              { key: "list" as const, Icon: List, label: "List view" },
+            ].map(({ key, Icon, label }) => (
+              <button
+                key={key}
+                type="button"
+                aria-label={label}
+                aria-pressed={view === key}
+                onClick={() => chooseView(key)}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${
+                  view === key
+                    ? "bg-card-light dark:bg-card-dark/40 shadow-sm text-blue-600 dark:text-blue-400"
+                    : `${ink.secondary} hover:text-blue-600 dark:hover:text-blue-400`
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+              </button>
+            ))}
+          </div>
         </div>
       </motion.div>
 
-      {/* Courses List */}
-      <motion.div variants={itemVariants} className="space-y-2 md:space-y-2.5">
+      {/* Courses */}
+      <motion.div variants={itemVariants}>
         {filteredCourses.length === 0 ? (
           <div className="text-center py-12 bg-card-light dark:bg-card-dark/30 border border-dashed border-border-light dark:border-border-dark/50 rounded-2xl">
-            <svg
-              className="mx-auto h-14 w-14 text-text-secondary-light dark:text-text-secondary-dark/50"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-              />
-            </svg>
+            <Search className="mx-auto h-12 w-12 text-text-secondary-light dark:text-text-secondary-dark/50" aria-hidden />
             <h3 className="mt-3 text-lg font-semibold text-text-primary-light dark:text-text-primary-dark">
               {courses.length === 0
                 ? "No courses found"
@@ -192,27 +229,124 @@ const Courses: React.FC = () => {
                 : "Try adjusting your search terms or filters."}
             </p>
           </div>
+        ) : view === "grid" ? (
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+            {filteredCourses.map((course) => (
+              <SubjectCard key={course.id} course={course} summary={summaries.get(course.id)} onOpen={() => open(course)} />
+            ))}
+          </div>
         ) : (
-          filteredCourses.map((course) => (
-            <motion.div
-              key={course.id}
-              variants={itemVariants}
-              layout
-              className="will-change-transform"
-            >
-              <CourseCard
-                course={course}
-                compact={true}
-                onClick={() =>
-                  navigate(`/courses/${course.id}`, { state: { course } })
-                }
-              />
-            </motion.div>
-          ))
+          <div className="bg-card-light dark:bg-card-dark/30 rounded-2xl border border-white dark:border-border-dark/30 shadow-sm divide-y divide-border-light dark:divide-border-dark/30 overflow-hidden">
+            {filteredCourses.map((course) => (
+              <SubjectRow key={course.id} course={course} summary={summaries.get(course.id)} onOpen={() => open(course)} />
+            ))}
+          </div>
         )}
       </motion.div>
     </motion.div>
   );
 };
+
+// ─── Subject card / row ───────────────────────────────────────────────────────
+
+const SubjectTile: React.FC<{ name: string }> = ({ name }) => (
+  <span className="w-9 h-9 shrink-0 rounded-xl flex items-center justify-center bg-blue-50 text-blue-600 dark:bg-blue-900/25 dark:text-blue-300">
+    <SubjectIcon name={name} className="w-4 h-4" />
+  </span>
+);
+
+const Chips: React.FC<{ course: Course }> = ({ course }) => (
+  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+    {course.code && (
+      <span className="rounded-md bg-surface-light dark:bg-white/[0.08] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-text-secondary-light dark:text-text-secondary-dark">
+        {course.code}
+      </span>
+    )}
+    {course.credits != null && (
+      <span className="rounded-full bg-blue-50 dark:bg-blue-900/25 px-2 py-0.5 text-[10px] font-semibold text-blue-700 dark:text-blue-300">
+        {course.credits} credit{course.credits === 1 ? "" : "s"}
+      </span>
+    )}
+  </div>
+);
+
+/** One fact with its icon — reads as data, not decoration. */
+const Metric: React.FC<{ icon: React.ReactNode; value: React.ReactNode; label: string; alert?: boolean }> = ({ icon, value, label, alert }) => (
+  <span className={`inline-flex items-center gap-1 text-xs ${alert ? "text-amber-600 dark:text-amber-400" : ink.secondary}`}>
+    <span className={alert ? "" : ink.muted}>{icon}</span>
+    <span className={`font-semibold tabular-nums ${alert ? "" : ink.primary}`}>{value}</span>
+    {label}
+  </span>
+);
+
+const Metrics: React.FC<{ course: Course; summary?: StudentSubjectSummary }> = ({ course, summary }) =>
+  summary ? (
+    <>
+      <Metric icon={<ClipboardList className="w-3.5 h-3.5" />} value={summary.total} label={summary.total === 1 ? "task" : "tasks"} />
+      <Metric
+        icon={<PenLine className="w-3.5 h-3.5" />}
+        value={summary.missed || summary.todo}
+        label={summary.missed ? "missed" : "to do"}
+        alert={summary.missed > 0}
+      />
+      <Metric
+        icon={<Gauge className="w-3.5 h-3.5" />}
+        value={summary.recent_average != null ? `${Math.round(summary.recent_average)}%` : "—"}
+        label="average"
+      />
+    </>
+  ) : course.instructor ? (
+    <span className={`text-xs truncate ${ink.secondary}`}>
+      {course.instructor.first_name} {course.instructor.last_name}
+    </span>
+  ) : null;
+
+const SubjectCard: React.FC<{ course: Course; summary?: StudentSubjectSummary; onOpen: () => void }> = ({ course, summary, onOpen }) => (
+  <motion.button
+    type="button"
+    layout
+    variants={itemVariants}
+    onClick={onOpen}
+    aria-label={`Open ${course.title}`}
+    className="group flex h-full flex-col text-left p-4 rounded-2xl bg-card-light dark:bg-card-dark/30 border border-white dark:border-border-dark/30 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+  >
+    <div className="mb-3 flex items-start gap-3">
+      <SubjectTile name={course.title} />
+      <div className="min-w-0 flex-1">
+        <h3 className={`line-clamp-2 text-[15px] font-semibold leading-snug ${ink.primary}`}>{course.title}</h3>
+        <Chips course={course} />
+      </div>
+      {!!summary?.todo && (
+        <span className="shrink-0 rounded-full bg-blue-600 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+          {summary.todo} due
+        </span>
+      )}
+    </div>
+    {course.description && <p className={`line-clamp-2 text-xs leading-relaxed ${ink.secondary}`}>{course.description}</p>}
+    <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1.5 border-t border-border-light dark:border-border-dark/30 pt-3">
+      <Metrics course={course} summary={summary} />
+      <ArrowRight className="ml-auto w-4 h-4 text-text-secondary-light/50 transition-all group-hover:translate-x-0.5 group-hover:text-blue-600" />
+    </div>
+  </motion.button>
+);
+
+const SubjectRow: React.FC<{ course: Course; summary?: StudentSubjectSummary; onOpen: () => void }> = ({ course, summary, onOpen }) => (
+  <button
+    type="button"
+    onClick={onOpen}
+    aria-label={`Open ${course.title}`}
+    className="group flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-surface-light dark:hover:bg-surface-dark/40 focus:outline-none focus-visible:bg-surface-light"
+  >
+    <SubjectTile name={course.title} />
+    <div className="min-w-0 flex-1">
+      <p className={`truncate text-sm font-semibold ${ink.primary}`}>{course.title}</p>
+      <Chips course={course} />
+    </div>
+    <div className="hidden md:flex items-center gap-4">
+      <Metrics course={course} summary={summary} />
+    </div>
+    <ArrowRight className="w-4 h-4 text-text-secondary-light/50 transition-all group-hover:translate-x-0.5 group-hover:text-blue-600" />
+  </button>
+);
 
 export default React.memo(Courses);
