@@ -8,6 +8,7 @@ import FileTree from "./FileTree";
 import RunPanel, { type BottomTab, type RunState } from "./RunPanel";
 import InteractiveTerminal from "./InteractiveTerminal";
 import { interactiveAvailable, useInteractiveRun } from "./useInteractiveRun";
+import { BrowserCantRun, browserRuntime, runInBrowser } from "./browser/browserRun";
 import { firstFileToOpen, monacoLanguage } from "./languages";
 import { isHiddenFile, readIoTests } from "./tests";
 
@@ -156,7 +157,7 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
       }
       setState({ status: "running", kind });
       try {
-        const result = await run({
+        const body = {
           files: files.filter((f) => !isHiddenFile(f.path)),
           language: language ?? null,
           entry: io.entry ?? null,
@@ -164,13 +165,26 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
             kind === "tests"
               ? io.tests.map((t) => ({ id: t.id, input: t.input, expected_output: t.expected_output }))
               : [{ id: "own", input: stdin }],
-        });
+        };
+        let result;
+        // Practice runs of simple programs run in the browser: instant, no queue.
+        if (!customRun && browserRuntime(body.files, body.language, body.entry)) {
+          try {
+            result = await runInBrowser(body, (note) => setState((s) => ({ ...s, note: note ?? undefined })));
+          } catch (e) {
+            if (!(e instanceof BrowserCantRun)) throw e;
+            setState({ status: "running", kind });
+            result = await run(body);
+          }
+        } else {
+          result = await run(body);
+        }
         setState({ status: "done", kind, result });
       } catch (e) {
         setState({ status: "error", kind, error: runErrorMessage(e) });
       }
     },
-    [files, io, language, run, state.status, stdin, interactive, startTerm],
+    [files, io, language, run, state.status, stdin, interactive, startTerm, customRun],
   );
 
   useImperativeHandle(ref, () => ({ run: () => void doRun("output"), runTests: () => void doRun("tests") }), [doRun]);

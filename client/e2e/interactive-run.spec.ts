@@ -22,6 +22,7 @@ async function setup(page: Page, interactive: boolean) {
   await page.addInitScript(() => {
     sessionStorage.setItem("nga.installDismissedThisSession", "1");
     sessionStorage.setItem("nga.installPillHidden", "1");
+    localStorage.setItem("tm.code.browserRuns", "off");
     localStorage.removeItem("tm.playground.python");
   });
   await loginAs(page, "student");
