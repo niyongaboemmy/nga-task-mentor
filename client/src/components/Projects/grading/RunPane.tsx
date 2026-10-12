@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, ChevronDown, Clock, Cpu, Info, Loader2, Pl
 import { practicalsApi, type RunCaseResult, type RunResponse, type RunTargets, type RunVerdict } from "../../../services/practicalsApi";
 import { apiErrorCode, apiErrorMessage } from "../../../services/projectsApi";
 import Select from "../../ui/Select";
+import GradingUnitTests from "./GradingUnitTests";
 
 /**
  * The grading workspace's Run tab: runs a submitted program (C, C++, Java,
@@ -172,14 +173,17 @@ const RunPane: React.FC<{
   }
   if (!targets.languages.length) {
     return (
-      <Message
-        tone="info"
-        text={
-          targets.html_entry
-            ? "This is a web project: use the Preview tab to run it."
-            : "There's no program to run in this revision (no C, C++, Java, Python, JavaScript or TypeScript files found)."
-        }
-      />
+      <div className="flex h-full flex-col gap-3 overflow-y-auto">
+        <Message
+          tone="info"
+          text={
+            targets.html_entry
+              ? "This is a web project: use the Preview tab to run it."
+              : "There's no program to run in this revision (no C, C++, Java, Python, JavaScript or TypeScript files found)."
+          }
+        />
+        <GradingUnitTests projectId={projectId} revisionId={revisionId} studentName={studentName} />
+      </div>
     );
   }
   const byId = new Map((result?.tests ?? []).map((t) => [t.id, t]));
@@ -301,6 +305,9 @@ const RunPane: React.FC<{
           <p className="ml-auto flex items-center gap-1 text-[11px] text-slate-500">
             <Info className="h-3.5 w-3.5" /> The program reads the input as stdin; there's no live terminal. Your inputs are kept for every student.
           </p>
+        </div>
+        <div className="mt-4">
+          <GradingUnitTests projectId={projectId} revisionId={revisionId} studentName={studentName} />
         </div>
       </div>
     </div>

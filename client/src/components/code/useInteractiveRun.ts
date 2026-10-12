@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api, { API_BASE_URL } from "../../utils/axiosConfig";
-import type { CodeFile, RunVerdict } from "../../services/codeApi";
+import { codeApi, type CodeFile, type RunVerdict } from "../../services/codeApi";
 import { runErrorMessage } from "../../utils/runErrors";
 
 /**
@@ -19,15 +19,8 @@ export interface RunExit {
 }
 export type InteractiveStatus = "idle" | "starting" | "running" | "ended";
 
-let capability: Promise<boolean> | null = null;
 /** Whether this server runs programs interactively (asked once). */
-export function interactiveAvailable(): Promise<boolean> {
-  capability ??= api
-    .get("/code/capabilities")
-    .then((r) => !!r.data?.data?.interactive)
-    .catch(() => false);
-  return capability;
-}
+export const interactiveAvailable = () => codeApi.capabilities().then((c) => c.interactive);
 
 /** Parses an SSE byte stream into {event, data} messages. */
 async function* sse(body: ReadableStream<Uint8Array>) {
@@ -118,7 +111,7 @@ export function useInteractiveRun() {
       } catch (e) {
         const code = (e as { response?: { data?: { error_code?: string; code?: string } } })?.response?.data;
         if (code?.error_code === "INTERACTIVE_UNAVAILABLE" || code?.code === "INTERACTIVE_UNAVAILABLE") {
-          capability = Promise.resolve(false);
+          codeApi.withoutInteractive();
           setUnavailable(true);
           setError("Live runs aren't available right now: type the input in the box and press Run.");
         } else if ((e as Error)?.name !== "AbortError") setError(runErrorMessage(e, "The run couldn't be started."));

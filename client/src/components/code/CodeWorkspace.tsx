@@ -9,8 +9,9 @@ import RunPanel, { type BottomTab, type RunState } from "./RunPanel";
 import InteractiveTerminal from "./InteractiveTerminal";
 import { interactiveAvailable, useInteractiveRun } from "./useInteractiveRun";
 import { BrowserCantRun, browserRuntime, runInBrowser } from "./browser/browserRun";
-import { firstFileToOpen, monacoLanguage } from "./languages";
-import { isHiddenFile, readIoTests } from "./tests";
+import UnitTestsPanel from "./UnitTestsPanel";
+import { firstFileToOpen, guessLanguage, monacoLanguage } from "./languages";
+import { hasUnitTests, isHiddenFile, readIoTests } from "./tests";
 
 /**
  * The code workspace (CODE_RUNNER_PLAN.md §6.3): one layout wherever code is
@@ -90,6 +91,14 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   const [mobile, setMobile] = useState<"task" | "code" | "output">("code");
   // Interactive runs only with the standard runner (a custom `run` means a special context, e.g. grading).
   const [interactive, setInteractive] = useState(false);
+  const [unitLanguages, setUnitLanguages] = useState<string[]>([]);
+  const [unitSignal, setUnitSignal] = useState(0);
+  const unitHandled = useRef(0);
+  const takeUnitRequest = useCallback(() => {
+    if (unitHandled.current === unitSignal) return false;
+    unitHandled.current = unitSignal;
+    return true;
+  }, [unitSignal]);
   const term = useInteractiveRun();
   const startTerm = term.start;
   const customRun = run !== codeApi.run;
@@ -97,6 +106,7 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
     if (customRun) return;
     let live = true;
     void interactiveAvailable().then((ok) => live && setInteractive(ok));
+    void codeApi.capabilities().then((c) => live && setUnitLanguages(c.unit_test_languages));
     return () => {
       live = false;
     };
@@ -150,7 +160,10 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
       setTab(kind);
       setMobile("output");
       setLayout((l) => ({ ...l, bottom: true }));
-      if (kind === "tests" && io.tests.length === 0) return;
+      if (kind === "tests" && io.tests.length === 0) {
+        setUnitSignal((n) => n + 1);
+        return;
+      }
       if (kind === "output" && interactive) {
         void startTerm({ files: files.filter((f) => !isHiddenFile(f.path)), language: language ?? null, entry: io.entry ?? null });
         return;
@@ -334,6 +347,11 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
     </div>
   );
 
+  const projectLanguage = language || guessLanguage(visible.map((f) => f.path));
+  const filesRef = useRef(files);
+  filesRef.current = files;
+  const showUnit = !customRun && !!projectLanguage && unitLanguages.includes(projectLanguage) && hasUnitTests(visible);
+
   const results = (
     <RunPanel
       tab={tab}
@@ -346,6 +364,7 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
       onRunTests={() => void doRun("tests")}
       canRun={visible.length > 0}
       terminalBusy={term.status === "starting" || term.status === "running"}
+      unitTests={showUnit ? <UnitTestsPanel language={projectLanguage} runSignal={unitSignal} takeRunRequest={takeUnitRequest} getFiles={() => filesRef.current.filter((f) => !isHiddenFile(f.path))} /> : undefined}
       terminal={
         interactive ? (
           <InteractiveTerminal

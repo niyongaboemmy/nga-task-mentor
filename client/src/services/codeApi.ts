@@ -17,6 +17,7 @@ export type RunVerdict =
   | "memory-limit"
   | "output-limit"
   | "compile-error"
+  | "package-not-available"
   | "internal-error";
 
 export interface RunTestResult {
@@ -31,14 +32,56 @@ export interface RunTestResult {
   truncated?: boolean;
 }
 
+/** One unit test from the framework's report (pytest, JUnit, node:test, go test…). */
+export interface UnitTestCase {
+  id: string;
+  name: string;
+  group: string | null;
+  file: string | null;
+  line: number | null;
+  status: "passed" | "failed" | "skipped" | "error";
+  durationMs: number | null;
+  message: string | null;
+  details: string | null;
+}
+
+export interface UnitReport {
+  framework: string | null;
+  verdict: "passed" | "failed" | "error" | "time-limit" | "memory-limit" | "package-not-available" | "internal-error";
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  errors: number;
+  time_ms: number | null;
+  output: string;
+  truncated: boolean;
+  tests: UnitTestCase[];
+}
+
 export interface PracticeRunResult {
   engine: string;
   language: string;
-  entry: string;
+  entry: string | null;
+  /** The catalog project kind that ran ("java/maven"…), for projects. */
+  kind?: string | null;
   files_sent: string[];
   compile: { ok: boolean; output: string; time_ms?: number } | null;
   tests: RunTestResult[];
+  unit?: UnitReport | null;
+  /** A dependency the runner doesn't have (projects). */
+  error?: { code: string; manager?: string; package?: string | null; message: string } | null;
 }
+
+export interface CodeCapabilities {
+  /** Programs can run with a live terminal. */
+  interactive: boolean;
+  /** Unit tests run here, for these languages. */
+  unit_tests: boolean;
+  unit_test_languages: string[];
+}
+
+let capabilities: Promise<CodeCapabilities> | null = null;
 
 const RUN_TIMEOUT_MS = 150_000;
 
@@ -56,6 +99,33 @@ export const codeApi = {
   async languages(): Promise<{ key: string; label: string; engine: string | null }[]> {
     const res = await api.get("/code/languages");
     return res.data.data;
+  },
+
+  /** A project's unit tests (only on a runner that has them; see capabilities). */
+  async test(body: { files: CodeFile[]; language?: string | null; kind?: string | null; test_filter?: string | null }): Promise<PracticeRunResult> {
+    const res = await api.post("/code/test", body, { timeout: RUN_TIMEOUT_MS });
+    return res.data.data as PracticeRunResult;
+  },
+
+  /** What this server's runner can do (asked once per page load). */
+  capabilities(): Promise<CodeCapabilities> {
+    capabilities ??= api
+      .get("/code/capabilities")
+      .then((r) => ({
+        interactive: !!r.data?.data?.interactive,
+        unit_tests: !!r.data?.data?.unit_tests,
+        unit_test_languages: Array.isArray(r.data?.data?.unit_test_languages) ? r.data.data.unit_test_languages : [],
+      }))
+      .catch(() => {
+        capabilities = null;
+        return { interactive: false, unit_tests: false, unit_test_languages: [] };
+      });
+    return capabilities;
+  },
+
+  /** Forget a capability the server said is gone (e.g. interactive runs). */
+  withoutInteractive() {
+    capabilities = (capabilities ?? Promise.resolve({ interactive: false, unit_tests: false, unit_test_languages: [] })).then((c) => ({ ...c, interactive: false }));
   },
 };
 

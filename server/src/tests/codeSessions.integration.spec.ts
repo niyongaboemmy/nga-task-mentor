@@ -97,7 +97,7 @@ const files = [{ path: "main.py", content: 'print(f"Hello, {input(\'What is your
 describe("interactive runs", () => {
   it("reports whether interactive runs are available", async () => {
     const res = await as(token)(request(app).get("/api/code/capabilities"));
-    expect(res.body.data).toEqual({ interactive: true });
+    expect(res.body.data).toMatchObject({ interactive: true });
   });
 
   it("streams the program's output and passes the student's input to it", async () => {
@@ -147,7 +147,7 @@ describe("interactive runs", () => {
   it("keeps the batch Run when the runner is older and has no sessions", async () => {
     runnerFeatures = [];
     const caps = await as(token)(request(app).get("/api/code/capabilities"));
-    expect(caps.body.data).toEqual({ interactive: false });
+    expect(caps.body.data).toMatchObject({ interactive: false });
     const res = await as(token)(request(app).post("/api/code/sessions")).send({ language: "python", files });
     expect(res.status).toBe(409);
     expect(res.body.code).toBe("INTERACTIVE_UNAVAILABLE");

@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { z } from "zod";
+import { judgeInfo, refreshJudgeInfo } from "../services/coderunner/judgeInfo";
 import { getSession, openEvents, sendInput, SessionError, sessionsReady, startSession, stopSession } from "../services/coderunner/sessions";
 
 /**
@@ -23,7 +24,17 @@ const startSchema = z.object({
 // @desc    Whether this server can run programs interactively
 // @route   GET /api/code/capabilities
 export const codeCapabilities = async (_req: Request, res: Response) => {
-  res.json({ success: true, data: { interactive: await sessionsReady() } });
+  const interactive = await sessionsReady();
+  await refreshJudgeInfoIfEmpty();
+  const info = judgeInfo();
+  const unitTestLanguages = info.features.has("projects")
+    ? [...new Set([...info.kinds.values()].filter((k) => k.actions.includes("test")).map((k) => k.language))]
+    : [];
+  res.json({ success: true, data: { interactive, unit_tests: unitTestLanguages.length > 0, unit_test_languages: unitTestLanguages } });
+};
+
+const refreshJudgeInfoIfEmpty = async () => {
+  if (process.env.CODERUNNER_ENGINE === "tmjudge" && !judgeInfo().at) await refreshJudgeInfo();
 };
 
 // @desc    Start an interactive run (one per person; a new one stops the old)
