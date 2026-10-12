@@ -79,6 +79,7 @@ const CodeRunnerPage = lazyPage(() => import("../pages/Admin/CodeRunnerPage"));
 const ToGradePage = lazyPage(() => import("../pages/grading/ToGradePage"));
 const PlaygroundPage = lazyPage(() => import("../pages/code/PlaygroundPage"));
 const ProjectEditorPage = lazyPage(() => import("../pages/code/ProjectEditorPage"));
+const StartersPage = lazyPage(() => import("../pages/code/StartersPage"));
 const RankingPage = lazyPage(() => import("../pages/RankingPage"));
 const AdminSubjectsPage = lazyPage(() => import("../pages/AdminSubjectsPage"));
 const ProjectsPage = lazyPage(() => import("../pages/ProjectsPage"));
@@ -142,6 +143,8 @@ export interface NavItemConfig {
   hideIfCan?: string[];
   /** A live count shown beside the label. */
   badge?: "to_grade";
+  /** Highlight the item for every page under this prefix (e.g. "/code"). */
+  matchPrefix?: string;
 }
 
 export interface AppRoute {
@@ -242,7 +245,7 @@ export const appRoutes: AppRoute[] = [
     path: "/code/projects",
     element: <ProjectsPage />,
     permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL"],
-    navItem: { label: "Code", icon: Code2, group: "General" },
+    navItem: { label: "Code", icon: Code2, group: "General", matchPrefix: "/code" },
   },
   {
     // Full-screen pages (no app shell): practise, or edit a project.
@@ -256,6 +259,11 @@ export const appRoutes: AppRoute[] = [
     element: <ProjectEditorPage />,
     permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL", "PROJECTS_MONITOR"],
     noLayout: true,
+  },
+  {
+    path: "/code/starters",
+    element: <StartersPage />,
+    permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL"],
   },
   {
     path: "/code/projects/:id",

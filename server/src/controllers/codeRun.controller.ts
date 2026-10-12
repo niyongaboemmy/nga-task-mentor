@@ -4,6 +4,7 @@ import { getCodeRunner } from "../services/coderunner";
 import { JudgeUnavailableError, QuotaExceededError, RunnerRejectedError, UnsupportedLanguageError, Judge0Service } from "../services/Judge0Service";
 import { isWebLanguage } from "../utils/codeLanguages";
 import { filesToSend, languageOfPath, pickLanguage, rankEntries, runCandidates } from "../tmcode/practical/run";
+import { catalogLanguages, catalogVersion, getStarter, listStarters, starterSummary } from "../services/runtimeCatalog";
 
 /**
  * Practice runs (CODE_RUNNER_PLAN.md §17): the Playground and the browser
@@ -106,4 +107,33 @@ export const runnableLanguages = async (_req: Request, res: Response) => {
     success: true,
     data: runner.languages().map((key) => ({ key, label: LABEL.get(key) ?? key, engine: runner.engineFor(key) })),
   });
+};
+
+// ─── Catalog and starters (CODE_RUNNER_PLAN.md §11, §14) ─────────────────────
+
+// @desc    Languages, their project types, and whether they run here now
+// @route   GET /api/code/catalog
+// @access  Private
+export const codeCatalog = async (_req: Request, res: Response) => {
+  res.json({ success: true, data: { version: catalogVersion(), languages: catalogLanguages() } });
+};
+
+// @desc    Starter projects (summaries), filtered by language / purpose / level / q
+// @route   GET /api/code/starters
+// @access  Private
+export const codeStarters = async (req: Request, res: Response) => {
+  const str = (v: unknown) => (typeof v === "string" && v ? v : null);
+  res.json({
+    success: true,
+    data: listStarters({ language: str(req.query.language), purpose: str(req.query.purpose), level: str(req.query.level), q: str(req.query.q) }),
+  });
+};
+
+// @desc    One starter with its files
+// @route   GET /api/code/starters/:id
+// @access  Private
+export const codeStarter = async (req: Request, res: Response) => {
+  const s = getStarter(String(req.params.id));
+  if (!s) return res.status(404).json({ success: false, code: "NOT_FOUND", message: "Starter not found." });
+  res.json({ success: true, data: { ...starterSummary(s), files: s.files } });
 };

@@ -31,7 +31,7 @@ import { AssignmentBadge, KindBadge, LanguageBadge, LiveDot, Pill, ProjectStatus
 import { PROJECT_STATUSES, type ProjectStatus } from "../services/projectsApi";
 import NewProjectDialog from "../components/Projects/NewProjectDialog";
 import { formatBytes, languageMeta, summaryLine, timeAgo } from "../components/Projects/projectFormat";
-import { RouteTabs } from "../components/ui/Tabs";
+import CodeAreaTabs from "../components/code/CodeAreaTabs";
 import Select from "../components/ui/Select";
 
 /**
@@ -213,13 +213,7 @@ const ProjectsPage: React.FC = () => {
         </div>
       </div>
 
-      <RouteTabs
-        label="Code"
-        tabs={[
-          { id: "projects", label: "Projects", to: "/code/projects", end: true },
-          { id: "playground", label: "Playground", to: "/code/playground" },
-        ]}
-      />
+      <CodeAreaTabs />
 
       {/* Stats */}
       <StatsStrip data={data} loading={loading} />
