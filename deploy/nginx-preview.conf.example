@@ -1,7 +1,7 @@
 # Preview origin for students' web servers (CODE_RUNNER_PLAN.md phase 5).
 #
 # A SEPARATE SITE on purpose, not a subdomain of amashuri.com: a sibling
-# like PREVIEW_HOST is the "same site" as the apps, so student
+# like preview.amashuri.com is the "same site" as the apps, so student
 # JavaScript could read or overwrite .amashuri.com cookies (nga_did,
 # nga_inst_*) and the apps' SameSite=Lax cookies would ride along on its
 # requests to *.amashuri.com APIs. Use a free name on another domain:
