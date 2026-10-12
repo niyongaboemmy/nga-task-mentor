@@ -64,3 +64,19 @@ export const LANGUAGE_LABEL: Record<string, string> = {
 };
 
 export const languageLabel = (key: string | null | undefined) => (key ? LANGUAGE_LABEL[key] ?? key : "");
+
+const CODE_EXT = new Set(["py", "js", "mjs", "cjs", "jsx", "ts", "tsx", "c", "cpp", "cc", "cxx", "java", "kt", "cs", "go", "rs", "php", "rb", "swift", "dart", "lua", "r", "sql", "sh", "html"]);
+const MAIN_NAMES = ["main", "index", "app", "program", "solution"];
+
+/** The file to show first: the tests' entry, else a main-looking program, else any program. */
+export function firstFileToOpen(paths: string[], entry?: string | null): string | undefined {
+  if (entry && paths.includes(entry)) return entry;
+  const code = paths.filter((p) => CODE_EXT.has(extOf(p)));
+  const base = (p: string) => (p.split("/").pop() ?? "").replace(/\.[^.]+$/, "").toLowerCase();
+  return (
+    code.find((p) => MAIN_NAMES.includes(base(p))) ??
+    [...code].sort((a, b) => a.split("/").length - b.split("/").length)[0] ??
+    paths.find((p) => !/^readme\.md$/i.test(p)) ??
+    paths[0]
+  );
+}

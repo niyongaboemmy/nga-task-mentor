@@ -80,6 +80,7 @@ const ToGradePage = lazyPage(() => import("../pages/grading/ToGradePage"));
 const PlaygroundPage = lazyPage(() => import("../pages/code/PlaygroundPage"));
 const ProjectEditorPage = lazyPage(() => import("../pages/code/ProjectEditorPage"));
 const StartersPage = lazyPage(() => import("../pages/code/StartersPage"));
+const AssignmentWorkPage = lazyPage(() => import("../pages/code/AssignmentWorkPage"));
 const RankingPage = lazyPage(() => import("../pages/RankingPage"));
 const AdminSubjectsPage = lazyPage(() => import("../pages/AdminSubjectsPage"));
 const ProjectsPage = lazyPage(() => import("../pages/ProjectsPage"));
@@ -258,6 +259,13 @@ export const appRoutes: AppRoute[] = [
     path: "/code/projects/:id/edit",
     element: <ProjectEditorPage />,
     permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL", "PROJECTS_MONITOR"],
+    noLayout: true,
+  },
+  {
+    // A student's work on a code assignment, full screen.
+    path: "/assignments/:assignmentId/work",
+    element: <AssignmentWorkPage />,
+    permissions: ["PROJECTS_USE"],
     noLayout: true,
   },
   {

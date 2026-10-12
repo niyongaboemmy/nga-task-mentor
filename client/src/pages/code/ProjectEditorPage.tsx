@@ -1,12 +1,11 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { toast } from "react-toastify";
 import { AlertTriangle, Loader2, Lock, Play, Save } from "lucide-react";
 import CodeWorkspace, { type CodeWorkspaceHandle } from "../../components/code/CodeWorkspace";
 import FocusHeader from "../../components/code/FocusHeader";
+import { READ_ONLY_REASON, useProjectFiles } from "../../components/code/useProjectFiles";
 import { TmcodeDeepLinkButton } from "../../components/Projects/OpenProjectInTmcode";
-import { loadProjectFiles, saveProjectFiles, type CodeFile } from "../../services/codeApi";
-import { apiErrorCode, apiErrorMessage, projectsApi, type ProjectDetail } from "../../services/projectsApi";
+import { projectsApi } from "../../services/projectsApi";
 
 /**
  * Editing a project in the browser (CODE_RUNNER_PLAN.md §6.3, project mode):
@@ -15,79 +14,13 @@ import { apiErrorCode, apiErrorMessage, projectsApi, type ProjectDetail } from "
  * caller can't save (someone else's project, or submitted/graded work).
  */
 
-const READ_ONLY_REASON: Record<string, string> = {
-  submitted: "Submitted: withdraw it on the project page to keep editing.",
-  graded: "Graded: this project can't be changed any more.",
-  removed: "Removed: restore it on the project page to edit.",
-};
-
 const ProjectEditorPage: React.FC = () => {
   const { id } = useParams();
   const projectId = Number(id);
   const navigate = useNavigate();
-  const [project, setProject] = useState<ProjectDetail | null>(null);
-  const [files, setFiles] = useState<CodeFile[] | null>(null);
-  const [saved, setSaved] = useState<CodeFile[]>([]);
-  const [base, setBase] = useState<number | null>(null);
-  const [skipped, setSkipped] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [savedAt, setSavedAt] = useState<Date | null>(null);
+  const { project, files, setFiles, dirty, canSave, save, saving, savedAt, skipped, error } = useProjectFiles(projectId);
   const workspace = useRef<CodeWorkspaceHandle>(null);
-
-  const load = useCallback(async () => {
-    try {
-      const [p, loaded] = await Promise.all([projectsApi.get(projectId), loadProjectFiles(projectId, "head")]);
-      setProject(p);
-      setFiles(loaded.files);
-      setSaved(loaded.files);
-      setBase(loaded.revision?.id ?? p.head_revision_id ?? null);
-      setSkipped(loaded.skipped);
-      setError(null);
-    } catch (e) {
-      setError(apiErrorMessage(e, "Couldn't open this project."));
-    }
-  }, [projectId]);
-
-  useEffect(() => {
-    void load();
-  }, [load]);
-
-  const dirty = !!files && JSON.stringify(files) !== JSON.stringify(saved);
-  const canSave = !!project?.can.save && project.kind === "tm";
   const readOnly = !canSave;
-
-  // Leaving with unsaved work asks first (browser close/refresh).
-  useEffect(() => {
-    if (!dirty) return;
-    const warn = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", warn);
-    return () => window.removeEventListener("beforeunload", warn);
-  }, [dirty]);
-
-  const save = useCallback(async () => {
-    if (!files || !canSave || saving || !dirty) return;
-    setSaving(true);
-    try {
-      const rev = await saveProjectFiles(projectId, base, files);
-      setBase(rev?.id ?? base);
-      setSaved(files);
-      setSavedAt(new Date());
-      toast.success(`Saved as version #${rev?.number ?? ""}.`.replace(" #.", "."));
-    } catch (e) {
-      const code = apiErrorCode(e);
-      toast.error(
-        code === "REVISION_CONFLICT"
-          ? "This project was saved somewhere else (TMCode?) since you opened it. Copy your changes, then reload."
-          : apiErrorMessage(e, "Couldn't save."),
-      );
-    } finally {
-      setSaving(false);
-    }
-  }, [base, canSave, dirty, files, projectId, saving]);
 
   const leave = (e: React.MouseEvent) => {
     if (dirty && !window.confirm("Leave without saving your changes?")) e.preventDefault();
@@ -120,7 +53,7 @@ const ProjectEditorPage: React.FC = () => {
           ) : null)
         }
       >
-        {project && <TmcodeDeepLinkButton getLink={() => projectsApi.openLink(projectId)} label="Open in TMCode" buttonClassName="!px-3 !py-1.5 !text-xs !rounded-lg" />}
+        {project && <TmcodeDeepLinkButton getLink={() => projectsApi.openLink(projectId)} label="Open in TMCode" buttonClassName="!px-3 !py-1.5 !text-xs !rounded-lg" className="hidden md:block" />}
         {canSave && (
           <button
             type="button"
@@ -145,7 +78,8 @@ const ProjectEditorPage: React.FC = () => {
       {(reason || skipped.length > 0) && (
         <p className="flex shrink-0 items-center gap-2 border-b border-amber-200 bg-amber-50 px-4 py-2 text-xs text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100">
           <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          {reason ?? `${skipped.length} binary file${skipped.length === 1 ? " isn't" : "s aren't"} shown here (${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "…" : ""}); saving keeps only the text files.`}
+          {reason ??
+            `${skipped.length} binary file${skipped.length === 1 ? " isn't" : "s aren't"} shown here (${skipped.slice(0, 3).join(", ")}${skipped.length > 3 ? "…" : ""}); saving keeps only the text files.`}
         </p>
       )}
 

@@ -134,10 +134,14 @@ interface Calls {
   puts: Json[];
   created: boolean;
   patches: Json[];
+  started: boolean;
+  submitted: boolean;
 }
 
 async function setup(page: Page, role: "student" | "instructor", opts: { my?: Json; readOnly?: boolean } = {}): Promise<Calls> {
-  const calls: Calls = { puts: [], created: false, patches: [] };
+  const calls: Calls = { puts: [], created: false, patches: [], started: false, submitted: false };
+  // The student's work: started and submitted from the work page.
+  let my: Json = opts.my ?? myWork("not_started");
   await page.route("**/api/**", (r) =>
     r.request().method() === "OPTIONS" ? r.fulfill({ status: 204, headers: CORS_HEADERS }) : json(r, { success: true, data: [] }),
   );
@@ -199,7 +203,24 @@ async function setup(page: Page, role: "student" | "instructor", opts: { my?: Js
     }
     if (path.match(/^\/projects\/\d+\/revisions$/)) return json(r, { head_revision_id: 9003, revisions: makeRevisions(now) });
     m = path.match(/^\/projects\/(\d+)$/);
-    if (m && method === "GET") return json(r, { project: Number(m[1]) === 5 ? workspace : starter });
+    if (m && method === "GET") {
+      const status = calls.submitted ? "submitted" : (workspace.status as string);
+      return json(r, { project: Number(m[1]) === 5 ? { ...workspace, status, can: { ...(workspace.can as Json), save: !opts.readOnly && !calls.submitted } } : starter });
+    }
+    if (path === "/assignments/77/start" && method === "POST") {
+      calls.started = true;
+      my = myWork("in_progress");
+      return json(r, { project: workspace, created: true }, 201);
+    }
+    if (path === "/projects/5/submit" && method === "POST") {
+      calls.submitted = true;
+      my = myWork("submitted", { submitted_at: new Date().toISOString(), revision_number: 3 });
+      return json(r, { project_status: "submitted", link: null });
+    }
+    const file = path.match(/^\/projects\/\d+\/files\/(.+)$/);
+    if (file && method === "GET") {
+      return r.fulfill({ status: 200, contentType: "text/plain", headers: CORS_HEADERS, body: `// ${decodeURIComponent(file[1]!)}\nint main() { return 0; }\n` });
+    }
     if (m && method === "PATCH") {
       calls.patches.push(req.postDataJSON());
       return json(r, { project: { ...workspace, ...req.postDataJSON() } });
@@ -210,7 +231,7 @@ async function setup(page: Page, role: "student" | "instructor", opts: { my?: Js
     }
     if (path === "/assignments/77/open-link") return json(r, { deeplink: "tmcode://assignment?id=77&api=http%3A%2F%2Flocalhost%3A5002" });
     if (path === "/assignments/77/workspaces") return json(r, WORKSPACES);
-    if (path === "/assignments/77") return json(r, detail(opts.my ?? myWork("not_started"), opts.readOnly ? { status: "completed", read_only: true } : {}));
+    if (path === "/assignments/77") return json(r, detail(my, opts.readOnly ? { status: "completed", read_only: true } : {}));
     return json(r, { error_code: "NOT_FOUND", message: `Unmocked ${method} ${path}` }, 404);
   });
   return calls;
@@ -260,45 +281,49 @@ test.describe("Teacher: TMCode practical in the assignment form", () => {
   });
 });
 
-test.describe("Student: TMCode panel", () => {
-  test("Open in TMCode hands over the deep link, then falls back to the download page", async ({ page }) => {
-    await setup(page, "student");
+test.describe("Student: Your work", () => {
+  test("Start opens the work page with the starter's files; Submit is in its header", async ({ page }) => {
+    const calls = await setup(page, "student");
     await go(page, "/assignments/77");
-    const panel = page.getByTestId("tmcode-student-panel");
-    await expect(panel.getByTestId("work-state")).toHaveText("Not started");
-    await expect(panel).toContainText("Start copies 4 starter files");
-    await expect(panel).toContainText("Due in 2 days");
+    const card = page.getByTestId("your-work");
+    await expect(card.getByTestId("your-work-status")).toContainText("Start copies the 4 starter files");
     await shot(page, "student-not-started");
+    await card.getByTestId("your-work-open").click();
+    await expect(page).toHaveURL(/\/assignments\/77\/work$/);
+    expect(calls.started).toBe(true);
+    await expect(page.getByTestId("work-status")).toHaveText("Draft");
+    // Phones show one area at a time: Task, Code or Output.
+    if (test.info().project.name === "mobile") await page.getByRole("tab", { name: "Task" }).click();
+    await expect(page.getByTestId("workspace-task")).toContainText("Sorting lab");
+    await page.getByRole("tab", { name: "Files" }).click();
+    await expect(page.getByTestId("file-tree")).toContainText(".cpp");
+    await shot(page, "student-work");
 
-    // location.href can't be stubbed in a real browser: the link request is
-    // checked here and the hand-over itself in the vitest suite. No TMCode is
-    // installed, so after ~2 s the page goes to the download page.
-    const linkRequest = page.waitForRequest((r) => r.url().endsWith("/api/tmcode/assignments/77/open-link"));
-    await panel.getByTestId("open-assignment-in-tmcode").click();
-    await linkRequest;
-    await expect(page).toHaveURL(/\/taskmentor\/tmcode$/, { timeout: 6000 });
+    await page.getByTestId("work-submit").click();
+    await page.getByRole("button", { name: "Submit", exact: true }).last().click();
+    await expect(page.getByTestId("work-status")).toHaveText("Submitted");
+    expect(calls.submitted).toBe(true);
+    await expect(page.getByTestId("work-withdraw")).toBeVisible();
   });
 
-  test("graded: the grade, the feedback and the submitted code", async ({ page }) => {
+  test("graded: the grade and the feedback, and View opens the work read-only", async ({ page }) => {
     await setup(page, "student", {
       my: myWork("graded", { submitted_at: iso(3600_000), revision_number: 3, grade: 18, feedback: "Clean merge step; add comments." }),
     });
     await go(page, "/assignments/77");
-    const panel = page.getByTestId("tmcode-student-panel");
-    await expect(panel.getByTestId("tmcode-grade")).toContainText("18 / 20");
-    await expect(panel.getByTestId("open-assignment-in-tmcode")).toHaveText(/Continue in TMCode/);
-    await panel.getByRole("button", { name: /What you submitted · revision #3/ }).click();
-    await expect(panel.getByTestId("submitted-code")).toContainText("src");
+    const card = page.getByTestId("your-work");
+    await expect(card.getByTestId("your-work-status")).toContainText("Graded: 18 / 20");
+    await expect(card).toContainText("Clean merge step; add comments.");
+    await expect(card.getByTestId("your-work-open")).toHaveText(/View/);
     await shot(page, "student-graded");
   });
 
-  test("completed: read-only", async ({ page }) => {
-    await setup(page, "student", { my: myWork("in_progress"), readOnly: true });
+  test("completed before starting: closed, nothing to open", async ({ page }) => {
+    await setup(page, "student", { readOnly: true });
     await go(page, "/assignments/77");
-    const panel = page.getByTestId("tmcode-student-panel");
-    await expect(panel).toContainText("marked this assignment completed");
-    await expect(panel.getByTestId("open-assignment-in-tmcode")).toHaveText(/View in TMCode/);
-    await shot(page, "student-read-only", false);
+    const card = page.getByTestId("your-work");
+    await expect(card).toContainText("This assignment is closed.");
+    await expect(card.getByTestId("your-work-open")).toHaveCount(0);
   });
 });
 

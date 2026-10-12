@@ -6,7 +6,7 @@ import { codeApi, type CodeFile } from "../../services/codeApi";
 import { runErrorMessage } from "../../utils/runErrors";
 import FileTree from "./FileTree";
 import RunPanel, { type BottomTab, type RunState } from "./RunPanel";
-import { monacoLanguage } from "./languages";
+import { firstFileToOpen, monacoLanguage } from "./languages";
 import { isHiddenFile, readIoTests } from "./tests";
 
 /**
@@ -77,7 +77,7 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   const visible = useMemo(() => files.filter((f) => !isHiddenFile(f.path)), [files]);
   const io = useMemo(() => readIoTests(files), [files]);
   const [openTabs, setOpenTabs] = useState<string[]>(() => {
-    const first = io.entry && visible.some((f) => f.path === io.entry) ? io.entry : visible[0]?.path;
+    const first = firstFileToOpen(visible.map((f) => f.path), io.entry);
     return first ? [first] : [];
   });
   const [active, setActive] = useState<string | null>(openTabs[0] ?? null);

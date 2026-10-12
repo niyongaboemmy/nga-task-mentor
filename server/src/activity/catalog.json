@@ -55,6 +55,7 @@
     { "key": "tm.grades.marks", "label": "Entering marks", "module": "Grades", "patterns": ["/grades/:assessmentId/marks"] },
 
     { "key": "tm.projects", "label": "Projects", "module": "Projects", "patterns": ["/code/projects", "/code", "/projects"] },
+    { "key": "tm.assignment.work", "label": "Assignment work", "module": "Assignments", "patterns": ["/assignments/:assignmentId/work"] },
     { "key": "tm.code.starters", "label": "Starters", "module": "Projects", "patterns": ["/code/starters"] },
     { "key": "tm.code.playground", "label": "Playground", "module": "Projects", "patterns": ["/code/playground"] },
     { "key": "tm.project.editor", "label": "Project editor", "module": "Projects", "patterns": ["/code/projects/:id/edit"] },
