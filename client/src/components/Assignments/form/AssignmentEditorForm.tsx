@@ -564,7 +564,7 @@ const AssignmentEditorForm: React.FC<Props> = ({
             >
               <p className="font-semibold">How students hand it in</p>
               <ol className="mt-1 list-decimal space-y-0.5 pl-4">
-                <li>They create a TMCode project for this assignment (or link one they have).</li>
+                <li>It appears in TMCode under <span className="font-semibold">Assignments</span>; they press <span className="font-semibold">Start</span> to get their own workspace (or match a project they already have).</li>
                 <li>They work on it in TMCode — it stays a <span className="font-semibold">Draft</span> while they save.</li>
                 <li>They <span className="font-semibold">Submit</span> it: its latest saved version is frozen and locked for you to grade. They can withdraw it until you grade it; you can return it for changes.</li>
               </ol>

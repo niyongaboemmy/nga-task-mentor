@@ -276,9 +276,9 @@ describe("TMCode practicals", () => {
     expect(startOutside.status).toBe(403);
     expect(startOutside.body.error_code).toBe("NOT_ENROLLED");
 
-    // Not enrolled anywhere -> nothing listed.
+    // Not enrolled anywhere (MIS, asked with the student's token, says so) -> nothing listed.
     scopes.set(student.id, { scope: "enrolled", subjects: [] });
-    const none = await request(app).get("/api/tmcode/assignments").set("Authorization", tok(student));
+    const none = await request(app).get("/api/tmcode/assignments").set("Authorization", tok(student)).set("X-MIS-Token", "mis-token");
     expect(none.body.assignments).toEqual([]);
   });
 
@@ -429,6 +429,62 @@ describe("TMCode practicals", () => {
     const off = await request(app).patch(`/api/tmcode/projects/${ws.id}`).set("Authorization", tok(student)).send({ share_presence: false });
     expect(off.status).toBe(200);
     expect(off.body.project.share_presence).toBe(false);
+  });
+});
+
+describe("an assignment handed in as a TMCode project (submission type 'TMCode', practical section off)", () => {
+  it("is a TMCode practical without starter files: listed, opened, started and counted for the teacher", async () => {
+    // What the web form saves when the teacher picks the "TMCode" submission type and nothing else.
+    const a = await createAssignment({ submission_type: "project" });
+    expect((await AssignmentTmcode.findByPk(a.id))?.tmcode_kind ?? null).toBeNull();
+
+    const mine = await request(app).get("/api/tmcode/assignments?scope=student").set("Authorization", tok(student));
+    expect(mine.status).toBe(200);
+    const listed = mine.body.assignments.find((x: any) => x.id === a.id);
+    expect(listed).toMatchObject({ id: a.id, kind: "practical", my: { state: "not_started" } });
+
+    const teaching = await request(app).get("/api/tmcode/assignments?scope=teaching").set("Authorization", tok(teacher));
+    expect(teaching.status).toBe(200);
+    expect(teaching.body.assignments.map((x: any) => x.id)).toContain(a.id);
+
+    const detail = await request(app).get(`/api/tmcode/assignments/${a.id}`).set("Authorization", tok(student));
+    expect(detail.status).toBe(200);
+    expect(detail.body.assignment).toMatchObject({ id: a.id, kind: "practical", starter: null });
+
+    const started = await start(student, a.id);
+    expect([200, 201]).toContain(started.status);
+    expect(started.body.project.assignment_id ?? started.body.project.assignment?.id).toBe(a.id);
+
+    // Deriving the kind never writes it: the teacher's settings stay as they saved them.
+    expect((await AssignmentTmcode.findByPk(a.id))?.tmcode_kind ?? null).toBeNull();
+  });
+
+  it("stays hidden while it's a draft, and other submission types stay out", async () => {
+    const draft = await createAssignment({ submission_type: "project", status: "draft" });
+    const files = await createAssignment({ submission_type: "file" });
+    const mine = await request(app).get("/api/tmcode/assignments?scope=student").set("Authorization", tok(student));
+    const ids = mine.body.assignments.map((x: any) => x.id);
+    expect(ids).not.toContain(draft.id);
+    expect(ids).not.toContain(files.id);
+  });
+});
+
+describe("without the caller's MIS token (TMCode up to 0.10.0 sent it only on /activities and /links)", () => {
+  it("says the subjects couldn't be checked instead of an empty list or NOT_ENROLLED", async () => {
+    const a = await createAssignment({ submission_type: "project" });
+    // What getScopedSubjects answers for an enrolled student when there is no MIS token.
+    scopes.set(student.id, { scope: "enrolled", subjects: [] });
+    const list = await request(app).get("/api/tmcode/assignments?scope=student").set("Authorization", tok(student));
+    expect(list.status).toBe(409);
+    expect(list.body.error_code ?? list.body.error?.code).toBe("MIS_SCOPE_UNAVAILABLE");
+    const one = await request(app).get(`/api/tmcode/assignments/${a.id}`).set("Authorization", tok(student));
+    expect(one.status).toBe(409);
+    // With a token, MIS really did answer "no subjects": an honest empty list / NOT_ENROLLED.
+    const withToken = await request(app).get("/api/tmcode/assignments?scope=student").set("Authorization", tok(student)).set("X-MIS-Token", "mis-token");
+    expect(withToken.status).toBe(200);
+    expect(withToken.body.assignments).toEqual([]);
+    const notEnrolled = await request(app).get(`/api/tmcode/assignments/${a.id}`).set("Authorization", tok(student)).set("X-MIS-Token", "mis-token");
+    expect(notEnrolled.status).toBe(403);
   });
 });
 
