@@ -97,7 +97,13 @@ export async function startSession(
   for (const s of byId.values()) if (s.userId === userId && !s.closed) void stopSession(s);
   // A real terminal only where the runner has one (containers).
   const { pty, ...rest } = body;
-  const res = await runner("/v1/sessions", { method: "POST", headers: headers(), body: JSON.stringify(pty && judgeHas("pty") ? { ...rest, pty: true } : rest) });
+  const post = (payload: object) => runner("/v1/sessions", { method: "POST", headers: headers(), body: JSON.stringify(payload) });
+  let res = await post(pty && judgeHas("pty") ? { ...rest, pty: true } : rest);
+  // No terminal for this language (no container image, e.g. C): plain pipes then.
+  if (res.status === 409 && pty) {
+    const data: any = await res.clone().json().catch(() => ({}));
+    if (data?.code === "PTY_UNAVAILABLE") res = await post(rest);
+  }
   if (res.status === 429 || res.status === 503) throw new SessionError(503, "RUNNER_BUSY", "Lots of code is running right now. Try again in a moment.");
   if (!res.ok) {
     const data: any = await res.json().catch(() => ({}));

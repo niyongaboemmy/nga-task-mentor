@@ -34,7 +34,11 @@ function fakeJudge() {
       if (req.url === "/v1/health") return send(200, { ok: true, features });
       if (req.url === "/v1/catalog") return send(200, { kinds: [{ id: "js/express", language: "javascript", label: "Express", actions: ["build", "run"] }] });
       if (req.url === "/v1/previews" && req.method === "POST") return send(201, { id: `pv${++n}` });
-      if (req.url === "/v1/sessions" && req.method === "POST") return send(201, { id: `s${++n}` });
+      if (req.url === "/v1/sessions" && req.method === "POST") {
+        const b = body ? JSON.parse(body) : {};
+        if (b.pty && b.language === "c") return send(409, { error: "No terminal for this kind", code: "PTY_UNAVAILABLE" });
+        return send(201, { id: `s${++n}` });
+      }
       const ev = req.url!.match(/^\/v1\/previews\/([^/]+)\/events$/);
       if (ev) {
         res.writeHead(200, { "Content-Type": "text/event-stream" });
@@ -161,5 +165,12 @@ describe("real terminals", () => {
     codeRunLimiter.resetKey(`code-run:${userId}`);
     await as(token)(request(app).post("/api/code/sessions")).send({ language: "python", files: [{ path: "main.py", content: "input()" }], pty: true });
     expect(sent.find((s) => s.url === "/v1/sessions")?.body.pty).toBeUndefined();
+  });
+
+  it("fall back to plain pipes when the language has no terminal (e.g. C)", async () => {
+    const res = await as(token)(request(app).post("/api/code/sessions")).send({ language: "c", files: [{ path: "main.c", content: "int main(){}" }], pty: true });
+    expect(res.status).toBe(201);
+    const starts = sent.filter((s) => s.url === "/v1/sessions");
+    expect(starts.map((s) => s.body.pty)).toEqual([true, undefined]);
   });
 });
