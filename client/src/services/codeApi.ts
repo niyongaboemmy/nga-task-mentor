@@ -79,6 +79,10 @@ export interface CodeCapabilities {
   /** Unit tests run here, for these languages. */
   unit_tests: boolean;
   unit_test_languages: string[];
+  /** The live terminal is a real one (colours, cursor, Ctrl+C reaches the program). */
+  pty: boolean;
+  /** Web servers can run and show in a preview. */
+  previews: boolean;
 }
 
 let capabilities: Promise<CodeCapabilities> | null = null;
@@ -115,17 +119,19 @@ export const codeApi = {
         interactive: !!r.data?.data?.interactive,
         unit_tests: !!r.data?.data?.unit_tests,
         unit_test_languages: Array.isArray(r.data?.data?.unit_test_languages) ? r.data.data.unit_test_languages : [],
+        pty: !!r.data?.data?.pty,
+        previews: !!r.data?.data?.previews,
       }))
       .catch(() => {
         capabilities = null;
-        return { interactive: false, unit_tests: false, unit_test_languages: [] };
+        return { interactive: false, unit_tests: false, unit_test_languages: [], pty: false, previews: false };
       });
     return capabilities;
   },
 
   /** Forget a capability the server said is gone (e.g. interactive runs). */
   withoutInteractive() {
-    capabilities = (capabilities ?? Promise.resolve({ interactive: false, unit_tests: false, unit_test_languages: [] })).then((c) => ({ ...c, interactive: false }));
+    capabilities = (capabilities ?? Promise.resolve({ interactive: false, unit_tests: false, unit_test_languages: [], pty: false, previews: false })).then((c) => ({ ...c, interactive: false, pty: false }));
   },
 };
 
