@@ -85,7 +85,7 @@ const NewProjectDialog: React.FC<{
       const { project } = await practicalsApi.startQuizPractical(chosenPractical.quiz.activity_id, chosenPractical.question_id);
       onCreated(project);
     } catch (err) {
-      setError(apiErrorMessage(err, "Couldn't start the quiz practical."));
+      setError(apiErrorMessage(err, "Couldn't start the coding question."));
     } finally {
       setBusy(false);
     }
@@ -303,7 +303,7 @@ const NewProjectDialog: React.FC<{
               ))
             )}
             {practicals.length > 0 && (
-              <optgroup label="Quiz practicals">
+              <optgroup label="Coding questions">
                 {practicals.map((p) => (
                   <option key={`${p.quiz.activity_id}:${p.question_id}`} value={`q:${p.quiz.activity_id}:${p.question_id}`}>
                     {p.quiz.title} · {p.title}
@@ -385,7 +385,7 @@ const NewProjectDialog: React.FC<{
             className="inline-flex items-center justify-center gap-2 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            {chosenPractical ? "Start the practical" : "Create project"}
+            {chosenPractical ? "Start the question" : "Create project"}
           </button>
         </div>
       </form>

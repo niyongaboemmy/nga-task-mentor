@@ -918,7 +918,7 @@ const SubmissionDetailPage: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 dark:border-violet-900/50 dark:bg-violet-950/20">
                       <span className="text-xs text-violet-800 dark:text-violet-200">
                         {isPendingReview(q)
-                          ? "This practical waits to be graded against its criteria."
+                          ? "This coding question waits to be graded against its criteria."
                           : `Graded: ${q.points_earned ?? 0}/${q.points} pts.`}
                       </span>
                       <Link
@@ -929,7 +929,7 @@ const SubmissionDetailPage: React.FC = () => {
                         data-testid="grade-practical"
                         className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
                       >
-                        {isPendingReview(q) ? "Grade in workspace" : "Open in workspace"}
+                        {isPendingReview(q) ? "Grade" : "Open in Grading"}
                       </Link>
                     </div>
                   )}

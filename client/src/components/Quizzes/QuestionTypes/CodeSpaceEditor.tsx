@@ -1407,7 +1407,7 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
                 Ready to code?
               </h2>
               <p className="text-[#cccccc] mb-8 leading-relaxed">
-                Click the button below to open the workspace and start working
+                Click the button below to open the editor and start working
                 on your solution.
               </p>
               <button

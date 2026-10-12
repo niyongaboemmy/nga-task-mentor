@@ -96,7 +96,7 @@ export const TmcodePracticalQuestion: React.FC<QuestionComponentProps> = ({
       setLinkId(r.link_id);
       await load();
     } catch (e) {
-      setError(apiErrorMessage(e, "Couldn't start the practical."));
+      setError(apiErrorMessage(e, "Couldn't start the question."));
     } finally {
       setBusy(null);
     }
@@ -189,7 +189,7 @@ export const TmcodePracticalQuestion: React.FC<QuestionComponentProps> = ({
               </Link>
             </p>
           ) : (
-            <p className="text-sm text-slate-600 dark:text-slate-300">No project was submitted for this practical.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">No project was submitted for this question.</p>
           )
         ) : loading ? (
           <p className="flex items-center gap-2 text-sm text-slate-500">

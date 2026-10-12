@@ -303,7 +303,7 @@ const PracticalGradingPage: React.FC = () => {
       className="fixed inset-0 z-[100] flex h-[100dvh] flex-col overflow-hidden bg-slate-50 text-text-primary-light dark:bg-slate-950 dark:text-text-primary-dark"
       role="dialog"
       aria-modal="true"
-      aria-label="Grading workspace"
+      aria-label="Grading"
       data-testid="practical-grading"
     >
       {/* Top bar */}
@@ -311,7 +311,7 @@ const PracticalGradingPage: React.FC = () => {
         <button
           type="button"
           onClick={close}
-          aria-label="Close the grading workspace"
+          aria-label="Close Grading"
           title="Close (Esc)"
           className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:hover:bg-white/10 dark:hover:text-white"
         >
@@ -319,7 +319,7 @@ const PracticalGradingPage: React.FC = () => {
         </button>
         <div className="hidden min-w-0 max-w-[30%] md:block">
           <p className="text-[10px] font-bold uppercase tracking-wider text-blue-600 dark:text-blue-400">
-            {type === "quiz" ? "Quiz practical" : "Assignment practical"} · grading
+            {type === "quiz" ? "Coding question" : "Code assignment"} · Grading
           </p>
           <h1 className="truncate text-sm font-semibold" title={a?.title}>
             {a ? a.title : <Skeleton className="h-4 w-48" />}
@@ -366,7 +366,7 @@ const PracticalGradingPage: React.FC = () => {
           <div className="hidden w-56 xl:block">
             <Select
               size="sm"
-              aria-label="Practical question"
+              aria-label="Coding question"
               value={String(a.question?.id ?? "")}
               onChange={(e) => setSearch(new URLSearchParams({ question: e.target.value }), { replace: true })}
             >
@@ -405,7 +405,7 @@ const PracticalGradingPage: React.FC = () => {
       </header>
 
       {/* Phones and tablets: one pane at a time */}
-      <div className="flex shrink-0 gap-1 border-b border-slate-200 bg-white p-1.5 dark:border-white/10 dark:bg-slate-900 lg:hidden" role="tablist" aria-label="Workspace view">
+      <div className="flex shrink-0 gap-1 border-b border-slate-200 bg-white p-1.5 dark:border-white/10 dark:bg-slate-900 lg:hidden" role="tablist" aria-label="View">
         {(
           [
             ["project", "Project", Code2],
@@ -651,7 +651,7 @@ const ShortcutsCard: React.FC<{ onClose: () => void }> = ({ onClose }) => (
         ["Ctrl/⌘ + Enter", "Save, then the next to grade"],
         ["Ctrl/⌘ + S", "Save"],
         ["[", "Show / hide the grading panel"],
-        ["Esc", "Close the workspace"],
+        ["Esc", "Close Grading"],
       ].map(([k, v]) => (
         <div key={k} className="flex items-center justify-between gap-3">
           <dt>
@@ -1300,7 +1300,7 @@ const CriteriaScorer: React.FC<{
       {!gradable && (
         <p className="mx-4 mt-3 flex shrink-0 items-start gap-1.5 rounded-xl bg-slate-100 p-2.5 text-xs text-slate-600 dark:bg-white/5 dark:text-slate-300">
           <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          {!a.can_grade ? "You can view this practical but not grade it." : "Nothing to grade yet: the student hasn't submitted a project."}
+          {!a.can_grade ? "You can view this work but not grade it." : "Nothing to grade yet: the student hasn't submitted a project."}
         </p>
       )}
       {restored && (

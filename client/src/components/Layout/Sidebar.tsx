@@ -21,6 +21,7 @@ function useVisibleNavGroups() {
   return useMemo(() => {
     const entries: NavEntry[] = appRoutes
       .filter((r) => r.navItem && (!r.permissions || can(r.permissions)))
+      .filter((r) => !r.navItem!.hideIfCan || !can(r.navItem!.hideIfCan))
       .map((r) => ({ path: r.path, navItem: r.navItem! }));
 
     const grouped = new Map<NavItemConfig["group"], NavEntry[]>();

@@ -175,7 +175,7 @@ const GradingDetailsPane: React.FC<{
             <Fact label="Due" value={a.due_date ? formatDateTime(a.due_date) : "No deadline"} />
             <Fact label="Points" value={a.max_points} />
             <Fact label="Language" value={brief?.language ? languageLabel(brief.language) : "Any"} />
-            <Fact label="Type" value={brief?.kind === "case_study" ? "Case study" : a.type === "quiz" ? "Quiz practical" : "Practical"} />
+            <Fact label="Type" value={brief?.kind === "case_study" ? "Case study" : a.type === "quiz" ? "Coding question" : "Code assignment"} />
           </dl>
           {hasText(description) && (
             <div className="mt-4 border-t border-slate-100 pt-4 dark:border-white/5">

@@ -45,7 +45,7 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
     try {
       setData(await tmcodeAssignmentsApi.get(assignmentId));
     } catch (e) {
-      setError(apiErrorMessage(e, "Couldn't load your TMCode workspace."));
+      setError(apiErrorMessage(e, "Couldn't load your project."));
     }
   }, [assignmentId]);
 
@@ -97,7 +97,7 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
     <motion.section
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      aria-label="TMCode workspace"
+      aria-label="Your project"
       data-testid="tmcode-student-panel"
       className="overflow-hidden rounded-2xl border border-blue-200/70 bg-gradient-to-br from-blue-50/80 via-white to-indigo-50/60 shadow-sm dark:border-blue-900/40 dark:from-blue-950/30 dark:via-gray-900/40 dark:to-indigo-950/20"
     >
@@ -108,7 +108,7 @@ const TmcodeStudentPanel: React.FC<{ assignmentId: number }> = ({ assignmentId }
           </span>
           <div className="min-w-0 space-y-1.5">
             <h2 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
-              TMCode {data.kind ? KIND_LABEL[data.kind].toLowerCase() : "practical"}
+              {data.kind ? KIND_LABEL[data.kind] : "Code assignment"}
             </h2>
             <div className="flex flex-wrap items-center gap-2">
               <Pill tone={meta.tone} testId="work-state">
@@ -214,19 +214,19 @@ const WorkspaceSteps: React.FC<{ data: AssignmentDetail; fileCount: number }> = 
     {
       key: "start",
       icon: Rocket,
-      title: done.started ? "Workspace ready" : "Start in TMCode",
+      title: done.started ? "Project ready" : "Start in TMCode",
       body: done.started ? (
         my?.project_id ? (
           <Link to={`/projects/${my.project_id}`} className="font-semibold text-blue-700 hover:underline dark:text-blue-300">
-            Open your workspace project
+            Open your project
           </Link>
         ) : (
           "Your project is linked."
         )
       ) : fileCount ? (
-        `Start copies ${fileCount} starter file${fileCount === 1 ? "" : "s"} into your own workspace.`
+        `Start copies ${fileCount} starter file${fileCount === 1 ? "" : "s"} into your own project.`
       ) : (
-        "Start creates your own workspace for this assignment."
+        "Start creates your own project for this assignment."
       ),
       done: done.started,
     },

@@ -55,7 +55,7 @@ const PracticalGradingBanner: React.FC<{ quizId: number; className?: string }> =
 
   return (
     <section
-      aria-label="TMCode practicals to grade"
+      aria-label="Coding questions to grade"
       data-testid="practical-grading-banner"
       className={`overflow-hidden rounded-2xl border border-violet-200 bg-gradient-to-br from-violet-50 to-blue-50/60 dark:border-violet-900/50 dark:from-violet-950/30 dark:to-blue-950/20 ${className}`}
     >
@@ -64,7 +64,7 @@ const PracticalGradingBanner: React.FC<{ quizId: number; className?: string }> =
           <ClipboardCheck className="h-4 w-4" aria-hidden="true" />
         </span>
         <div className="min-w-0">
-          <h2 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">TMCode practicals</h2>
+          <h2 className="text-sm font-bold text-text-primary-light dark:text-text-primary-dark">Coding questions (projects)</h2>
           <p className="text-xs text-slate-600 dark:text-slate-300">
             {waiting ? `${waiting} project${waiting === 1 ? "" : "s"} waiting to be graded against the criteria` : "Every submitted project is graded"}
           </p>

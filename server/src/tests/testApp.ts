@@ -21,6 +21,7 @@ import dashboardRoutes from "../routes/dashboard";
 import mediaRoutes from "../routes/media";
 import competencyRoutes from "../routes/competency";
 import tmcodeRoutes from "../routes/tmcode";
+import codeRunnerRoutes from "../routes/codeRunner";
 
 /**
  * Minimal test harness app — mounts only the routers under test against the
@@ -37,6 +38,7 @@ export function buildTestApp() {
   app.use("/api/users", usersRoutes);
   app.use("/api/database", databaseRoutes);
   app.use("/api/roles-permissions", rolesPermissionsRoutes);
+  app.use("/api/code-runner", codeRunnerRoutes);
   app.use("/api/assignments", assignmentRoutes);
   app.use("/api/submissions", submissionRoutes);
   app.use("/api/quizzes", quizRoutes);

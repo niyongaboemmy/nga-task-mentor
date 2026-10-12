@@ -281,7 +281,7 @@ test.describe("Teacher views", () => {
 
     await expect(page.getByRole("heading", { name: "Project monitor" })).toBeVisible();
     if ((page.viewportSize()?.width ?? 1280) >= 1024)
-      await expect(page.getByRole("link", { name: "Project Monitor" })).toHaveAttribute("aria-current", "page");
+      await expect(page.getByRole("link", { name: "Live coding" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("live-indicator")).toContainText("Live");
     await expect(page.getByRole("region", { name: "CS5 — Computer Science S5" }).getByTestId("monitor-card")).toHaveCount(2);
     await expect(page.getByRole("region", { name: "WEB — Web Development" }).getByTestId("monitor-card")).toHaveCount(1);

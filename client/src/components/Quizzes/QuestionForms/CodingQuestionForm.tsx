@@ -167,8 +167,8 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
         >
           <Maximize2 size={18} />
           {codingData.language
-            ? `Edit ${codingData.language.toUpperCase()} Workspace`
-            : "Open Workspace Editor"}
+            ? `Edit ${codingData.language.toUpperCase()} code setup`
+            : "Open code setup"}
         </button>
         {codingData.language && (
           <div className="mt-4 flex items-center justify-center gap-4 text-xs font-medium text-gray-500 dark:text-gray-400">
@@ -196,7 +196,7 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-text-primary-light dark:text-text-primary-dark leading-tight">
-                    Workspace Editor
+                    Code setup
                   </h2>
                   <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/70 font-medium">
                     {codingData.language

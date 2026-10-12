@@ -7,7 +7,6 @@ import {
   ClipboardList,
   FileText,
   Users,
-  HelpCircle,
   ShieldCheck,
   Database,
   GraduationCap,
@@ -19,6 +18,8 @@ import {
   Trophy,
   FolderCode,
   MonitorDot,
+  ListChecks,
+  Cpu,
 } from "lucide-react";
 
 import { usePermissions } from "../hooks/usePermissions";
@@ -72,6 +73,7 @@ const GradesPage = lazyPage(() => import("../pages/GradesPage"));
 const AssessmentMarksPage = lazyPage(() => import("../pages/AssessmentMarksPage"));
 const DatabaseManagementPage = lazyPage(() => import("../pages/DatabaseManagementPage"));
 const RolesPermissionsPage = lazyPage(() => import("../pages/Admin/RolesPermissionsPage"));
+const CodeRunnerPage = lazyPage(() => import("../pages/Admin/CodeRunnerPage"));
 const RankingPage = lazyPage(() => import("../pages/RankingPage"));
 const AdminSubjectsPage = lazyPage(() => import("../pages/AdminSubjectsPage"));
 const ProjectsPage = lazyPage(() => import("../pages/ProjectsPage"));
@@ -123,6 +125,8 @@ export interface NavItemConfig {
   label: string;
   icon: LucideIcon;
   group: "General" | "Teaching" | "Admin";
+  /** Hide the item when the user holds any of these (one item per job, e.g. one "Quizzes"). */
+  hideIfCan?: string[];
 }
 
 export interface AppRoute {
@@ -229,7 +233,7 @@ export const appRoutes: AppRoute[] = [
     path: "/projects/monitor",
     element: <ProjectMonitorPage />,
     permissions: ["PROJECTS_MONITOR"],
-    navItem: { label: "Project Monitor", icon: MonitorDot, group: "Teaching" },
+    navItem: { label: "Live coding", icon: MonitorDot, group: "Teaching" },
   },
   {
     path: "/projects/:id",
@@ -284,7 +288,7 @@ export const appRoutes: AppRoute[] = [
     path: "/quizzes",
     element: <QuizzesPage />,
     permissions: ["QUIZZES_EDIT"],
-    navItem: { label: "Quizzes", icon: HelpCircle, group: "General" },
+    navItem: { label: "Quizzes", icon: ListChecks, group: "General" },
   },
   {
     // Back-compat: older links (e.g. the dashboard shortcut) used /quizzes/public
@@ -296,7 +300,9 @@ export const appRoutes: AppRoute[] = [
     path: "/my-quizzes",
     element: <StudentQuizzesPage />,
     permissions: ["QUIZZES_ATTEMPT"],
-    navItem: { label: "My Quizzes", icon: HelpCircle, group: "General" },
+    // Students' quiz list. Someone who manages quizzes sees "Quizzes" above
+    // instead (and can try a quiz as a student from the quiz page).
+    navItem: { label: "Quizzes", icon: ListChecks, group: "General", hideIfCan: ["QUIZZES_EDIT"] },
   },
   {
     path: "/quizzes/:id/take",
@@ -403,6 +409,12 @@ export const appRoutes: AppRoute[] = [
     permissions: ["DATABASE_ADMIN_ACCESS"],
     fullWidth: true,
     navItem: { label: "Database Management", icon: Database, group: "Admin" },
+  },
+  {
+    path: "/admin/code-runner",
+    element: <CodeRunnerPage />,
+    permissions: ["CODE_RUNNER_ADMIN"],
+    navItem: { label: "Code runner", icon: Cpu, group: "Admin" },
   },
   {
     path: "/admin/roles-permissions",

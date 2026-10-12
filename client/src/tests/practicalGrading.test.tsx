@@ -501,7 +501,7 @@ describe("NewProjectDialog — quiz practicals", () => {
     const onCreated = vi.fn();
     render(<NewProjectDialog open onClose={() => {}} onCreated={onCreated} />);
     pickOption(await screen.findByLabelText(/For an assignment or quiz/), "q:9:55");
-    await userEvent.click(screen.getByRole("button", { name: "Start the practical" }));
+    await userEvent.click(screen.getByRole("button", { name: "Start the question" }));
     await waitFor(() => expect(practicals.startQuizPractical).toHaveBeenCalledWith(9, 55));
     expect(onCreated).toHaveBeenCalledWith({ id: 101, name: "Build it" });
     expect(projects.create).not.toHaveBeenCalled();

@@ -155,6 +155,7 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
   { key: "PROJECTS_USE", category: "PROJECTS", description: "Keep coding projects in Task Mentor, sync them with TMCode and link them to activities" },
   { key: "PROJECTS_VIEW_ALL", category: "PROJECTS", description: "See every project (read-only)" },
   { key: "PROJECTS_MONITOR", category: "PROJECTS", description: "Live project monitor and projects linked to activities in scope" },
+  { key: "CODE_RUNNER_ADMIN", category: "PROJECTS", description: "See the code runner's health, languages and recent errors (Admin → Code runner)" },
 
   // ACADEMICS
   { key: "ACADEMICS_VIEW", category: "ACADEMICS", description: "View academic years/terms" },

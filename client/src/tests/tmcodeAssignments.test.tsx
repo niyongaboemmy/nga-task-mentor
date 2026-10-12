@@ -162,7 +162,7 @@ describe("TMCode practical section", () => {
     expect(screen.queryByText("Starter files")).toBeNull();
     expect(axiosMock.get).not.toHaveBeenCalled();
 
-    fireEvent.click(within(group).getByRole("radio", { name: /Practical/ }));
+    fireEvent.click(within(group).getByRole("radio", { name: /Code assignment/ }));
     expect(onChange).toHaveBeenLastCalledWith(expect.objectContaining({ kind: "practical" }));
 
     const starter = await screen.findByTestId("starter-1");
@@ -227,8 +227,8 @@ describe("assignment form with a TMCode practical", () => {
         <AssignmentEditorForm mode="create" initial={initial()} courses={[{ id: "12", title: "Programming", code: "CS" }]} submit={submit} />
       </MemoryRouter>,
     );
-    fireEvent.click(screen.getByRole("radio", { name: /Practical/ }));
-    expect(screen.getByRole("radio", { name: /TMCode project/ })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("radio", { name: /Code assignment/ }));
+    expect(screen.getByRole("radio", { name: /Code project/ })).toHaveAttribute("aria-checked", "true");
     fireEvent.change(await screen.findByLabelText("Instructions in TMCode"), { target: { value: "Make the tests pass" } });
 
     fireEvent.click(screen.getByRole("button", { name: /Create assignment/ }));

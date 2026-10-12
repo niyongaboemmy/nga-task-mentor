@@ -295,7 +295,7 @@ const ProjectDetailPage: React.FC = () => {
               className="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-violet-700 hover:underline dark:text-violet-300"
             >
               <GraduationCap className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="truncate">Workspace for “{project.assignment.title}”</span>
+              <span className="truncate">Project for “{project.assignment.title}”</span>
             </Link>
           )}
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
@@ -338,7 +338,7 @@ const ProjectDetailPage: React.FC = () => {
           <Lock className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
           <p>
             <span className="font-semibold">Read-only.</span> The assignment
-            {project.assignment ? ` “${project.assignment.title}”` : ""} is completed, so this workspace can be viewed but
+            {project.assignment ? ` “${project.assignment.title}”` : ""} is completed, so this project can be viewed but
             not saved or submitted any more.
           </p>
         </div>

@@ -18,6 +18,7 @@ const VERDICTS: Verdict[] = [
   "time-limit",
   "memory-limit",
   "output-limit",
+  "compile-error",
   "internal-error",
 ];
 
@@ -108,6 +109,16 @@ export class TmJudgeRunner implements CodeRunner {
       };
     });
     return { engine: this.name, compile, tests };
+  }
+
+  /** GET /v1/health: is tm-judge up, which toolchains it found, its queue. */
+  async health(): Promise<{ ok: boolean; status?: number; error?: string; data?: any }> {
+    try {
+      const res = await axios.get(`${this.baseUrl}/v1/health`, { headers: this.headers, timeout: 3000 });
+      return { ok: true, status: res.status, data: res.data };
+    } catch (error: any) {
+      return { ok: false, status: error?.response?.status, error: error?.code || error?.message || "unreachable" };
+    }
   }
 
   /** POST /v1/run with retries on network errors, 429 and 5xx. */

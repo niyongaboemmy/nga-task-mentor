@@ -64,7 +64,7 @@ export const TmcodePracticalQuestionForm: React.FC<{
       <div>
         <h3 className="mb-1 text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">Grading criteria</h3>
         <p className="mb-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">
-          What you'll mark in the grading workspace. Set the question's points in the quiz to the total
+          What you'll mark in Grading. Set the question's points in the quiz to the total
           {total ? ` (${total})` : ""}.
         </p>
         <RubricBuilder
@@ -72,7 +72,7 @@ export const TmcodePracticalQuestionForm: React.FC<{
           onChange={(rubric) => onChange({ ...value, rubric: rubric.map((c) => ({ criteria: c.criteria, description: c.description ?? null, max_score: c.max_score })) })}
           maxScore={marks}
           onMaxScoreChange={setMarks}
-          title="TMCode practical"
+          title="Coding question (project)"
           description={value.instructions}
         />
       </div>

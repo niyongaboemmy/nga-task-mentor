@@ -117,6 +117,7 @@ export const TM_MANIFEST = defineManifest({
     PROJECTS_USE: W("Own coding projects (TMCode sync)", "ASSESSMENT"),
     PROJECTS_VIEW_ALL: R("See every coding project", "ASSESSMENT", ["detail"], SCHOOL_ONLY),
     PROJECTS_MONITOR: R("Project monitor and linked projects", "ASSESSMENT"),
+    CODE_RUNNER_ADMIN: R("Code runner health and languages", "SYSTEM", ["detail"], SCHOOL_ONLY),
 
     ACADEMICS_VIEW: R("View academic periods", "ACADEMICS"),
     ACADEMICS_MANAGE_PERIODS: W("Manage academic periods", "ACADEMICS", SCHOOL_ONLY),

@@ -532,7 +532,7 @@ export const EditQuestionPage: React.FC<EditQuestionPageProps> = ({
                   Configure specific details
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                  Set up the correct answers, choices, or workspace editors for
+                  Set up the correct answers, choices, or code setup for
                   your {(formData.question_type || "").replace("_", " ")}{" "}
                   question.
                 </p>

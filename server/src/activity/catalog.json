@@ -62,6 +62,7 @@
     { "key": "tm.admin.blooms", "label": "Bloom's taxonomy", "module": "Administration", "patterns": ["/admin/blooms-taxonomy"] },
     { "key": "tm.admin.database", "label": "Database management", "module": "Administration", "patterns": ["/admin/database-management"] },
     { "key": "tm.admin.roles", "label": "Roles & permissions", "module": "Administration", "patterns": ["/admin/roles-permissions"] },
+    { "key": "tm.admin.code_runner", "label": "Code runner", "module": "Administration", "patterns": ["/admin/code-runner"] },
 
     { "key": "tm.quiz.submit", "label": "Quiz submitted", "module": "Quizzes", "event": true, "key_event": true },
     { "key": "tm.assignment.submit", "label": "Assignment submitted", "module": "Assignments", "event": true, "key_event": true },
