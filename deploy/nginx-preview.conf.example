@@ -1,24 +1,32 @@
 # Preview origin for students' web servers (CODE_RUNNER_PLAN.md phase 5).
 #
-# A SEPARATE origin on purpose: student pages never run on
-# taskmentor.amashuri.com, so they can't read its storage or tokens.
+# A SEPARATE SITE on purpose, not a subdomain of amashuri.com: a sibling
+# like PREVIEW_HOST is the "same site" as the apps, so student
+# JavaScript could read or overwrite .amashuri.com cookies (nga_did,
+# nga_inst_*) and the apps' SameSite=Lax cookies would ride along on its
+# requests to *.amashuri.com APIs. Use a free name on another domain:
+#   - DuckDNS:  nga-preview.duckdns.org (free; point it at the app host), or
+#   - sslip.io: preview.13-48-142-192.sslip.io (free, no sign-up; resolves
+#               to the IP in its name).
+# Both work with a free Let's Encrypt certificate (certbot).
 # Task Mentor hands out signed addresses on this origin
 # (/p/<preview>/<exp>.<sig>/…); tm-judge checks the signature itself.
 #
 # Free setup on the app host:
-#   1. DNS: an A record  preview.amashuri.com -> the app host's public IP.
+#   1. The name: a DuckDNS name pointed at the app host, or the sslip.io
+#      name for the app host's IP (nothing to set up).
 #   2. Copy this file to /etc/nginx/sites-available/preview.conf, link it into
 #      sites-enabled, `sudo nginx -t && sudo systemctl reload nginx`.
-#   3. TLS: `sudo certbot --nginx -d preview.amashuri.com` (free, Let's Encrypt).
+#   3. TLS: `sudo certbot --nginx -d PREVIEW_HOST` (free, Let's Encrypt).
 #   4. In /opt/apps/tm-judge/.judge.env (read by Task Mentor's deploy):
-#        JUDGE_PREVIEW_BASE=https://preview.amashuri.com
+#        JUDGE_PREVIEW_BASE=https://PREVIEW_HOST   (e.g. https://preview.13-48-142-192.sslip.io)
 #        JUDGE_PREVIEW_SECRET=<the same 32+ character secret as the runner's>
 #   The runner is reached over the WireGuard tunnel (10.66.0.2) when it runs
 #   on the free Oracle VM, or on 127.0.0.1 when it runs on this host.
 
 server {
     listen 80;
-    server_name preview.amashuri.com;
+    server_name PREVIEW_HOST;
 
     # Only the signed preview paths; everything else is refused.
     location / {
