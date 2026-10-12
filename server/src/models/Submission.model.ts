@@ -10,6 +10,7 @@ import {
 } from "sequelize-typescript";
 import { Assignment } from "./Assignment.model";
 import { User } from "./User.model";
+import { normalizeAllowedTypes } from "../utils/submissionFiles";
 
 export type SubmissionStatus =
   | "draft"
@@ -257,10 +258,11 @@ export class Submission extends Model<
               throw new Error("File submission is required");
             }
 
-            const allowedFileTypes = (assignment as any).allowed_file_types;
+            // ["pdf"], [".PDF"], "pdf, docx" and a JSON string all mean the same.
+            const allowedFileTypes = normalizeAllowedTypes(
+              (assignment as any).allowed_file_types,
+            );
             if (
-              allowedFileTypes &&
-              Array.isArray(allowedFileTypes) &&
               allowedFileTypes.length > 0 &&
               instance.file_submissions?.length
             ) {

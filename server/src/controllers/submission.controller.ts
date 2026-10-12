@@ -11,9 +11,12 @@ import fs from "fs";
 import path from "path";
 import fileServer from "../utils/fileServer";
 import {
-  generateUniqueFilename,
-  sanitizeKeepExtension,
-} from "../utils/uploadFilename";
+  isSubmissionValidationError,
+  storeSubmissionFile,
+  submissionFileError,
+} from "../utils/submissionFiles";
+import type { IFileSubmission } from "../models/Submission.model";
+import { clearInstructorOverviewCache } from "./instructorOverview.controller";
 
 // @desc    Get all submissions
 // @route   GET /api/submissions
@@ -528,7 +531,7 @@ export const getSubmission = async (req: Request, res: Response) => {
 export const createSubmission = async (req: Request, res: Response) => {
   try {
     const { assignmentId } = req.params;
-    const { text_submission, file_submissions } = req.body;
+    const { text_submission } = req.body;
     const userId = (req as any).user.id;
 
     // Check if assignment exists
@@ -561,18 +564,48 @@ export const createSubmission = async (req: Request, res: Response) => {
       });
     }
 
-    const submission = await Submission.create({
-      student_id: userId,
-      assignment_id: parseInt(assignmentId),
-      text_submission,
-      file_submissions,
-      status: "submitted",
-      submitted_at: new Date(),
-      is_late: isPastDate(assignment.due_date),
-    });
+    // The file comes from the upload only. A client-supplied file_submissions
+    // body could point at another student's stored file.
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (file) {
+      const fileError = submissionFileError(file, assignment.allowed_file_types);
+      if (fileError) return res.status(400).json({ success: false, message: fileError });
+    }
+    let stored: IFileSubmission | null = null;
+    if (file) {
+      try {
+        stored = await storeSubmissionFile(file);
+      } catch (uploadError) {
+        console.error("Create submission: file upload failed:", uploadError);
+        return res.status(502).json({
+          success: false,
+          message: "Your file could not be saved right now. Please try again in a moment.",
+        });
+      }
+    }
+
+    let submission: Submission;
+    try {
+      submission = await Submission.create({
+        student_id: userId,
+        assignment_id: parseInt(assignmentId),
+        text_submission,
+        file_submissions: stored ? [stored] : null,
+        status: "submitted",
+        submitted_at: new Date(),
+        is_late: isPastDate(assignment.due_date),
+      });
+    } catch (createError) {
+      if (stored) fileServer.deleteFile(stored.path).catch(() => undefined);
+      throw createError;
+    }
+    clearInstructorOverviewCache();
 
     res.status(201).json({ success: true, data: submission });
   } catch (error) {
+    if (isSubmissionValidationError(error)) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     console.error("Create submission error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
@@ -648,6 +681,12 @@ export const updateSubmission = async (req: Request, res: Response) => {
       });
     }
 
+    const file = (req as any).file as Express.Multer.File | undefined;
+    if (file) {
+      const fileError = submissionFileError(file, assignment.allowed_file_types);
+      if (fileError) return res.status(400).json({ success: false, message: fileError });
+    }
+
     // Update fields
     submission.text_submission =
       text_submission !== undefined
@@ -655,32 +694,40 @@ export const updateSubmission = async (req: Request, res: Response) => {
         : submission.text_submission;
 
     // Handle file update
-    if ((req as any).file) {
-      const file = (req as any).file;
-      const filename = generateUniqueFilename(
-        "submission",
-        file.originalname,
-        sanitizeKeepExtension,
-      );
-      await fileServer.uploadFile(file.buffer, `submissions/${filename}`);
-      submission.file_submissions = [
-        {
-          filename,
-          originalname: file.originalname,
-          path: `submissions/${filename}`,
-          size: file.size,
-          mimetype: file.mimetype,
-        },
-      ];
-    } else if (file_submissions !== undefined) {
-      // Allows clearing files or setting from body if not using multer (though here we are)
-      submission.file_submissions = file_submissions;
+    let stored: IFileSubmission | null = null;
+    if (file) {
+      try {
+        stored = await storeSubmissionFile(file);
+      } catch (uploadError) {
+        console.error("Update submission: file upload failed:", uploadError);
+        return res.status(502).json({
+          success: false,
+          message: "Your file could not be saved right now. Please try again in a moment.",
+        });
+      }
+      submission.file_submissions = [stored];
+    } else if (
+      file_submissions === null ||
+      (Array.isArray(file_submissions) && file_submissions.length === 0)
+    ) {
+      // The body may only clear the files; new ones must come through the
+      // upload (a client-supplied record could point at someone else's file).
+      submission.file_submissions = null;
     }
 
-    await submission.save();
+    try {
+      await submission.save();
+    } catch (saveError) {
+      if (stored) fileServer.deleteFile(stored.path).catch(() => undefined);
+      throw saveError;
+    }
+    clearInstructorOverviewCache();
 
     res.status(200).json({ success: true, data: submission });
   } catch (error) {
+    if (isSubmissionValidationError(error)) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
     console.error("Update submission error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }

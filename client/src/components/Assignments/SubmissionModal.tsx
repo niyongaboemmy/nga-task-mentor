@@ -6,6 +6,7 @@ import { formatDateTimeLocal } from "../../utils/dateUtils";
 import { type RubricCriterion } from "./AssignmentCard";
 import { Award, ChevronDown, ChevronUp, Target } from "lucide-react";
 import FileDropzone from "../Common/FileDropzone";
+import { SUBMISSION_FILE_MAX_MB, allowedTypesString } from "../../utils/fileList";
 
 interface SubmissionModalProps {
   isOpen: boolean;
@@ -18,6 +19,8 @@ interface SubmissionModalProps {
     due_date: string;
     status?: string;
     rubric?: RubricCriterion[] | string | null;
+    /** Teacher's accepted extensions: ["pdf","docx"], "pdf, docx" or a JSON string. Empty = any. */
+    allowed_file_types?: string[] | string | null;
   };
   onSubmissionSuccess: () => void;
   existingSubmission?: any;
@@ -47,6 +50,8 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
   }, [isOpen, existingSubmission]);
 
   const [showRubric, setShowRubric] = useState(false);
+  const [uploadPercent, setUploadPercent] = useState<number | null>(null);
+  const allowedTypes = allowedTypesString(assignment.allowed_file_types);
 
   const parsedRubric = React.useMemo(() => {
     if (!assignment?.rubric) return [];
@@ -102,33 +107,20 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
         formData.append("file_submission", submissionFile);
       }
 
-      // Debug logging
-      console.log(
-        `${existingSubmission ? "Updating" : "Submitting"} assignment with:`,
-        {
-          hasText: !!submissionText.trim(),
-          hasFile: !!submissionFile,
-          formDataEntries: Array.from(formData.entries()).map(
-            ([key, value]) => [
-              key,
-              value instanceof File ? `File: ${value.name}` : value,
-            ],
-          ),
-        },
-      );
-
+      // No hand-set Content-Type: the browser must add the multipart boundary.
+      // No 30 s cap either -- a 10 MB file on a school connection takes longer.
+      const uploadConfig = {
+        timeout: 0,
+        onUploadProgress: submissionFile
+          ? (e: { loaded: number; total?: number }) => {
+              if (e.total) setUploadPercent(Math.round((e.loaded / e.total) * 100));
+            }
+          : undefined,
+      };
       if (existingSubmission) {
-        await api.put(`/submissions/${existingSubmission.id}`, formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
+        await api.put(`/submissions/${existingSubmission.id}`, formData, uploadConfig);
       } else {
-        await api.post(`/assignments/${assignment.id}/submit`, formData, {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-        });
+        await api.post(`/assignments/${assignment.id}/submit`, formData, uploadConfig);
       }
 
       // Refresh data
@@ -155,6 +147,7 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
       toast.error(errorMessage);
     } finally {
       setIsSubmitting(false);
+      setUploadPercent(null);
     }
   };
 
@@ -371,6 +364,8 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                         setSubmissionFile(files[0] || null)
                       }
                       maxFiles={1}
+                      allowedTypes={allowedTypes}
+                      maxFileSizeMB={SUBMISSION_FILE_MAX_MB}
                       existingFiles={submissionFile ? [submissionFile] : []}
                       className="mt-1"
                     />
@@ -406,7 +401,9 @@ const SubmissionModal: React.FC<SubmissionModalProps> = ({
                     className="px-5 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 dark:disabled:bg-gray-700 disabled:cursor-not-allowed rounded-full transition-colors"
                   >
                     {isSubmitting
-                      ? "Submitting..."
+                      ? uploadPercent !== null && uploadPercent < 100
+                        ? `Uploading ${uploadPercent}%...`
+                        : "Submitting..."
                       : existingSubmission
                         ? "Update Submission"
                         : "Submit Assignment"}

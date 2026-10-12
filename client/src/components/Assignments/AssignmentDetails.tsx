@@ -848,6 +848,8 @@ const AssignmentDetails = () => {
             max_score: parseFloat(assignment.max_score),
             due_date: assignment.due_date,
             status: assignment.status,
+            rubric: assignment.rubric,
+            allowed_file_types: assignment.allowed_file_types,
           }}
           onSubmissionSuccess={() => {
             fetchAssignment();
