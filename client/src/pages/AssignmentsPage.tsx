@@ -1,7 +1,6 @@
 import React, {
   useState,
   useEffect,
-  useMemo,
   useCallback,
   useRef,
 } from "react";
@@ -25,6 +24,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { usePermissions } from "../hooks/usePermissions";
+import StudentAssignments from "../components/Assignments/StudentAssignments";
 import {
   AssignmentApiService,
   type GroupedSubject,
@@ -312,8 +312,7 @@ function SubjectSection({
 
 const PAGE_SIZE = 8;
 
-const AssignmentsPage: React.FC = () => {
-  const { can } = usePermissions();
+const StaffAssignments: React.FC = () => {
 
   const [subjects, setSubjects] = useState<GroupedSubject[]>([]);
   const [allSubjects, setAllSubjects] = useState<
@@ -334,8 +333,6 @@ const AssignmentsPage: React.FC = () => {
   const [status, setStatus] = useState("all");
   const [subjectId, setSubjectId] = useState<number | "">("");
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>(loadCollapsed);
-
-  const isStudent = can("SUBMISSIONS_CREATE") && !can("ASSIGNMENTS_VIEW_SUBMISSIONS");
 
   const fetchData = useCallback(
     async (opts?: { refresh?: boolean }) => {
@@ -413,23 +410,13 @@ const AssignmentsPage: React.FC = () => {
     }
   };
 
-  const statusOptions = useMemo(
-    () =>
-      isStudent
-        ? [
-            { v: "all", l: "All" },
-            { v: "published", l: "Published" },
-            { v: "completed", l: "Completed" },
-          ]
-        : [
-            { v: "all", l: "All statuses" },
-            { v: "published", l: "Published" },
-            { v: "draft", l: "Draft" },
-            { v: "completed", l: "Completed" },
-            { v: "removed", l: "Removed" },
-          ],
-    [isStudent],
-  );
+  const statusOptions = [
+    { v: "all", l: "All statuses" },
+    { v: "published", l: "Published" },
+    { v: "draft", l: "Draft" },
+    { v: "completed", l: "Completed" },
+    { v: "removed", l: "Removed" },
+  ];
 
   const scopeLabel =
     scope === "all"
@@ -604,6 +591,13 @@ const AssignmentsPage: React.FC = () => {
       )}
     </div>
   );
+};
+
+/** Students get their own assignments by status; staff get the per-subject manager. */
+const AssignmentsPage: React.FC = () => {
+  const { can } = usePermissions();
+  const isStudent = can("SUBMISSIONS_CREATE") && !can("ASSIGNMENTS_VIEW_SUBMISSIONS");
+  return isStudent ? <StudentAssignments /> : <StaffAssignments />;
 };
 
 export default AssignmentsPage;

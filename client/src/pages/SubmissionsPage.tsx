@@ -17,6 +17,7 @@ import {
   AlertCircle,
 } from "lucide-react";
 import { usePermissions } from "../hooks/usePermissions";
+import StudentSubmissions from "../components/Assignments/StudentSubmissions";
 import {
   SubmissionsApiService,
   type GroupedSubmissionsSubject,
@@ -323,8 +324,7 @@ const TYPE_TABS = [
   { v: "quiz", l: "Quizzes" },
 ] as const;
 
-const SubmissionsPage: React.FC = () => {
-  usePermissions();
+const StaffSubmissions: React.FC = () => {
 
   const [subjects, setSubjects] = useState<GroupedSubmissionsSubject[]>([]);
   const [allSubjects, setAllSubjects] = useState<
@@ -583,6 +583,13 @@ const SubmissionsPage: React.FC = () => {
       )}
     </div>
   );
+};
+
+/** Students see what they've handed in; staff get the per-subject view. */
+const SubmissionsPage: React.FC = () => {
+  const { can } = usePermissions();
+  const isStudent = can("SUBMISSIONS_CREATE") && !can("ASSIGNMENTS_VIEW_SUBMISSIONS");
+  return isStudent ? <StudentSubmissions /> : <StaffSubmissions />;
 };
 
 export default SubmissionsPage;
