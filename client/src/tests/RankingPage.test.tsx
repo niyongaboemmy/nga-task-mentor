@@ -106,16 +106,21 @@ beforeEach(() => {
 });
 
 describe("Overall Ranking — student", () => {
-  it("shows the student's own position, suggestions and outstanding work", async () => {
+  it("shows the student's own position, subjects and next steps", async () => {
     get.mockResolvedValue(ok(studentData()));
     renderPage();
     expect(await screen.findByText("4th")).toBeInTheDocument();
     expect(screen.getByText("of 19")).toBeInTheDocument();
     expect(screen.getByText("Upper half")).toBeInTheDocument();
-    expect(screen.getByText('Submit "Wireframes"')).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Open assignment/ })).toHaveAttribute("href", "/assignments/12");
-    expect(screen.getByText("Colour theory quiz")).toBeInTheDocument();
-    expect(screen.getAllByText(/Private to you|Only you can see your position/).length).toBeGreaterThan(0);
+    // Late work is one calm note, not a stack of warnings.
+    expect(screen.getByText("1 piece of work is past the deadline")).toBeInTheDocument();
+    expect(screen.getByText(/Wireframes\. Ask your teacher/)).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /See them in Assignments/ })).toHaveAttribute("href", "/assignments?status=missed");
+    expect(screen.getByText("Graphic User Interface Design needs urgent attention")).toBeInTheDocument();
+    // Subjects as one table, strongest first.
+    const rows = screen.getAllByRole("row", { name: /details/ });
+    expect(rows.map((r) => r.getAttribute("aria-label"))).toEqual(["Web Development details", "Graphic User Interface Design details"]);
+    expect(screen.getByText(/Private to you/)).toBeInTheDocument();
     // No leaderboard for a student.
     expect(screen.queryByText("Leaderboard")).not.toBeInTheDocument();
     expect(get).toHaveBeenCalledWith("/rankings", { params: {} });
@@ -125,8 +130,7 @@ describe("Overall Ranking — student", () => {
     get.mockResolvedValue(ok(studentData()));
     renderPage();
     expect(await screen.findByText("Ranked within L5 SOD A")).toBeInTheDocument();
-    expect(screen.getByText("Place in L5 SOD A")).toBeInTheDocument();
-    expect(screen.getByText(/Your overall position · L5 SOD A/)).toBeInTheDocument();
+    expect(screen.getByText("Your place in L5 SOD A")).toBeInTheDocument();
     // Class and grade pickers are staff-only.
     expect(screen.queryByLabelText("Grade")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Class")).not.toBeInTheDocument();
@@ -139,13 +143,19 @@ describe("Overall Ranking — student", () => {
     expect(screen.queryByText(/Ranked within/)).not.toBeInTheDocument();
   });
 
-  it("filters by subject from the chips and keeps it in the URL", async () => {
+  it("filters by subject from the dropdown or a row, and keeps it in the URL", async () => {
     get.mockResolvedValue(ok(studentData()));
     renderPage();
     await screen.findByText("4th");
-    fireEvent.click(screen.getByRole("radio", { name: /Web Development/ }));
+    // no wall of subject chips for a student
+    expect(screen.queryByRole("radio", { name: /Web Development/ })).not.toBeInTheDocument();
+    pickOption(screen.getByRole("combobox", { name: "Subject" }), "9");
     await waitFor(() => expect(get).toHaveBeenLastCalledWith("/rankings", { params: { subjectId: "9" } }));
     expect(screen.getByTestId("location").textContent).toBe("?subject=9");
+    pickOption(screen.getByRole("combobox", { name: "Subject" }), "All subjects");
+    await waitFor(() => expect(screen.getByTestId("location").textContent).toBe(""));
+    fireEvent.click(await screen.findByRole("row", { name: "Graphic User Interface Design details" }));
+    await waitFor(() => expect(get).toHaveBeenLastCalledWith("/rankings", { params: { subjectId: "8" } }));
   });
 
   it("filters by kind of work", async () => {
@@ -155,6 +165,29 @@ describe("Overall Ranking — student", () => {
     expect(get).toHaveBeenCalledWith("/rankings", { params: { subjectId: "8" } });
     fireEvent.click(screen.getByRole("radio", { name: "Quizzes" }));
     await waitFor(() => expect(get).toHaveBeenLastCalledWith("/rankings", { params: { subjectId: "8", kind: "quiz" } }));
+  });
+
+  it("folds extra tips and subjects with nothing in them", async () => {
+    const tip = (i: number) => ({ id: `t${i}`, priority: "low" as const, category: "review" as const, title: `Tip ${i}`, detail: "Detail." });
+    const quiet = { course_id: "10", name: "Biology", code: "BIO", score: null, rank: null, ranked_count: 0, class_average: null, gap: null, status: "no_marks" as const, by_kind: {}, marked_items: 0, pending_count: 0, weakest: [] };
+    get.mockResolvedValue(ok(studentData({ suggestions: [...studentData().suggestions, tip(1), tip(2)], subjects: [...studentData().subjects, quiet] })));
+    renderPage();
+    await screen.findByText("4th");
+    expect(screen.queryByText("Tip 2")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /2 more tips/ }));
+    expect(screen.getByText("Tip 2")).toBeInTheDocument();
+    // Biology has no marks and no work: one line, not a row.
+    const fold = screen.getByRole("button", { name: /1 more subject with nothing yet/ });
+    expect(screen.queryByText("Biology")).not.toBeInTheDocument();
+    fireEvent.click(fold);
+    expect(screen.getByText("Biology")).toBeInTheDocument();
+  });
+
+  it("never marks overdue work or a priority in red", async () => {
+    get.mockResolvedValue(ok(studentData()));
+    const { container } = renderPage();
+    await screen.findByText("4th");
+    expect(container.innerHTML).not.toMatch(/\b(bg|border-l|text)-red-/);
   });
 
   it("explains an unranked student instead of showing a zero", async () => {
@@ -264,7 +297,8 @@ describe("Course Ranking tab", () => {
     );
     expect(await screen.findByText("4th")).toBeInTheDocument();
     expect(get).toHaveBeenCalledWith("/rankings", { params: { subjectId: "8" } });
-    expect(screen.queryByRole("radiogroup", { name: "Subject" })).not.toBeInTheDocument();
-    expect(screen.getByText(/Your position in Graphic User Interface Design/)).toBeInTheDocument();
+    expect(screen.queryByRole("combobox", { name: "Subject" })).not.toBeInTheDocument();
+    expect(screen.getByText("Your place in Graphic User Interface Design")).toBeInTheDocument();
+    expect(screen.getByText("Colour theory quiz")).toBeInTheDocument();
   });
 });

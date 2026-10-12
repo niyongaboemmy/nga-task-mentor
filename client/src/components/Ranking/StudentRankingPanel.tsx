@@ -1,275 +1,343 @@
-import { useState, type ElementType } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  AlertTriangle,
-  ArrowRight,
-  CalendarClock,
-  ChevronDown,
-  Lightbulb,
-  Sparkles,
-  Target,
-  TrendingUp,
-  Trophy,
-} from "lucide-react";
-import { Meter, Pct, EmptyState } from "../Students/profile/profileParts";
+import { ArrowRight, ChevronDown, Clock3, Sparkles } from "lucide-react";
 import { CARD, KIND_META } from "../Students/profile/profileTheme";
-import {
-  ordinal,
-  type PendingItem,
-  type StudentRanking,
-  type Suggestion,
-} from "../../services/rankingApi";
-import { HowItWorks, StatusChip } from "./rankingParts";
-import RankHero from "./RankHero";
+import { ordinal, type StudentRanking, type StudentSubjectView, type Suggestion } from "../../services/rankingApi";
+import { HowItWorks } from "./rankingParts";
 
-// What a student sees: their own position, how each subject is going, what's
-// outstanding and what to do next. Never anyone else's name or mark — the
-// server doesn't send them.
+// What a student sees, top to bottom: their place and two numbers, one table
+// of subjects (a row opens that subject), then a couple of calm next steps.
+// Filters live in RankingView's toolbar. Never anyone else's name or mark —
+// the server doesn't send them.
+//
+// Tone: read by students who may be behind, so nothing is red. Late work is
+// one neutral note with a way forward; marks below the pass mark are amber.
 
-const PRIORITY_STYLE: Record<Suggestion["priority"], { ring: string; icon: string; label: string }> = {
-  high: { ring: "border-l-red-500", icon: "text-red-500", label: "Do this first" },
-  medium: { ring: "border-l-amber-500", icon: "text-amber-500", label: "Worth doing" },
-  low: { ring: "border-l-blue-500", icon: "text-blue-500", label: "Tip" },
+const PASS_MARK = 50;
+
+const ink = {
+  primary: "text-text-primary-light dark:text-text-primary-dark",
+  secondary: "text-text-secondary-light dark:text-text-secondary-dark/70",
+  muted: "text-text-secondary-light/70 dark:text-text-secondary-dark/50",
 };
 
-const CATEGORY_ICON: Record<Suggestion["category"], ElementType> = {
-  deadline: CalendarClock,
-  subject: AlertTriangle,
-  skill: Target,
-  review: Lightbulb,
-  rank: TrendingUp,
-  strength: Sparkles,
-  getting_started: Trophy,
-};
-
-const PENDING_STYLE: Record<PendingItem["status"], { label: string; className: string }> = {
-  overdue: { label: "Overdue", className: "bg-red-50 text-red-700 dark:bg-red-500/10 dark:text-red-300" },
-  due_soon: { label: "Due soon", className: "bg-amber-50 text-amber-700 dark:bg-amber-500/10 dark:text-amber-300" },
-  missed: { label: "Missed", className: "bg-gray-100 text-gray-600 dark:bg-white/5 dark:text-gray-300" },
-  open: { label: "Open", className: "bg-blue-50 text-blue-700 dark:bg-blue-500/10 dark:text-blue-300" },
-  awaiting_mark: { label: "Awaiting mark", className: "bg-sky-50 text-sky-700 dark:bg-sky-500/10 dark:text-sky-300" },
-};
-
-const pendingHref = (p: PendingItem) =>
-  p.kind === "assignment" ? `/assignments/${p.item_id}` : p.kind === "quiz" ? "/my-quizzes" : `/courses/${p.course_id}`;
-
-const formatDate = (iso: string | null) =>
-  iso ? new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" }) : null;
+const barColor = (score: number | null) => (score !== null && score < PASS_MARK ? "bg-amber-400" : "bg-blue-600");
+const clamp = (n: number) => Math.min(100, Math.max(0, n));
 
 interface Props {
   data: StudentRanking;
-  /** Open a subject's ranking (the page filters; the course tab passes nothing). */
+  /** Open one subject's ranking (the page filters; the course tab passes nothing). */
   onSelectSubject?: (courseId: string) => void;
   scopedToSubject: boolean;
 }
 
 export default function StudentRankingPanel({ data, onSelectSubject, scopedToSubject }: Props) {
   const { subjects, suggestions, pending } = data;
-  const [showAllPending, setShowAllPending] = useState(false);
-  const subjectName = scopedToSubject ? subjects[0]?.name : null;
-  const nameOf = new Map(data.available_subjects.map((s) => [s.course_id, s.name]));
-  const actionable = pending.filter((p) => p.status !== "awaiting_mark");
-  const awaiting = pending.filter((p) => p.status === "awaiting_mark");
-  const shownPending = showAllPending ? pending : pending.slice(0, 6);
+  const subject = scopedToSubject ? subjects[0] ?? null : null;
+  const awaiting = pending.filter((p) => p.status === "awaiting_mark").length;
 
   return (
-    <div className="space-y-4">
-      {/* Hero — the position */}
-      <RankHero data={data} subjectName={subjectName ?? null} />
+    <div className="space-y-5">
+      <Summary data={data} subjectName={subject?.name ?? null} awaiting={awaiting} />
+      {subject ? <SubjectDetail subject={subject} /> : <SubjectsTable subjects={subjects} onOpen={onSelectSubject} />}
+      <NextSteps suggestions={suggestions} />
+      <HowItWorks audience="student" />
+    </div>
+  );
+}
 
-      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        {/* Suggestions */}
-        <section className={`${CARD} p-4 sm:p-5`}>
-          <header className="flex items-center gap-2 mb-3">
-            <Lightbulb className="w-5 h-5 text-amber-500" />
-            <h3 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">What to do next</h3>
-            {suggestions.length > 0 && (
-              <span className="ml-auto text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
-                {suggestions.length} suggestion{suggestions.length === 1 ? "" : "s"}
-              </span>
-            )}
-          </header>
-          {suggestions.length === 0 ? (
-            <EmptyState icon={Sparkles} title="Nothing urgent">
-              You're up to date. Keep handing work in on time and reviewing your corrections.
-            </EmptyState>
-          ) : (
-            <ul className="space-y-2.5">
-              {suggestions.map((s) => {
-                const style = PRIORITY_STYLE[s.priority];
-                const Icon = CATEGORY_ICON[s.category];
-                return (
-                  <li key={s.id} className={`rounded-xl border border-gray-100 dark:border-gray-800 border-l-4 ${style.ring} bg-gray-50/50 dark:bg-white/[0.02] p-3`}>
-                    <div className="flex items-start gap-3">
-                      <Icon className={`w-4 h-4 mt-0.5 flex-shrink-0 ${style.icon}`} />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-                          <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">{s.title}</p>
-                          <span className={`text-[10px] font-bold uppercase tracking-wider ${style.icon}`}>{style.label}</span>
-                        </div>
-                        <p className="mt-0.5 text-xs leading-relaxed text-text-secondary-light dark:text-text-secondary-dark/80">{s.detail}</p>
-                        {s.action && (
-                          <Link to={s.action.href} className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline">
-                            {s.action.label}
-                            <ArrowRight className="w-3.5 h-3.5" />
-                          </Link>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-        </section>
+// ─── Summary: place · average · marked ────────────────────────────────────────
 
-        {/* Outstanding work */}
-        <section className={`${CARD} p-4 sm:p-5`}>
-          <header className="flex items-center gap-2 mb-3">
-            <CalendarClock className="w-5 h-5 text-blue-500" />
-            <h3 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">Outstanding work</h3>
-            <span className="ml-auto text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
-              {actionable.length} to do{awaiting.length ? ` · ${awaiting.length} awaiting mark` : ""}
-            </span>
-          </header>
-          {pending.length === 0 ? (
-            <EmptyState icon={CalendarClock} title="All caught up">
-              No assignments or quizzes are waiting for you.
-            </EmptyState>
-          ) : (
-            <>
-              <ul className="divide-y divide-gray-100 dark:divide-gray-800">
-                {shownPending.map((p) => {
-                  const Kind = KIND_META[p.kind].icon;
-                  const style = PENDING_STYLE[p.status];
-                  const due = formatDate(p.due_date);
-                  return (
-                    <li key={`${p.kind}-${p.item_id}`}>
-                      <Link to={pendingHref(p)} className="flex items-center gap-3 py-2.5 group">
-                        <Kind className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium truncate text-text-primary-light dark:text-text-primary-dark group-hover:text-blue-600 dark:group-hover:text-blue-400">
-                            {p.title}
-                          </p>
-                          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60 truncate">
-                            {nameOf.get(p.course_id) ?? "Subject"}
-                            {due && ` · ${p.kind === "quiz" ? "closes" : "due"} ${due}`}
-                          </p>
-                        </div>
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold whitespace-nowrap ${style.className}`}>{style.label}</span>
-                      </Link>
-                    </li>
-                  );
-                })}
-              </ul>
-              {pending.length > 6 && (
-                <button
-                  type="button"
-                  onClick={() => setShowAllPending((v) => !v)}
-                  className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400"
-                >
-                  {showAllPending ? "Show less" : `Show all ${pending.length}`}
-                  <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showAllPending ? "rotate-180" : ""}`} />
-                </button>
-              )}
-            </>
-          )}
-        </section>
-      </div>
-
-      {/* Subjects */}
-      <section className={`${CARD} p-4 sm:p-5`}>
-        <header className="flex items-center gap-2 mb-3">
-          <Target className="w-5 h-5 text-blue-500" />
-          <h3 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">
-            {scopedToSubject ? "Subject breakdown" : "Your subjects"}
-          </h3>
-          {!scopedToSubject && (
-            <span className="ml-auto text-xs text-text-secondary-light dark:text-text-secondary-dark/60">Weakest first</span>
-          )}
-        </header>
-        {subjects.length === 0 ? (
-          <EmptyState icon={Target} title="No subjects this term">
-            You aren't enrolled in any subject for the selected period.
-          </EmptyState>
+function Summary({ data, subjectName, awaiting }: { data: StudentRanking; subjectName: string | null; awaiting: number }) {
+  const { overall } = data;
+  const ranked = overall.rank !== null && overall.ranked_count > 0;
+  // Older payloads have no cohort; treat them as the subject cohort.
+  const cohort = data.cohort?.type === "class_group" ? data.cohort.class_group_name : null;
+  return (
+    <section className="grid gap-4 sm:grid-cols-3" aria-label="Your position">
+      <div className="rounded-2xl bg-blue-600 p-5 text-white shadow-sm">
+        <p className="text-sm text-white/80">{subjectName ? `Your place in ${subjectName}` : `Your place${cohort ? ` in ${cohort}` : ""}`}</p>
+        {ranked ? (
+          <>
+            <p className="mt-1 text-4xl font-extrabold tabular-nums">
+              {ordinal(overall.rank!)} <span className="text-lg font-medium text-white/70">of {overall.ranked_count}</span>
+            </p>
+            <p className="mt-1 text-sm text-white/90">{overall.band ?? "Ranked this term"}</p>
+          </>
         ) : (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-            {[...subjects]
-              .sort((a, b) => (a.score ?? 101) - (b.score ?? 101))
-              .map((s) => (
-                <article key={s.course_id} className="min-w-0 rounded-xl border border-gray-100 dark:border-gray-800 p-3 sm:p-4">
-                  <div className="flex items-start gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">{s.name}</p>
-                      <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark/60">
-                        {s.rank !== null ? `${ordinal(s.rank)} of ${s.ranked_count}` : "Not ranked yet"}
-                        {s.pending_count > 0 && ` · ${s.pending_count} to do`}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <Pct value={s.score} className="text-lg font-bold" />
-                      <div className="mt-0.5">
-                        <StatusChip status={s.status} />
+          <>
+            <p className="mt-1 text-3xl font-extrabold">Not ranked yet</p>
+            <p className="mt-1 text-sm text-white/90">Get your first marks to be ranked</p>
+          </>
+        )}
+      </div>
+      <div className={`${CARD} p-5`}>
+        <p className={`text-sm ${ink.secondary}`}>Average</p>
+        <p className={`mt-1 text-4xl font-extrabold tabular-nums ${ink.primary}`}>{overall.score !== null ? `${overall.score}%` : "—"}</p>
+        <div className="mt-3 h-1.5 rounded-full bg-surface-light dark:bg-white/10">
+          {overall.score !== null && <div className={`h-1.5 rounded-full ${barColor(overall.score)}`} style={{ width: `${clamp(overall.score)}%` }} />}
+        </div>
+        <p className={`mt-2 text-xs ${ink.secondary}`}>
+          {overall.class_average !== null ? `Class average ${overall.class_average}%` : "Class average hidden until more students are marked"}
+        </p>
+      </div>
+      <div className={`${CARD} p-5`}>
+        <p className={`text-sm ${ink.secondary}`}>Marked work</p>
+        <p className={`mt-1 text-4xl font-extrabold tabular-nums ${ink.primary}`}>{overall.marked_items}</p>
+        <p className={`mt-1 text-sm ${ink.secondary}`}>
+          {ranked && overall.points_to_next !== null && overall.rank! > 1
+            ? `${overall.points_to_next} points to move up a place`
+            : awaiting
+              ? `${awaiting} more waiting for a mark`
+              : "Everything handed in is marked"}
+        </p>
+      </div>
+    </section>
+  );
+}
+
+// ─── Subjects table ───────────────────────────────────────────────────────────
+
+function SubjectsTable({ subjects, onOpen }: { subjects: StudentSubjectView[]; onOpen?: (courseId: string) => void }) {
+  const [showQuiet, setShowQuiet] = useState(false);
+  const marked = subjects.filter((s) => s.score !== null).sort((a, b) => b.score! - a.score!);
+  const openOnly = subjects.filter((s) => s.score === null && s.pending_count > 0);
+  const quiet = subjects.filter((s) => s.score === null && s.pending_count === 0);
+  const rows = [...marked, ...openOnly];
+  const open = (id: string) => onOpen?.(id);
+
+  return (
+    <section className={`${CARD} overflow-hidden`} aria-labelledby="subjects-heading">
+      <div className="flex items-center justify-between px-5 pt-5">
+        <h3 id="subjects-heading" className={`font-semibold ${ink.primary}`}>
+          Subjects
+        </h3>
+        {onOpen && rows.length > 0 && <span className={`text-xs ${ink.secondary}`}>Click a row for details</span>}
+      </div>
+      {rows.length === 0 ? (
+        <p className={`px-5 py-8 text-sm text-center ${ink.secondary}`}>Your subjects appear here once work is set or marked.</p>
+      ) : (
+        <div className="mt-3 overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className={`text-[11px] uppercase tracking-wider ${ink.muted}`}>
+              <tr>
+                <th className="px-5 py-2 font-semibold w-14">#</th>
+                <th className="px-2 py-2 font-semibold">Subject</th>
+                <th className="px-2 py-2 font-semibold">Your mark</th>
+                <th className="hidden md:table-cell px-2 py-2 font-semibold">Place</th>
+                <th className="hidden md:table-cell px-5 py-2 font-semibold text-right">Open work</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-light dark:divide-border-dark/30">
+              {rows.map((s, i) => (
+                <tr
+                  key={s.course_id}
+                  onClick={onOpen ? () => open(s.course_id) : undefined}
+                  onKeyDown={
+                    onOpen
+                      ? (e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            open(s.course_id);
+                          }
+                        }
+                      : undefined
+                  }
+                  tabIndex={onOpen ? 0 : undefined}
+                  aria-label={onOpen ? `${s.name} details` : undefined}
+                  className={onOpen ? "cursor-pointer hover:bg-surface-light dark:hover:bg-white/5 focus:outline-none focus-visible:bg-blue-50 dark:focus-visible:bg-blue-900/20" : ""}
+                >
+                  <td className="px-5 py-3.5">
+                    <span
+                      className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold tabular-nums ${
+                        s.score === null
+                          ? "bg-surface-light dark:bg-white/10 text-text-secondary-light dark:text-text-secondary-dark/60"
+                          : i === 0
+                            ? "bg-blue-600 text-white"
+                            : "bg-blue-50 text-blue-700 dark:bg-blue-900/25 dark:text-blue-300"
+                      }`}
+                    >
+                      {s.score === null ? "–" : i + 1}
+                    </span>
+                  </td>
+                  <td className="px-2 py-3.5">
+                    <p className={`font-medium ${ink.primary}`}>{s.name}</p>
+                    {s.code && <p className={`text-xs ${ink.secondary}`}>{s.code}</p>}
+                  </td>
+                  <td className="px-2 py-3.5">
+                    {s.score === null ? (
+                      <span className={ink.muted}>No marks yet</span>
+                    ) : (
+                      <div className="flex items-center gap-3">
+                        <span className={`w-10 font-semibold tabular-nums ${s.score < PASS_MARK ? "text-amber-600 dark:text-amber-400" : ink.primary}`}>{s.score}%</span>
+                        <div className="relative h-1.5 w-28 rounded-full bg-surface-light dark:bg-white/10">
+                          <div className={`h-1.5 rounded-full ${barColor(s.score)}`} style={{ width: `${clamp(s.score)}%` }} />
+                          {s.class_average !== null && (
+                            <span
+                              title={`Class average ${s.class_average}%`}
+                              className="absolute -top-1 -bottom-1 w-0.5 rounded bg-gray-500 dark:bg-gray-300"
+                              style={{ left: `calc(${clamp(s.class_average)}% - 1px)` }}
+                            />
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                  <div className="mt-3">
-                    <Meter value={s.score} reference={s.class_average} />
-                    <div className="mt-1 flex justify-between text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
-                      <span>
-                        {s.class_average !== null ? `Class average ${s.class_average}%` : "Class average hidden"}
-                      </span>
-                      {s.gap !== null && (
-                        <span className={s.gap >= 0 ? "text-emerald-600 dark:text-emerald-400" : "text-red-600 dark:text-red-400"}>
-                          {s.gap > 0 ? "+" : ""}
-                          {s.gap} pts
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                  {Object.keys(s.by_kind).length > 0 && (
-                    <div className="mt-3 flex flex-wrap gap-1.5">
-                      {(Object.entries(s.by_kind) as Array<[keyof typeof KIND_META, { score: number; count: number }]>).map(([k, v]) => (
-                        <span key={k} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-white/5 text-[11px] text-text-secondary-light dark:text-text-secondary-dark">
-                          {KIND_META[k].plural}
-                          <Pct value={v.score} className="font-semibold" />
-                          <span className="opacity-60">×{v.count}</span>
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                  {s.weakest.length > 0 && (
-                    <div className="mt-3">
-                      <p className="text-[11px] font-semibold uppercase tracking-wider text-text-secondary-light dark:text-text-secondary-dark/60 mb-1">
-                        Review these
-                      </p>
-                      <ul className="space-y-1">
-                        {s.weakest.map((w) => (
-                          <li key={`${w.kind}-${w.item_id}`} className="flex items-center gap-2 text-xs">
-                            <span className="truncate flex-1 text-text-primary-light dark:text-text-primary-dark">{w.title}</span>
-                            <Pct value={w.pct} className="font-semibold" />
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  <div className="mt-3 flex items-center gap-3 text-xs font-semibold">
-                    {!scopedToSubject && onSelectSubject && (
-                      <button type="button" onClick={() => onSelectSubject(s.course_id)} className="text-blue-600 dark:text-blue-400 hover:underline">
-                        Ranking in this subject
-                      </button>
                     )}
-                    <Link to={`/courses/${s.course_id}`} className="text-text-secondary-light dark:text-text-secondary-dark hover:text-blue-600 dark:hover:text-blue-400">
-                      Open subject
-                    </Link>
-                  </div>
-                </article>
+                  </td>
+                  <td className={`hidden md:table-cell px-2 py-3.5 ${s.rank !== null ? ink.primary : ink.muted}`}>
+                    {s.rank !== null ? `${ordinal(s.rank)} of ${s.ranked_count}` : "—"}
+                  </td>
+                  <td className={`hidden md:table-cell px-5 py-3.5 text-right tabular-nums ${s.pending_count ? ink.primary : ink.muted}`}>
+                    {s.pending_count || "—"}
+                  </td>
+                </tr>
               ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {quiet.length > 0 && (
+        <div className={`${rows.length ? "border-t border-border-light dark:border-border-dark/30" : ""} px-5 py-3`}>
+          <button
+            type="button"
+            aria-expanded={showQuiet}
+            onClick={() => setShowQuiet((v) => !v)}
+            className={`inline-flex items-center gap-1.5 text-xs ${ink.secondary} hover:text-blue-600 dark:hover:text-blue-400`}
+          >
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showQuiet ? "rotate-180" : ""}`} />
+            {quiet.length} more subject{quiet.length === 1 ? "" : "s"} with nothing yet — left out, not counted as 0%
+          </button>
+          {showQuiet && <p className={`mt-2 text-xs leading-relaxed ${ink.secondary}`}>{quiet.map((s) => s.name).join(", ")}</p>}
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── One subject ──────────────────────────────────────────────────────────────
+
+function SubjectDetail({ subject: s }: { subject: StudentSubjectView }) {
+  const kinds = Object.entries(s.by_kind) as Array<[keyof typeof KIND_META, { score: number; count: number }]>;
+  return (
+    <section className={`${CARD} p-5 space-y-5`} aria-label="Subject breakdown">
+      <div className="flex flex-wrap items-baseline justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className={`font-semibold ${ink.primary}`}>{s.name}</h3>
+          <p className={`text-xs ${ink.secondary}`}>
+            {[s.code, s.class_average !== null ? `Class average ${s.class_average}%` : "Class average hidden", s.pending_count ? `${s.pending_count} open` : null]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        </div>
+        <Link to={`/courses/${s.course_id}`} className="inline-flex items-center gap-1 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+          Open subject <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      </div>
+      {kinds.length > 0 ? (
+        <div className="grid gap-3 grid-cols-1 sm:grid-cols-3">
+          {kinds.map(([k, v]) => (
+            <div key={k} className="rounded-xl bg-surface-light dark:bg-white/5 px-4 py-3">
+              <p className={`text-xs ${ink.secondary}`}>
+                {KIND_META[k].plural} · {v.count}
+              </p>
+              <p className={`text-xl font-bold tabular-nums ${v.score < PASS_MARK ? "text-amber-600 dark:text-amber-400" : ink.primary}`}>{v.score}%</p>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <p className={`text-sm ${ink.secondary}`}>Nothing marked in this subject yet.</p>
+      )}
+      {s.weakest.length > 0 && (
+        <div>
+          <p className={`text-sm font-medium ${ink.primary}`}>Worth reviewing</p>
+          <ul className="mt-2 divide-y divide-border-light dark:divide-border-dark/30">
+            {s.weakest.map((w) => (
+              <li key={`${w.kind}-${w.item_id}`} className="flex items-center gap-3 py-2 text-sm">
+                <span className={`flex-1 truncate ${ink.primary}`}>{w.title}</span>
+                <span className={`font-semibold tabular-nums ${w.pct < PASS_MARK ? "text-amber-600 dark:text-amber-400" : ink.primary}`}>{w.pct}%</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── Next steps ───────────────────────────────────────────────────────────────
+
+/** Late work as one calm note; the first tip beside it; the rest on request. */
+function NextSteps({ suggestions }: { suggestions: Suggestion[] }) {
+  const [more, setMore] = useState(false);
+  const late = suggestions.filter((s) => s.category === "deadline");
+  const tips = suggestions.filter((s) => s.category !== "deadline");
+  const lead = tips.find((s) => s.category === "strength") ?? tips[0];
+  const rest = tips.filter((s) => s !== lead);
+  if (late.length === 0 && !lead) return null;
+  const titleOf = (s: Suggestion) => s.title.replace(/^Submit\s+"(.*)"$/, "$1");
+
+  return (
+    <section aria-label="Next steps" className="space-y-3">
+      <div className={`grid gap-4 ${late.length && lead ? "md:grid-cols-3" : ""}`}>
+        {late.length > 0 && (
+          <div className={`${CARD} p-5 ${lead ? "md:col-span-2" : ""}`}>
+            <div className="flex items-start gap-3">
+              <Clock3 className={`w-5 h-5 mt-0.5 shrink-0 ${ink.secondary}`} />
+              <div className="min-w-0">
+                <p className={`font-semibold ${ink.primary}`}>
+                  {late.length} {late.length === 1 ? "piece of work is" : "pieces of work are"} past the deadline
+                </p>
+                <p className={`mt-1 text-sm ${ink.secondary}`}>
+                  {late.map(titleOf).join(" · ")}. Ask your teacher what's still possible.
+                </p>
+                <Link to="/assignments?status=missed" className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+                  See them in Assignments <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+              </div>
+            </div>
           </div>
         )}
-      </section>
+        {lead && <Tip suggestion={lead} />}
+      </div>
+      {rest.length > 0 && (
+        <>
+          <button
+            type="button"
+            aria-expanded={more}
+            onClick={() => setMore((v) => !v)}
+            className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400"
+          >
+            {more ? "Fewer tips" : `${rest.length} more tip${rest.length === 1 ? "" : "s"}`}
+            <ChevronDown className={`w-3.5 h-3.5 transition-transform ${more ? "rotate-180" : ""}`} />
+          </button>
+          {more && (
+            <div className="grid gap-4 md:grid-cols-3">
+              {rest.map((s) => (
+                <Tip key={s.id} suggestion={s} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
 
-      <HowItWorks audience="student" />
+function Tip({ suggestion: s }: { suggestion: Suggestion }) {
+  const strength = s.category === "strength";
+  return (
+    <div className={`${CARD} p-5`}>
+      <div className="flex items-center gap-2">
+        {strength && <Sparkles className="w-4 h-4 shrink-0 text-blue-600 dark:text-blue-400" />}
+        <p className={`font-semibold ${ink.primary}`}>{strength ? "Keep it up" : s.title}</p>
+      </div>
+      <p className={`mt-1 text-sm leading-relaxed line-clamp-3 ${ink.secondary}`} title={s.detail}>
+        {s.detail}
+      </p>
+      {s.action && (
+        <Link to={s.action.href} className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-blue-600 dark:text-blue-400 hover:underline">
+          {s.action.label} <ArrowRight className="w-3.5 h-3.5" />
+        </Link>
+      )}
     </div>
   );
 }

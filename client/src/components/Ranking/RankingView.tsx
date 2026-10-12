@@ -32,9 +32,100 @@ interface Props {
   onChange: (next: RankingFiltersState) => void;
   /** Set by a subject's tab: the subject is fixed and the picker is hidden. */
   lockedSubjectId?: string;
+  /** The page title, drawn into the student toolbar next to the filters. */
+  heading?: { title: string; period?: string | null };
 }
 
-export default function RankingView({ filters, onChange, lockedSubjectId }: Props) {
+/**
+ * The student's filters in one slim bar: title on the left, a subject dropdown
+ * (instead of a wall of chips) and the kind-of-work switch on the right.
+ */
+function StudentToolbar({
+  heading,
+  data,
+  subjectId,
+  onSubject,
+  kind,
+  onKind,
+}: {
+  heading?: Props["heading"];
+  data: Extract<RankingResponse, { view: "student" }> | null;
+  /** Undefined when the subject is fixed (a subject's own tab). */
+  subjectId: string | null | undefined;
+  onSubject?: (id: string | null) => void;
+  kind: RankKindFilter;
+  onKind: (kind: RankKindFilter) => void;
+}) {
+  const cohort = data?.cohort;
+  return (
+    <div className={`${CARD} p-4 flex flex-wrap items-center gap-3`}>
+      <div className="mr-auto min-w-0">
+        {heading && <h1 className="text-xl font-bold tracking-tight text-text-primary-light dark:text-text-primary-dark">{heading.title}</h1>}
+        {data && (
+          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark/70">
+            {cohort?.type === "class_group" ? (
+              <span className="inline-flex items-center gap-1">
+                <School className="w-3.5 h-3.5" />
+                Ranked within {cohort.class_group_name}
+              </span>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1"
+                title="Your class list couldn't be loaded, so you're ranked against everyone with marks in your subjects"
+              >
+                <Users className="w-3.5 h-3.5" />
+                Ranked across your subjects
+              </span>
+            )}
+            {heading?.period && <span>· {heading.period}</span>}
+            <span className="inline-flex items-center gap-1">
+              · <Lock className="w-3 h-3" /> Private to you
+            </span>
+          </p>
+        )}
+      </div>
+      {data && subjectId !== undefined && onSubject && data.available_subjects.length > 0 && (
+        <div className="w-full sm:w-64">
+          <Select
+            aria-label="Subject"
+            value={subjectId ?? ""}
+            onChange={(e) => onSubject(e.target.value || null)}
+            className={`${SELECT} w-full`}
+          >
+            <option value="">All subjects</option>
+            {data.available_subjects.map((s) => (
+              <option key={s.course_id} value={s.course_id}>
+                {s.name}
+              </option>
+            ))}
+          </Select>
+        </div>
+      )}
+      {data && (
+        <div role="radiogroup" aria-label="Kind of work" className="inline-flex max-w-full overflow-x-auto rounded-xl bg-surface-light dark:bg-white/5 p-1 text-sm font-medium whitespace-nowrap">
+          {KIND_OPTIONS.map((o) => (
+            <button
+              key={o.value}
+              type="button"
+              role="radio"
+              aria-checked={kind === o.value}
+              onClick={() => onKind(o.value)}
+              className={`rounded-lg px-3 py-1 transition-colors ${
+                kind === o.value
+                  ? "bg-card-light dark:bg-card-dark shadow-sm text-blue-700 dark:text-blue-300"
+                  : "text-text-secondary-light dark:text-text-secondary-dark hover:text-text-primary-light dark:hover:text-text-primary-dark"
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default function RankingView({ filters, onChange, lockedSubjectId, heading }: Props) {
   const subjectId = lockedSubjectId ?? filters.subjectId;
   const [data, setData] = useState<RankingResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -85,9 +176,27 @@ export default function RankingView({ filters, onChange, lockedSubjectId }: Prop
   // A grouping the current filter makes pointless (one class picked) falls back.
   const groupBy: RankingGroupBy = groupOptions.some((o) => o.value === filters.groupBy) ? filters.groupBy : "none";
 
+  const studentView = data?.view === "student";
+
   return (
     <div className="space-y-4 min-w-0">
-      {/* Filters */}
+      {/* Students: one toolbar — title, subject dropdown, kind of work. */}
+      {(studentView || (!data && heading)) && (
+        <StudentToolbar
+          heading={heading}
+          data={data?.view === "student" ? data : null}
+          subjectId={lockedSubjectId ? undefined : subjectId}
+          onSubject={selectSubject}
+          kind={filters.kind}
+          onKind={(kind) => set({ kind })}
+        />
+      )}
+
+      {/* Staff: the full filter card. */}
+      {data && !studentView && heading && (
+        <h1 className="text-xl sm:text-2xl font-bold text-text-primary-light dark:text-text-primary-dark">{heading.title}</h1>
+      )}
+      {!studentView && (data || !heading) && (
       <div className={`${CARD} p-3 sm:p-4 space-y-3`}>
         {!lockedSubjectId && data && data.available_subjects.length > 0 && (
           <SubjectPicker subjects={data.available_subjects} value={subjectId} onChange={(id) => selectSubject?.(id)} />
@@ -127,28 +236,6 @@ export default function RankingView({ filters, onChange, lockedSubjectId }: Prop
           {isStaff && groupOptions.length > 1 && (
             <Segmented label="Group the leaderboard" value={groupBy} options={groupOptions} onChange={(groupBy) => set({ groupBy })} />
           )}
-          {data?.view === "student" && (
-            <span className="inline-flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-secondary-light dark:text-text-secondary-dark/70 sm:ml-auto">
-              {data.cohort.type === "class_group" ? (
-                <span className="inline-flex items-center gap-1.5 font-semibold text-blue-700 dark:text-blue-300">
-                  <School className="w-3.5 h-3.5" />
-                  Ranked within {data.cohort.class_group_name}
-                </span>
-              ) : (
-                <span
-                  className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-300"
-                  title="Your class list couldn't be loaded, so you're ranked against everyone with marks in your subjects"
-                >
-                  <Users className="w-3.5 h-3.5" />
-                  Ranked across your subjects
-                </span>
-              )}
-              <span className="inline-flex items-center gap-1.5">
-                <Lock className="w-3.5 h-3.5" />
-                Private to you
-              </span>
-            </span>
-          )}
           {isStaff && (
             <span className="inline-flex items-center gap-1.5 text-xs text-text-secondary-light dark:text-text-secondary-dark/70 sm:ml-auto">
               <Users className="w-3.5 h-3.5" />
@@ -157,6 +244,7 @@ export default function RankingView({ filters, onChange, lockedSubjectId }: Prop
           )}
         </div>
       </div>
+      )}
 
       {loading && !data ? (
         <RankingSkeleton />

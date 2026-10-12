@@ -52,6 +52,15 @@ export default function RankingPage() {
   // Only the wording depends on this; what the page shows is the server's call.
   const looksLikeStaff = can("ASSIGNMENTS_VIEW_SUBMISSIONS") || can("USERS_EDIT");
 
+  // Students get the title inside their filter toolbar (RankingView); staff keep this header.
+  if (!looksLikeStaff) {
+    return (
+      <div className="space-y-4 min-w-0">
+        <RankingView filters={filters} onChange={onChange} heading={{ title: "Overall Ranking", period: periodLabel }} />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 min-w-0">
       <header className="flex flex-col sm:flex-row sm:items-center gap-3">
