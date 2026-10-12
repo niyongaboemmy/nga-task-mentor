@@ -8,7 +8,9 @@ export interface Judge0Submission {
   language_id: number;
   stdin?: string;
   expected_output?: string;
-  cpu_limit?: number;
+  /** Seconds of CPU time (Judge0's field name). */
+  cpu_time_limit?: number;
+  /** Kilobytes. */
   memory_limit?: number;
 }
 
@@ -36,6 +38,33 @@ export interface SupportedLanguage {
   runtime: string | null;
 }
 
+/**
+ * The judge refused the request itself (400/401/403/404/422): a bad key or
+ * subscription, or limits it won't accept. Retrying won't help, so grading
+ * leaves the answer for review with this reason, and runs answer with a
+ * clear message instead of "Server error".
+ */
+export class RunnerRejectedError extends Error {
+  code = "RUNNER_REJECTED" as const;
+  constructor(message: string, public status?: number, public detail?: string) {
+    super(message);
+  }
+}
+
+/** Client-side timeouts (ms): a hung connection must never hang a request. */
+const TIMEOUT = { read: 15_000, submit: 20_000, wait: 30_000 };
+
+/** Short text of what the judge said when it refused a request. */
+const refusalDetail = (data: unknown): string => {
+  if (!data) return "";
+  if (typeof data === "string") return data.slice(0, 300);
+  try {
+    return JSON.stringify(data).slice(0, 300);
+  } catch {
+    return "";
+  }
+};
+
 /** Thrown when a run asks for a language the judge has no runtime for. */
 export class UnsupportedLanguageError extends Error {
   code = "UNSUPPORTED_LANGUAGE" as const;
@@ -50,9 +79,17 @@ export class UnsupportedLanguageError extends Error {
  * yet" (grade_status pending, re-graded later), never as a wrong answer.
  */
 export class JudgeUnavailableError extends Error {
-  code = "JUDGE_UNAVAILABLE" as const;
+  code: string = "JUDGE_UNAVAILABLE";
   constructor(message = "Judge unavailable", public status?: number) {
     super(message);
+  }
+}
+
+/** The judge's quota is used up (429 after retries): retryable later, like an outage. */
+export class QuotaExceededError extends JudgeUnavailableError {
+  code = "QUOTA_EXCEEDED";
+  constructor(status = 429) {
+    super("The code runner's quota is used up", status);
   }
 }
 
@@ -207,9 +244,15 @@ export class Judge0Service {
     return Number.isFinite(n) && n >= 0 ? n : 500;
   }
 
-  /** Network errors, 429 and 5xx are worth retrying; other 4xx are not. */
-  private static isRetryable(error: any): boolean {
+  /**
+   * Network errors, 429 and 5xx are worth retrying; other 4xx are not. A
+   * request that creates a submission is retried only when the judge
+   * certainly didn't accept it (429/502/503/504): after a timeout or a reset
+   * it may have, and a retry would run (and bill) it twice.
+   */
+  private static isRetryable(error: any, creates: boolean): boolean {
     const status = error?.response?.status;
+    if (creates) return status === 429 || status === 502 || status === 503 || status === 504;
     return !status || status === 429 || status >= 500;
   }
 
@@ -218,7 +261,11 @@ export class Judge0Service {
    * exponential backoff (honouring Retry-After, capped at 10 s). Throws
    * JudgeUnavailableError when the judge stays unavailable.
    */
-  private static async request<T>(what: string, fn: () => Promise<AxiosResponse<T>>): Promise<T> {
+  private static async request<T>(
+    what: string,
+    fn: () => Promise<AxiosResponse<T>>,
+    creates = false,
+  ): Promise<T> {
     let attempt = 0;
     for (;;) {
       try {
@@ -228,15 +275,23 @@ export class Judge0Service {
       } catch (error: any) {
         this.recordQuota(error?.response?.headers);
         const status = error?.response?.status;
-        if (!this.isRetryable(error)) {
-          console.error(`Judge0 ${what} error:`, error.response?.data || error.message);
-          throw new Error(`Judge0 ${what} failed (${status})`);
+        if (status && status >= 400 && status < 500 && status !== 429) {
+          const detail = refusalDetail(error.response?.data);
+          console.error(`Judge0 ${what} refused (${status}):`, detail || error.message);
+          throw new RunnerRejectedError(
+            status === 401 || status === 403
+              ? "The code runner refused the request (its access key or subscription)."
+              : `The code runner refused the request (${status})${detail ? `: ${detail}` : ""}.`,
+            status,
+            detail,
+          );
         }
-        if (attempt >= this.maxRetries) {
+        if (!this.isRetryable(error, creates) || attempt >= this.maxRetries) {
           console.error(
             `Judge0 ${what} unavailable after ${attempt + 1} tries:`,
             status ?? error?.code ?? error?.message,
           );
+          if (status === 429) throw new QuotaExceededError();
           throw new JudgeUnavailableError(`Judge unavailable (${status ?? error?.code ?? "network"})`, status);
         }
         const retryAfter = Number(error?.response?.headers?.["retry-after"]);
@@ -376,8 +431,9 @@ export class Judge0Service {
       axios.post(
         `${this.BASE_URL}/submissions?base64_encoded=false&wait=false`,
         submission,
-        { headers: this.headers },
+        { headers: this.headers, timeout: TIMEOUT.submit },
       ),
+      true,
     );
     return data.token;
   }
@@ -389,6 +445,7 @@ export class Judge0Service {
     return this.request<Judge0Result>("result", () =>
       axios.get(`${this.BASE_URL}/submissions/${token}?base64_encoded=false`, {
         headers: this.headers,
+        timeout: TIMEOUT.read,
       }),
     );
   }
@@ -437,8 +494,9 @@ export class Judge0Service {
           cpu_time_limit: cpuLimit,
           memory_limit: memoryLimit,
         },
-        { headers: this.headers },
+        { headers: this.headers, timeout: TIMEOUT.wait },
       ),
+      true,
     );
   }
 }

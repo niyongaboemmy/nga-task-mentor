@@ -6,7 +6,12 @@ import {
   signTokenFor,
 } from "./testApp";
 import { sequelize } from "../config/database";
-import { Judge0Service } from "../services/Judge0Service";
+import {
+  Judge0Service,
+  JudgeUnavailableError,
+  QuotaExceededError,
+  RunnerRejectedError,
+} from "../services/Judge0Service";
 import { codeRunLimiter } from "../middleware/rateLimiter.middleware";
 import {
   Quiz,
@@ -225,5 +230,44 @@ describe("server-owned test cases (TM-FIX-3)", () => {
     const res = await runAsStudent(question.id, { ...CODE, stdin: "1 2" });
     expect(res.status).toBe(429);
     expect(res.body.code).toBe("RATE_LIMITED");
+  });
+});
+
+describe("when the code runner fails, the API answers clearly and stays up", () => {
+  const CODE = { code: "print(input())", language: "python", stdin: "hi" };
+  const cases: [string, Error, number, string][] = [
+    ["refused (bad key, bad limits)", new RunnerRejectedError("The code runner refused the request (403).", 403), 502, "RUNNER_REJECTED"],
+    ["out of quota", new QuotaExceededError(), 503, "QUOTA_EXCEEDED"],
+    ["unreachable", new JudgeUnavailableError("down"), 503, "JUDGE_UNAVAILABLE"],
+    ["an unexpected error", new Error("boom"), 500, "RUN_FAILED"],
+  ];
+
+  it.each(cases)("a student's free Run when the runner is %s", async (_label, error, status, code) => {
+    jest.spyOn(Judge0Service, "runSingle").mockRejectedValue(error);
+    const { quiz, question } = await makeCodingQuiz();
+    await startAttempt(quiz.id);
+    // Before the fix the rejection escaped the handler: no answer, and the
+    // process-wide handler shut the API down.
+    const res = await runAsStudent(question.id, CODE);
+    expect(res.status).toBe(status);
+    expect(res.body).toMatchObject({ success: false, code });
+    expect(res.body.message).toEqual(expect.any(String));
+    expect(res.body.message).not.toMatch(/boom/);
+  });
+
+  it.each(cases)("an author's free preview run when the runner is %s", async (_label, error, status, code) => {
+    jest.spyOn(Judge0Service, "runSingle").mockRejectedValue(error);
+    const res = await asAdmin(request(app).post("/api/quizzes/preview-run")).send(CODE);
+    expect(res.status).toBe(status);
+    expect(res.body.code).toBe(code);
+  });
+
+  it("keeps serving after a failed run", async () => {
+    jest.spyOn(Judge0Service, "runSingle").mockRejectedValueOnce(new RunnerRejectedError("refused", 401));
+    await asAdmin(request(app).post("/api/quizzes/preview-run")).send(CODE);
+    jest.spyOn(Judge0Service, "runSingle").mockResolvedValue(judgeOk("hi") as any);
+    const res = await asAdmin(request(app).post("/api/quizzes/preview-run")).send(CODE);
+    expect(res.status).toBe(200);
+    expect(res.body.data.stdout).toBe("hi");
   });
 });

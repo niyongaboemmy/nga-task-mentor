@@ -388,13 +388,13 @@ const startServer = async (): Promise<void> => {
       void activityRelay.pushCatalog(activityCatalog);
     });
 
-    // Handle unhandled promise rejections
-    process.on("unhandledRejection", (err: Error) => {
-      console.error("UNHANDLED REJECTION! 💥 Shutting down...");
-      console.error(err.name, err.message);
-      server.close(() => {
-        process.exit(1);
-      });
+    // A promise nobody awaited failed: log it loudly, but keep serving. One
+    // request's failure (a code runner refusing a run, say) must never take
+    // the API down for everyone; the process state is still sound, unlike
+    // after an uncaught exception below.
+    process.on("unhandledRejection", (reason: unknown) => {
+      const err = reason instanceof Error ? reason : new Error(String(reason));
+      console.error("UNHANDLED REJECTION (server kept running):", err.name, err.message, err.stack);
     });
 
     // Handle uncaught exceptions

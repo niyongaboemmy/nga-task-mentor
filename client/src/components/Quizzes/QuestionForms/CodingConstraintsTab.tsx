@@ -10,6 +10,13 @@ interface CodingConstraintsTabProps {
   onChange: (data: CodingData) => void;
 }
 
+/** Memory in MB. Questions saved before 2026-10 stored KB (e.g. 256000). */
+const memoryMb = (v: number | undefined | null) => {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return 256;
+  return Math.round(n > 4096 ? n / 1024 : n);
+};
+
 export const CodingConstraintsTab: React.FC<CodingConstraintsTabProps> = ({
   codingData,
   rawData,
@@ -82,23 +89,24 @@ export const CodingConstraintsTab: React.FC<CodingConstraintsTabProps> = ({
 
         <div>
           <label className="block font-semibold text-text-secondary-light dark:text-text-secondary-dark text-sm mb-2">
-            Memory Limit (KB)
+            Memory Limit (MB)
           </label>
           <input
             type="number"
-            value={rawData.memory_limit ?? 256000}
+            value={memoryMb(rawData.memory_limit)}
             onChange={(e) =>
               onChange({
                 ...codingData,
-                memory_limit: parseInt(e.target.value) || 256000,
+                memory_limit: Math.min(512, Math.max(16, parseInt(e.target.value) || 256)),
               })
             }
-            step="1000"
-            min="1000"
+            step="16"
+            min="16"
+            max="512"
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all font-mono text-sm"
           />
           <p className="mt-1.5 text-xs text-gray-400 dark:text-gray-500">
-            Default: 256 MB (256 000 KB)
+            Default: 256 MB · Max: 512 MB
           </p>
         </div>
       </div>

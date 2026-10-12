@@ -1,5 +1,5 @@
 import axios from "axios";
-import { JudgeUnavailableError, UnsupportedLanguageError } from "../Judge0Service";
+import { JudgeUnavailableError, QuotaExceededError, RunnerRejectedError, UnsupportedLanguageError } from "../Judge0Service";
 import { PROFILES, isWebProfile, profileById, profileIdForLanguage } from "../../tmcode/profiles";
 import { CodeRunner, RunRequest, RunResult, TestOutcome, Verdict } from "./types";
 
@@ -124,8 +124,12 @@ export class TmJudgeRunner implements CodeRunner {
       } catch (error: any) {
         const status = error?.response?.status;
         const retryable = !status || status === 429 || status >= 500;
-        if (!retryable) throw new Error(`tm-judge run failed (${status})`);
+        if (!retryable) {
+          const detail = typeof error?.response?.data?.error === "string" ? error.response.data.error : "";
+          throw new RunnerRejectedError(`The code runner refused the request (${status})${detail ? `: ${detail}` : ""}.`, status, detail);
+        }
         if (attempt >= maxRetries) {
+          if (status === 429) throw new QuotaExceededError();
           throw new JudgeUnavailableError(`tm-judge unavailable (${status ?? error?.code ?? "network"})`, status);
         }
         await sleep(base * 2 ** attempt);

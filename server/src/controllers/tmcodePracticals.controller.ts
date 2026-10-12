@@ -40,7 +40,7 @@ import { isPassed } from "../utils/quizStudentView";
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { TM_ATTRS, tmcodeColumns } from "../tmcode/assignments/load";
 import { getCodeRunner } from "../services/coderunner";
-import { JudgeUnavailableError, Judge0Service, UnsupportedLanguageError } from "../services/Judge0Service";
+import { JudgeUnavailableError, Judge0Service, QuotaExceededError, RunnerRejectedError, UnsupportedLanguageError } from "../services/Judge0Service";
 import {
   filesToSend,
   isProbablyText,
@@ -892,6 +892,12 @@ export const runProject = async (req: Request, res: Response) => {
       tests: result.tests,
     });
   } catch (e) {
+    if (e instanceof QuotaExceededError) {
+      return tmcodeError(res, 503, "QUOTA_EXCEEDED", "The code runner has reached its limit for now. Try again later.");
+    }
+    if (e instanceof RunnerRejectedError) {
+      return tmcodeError(res, 502, "RUNNER_REJECTED", e.message);
+    }
     if (e instanceof JudgeUnavailableError) {
       return tmcodeError(res, 503, "JUDGE_UNAVAILABLE", "The code runner isn't reachable right now. Try again in a minute, or open the project in TMCode.");
     }

@@ -133,7 +133,9 @@ export interface CodingData {
     memory_limit?: number;
   }>;
   constraints?: string;
+  /** Seconds. */
   time_limit?: number;
+  /** MB (questions saved before 2026-10 hold KB, e.g. 256000; read with care). */
   memory_limit?: number;
   allowed_languages?: string[];
   project_mode?: boolean;

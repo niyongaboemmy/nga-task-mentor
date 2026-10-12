@@ -17,6 +17,7 @@ import {
   Cpu,
 } from "lucide-react";
 import { toast } from "react-toastify";
+import { runErrorMessage } from "../../../utils/runErrors";
 import { QuizApiService } from "../../../services/quizApi";
 
 interface CodingTestsTabProps {
@@ -134,7 +135,7 @@ export const CodingTestsTab: React.FC<CodingTestsTabProps> = ({
         toast.warn(`${passed}/${total} test cases passed.`);
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to run tests.");
+      toast.error(runErrorMessage(err, "The tests couldn't be run. Try again."));
     } finally {
       setPreviewRunning(false);
     }

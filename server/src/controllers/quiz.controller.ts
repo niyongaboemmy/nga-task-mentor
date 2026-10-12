@@ -16,6 +16,8 @@ import { aiService } from "../services/ai/aiService";
 import {
   Judge0Service,
   JudgeUnavailableError,
+  QuotaExceededError,
+  RunnerRejectedError,
   UnsupportedLanguageError,
 } from "../services/Judge0Service";
 import { answerFiles, getCodeRunner } from "../services/coderunner";
@@ -2198,6 +2200,22 @@ async function runWithStdin(res: Response, code: string, language: string, stdin
 }
 
 const runErrorResponse = (res: Response, error: any) => {
+  if (res.headersSent) return;
+  if (error instanceof QuotaExceededError) {
+    return res.status(503).json({
+      success: false,
+      code: "QUOTA_EXCEEDED",
+      message: "The code runner has reached its limit for now. Try again later, or tell your teacher.",
+    });
+  }
+  if (error instanceof RunnerRejectedError) {
+    console.error("Run code refused by the runner:", error.status, error.detail);
+    return res.status(502).json({
+      success: false,
+      code: "RUNNER_REJECTED",
+      message: error.message,
+    });
+  }
   if (error instanceof JudgeUnavailableError) {
     return res.status(503).json({
       success: false,
@@ -2215,7 +2233,8 @@ const runErrorResponse = (res: Response, error: any) => {
   console.error("Run code error:", error);
   return res.status(500).json({
     success: false,
-    message: error?.message || "Failed to execute code",
+    code: "RUN_FAILED",
+    message: "The code couldn't be run because of a problem on Task Mentor. Try again.",
   });
 };
 
@@ -2287,7 +2306,7 @@ export const runCode = async (req: Request, res: Response) => {
       }
     }
 
-    if (!wantsTests) return runWithStdin(res, code, language, stdin);
+    if (!wantsTests) return await runWithStdin(res, code, language, stdin);
 
     let qd: any = question.questionBank?.question_data || {};
     if (typeof qd === "string") {
@@ -2326,7 +2345,7 @@ export const previewRunCode = async (req: Request, res: Response) => {
     if (!checkRunInput(req, res)) return;
     const { code, language, stdin, test_cases } = req.body;
     if (!Array.isArray(test_cases) || test_cases.length === 0) {
-      return runWithStdin(res, code, language, stdin);
+      return await runWithStdin(res, code, language, stdin);
     }
     if (isWebLanguage(language)) {
       return res.json({ success: true, data: webPreviewResults(test_cases, true) });

@@ -1,4 +1,6 @@
 import { parsePracticalAnswer } from "../tmcode/practical/question";
+import { questionRunLimits } from "./runLimits";
+import { RunnerRejectedError } from "../services/Judge0Service";
 import { QuizQuestion, QuizAttempt } from "../models";
 import {
   AnswerDataType,
@@ -1948,10 +1950,7 @@ export class CodingGrader {
           input: tc.input ?? "",
           expected_output: tc.expected_output ?? "",
         })),
-        limits: {
-          time_s: questionData.time_limit || 5,
-          memory_mb: questionData.memory_limit || 256,
-        },
+        limits: questionRunLimits(questionData),
       });
       testCases.forEach((tc: any, i: number) => {
         const r = run.tests[i];
@@ -2041,7 +2040,11 @@ export class CodingGrader {
         });
       }
       console.error("Coding grading failed:", error);
-      return pendingCodeResult("Automatic grading failed – needs manual review.");
+      return pendingCodeResult(
+        error instanceof RunnerRejectedError
+          ? `Automatic grading failed – needs manual review. ${error.message}`
+          : "Automatic grading failed – needs manual review.",
+      );
     }
   }
 }

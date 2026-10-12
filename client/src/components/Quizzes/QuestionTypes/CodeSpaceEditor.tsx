@@ -56,7 +56,8 @@ import {
   isPasteGuardActive,
   rememberInternalCopy,
 } from "../../../hooks/useQuizLockdown";
-import QuestionTimer from "../../ui/QuestionTimer";
+import { formatClock } from "../../../utils/quizTimer";
+import { runErrorMessage } from "../../../utils/runErrors";
 import Select from "../../ui/Select";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -229,11 +230,20 @@ export const CodeSpaceWithToolbar: React.FC<CodeSpaceWithToolbarProps> = (
             .substring(0, 60) ?? "Coding Challenge"}
         </span>
 
-        {/* Integrated Timer Placeholder */}
-        <div className="flex items-center gap-2 px-3 py-1 bg-[#2d2d2d] rounded-full border border-[#444] text-amber-400 mr-2">
-          <Clock size={12} className="animate-pulse" />
-          <span className="text-[11px] font-mono font-bold">LIVE</span>
-        </div>
+        {/* The quiz's real time left (hidden when the quiz isn't timed). */}
+        {typeof props.timeRemaining === "number" && props.timeRemaining >= 0 && (
+          <div
+            className={`flex items-center gap-2 px-3 py-1 bg-[#2d2d2d] rounded-full border border-[#444] mr-2 ${
+              props.timeRemaining <= 60 ? "text-red-400" : props.timeRemaining <= 300 ? "text-amber-400" : "text-[#ccc]"
+            }`}
+            role="timer"
+            aria-label={`Time left ${formatClock(props.timeRemaining)}`}
+            data-testid="coding-time-left"
+          >
+            <Clock size={12} />
+            <span className="text-[11px] font-mono font-bold tabular-nums">{formatClock(props.timeRemaining)}</span>
+          </div>
+        )}
 
         {/* Right-side button group */}
         <div className="flex items-center gap-2">
@@ -544,35 +554,38 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
         stdin: stdinValue,
       });
 
-      const entry: ConsoleEntry = {
-        id: uid(),
-        type: result.success ? "stdout" : "stderr",
-        text:
-          result.data.stdout ||
-          result.data.stderr ||
-          result.data.status ||
-          "No output",
-        time: new Date(),
-        execMs: result.data.execution_time
-          ? result.data.execution_time * 1000
-          : undefined,
-        memKb: result.data.memory_used ? result.data.memory_used : undefined,
+      // Output and errors are shown apart; times come back in ms already.
+      const d = result.data;
+      const meta = {
+        execMs: d.execution_time || undefined,
+        memKb: d.memory_used ?? undefined,
       };
-
-      setConsoleLog((p) => [...p, entry]);
-      if (!result.success)
-        setLastError(result.data.stderr || "Execution failed");
+      const entries: ConsoleEntry[] = [];
+      if (d.stdout) entries.push({ id: uid(), type: "stdout", text: d.stdout, time: new Date(), ...meta });
+      if (d.stderr) entries.push({ id: uid(), type: "stderr", text: d.stderr, time: new Date(), ...(d.stdout ? {} : meta) });
+      if (!entries.length) {
+        entries.push({
+          id: uid(),
+          type: "stdout",
+          text: d.status && !/accepted|^ok$/i.test(d.status) ? String(d.status) : "(no output)",
+          time: new Date(),
+          ...meta,
+        });
+      }
+      setConsoleLog((p) => [...p, ...entries]);
+      if (d.stderr) setLastError(d.stderr);
     } catch (err: any) {
+      const message = runErrorMessage(err);
       setConsoleLog((p) => [
         ...p,
         {
           id: uid(),
           type: "stderr",
-          text: err.message || "Execution failed",
+          text: message,
           time: new Date(),
         },
       ]);
-      setLastError(err.message);
+      setLastError(message);
     } finally {
       setIsRunning(false);
     }
@@ -607,9 +620,7 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
         toast.info("This question has no visible tests to run.");
       }
     } catch (err: any) {
-      toast.error(
-        err?.response?.data?.message || err.message || "Failed to run tests",
-      );
+      toast.error(runErrorMessage(err, "The tests couldn't be run. Try again."));
     } finally {
       setIsTesting(false);
     }
@@ -1239,7 +1250,7 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
                           <textarea
                             value={stdinValue}
                             onChange={(e) => setStdinValue(e.target.value)}
-                            placeholder="Type input to provide during execution..."
+                            placeholder="Input given to your program when it starts (one value per line)"
                             className="w-full h-24 bg-[#0a0a0a] text-[#ddd] border border-[#333] rounded p-2 focus:border-blue-500 outline-none transition-colors"
                           />
                         </div>
