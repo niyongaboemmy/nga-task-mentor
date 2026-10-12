@@ -150,6 +150,17 @@ router.get("/grading", grader, wrap(practicals.listGradable));
 router.get("/grading/:type(assignment|quiz)/:id(\\d+)", grader, wrap(practicals.gradingRoster));
 router.put("/grading/:type(assignment|quiz)/:id(\\d+)/students/:studentId(\\d+)", grader, wrap(practicals.saveGrade));
 router.post(`${p}/preview`, read, wrap(practicals.createPreview));
+// The grading workspace's Run tab (non-web projects on the code runner).
+const projectRunLimiter = rateLimit({
+  windowMs: 60_000,
+  max: Number(process.env.CODE_RUN_RATE_LIMIT_PER_MIN) || 10,
+  keyGenerator: (req) => `tmcode-project-run:${(req as any).user?.id ?? req.ip}`,
+  handler: (_req, res) => tmcodeError(res, 429, "RATE_LIMITED", "Too many runs — wait a minute and try again."),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+router.get(`${p}/run-targets`, read, wrap(practicals.runTargets));
+router.post(`${p}/run`, read, projectRunLimiter, wrap(practicals.runProject));
 // No auth: the signed, short-lived token in the path is the key (iframes send
 // no Authorization header) and responses are sandboxed.
 router.get("/preview/:token/*", wrap(practicals.servePreview));

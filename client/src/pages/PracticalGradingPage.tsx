@@ -20,6 +20,7 @@ import {
   MessageSquarePlus,
   Monitor,
   MonitorUp,
+  Play,
   PanelRightClose,
   PanelRightOpen,
   Plus,
@@ -38,6 +39,7 @@ import {
   type GradingRow,
   type PracticalActivity,
   type PracticalCriterion,
+  type RunTargets,
 } from "../services/practicalsApi";
 import { apiErrorCode, apiErrorMessage, projectsApi, type RevisionSummary } from "../services/projectsApi";
 import FilesTab from "../components/Projects/FilesTab";
@@ -46,6 +48,8 @@ import { TmcodeDeepLinkButton } from "../components/Projects/OpenProjectInTmcode
 import Select from "../components/ui/Select";
 import { Skeleton } from "../components/ui/Skeleton";
 import { formatDateTime, timeAgo } from "../components/Projects/projectFormat";
+import RunPane from "../components/Projects/grading/RunPane";
+import GradingDetailsPane from "../components/Projects/grading/GradingDetailsPane";
 
 /**
  * Grading workspace for TMCode practicals (an assignment, or a quiz's
@@ -56,7 +60,7 @@ import { formatDateTime, timeAgo } from "../components/Projects/projectFormat";
  */
 
 type Filter = "to_grade" | "graded" | "all";
-type Pane = "code" | "preview" | "details";
+type Pane = "code" | "preview" | "run" | "details";
 
 const STATE_META: Record<GradingRow["state"], { label: string; dot: string; pill: string }> = {
   submitted: {
@@ -698,6 +702,40 @@ const StudentWorkspace: React.FC<{
     };
   }, [projectId]);
 
+  // What this revision can show: a web page (Preview) and/or a program (Run).
+  const [targets, setTargets] = useState<RunTargets | null>(null);
+  const [targetsError, setTargetsError] = useState<string | null>(null);
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    setTargets(null);
+    setTargetsError(null);
+    practicalsApi
+      .runTargets(projectId, revisionId)
+      .then((t) => !cancelled && setTargets(t))
+      .catch((e) => !cancelled && setTargetsError(apiErrorMessage(e, "Couldn't look at this revision's files.")));
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, revisionId]);
+
+  const showPreview = !targets || !!targets.html_entry || targets.languages.length === 0;
+  const showRun = !!targets && targets.languages.length > 0;
+  // A program without a web page opens in Run rather than an empty Preview.
+  useEffect(() => {
+    if (pane === "preview" && !showPreview) setPane("run");
+    if (pane === "run" && targets && !showRun) setPane("preview");
+  }, [pane, showPreview, showRun, targets]);
+
+  const savedScores = useMemo(
+    () => scoresOf(row, a.rubric.length).map((s) => (s.score === "" ? null : Number(s.score))),
+    [row, a.rubric.length],
+  );
+  const viewRevision = (id: number, next: Pane) => {
+    setRevisionId(id);
+    setPane(next);
+  };
+
   const tabCls = (on: boolean) =>
     `inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold transition disabled:opacity-40 ${
       on ? "bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-white" : "text-slate-500 hover:text-slate-800 dark:hover:text-slate-200"
@@ -713,10 +751,22 @@ const StudentWorkspace: React.FC<{
               [
                 ["code", "Code", Code2],
                 ["preview", "Preview", Eye],
+                ["run", "Run", Play],
                 ["details", "Details", FileText],
               ] as [Pane, string, React.ElementType][]
-            ).map(([k, label, Icon]) => (
-              <button key={k} type="button" role="tab" aria-selected={pane === k} onClick={() => setPane(k)} disabled={!projectId} className={tabCls(pane === k)}>
+            )
+              .filter(([k]) => (k === "preview" ? showPreview : k === "run" ? showRun : true))
+              .map(([k, label, Icon]) => (
+              <button
+                key={k}
+                type="button"
+                role="tab"
+                aria-selected={pane === k}
+                onClick={() => setPane(k)}
+                disabled={!projectId && k !== "details"}
+                className={tabCls(pane === k)}
+                data-testid={`pane-${k}`}
+              >
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
                 {label}
               </button>
@@ -765,16 +815,34 @@ const StudentWorkspace: React.FC<{
         </div>
 
         <div className="min-h-0 flex-1 overflow-hidden p-2 sm:p-3">
-          {!projectId ? (
+          {pane === "details" ? (
+            <div className="h-full overflow-y-auto">
+              <GradingDetailsPane
+                activity={a}
+                row={row}
+                revisions={projectId ? revisions : []}
+                revisionId={revisionId}
+                targets={targets}
+                savedScores={savedScores}
+                openedInTmcode={opened}
+                onViewRevision={viewRevision}
+              />
+            </div>
+          ) : !projectId ? (
             <EmptyState text={`${name} hasn't started a project for this practical yet.`} />
           ) : pane === "code" ? (
             <FilesTab projectId={projectId} revisions={revisions} revisionId={revisionId} onRevisionChange={setRevisionId} fill />
           ) : pane === "preview" ? (
             <PreviewPane projectId={projectId} revisionId={revisionId} />
           ) : (
-            <div className="h-full overflow-y-auto">
-              <DetailsPane row={row} />
-            </div>
+            <RunPane
+              projectId={projectId}
+              revisionId={revisionId}
+              targets={targets}
+              targetsError={targetsError}
+              casesKey={`tm.grading.runCases.${type}.${activityId}.${a.question?.id ?? 0}`}
+              studentName={name}
+            />
           )}
         </div>
       </section>
@@ -928,58 +996,6 @@ const PreviewPane: React.FC<{ projectId: number; revisionId: number | null }> = 
           <Loader2 className="m-auto h-5 w-5 animate-spin text-blue-600" />
         )}
       </div>
-    </div>
-  );
-};
-
-const DetailsPane: React.FC<{ row: GradingRow }> = ({ row }) => {
-  const items: [string, React.ReactNode][] = [
-    ["Student", row.student?.name ?? "—"],
-    ["Status", STATE_META[row.state].label],
-    ["Submitted", row.submitted_at ? formatDateTime(row.submitted_at) : "Not yet"],
-    ["On time", row.submitted_at ? (row.late ? <span className="font-semibold text-rose-600">Late</span> : "Yes") : "—"],
-    ["Revision", row.link?.revision_number ? `#${row.link.revision_number}` : "—"],
-    ["Git commit", row.link?.git_commit ? <code className="text-xs">{row.link.git_commit.slice(0, 10)}</code> : "—"],
-    ["Language", row.project?.language ?? "—"],
-    ["Project status", row.project?.status ?? "—"],
-    ["Last graded", row.grade?.graded_at ? formatDateTime(row.grade.graded_at) : "—"],
-  ];
-  return (
-    <div className="mx-auto max-w-4xl space-y-4 p-1">
-      <dl className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        {items.map(([k, v]) => (
-          <div key={k} className="rounded-xl border border-slate-200 bg-white p-3 dark:border-white/10 dark:bg-slate-900">
-            <dt className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">{k}</dt>
-            <dd className="mt-1 text-sm">{v}</dd>
-          </div>
-        ))}
-      </dl>
-      {row.project && (
-        <div className="flex flex-wrap gap-2">
-          <Link
-            to={`/projects/${row.project.id}`}
-            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:hover:bg-white/5"
-          >
-            <ExternalLink className="h-4 w-4" /> Open the project page
-          </Link>
-          {row.project.repo_url && (
-            <a
-              href={row.project.repo_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold hover:bg-slate-50 dark:border-white/10 dark:bg-slate-900 dark:hover:bg-white/5"
-            >
-              <ExternalLink className="h-4 w-4" /> Repository
-            </a>
-          )}
-        </div>
-      )}
-      {row.grade?.feedback && (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm dark:border-emerald-500/20 dark:bg-emerald-500/10">
-          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300">Feedback sent</p>
-          <p className="whitespace-pre-wrap">{row.grade.feedback}</p>
-        </div>
-      )}
     </div>
   );
 };

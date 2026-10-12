@@ -24,6 +24,7 @@ import {
 import * as scoped from "../utils/scopedSubjects";
 import * as mis from "../utils/misUtils";
 import { projectsBus } from "../tmcode/projects/bus";
+import { Judge0Service } from "../services/Judge0Service";
 
 /**
  * TMCode practicals beyond assignments, and grading them (dev DB, MIS stubbed):
@@ -330,6 +331,8 @@ describe("assignment practical grading", () => {
 
     const roster = await api(teacher).get(`/grading/assignment/${a.id}`);
     expect(roster.body.activity.rubric).toHaveLength(3);
+    // The brief for the Details tab.
+    expect(roster.body.activity.brief).toMatchObject({ description: "<p>Build it</p>", submission_type: "project", attachments: [] });
     expect(roster.body.rows.find((r: any) => r.student.id === student.id).state).toBe("submitted");
 
     const res = await api(teacher).put(`/grading/assignment/${a.id}/students/${student.id}`, {
@@ -343,5 +346,70 @@ describe("assignment practical grading", () => {
     expect(sub!.feedback).toContain("Good work");
     expect(sub!.feedback).toContain("• Styling: Clean CSS");
     expect((await Project.findByPk(p.id))!.status).toBe("graded");
+  });
+});
+
+describe("running a submitted program (Run tab)", () => {
+  it("finds the program, runs it with the teacher's inputs, and refuses what it can't run", async () => {
+    delete process.env.CODERUNNER_ENGINE; // judge0: one file per run
+    const a = await Assignment.create({
+      title: unique("Sum"),
+      description: "<p>Read two numbers, print the sum</p>",
+      due_date: new Date(Date.now() + 86_400_000),
+      max_score: 10,
+      submission_type: "project",
+      course_id: COURSE_ID,
+      created_by: teacher.id,
+      status: "published",
+    } as any);
+    assignmentIds.push(a.id);
+    const p = (await api(student).post("/projects", { name: unique("Sum"), language: "c", assignment_id: a.id })).body.project;
+    projectIds.add(p.id);
+    await save(student, p.id, null, {
+      "src/util.c": "int add(int a, int b) { return a + b; }",
+      "src/app.c": "#include <stdio.h>\nint main(void) { int a, b; scanf(\"%d %d\", &a, &b); printf(\"%d\\n\", a + b); return 0; }",
+      "tests/test_app.c": "int main(void) { return 0; }",
+      "README.md": "# Sum",
+    });
+    expect((await api(student).post(`/projects/${p.id}/submit`)).status).toBe(200);
+    const link = await ProjectActivityLink.findOne({ where: { project_id: p.id } });
+
+    const targets = await api(teacher).get(`/projects/${p.id}/run-targets?rev=${link!.revision_id}`);
+    expect(targets.status).toBe(200);
+    expect(targets.body).toMatchObject({ language: "c", runnable: true, single_file: true, html_entry: null });
+    expect(targets.body.entries[0]).toBe("src/app.c");
+    expect(targets.body.entries[targets.body.entries.length - 1]).toBe("tests/test_app.c");
+
+    const judge = jest.spyOn(Judge0Service, "runSingle").mockResolvedValue({
+      stdout: "5\n",
+      stderr: null,
+      compile_output: null,
+      message: null,
+      time: "0.01",
+      memory: 900,
+      token: "t",
+      status: { id: 3, description: "Accepted" },
+    } as any);
+    const run = await api(teacher).post(`/projects/${p.id}/run`, {
+      rev: link!.revision_id,
+      tests: [
+        { id: "a", input: "2 3" },
+        { id: "b", input: "2 3", expected_output: "6" },
+      ],
+    });
+    expect(run.status).toBe(200);
+    expect(run.body).toMatchObject({ language: "c", entry: "src/app.c", files_sent: ["src/app.c"] });
+    expect(run.body.tests.map((t: any) => t.verdict)).toEqual(["ok", "wrong-answer"]);
+    expect(run.body.tests[0].stdout).toBe("5\n");
+    expect(judge).toHaveBeenCalledWith(expect.stringContaining("scanf"), "c", "2 3", expect.any(Number), expect.any(Number));
+
+    // An entry that isn't a C file of the revision falls back to the detected one.
+    const other = await api(teacher).post(`/projects/${p.id}/run`, { entry: "README.md", tests: [{ id: "a", input: "" }] });
+    expect(other.body.entry).toBe("src/app.c");
+
+    // A language with no files in the revision: the program's own language.
+    const python = await api(teacher).post(`/projects/${p.id}/run`, { language: "python", tests: [{ id: "a", input: "" }] });
+    expect(python.body.language).toBe("c");
+    expect((await api(teacher).post(`/projects/${p.id}/run`, { tests: [] })).status).toBe(400);
   });
 });

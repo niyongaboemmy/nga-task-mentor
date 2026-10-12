@@ -7,6 +7,7 @@ import { Op, QueryTypes, UniqueConstraintError } from "sequelize";
 import { sequelize } from "../config/database";
 import {
   Assignment,
+  AssignmentTmcode,
   Project,
   ProjectActivityLink,
   ProjectEvent,
@@ -37,7 +38,17 @@ import { rebasePreviewRoots } from "../tmcode/practical/preview";
 import { canGradeAssignment, canGradeQuiz } from "../utils/gradingAccess";
 import { isPassed } from "../utils/quizStudentView";
 import { getScopedSubjects } from "../utils/scopedSubjects";
-import { tmcodeColumns } from "../tmcode/assignments/load";
+import { TM_ATTRS, tmcodeColumns } from "../tmcode/assignments/load";
+import { getCodeRunner } from "../services/coderunner";
+import { JudgeUnavailableError, Judge0Service, UnsupportedLanguageError } from "../services/Judge0Service";
+import {
+  filesToSend,
+  isProbablyText,
+  MAX_STDIN_BYTES,
+  pickLanguage,
+  rankEntries,
+  runCandidates,
+} from "../tmcode/practical/run";
 
 /**
  * TMCode practicals beyond assignments, and the grading of every practical:
@@ -245,8 +256,40 @@ interface GradingContext {
   rubric: PracticalCriterion[];
   /** quiz only: the practical question. */
   question: { id: number; text: string; instructions: string } | null;
+  /** What the student was asked to do, for the workspace's Details tab. */
+  brief: GradingBrief;
   quiz?: Quiz;
   assignment?: Assignment;
+}
+
+interface GradingBrief {
+  /** The assignment description / quiz question text (rich HTML). */
+  description: string | null;
+  /** TMCode instructions shown beside the code (plain text or Markdown). */
+  instructions: string | null;
+  language: string | null;
+  kind: string | null;
+  submission_type: string | null;
+  attachments: { name: string; url: string; type?: string | null; size?: number | null }[];
+  starter: { project_id: number; revision_id: number | null } | null;
+  status: string | null;
+  created_at: string | null;
+}
+
+function parseAttachments(raw: unknown): GradingBrief["attachments"] {
+  let r: any = raw;
+  if (typeof r === "string") {
+    try {
+      r = JSON.parse(r);
+    } catch {
+      r = [];
+    }
+  }
+  return Array.isArray(r)
+    ? r
+        .filter((x: any) => x && typeof x === "object" && x.url)
+        .map((x: any) => ({ name: String(x.name ?? x.url), url: String(x.url), type: x.type ?? null, size: x.size != null ? Number(x.size) : null }))
+    : [];
 }
 
 function parseAssignmentRubric(raw: unknown): PracticalCriterion[] {
@@ -267,7 +310,7 @@ function parseAssignmentRubric(raw: unknown): PracticalCriterion[] {
 
 async function gradingContext(type: string, id: number, questionId: number | null): Promise<GradingContext | null> {
   if (type === "assignment") {
-    const a = await Assignment.findByPk(id);
+    const [a, tm] = await Promise.all([Assignment.findByPk(id), AssignmentTmcode.findByPk(id, { attributes: TM_ATTRS }).catch(() => null)]);
     if (!a) return null;
     return {
       type: "assignment",
@@ -278,6 +321,19 @@ async function gradingContext(type: string, id: number, questionId: number | nul
       max_points: Number(a.max_score),
       rubric: parseAssignmentRubric((a as any).rubric),
       question: null,
+      brief: {
+        description: a.description ?? null,
+        instructions: tm?.tmcode_instructions ?? null,
+        language: tm?.tmcode_language ?? null,
+        kind: tm?.tmcode_kind ?? (a.submission_type === "project" ? "practical" : null),
+        submission_type: a.submission_type ?? null,
+        attachments: parseAttachments((a as any).attachments),
+        starter: tm?.tmcode_starter_project_id
+          ? { project_id: Number(tm.tmcode_starter_project_id), revision_id: tm.tmcode_starter_revision_id ? Number(tm.tmcode_starter_revision_id) : null }
+          : null,
+        status: a.status ?? null,
+        created_at: iso((a as any).created_at),
+      },
       assignment: a,
     };
   }
@@ -296,6 +352,17 @@ async function gradingContext(type: string, id: number, questionId: number | nul
       max_points: Number(p.qq.points),
       rubric: p.data.rubric,
       question: { id: p.qq.id, text: p.bank.question_text, instructions: p.data.instructions },
+      brief: {
+        description: p.bank.question_text ?? null,
+        instructions: p.data.instructions || null,
+        language: p.data.language,
+        kind: p.data.kind,
+        submission_type: "project",
+        attachments: [],
+        starter: p.data.starter_project_id ? { project_id: p.data.starter_project_id, revision_id: p.data.starter_revision_id } : null,
+        status: (p.quiz as any).status ?? null,
+        created_at: iso((p.quiz as any).created_at),
+      },
       quiz: p.quiz,
     };
   }
@@ -427,6 +494,7 @@ export const gradingRoster = async (req: Request, res: Response) => {
       max_points: ctx.max_points,
       rubric: ctx.rubric,
       question: ctx.question,
+      brief: ctx.brief,
       // Every practical question of the quiz, for switching between them.
       questions: ctx.type === "quiz" ? ((await practicalQuestionsOf([ctx.id])).get(ctx.id) ?? []) : [],
       can_grade: !!canGrade,
@@ -673,6 +741,165 @@ export const servePreview = async (req: Request, res: Response) => {
   // Keep root-relative links ("/style.css", "/src/main.tsx") inside the preview.
   const base = `${req.baseUrl}/preview/${encodeURIComponent(req.params.token)}/`;
   return res.status(200).send(rebasePreviewRoots(body.toString("utf8"), base, kind));
+};
+
+// ─── Running a non-web project ───────────────────────────────────────────────
+
+const LANGUAGE_LABEL = new Map(Judge0Service.supportedLanguages().map((l) => [l.key, l.label]));
+
+/** The readable revision a run is about (body/query `rev`, else head), or an error sent. */
+async function runRevision(req: Request, res: Response, rawRev: unknown) {
+  const access = await resolveProjectAccess(req, Number(req.params.id));
+  if (!access) return void notFound(res, "Project not found.");
+  const revId = rawRev ? Number(rawRev) : access.project.head_revision_id;
+  if (!revId) return void tmcodeError(res, 422, "NO_REVISIONS", "Nothing has been saved to this project yet.");
+  const rev = await ProjectRevision.findByPk(revId);
+  if (!rev || rev.project_id !== access.project.id || !canReadRevision(access, rev.id)) {
+    return void tmcodeError(res, 404, "REVISION_NOT_FOUND", "Revision not found.");
+  }
+  return { project: access.project, rev, files: readManifest(rev) };
+}
+
+async function readText(sha: string): Promise<string | null> {
+  const gz = await readBlobGz(sha);
+  if (!gz) return null;
+  const buf = zlib.gunzipSync(gz);
+  return isProbablyText(buf) ? buf.toString("utf8") : null;
+}
+
+/** Sources of one language's candidates (small ones), to spot the declared main. */
+async function candidateSources(files: { path: string; sha256: string; size: number }[], paths: string[]) {
+  const out = new Map<string, string>();
+  const wanted = files.filter((f) => paths.includes(f.path) && f.size <= 200_000).slice(0, 40);
+  await Promise.all(
+    wanted.map(async (f) => {
+      const text = await readText(f.sha256).catch(() => null);
+      if (text != null) out.set(f.path, text);
+    }),
+  );
+  return out;
+}
+
+// @desc    What the grading workspace's Run tab can run in a revision: the
+//          languages found, the likely entry files (best first) and whether
+//          the configured code runner takes them.
+// @route   GET /api/tmcode/projects/:id/run-targets?rev=&language=
+export const runTargets = async (req: Request, res: Response) => {
+  const r = await runRevision(req, res, req.query.rev);
+  if (!r) return;
+  const runner = getCodeRunner();
+  const candidates = runCandidates(r.files);
+  const language = pickLanguage(candidates, r.project.language ?? null, req.query.language ? String(req.query.language) : null);
+  const sources = language
+    ? await candidateSources(r.files, candidates.filter((c) => c.language === language).map((c) => c.path))
+    : new Map<string, string>();
+  const counts = new Map<string, number>();
+  for (const c of candidates) counts.set(c.language, (counts.get(c.language) ?? 0) + 1);
+  return res.status(200).json({
+    revision: { id: r.rev.id, number: r.rev.number },
+    engine: runner.name,
+    // Judge0 CE runs one source file; tm-judge takes the whole project.
+    single_file: runner.name === "judge0",
+    language,
+    languages: [...counts.entries()].map(([key, files]) => ({
+      key,
+      label: LANGUAGE_LABEL.get(key) ?? key,
+      files,
+      runnable: runner.supportsLanguage(key),
+    })),
+    runnable: !!language && runner.supportsLanguage(language),
+    entries: language ? rankEntries(candidates, language, sources).slice(0, 30) : [],
+    html_entry: previewEntry(r.files.map((f) => f.path)),
+    has_package_json: r.files.some((f) => f.path === "package.json"),
+  });
+};
+
+const runSchema = z.object({
+  rev: z.number().int().positive().optional().nullable(),
+  language: z.string().max(40).optional().nullable(),
+  entry: z.string().max(500).optional().nullable(),
+  tests: z
+    .array(
+      z.object({
+        id: z.string().max(40),
+        input: z.string().max(MAX_STDIN_BYTES).default(""),
+        expected_output: z.string().max(MAX_STDIN_BYTES).optional().nullable(),
+      }),
+    )
+    .min(1)
+    .max(10),
+});
+
+// @desc    Runs a revision of a project on the code runner (Judge0 / tm-judge)
+//          with the teacher's inputs, for the grading workspace's Run tab:
+//          stdout, stderr, exit code, time and memory per input, plus a
+//          verdict when an expected output was given. Nothing is saved.
+// @route   POST /api/tmcode/projects/:id/run  { rev?, language?, entry?, tests: [{id, input, expected_output?}] }
+export const runProject = async (req: Request, res: Response) => {
+  const parsed = runSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return tmcodeError(res, 400, "VALIDATION_ERROR", "Invalid run request.", { issues: parsed.error.issues.map((i) => i.message) });
+  }
+  const body = parsed.data;
+  const r = await runRevision(req, res, body.rev);
+  if (!r) return;
+  const runner = getCodeRunner();
+  const candidates = runCandidates(r.files);
+  const language = pickLanguage(candidates, r.project.language ?? null, body.language);
+  if (!language) {
+    return tmcodeError(res, 422, "NOTHING_TO_RUN", "There's no program in this revision to run (no source files found).");
+  }
+  if (!runner.supportsLanguage(language)) {
+    return tmcodeError(res, 422, "UNSUPPORTED_LANGUAGE", `${LANGUAGE_LABEL.get(language) ?? language} can't be run here yet. Open it in TMCode to run it.`, {
+      supported: runner.languages(),
+    });
+  }
+  let entry = body.entry && candidates.some((c) => c.path === body.entry && c.language === language) ? body.entry : null;
+  if (!entry) {
+    const paths = candidates.filter((c) => c.language === language).map((c) => c.path);
+    entry = rankEntries(candidates, language, await candidateSources(r.files, paths))[0] ?? null;
+  }
+  if (!entry) return tmcodeError(res, 422, "NOTHING_TO_RUN", "Pick the file to run.");
+
+  const { paths, skipped } = filesToSend(r.files, language, entry);
+  const sendable = runner.name === "judge0" ? [entry] : paths;
+  const files: { path: string; content: string }[] = [];
+  for (const p of sendable) {
+    const f = r.files.find((x) => x.path === p);
+    const text = f ? await readText(f.sha256) : null;
+    if (text != null) files.push({ path: p, content: text });
+  }
+  if (!files.some((f) => f.path === entry)) {
+    return tmcodeError(res, 422, "ENTRY_UNREADABLE", `${entry} couldn't be read as text.`);
+  }
+
+  try {
+    const result = await runner.run({
+      language,
+      files,
+      entry,
+      tests: body.tests.map((t) => ({ id: t.id, input: t.input, expected_output: t.expected_output ?? undefined })),
+      interactive: true,
+    });
+    return res.status(200).json({
+      engine: result.engine,
+      language,
+      entry,
+      revision: { id: r.rev.id, number: r.rev.number },
+      files_sent: files.map((f) => f.path),
+      files_skipped: runner.name === "judge0" ? Math.max(0, paths.length - 1) : skipped,
+      compile: result.compile,
+      tests: result.tests,
+    });
+  } catch (e) {
+    if (e instanceof JudgeUnavailableError) {
+      return tmcodeError(res, 503, "JUDGE_UNAVAILABLE", "The code runner isn't reachable right now. Try again in a minute, or open the project in TMCode.");
+    }
+    if (e instanceof UnsupportedLanguageError) {
+      return tmcodeError(res, 422, "UNSUPPORTED_LANGUAGE", `${language} can't be run here yet.`);
+    }
+    throw e;
+  }
 };
 
 // ─── GET /grading: what the caller can grade ─────────────────────────────────

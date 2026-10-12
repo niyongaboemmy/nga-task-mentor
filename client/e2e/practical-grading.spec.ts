@@ -34,8 +34,39 @@ const row = (id: number, name: string, extra: Record<string, unknown> = {}) => (
   ...extra,
 });
 
+const WEB_TARGETS = {
+  revision: { id: 9001, number: 3 },
+  engine: "judge0",
+  single_file: true,
+  language: null,
+  languages: [],
+  runnable: false,
+  entries: [],
+  html_entry: "index.html",
+  has_package_json: false,
+};
+const C_TARGETS = {
+  ...WEB_TARGETS,
+  language: "c",
+  languages: [{ key: "c", label: "C", files: 1, runnable: true }],
+  runnable: true,
+  entries: ["main.c"],
+  html_entry: null,
+};
+const C_SOURCE = `#include <stdio.h>
+
+int main(void) {
+    int a, b;
+    printf("Enter two numbers: ");
+    scanf("%d %d", &a, &b);
+    printf("Sum = %d\\n", a + b);
+    return 0;
+}
+`;
+
 async function setup(page: Page) {
   const saves: unknown[] = [];
+  const runs: unknown[] = [];
   await page.route("**/api/**", (r) =>
     r.request().method() === "OPTIONS" ? r.fulfill({ status: 204, headers: CORS_HEADERS }) : json(r, { success: true, data: [] }),
   );
@@ -61,7 +92,7 @@ async function setup(page: Page) {
           id: 77,
           title: "Coffee shop landing page",
           course_id: 12,
-          due_date: null,
+          due_date: new Date(Date.now() - 3 * 3600_000 - 25 * 60_000).toISOString(),
           max_points: 20,
           rubric: [
             { criteria: "Semantic HTML", description: "Full marks are earned when semantic HTML5 elements are used appropriately (header, nav, main, section, article, footer), the markup is well-structured and free of stray tags. Partial marks when the structure is mostly correct.", max_score: 6 },
@@ -69,13 +100,25 @@ async function setup(page: Page) {
             { criteria: "Interactivity", description: "The Order button responds", max_score: 6 },
           ],
           question: null,
+          brief: {
+            description:
+              "<h3>Coffee shop landing page</h3><p>Build a one-page site for <strong>Kigali Coffee</strong> from the design in the attachment.</p><ul><li>Use semantic HTML5 (header, nav, main, footer).</li><li>Match the colours and spacing of the design.</li><li>The <em>Order</em> button shows a confirmation.</li></ul>",
+            instructions: "Start from the starter files. Keep everything in index.html and style.css.",
+            language: "html",
+            kind: "practical",
+            submission_type: "project",
+            attachments: [{ name: "coffee-design.pdf", url: "https://files.test/coffee-design.pdf", size: 482_000 }],
+            starter: { project_id: 5, revision_id: 1 },
+            status: "published",
+            created_at: new Date(Date.now() - 5 * 86400_000).toISOString(),
+          },
           can_grade: true,
         },
         counts: { total: 4, to_grade: 3, graded: 1 },
         rows: [
           row(1, "Aline Uwase"),
           row(2, "Brian Mugisha"),
-          row(3, "Claire Ishimwe"),
+          row(3, "Claire Ishimwe", { project: { id: 103, name: "Sum of two numbers", status: "submitted", kind: "tm", language: "c", repo_url: null } }),
           row(4, "David Nkurunziza", { state: "graded", grade: { score: 17, rubric_scores: [{ index: 0, score: 5 }, { index: 1, score: 7 }, { index: 2, score: 5 }], feedback: "Great job", graded_at: new Date().toISOString(), ref_id: 1 } }),
         ],
       });
@@ -87,15 +130,40 @@ async function setup(page: Page) {
     if (/^\/projects\/\d+\/revisions$/.test(path)) {
       return json(r, { revisions: [{ id: 9001, number: 3, file_count: 2, size_bytes: 900, source: "submit", created_at: new Date().toISOString() }] });
     }
+    if (/^\/projects\/103\/revisions\/\w+\/manifest$/.test(path)) {
+      return json(r, { revision: null, files: [{ path: "main.c", sha256: "c", size: C_SOURCE.length }] });
+    }
+    if (/^\/projects\/103\/files\//.test(path)) return r.fulfill({ status: 200, contentType: "text/plain", headers: CORS_HEADERS, body: C_SOURCE });
     if (/\/revisions\/\w+\/manifest$/.test(path)) {
       return json(r, { revision: null, files: [{ path: "index.html", sha256: "a", size: SITE.length }, { path: "style.css", sha256: "b", size: CSS.length }] });
     }
     const f = path.match(/^\/projects\/\d+\/files\/(.+)$/);
     if (f) return r.fulfill({ status: 200, contentType: "text/plain", headers: CORS_HEADERS, body: f[1] === "style.css" ? CSS : SITE });
     if (/^\/projects\/\d+\/preview$/.test(path)) return json(r, { url: PREVIEW, entry: "index.html", expires_in: 1800 });
+    const targets = path.match(/^\/projects\/(\d+)\/run-targets$/);
+    if (targets) return json(r, targets[1] === "103" ? C_TARGETS : WEB_TARGETS);
+    if (/^\/projects\/103\/run$/.test(path)) {
+      const body = req.postDataJSON() as { tests: { id: string; input: string; expected_output?: string | null }[] };
+      runs.push(body);
+      return json(r, {
+        engine: "judge0",
+        language: "c",
+        entry: "main.c",
+        revision: { id: 9003, number: 3 },
+        files_sent: ["main.c"],
+        files_skipped: 0,
+        compile: null,
+        tests: body.tests.map((t) => {
+          const nums = t.input.split(/\s+/).filter(Boolean).map(Number);
+          const stdout = nums.length ? `Enter two numbers: Sum = ${nums.reduce((a, b) => a + b, 0)}\n` : "Enter two numbers: ";
+          const verdict = t.expected_output == null ? (nums.length ? "ok" : "runtime-error") : stdout.trim().endsWith(t.expected_output.trim()) ? "accepted" : "wrong-answer";
+          return { id: t.id, verdict, passed: verdict === "ok" || verdict === "accepted", stdout, stderr: nums.length ? null : "Segmentation fault (core dumped)", exit_code: nums.length ? 0 : 139, time_ms: 4, memory_kb: 1180 };
+        }),
+      });
+    }
     return json(r, { success: true, data: [] });
   });
-  return { saves };
+  return { saves, runs };
 }
 
 test("grades a practical against its criteria with the code and a live preview", async ({ page }, info) => {
@@ -147,7 +215,10 @@ test("grades a practical against its criteria with the code and a live preview",
   });
   await expect(page).toHaveURL(/student=2/);
   await page.getByRole("tab", { name: "Details" }).click();
-  await expect(page.locator("dd", { hasText: "Late" })).toBeVisible();
+  await expect(page.getByTestId("details-checks")).toContainText(/Late by/);
+  await expect(page.getByTestId("details-brief")).toContainText("Kigali Coffee");
+  await page.waitForTimeout(300);
+  await shot(page, "grading-details");
 
   // Dark theme, grading panel hidden: the project takes the whole width.
   await page.evaluate(() => document.documentElement.classList.add("dark"));
@@ -162,6 +233,42 @@ test("grades a practical against its criteria with the code and a live preview",
   // Esc closes the workspace.
   await page.keyboard.press("Escape");
   await expect(page).toHaveURL(/\/assignments\/77$/);
+});
+
+test("runs a C program with the teacher's inputs", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "desktop tool");
+  await page.setViewportSize({ width: 1512, height: 945 });
+  const { runs } = await setup(page);
+  await page.goto("/taskmentor/grading/practical/assignment/77?student=3");
+  await expect(page.getByTestId("current-student")).toHaveText("Claire Ishimwe");
+  // No web page: Run instead of Preview.
+  await expect(page.getByTestId("pane-run")).toBeVisible();
+  await expect(page.getByTestId("pane-preview")).toHaveCount(0);
+  await page.getByTestId("pane-run").click();
+  await page.getByTestId("run-input").first().fill("2 3");
+  await page.getByRole("button", { name: "Add an input" }).click();
+  await page.getByTestId("run-input").nth(1).fill("10 -4");
+  await page.getByRole("button", { name: /Compare with an expected output/ }).nth(1).click();
+  await page.getByTestId("run-case").nth(1).getByRole("textbox").nth(2).fill("Sum = 7");
+  await page.getByRole("button", { name: "Add an input" }).click();
+  await page.getByTestId("run-program").click();
+  await expect(page.getByTestId("run-stdout").first()).toContainText("Sum = 5");
+  await expect(page.getByTestId("run-verdict").nth(1)).toHaveText(/Different output/);
+  await expect(page.getByTestId("run-verdict").nth(2)).toHaveText(/Crashed/);
+  expect(runs).toHaveLength(1);
+  await shot(page, "grading-run");
+
+  await page.getByRole("tab", { name: "Details" }).click();
+  await expect(page.getByTestId("details-checks")).toContainText("Runnable C program");
+  await page.evaluate(() => document.documentElement.classList.add("dark"));
+  await page.waitForTimeout(500);
+  await shot(page, "grading-details-dark");
+  // The results survive a trip to another tab.
+  await page.getByTestId("pane-run").click();
+  await expect(page.getByTestId("run-stdout").first()).toContainText("Sum = 5");
+  expect(runs).toHaveLength(1);
+  await page.waitForTimeout(300);
+  await shot(page, "grading-run-dark");
 });
 
 test("stacks the panes on a phone", async ({ page }, info) => {
