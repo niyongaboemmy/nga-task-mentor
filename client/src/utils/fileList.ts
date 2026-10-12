@@ -65,3 +65,19 @@ export function mergeFiles(
   );
   return { files: [...existing, ...accepted.slice(0, room)], rejected };
 }
+
+/** Mirrors the server's SUBMISSION_FILE_MAX_MB (server/src/utils/submissionFiles.ts). */
+export const SUBMISSION_FILE_MAX_MB = 10;
+
+/** An assignment's allowed_file_types in any stored shape -> "pdf,docx" for FileDropzone. */
+export function allowedTypesString(raw: string[] | string | null | undefined): string {
+  if (!raw) return "";
+  if (Array.isArray(raw)) return raw.join(",");
+  try {
+    const parsed = JSON.parse(raw);
+    if (Array.isArray(parsed)) return parsed.join(",");
+  } catch {
+    /* plain "pdf, docx" */
+  }
+  return raw;
+}

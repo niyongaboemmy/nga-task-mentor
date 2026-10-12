@@ -12,7 +12,7 @@ import {
 } from "../controllers/submission.controller";
 import { protect, authorizePermission, checkEnrollment } from "../middleware/auth";
 import { intOrNull, trackOnSuccess } from "../activity/keyEvents";
-import { uploadSubmission } from "../middleware/submissionUpload";
+import { submissionFile } from "../middleware/submissionUpload";
 import { validateBody } from "../middleware/validation.middleware";
 import { draftFeedbackSchema } from "../validations/assignmentAi.validation";
 import { draftSubmissionFeedback } from "../controllers/submissionAi.controller";
@@ -27,7 +27,7 @@ router.post(
   "/assignments/:assignmentId/submissions",
   authorizePermission("SUBMISSIONS_CREATE"),
   checkEnrollment(),
-  uploadSubmission.single("file_submission"),
+  submissionFile,
   trackOnSuccess("tm.assignment.submit", (req) => ({
     assignment_id: intOrNull(req.params.assignmentId),
   })),
@@ -50,7 +50,7 @@ router
   )
   .put(
     authorizePermission("SUBMISSIONS_VIEW_OWN", "SUBMISSIONS_VIEW_ALL"),
-    uploadSubmission.single("file_submission"),
+    submissionFile,
     updateSubmission,
   )
   .delete(

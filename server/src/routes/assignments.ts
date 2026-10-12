@@ -17,7 +17,7 @@ import { protect, authorizePermission, isCourseInstructor } from "../middleware/
 import { intOrNull, trackOnSuccess } from "../activity/keyEvents";
 import { timezoneMiddleware } from "../utils/dateUtils";
 import { assignmentAttachments } from "../middleware/assignmentUpload";
-import { uploadSubmission } from "../middleware/submissionUpload";
+import { submissionFile } from "../middleware/submissionUpload";
 import { validateBody } from "../middleware/validation.middleware";
 import { generateRubricSchema } from "../validations/assignmentAi.validation";
 import { generateAssignmentRubric } from "../controllers/assignmentAi.controller";
@@ -85,7 +85,7 @@ router.patch(
 
 router.post(
   "/:id/submit",
-  uploadSubmission.single("file_submission"),
+  submissionFile,
   authorizePermission("SUBMISSIONS_CREATE"),
   trackOnSuccess("tm.assignment.submit", (req) => ({ assignment_id: intOrNull(req.params.id) })),
   submitAssignment,

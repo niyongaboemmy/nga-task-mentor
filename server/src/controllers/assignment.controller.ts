@@ -24,6 +24,13 @@ import { assignmentTmcodeSettings } from "./tmcodeAssignments.controller";
 import { canManageAssignment } from "../utils/ownership";
 import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
 import { cancelAssignment, syncAssignment } from "../services/reminderSync";
+import {
+  isSubmissionValidationError,
+  storeSubmissionFile,
+  submissionFileError,
+} from "../utils/submissionFiles";
+import type { IFileSubmission } from "../models/Submission.model";
+import { clearInstructorOverviewCache } from "./instructorOverview.controller";
 import { assignmentStatusScope, isAssignmentStudentView, termScope } from "../utils/courseItemScope";
 
 // This controller manages all assignment-related operations, including creation, retrieval, updating, deletion, and submission handling. It also integrates with the NGA MIS to fetch enrolled students and manage assignment visibility based on course enrollment. The controller ensures that only authorized users can perform certain actions (e.g., only instructors can create assignments) and that students can only see and submit assignments for courses they are enrolled in. It also handles file uploads for assignments and submissions, storing metadata in the database and files on disk.
@@ -1247,60 +1254,80 @@ export const submitAssignment = async (req: Request, res: Response) => {
       });
     }
 
-    // 7. Validate submission content
-    const text_submission = req.body.text_submission;
-    const file_submission = (req as any).file?.path;
+    // 7. Validate submission content -- before anything is uploaded, so a
+    // rejected submission never leaves an orphan file on the file-server.
+    // (multer runs memoryStorage: req.file has a buffer, never a path.)
+    const text_submission =
+      typeof req.body.text_submission === "string" ? req.body.text_submission.trim() : "";
+    const file = (req as any).file as Express.Multer.File | undefined;
+    const submissionType = assignment.submission_type;
 
-    console.log("Submission validation:", {
-      text_submission,
-      file_submission,
-      hasText: !!text_submission,
-      hasFile: !!file_submission,
-      reqFile: (req as any).file,
-      reqBody: req.body,
-    });
-
-    if (!text_submission && !file_submission) {
+    if (!text_submission && !file) {
       return res.status(400).json({
         success: false,
         message: "Please provide either text submission or file submission.",
       });
     }
+    if ((submissionType === "text" || submissionType === "both") && !text_submission) {
+      return res.status(400).json({ success: false, message: "Please write your text submission." });
+    }
+    if ((submissionType === "file" || submissionType === "both") && !file) {
+      return res.status(400).json({ success: false, message: "Please attach your submission file." });
+    }
+    if (file) {
+      const fileError = submissionFileError(file, assignment.allowed_file_types);
+      if (fileError) return res.status(400).json({ success: false, message: fileError });
+    }
 
-    // Create submission
-    const submission = await Submission.create({
-      assignment_id: parseInt(id),
-      student_id: req.user.id,
-      text_submission: text_submission || null,
-      file_submissions: file_submission
-        ? [
-            {
-              filename:
-                (req as any).file?.originalname ||
-                file_submission.split("/").pop() ||
-                "submission",
-              originalname:
-                (req as any).file?.originalname ||
-                file_submission.split("/").pop() ||
-                "submission",
-              path: file_submission,
-              size: (req as any).file?.size || 0,
-              mimetype:
-                (req as any).file?.mimetype || "application/octet-stream",
-            },
-          ]
-        : null,
-      status: "submitted",
-      submitted_at: new Date(),
-      is_late: isPastDate(assignment.due_date),
-    });
+    // 8. Store the file on the shared file-server
+    let stored: IFileSubmission | null = null;
+    if (file) {
+      try {
+        stored = await storeSubmissionFile(file);
+      } catch (uploadError) {
+        console.error("Submit assignment: file upload failed:", uploadError);
+        return res.status(502).json({
+          success: false,
+          message: "Your file could not be saved right now. Please try again in a moment.",
+        });
+      }
+    }
+
+    let submission: Submission;
+    try {
+      submission = await Submission.create({
+        assignment_id: parseInt(id),
+        student_id: req.user.id,
+        text_submission: text_submission || null,
+        file_submissions: stored ? [stored] : null,
+        status: "submitted",
+        submitted_at: new Date(),
+        is_late: isPastDate(assignment.due_date),
+      });
+    } catch (createError) {
+      if (stored) fileServer.deleteFile(stored.path).catch(() => undefined);
+      throw createError;
+    }
+
+    // Teachers' dashboard + notification bell ("new submissions") read a
+    // 60 s cache; drop it so the new submission shows on their next poll.
+    clearInstructorOverviewCache();
 
     res.status(201).json({
       success: true,
       message: "Assignment submitted successfully",
       data: submission,
     });
-  } catch (error) {
+  } catch (error: any) {
+    if (isSubmissionValidationError(error)) {
+      return res.status(400).json({ success: false, message: error.message });
+    }
+    if (error?.name === "SequelizeUniqueConstraintError") {
+      return res.status(409).json({
+        success: false,
+        message: "You have already submitted this assignment. Multiple submissions are not allowed.",
+      });
+    }
     console.error("Submit assignment error:", error);
     res.status(500).json({ success: false, message: "Server error" });
   }
