@@ -50,6 +50,70 @@ export interface GradingRow {
   late: boolean;
 }
 
+/** What the student was asked to do (the workspace's Details tab). */
+export interface GradingBrief {
+  /** Assignment description / quiz question text (rich HTML). */
+  description: string | null;
+  /** TMCode instructions shown beside the code. */
+  instructions: string | null;
+  language: string | null;
+  kind: string | null;
+  submission_type: string | null;
+  attachments: { name: string; url: string; type?: string | null; size?: number | null }[];
+  starter: { project_id: number; revision_id: number | null } | null;
+  status: string | null;
+  created_at: string | null;
+}
+
+/** What a revision can run (GET /projects/:id/run-targets). */
+export interface RunTargets {
+  revision: { id: number; number: number };
+  engine: "judge0" | "tmjudge";
+  /** The runner takes the entry file only (Judge0 CE). */
+  single_file: boolean;
+  language: string | null;
+  languages: { key: string; label: string; files: number; runnable: boolean }[];
+  runnable: boolean;
+  /** Likely entry files, best first. */
+  entries: string[];
+  html_entry: string | null;
+  has_package_json: boolean;
+}
+
+export type RunVerdict =
+  | "accepted"
+  | "wrong-answer"
+  | "ok"
+  | "runtime-error"
+  | "time-limit"
+  | "memory-limit"
+  | "output-limit"
+  | "compile-error"
+  | "internal-error";
+
+export interface RunCaseResult {
+  id: string;
+  verdict: RunVerdict;
+  passed: boolean;
+  stdout: string | null;
+  stderr: string | null;
+  exit_code?: number | null;
+  time_ms: number | null;
+  memory_kb: number | null;
+  status?: string;
+}
+
+export interface RunResponse {
+  engine: string;
+  language: string;
+  entry: string;
+  revision: { id: number; number: number };
+  files_sent: string[];
+  files_skipped: number;
+  compile: { ok: boolean; output: string; time_ms?: number } | null;
+  tests: RunCaseResult[];
+}
+
 export interface GradingRoster {
   activity: {
     type: PracticalActivity;
@@ -60,6 +124,8 @@ export interface GradingRoster {
     max_points: number;
     rubric: PracticalCriterion[];
     question: { id: number; text: string; instructions: string } | null;
+    /** Missing from servers older than the Details tab rework. */
+    brief?: GradingBrief;
     /** Quiz: every practical question, to switch between. */
     questions?: { question_id: number; title: string; points: number }[];
     can_grade: boolean;
@@ -110,5 +176,28 @@ export const practicalsApi = {
   async preview(projectId: number, rev?: number | null): Promise<{ url: string; entry: string }> {
     const res = await api.post(`${BASE}/projects/${projectId}/preview`, rev ? { rev } : {});
     return unwrap(res.data);
+  },
+
+  /** Languages and likely entry files the Run tab can run in a revision. */
+  async runTargets(projectId: number, rev?: number | null, language?: string | null): Promise<RunTargets> {
+    const params: Record<string, string> = {};
+    if (rev) params.rev = String(rev);
+    if (language) params.language = language;
+    const res = await api.get(`${BASE}/projects/${projectId}/run-targets`, { params });
+    return unwrap<RunTargets>(res.data);
+  },
+
+  /** Runs a revision on the code runner with these inputs. Nothing is saved. */
+  async run(
+    projectId: number,
+    body: {
+      rev?: number | null;
+      language?: string | null;
+      entry?: string | null;
+      tests: { id: string; input: string; expected_output?: string | null }[];
+    },
+  ): Promise<RunResponse> {
+    const res = await api.post(`${BASE}/projects/${projectId}/run`, body, { timeout: 150_000 });
+    return unwrap<RunResponse>(res.data);
   },
 };

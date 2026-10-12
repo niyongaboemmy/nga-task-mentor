@@ -11,6 +11,8 @@ const practicals = {
   saveGrade: vi.fn(),
   preview: vi.fn(),
   startQuizPractical: vi.fn(),
+  runTargets: vi.fn(),
+  run: vi.fn(),
 };
 const projects = {
   list: vi.fn(),
@@ -72,9 +74,30 @@ beforeEach(() => {
   [...Object.values(practicals), ...Object.values(projects)].forEach((f) => f.mockReset());
   projects.revisions.mockResolvedValue([]);
   projects.manifest.mockResolvedValue({ revision: null, files: [{ path: "index.html", sha256: "a", size: 10 }] });
+  practicals.runTargets.mockResolvedValue(webTargets);
   // Drafts, quick comments and "opened in TMCode" live in localStorage.
   window.localStorage.clear();
 });
+
+const webTargets = {
+  revision: { id: 301, number: 4 },
+  engine: "judge0",
+  single_file: true,
+  language: null,
+  languages: [],
+  runnable: false,
+  entries: [],
+  html_entry: "index.html",
+  has_package_json: false,
+};
+const cTargets = {
+  ...webTargets,
+  language: "c",
+  languages: [{ key: "c", label: "C", files: 2, runnable: true }],
+  runnable: true,
+  entries: ["main.c", "util.c"],
+  html_entry: null,
+};
 
 const row = (id: number, name: string, over: Record<string, unknown> = {}) => ({
   student: { id, name },
@@ -276,6 +299,104 @@ describe("PracticalGradingPage", () => {
     workspace();
     await userEvent.click(await screen.findByRole("tab", { name: /Preview/ }));
     expect(await screen.findByTestId("preview-needs-build")).toHaveTextContent("Open in TMCode");
+  });
+
+  it("runs a C program with the teacher's inputs and shows each output", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    practicals.runTargets.mockResolvedValue(cTargets);
+    // Case ids are generated: answer for whatever id the pane sent.
+    practicals.run.mockImplementation(async (_p: number, body: { tests: { id: string }[] }) => ({
+      engine: "judge0",
+      language: "c",
+      entry: "main.c",
+      revision: { id: 301, number: 4 },
+      files_sent: ["main.c"],
+      files_skipped: 1,
+      compile: null,
+      tests: [{ id: body.tests[0].id, verdict: "ok", passed: true, stdout: "Sum: 5\n", stderr: null, exit_code: 0, time_ms: 12, memory_kb: 2048 }],
+    }));
+    workspace();
+    // A program without a web page: Run instead of Preview.
+    await userEvent.click(await screen.findByTestId("pane-run"));
+    expect(screen.queryByTestId("pane-preview")).not.toBeInTheDocument();
+    // Judge0 compiles one file: say so when the program has several.
+    expect(await screen.findByText(/only main.c is compiled/)).toBeInTheDocument();
+    await userEvent.type(screen.getByTestId("run-input"), "2 3");
+    await userEvent.click(screen.getByTestId("run-program"));
+    expect(await screen.findByTestId("run-stdout")).toHaveTextContent("Sum: 5");
+    expect(screen.getByTestId("run-verdict")).toHaveTextContent("Ran");
+    expect(practicals.run).toHaveBeenCalledWith(101, expect.objectContaining({ rev: 301, language: "c", entry: "main.c", tests: [expect.objectContaining({ input: "2 3", expected_output: null })] }));
+    // The inputs are kept for the next student.
+    expect(window.localStorage.getItem("tm.grading.runCases.assignment.7.0")).toContain("2 3");
+  });
+
+  it("shows a compile error instead of outputs", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    practicals.runTargets.mockResolvedValue(cTargets);
+    practicals.run.mockImplementation(async (_p: number, body: { tests: { id: string }[] }) => ({
+      engine: "tmjudge",
+      language: "c",
+      entry: "main.c",
+      revision: { id: 301, number: 4 },
+      files_sent: ["main.c", "util.c"],
+      files_skipped: 0,
+      compile: { ok: false, output: "main.c:3: error: expected ';'" },
+      tests: [{ id: body.tests[0].id, verdict: "compile-error", passed: false, stdout: null, stderr: null, time_ms: null, memory_kb: null }],
+    }));
+    workspace();
+    await userEvent.click(await screen.findByTestId("pane-run"));
+    await userEvent.click(await screen.findByTestId("run-program"));
+    expect(await screen.findByTestId("run-compile-error")).toHaveTextContent("expected ';'");
+    expect(screen.getByText(/Not run: the code doesn't compile/)).toBeInTheDocument();
+  });
+
+  it("explains a runner refusal", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    practicals.runTargets.mockResolvedValue(cTargets);
+    practicals.run.mockRejectedValue({ response: { status: 429, data: { error_code: "RATE_LIMITED", message: "x" } } });
+    workspace();
+    await userEvent.click(await screen.findByTestId("pane-run"));
+    await userEvent.click(await screen.findByTestId("run-program"));
+    expect(await screen.findByRole("alert")).toHaveTextContent(/Too many runs/);
+  });
+
+  it("shows the task, the marking guide and the checks a grader needs in Details", async () => {
+    practicals.roster.mockResolvedValue(
+      roster({
+        due_date: "2026-10-07T06:00:00Z",
+        brief: {
+          description: "<p>Build a landing page for the school club.</p>",
+          instructions: "Use semantic tags.",
+          language: "javascript",
+          kind: "practical",
+          submission_type: "project",
+          attachments: [{ name: "design.pdf", url: "https://files.test/design.pdf", size: 2048 }],
+          starter: { project_id: 9, revision_id: 1 },
+          status: "published",
+          created_at: "2026-10-01T08:00:00Z",
+        },
+      }),
+    );
+    projects.revisions.mockResolvedValue([
+      { id: 299, number: 3, file_count: 2, size_bytes: 900, source: "save", created_at: "2026-10-06T08:00:00Z" },
+      { id: 301, number: 4, file_count: 3, size_bytes: 1200, source: "submit", created_at: "2026-10-07T08:00:00Z" },
+      { id: 305, number: 5, file_count: 3, size_bytes: 1300, source: "save", created_at: "2026-10-07T09:00:00Z" },
+    ]);
+    workspace();
+    await userEvent.click(await screen.findByTestId("pane-details"));
+    const brief = await screen.findByTestId("details-brief");
+    expect(within(brief).getByText("Use semantic tags.")).toBeInTheDocument();
+    expect(within(brief).getByRole("link", { name: /design.pdf/ })).toHaveAttribute("href", "https://files.test/design.pdf");
+    expect(within(brief).getByRole("link", { name: /Starter files/ })).toHaveAttribute("href", "/projects/9");
+    expect(within(screen.getByTestId("details-rubric")).getByText("Semantic HTML")).toBeInTheDocument();
+    const checks = await screen.findByTestId("details-checks");
+    await waitFor(() => expect(checks).toHaveTextContent("Late by 2 h"));
+    expect(checks).toHaveTextContent("1 save after submitting");
+    expect(checks).toHaveTextContent("The task asks for JavaScript");
+    expect(checks).toHaveTextContent("3 files");
+    // A revision opens its code.
+    await userEvent.click(within(screen.getByTestId("details-revisions")).getByText("#3"));
+    expect(await screen.findByTestId("files-tab")).toHaveTextContent("files of 101 at 299");
   });
 
   it("can't grade a student who hasn't submitted", async () => {
