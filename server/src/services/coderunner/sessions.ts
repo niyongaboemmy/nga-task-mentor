@@ -98,7 +98,7 @@ export async function startSession(
   if (res.status === 429 || res.status === 503) throw new SessionError(503, "RUNNER_BUSY", "Lots of code is running right now. Try again in a moment.");
   if (!res.ok) {
     const data: any = await res.json().catch(() => ({}));
-    throw new SessionError(422, data?.error_code ?? "RUNNER_REJECTED", data?.message ?? data?.error ?? "The code runner refused to start this program.");
+    throw new SessionError(422, data?.error_code ?? data?.code ?? "RUNNER_REJECTED", data?.message ?? data?.error ?? "The code runner refused to start this program.");
   }
   const data: any = await res.json();
   const record: SessionRecord = { id: crypto.randomBytes(12).toString("hex"), runnerId: String(data.id), userId, createdAt: Date.now(), closed: false };
