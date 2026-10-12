@@ -1,8 +1,9 @@
 import { gradingInboxItems } from "../services/gradingInbox.service";
+import type { GradingQueueItem } from "../services/instructorOverview.service";
 
-const item = (over: Partial<any>) => ({
+const item = (over: Partial<GradingQueueItem>): GradingQueueItem => ({
   id: 1,
-  kind: "assignment",
+  kind: "assignment" as GradingQueueItem["kind"],
   title: "Lab",
   subject_id: 7,
   subject_code: "CS",
@@ -19,7 +20,7 @@ const item = (over: Partial<any>) => ({
 describe("To grade inbox items", () => {
   it("code assignments open Grading; other work keeps its own page", () => {
     const items = gradingInboxItems(
-      [item({ id: 1 }), item({ id: 2, url: "/assignments/2" }), item({ id: 9, kind: "quiz", url: "/quizzes/9/submissions" })],
+      [item({ id: 1 }), item({ id: 2, url: "/assignments/2" }), item({ id: 9, kind: "quiz" as GradingQueueItem["kind"], url: "/quizzes/9/submissions" })],
       new Set([1]),
       new Set([9]),
     );
