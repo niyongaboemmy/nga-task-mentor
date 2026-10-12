@@ -146,6 +146,10 @@ export interface CodingData {
     is_entry_point?: boolean;
   }>;
   template_id?: string;
+  /** Teacher's own solution: fills expected outputs and checks the tests. Never sent to students. */
+  reference_solution?: string;
+  /** The catalog starter the question was set up from. */
+  starter_id?: string;
 }
 
 export interface LogicalExpressionData {
