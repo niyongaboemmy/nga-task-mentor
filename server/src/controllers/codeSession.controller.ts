@@ -27,24 +27,26 @@ const startSchema = z.object({
 // @desc    Whether this server can run programs interactively
 // @route   GET /api/code/capabilities
 export const codeCapabilities = async (_req: Request, res: Response) => {
+  res.json({ success: true, data: await codeCapabilitiesData() });
+};
+
+/** What GET /api/code/capabilities answers (also used by TMCode's exam routes). */
+export async function codeCapabilitiesData() {
   const interactive = await sessionsReady();
   await refreshJudgeInfoIfEmpty();
   const info = judgeInfo();
   const unitTestLanguages = info.features.has("projects")
     ? [...new Set([...info.kinds.values()].filter((k) => k.actions.includes("test")).map((k) => k.language))]
     : [];
-  res.json({
-    success: true,
-    data: {
-      interactive,
-      // A real terminal (colours, cursor, Ctrl+C reaching the program) when the runner has containers.
-      pty: interactive && judgeHas("pty"),
-      unit_tests: unitTestLanguages.length > 0,
-      unit_test_languages: unitTestLanguages,
-      previews: previewsAvailable(),
-    },
-  });
-};
+  return {
+    interactive,
+    // A real terminal (colours, cursor, Ctrl+C reaching the program) when the runner has containers.
+    pty: interactive && judgeHas("pty"),
+    unit_tests: unitTestLanguages.length > 0,
+    unit_test_languages: unitTestLanguages,
+    previews: previewsAvailable(),
+  };
+}
 
 const refreshJudgeInfoIfEmpty = async () => {
   if (process.env.CODERUNNER_ENGINE === "tmjudge" && !judgeInfo().at) await refreshJudgeInfo();
