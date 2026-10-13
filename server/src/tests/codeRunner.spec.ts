@@ -215,3 +215,30 @@ describe("routing between tm-judge and Judge0", () => {
     expect(JSON.stringify(stats)).not.toContain('"x"');
   });
 });
+
+describe("judge0Configured (the fallback)", () => {
+  const saved = { key: process.env.JUDGE0_API_KEY, url: process.env.JUDGE0_URL };
+  afterEach(() => {
+    process.env.JUDGE0_API_KEY = saved.key;
+    process.env.JUDGE0_URL = saved.url;
+    if (saved.key === undefined) delete process.env.JUDGE0_API_KEY;
+    if (saved.url === undefined) delete process.env.JUDGE0_URL;
+  });
+  it("is on with an API key, or at a self-hosted address", () => {
+    const { judge0Configured } = require("../services/coderunner");
+    process.env.JUDGE0_API_KEY = "k";
+    process.env.JUDGE0_URL = "https://judge0-ce.p.rapidapi.com";
+    expect(judge0Configured()).toBe(true);
+    delete process.env.JUDGE0_API_KEY;
+    process.env.JUDGE0_URL = "http://10.0.0.5:2358";
+    expect(judge0Configured()).toBe(true);
+  });
+  it("is off with only RapidAPI's address (no key), or nothing", () => {
+    const { judge0Configured } = require("../services/coderunner");
+    delete process.env.JUDGE0_API_KEY;
+    process.env.JUDGE0_URL = "https://judge0-ce.p.rapidapi.com";
+    expect(judge0Configured()).toBe(false);
+    delete process.env.JUDGE0_URL;
+    expect(judge0Configured()).toBe(false);
+  });
+});

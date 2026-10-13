@@ -10,7 +10,17 @@ export { Judge0Runner, TmJudgeRunner };
 
 const runners = { judge0: new Judge0Runner(), tmjudge: new TmJudgeRunner() };
 
-const judge0Configured = () => !!process.env.JUDGE0_API_KEY || !!process.env.JUDGE0_URL;
+/**
+ * Judge0 is usable with an API key, or at a self-hosted address. RapidAPI's
+ * address alone (deploy.yml always writes it) isn't: without its key every
+ * call is refused, and a refused fallback turns a runner outage into
+ * "needs manual review" instead of a re-grade.
+ */
+export const judge0Configured = () => {
+  if (process.env.JUDGE0_API_KEY) return true;
+  const url = process.env.JUDGE0_URL ?? "";
+  return !!url && !/rapidapi\.com/i.test(url);
+};
 
 /**
  * With CODERUNNER_ENGINE=tmjudge: our own judge first; Judge0 only for the
