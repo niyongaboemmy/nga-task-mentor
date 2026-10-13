@@ -48,7 +48,7 @@ export const KindBadge: React.FC<{ kind: ProjectKind }> = ({ kind }) =>
 
 /** "Practical" / "Case study" on a student's assignment workspace (lock when completed). */
 export const AssignmentBadge: React.FC<{ assignment: ProjectAssignment; withTitle?: boolean }> = ({ assignment, withTitle = false }) => {
-  const kind = assignment.kind === "case_study" ? "Case study" : assignment.kind === "practical" ? "Practical" : "Assignment";
+  const kind = assignment.kind === "case_study" ? "Case study" : assignment.kind === "practical" ? "Code assignment" : "Assignment";
   const closed = assignment.status === "completed";
   return (
     <Pill

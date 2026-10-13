@@ -417,6 +417,20 @@ export class QuestionValidator {
       errors.push("Coding questions must specify a programming language");
     }
 
+    // Checked by unit tests (the teacher's test files) instead of input/output tests.
+    if (data.check_with === "unit") {
+      const files = Array.isArray(data.unit_test_files) ? data.unit_test_files : [];
+      if (!files.length) errors.push("Add at least one unit-test file, or check answers with input/output tests");
+      files.forEach((f: any, i: number) => {
+        if (!f || typeof f.path !== "string" || !f.path.trim() || typeof f.content !== "string") {
+          errors.push(`Unit-test file ${i + 1} needs a path and content`);
+        } else if (f.path.startsWith("/") || f.path.split("/").includes("..")) {
+          errors.push(`Unit-test file ${i + 1} has an invalid path`);
+        }
+      });
+      return { isValid: errors.length === 0, errors, warnings };
+    }
+
     if (
       !data.test_cases ||
       !Array.isArray(data.test_cases) ||

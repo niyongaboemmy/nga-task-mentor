@@ -124,7 +124,7 @@ const SubmitProjectCard: React.FC<{
             <Skeleton className="h-10 rounded-xl" />
           ) : submittedLink ? (
             <div className="flex flex-wrap items-center gap-2 text-sm">
-              <Link to={`/projects/${submittedLink.project.id}?tab=links`} className="font-semibold text-blue-700 hover:underline dark:text-blue-300">
+              <Link to={`/code/projects/${submittedLink.project.id}?tab=links`} className="font-semibold text-blue-700 hover:underline dark:text-blue-300">
                 {submittedLink.project.name}
               </Link>
               <LinkStatusBadge status="submitted" />

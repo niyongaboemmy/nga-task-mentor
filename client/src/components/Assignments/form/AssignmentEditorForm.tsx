@@ -86,7 +86,7 @@ const SUBMISSION_TYPES = [
   { value: "both", label: "File & text", hint: "Upload and/or write", icon: Layers },
   { value: "file", label: "File only", hint: "Students upload files", icon: FileUp },
   { value: "text", label: "Text only", hint: "Students write online", icon: Keyboard },
-  { value: "project", label: "TMCode", hint: "Students submit a TMCode project", icon: Code2 },
+  { value: "project", label: "Code project", hint: "Students write and submit a code project", icon: Code2 },
 ];
 
 /** Submission types where students don't upload files. */
@@ -564,11 +564,11 @@ const AssignmentEditorForm: React.FC<Props> = ({
             >
               <p className="font-semibold">How students hand it in</p>
               <ol className="mt-1 list-decimal space-y-0.5 pl-4">
-                <li>They create a TMCode project for this assignment (or link one they have).</li>
+                <li>They create a project for this assignment (or link one they have).</li>
                 <li>They work on it in TMCode — it stays a <span className="font-semibold">Draft</span> while they save.</li>
                 <li>They <span className="font-semibold">Submit</span> it: its latest saved version is frozen and locked for you to grade. They can withdraw it until you grade it; you can return it for changes.</li>
               </ol>
-              {tmcodeEnabled && <p className="mt-1.5">Add starter files in the TMCode practical section below to give everyone the same starting point.</p>}
+              {tmcodeEnabled && <p className="mt-1.5">Add starter files in the Code project section below to give everyone the same starting point.</p>}
             </div>
           )}
           {!NO_FILE_TYPES.includes(values.submission_type) && (
@@ -584,7 +584,7 @@ const AssignmentEditorForm: React.FC<Props> = ({
           <Section
             step={3}
             icon={TerminalSquare}
-            title="TMCode practical"
+            title="Code project"
             subtitle="Students code it in TMCode, starting from your files"
           >
             <TmcodePracticalSection value={tmcode} onChange={changeTmcode} disabled={busy} />

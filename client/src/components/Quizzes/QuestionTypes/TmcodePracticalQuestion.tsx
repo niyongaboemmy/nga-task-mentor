@@ -96,7 +96,7 @@ export const TmcodePracticalQuestion: React.FC<QuestionComponentProps> = ({
       setLinkId(r.link_id);
       await load();
     } catch (e) {
-      setError(apiErrorMessage(e, "Couldn't start the practical."));
+      setError(apiErrorMessage(e, "Couldn't start the question."));
     } finally {
       setBusy(null);
     }
@@ -182,14 +182,14 @@ export const TmcodePracticalQuestion: React.FC<QuestionComponentProps> = ({
               <CheckCircle2 className="h-4 w-4 text-emerald-600" aria-hidden="true" />
               Submitted project{submitted.revision_number ? ` (revision #${submitted.revision_number})` : ""}.
               <Link
-                to={`/projects/${submitted.project_id}${submitted.revision_id ? `?tab=files&rev=${submitted.revision_id}` : ""}`}
+                to={`/code/projects/${submitted.project_id}${submitted.revision_id ? `?tab=files&rev=${submitted.revision_id}` : ""}`}
                 className="font-semibold text-blue-700 hover:underline dark:text-blue-300"
               >
                 View the code
               </Link>
             </p>
           ) : (
-            <p className="text-sm text-slate-600 dark:text-slate-300">No project was submitted for this practical.</p>
+            <p className="text-sm text-slate-600 dark:text-slate-300">No project was submitted for this question.</p>
           )
         ) : loading ? (
           <p className="flex items-center gap-2 text-sm text-slate-500">
@@ -263,7 +263,7 @@ export const TmcodePracticalQuestion: React.FC<QuestionComponentProps> = ({
                   Withdraw to keep editing
                 </button>
               ) : null}
-              <Link to={`/projects/${project.id}`} className="text-xs font-semibold text-blue-700 hover:underline dark:text-blue-300">
+              <Link to={`/code/projects/${project.id}`} className="text-xs font-semibold text-blue-700 hover:underline dark:text-blue-300">
                 Open the project page
               </Link>
             </div>

@@ -21,6 +21,8 @@ import dashboardRoutes from "../routes/dashboard";
 import mediaRoutes from "../routes/media";
 import competencyRoutes from "../routes/competency";
 import tmcodeRoutes from "../routes/tmcode";
+import codeRunnerRoutes from "../routes/codeRunner";
+import codeRoutes from "../routes/code";
 
 /**
  * Minimal test harness app — mounts only the routers under test against the
@@ -32,11 +34,15 @@ import tmcodeRoutes from "../routes/tmcode";
 export function buildTestApp() {
   const app = express();
   app.use("/api/tmcode", express.json({ limit: "8mb" }), tmcodeRoutes);
+  // Practice runs carry whole projects (up to 1 MB of files).
+  app.use("/api/code", express.json({ limit: "2mb" }));
   app.use(express.json());
   app.use("/api/proctoring", proctoringRoutes);
   app.use("/api/users", usersRoutes);
   app.use("/api/database", databaseRoutes);
   app.use("/api/roles-permissions", rolesPermissionsRoutes);
+  app.use("/api/code-runner", codeRunnerRoutes);
+  app.use("/api/code", codeRoutes);
   app.use("/api/assignments", assignmentRoutes);
   app.use("/api/submissions", submissionRoutes);
   app.use("/api/quizzes", quizRoutes);

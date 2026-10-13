@@ -546,6 +546,12 @@ export class QuestionBankApiService {
   }
 
   /** Update a question in the bank. */
+  /** One question of a course's bank (the edit page). */
+  static async getCourseQuestion(courseId: number, id: number): Promise<{ success: boolean; data: QuestionBankEntry }> {
+    const response = await axios.get(`/courses/${courseId}/question-bank/${id}`);
+    return response.data;
+  }
+
   static async updateCourseQuestion(
     courseId: number,
     id: number,

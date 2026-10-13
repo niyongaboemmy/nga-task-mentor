@@ -1,5 +1,6 @@
+import type React from "react";
 import type { ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { Navigate, useLocation, useParams } from "react-router-dom";
 import type { LucideIcon } from "lucide-react";
 import {
   LayoutDashboard,
@@ -7,7 +8,6 @@ import {
   ClipboardList,
   FileText,
   Users,
-  HelpCircle,
   ShieldCheck,
   Database,
   GraduationCap,
@@ -17,8 +17,11 @@ import {
   Award,
   Library,
   Trophy,
-  FolderCode,
   MonitorDot,
+  ListChecks,
+  Code2,
+  ClipboardCheck,
+  Cpu,
 } from "lucide-react";
 
 import { usePermissions } from "../hooks/usePermissions";
@@ -66,12 +69,19 @@ const SubjectAssessmentReportPage = lazyPage(() => import("../pages/SubjectAsses
 const GeneralAttributesPage = lazyPage(() => import("../pages/GeneralAttributesPage"));
 const BloomsTaxonomyManagementPage = lazyPage(() => import("../components/Quizzes/BloomsTaxonomyManagementPage"));
 const QuestionBankPage = lazyPage(() => import("../pages/QuestionBankPage"));
+const QuestionEditPage = lazyPage(() => import("../pages/questionBank/QuestionEditPage"));
 const QuestionBankHubPage = lazyPage(() => import("../pages/QuestionBankHubPage"));
 const SubmissionDetailPage = lazyPage(() => import("../pages/SubmissionDetailPage"));
 const GradesPage = lazyPage(() => import("../pages/GradesPage"));
 const AssessmentMarksPage = lazyPage(() => import("../pages/AssessmentMarksPage"));
 const DatabaseManagementPage = lazyPage(() => import("../pages/DatabaseManagementPage"));
 const RolesPermissionsPage = lazyPage(() => import("../pages/Admin/RolesPermissionsPage"));
+const CodeRunnerPage = lazyPage(() => import("../pages/Admin/CodeRunnerPage"));
+const ToGradePage = lazyPage(() => import("../pages/grading/ToGradePage"));
+const PlaygroundPage = lazyPage(() => import("../pages/code/PlaygroundPage"));
+const ProjectEditorPage = lazyPage(() => import("../pages/code/ProjectEditorPage"));
+const StartersPage = lazyPage(() => import("../pages/code/StartersPage"));
+const AssignmentWorkPage = lazyPage(() => import("../pages/code/AssignmentWorkPage"));
 const RankingPage = lazyPage(() => import("../pages/RankingPage"));
 const AdminSubjectsPage = lazyPage(() => import("../pages/AdminSubjectsPage"));
 const ProjectsPage = lazyPage(() => import("../pages/ProjectsPage"));
@@ -119,10 +129,24 @@ const QuizResultsWrapper = () => {
   return <QuizResults submissionId={parseInt(submissionId!)} />;
 };
 
+/** A moved page: keeps the :params and the query string. */
+const Redirect: React.FC<{ to: string }> = ({ to }) => {
+  const params = useParams();
+  const { search, hash } = useLocation();
+  const path = to.replace(/:(\w+)/g, (_, k: string) => encodeURIComponent(params[k] ?? ""));
+  return <Navigate to={`${path}${search}${hash}`} replace />;
+};
+
 export interface NavItemConfig {
   label: string;
   icon: LucideIcon;
   group: "General" | "Teaching" | "Admin";
+  /** Hide the item when the user holds any of these (one item per job, e.g. one "Quizzes"). */
+  hideIfCan?: string[];
+  /** A live count shown beside the label. */
+  badge?: "to_grade";
+  /** Highlight the item for every page under this prefix (e.g. "/code"). */
+  matchPrefix?: string;
 }
 
 export interface AppRoute {
@@ -189,6 +213,17 @@ export const appRoutes: AppRoute[] = [
     permissions: ["QUESTION_BANK_VIEW"],
   },
   {
+    // Creating or editing a question on a page, not a pop-up.
+    path: "/courses/:courseId/question-bank/new",
+    element: <QuestionEditPage />,
+    permissions: ["QUESTION_BANK_VIEW"],
+  },
+  {
+    path: "/courses/:courseId/question-bank/:questionId/edit",
+    element: <QuestionEditPage />,
+    permissions: ["QUESTION_BANK_VIEW"],
+  },
+  {
     path: "/assignments",
     element: <AssignmentsPage />,
     permissions: ["ASSIGNMENTS_VIEW"],
@@ -217,31 +252,72 @@ export const appRoutes: AppRoute[] = [
     navItem: { label: "Submissions", icon: FileText, group: "General" },
   },
   {
-    // TMCode Projects (PROJECTS_PLAN.md §5): personal coding projects worked
-    // on in TMCode. VIEW_ALL / MONITOR holders reach other people's projects
-    // read-only, so the project page accepts any of the three keys.
-    path: "/projects",
+    // Code (CODE_RUNNER_PLAN.md §5): the student's projects. VIEW_ALL /
+    // MONITOR holders reach other people's projects read-only, so the
+    // project page accepts any of the three keys.
+    path: "/code/projects",
     element: <ProjectsPage />,
     permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL"],
-    navItem: { label: "Projects", icon: FolderCode, group: "General" },
+    navItem: { label: "Code", icon: Code2, group: "General", matchPrefix: "/code" },
   },
   {
-    path: "/projects/monitor",
-    element: <ProjectMonitorPage />,
-    permissions: ["PROJECTS_MONITOR"],
-    navItem: { label: "Project Monitor", icon: MonitorDot, group: "Teaching" },
+    // Full-screen pages (no app shell): practise, or edit a project.
+    path: "/code/playground",
+    element: <PlaygroundPage />,
+    permissions: ["PROJECTS_USE"],
+    noLayout: true,
   },
   {
-    path: "/projects/:id",
+    path: "/code/projects/:id/edit",
+    element: <ProjectEditorPage />,
+    permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL", "PROJECTS_MONITOR"],
+    noLayout: true,
+  },
+  {
+    // A student's work on a code assignment, full screen.
+    path: "/assignments/:assignmentId/work",
+    element: <AssignmentWorkPage />,
+    permissions: ["PROJECTS_USE"],
+    noLayout: true,
+  },
+  {
+    path: "/code/starters",
+    element: <StartersPage />,
+    permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL"],
+  },
+  {
+    path: "/code/projects/:id",
     element: <ProjectDetailPage />,
     permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL", "PROJECTS_MONITOR"],
   },
   {
+    // To grade: every activity with work waiting, one button to grade it.
+    path: "/grading",
+    element: <ToGradePage />,
+    permissions: ["DASHBOARD_VIEW_INSTRUCTOR"],
+    navItem: { label: "To grade", icon: ClipboardCheck, group: "Teaching", badge: "to_grade" },
+  },
+  {
+    path: "/code/live",
+    element: <ProjectMonitorPage />,
+    permissions: ["PROJECTS_MONITOR"],
+    navItem: { label: "Live coding", icon: MonitorDot, group: "Teaching" },
+  },
+  // Old addresses keep working.
+  { path: "/code", element: <Redirect to="/code/projects" /> },
+  { path: "/projects", element: <Redirect to="/code/projects" /> },
+  { path: "/projects/monitor", element: <Redirect to="/code/live" /> },
+  { path: "/projects/:id", element: <Redirect to="/code/projects/:id" /> },
+  {
     // Grading workspace for TMCode practicals (assignment or quiz question).
-    path: "/grading/practical/:type/:id",
+    path: "/grading/:type/:id",
     element: <PracticalGradingPage />,
     permissions: ["PROJECTS_MONITOR", "PROJECTS_VIEW_ALL"],
+    // A full-screen page of its own (no app shell underneath).
+    noLayout: true,
   },
+  // TMCode desktop and older links open the old address.
+  { path: "/grading/practical/:type/:id", element: <Redirect to="/grading/:type/:id" /> },
   {
     path: "/students",
     element: <Students />,
@@ -284,7 +360,7 @@ export const appRoutes: AppRoute[] = [
     path: "/quizzes",
     element: <QuizzesPage />,
     permissions: ["QUIZZES_EDIT"],
-    navItem: { label: "Quizzes", icon: HelpCircle, group: "General" },
+    navItem: { label: "Quizzes", icon: ListChecks, group: "General" },
   },
   {
     // Back-compat: older links (e.g. the dashboard shortcut) used /quizzes/public
@@ -296,7 +372,9 @@ export const appRoutes: AppRoute[] = [
     path: "/my-quizzes",
     element: <StudentQuizzesPage />,
     permissions: ["QUIZZES_ATTEMPT"],
-    navItem: { label: "My Quizzes", icon: HelpCircle, group: "General" },
+    // Students' quiz list. Someone who manages quizzes sees "Quizzes" above
+    // instead (and can try a quiz as a student from the quiz page).
+    navItem: { label: "Quizzes", icon: ListChecks, group: "General", hideIfCan: ["QUIZZES_EDIT"] },
   },
   {
     path: "/quizzes/:id/take",
@@ -403,6 +481,12 @@ export const appRoutes: AppRoute[] = [
     permissions: ["DATABASE_ADMIN_ACCESS"],
     fullWidth: true,
     navItem: { label: "Database Management", icon: Database, group: "Admin" },
+  },
+  {
+    path: "/admin/code-runner",
+    element: <CodeRunnerPage />,
+    permissions: ["CODE_RUNNER_ADMIN"],
+    navItem: { label: "Code runner", icon: Cpu, group: "Admin" },
   },
   {
     path: "/admin/roles-permissions",

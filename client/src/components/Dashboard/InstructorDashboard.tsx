@@ -581,7 +581,17 @@ const InstructorDashboard: React.FC<InstructorDashboardProps> = ({ variant = "te
 
           {/* Work queues */}
           <div className="grid gap-5 lg:grid-cols-3">
-            <Panel title="Grading queue" subtitle="Oldest waiting first" icon={<ClipboardList className="w-4 h-4" />} iconColor="amber">
+            <Panel
+              title="Grading queue"
+              subtitle="Oldest waiting first"
+              icon={<ClipboardList className="w-4 h-4" />}
+              iconColor="amber"
+              action={
+                <Link to="/grading" className="text-xs font-semibold text-primary hover:underline" data-testid="dashboard-to-grade">
+                  See all
+                </Link>
+              }
+            >
               <GradingQueue items={overview.grading_queue} />
             </Panel>
             <Panel id="upcoming" title="Upcoming deadlines" subtitle="Next 14 days, with submissions so far" icon={<CalendarClock className="w-4 h-4" />} iconColor="purple">

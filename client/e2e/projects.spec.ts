@@ -49,10 +49,10 @@ const sse = (page: Page, fn: string, ...args: unknown[]) =>
 test.describe("Projects dashboard", () => {
   test("lists projects with live dot, badges and stats; filters, table view and empty states", async ({ page }) => {
     await setup(page, "student");
-    await go(page, "/projects");
+    await go(page, "/code/projects");
 
     await expect(page.getByRole("heading", { name: "Projects", level: 1 })).toBeVisible();
-    if ((page.viewportSize()?.width ?? 1280) >= 1024) await expect(page.getByRole("link", { name: "Projects" }).first()).toBeVisible();
+    if ((page.viewportSize()?.width ?? 1280) >= 1024) await expect(page.getByRole("link", { name: "Code", exact: true })).toHaveAttribute("aria-current", "page");
     const cards = page.getByRole("list", { name: "Projects" }).getByRole("listitem");
     await expect(cards).toHaveCount(2); // the archived one is hidden
     await expect(page.getByTestId("stat-total")).toHaveText("3");
@@ -90,7 +90,7 @@ test.describe("Projects dashboard", () => {
 
   test("New project: validates the GitHub URL, creates and opens the project", async ({ page }) => {
     const state = await setup(page, "student");
-    await go(page, "/projects");
+    await go(page, "/code/projects");
     await page.getByRole("button", { name: "New project" }).first().click();
     const dialog = page.getByRole("form", { name: "New project" });
     await expect(dialog).toBeVisible();
@@ -114,7 +114,7 @@ test.describe("Projects dashboard", () => {
 test.describe("Project page", () => {
   test("live panel follows SSE presence and survives a dropped stream", async ({ page }) => {
     await setup(page, "student");
-    await go(page, "/projects/1");
+    await go(page, "/code/projects/1");
 
     const panel = page.getByTestId("live-panel");
     await expect(panel.getByTestId("presence-line")).toHaveText("Open in TMCode on MacBook · editing src/main.cpp · 2 unsaved");
@@ -156,7 +156,7 @@ test.describe("Project page", () => {
 
   test("Files tab: tree, read-only viewer and revision picker; Revisions and Activity tabs", async ({ page }) => {
     await setup(page, "student");
-    await go(page, "/projects/1");
+    await go(page, "/code/projects/1");
 
     const tree = page.getByRole("tree", { name: "Project files" });
     await expect(tree.getByRole("treeitem", { name: "README.md" })).toHaveAttribute("aria-selected", "true");
@@ -190,7 +190,7 @@ test.describe("Project page", () => {
 
   test("Links: link an activity and submit with confirmation", async ({ page }) => {
     const state = await setup(page, "student");
-    await go(page, "/projects/1?tab=links");
+    await go(page, "/code/projects/1?tab=links");
 
     await expect(page.getByTestId("link-row-501")).toContainText("Sorting lab");
     await page.getByRole("button", { name: "Link to an activity" }).click();
@@ -213,7 +213,7 @@ test.describe("Project page", () => {
 
   test("Open in TMCode asks for the deep link and falls back to the download", async ({ page }) => {
     const state = await setup(page, "student");
-    await go(page, "/projects/1");
+    await go(page, "/code/projects/1");
     await page.getByRole("button", { name: "Open in TMCode" }).click();
     await expect(page.getByTestId("tmcode-fallback")).toBeVisible({ timeout: 6000 });
     await expect(page.getByRole("link", { name: /Don't have TMCode\? Download/ })).toHaveAttribute("href", /\/tmcode$/);
@@ -222,7 +222,7 @@ test.describe("Project page", () => {
 
   test("GitHub project: Git tab, members and settings", async ({ page }) => {
     const state = await setup(page, "student");
-    await go(page, "/projects/2");
+    await go(page, "/code/projects/2");
 
     await expect(page.getByRole("tab", { name: "Files" })).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "Git" })).toHaveAttribute("aria-selected", "true");
@@ -263,12 +263,12 @@ test.describe("Project page", () => {
   test("mobile layout", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await setup(page, "student");
-    await go(page, "/projects");
+    await go(page, "/code/projects");
     await expect(page.getByRole("list", { name: "Projects" }).getByRole("listitem")).toHaveCount(2);
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
     expect(overflow).toBeLessThanOrEqual(1);
     await shot(page, "projects-mobile");
-    await go(page, "/projects/1");
+    await go(page, "/code/projects/1");
     await expect(page.getByTestId("live-panel")).toBeVisible();
     await shot(page, "project-mobile");
   });
@@ -277,11 +277,11 @@ test.describe("Project page", () => {
 test.describe("Teacher views", () => {
   test("monitor groups live students by course, with filters", async ({ page }) => {
     await setup(page, "instructor", monitorSeed());
-    await go(page, "/projects/monitor");
+    await go(page, "/code/live");
 
     await expect(page.getByRole("heading", { name: "Project monitor" })).toBeVisible();
     if ((page.viewportSize()?.width ?? 1280) >= 1024)
-      await expect(page.getByRole("link", { name: "Project Monitor" })).toHaveAttribute("aria-current", "page");
+      await expect(page.getByRole("link", { name: "Live coding" })).toHaveAttribute("aria-current", "page");
     await expect(page.getByTestId("live-indicator")).toContainText("Live");
     await expect(page.getByRole("region", { name: "CS5 — Computer Science S5" }).getByTestId("monitor-card")).toHaveCount(2);
     await expect(page.getByRole("region", { name: "WEB — Web Development" }).getByTestId("monitor-card")).toHaveCount(1);

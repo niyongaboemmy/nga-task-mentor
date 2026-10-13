@@ -116,7 +116,7 @@ export interface WorkspacesView {
 }
 
 export const KIND_LABEL: Record<TmcodeKind, string> = {
-  practical: "Practical",
+  practical: "Code assignment",
   case_study: "Case study",
 };
 

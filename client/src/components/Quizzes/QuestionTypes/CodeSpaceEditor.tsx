@@ -77,7 +77,7 @@ let _id = 0;
 const uid = () => `${Date.now()}-${_id++}`;
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
-const LANG_EXT: Record<string, string> = {
+export const LANG_EXT: Record<string, string> = {
   javascript: "js",
   typescript: "ts",
   python: "py",
@@ -122,7 +122,7 @@ export function answerLanguagesOf(codingData: Partial<CodingData>): string[] {
   return out;
 }
 
-function buildInitialFiles(
+export function buildInitialFiles(
   codingData: CodingData,
   answer: any,
   lang: string = codingData.language || "javascript",
@@ -1407,7 +1407,7 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
                 Ready to code?
               </h2>
               <p className="text-[#cccccc] mb-8 leading-relaxed">
-                Click the button below to open the workspace and start working
+                Click the button below to open the editor and start working
                 on your solution.
               </p>
               <button

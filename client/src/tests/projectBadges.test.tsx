@@ -110,7 +110,7 @@ describe("project formatting helpers", () => {
     expect(freezeTarget({ kind: "tm", head: null, git: null })).toBeNull();
     expect(freezeTarget({ kind: "tm", head: { number: 3 } as never, git: null })).toBe("revision #3");
     expect(freezeTarget({ kind: "github", head: null, git: { head_commit: "abcdef123456" } })).toBe("commit abcdef1");
-    expect(frozenProjectHref({ link: { revision_id: 9003 } as never, project: { id: 1, kind: "tm" } as never })).toBe("/projects/1?tab=files&rev=9003");
-    expect(frozenProjectHref({ link: {} as never, project: { id: 2, kind: "github" } as never })).toBe("/projects/2?tab=git");
+    expect(frozenProjectHref({ link: { revision_id: 9003 } as never, project: { id: 1, kind: "tm" } as never })).toBe("/code/projects/1?tab=files&rev=9003");
+    expect(frozenProjectHref({ link: {} as never, project: { id: 2, kind: "github" } as never })).toBe("/code/projects/2?tab=git");
   });
 });

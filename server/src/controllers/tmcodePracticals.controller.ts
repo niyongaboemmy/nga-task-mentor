@@ -797,9 +797,9 @@ export const runTargets = async (req: Request, res: Response) => {
   for (const c of candidates) counts.set(c.language, (counts.get(c.language) ?? 0) + 1);
   return res.status(200).json({
     revision: { id: r.rev.id, number: r.rev.number },
-    engine: runner.name,
+    engine: (language && runner.engineFor(language)) || runner.name,
     // Judge0 CE runs one source file; tm-judge takes the whole project.
-    single_file: runner.name === "judge0",
+    single_file: ((language && runner.engineFor(language)) || runner.name) === "judge0",
     language,
     languages: [...counts.entries()].map(([key, files]) => ({
       key,
@@ -862,7 +862,8 @@ export const runProject = async (req: Request, res: Response) => {
   if (!entry) return tmcodeError(res, 422, "NOTHING_TO_RUN", "Pick the file to run.");
 
   const { paths, skipped } = filesToSend(r.files, language, entry);
-  const sendable = runner.name === "judge0" ? [entry] : paths;
+  const engine = runner.engineFor(language) ?? runner.name;
+  const sendable = engine === "judge0" ? [entry] : paths;
   const files: { path: string; content: string }[] = [];
   for (const p of sendable) {
     const f = r.files.find((x) => x.path === p);
@@ -887,7 +888,7 @@ export const runProject = async (req: Request, res: Response) => {
       entry,
       revision: { id: r.rev.id, number: r.rev.number },
       files_sent: files.map((f) => f.path),
-      files_skipped: runner.name === "judge0" ? Math.max(0, paths.length - 1) : skipped,
+      files_skipped: result.engine === "judge0" ? Math.max(0, paths.length - 1) : skipped,
       compile: result.compile,
       tests: result.tests,
     });

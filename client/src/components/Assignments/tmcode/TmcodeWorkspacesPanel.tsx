@@ -30,7 +30,7 @@ const POLL_MS = 30_000;
 
 /** Where "View code" goes: the submitted revision, else the latest save. */
 export const workspaceCodeHref = (row: Pick<WorkspaceRow, "project_id" | "revision_id">): string | null =>
-  row.project_id ? `/projects/${row.project_id}?tab=files${row.revision_id ? `&rev=${row.revision_id}` : ""}` : null;
+  row.project_id ? `/code/projects/${row.project_id}?tab=files${row.revision_id ? `&rev=${row.revision_id}` : ""}` : null;
 
 const TmcodeWorkspacesPanel: React.FC<{
   assignmentId: number;
@@ -54,7 +54,7 @@ const TmcodeWorkspacesPanel: React.FC<{
       setData(await tmcodeAssignmentsApi.workspaces(assignmentId));
       setNow(Date.now());
     } catch (e) {
-      setError(apiErrorMessage(e, "Couldn't load the workspaces."));
+      setError(apiErrorMessage(e, "Couldn't load the student projects."));
     } finally {
       setLoading(false);
     }
@@ -95,7 +95,7 @@ const TmcodeWorkspacesPanel: React.FC<{
 
   return (
     <section
-      aria-label="Workspaces"
+      aria-label="Student projects"
       data-testid="tmcode-workspaces"
       className="overflow-hidden rounded-2xl border border-gray-200/70 bg-card-light shadow-sm dark:border-border-dark/30 dark:bg-card-dark/30"
     >
@@ -105,7 +105,7 @@ const TmcodeWorkspacesPanel: React.FC<{
             <TerminalSquare className="h-5 w-5" aria-hidden="true" />
           </span>
           <div className="min-w-0">
-            <h2 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">Workspaces</h2>
+            <h2 className="text-base font-bold text-text-primary-light dark:text-text-primary-dark">Student projects</h2>
             <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">
               {data?.assignment.kind ? `TMCode ${KIND_LABEL[data.assignment.kind].toLowerCase()}` : "TMCode"} · each student&apos;s
               copy of the starter files
@@ -120,7 +120,7 @@ const TmcodeWorkspacesPanel: React.FC<{
               data-testid="open-grading-workspace"
               className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-violet-600 px-3 py-2 text-sm font-semibold text-white shadow-sm hover:bg-violet-700"
             >
-              <ClipboardCheck className="h-4 w-4" aria-hidden="true" /> Grade in workspace
+              <ClipboardCheck className="h-4 w-4" aria-hidden="true" /> Grade
             </Link>
           )}
           <button

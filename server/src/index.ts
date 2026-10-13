@@ -57,6 +57,9 @@ import reportCardRoutes from "./routes/reportCards";
 import manualAssessmentRoutes from "./routes/manualAssessments";
 import databaseRoutes from "./routes/database.routes";
 import rolesPermissionsRoutes from "./routes/rolesPermissions";
+import codeRunnerRoutes from "./routes/codeRunner";
+import { startJudgeInfo } from "./services/coderunner/judgeInfo";
+import codeRoutes from "./routes/code";
 import accessRoutes from "./routes/access";
 import integrationRoutes from "./routes/integration";
 import activityRoutes from "./routes/activity";
@@ -160,6 +163,8 @@ app.use("/api/activity", activityRoutes);
 app.use("/api/tmcode", express.json({ limit: "8mb" }), tmcodeRoutes);
 
 // Body parser middleware
+// Practice runs carry whole projects (up to 1 MB of files).
+app.use("/api/code", express.json({ limit: "2mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -323,6 +328,8 @@ const startServer = async (): Promise<void> => {
     app.use("/api/manual-assessments", manualAssessmentRoutes);
     app.use("/api/database", databaseRoutes);
     app.use("/api/roles-permissions", rolesPermissionsRoutes);
+    app.use("/api/code-runner", codeRunnerRoutes);
+    app.use("/api/code", codeRoutes);
     app.use("/api/access", accessRoutes);
     // MIS -> Task Mentor server-to-server reads (MIS bearer token, read-only)
     app.use("/api/integration", integrationRoutes);
@@ -368,6 +375,8 @@ const startServer = async (): Promise<void> => {
 
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
+      // What tm-judge runs (catalog kinds, unit tests, sessions), refreshed in the background.
+      startJudgeInfo();
       console.log(
         `Note: Socket functionality moved to live-server (port 5002)`,
       );

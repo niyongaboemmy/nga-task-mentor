@@ -23,6 +23,7 @@ import {
 import { answerFiles, getCodeRunner } from "../services/coderunner";
 import { codeRunnerLanguages } from "../utils/codeLanguages";
 import { getQuestionBankInclude } from "../utils/quizUtils";
+import { checkReferenceSolutions } from "../services/referenceCheck";
 import {
   allowedAnswerLanguages,
   isWebLanguage,
@@ -773,6 +774,22 @@ export const updateQuiz = async (req: Request, res: Response) => {
           ],
         });
       }
+
+      // A coding question whose own reference solution fails its tests is broken.
+      const reference = await checkReferenceSolutions(quiz.id);
+      if (reference.failures.length) {
+        await transaction.rollback();
+        return res.status(422).json({
+          success: false,
+          code: "REFERENCE_SOLUTION_FAILS",
+          message: `Can't publish yet: the reference solution of ${reference.failures.length} coding question${reference.failures.length === 1 ? "" : "s"} fails its own tests. Fix the tests or the solution, then publish.`,
+          errors: reference.failures.map((f) => ({
+            field: "questions",
+            message: `Question ${f.order ?? f.question_id}${f.title ? ` (${f.title})` : ""}: ${f.error ?? `${f.failed_tests.length} test${f.failed_tests.length === 1 ? "" : "s"} fail (${f.failed_tests.map((t) => t.id).join(", ")})`}`,
+          })),
+          data: { failures: reference.failures },
+        });
+      }
     }
 
     // Cross-field check against the stored value when only one date is sent.
@@ -1477,10 +1494,8 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         // manual review it is the instructor's starting point.
         // Use advanced grading for all question types for consistency and to trigger AI grading
         try {
-          gradingResult = await AdvancedQuizGrader.gradeWithConfig(
-            question,
-            answer.answer,
-          );
+          // Code answers are queued and graded in the background.
+          gradingResult = await AdvancedQuizGrader.gradeInRequest(question, answer.answer);
           isCorrect = gradingResult.is_correct;
           pointsEarned = gradingResult.points_earned;
           if (isPendingGrade(gradingResult)) anyPendingReview = true;
