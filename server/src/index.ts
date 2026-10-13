@@ -58,6 +58,7 @@ import manualAssessmentRoutes from "./routes/manualAssessments";
 import databaseRoutes from "./routes/database.routes";
 import rolesPermissionsRoutes from "./routes/rolesPermissions";
 import codeRunnerRoutes from "./routes/codeRunner";
+import { startJudgeInfo } from "./services/coderunner/judgeInfo";
 import codeRoutes from "./routes/code";
 import accessRoutes from "./routes/access";
 import integrationRoutes from "./routes/integration";
@@ -374,6 +375,8 @@ const startServer = async (): Promise<void> => {
 
     server.listen(PORT, () => {
       console.log(`Server is running on port ${PORT}`);
+      // What tm-judge runs (catalog kinds, unit tests, sessions), refreshed in the background.
+      startJudgeInfo();
       console.log(
         `Note: Socket functionality moved to live-server (port 5002)`,
       );

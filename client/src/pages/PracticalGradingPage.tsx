@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import UserAvatar from "../components/ui/UserAvatar";
-import { createPortal } from "react-dom";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
@@ -43,6 +42,7 @@ import {
 } from "../services/practicalsApi";
 import { apiErrorCode, apiErrorMessage, projectsApi, type RevisionSummary } from "../services/projectsApi";
 import FilesTab from "../components/Projects/FilesTab";
+import StarterDiff from "../components/Projects/grading/StarterDiff";
 import ReturnForChangesDialog from "../components/Projects/ReturnForChangesDialog";
 import { TmcodeDeepLinkButton } from "../components/Projects/OpenProjectInTmcode";
 import Select from "../components/ui/Select";
@@ -459,7 +459,7 @@ const PracticalGradingPage: React.FC = () => {
     </div>
   );
 
-  return createPortal(shell, document.body);
+  return shell;
 };
 
 // ─── Student switcher ───────────────────────────────────────────────────────
@@ -682,6 +682,24 @@ const StudentWorkspace: React.FC<{
 }> = ({ type, activityId, roster, row, nextRow, onSelect, onSaved, panelOpen, onTogglePanel, mobileView, opened, onOpenedInTmcode }) => {
   const a = roster.activity;
   const [pane, setPane] = useState<Pane>("code");
+  // Code view: the files, or what changed since the starter.
+  const [showDiff, setShowDiff] = useState(() => {
+    try {
+      return localStorage.getItem("tm.grading.diff") === "1";
+    } catch {
+      return false;
+    }
+  });
+  const starter = a.brief?.starter ?? null;
+  const toggleDiff = () =>
+    setShowDiff((v) => {
+      try {
+        localStorage.setItem("tm.grading.diff", v ? "0" : "1");
+      } catch {
+        // a convenience
+      }
+      return !v;
+    });
   const [revisions, setRevisions] = useState<RevisionSummary[] | null>(null);
   const [revisionId, setRevisionId] = useState<number | null>(row.link?.revision_id ?? null);
   const [returnOpen, setReturnOpen] = useState(false);
@@ -831,7 +849,31 @@ const StudentWorkspace: React.FC<{
           ) : !projectId ? (
             <EmptyState text={`${name} hasn't started a project for this practical yet.`} />
           ) : pane === "code" ? (
-            <FilesTab projectId={projectId} revisions={revisions} revisionId={revisionId} onRevisionChange={setRevisionId} fill />
+            <div className="flex h-full min-h-0 flex-col gap-2">
+              {starter && (
+                <div className="flex shrink-0 items-center gap-1 rounded-lg bg-slate-100 p-1 text-xs font-semibold dark:bg-white/5" role="group" aria-label="Code view">
+                  <button type="button" aria-pressed={!showDiff} onClick={() => showDiff && toggleDiff()} className={`rounded-md px-3 py-1 ${!showDiff ? "bg-white shadow-sm dark:bg-slate-700" : "text-slate-500"}`}>
+                    All files
+                  </button>
+                  <button
+                    type="button"
+                    aria-pressed={showDiff}
+                    onClick={() => !showDiff && toggleDiff()}
+                    className={`rounded-md px-3 py-1 ${showDiff ? "bg-white shadow-sm dark:bg-slate-700" : "text-slate-500"}`}
+                    data-testid="toggle-starter-diff"
+                  >
+                    Changes since starter
+                  </button>
+                </div>
+              )}
+              <div className="min-h-0 flex-1">
+                {starter && showDiff ? (
+                  <StarterDiff projectId={projectId} revisionId={revisionId} starter={starter} />
+                ) : (
+                  <FilesTab projectId={projectId} revisions={revisions} revisionId={revisionId} onRevisionChange={setRevisionId} fill />
+                )}
+              </div>
+            </div>
           ) : pane === "preview" ? (
             <PreviewPane projectId={projectId} revisionId={revisionId} />
           ) : (

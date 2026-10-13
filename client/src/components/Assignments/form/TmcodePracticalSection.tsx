@@ -1,4 +1,9 @@
 import React, { useEffect, useId, useMemo, useState } from "react";
+import { toast } from "react-toastify";
+import Drawer from "../../ui/Drawer";
+import LibraryStarterPicker from "../../code/StarterPicker";
+import { saveProjectFiles } from "../../../services/codeApi";
+import type { Starter as CatalogStarter } from "../../../services/catalogApi";
 import { AnimatePresence, motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
@@ -125,9 +130,29 @@ const TmcodePracticalSection: React.FC<{
       language: value.language || p?.language || null,
     });
 
+  // ── A starter from the library becomes the teacher's starter project ──
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const adoptLibraryStarter = async (s: CatalogStarter) => {
+    setCreating(true);
+    try {
+      const project = await projectsApi.create({ name: `Starter – ${s.title}`.slice(0, 120), kind: "tm", language: s.language });
+      await saveProjectFiles(project.id, null, s.files, `Starter “${s.title}” from the library`);
+      await loadProjects();
+      set({ starter_project_id: project.id, starter_revision_id: null, language: value.language || s.language });
+      setLibraryOpen(false);
+      toast.success("Starter added: students will start from these files.");
+    } catch (e) {
+      toast.error(apiErrorMessage(e, "Couldn't use that starter."));
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const totalSize = files?.reduce((n, f) => n + f.size, 0) ?? 0;
 
   return (
+    <>
     <div className="space-y-5" data-testid="tmcode-section">
       {/* Kind */}
       <div>
@@ -217,9 +242,20 @@ const TmcodePracticalSection: React.FC<{
               <div>
                 <div className="mb-1.5 flex flex-wrap items-center justify-between gap-2">
                   <p className="text-sm font-semibold text-text-secondary-light dark:text-text-secondary-dark">Starter files</p>
-                  <Link to="/code/projects" target="_blank" className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400">
-                    Manage projects
-                  </Link>
+                  <span className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setLibraryOpen(true)}
+                      disabled={disabled || creating}
+                      className="text-xs font-semibold text-blue-600 hover:underline disabled:opacity-50 dark:text-blue-400"
+                      data-testid="starter-from-library"
+                    >
+                      {creating ? "Adding the starter…" : "Use a starter from the library"}
+                    </button>
+                    <Link to="/code/projects" target="_blank" className="text-xs font-semibold text-blue-600 hover:underline dark:text-blue-400">
+                      Manage projects
+                    </Link>
+                  </span>
                 </div>
                 <StarterPicker
                   projects={projects}
@@ -294,6 +330,10 @@ const TmcodePracticalSection: React.FC<{
         )}
       </AnimatePresence>
     </div>
+      <Drawer open={libraryOpen} onClose={() => setLibraryOpen(false)} title="Starters" width="max-w-4xl" elevated>
+        <LibraryStarterPicker onUse={(st) => void adoptLibraryStarter(st)} useLabel="Use this starter" initialLanguage={value.language || undefined} />
+      </Drawer>
+    </>
   );
 };
 
