@@ -154,7 +154,7 @@ describe("catalog projects", () => {
     ];
     const res = await post("/api/code/test", { language: "python", files, test_filter: "tests/test_cart.py::test_empty" });
     expect(res.status).toBe(200);
-    expect(sent[0]).toMatchObject({ language: "python", actions: ["test"], tests: [], test_filter: "tests/test_cart.py::test_empty" });
+    expect(sent[0]).toMatchObject({ language: "python", actions: ["build", "test"], tests: [], test_filter: "tests/test_cart.py::test_empty" });
     expect(res.body.data.unit).toMatchObject({ verdict: "failed", total: 2, passed: 1, failed: 1 });
     expect(res.body.data.unit.tests[1]).toMatchObject({ name: "test_empty", status: "failed", message: "assert 1 == 0" });
   });
@@ -200,7 +200,7 @@ describe("catalog projects", () => {
 
     it("runs the student's code with the teacher's tests and scores the share that pass", async () => {
       const r = await gradeUnitTestAnswer(question, qd, { code: "def total(x): return sum(x)\n", language: "python" });
-      expect(sent[0]).toMatchObject({ language: "python", actions: ["test"], tests: [] });
+      expect(sent[0]).toMatchObject({ language: "python", actions: ["build", "test"], tests: [] });
       expect(sent[0].files.map((f: any) => f.path).sort()).toEqual(["main.py", "tests/test_cart.py"]);
       expect(r.points_earned).toBe(5);
       expect(r.is_correct).toBe(false);
