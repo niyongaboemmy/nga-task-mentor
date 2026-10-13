@@ -11,23 +11,18 @@ import {
   ChevronRight,
   Clock,
   Code2,
-  ExternalLink,
   Eye,
   FileText,
   Keyboard,
   Loader2,
   MessageSquarePlus,
-  Monitor,
   MonitorUp,
   Play,
   PanelRightClose,
   PanelRightOpen,
   Plus,
-  RefreshCw,
   Save,
   Search,
-  Smartphone,
-  Tablet,
   Undo2,
   X,
 } from "lucide-react";
@@ -40,7 +35,7 @@ import {
   type PracticalCriterion,
   type RunTargets,
 } from "../services/practicalsApi";
-import { apiErrorCode, apiErrorMessage, projectsApi, type RevisionSummary } from "../services/projectsApi";
+import { apiErrorMessage, projectsApi, type RevisionSummary } from "../services/projectsApi";
 import FilesTab from "../components/Projects/FilesTab";
 import StarterDiff from "../components/Projects/grading/StarterDiff";
 import ReturnForChangesDialog from "../components/Projects/ReturnForChangesDialog";
@@ -50,6 +45,11 @@ import { Skeleton } from "../components/ui/Skeleton";
 import { formatDateTime, timeAgo } from "../components/Projects/projectFormat";
 import RunPane from "../components/Projects/grading/RunPane";
 import GradingDetailsPane from "../components/Projects/grading/GradingDetailsPane";
+import PreviewPane from "../components/Projects/grading/PreviewPane";
+import AssessGuide from "../components/Projects/grading/AssessGuide";
+import { profileProject, type CheckAction, type ProjectProfile } from "../components/Projects/grading/projectProfile";
+import { loadProjectFiles } from "../services/codeApi";
+import { readIoTests, type IoTest } from "../components/code/tests";
 
 /**
  * Grading workspace for TMCode practicals (an assignment, or a quiz's
@@ -681,7 +681,13 @@ const StudentWorkspace: React.FC<{
   onOpenedInTmcode: () => void;
 }> = ({ type, activityId, roster, row, nextRow, onSelect, onSaved, panelOpen, onTogglePanel, mobileView, opened, onOpenedInTmcode }) => {
   const a = roster.activity;
-  const [pane, setPane] = useState<Pane>("code");
+  const [pane, setPaneState] = useState<Pane>("code");
+  // Once the grader picks a tab, the project's kind no longer chooses it.
+  const picked = useRef(false);
+  const setPane = useCallback((p: Pane) => {
+    picked.current = true;
+    setPaneState(p);
+  }, []);
   // Code view: the files, or what changed since the starter.
   const [showDiff, setShowDiff] = useState(() => {
     try {
@@ -744,6 +750,50 @@ const StudentWorkspace: React.FC<{
     if (pane === "preview" && !showPreview) setPane("run");
     if (pane === "run" && targets && !showRun) setPane("preview");
   }, [pane, showPreview, showRun, targets]);
+
+  // What kind of project this is, and so how to check it (the guide above the tabs).
+  const [profile, setProfile] = useState<ProjectProfile | null>(null);
+  const [projectTests, setProjectTests] = useState<IoTest[]>([]);
+  useEffect(() => {
+    if (!projectId) return;
+    let cancelled = false;
+    setProfile(null);
+    setProjectTests([]);
+    loadProjectFiles(projectId, revisionId ?? "head")
+      .then(({ files }) => {
+        if (cancelled) return;
+        const p = profileProject(files);
+        setProfile(p);
+        setProjectTests(readIoTests(files).tests);
+        // Open the most useful tab first, until the grader picks one.
+        if (!picked.current) setPaneState(p.primary);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, revisionId]);
+
+  const guideActions: CheckAction[] = [
+    "code",
+    ...(starter ? (["changes"] as CheckAction[]) : []),
+    ...(showPreview ? (["preview"] as CheckAction[]) : []),
+    ...(showRun ? (["run", "unit-tests"] as CheckAction[]) : []),
+    ...(projectId ? (["tmcode"] as CheckAction[]) : []),
+  ];
+  const onGuide = (action: CheckAction) => {
+    if (action === "preview") setPane("preview");
+    else if (action === "run") setPane("run");
+    else if (action === "unit-tests") {
+      setPane("run");
+      window.setTimeout(() => document.querySelector('[data-testid="unit-tests"]')?.scrollIntoView({ behavior: "smooth", block: "start" }), 400);
+    } else if (action === "code" || action === "changes") {
+      setPane("code");
+      if ((action === "changes") !== showDiff) toggleDiff();
+    } else if (action === "tmcode") {
+      document.querySelector<HTMLElement>('[data-testid="grading-open-tmcode"] button, button[data-testid="grading-open-tmcode"]')?.click();
+    }
+  };
 
   const savedScores = useMemo(
     () => scoresOf(row, a.rubric.length).map((s) => (s.score === "" ? null : Number(s.score))),
@@ -832,7 +882,9 @@ const StudentWorkspace: React.FC<{
           </div>
         </div>
 
-        <div className="min-h-0 flex-1 overflow-hidden p-2 sm:p-3">
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-hidden p-2 sm:p-3">
+          {projectId && profile && pane !== "details" && <AssessGuide profile={profile} available={guideActions} onAction={onGuide} />}
+          <div className="min-h-0 flex-1 overflow-hidden">
           {pane === "details" ? (
             <div className="h-full overflow-y-auto">
               <GradingDetailsPane
@@ -884,8 +936,10 @@ const StudentWorkspace: React.FC<{
               targetsError={targetsError}
               casesKey={`tm.grading.runCases.${type}.${activityId}.${a.question?.id ?? 0}`}
               studentName={name}
+              projectTests={projectTests}
             />
           )}
+          </div>
         </div>
       </section>
 
@@ -936,111 +990,6 @@ const EmptyState: React.FC<{ text: string }> = ({ text }) => (
     {text}
   </div>
 );
-
-const DEVICES = [
-  { key: "desktop", label: "Desktop", width: "100%", Icon: Monitor },
-  { key: "tablet", label: "Tablet", width: "768px", Icon: Tablet },
-  { key: "mobile", label: "Phone", width: "390px", Icon: Smartphone },
-] as const;
-
-/** Runs the submitted site in a sandboxed iframe (scripts on, no same-origin). */
-const PreviewPane: React.FC<{ projectId: number; revisionId: number | null }> = ({ projectId, revisionId }) => {
-  const [state, setState] = useState<{ url: string; entry: string } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [device, setDevice] = useState<(typeof DEVICES)[number]["key"]>("desktop");
-  const [nonce, setNonce] = useState(0);
-  const [needsBuild, setNeedsBuild] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setState(null);
-    setError(null);
-    practicalsApi
-      .preview(projectId, revisionId)
-      .then((r) => !cancelled && setState(r))
-      .catch(
-        (e) =>
-          !cancelled &&
-          setError(
-            apiErrorCode(e) === "NO_HTML"
-              ? "This project has no HTML page to preview. Read the code, or open it in TMCode to run it."
-              : apiErrorMessage(e, "Couldn't start the preview."),
-          ),
-      );
-    // A package.json project (React, Vite…) needs a build step the static preview can't do.
-    projectsApi
-      .manifest(projectId, revisionId ?? "head")
-      .then((m) => !cancelled && setNeedsBuild(m.files.some((f) => f.path === "package.json")))
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId, revisionId, nonce]);
-
-  if (error) return <EmptyState text={error} />;
-  const width = DEVICES.find((d) => d.key === device)!.width;
-
-  return (
-    <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900">
-      <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-white/10">
-        <span className="flex gap-1" aria-hidden="true">
-          <span className="h-2.5 w-2.5 rounded-full bg-rose-400" />
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-400" />
-          <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
-        </span>
-        <span className="min-w-0 flex-1 truncate rounded-lg bg-slate-100 px-2.5 py-1 font-mono text-xs text-slate-500 dark:bg-white/5">
-          {state ? state.entry : "Starting preview…"}
-        </span>
-        <div className="flex rounded-lg bg-slate-100 p-0.5 dark:bg-white/5" role="group" aria-label="Device size">
-          {DEVICES.map(({ key, label, Icon }) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setDevice(key)}
-              aria-pressed={device === key}
-              aria-label={label}
-              title={label}
-              className={`rounded-md p-1.5 ${device === key ? "bg-white text-blue-700 shadow-sm dark:bg-slate-700 dark:text-white" : "text-slate-500"}`}
-            >
-              <Icon className="h-3.5 w-3.5" />
-            </button>
-          ))}
-        </div>
-        <button type="button" onClick={() => setNonce((n) => n + 1)} aria-label="Reload preview" title="Reload" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">
-          <RefreshCw className="h-3.5 w-3.5" />
-        </button>
-        {state && (
-          <a href={state.url} target="_blank" rel="noopener noreferrer" aria-label="Open in a new tab" title="Open in a new tab" className="rounded-md p-1.5 text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10">
-            <ExternalLink className="h-3.5 w-3.5" />
-          </a>
-        )}
-      </div>
-      {needsBuild && (
-        <p className="flex shrink-0 items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200" data-testid="preview-needs-build">
-          <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-          <span>
-            This project has a package.json (React, Vite…), so it needs a build step and this preview may be blank. Use <strong>Open in TMCode</strong> to run it.
-          </span>
-        </p>
-      )}
-      <div className="flex min-h-0 flex-1 justify-center overflow-auto bg-slate-100 dark:bg-slate-950">
-        {state ? (
-          <iframe
-            key={`${state.url}-${nonce}`}
-            title="Project preview"
-            src={state.url}
-            sandbox="allow-scripts allow-forms allow-modals allow-popups"
-            className="h-full bg-white shadow-sm transition-[width] duration-300"
-            style={{ width, maxWidth: "100%" }}
-            data-testid="practical-preview"
-          />
-        ) : (
-          <Loader2 className="m-auto h-5 w-5 animate-spin text-blue-600" />
-        )}
-      </div>
-    </div>
-  );
-};
 
 // ─── Criteria scoring ───────────────────────────────────────────────────────
 

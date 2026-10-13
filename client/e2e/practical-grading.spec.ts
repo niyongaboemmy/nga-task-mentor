@@ -181,9 +181,16 @@ test("grades a practical against its criteria with the code and a live preview",
   await page.goto("/taskmentor/grading/practical/assignment/77");
   await expect(page).toHaveURL(/\/grading\/assignment\/77$/);
 
-  // Full screen, the first student to grade selected, the code filling the pane.
+  // Full screen, the first student to grade selected. A web page opens in the
+  // Preview, with the guide saying how to check it.
   await expect(page.getByTestId("practical-grading")).toBeVisible();
   await expect(page.getByTestId("current-student")).toHaveText("Aline Uwase");
+  await expect(page.getByTestId("assess-guide")).toHaveAttribute("data-profile", "web-page", { timeout: 15_000 });
+  await expect(page.getByTestId("assess-kind")).toHaveText("Web page");
+  await expect(page.getByTestId("pane-preview")).toHaveAttribute("aria-selected", "true");
+  // The page keeps a real desktop size (1440×900), scaled to fit.
+  await expect(page.getByTestId("preview-size")).toContainText("1440×900");
+  await page.getByTestId("assess-code").click();
   await expect(page.getByTestId("file-viewer")).toBeVisible({ timeout: 15_000 });
   await shot(page, "grading-code");
 
@@ -199,6 +206,17 @@ test("grades a practical against its criteria with the code and a live preview",
   await expect(frame.getByRole("heading", { name: "Kigali Coffee" })).toBeVisible();
   await frame.getByRole("button", { name: "Order" }).click();
   await expect(frame.locator("#msg")).toHaveText("Order placed!");
+
+  // Phone size, then full screen (Esc closes it).
+  await page.getByTestId("preview-device-phone").click();
+  await expect(page.getByTestId("preview-size")).toContainText("390×844");
+  await page.getByTestId("preview-full-screen").click();
+  await expect(page.getByTestId("preview-full")).toBeVisible();
+  await expect(page.frameLocator('[data-testid="preview-full"] [data-testid="practical-preview"]').getByRole("heading", { name: "Kigali Coffee" })).toBeVisible();
+  await shot(page, "grading-preview-full");
+  await page.keyboard.press("Escape");
+  await expect(page.getByTestId("preview-full")).toHaveCount(0);
+  await page.getByTestId("preview-device-desktop").click();
 
   const criteria = page.getByTestId("criterion");
   await criteria.nth(0).getByRole("button", { name: "6", exact: true }).click();
@@ -250,9 +268,12 @@ test("runs a C program with the teacher's inputs", async ({ page }, info) => {
   const { runs } = await setup(page);
   await page.goto("/taskmentor/grading/assignment/77?student=3");
   await expect(page.getByTestId("current-student")).toHaveText("Claire Ishimwe");
-  // No web page: Run instead of Preview.
+  // No web page: Run instead of Preview, and the guide says it's a program run with inputs.
   await expect(page.getByTestId("pane-run")).toBeVisible();
   await expect(page.getByTestId("pane-preview")).toHaveCount(0);
+  await expect(page.getByTestId("assess-guide")).toHaveAttribute("data-profile", "program");
+  await expect(page.getByTestId("assess-kind")).toHaveText("C program");
+  await expect(page.getByTestId("pane-run")).toHaveAttribute("aria-selected", "true");
   await page.getByTestId("pane-run").click();
   await page.getByTestId("run-input").first().fill("2 3");
   await page.getByRole("button", { name: "Add an input" }).click();
@@ -285,7 +306,8 @@ test("changes since the starter: what the student added, changed and deleted", a
   await page.setViewportSize({ width: 1512, height: 945 });
   await setup(page);
   await page.goto("/taskmentor/grading/assignment/77?student=1");
-  await page.getByTestId("toggle-starter-diff").click();
+  // The guide's "Changes since starter" opens the code on the diff.
+  await page.getByTestId("assess-changes").click();
   const files = page.getByTestId("diff-file");
   await expect(files).toHaveCount(3);
   await expect(files.filter({ hasText: "index.html" })).toContainText("Changed");
