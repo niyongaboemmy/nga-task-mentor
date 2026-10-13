@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, CheckCircle2, ChevronDown, Clock, Cpu, Info, Loader2, Play, Plus, RotateCcw, Trash2, XCircle } from "lucide-react";
 import { practicalsApi, type RunCaseResult, type RunResponse, type RunTargets, type RunVerdict } from "../../../services/practicalsApi";
 import { apiErrorCode, apiErrorMessage } from "../../../services/projectsApi";
@@ -75,7 +75,9 @@ const RunPane: React.FC<{
   /** localStorage key for this activity's inputs. */
   casesKey: string;
   studentName: string;
-}> = ({ projectId, revisionId, targets, targetsError, casesKey, studentName }) => {
+  /** The project's own input/output tests (.nga/tests.json): offered as inputs. */
+  projectTests?: { name?: string; input: string; expected_output: string }[];
+}> = ({ projectId, revisionId, targets, targetsError, casesKey, studentName, projectTests }) => {
   const [cases, setCases] = useState<RunCase[]>(() => {
     const saved = read<RunCase[]>(casesKey, []);
     return saved.length ? saved : [newCase(1)];
@@ -98,6 +100,17 @@ const RunPane: React.FC<{
   const autoRan = useRef(result !== null);
 
   useEffect(() => write(casesKey, cases), [casesKey, cases]);
+
+  // The project's own tests become the inputs when the teacher hasn't typed any yet.
+  const testCases = useMemo(
+    () => (projectTests ?? []).map((t, i) => ({ id: `p${i + 1}`, name: t.name || `Test ${i + 1}`, input: t.input, expected: t.expected_output })),
+    [projectTests],
+  );
+  useEffect(() => {
+    if (!testCases.length) return;
+    setCases((cs) => (cs.length === 1 && !cs[0]!.input.trim() && !cs[0]!.expected.trim() ? testCases : cs));
+  }, [testCases]);
+  const usingProjectTests = testCases.length > 0 && cases.length === testCases.length && cases.every((c, i) => c.input === testCases[i]!.input && c.expected === testCases[i]!.expected);
 
   // The runner's guesses for this revision, until the teacher picks.
   useEffect(() => {
@@ -297,6 +310,17 @@ const RunPane: React.FC<{
           >
             <Plus className="h-3.5 w-3.5" /> Add an input
           </button>
+          {testCases.length > 0 && !usingProjectTests && (
+            <button
+              type="button"
+              onClick={() => setCases(testCases)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100 dark:border-blue-500/30 dark:bg-blue-500/10 dark:text-blue-200"
+              data-testid="use-project-tests"
+            >
+              Use the project's {testCases.length} test{testCases.length === 1 ? "" : "s"}
+            </button>
+          )}
+          {usingProjectTests && <span className="text-xs text-slate-500" data-testid="using-project-tests">These are the project's own tests.</span>}
           {result && (
             <button type="button" onClick={() => setResult(null)} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-semibold text-slate-500 hover:bg-slate-100 dark:hover:bg-white/5">
               <RotateCcw className="h-3.5 w-3.5" /> Clear results
