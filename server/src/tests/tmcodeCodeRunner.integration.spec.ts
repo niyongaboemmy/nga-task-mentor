@@ -211,7 +211,7 @@ describe("/api/tmcode/code (TMCode user token)", () => {
     const test = await bearer(userToken)(request(app).post("/api/tmcode/code/test")).send({ language: "python", files: STUDENT_TESTS });
     expect(test.status).toBe(200);
     expect(test.body.data.unit).toMatchObject({ verdict: "passed", total: 1 });
-    expect(sent[0]).toMatchObject({ language: "python", actions: ["test"], tests: [] });
+    expect(sent[0]).toMatchObject({ language: "python", actions: ["build", "test"], tests: [] });
 
     const run = await bearer(userToken)(request(app).post("/api/tmcode/code/run")).send({ language: "python", files: FILES, tests: [{ id: "1", input: "" }] });
     expect(run.status).toBe(200);
@@ -303,7 +303,7 @@ describe("/api/tmcode/sessions/:sid/code (exam session token)", () => {
     expect(res.body.data.unit).toMatchObject({ verdict: "passed" });
     expect(sent).toHaveLength(1);
     // The question's language by default, and exactly the student's files.
-    expect(sent[0]).toMatchObject({ language: "python", actions: ["test"], tests: [] });
+    expect(sent[0]).toMatchObject({ language: "python", actions: ["build", "test"], tests: [] });
     expect(sent[0].files.map((f: any) => f.path)).toEqual(["main.py", "test_main.py"]);
     expect(JSON.stringify(sent[0])).not.toContain(SECRET_UNIT);
     expect(JSON.stringify(res.body)).not.toContain(SECRET_UNIT);
