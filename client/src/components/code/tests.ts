@@ -38,3 +38,11 @@ export function readIoTests(files: CodeFile[]): { entry: string | null; tests: I
 
 /** Files students see in the tree (the test definitions stay hidden). */
 export const isHiddenFile = (path: string) => TEST_FILES.includes(path) || path.startsWith(".nga/") || path.startsWith(".tmcode/");
+
+/** Unit-test files by the usual naming rules (pytest, JUnit, node:test/Jest, go test, cargo, RSpec…). */
+const UNIT_TEST_FILE =
+  /(^|\/)(test_[^/]+\.py|[^/]+_test\.(py|go|rb|exs)|[^/]+\.(test|spec)\.(js|ts|mjs|cjs|jsx|tsx)|[^/]+(Test|Tests)\.(java|kt|cs|scala|swift)|[^/]+_spec\.rb)$|(^|\/)(tests?|spec|__tests__)\/[^/]+\.\w+$|(^|\/)src\/test\//;
+
+/** Whether a project has unit tests to run (beyond its input/output tests). */
+export const hasUnitTests = (files: CodeFile[]) =>
+  files.some((f) => UNIT_TEST_FILE.test(f.path) || (f.path.endsWith(".rs") && /#\[(cfg\()?test\)?\]/.test(f.content)));
