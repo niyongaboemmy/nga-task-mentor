@@ -167,7 +167,10 @@ export class TmJudgeRunner implements CodeRunner {
       language: req.language,
       ...(req.entry ? { entry: req.entry } : {}),
       files: req.files.map((f) => ({ path: f.path, content: f.content })),
-      ...(req.actions ? { actions: req.actions } : {}),
+      // Tests run on a built project: tm-judge's "test" alone skips the build step,
+      // which CMake/Make projects need (ctest only runs what was built). Kinds
+      // without a build step ignore "build".
+      ...(req.actions ? { actions: req.actions.includes("test") && !req.actions.includes("build") ? ["build", ...req.actions] : req.actions } : {}),
       tests: req.tests.map((t) => ({
         id: t.id,
         input: t.input ?? "",
