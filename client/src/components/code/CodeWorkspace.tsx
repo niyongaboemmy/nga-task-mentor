@@ -10,6 +10,9 @@ import InteractiveTerminal from "./InteractiveTerminal";
 import { interactiveAvailable, useInteractiveRun } from "./useInteractiveRun";
 import { BrowserCantRun, browserRuntime, runInBrowser } from "./browser/browserRun";
 import UnitTestsPanel from "./UnitTestsPanel";
+import PreviewPanel from "./PreviewPanel";
+import { usePreview } from "./usePreview";
+import { looksLikeServer } from "./serverDetect";
 import { firstFileToOpen, guessLanguage, monacoLanguage } from "./languages";
 import { hasUnitTests, isHiddenFile, readIoTests } from "./tests";
 
@@ -103,6 +106,10 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   // Interactive runs only with the standard runner (a custom `run` means a special context, e.g. grading).
   const [interactive, setInteractive] = useState(false);
   const [unitLanguages, setUnitLanguages] = useState<string[]>([]);
+  const [previewsOn, setPreviewsOn] = useState(false);
+  const preview = usePreview();
+  // Set below once we know whether this project is a web server: Run starts it.
+  const startServer = useRef<(() => void) | null>(null);
   const [unitSignal, setUnitSignal] = useState(0);
   const unitHandled = useRef(0);
   const takeUnitRequest = useCallback(() => {
@@ -118,7 +125,11 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
     if (!wantInteractive && customRun) return;
     let live = true;
     if (wantInteractive) void interactiveAvailable().then((ok) => live && setInteractive(ok));
-    void codeApi.capabilities().then((c) => live && setUnitLanguages(c.unit_test_languages));
+    void codeApi.capabilities().then((c) => {
+      if (!live) return;
+      setUnitLanguages(c.unit_test_languages);
+      setPreviewsOn(c.previews);
+    });
     return () => {
       live = false;
     };
@@ -172,6 +183,11 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
       setTab(kind);
       setMobile("output");
       setLayout((l) => ({ ...l, bottom: true }));
+      if (kind === "output" && startServer.current) {
+        setTab("preview");
+        startServer.current();
+        return;
+      }
       if (kind === "tests" && io.tests.length === 0) {
         setUnitSignal((n) => n + 1);
         return;
@@ -363,6 +379,9 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   const projectLanguage = language || guessLanguage(visible.map((f) => f.path));
   const filesRef = useRef(files);
   filesRef.current = files;
+  const showPreview = previewsOn && !customRun && looksLikeServer(visible);
+  const runServer = () => void preview.start({ files: filesRef.current.filter((f) => !isHiddenFile(f.path)), language: projectLanguage, entry: io.entry ?? null });
+  startServer.current = showPreview ? runServer : null;
   const showUnit = !customRun && !!projectLanguage && unitLanguages.includes(projectLanguage) && hasUnitTests(visible);
 
   const results = (
@@ -377,6 +396,19 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
       onRunTests={() => void doRun("tests")}
       canRun={visible.length > 0}
       terminalBusy={term.status === "starting" || term.status === "running"}
+      preview={
+        showPreview ? (
+          <PreviewPanel
+            status={preview.status}
+            logs={preview.logs}
+            url={preview.url}
+            error={preview.error}
+            onStart={runServer}
+            onStop={() => void preview.stop()}
+            onReload={() => void preview.refreshUrl()}
+          />
+        ) : undefined
+      }
       unitTests={showUnit ? <UnitTestsPanel language={projectLanguage} runSignal={unitSignal} takeRunRequest={takeUnitRequest} getFiles={() => filesRef.current.filter((f) => !isHiddenFile(f.path))} /> : undefined}
       terminal={
         interactive ? (

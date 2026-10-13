@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { z } from "zod";
-import { judgeInfo, refreshJudgeInfo } from "../services/coderunner/judgeInfo";
+import { judgeHas, judgeInfo, refreshJudgeInfo } from "../services/coderunner/judgeInfo";
+import { previewsAvailable } from "../services/coderunner/previews";
+import { relaySse } from "./sse";
 import { getSession, openEvents, sendInput, SessionError, sessionsReady, startSession, stopSession } from "../services/coderunner/sessions";
 
 /**
@@ -19,6 +21,7 @@ const startSchema = z.object({
   kind: z.string().max(60).optional().nullable(),
   entry: z.string().max(500).optional().nullable(),
   files: z.array(z.object({ path: z.string().min(1).max(500), content: z.string() })).min(1).max(100),
+  pty: z.boolean().optional(),
 });
 
 // @desc    Whether this server can run programs interactively
@@ -30,7 +33,17 @@ export const codeCapabilities = async (_req: Request, res: Response) => {
   const unitTestLanguages = info.features.has("projects")
     ? [...new Set([...info.kinds.values()].filter((k) => k.actions.includes("test")).map((k) => k.language))]
     : [];
-  res.json({ success: true, data: { interactive, unit_tests: unitTestLanguages.length > 0, unit_test_languages: unitTestLanguages } });
+  res.json({
+    success: true,
+    data: {
+      interactive,
+      // A real terminal (colours, cursor, Ctrl+C reaching the program) when the runner has containers.
+      pty: interactive && judgeHas("pty"),
+      unit_tests: unitTestLanguages.length > 0,
+      unit_test_languages: unitTestLanguages,
+      previews: previewsAvailable(),
+    },
+  });
 };
 
 const refreshJudgeInfoIfEmpty = async () => {
@@ -55,44 +68,17 @@ export const startCodeSession = async (req: Request, res: Response) => {
 // @desc    The run's output as Server-Sent Events (stage, stdout, stderr, exit, error)
 // @route   GET /api/code/sessions/:id/events
 export const codeSessionEvents = async (req: Request, res: Response) => {
-  let s;
+  let s: ReturnType<typeof getSession>;
   try {
     s = getSession(String(req.params.id), Number(req.user.id));
   } catch (e) {
     return fail(res, e);
   }
-  const abort = new AbortController();
-  let finished = false;
-  req.on("close", () => {
-    abort.abort();
+  try {
     // The browser left before the program ended: stop it.
-    if (!finished) void stopSession(s!);
-  });
-  let stream: ReadableStream<Uint8Array>;
-  try {
-    stream = await openEvents(s, abort.signal);
+    await relaySse(req, res, (signal) => openEvents(s, signal), () => void stopSession(s), () => (s.closed = true));
   } catch (e) {
-    return fail(res, e);
-  }
-  res.status(200);
-  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
-  res.setHeader("Cache-Control", "no-cache, no-transform");
-  res.setHeader("Connection", "keep-alive");
-  res.setHeader("X-Accel-Buffering", "no");
-  res.flushHeaders?.();
-  const reader = stream.getReader();
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      res.write(Buffer.from(value));
-    }
-    finished = true;
-    s.closed = true;
-  } catch {
-    // aborted: the browser left
-  } finally {
-    res.end();
+    if (!res.headersSent) return fail(res, e);
   }
 };
 

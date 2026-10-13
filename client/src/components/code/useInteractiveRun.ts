@@ -22,8 +22,23 @@ export type InteractiveStatus = "idle" | "starting" | "running" | "ended";
 /** Whether this server runs programs interactively (asked once). */
 export const interactiveAvailable = () => codeApi.capabilities().then((c) => c.interactive);
 
+/**
+ * A real terminal's output (PTY) for the plain-text view: drops ANSI escape
+ * sequences (colours, cursor moves, titles) and terminal line endings.
+ */
+export function plainTerminalText(s: string): string {
+  /* eslint-disable no-control-regex -- matching terminal escape characters is the point */
+  return s
+    .replace(/\x1b\][^\x07\x1b]*(\x07|\x1b\\)/g, "")
+    .replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "")
+    .replace(/\x1b[@-Z\\-_]/g, "")
+    .replace(/\r\n/g, "\n")
+    .replace(/\r/g, "");
+  /* eslint-enable no-control-regex */
+}
+
 /** Parses an SSE byte stream into {event, data} messages. */
-async function* sse(body: ReadableStream<Uint8Array>) {
+export async function* sse(body: ReadableStream<Uint8Array>) {
   const reader = body.getReader();
   const decoder = new TextDecoder();
   let buf = "";
@@ -60,6 +75,8 @@ export function useInteractiveRun() {
   /** The server said interactive runs aren't available: fall back to batch runs. */
   const [unavailable, setUnavailable] = useState(false);
   const session = useRef<string | null>(null);
+  // With a real terminal the program echoes what you type, so the input isn't added twice.
+  const pty = useRef(false);
   const abort = useRef<AbortController | null>(null);
 
   const append = (kind: TranscriptLine["kind"], text: string) =>
@@ -88,7 +105,8 @@ export function useInteractiveRun() {
       setError(null);
       setStatus("starting");
       try {
-        const res = await api.post("/code/sessions", body);
+        pty.current = (await codeApi.capabilities()).pty;
+        const res = await api.post("/code/sessions", { ...body, pty: pty.current });
         const id = String(res.data.data.id);
         session.current = id;
         setStatus("running");
@@ -103,8 +121,8 @@ export function useInteractiveRun() {
         if (!stream.ok || !stream.body) throw new Error("The run couldn't be started.");
         for await (const { event, data } of sse(stream.body)) {
           if (event === "stage" && data?.name === "build") append("info", "Building…\n");
-          else if (event === "stdout") append("out", String(data?.data ?? ""));
-          else if (event === "stderr") append("err", String(data?.data ?? ""));
+          else if (event === "stdout") append("out", pty.current ? plainTerminalText(String(data?.data ?? "")) : String(data?.data ?? ""));
+          else if (event === "stderr") append("err", pty.current ? plainTerminalText(String(data?.data ?? "")) : String(data?.data ?? ""));
           else if (event === "exit") setExit(data as RunExit);
           else if (event === "error") setError(String(data?.message ?? "The run failed."));
         }
@@ -135,7 +153,7 @@ export function useInteractiveRun() {
   };
 
   const send = useCallback((line: string) => {
-    append("in", `${line}\n`);
+    if (!pty.current) append("in", `${line}\n`);
     return post({ data: `${line}\n` });
   }, []);
   const interrupt = useCallback(() => post({ signal: "SIGINT" }), []);
