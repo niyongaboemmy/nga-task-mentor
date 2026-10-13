@@ -1,6 +1,10 @@
 import { Router, Request, Response } from "express";
 import { misBearerAuth } from "../middleware/misBearerAuth";
-import { integrationLimiter } from "../middleware/rateLimiter.middleware";
+import { integrationLimiter, lessonCodeRunLimiter } from "../middleware/rateLimiter.middleware";
+import { practiceRun } from "../controllers/codeRun.controller";
+import { getCodeRunner } from "../services/coderunner";
+import { Judge0Service } from "../services/Judge0Service";
+import { catalogLanguages } from "../services/runtimeCatalog";
 import { buildHomeSummary, emptySummary } from "../integration/homeSummary";
 import { computeOverview } from "../controllers/instructorOverview.controller";
 import { PASS_MARK } from "../services/instructorOverview.service";
@@ -83,6 +87,29 @@ const studentStanding = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
+
+/**
+ * GET /api/integration/code/languages: the languages the code runner runs now,
+ * for the MIS lesson Code Playground's language picker.
+ *
+ * POST /api/integration/code/run: one practice run for that playground -- the
+ * same request, checks and answer as POST /api/code/run (practiceRun). Nothing
+ * is graded or stored. Any verified MIS user may run code read in a lesson,
+ * signed in to Task Mentor or not (students read notes in the MIS), so the
+ * limit is per MIS user, not per local user.
+ */
+const codeLanguages = (_req: Request, res: Response) => {
+  const runner = getCodeRunner();
+  const labels = new Map<string, string>(Judge0Service.supportedLanguages().map((l) => [l.key, l.label]));
+  for (const l of catalogLanguages()) labels.set(l.key, l.label);
+  res.status(200).json({
+    success: true,
+    data: { languages: runner.languages().map((key) => ({ key, label: labels.get(key) ?? key, engine: runner.engineFor(key) })) },
+  });
+};
+
+router.get("/code/languages", misBearerAuth, integrationLimiter, codeLanguages);
+router.post("/code/run", misBearerAuth, lessonCodeRunLimiter, practiceRun);
 
 router.post("/home-summary", misBearerAuth, integrationLimiter, homeSummary);
 router.get("/student-standing", misBearerAuth, integrationLimiter, studentStanding);
