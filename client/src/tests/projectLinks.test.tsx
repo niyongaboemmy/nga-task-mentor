@@ -151,7 +151,7 @@ describe("Submit a project (assignment page)", () => {
         <SubmitProjectCard assignmentId={78} assignmentTitle="Web portfolio" />
       </MemoryRouter>,
     );
-    expect(await screen.findByRole("link", { name: "Portfolio site" })).toHaveAttribute("href", "/projects/2?tab=links");
+    expect(await screen.findByRole("link", { name: "Portfolio site" })).toHaveAttribute("href", "/code/projects/2?tab=links");
     expect(screen.queryByRole("button", { name: /Submit project/ })).toBeNull();
   });
 });
@@ -168,8 +168,8 @@ describe("Teacher: Linked projects panel", () => {
     );
     expect(await screen.findByText("2 submitted · 1 linked, not submitted")).toBeInTheDocument();
     expect(axiosMock.get).toHaveBeenCalledWith("/tmcode/activities/assignment/77/projects");
-    expect(screen.getByRole("link", { name: "Open John Doe's project Sorting algorithms" })).toHaveAttribute("href", "/projects/1?tab=files&rev=9003");
-    expect(screen.getByRole("link", { name: "Open Grace Uwase's project Portfolio site" })).toHaveAttribute("href", "/projects/2?tab=git");
+    expect(screen.getByRole("link", { name: "Open John Doe's project Sorting algorithms" })).toHaveAttribute("href", "/code/projects/1?tab=files&rev=9003");
+    expect(screen.getByRole("link", { name: "Open Grace Uwase's project Portfolio site" })).toHaveAttribute("href", "/code/projects/2?tab=git");
     expect(screen.getByTitle("Browse the submitted commit on GitHub")).toHaveAttribute(
       "href",
       "https://github.com/johndoe/portfolio/tree/3f2a9c1d8e7b6a5f4e3d2c1b0a9f8e7d6c5b4a39",

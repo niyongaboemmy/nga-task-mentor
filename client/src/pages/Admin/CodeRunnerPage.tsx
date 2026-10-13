@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Cpu, RefreshCw, XCircle } from "lucide-rea
 import api from "../../utils/axiosConfig";
 import { Button } from "../../components/ui/Button";
 import { Skeleton } from "../../components/ui/Skeleton";
+import PageHeader from "../../components/ui/PageHeader";
 
 /**
  * Admin → Code runner: which engine runs students' code, whether it is
@@ -31,6 +32,9 @@ interface Status {
       sandbox: string | null;
       queue: { running: number; waiting: number; concurrency: number } | null;
       toolchains: Record<string, string | null>;
+      features: string[];
+      preview_origin: string | null;
+      preview_secret_set: boolean;
     };
     judge0: {
       configured: boolean;
@@ -60,6 +64,17 @@ const OUTCOME_LABEL: Record<string, string> = {
 };
 
 const fmtTime = (iso: string) => new Date(iso).toLocaleString(undefined, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/** The runner's features, in words (CODE_RUNNER_PLAN.md phase 5). */
+const FEATURES: { key: string; label: string; hint: string }[] = [
+  { key: "run", label: "Run programs", hint: "Single files in the main languages" },
+  { key: "projects", label: "Projects and more languages", hint: "Build files (Maven, npm, Cargo…) and every installed catalog language" },
+  { key: "sessions", label: "Live terminal", hint: "Programs that ask for input while they run" },
+  { key: "pty", label: "Real terminal", hint: "Colours, cursor and Ctrl+C reaching the program (needs containers)" },
+  { key: "containers", label: "Containers (gVisor)", hint: ".NET, Kotlin/Gradle, Flutter and other heavy builds" },
+  { key: "previews", label: "Web servers", hint: "Express, Flask, Spring… shown in a preview (also needs the preview address below)" },
+  { key: "databases", label: "Databases", hint: "A fresh PostgreSQL or MySQL for each run" },
+];
 
 const Tile: React.FC<{ label: string; value: React.ReactNode; tone?: "ok" | "warn" | "bad" | "neutral"; hint?: string }> = ({
   label,
@@ -115,27 +130,23 @@ const CodeRunnerPage: React.FC = () => {
 
   return (
     <div className="space-y-6" data-testid="code-runner-page">
-      <header className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-medium text-text-secondary-light dark:text-text-secondary-dark">Admin</p>
-          <h1 className="flex items-center gap-2 text-xl font-bold text-text-primary-light dark:text-text-primary-dark md:text-2xl">
-            <Cpu className="h-6 w-6 text-blue-600" aria-hidden="true" /> Code runner
-          </h1>
-          <p className="mt-1 text-sm text-text-secondary-light dark:text-text-secondary-dark">
-            Runs students' code for quizzes, assignments and grading.
-            {status && ` Checked ${fmtTime(status.checked_at)}.`}
-          </p>
-        </div>
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => void load()}
-          disabled={loading}
-          icon={<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />}
-        >
-          Refresh
-        </Button>
-      </header>
+      <PageHeader
+        breadcrumb={[{ label: "Admin" }, { label: "Code runner" }]}
+        title="Code runner"
+        icon={<Cpu className="h-6 w-6 text-primary" aria-hidden="true" />}
+        description={<>Runs students' code for quizzes, assignments and grading.{status && ` Checked ${fmtTime(status.checked_at)}.`}</>}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void load()}
+            disabled={loading}
+            icon={<RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden="true" />}
+          >
+            Refresh
+          </Button>
+        }
+      />
 
       {error && (
         <p className="flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200" role="alert">
@@ -176,6 +187,40 @@ const CodeRunnerPage: React.FC = () => {
               hint={status.runs.duration_ms.p50 != null ? `Typical ${status.runs.duration_ms.p50} ms · slow ${status.runs.duration_ms.p95} ms` : undefined}
             />
           </section>
+
+          {tm?.configured && (
+            <section className="rounded-2xl border border-gray-200/70 bg-white p-5 dark:border-white/10 dark:bg-card-dark/40" aria-labelledby="runner-features" data-testid="runner-features">
+              <h2 id="runner-features" className="text-base font-semibold text-text-primary-light dark:text-text-primary-dark">
+                What the code runner can do
+              </h2>
+              <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+                {FEATURES.map((f) => {
+                  const on = (tm.features ?? []).includes(f.key) && (f.key !== "previews" || (!!tm.preview_origin && tm.preview_secret_set));
+                  return (
+                    <li key={f.key} className="flex items-start gap-2 text-sm" data-testid={`feature-${f.key}`} data-on={on}>
+                      {on ? <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-label="On" /> : <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-gray-400" aria-label="Off" />}
+                      <span>
+                        <span className="font-medium text-text-primary-light dark:text-text-primary-dark">{f.label}</span>
+                        <span className="block text-xs text-text-secondary-light dark:text-text-secondary-dark">{f.hint}</span>
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="mt-3 text-xs text-text-secondary-light dark:text-text-secondary-dark">
+                Runner: <span className="font-mono">{tm.url}</span>
+                {tm.preview_origin ? (
+                  <>
+                    {" "}
+                    · Previews: <span className="font-mono">{tm.preview_origin}</span>
+                    {!tm.preview_secret_set && " (secret missing or too short)"}
+                  </>
+                ) : (
+                  " · Previews: no preview address set (JUDGE_PREVIEW_BASE)"
+                )}
+              </p>
+            </section>
+          )}
 
           <section className="rounded-2xl border border-gray-200/70 bg-white dark:border-white/10 dark:bg-card-dark/40" aria-labelledby="langs-h">
             <h2 id="langs-h" className="border-b border-gray-100 px-4 py-3 text-sm font-semibold dark:border-white/5">

@@ -216,7 +216,7 @@ const GradingDetailsPane: React.FC<{
               ))}
               {brief?.starter && (
                 <Link
-                  to={`/projects/${brief.starter.project_id}`}
+                  to={`/code/projects/${brief.starter.project_id}`}
                   className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-medium hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"
                 >
                   <FileCode2 className="h-3.5 w-3.5 text-slate-400" /> Starter files
@@ -306,7 +306,7 @@ const GradingDetailsPane: React.FC<{
                 <QuickButton icon={Play} label="Run" onClick={() => onViewRevision(row.link!.revision_id!, "run")} />
               )}
               <Link
-                to={`/projects/${row.project.id}`}
+                to={`/code/projects/${row.project.id}`}
                 className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs font-semibold hover:bg-slate-50 dark:border-white/10 dark:hover:bg-white/5"
               >
                 <ExternalLink className="h-3.5 w-3.5" /> Project page

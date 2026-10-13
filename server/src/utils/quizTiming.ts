@@ -95,10 +95,8 @@ export async function gradeUngradedAttempts(
     if (!question) continue;
     let result: any;
     try {
-      result = await AdvancedQuizGrader.gradeWithConfig(
-        question,
-        attempt.submitted_answer as any,
-      );
+      // Code answers are queued and graded in the background.
+      result = await AdvancedQuizGrader.gradeInRequest(question, attempt.submitted_answer as any);
     } catch (error) {
       console.error(`Grading saved answer ${attempt.id} failed:`, error);
       result = {

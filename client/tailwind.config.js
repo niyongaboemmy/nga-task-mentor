@@ -3,7 +3,24 @@ module.exports = {
   darkMode: "class",
   theme: {
     extend: {
+      // Stacking order (CODE_RUNNER_PLAN.md §6.4): use these, not ad-hoc values.
+      // The app frame (top bar, sidebar) is at 50, so overlays sit above it.
+      zIndex: {
+        sticky: "10",
+        dropdown: "30",
+        shell: "50",
+        drawer: "60",
+        modal: "70",
+        toast: "80",
+        tooltip: "90",
+      },
       colors: {
+        // Brand colour for primary actions (was blue-600 written by hand).
+        primary: {
+          DEFAULT: "#2563eb",
+          hover: "#1d4ed8",
+          soft: "#eff6ff",
+        },
         // Shared with MIS (nga_central_mis/frontend) for cross-app visual parity
         background: {
           light: "#ffffff",

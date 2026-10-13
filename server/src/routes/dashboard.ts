@@ -11,6 +11,7 @@ import {
   getActiveProctoringCount,
 } from "../controllers/dashboardController";
 import { getInstructorOverview } from "../controllers/instructorOverview.controller";
+import { getGradingInbox } from "../controllers/gradingInbox.controller";
 import { getStudentOverview } from "../controllers/studentOverview.controller";
 import { getAdminInsights, getAdminStudents, getAdminSubjects } from "../controllers/adminReports.controller";
 import { protect, authorizePermission } from "../middleware/auth";
@@ -48,6 +49,11 @@ router.get(
   "/instructor/pending-grading",
   authorizePermission("DASHBOARD_VIEW_INSTRUCTOR"),
   getInstructorPendingGrading,
+);
+router.get(
+  "/instructor/grading-inbox",
+  authorizePermission("DASHBOARD_VIEW_INSTRUCTOR"),
+  getGradingInbox,
 );
 router.get(
   "/instructor/overview",

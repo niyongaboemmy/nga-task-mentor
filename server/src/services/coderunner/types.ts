@@ -37,6 +37,13 @@ export interface RunRequest {
    * use its synchronous path. Grading leaves it off.
    */
   interactive?: boolean;
+  /**
+   * Catalog projects (tm-judge with "projects"): the kind ("java/maven"…;
+   * detected when absent), the steps to run, and a unit-test filter.
+   */
+  kind?: string;
+  actions?: ("build" | "run" | "test")[];
+  test_filter?: string;
 }
 
 /** Same verdicts as tm-judge (PROTOCOL.md §5). */
@@ -49,6 +56,7 @@ export type Verdict =
   | "memory-limit"
   | "output-limit"
   | "compile-error"
+  | "package-not-available"
   | "internal-error";
 
 export interface TestOutcome {
@@ -64,10 +72,42 @@ export interface TestOutcome {
   status?: string;
 }
 
+/** One unit test from the framework's report (tm-judge PROTOCOL.md §5.2). */
+export interface UnitTestCase {
+  id: string;
+  name: string;
+  group: string | null;
+  file: string | null;
+  line: number | null;
+  status: "passed" | "failed" | "skipped" | "error";
+  durationMs: number | null;
+  message: string | null;
+  details: string | null;
+}
+
+export interface UnitReport {
+  framework: string | null;
+  verdict: "passed" | "failed" | "error" | "time-limit" | "memory-limit" | "package-not-available" | "internal-error";
+  total: number;
+  passed: number;
+  failed: number;
+  skipped: number;
+  errors: number;
+  time_ms: number | null;
+  /** The test command's output, for when there are no per-test results. */
+  output: string;
+  truncated: boolean;
+  tests: UnitTestCase[];
+}
+
 export interface RunResult {
   engine: string;
   compile: { ok: boolean; output: string; time_ms?: number } | null;
   tests: TestOutcome[];
+  /** Catalog projects: the kind that ran, unit-test results, a missing package. */
+  kind?: string;
+  unit?: UnitReport | null;
+  error?: { code: string; manager?: string; package?: string | null; message: string } | null;
 }
 
 export interface CodeRunner {

@@ -11,6 +11,8 @@ import {
 } from "../../services/projectsApi";
 import { tmcodeAssignmentsApi } from "../../services/tmcodeAssignmentsApi";
 import { practicalsApi } from "../../services/practicalsApi";
+import { catalogApi, PURPOSE_LABEL, type StarterSummary } from "../../services/catalogApi";
+import { saveProjectFiles } from "../../services/codeApi";
 import { isGithubRepoUrl, LANGUAGE_CHOICES } from "./projectFormat";
 import Select from "../ui/Select";
 
@@ -46,6 +48,9 @@ const NewProjectDialog: React.FC<{
   const [practicalKey, setPracticalKey] = useState<string>("");
   // The assignment comes with starter files: Start it instead of creating an empty project.
   const [useStart, setUseStart] = useState<number | null>(null);
+  // Start a Task Mentor project from a starter of its language (or empty).
+  const [starters, setStarters] = useState<StarterSummary[]>([]);
+  const [starterId, setStarterId] = useState("");
 
   useEffect(() => {
     if (!open) return;
@@ -58,6 +63,7 @@ const NewProjectDialog: React.FC<{
     setError(null);
     setTouched(false);
     setUseStart(null);
+    setStarterId("");
     setAssignmentId(initialAssignmentId ?? "");
     setPracticalKey("");
     projectsApi
@@ -95,6 +101,24 @@ const NewProjectDialog: React.FC<{
     if (chosen && !name.trim()) setName(chosen.title);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chosen?.activity_id]);
+
+  useEffect(() => {
+    if (!open || kind !== "tm" || !language.trim()) {
+      setStarters([]);
+      return;
+    }
+    let cancelled = false;
+    const t = window.setTimeout(() => {
+      catalogApi
+        .starters({ language: language.trim().toLowerCase() })
+        .then((list) => !cancelled && setStarters(list))
+        .catch(() => !cancelled && setStarters([]));
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, [open, kind, language]);
 
   const startWithStarter = async () => {
     if (!useStart) return;
@@ -137,6 +161,10 @@ const NewProjectDialog: React.FC<{
         ...(kind === "github" ? { repo_url: repoUrl.trim() } : {}),
         ...(assignmentId ? { assignment_id: assignmentId } : {}),
       });
+      if (kind === "tm" && starterId && !assignmentId) {
+        const starter = await catalogApi.starter(starterId);
+        await saveProjectFiles(project.id, null, starter.files, `Started from “${starter.title}”`);
+      }
       onCreated(project);
     } catch (err) {
       if (apiErrorCode(err) === "USE_START" && assignmentId) {
@@ -251,6 +279,22 @@ const NewProjectDialog: React.FC<{
               ))}
             </datalist>
           </div>
+          {kind === "tm" && !assignmentId && starters.length > 0 && (
+            <div className="sm:col-span-2">
+              <label htmlFor={`${id}-starter`} className={labelCls}>
+                Start from
+              </label>
+              <Select id={`${id}-starter`} value={starterId} onChange={(e) => setStarterId(e.target.value)} className={fieldCls} data-testid="new-project-starter">
+                <option value="">An empty project</option>
+                {starters.map((st) => (
+                  <option key={st.id} value={st.id}>
+                    {st.purpose ? `${PURPOSE_LABEL[st.purpose] ?? st.purpose}: ` : ""}
+                    {st.title}
+                  </option>
+                ))}
+              </Select>
+            </div>
+          )}
           <div>
             <label htmlFor={`${id}-vis`} className={labelCls}>
               Visibility

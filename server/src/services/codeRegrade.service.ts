@@ -6,9 +6,12 @@ import { Judge0Service } from "./Judge0Service";
 import { gradeStatusOnSubmit, isPassed } from "../utils/quizStudentView";
 
 /**
- * Re-grade code answers that were left pending because the judge was
- * unavailable (grading_details.judge_unavailable, TM-FIX-6). Run by the
- * periodic job in index.ts and by scripts/regradePendingCodeAttempts.ts.
+ * Background grading of code answers. Answers saved or submitted are queued
+ * (grading_details.queued, graded every few seconds) so no request waits for
+ * the judge; answers left pending because the judge was unavailable
+ * (grading_details.judge_unavailable, TM-FIX-6) are re-graded every few
+ * minutes. Run by the periodic jobs below and by
+ * scripts/regradePendingCodeAttempts.ts.
  *
  * - An answer whose submission a teacher has already graded is left alone.
  * - A finished submission gets its totals recomputed from its attempts; it
@@ -23,11 +26,20 @@ export interface RegradeReport {
   submissions_updated: number[];
 }
 
-let running = false;
+const running = { queued: false, unavailable: false };
 
-export async function regradePendingCodeAttempts(
-  opts: { limit?: number; dryRun?: boolean } = {},
-): Promise<RegradeReport> {
+type Which = "queued" | "unavailable";
+
+const WHERE: Record<Which, string> = {
+  // Saved or submitted code answers waiting for their first grade.
+  queued: "JSON_EXTRACT(grading_details, '$.queued') = true",
+  // Answers left pending while the judge was unavailable.
+  unavailable: "JSON_EXTRACT(grading_details, '$.judge_unavailable') = true",
+};
+
+const sameAnswer = (a: unknown, b: unknown) => JSON.stringify(a ?? null) === JSON.stringify(b ?? null);
+
+async function gradeWaiting(which: Which, opts: { limit?: number; dryRun?: boolean }): Promise<RegradeReport> {
   const report: RegradeReport = {
     found: 0,
     regraded: 0,
@@ -35,13 +47,11 @@ export async function regradePendingCodeAttempts(
     skipped_teacher_graded: 0,
     submissions_updated: [],
   };
-  if (running) return report; // one pass at a time
-  running = true;
+  if (running[which]) return report; // one pass at a time
+  running[which] = true;
   try {
     const attempts = await QuizAttempt.findAll({
-      where: literal(
-        "JSON_EXTRACT(grading_details, '$.judge_unavailable') = true",
-      ) as any,
+      where: literal(WHERE[which]) as any,
       order: [["id", "ASC"]],
       limit: opts.limit ?? 50,
     });
@@ -55,6 +65,10 @@ export async function regradePendingCodeAttempts(
         : null;
       if (submission?.grade_status === "graded") {
         report.skipped_teacher_graded++;
+        if (which === "queued") {
+          // A teacher graded the submission: the answer no longer waits.
+          await attempt.update({ grading_details: { ...(attempt.grading_details as any), queued: false } });
+        }
         continue;
       }
       const question = await QuizQuestion.findByPk(attempt.question_id, {
@@ -62,14 +76,20 @@ export async function regradePendingCodeAttempts(
       });
       if (!question) continue;
 
-      const result: any = await AdvancedQuizGrader.gradeWithConfig(
-        question,
-        attempt.submitted_answer as any,
-      );
+      const answered = attempt.submitted_answer;
+      const result: any = await AdvancedQuizGrader.gradeWithConfig(question, answered as any);
       if (result?.detailed_feedback?.judge_unavailable) {
         report.still_unavailable++;
+        if (which === "queued") {
+          // Hand it to the slower "judge unavailable" pass.
+          await attempt.update({ grading_details: { ...(result.detailed_feedback ?? {}), queued: false } });
+        }
         continue;
       }
+      // The student may have saved a new answer while this one was graded:
+      // then this grade is stale and the new answer stays queued.
+      await attempt.reload();
+      if (!sameAnswer(attempt.submitted_answer, answered)) continue;
       await attempt.update({
         is_correct: result.is_correct,
         points_earned: result.points_earned,
@@ -84,8 +104,18 @@ export async function regradePendingCodeAttempts(
     }
     return report;
   } finally {
-    running = false;
+    running[which] = false;
   }
+}
+
+/** Re-grade answers left pending while the judge was unavailable. */
+export async function regradePendingCodeAttempts(opts: { limit?: number; dryRun?: boolean } = {}): Promise<RegradeReport> {
+  return gradeWaiting("unavailable", opts);
+}
+
+/** Grade code answers queued by saves and submits (CODE_RUNNER_PLAN.md §17). */
+export async function gradeQueuedCodeAttempts(opts: { limit?: number; dryRun?: boolean } = {}): Promise<RegradeReport> {
+  return gradeWaiting("queued", { limit: 10, ...opts });
 }
 
 /** Totals of a finished submission from its saved attempts. */
@@ -131,6 +161,20 @@ export function startJudgeMaintenance(): void {
   const daily = setInterval(() => void Judge0Service.healthCheck(), 24 * 60 * 60_000);
   daily.unref?.();
   judgeTimers.push(daily);
+
+  // Queued code answers: every CODE_GRADE_QUEUE_INTERVAL_MS (default 3 s).
+  const queueMs = Number(process.env.CODE_GRADE_QUEUE_INTERVAL_MS ?? 3000);
+  if (Number.isFinite(queueMs) && queueMs > 0) {
+    const queue = setInterval(() => {
+      gradeQueuedCodeAttempts()
+        .then((r) => {
+          if (r.regraded || r.still_unavailable) console.log("[grading] queued code answers:", JSON.stringify(r));
+        })
+        .catch((e) => console.error("[grading] queued code pass failed:", e?.message));
+    }, queueMs);
+    queue.unref?.();
+    judgeTimers.push(queue);
+  }
 
   const minutes = Number(process.env.CODE_REGRADE_INTERVAL_MIN ?? 10);
   if (Number.isFinite(minutes) && minutes > 0) {

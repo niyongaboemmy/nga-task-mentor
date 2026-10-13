@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   Eye,
   FileCode2,
+  Code2,
   GraduationCap,
   Lock,
   GitBranch,
@@ -191,7 +192,7 @@ const ProjectDetailPage: React.FC = () => {
     },
     deleted: () => {
       toast.info("This project was deleted.");
-      navigate("/projects", { replace: true });
+      navigate("/code/projects", { replace: true });
     },
   });
 
@@ -314,7 +315,18 @@ const ProjectDetailPage: React.FC = () => {
             <span>Updated {timeAgo(project.last_activity_at ?? project.updated_at, now)}</span>
           </div>
         </div>
-        {!readOnly && <OpenProjectInTmcode projectId={project.id} className="shrink-0 [&>button]:w-full md:[&>button]:w-auto" />}
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          {project.kind === "tm" && (
+            <Link
+              to={`/code/projects/${project.id}/edit`}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700"
+              data-testid="open-editor"
+            >
+              <Code2 className="h-4 w-4" aria-hidden="true" /> {project.can.save ? "Edit code" : "View code"}
+            </Link>
+          )}
+          {!readOnly && <OpenProjectInTmcode projectId={project.id} className="[&>button]:w-full md:[&>button]:w-auto" />}
+        </div>
       </motion.header>
 
       {/* Draft -> Submitted -> Graded: where it is, and what the owner can do next. */}
@@ -326,7 +338,7 @@ const ProjectDetailPage: React.FC = () => {
         hasAssignment={!!project.assignment || project.links.some((l) => l.activity_type === "assignment")}
         canSubmitNow={!!freezeTarget(project)}
         assignmentClosed={project.read_only}
-        onChanged={(next) => (next === "deleted" ? navigate("/projects", { replace: true }) : load())}
+        onChanged={(next) => (next === "deleted" ? navigate("/code/projects", { replace: true }) : load())}
       />
 
       {project.read_only && (
@@ -413,7 +425,7 @@ const ProjectDetailPage: React.FC = () => {
               {tab === "links" && <LinksTab project={project} canEdit={owner} onLinksChange={(links) => patch((p) => ({ ...p, links }))} />}
               {tab === "members" && <MembersTab project={project} canEdit={owner} onMembersChange={(members) => patch((p) => ({ ...p, members }))} />}
               {tab === "settings" && owner && (
-                <SettingsTab project={project} onUpdated={(changes) => patch((p) => ({ ...p, ...changes }))} onDeleted={() => navigate("/projects", { replace: true })} />
+                <SettingsTab project={project} onUpdated={(changes) => patch((p) => ({ ...p, ...changes }))} onDeleted={() => navigate("/code/projects", { replace: true })} />
               )}
             </motion.div>
           </AnimatePresence>
@@ -425,7 +437,7 @@ const ProjectDetailPage: React.FC = () => {
 
 const BackLink: React.FC = () => (
   <Link
-    to="/projects"
+    to="/code/projects"
     className="inline-flex items-center gap-2 rounded-full border border-gray-200/50 bg-white/80 px-3 py-2 text-xs font-medium text-text-secondary-light shadow-sm transition hover:bg-white hover:text-gray-900 hover:shadow-md dark:border-gray-700/50 dark:bg-gray-800/80 dark:text-text-secondary-dark dark:hover:bg-gray-800 dark:hover:text-white"
   >
     <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" /> Projects

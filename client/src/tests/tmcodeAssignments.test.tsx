@@ -20,7 +20,7 @@ vi.mock("../components/Assignments/AssignmentDescriptionEditor", () => ({
 
 import TmcodePracticalSection, { starterCandidates } from "../components/Assignments/form/TmcodePracticalSection";
 import AssignmentEditorForm, { type AssignmentFormValues } from "../components/Assignments/form/AssignmentEditorForm";
-import TmcodeStudentPanel from "../components/Assignments/tmcode/TmcodeStudentPanel";
+import YourWorkCard from "../components/code/YourWorkCard";
 import TmcodeWorkspacesPanel, { workspaceCodeHref } from "../components/Assignments/tmcode/TmcodeWorkspacesPanel";
 import { dueCountdown } from "../components/Assignments/tmcode/tmcodeFormat";
 import { ShareLiveStatus } from "../components/Projects/ProjectAdminTabs";
@@ -112,8 +112,8 @@ describe("helpers", () => {
   });
 
   it("links a workspace row to its submitted revision", () => {
-    expect(workspaceCodeHref({ project_id: 4, revision_id: 77 })).toBe("/projects/4?tab=files&rev=77");
-    expect(workspaceCodeHref({ project_id: 4, revision_id: null })).toBe("/projects/4?tab=files");
+    expect(workspaceCodeHref({ project_id: 4, revision_id: 77 })).toBe("/code/projects/4?tab=files&rev=77");
+    expect(workspaceCodeHref({ project_id: 4, revision_id: null })).toBe("/code/projects/4?tab=files");
     expect(workspaceCodeHref({ project_id: null, revision_id: null })).toBeNull();
   });
 });
@@ -295,88 +295,48 @@ const detail = (my: Record<string, unknown> | null, extra: Record<string, unknow
 });
 const notStarted = { project_id: null, link_id: null, state: "not_started", submitted_at: null, revision_number: null, grade: null, max_points: 20, feedback: null };
 
-describe("student TMCode panel", () => {
-  const stubLocation = () => {
-    const href = vi.fn();
-    Object.defineProperty(window, "location", {
-      configurable: true,
-      value: { ...window.location, set href(v: string) { href(v); } },
-    });
-    return href;
-  };
-
-  it("opens the assignment deep link, then falls back to the download page", async () => {
-    const href = stubLocation();
-    routeGets({
-      "/tmcode/assignments/77/open-link": { deeplink: "tmcode://assignment?id=77&api=https%3A%2F%2Fx" },
-      "/tmcode/assignments/77": detail(notStarted),
-    });
+describe("student: Your work card", () => {
+  it("not started: Start starts the assignment and opens the work page", async () => {
+    routeGets({ "/tmcode/assignments/77": detail(notStarted) });
+    axiosMock.post.mockResolvedValue({ data: { project: { id: 5 }, created: true } });
     render(
       <MemoryRouter initialEntries={["/assignments/77"]}>
         <Routes>
-          <Route path="/assignments/77" element={<TmcodeStudentPanel assignmentId={77} />} />
-          <Route path="/tmcode" element={<p>Download TMCode page</p>} />
+          <Route path="/assignments/77" element={<YourWorkCard assignmentId={77} />} />
+          <Route path="/assignments/77/work" element={<p>Work page</p>} />
         </Routes>
       </MemoryRouter>,
     );
-    expect(await screen.findByTestId("work-state")).toHaveTextContent("Not started");
-    expect(screen.getByTestId("tmcode-steps")).toHaveTextContent("Start copies 2 starter files");
-    expect(screen.getByText("Run main.py")).toBeInTheDocument();
-
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    fireEvent.click(screen.getByTestId("open-assignment-in-tmcode"));
-    await waitFor(() => expect(href).toHaveBeenCalledWith("tmcode://assignment?id=77&api=https%3A%2F%2Fx"));
-    await act(async () => {
-      vi.advanceTimersByTime(OPEN_FALLBACK_MS + 10);
-    });
-    expect(await screen.findByText("Download TMCode page")).toBeInTheDocument();
-    vi.useRealTimers();
+    expect(await screen.findByTestId("your-work-status")).toHaveTextContent("Start copies the 2 starter files");
+    expect(screen.getByTestId("your-work-open")).toHaveTextContent("Start");
+    fireEvent.click(screen.getByTestId("your-work-open"));
+    expect(await screen.findByText("Work page")).toBeInTheDocument();
+    expect(axiosMock.post).toHaveBeenCalledWith("/tmcode/assignments/77/start");
   });
 
-  it("shows the grade, the feedback and the submitted code", async () => {
+  it("graded: shows the grade and the feedback, and View", async () => {
     routeGets({
-      "/tmcode/projects/5/files/main.py": "print('sorted')",
-      "/tmcode/projects/5/revisions/203/manifest": { revision: null, files: [{ path: "main.py", sha256: "c", size: 15 }] },
-      "/tmcode/projects/5/revisions": {
-        revisions: [
-          { id: 204, number: 4, file_count: 1, size_bytes: 15, source: "save", created_at: iso(1000) },
-          { id: 203, number: 3, file_count: 1, size_bytes: 15, source: "save", created_at: iso(5000) },
-        ],
-      },
-      "/tmcode/assignments/77": detail({
-        project_id: 5,
-        link_id: 8,
-        state: "graded",
-        submitted_at: iso(3600_000),
-        revision_number: 3,
-        grade: 18,
-        max_points: 20,
-        feedback: "Neat recursion.",
-      }),
+      "/tmcode/assignments/77": detail({ project_id: 5, link_id: 8, state: "graded", submitted_at: iso(3600_000), revision_number: 3, grade: 18, max_points: 20, feedback: "Neat recursion." }),
     });
     render(
       <MemoryRouter>
-        <TmcodeStudentPanel assignmentId={77} />
+        <YourWorkCard assignmentId={77} />
       </MemoryRouter>,
     );
-    expect(await screen.findByTestId("tmcode-grade")).toHaveTextContent("18 / 20");
-    expect(screen.getByTestId("tmcode-grade")).toHaveTextContent("Neat recursion.");
-    expect(screen.getByTestId("work-state")).toHaveTextContent("Graded");
-    expect(screen.getByTestId("open-assignment-in-tmcode")).toHaveTextContent("Continue in TMCode");
-
-    fireEvent.click(screen.getByRole("button", { name: /What you submitted · revision #3/ }));
-    await waitFor(() => expect(axiosMock.get).toHaveBeenCalledWith("/tmcode/projects/5/revisions/203/manifest"));
+    expect(await screen.findByTestId("your-work-status")).toHaveTextContent("Graded: 18 / 20");
+    expect(screen.getByTestId("your-work")).toHaveTextContent("Neat recursion.");
+    expect(screen.getByTestId("your-work-open")).toHaveTextContent("View");
   });
 
-  it("explains a completed (read-only) assignment", async () => {
-    routeGets({ "/tmcode/assignments/77": detail({ ...notStarted, state: "in_progress", project_id: 5 }, { status: "completed", read_only: true }) });
+  it("closed before starting: nothing to open", async () => {
+    routeGets({ "/tmcode/assignments/77": detail(notStarted, { status: "completed", read_only: true }) });
     render(
       <MemoryRouter>
-        <TmcodeStudentPanel assignmentId={77} />
+        <YourWorkCard assignmentId={77} />
       </MemoryRouter>,
     );
-    expect(await screen.findByText(/marked this assignment completed/)).toBeInTheDocument();
-    expect(screen.getByTestId("open-assignment-in-tmcode")).toHaveTextContent("View in TMCode");
+    expect(await screen.findByTestId("your-work-status")).toHaveTextContent("This assignment is closed.");
+    expect(screen.queryByTestId("your-work-open")).toBeNull();
   });
 });
 
@@ -456,15 +416,15 @@ describe("teacher Workspaces panel", () => {
     const bo = rows.find((r) => r.textContent?.includes("Bo Private"))!;
     expect(bo).toHaveTextContent("Live status not shared");
     expect(within(bo).queryByRole("img", { name: /TMCode/ })).toBeNull();
-    expect(within(bo).getByRole("link", { name: /Code at rev 3/ })).toHaveAttribute("href", "/projects/12?tab=files&rev=77");
+    expect(within(bo).getByRole("link", { name: /Code at rev 3/ })).toHaveAttribute("href", "/code/projects/12?tab=files&rev=77");
     // A submitted project is graded against the criteria in the grading workspace.
-    expect(within(bo).getByRole("link", { name: "Grade" })).toHaveAttribute("href", "/grading/practical/assignment/77?student=2");
-    expect(screen.getByTestId("open-grading-workspace")).toHaveAttribute("href", "/grading/practical/assignment/77");
+    expect(within(bo).getByRole("link", { name: "Grade" })).toHaveAttribute("href", "/grading/assignment/77?student=2");
+    expect(screen.getByTestId("open-grading-workspace")).toHaveAttribute("href", "/grading/assignment/77");
     expect(onGrade).not.toHaveBeenCalled();
 
     const cy = rows.find((r) => r.textContent?.includes("Cy Graded"))!;
     expect(cy).toHaveTextContent("17 / 20");
-    expect(within(cy).getByRole("link", { name: "Regrade" })).toHaveAttribute("href", "/grading/practical/assignment/77?student=3");
+    expect(within(cy).getByRole("link", { name: "Regrade" })).toHaveAttribute("href", "/grading/assignment/77?student=3");
 
     const di = rows.find((r) => r.textContent?.includes("Di Absent"))!;
     expect(di).toHaveTextContent("hasn't signed in to Task Mentor yet");

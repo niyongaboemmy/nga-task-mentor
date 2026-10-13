@@ -17,6 +17,7 @@
     { "key": "tm.course.reports", "label": "Course report cards", "module": "Report cards", "patterns": ["/courses/:courseId/reports"] },
     { "key": "tm.course.report_attributes", "label": "Report card general attributes", "module": "Report cards", "patterns": ["/courses/:courseId/report-card-attributes"] },
     { "key": "tm.course.question_bank", "label": "Course question bank", "module": "Question bank", "patterns": ["/courses/:courseId/question-bank"] },
+    { "key": "tm.course.question_edit", "label": "Question editor", "module": "Question bank", "patterns": ["/courses/:courseId/question-bank/new", "/courses/:courseId/question-bank/:questionId/edit"] },
     { "key": "tm.course.quizzes", "label": "Course quizzes", "module": "Quizzes", "patterns": ["/courses/:courseId/quizzes"] },
     { "key": "tm.quiz.create", "label": "Create a quiz", "module": "Quizzes", "patterns": ["/courses/:courseId/quizzes/create"] },
 
@@ -54,14 +55,19 @@
     { "key": "tm.grades.subject_report", "label": "Subject assessment report", "module": "Grades", "patterns": ["/grades/subjects/:courseId/report"] },
     { "key": "tm.grades.marks", "label": "Entering marks", "module": "Grades", "patterns": ["/grades/:assessmentId/marks"] },
 
-    { "key": "tm.projects", "label": "Projects", "module": "Projects", "patterns": ["/projects"] },
-    { "key": "tm.project", "label": "Project details", "module": "Projects", "patterns": ["/projects/:id"] },
-    { "key": "tm.projects.monitor", "label": "Project monitor", "module": "Projects", "patterns": ["/projects/monitor"] },
-    { "key": "tm.grading.practical", "label": "Practical grading", "module": "Projects", "patterns": ["/grading/practical/:type/:id"] },
+    { "key": "tm.projects", "label": "Projects", "module": "Projects", "patterns": ["/code/projects", "/code", "/projects"] },
+    { "key": "tm.assignment.work", "label": "Assignment work", "module": "Assignments", "patterns": ["/assignments/:assignmentId/work"] },
+    { "key": "tm.code.starters", "label": "Starters", "module": "Projects", "patterns": ["/code/starters"] },
+    { "key": "tm.code.playground", "label": "Playground", "module": "Projects", "patterns": ["/code/playground"] },
+    { "key": "tm.project.editor", "label": "Project editor", "module": "Projects", "patterns": ["/code/projects/:id/edit"] },
+    { "key": "tm.project", "label": "Project details", "module": "Projects", "patterns": ["/code/projects/:id", "/projects/:id"] },
+    { "key": "tm.projects.monitor", "label": "Live coding", "module": "Projects", "patterns": ["/code/live", "/projects/monitor"] },
+    { "key": "tm.grading.practical", "label": "Grading", "module": "Projects", "patterns": ["/grading/:type/:id", "/grading/practical/:type/:id"] },
 
     { "key": "tm.admin.blooms", "label": "Bloom's taxonomy", "module": "Administration", "patterns": ["/admin/blooms-taxonomy"] },
     { "key": "tm.admin.database", "label": "Database management", "module": "Administration", "patterns": ["/admin/database-management"] },
     { "key": "tm.admin.roles", "label": "Roles & permissions", "module": "Administration", "patterns": ["/admin/roles-permissions"] },
+    { "key": "tm.grading.inbox", "label": "To grade", "module": "Grading", "patterns": ["/grading"] },
     { "key": "tm.admin.code_runner", "label": "Code runner", "module": "Administration", "patterns": ["/admin/code-runner"] },
 
     { "key": "tm.quiz.submit", "label": "Quiz submitted", "module": "Quizzes", "event": true, "key_event": true },
