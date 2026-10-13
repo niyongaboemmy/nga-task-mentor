@@ -45,6 +45,8 @@ interface QuestionBankModalProps {
   question?: QuestionBankEntry | null; // If provided, we are in Edit mode
   onSuccess: () => void;
   quizId?: number; // Optional: If provided, newly created questions will be assigned to this quiz
+  /** Rendered in a page (the Question Bank's edit page) instead of an overlay. */
+  asPage?: boolean;
 }
 
 const QUESTION_TYPES: { value: QuestionType; label: string; icon: string }[] = [
@@ -95,6 +97,7 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
   question,
   onSuccess,
   quizId,
+  asPage,
 }) => {
   const [formData, setFormData] =
     useState<CreateCourseQuestionRequest>(getInitialFormState);
@@ -363,15 +366,18 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
     }
   };
 
-  return createPortal(
-    <>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+  const panel = (
         <div
           ref={modalRef}
-          className="relative z-10 w-full max-w-7xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/30 flex flex-col overflow-hidden"
+          className={
+            asPage
+              ? "flex w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white dark:border-gray-700/30 dark:bg-gray-900"
+              : "relative z-10 w-full max-w-7xl max-h-[95vh] bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-white/20 dark:border-gray-700/30 flex flex-col overflow-hidden"
+          }
+          data-testid={asPage ? "question-editor-page" : undefined}
         >
-          {/* Header */}
-          <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800/50">
+          {/* Header (the edit page has its own) */}
+          <div className={`flex-shrink-0 flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-800/50 ${asPage ? "hidden" : ""}`}>
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 bg-blue-50 dark:bg-blue-900/40 rounded-xl flex items-center justify-center">
                 {question ? (
@@ -931,8 +937,10 @@ const QuestionBankModal: React.FC<QuestionBankModalProps> = ({
             </div>
           </div>
         </div>
-      </div>
-    </>,
+  );
+  if (asPage) return panel;
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">{panel}</div>,
     document.body,
   );
 };

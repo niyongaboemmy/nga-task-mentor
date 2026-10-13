@@ -1,5 +1,5 @@
 import React from "react";
-import { AlertTriangle, CheckCircle2, Clock, Cpu, Loader2, Play, XCircle } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock, Cpu, Globe, Loader2, Play, XCircle } from "lucide-react";
 import type { PracticeRunResult, RunTestResult, RunVerdict } from "../../services/codeApi";
 import { VERDICT } from "./verdicts";
 import type { IoTest } from "./tests";
@@ -10,7 +10,7 @@ import type { IoTest } from "./tests";
  * Verdicts use icon + words, never colour alone.
  */
 
-export type BottomTab = "output" | "tests";
+export type BottomTab = "output" | "tests" | "preview";
 
 
 const TONE = {
@@ -46,6 +46,13 @@ const Stats: React.FC<{ r: RunTestResult }> = ({ r }) => (
   </span>
 );
 
+/** Says the run happened in the browser (so it was instant, and isn't graded). */
+const BrowserTag: React.FC = () => (
+  <span className="inline-flex items-center gap-1 text-[11px] text-text-secondary-light dark:text-text-secondary-dark" title="Ran in your browser: instant, and nothing is sent to the server" data-testid="ran-in-browser">
+    <Globe className="h-3 w-3" aria-hidden="true" /> In your browser
+  </span>
+);
+
 const pre = "max-h-64 overflow-auto whitespace-pre-wrap rounded-lg p-2.5 font-mono text-xs";
 
 export interface RunState {
@@ -54,6 +61,8 @@ export interface RunState {
   kind?: BottomTab;
   result?: PracticeRunResult;
   error?: string;
+  /** What is happening while it runs (e.g. loading Python in the browser). */
+  note?: string;
 }
 
 const RunPanel: React.FC<{
@@ -69,7 +78,11 @@ const RunPanel: React.FC<{
   /** An interactive terminal replaces the input box and output when the runner supports it. */
   terminal?: React.ReactNode;
   terminalBusy?: boolean;
-}> = ({ tab, onTab, stdin, onStdin, tests, state, onRun, onRunTests, canRun, terminal, terminalBusy }) => {
+  /** The project's unit tests, below its input/output tests. */
+  unitTests?: React.ReactNode;
+  /** A web server's Preview tab. */
+  preview?: React.ReactNode;
+}> = ({ tab, onTab, stdin, onStdin, tests, state, onRun, onRunTests, canRun, terminal, terminalBusy, unitTests, preview }) => {
   const running = state.status === "running" || (tab === "output" && !!terminalBusy);
   const result = state.result;
   const compileFailed = !!result?.compile && !result.compile.ok;
@@ -84,6 +97,7 @@ const RunPanel: React.FC<{
           [
             ["output", "Output"],
             ["tests", `Tests${tests.length ? ` (${tests.length})` : ""}`],
+            ...(preview ? ([["preview", "Preview"]] as [BottomTab, string][]) : []),
           ] as [BottomTab, string][]
         ).map(([k, label]) => (
           <button
@@ -102,10 +116,12 @@ const RunPanel: React.FC<{
         <span className="ml-auto pr-1 text-[11px] text-text-secondary-light dark:text-text-secondary-dark" aria-live="polite">
           {running ? (
             <span className="inline-flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" /> Running…
+              <Loader2 className="h-3 w-3 animate-spin" /> {state.note ?? "Running…"}
             </span>
           ) : state.status === "done" && state.kind === "tests" && byId.size ? (
-            `${passed}/${byId.size} tests passed`
+            <span className="inline-flex items-center gap-2">
+              {passed}/{byId.size} tests passed {result?.engine === "browser" && <BrowserTag />}
+            </span>
           ) : null}
         </span>
       </div>
@@ -125,7 +141,9 @@ const RunPanel: React.FC<{
           </div>
         )}
 
-        {tab === "output" && terminal ? (
+        {tab === "preview" && preview ? (
+          <div className="h-full">{preview}</div>
+        ) : tab === "output" && terminal ? (
           <div className="h-full min-h-[12rem]">{terminal}</div>
         ) : tab === "output" ? (
           <div className="grid gap-3 lg:grid-cols-2">
@@ -153,10 +171,11 @@ const RunPanel: React.FC<{
                 <span className="text-[11px] font-semibold uppercase tracking-wide text-text-secondary-light dark:text-text-secondary-dark">Output</span>
                 {own && !compileFailed && <VerdictChip verdict={own.verdict} />}
                 {own && <Stats r={own} />}
+                {own && result?.engine === "browser" && <BrowserTag />}
               </div>
               {!own ? (
                 <p className="rounded-lg bg-gray-50 p-2.5 text-xs text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark">
-                  {running ? "Running…" : "Press Run (Ctrl/⌘ + Enter) to see what your program prints."}
+                  {running ? state.note ?? "Running…" : "Press Run (Ctrl/⌘ + Enter) to see what your program prints."}
                 </p>
               ) : compileFailed ? null : (
                 <div className="space-y-2">
@@ -170,9 +189,11 @@ const RunPanel: React.FC<{
             </div>
           </div>
         ) : tests.length === 0 ? (
-          <p className="rounded-lg bg-gray-50 p-3 text-xs text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark">
-            This project has no input/output tests.
-          </p>
+          unitTests ?? (
+            <p className="rounded-lg bg-gray-50 p-3 text-xs text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark">
+              This project has no input/output tests.
+            </p>
+          )
         ) : (
           <div className="space-y-2">
             <button
@@ -213,6 +234,7 @@ const RunPanel: React.FC<{
                 );
               })}
             </ol>
+            {unitTests && <div className="border-t border-gray-200 pt-3 dark:border-white/10">{unitTests}</div>}
           </div>
         )}
       </div>
