@@ -1,3 +1,4 @@
+import { judge0Configured } from "./coderunner";
 import { literal } from "sequelize";
 import { Quiz, QuizAttempt, QuizQuestion, QuizSubmission } from "../models";
 import { AdvancedQuizGrader, isPendingGrade } from "../utils/quizGrader";
@@ -157,10 +158,14 @@ let judgeTimers: NodeJS.Timeout[] = [];
  */
 export function startJudgeMaintenance(): void {
   stopJudgeMaintenance();
-  void Judge0Service.loadLanguages();
-  const daily = setInterval(() => void Judge0Service.healthCheck(), 24 * 60 * 60_000);
-  daily.unref?.();
-  judgeTimers.push(daily);
+  // Judge0 only when it is set up (a key, or a self-hosted address): otherwise
+  // every start and every day logged a refused call to a service we don't use.
+  if (judge0Configured()) {
+    void Judge0Service.loadLanguages();
+    const daily = setInterval(() => void Judge0Service.healthCheck(), 24 * 60 * 60_000);
+    daily.unref?.();
+    judgeTimers.push(daily);
+  }
 
   // Queued code answers: every CODE_GRADE_QUEUE_INTERVAL_MS (default 3 s).
   const queueMs = Number(process.env.CODE_GRADE_QUEUE_INTERVAL_MS ?? 3000);
