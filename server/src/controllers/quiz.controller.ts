@@ -23,6 +23,7 @@ import {
 import { answerFiles, getCodeRunner } from "../services/coderunner";
 import { codeRunnerLanguages } from "../utils/codeLanguages";
 import { getQuestionBankInclude } from "../utils/quizUtils";
+import { checkReferenceSolutions } from "../services/referenceCheck";
 import {
   allowedAnswerLanguages,
   isWebLanguage,
@@ -771,6 +772,22 @@ export const updateQuiz = async (req: Request, res: Response) => {
               message: "Add at least one question before publishing",
             },
           ],
+        });
+      }
+
+      // A coding question whose own reference solution fails its tests is broken.
+      const reference = await checkReferenceSolutions(quiz.id);
+      if (reference.failures.length) {
+        await transaction.rollback();
+        return res.status(422).json({
+          success: false,
+          code: "REFERENCE_SOLUTION_FAILS",
+          message: `Can't publish yet: the reference solution of ${reference.failures.length} coding question${reference.failures.length === 1 ? "" : "s"} fails its own tests. Fix the tests or the solution, then publish.`,
+          errors: reference.failures.map((f) => ({
+            field: "questions",
+            message: `Question ${f.order ?? f.question_id}${f.title ? ` (${f.title})` : ""}: ${f.error ?? `${f.failed_tests.length} test${f.failed_tests.length === 1 ? "" : "s"} fail (${f.failed_tests.map((t) => t.id).join(", ")})`}`,
+          })),
+          data: { failures: reference.failures },
         });
       }
     }

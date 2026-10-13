@@ -17,6 +17,7 @@
     { "key": "tm.course.reports", "label": "Course report cards", "module": "Report cards", "patterns": ["/courses/:courseId/reports"] },
     { "key": "tm.course.report_attributes", "label": "Report card general attributes", "module": "Report cards", "patterns": ["/courses/:courseId/report-card-attributes"] },
     { "key": "tm.course.question_bank", "label": "Course question bank", "module": "Question bank", "patterns": ["/courses/:courseId/question-bank"] },
+    { "key": "tm.course.question_edit", "label": "Question editor", "module": "Question bank", "patterns": ["/courses/:courseId/question-bank/new", "/courses/:courseId/question-bank/:questionId/edit"] },
     { "key": "tm.course.quizzes", "label": "Course quizzes", "module": "Quizzes", "patterns": ["/courses/:courseId/quizzes"] },
     { "key": "tm.quiz.create", "label": "Create a quiz", "module": "Quizzes", "patterns": ["/courses/:courseId/quizzes/create"] },
 

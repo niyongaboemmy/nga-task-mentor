@@ -10,5 +10,6 @@ export const VERDICT: Record<RunVerdict, { label: string; tone: "ok" | "warn" | 
   "memory-limit": { label: "Out of memory", tone: "bad" },
   "output-limit": { label: "Too much output", tone: "bad" },
   "compile-error": { label: "Doesn't compile", tone: "bad" },
+  "package-not-available": { label: "Package not available", tone: "bad" },
   "internal-error": { label: "Runner error", tone: "bad" },
 };

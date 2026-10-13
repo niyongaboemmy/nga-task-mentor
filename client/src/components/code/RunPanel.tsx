@@ -10,7 +10,7 @@ import type { IoTest } from "./tests";
  * Verdicts use icon + words, never colour alone.
  */
 
-export type BottomTab = "output" | "tests";
+export type BottomTab = "output" | "tests" | "preview";
 
 
 const TONE = {
@@ -78,7 +78,11 @@ const RunPanel: React.FC<{
   /** An interactive terminal replaces the input box and output when the runner supports it. */
   terminal?: React.ReactNode;
   terminalBusy?: boolean;
-}> = ({ tab, onTab, stdin, onStdin, tests, state, onRun, onRunTests, canRun, terminal, terminalBusy }) => {
+  /** The project's unit tests, below its input/output tests. */
+  unitTests?: React.ReactNode;
+  /** A web server's Preview tab. */
+  preview?: React.ReactNode;
+}> = ({ tab, onTab, stdin, onStdin, tests, state, onRun, onRunTests, canRun, terminal, terminalBusy, unitTests, preview }) => {
   const running = state.status === "running" || (tab === "output" && !!terminalBusy);
   const result = state.result;
   const compileFailed = !!result?.compile && !result.compile.ok;
@@ -93,6 +97,7 @@ const RunPanel: React.FC<{
           [
             ["output", "Output"],
             ["tests", `Tests${tests.length ? ` (${tests.length})` : ""}`],
+            ...(preview ? ([["preview", "Preview"]] as [BottomTab, string][]) : []),
           ] as [BottomTab, string][]
         ).map(([k, label]) => (
           <button
@@ -136,7 +141,9 @@ const RunPanel: React.FC<{
           </div>
         )}
 
-        {tab === "output" && terminal ? (
+        {tab === "preview" && preview ? (
+          <div className="h-full">{preview}</div>
+        ) : tab === "output" && terminal ? (
           <div className="h-full min-h-[12rem]">{terminal}</div>
         ) : tab === "output" ? (
           <div className="grid gap-3 lg:grid-cols-2">
@@ -182,9 +189,11 @@ const RunPanel: React.FC<{
             </div>
           </div>
         ) : tests.length === 0 ? (
-          <p className="rounded-lg bg-gray-50 p-3 text-xs text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark">
-            This project has no input/output tests.
-          </p>
+          unitTests ?? (
+            <p className="rounded-lg bg-gray-50 p-3 text-xs text-text-secondary-light dark:bg-white/5 dark:text-text-secondary-dark">
+              This project has no input/output tests.
+            </p>
+          )
         ) : (
           <div className="space-y-2">
             <button
@@ -225,6 +234,7 @@ const RunPanel: React.FC<{
                 );
               })}
             </ol>
+            {unitTests && <div className="border-t border-gray-200 pt-3 dark:border-white/10">{unitTests}</div>}
           </div>
         )}
       </div>

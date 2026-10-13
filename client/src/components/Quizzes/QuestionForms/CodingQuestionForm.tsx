@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { FlaskConical, LayoutTemplate, SlidersHorizontal, Terminal } from "lucide-react";
 import type { CodingData } from "../../../types/quiz.types";
 import { CodingProgressIndicator } from "./CodingProgressIndicator";
@@ -6,10 +6,12 @@ import { CodingSetupTab } from "./CodingSetupTab";
 import { CodingTestsTab } from "./CodingTestsTab";
 import { CodingConstraintsTab } from "./CodingConstraintsTab";
 import ReferenceSolution from "./ReferenceSolution";
+import UnitTestFiles from "./UnitTestFiles";
 import Drawer from "../../ui/Drawer";
 import StarterPicker from "../../code/StarterPicker";
 import { monacoLanguage } from "../../code/languages";
-import { readIoTests } from "../../code/tests";
+import { hasUnitTests, readIoTests } from "../../code/tests";
+import { codeApi } from "../../../services/codeApi";
 import type { Starter } from "../../../services/catalogApi";
 
 /**
@@ -48,10 +50,21 @@ const SectionTitle: React.FC<{ id: string; title: string; hint: string; icon: Re
 export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ data, onChange }) => {
   const codingData: CodingData = { ...data, test_cases: data.test_cases ?? [] };
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [unitLanguages, setUnitLanguages] = useState<string[]>([]);
+  useEffect(() => {
+    void codeApi.capabilities().then((c) => setUnitLanguages(c.unit_test_languages));
+  }, []);
+  const unitMode = codingData.check_with === "unit";
+  // Offered when the runner runs unit tests for the language (and always for a question already using them).
+  const unitOffered = unitMode || unitLanguages.includes(codingData.language);
 
   const applyStarter = (s: Starter) => {
-    const visible = s.files.filter((f) => !f.path.startsWith(".nga/") && !f.path.startsWith(".tmcode/") && !/^readme\.md$/i.test(f.path) && f.path !== ".gitignore");
+    const all = s.files.filter((f) => !f.path.startsWith(".nga/") && !f.path.startsWith(".tmcode/") && !/^readme\.md$/i.test(f.path) && f.path !== ".gitignore");
     const io = readIoTests(s.files);
+    // A starter with unit tests (and no input/output tests): its tests check the answers.
+    const testFiles = all.filter((f) => hasUnitTests([f]));
+    const byUnitTests = io.tests.length === 0 && testFiles.length > 0 && unitLanguages.includes(s.language);
+    const visible = byUnitTests ? all.filter((f) => !testFiles.includes(f)) : all;
     const replaceTests =
       io.tests.length > 0 &&
       (codingData.test_cases.length === 0 || window.confirm(`Replace the ${codingData.test_cases.length} current test(s) with the starter's ${io.tests.length}?`));
@@ -69,6 +82,11 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ data, on
       test_cases: replaceTests
         ? io.tests.map((t, i) => ({ id: t.id || `t${i + 1}`, input: t.input, expected_output: t.expected_output, is_hidden: false, points: t.points ?? 1 }))
         : codingData.test_cases,
+      ...(byUnitTests
+        ? { check_with: "unit" as const, unit_test_files: testFiles.map((f) => ({ path: f.path, content: f.content })) }
+        : io.tests.length
+          ? { check_with: "io" as const }
+          : {}),
     });
     setPickerOpen(false);
   };
@@ -115,9 +133,44 @@ export const CodingQuestionForm: React.FC<CodingQuestionFormProps> = ({ data, on
       </section>
 
       <section className="space-y-4">
-        <SectionTitle id="code-tests" title="Tests" hint="What the answer must print for each input. Hidden tests run only when students submit." icon={FlaskConical} />
-        <ReferenceSolution codingData={codingData} onChange={onChange} />
-        <CodingTestsTab codingData={codingData} onChange={onChange} />
+        <SectionTitle
+          id="code-tests"
+          title="Tests"
+          hint={unitMode ? "Your unit tests check each answer when it is graded." : "What the answer must print for each input. Hidden tests run only when students submit."}
+          icon={FlaskConical}
+        />
+        {unitOffered && (
+          <div className="inline-flex rounded-lg border border-gray-200 p-0.5 dark:border-gray-700" role="radiogroup" aria-label="Check answers with">
+            {(
+              [
+                ["io", "Input/output tests"],
+                ["unit", "Unit tests"],
+              ] as const
+            ).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                role="radio"
+                aria-checked={(codingData.check_with ?? "io") === k}
+                onClick={() => onChange({ ...codingData, check_with: k })}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold ${
+                  (codingData.check_with ?? "io") === k ? "bg-primary text-white" : "text-text-secondary-light hover:bg-gray-100 dark:text-text-secondary-dark dark:hover:bg-white/10"
+                }`}
+                data-testid={`check-with-${k}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
+        {unitMode ? (
+          <UnitTestFiles codingData={codingData} onChange={onChange} />
+        ) : (
+          <>
+            <ReferenceSolution codingData={codingData} onChange={onChange} />
+            <CodingTestsTab codingData={codingData} onChange={onChange} />
+          </>
+        )}
       </section>
 
       <section className="space-y-4">

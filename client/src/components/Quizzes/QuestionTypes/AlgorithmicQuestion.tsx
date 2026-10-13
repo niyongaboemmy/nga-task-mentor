@@ -5,7 +5,7 @@ import type {
   CodingData,
 } from "../../../types/quiz.types";
 import RichTextDisplay from "../../Common/RichTextDisplay";
-import { CodeSpaceEditor } from "./CodeSpaceEditor";
+import QuizCodeAnswer from "./QuizCodeAnswer";
 import { CodeAnswerView } from "./CodeAnswerView";
 
 /**
@@ -79,8 +79,8 @@ export const AlgorithmicQuestion: React.FC<QuestionComponentProps> = (props) => 
   return (
     <div className="flex flex-col h-full">
       {header}
-      <div className="flex-1 min-h-[420px]">
-        <CodeSpaceEditor
+      <div className="flex-1">
+        <QuizCodeAnswer
           {...props}
           answer={codeAnswer}
           question={{ ...question, question_data: codingData }}
