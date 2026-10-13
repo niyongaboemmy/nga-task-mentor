@@ -330,6 +330,54 @@ describe("PracticalGradingPage", () => {
     expect(window.localStorage.getItem("tm.grading.runCases.assignment.7.0")).toContain("2 3");
   });
 
+  it("runs the whole project as the runner detected it (a C Make project), and marks differing lines", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    practicals.runTargets.mockResolvedValue({
+      ...cTargets,
+      project: { kind: "c/make", label: "C – Make project", language: "c", entry: "src/main.c", actions: ["build", "run", "test"], runs: true, tests: true, web_app: false, chooses_entry: false },
+    });
+    practicals.run.mockImplementation(async (_p: number, body: { tests: { id: string }[] }) => ({
+      engine: "tmjudge",
+      language: "c",
+      kind: "c/make",
+      kind_label: "C – Make project",
+      entry: "src/main.c",
+      revision: { id: 301, number: 4 },
+      files_sent: ["Makefile", "src/main.c", "src/util.c"],
+      files_skipped: 0,
+      compile: { ok: true, output: "", time_ms: 1200 },
+      tests: [{ id: body.tests[0].id, verdict: "wrong-answer", passed: false, stdout: "Sum: 5\nBye\n", stderr: null, exit_code: 0, time_ms: 9, memory_kb: 1024 }],
+    }));
+    workspace();
+    await userEvent.click(await screen.findByTestId("pane-run"));
+    // What runs, in words; no file picker for a Make project.
+    expect(await screen.findByTestId("run-project")).toHaveTextContent("C – Make project");
+    expect(screen.queryByLabelText("File to run")).not.toBeInTheDocument();
+    await userEvent.type(screen.getByTestId("run-input"), "2 3");
+    await userEvent.click(screen.getByRole("button", { name: /Compare with an expected output/ }));
+    await userEvent.type(screen.getAllByRole("textbox").find((t) => t.getAttribute("data-testid") !== "run-input" && t.tagName === "TEXTAREA")!, "Sum: 5{enter}Done");
+    await userEvent.click(screen.getByTestId("run-program"));
+    expect(practicals.run).toHaveBeenCalledWith(101, expect.objectContaining({ kind: "c/make", entry: null }));
+    const diff = await screen.findByTestId("run-diff");
+    const rows = diff.querySelectorAll("[data-same]");
+    expect([...rows].map((r) => r.getAttribute("data-same"))).toEqual(["true", "false"]);
+    expect(screen.getByTestId("run-summary")).toHaveTextContent("0 of 1 match");
+  });
+
+  it("a React app gets the right places to check it, not an input box", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    practicals.runTargets.mockResolvedValue({
+      ...webTargets,
+      languages: [{ key: "typescript", label: "TypeScript", files: 3, runnable: true }],
+      project: { kind: "js/vite", label: "JavaScript – Vite app (React, Vue, Svelte)", language: "javascript", entry: "src/main.tsx", actions: ["build", "test"], runs: false, tests: true, web_app: true, chooses_entry: false },
+    });
+    workspace();
+    await userEvent.click(await screen.findByTestId("pane-run"));
+    expect(await screen.findByTestId("run-web-app")).toHaveTextContent("runs in a browser");
+    expect(screen.queryByTestId("run-input")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("run-program")).not.toBeInTheDocument();
+  });
+
   it("shows a compile error instead of outputs", async () => {
     practicals.roster.mockResolvedValue(roster());
     practicals.runTargets.mockResolvedValue(cTargets);

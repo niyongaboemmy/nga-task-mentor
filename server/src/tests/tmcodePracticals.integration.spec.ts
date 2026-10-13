@@ -413,3 +413,91 @@ describe("running a submitted program (Run tab)", () => {
     expect((await api(teacher).post(`/projects/${p.id}/run`, { tests: [] })).status).toBe(400);
   });
 });
+
+describe("grading Run tab with tm-judge's project detection", () => {
+  const ENV = { ...process.env };
+  let judgeServer: http.Server;
+  const sent: any[] = [];
+  const DETECT: Record<string, any> = {
+    react: { best: "js/vite", entry: "src/main.tsx", kinds: [{ kind: "js/vite", label: "JavaScript – Vite app (React, Vue, Svelte)", language: "javascript", entry: "src/main.tsx", available: true, actions: ["build", "test"] }] },
+    make: { best: "c/make", entry: "src/main.c", kinds: [{ kind: "c/make", label: "C – Make project", language: "c", entry: "src/main.c", available: true, actions: ["build", "run", "test"] }] },
+  };
+
+  beforeAll(async () => {
+    judgeServer = http.createServer((req, res) => {
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        const send = (code: number, data: unknown) => res.writeHead(code, { "Content-Type": "application/json" }).end(JSON.stringify(data));
+        if (req.url === "/v1/health") return send(200, { ok: true, features: ["run", "projects", "catalog", "detect"] });
+        if (req.url === "/v1/catalog") return send(200, { kinds: [{ id: "c/make", language: "c", label: "C – Make project", actions: ["build", "run", "test"] }, { id: "js/vite", language: "javascript", label: "Vite", actions: ["build", "test"] }] });
+        const b = body ? JSON.parse(body) : {};
+        sent.push({ url: req.url, body: b });
+        if (req.url === "/v1/detect") return send(200, b.files.some((f: any) => f.path === "package.json") ? DETECT.react : DETECT.make);
+        if (req.url === "/v1/run") {
+          return send(200, { kind: b.kind, compile: { ok: true, output: "", time_ms: 300 }, tests: b.tests.map((t: any) => ({ id: t.id, verdict: t.expected_output ? "accepted" : "ok", passed: true, stdout: "5\n", stderr: "", exit_code: 0, time_ms: 4, memory_kb: 900 })) });
+        }
+        send(404, {});
+      });
+    });
+    await new Promise<void>((r) => judgeServer.listen(0, "127.0.0.1", () => r()));
+    process.env.CODERUNNER_ENGINE = "tmjudge";
+    process.env.TMJUDGE_URL = `http://127.0.0.1:${(judgeServer.address() as any).port}`;
+    process.env.TMJUDGE_TOKEN = "runner-secret-token-for-tests-0001";
+    const { resetJudgeInfo, refreshJudgeInfo } = await import("../services/coderunner/judgeInfo");
+    resetJudgeInfo();
+    await refreshJudgeInfo();
+  });
+  afterAll(async () => {
+    process.env = ENV;
+    const { resetJudgeInfo } = await import("../services/coderunner/judgeInfo");
+    resetJudgeInfo();
+    judgeServer.close();
+  });
+
+  async function submitted(files: Record<string, string>, language: string) {
+    const a = await Assignment.create({ title: unique("Project"), description: "<p>x</p>", due_date: new Date(Date.now() + 86_400_000), max_score: 10, submission_type: "project", course_id: COURSE_ID, created_by: teacher.id, status: "published" } as any);
+    assignmentIds.push(a.id);
+    const p = (await api(student).post("/projects", { name: unique("P"), language, assignment_id: a.id })).body.project;
+    projectIds.add(p.id);
+    await save(student, p.id, null, files);
+    expect((await api(student).post(`/projects/${p.id}/submit`)).status).toBe(200);
+    const link = await ProjectActivityLink.findOne({ where: { project_id: p.id } });
+    return { id: p.id, rev: link!.revision_id };
+  }
+
+  it("a React app: described as a web app, and Run explains instead of failing", async () => {
+    const p = await submitted({ "package.json": '{"dependencies":{"react":"18"}}', "vite.config.ts": "export default {}", "src/main.tsx": "console.log(1)", "index.html": "<div id=root></div>" }, "typescript");
+    const targets = await api(teacher).get(`/projects/${p.id}/run-targets?rev=${p.rev}`);
+    expect(targets.body.project).toMatchObject({ kind: "js/vite", runs: false, tests: true, web_app: true });
+    sent.length = 0;
+    const run = await api(teacher).post(`/projects/${p.id}/run`, { rev: p.rev, tests: [{ id: "a", input: "" }] });
+    expect(run.status).toBe(422);
+    expect(run.body.error_code).toBe("NOT_A_PROGRAM");
+    expect(JSON.stringify(run.body)).toMatch(/Preview/);
+    expect(sent.some((s) => s.url === "/v1/run")).toBe(false);
+  });
+
+  it("a C Make project: the whole project runs as its kind, from its own entry", async () => {
+    const p = await submitted(
+      {
+        Makefile: "all:\n\tcc -o app src/main.c src/util.c",
+        "src/main.c": "#include \"util.h\"\nint main(void){return 0;}",
+        "src/util.c": "int add(int a,int b){return a+b;}",
+        "src/util.h": "int add(int,int);",
+        "build/old.o": "x",
+      },
+      "c",
+    );
+    const targets = await api(teacher).get(`/projects/${p.id}/run-targets?rev=${p.rev}`);
+    expect(targets.body.project).toMatchObject({ kind: "c/make", label: "C – Make project", runs: true, entry: "src/main.c", chooses_entry: false });
+    sent.length = 0;
+    const run = await api(teacher).post(`/projects/${p.id}/run`, { rev: p.rev, tests: [{ id: "a", input: "2 3", expected_output: "5" }] });
+    expect(run.status).toBe(200);
+    expect(run.body).toMatchObject({ kind: "c/make", kind_label: "C – Make project", entry: "src/main.c" });
+    const call = sent.find((s) => s.url === "/v1/run")!.body;
+    expect(call).toMatchObject({ kind: "c/make", language: "c" });
+    expect(call.files.map((f: any) => f.path).sort()).toEqual(["Makefile", "src/main.c", "src/util.c", "src/util.h"]);
+    expect(run.body.tests[0].verdict).toBe("accepted");
+  });
+});

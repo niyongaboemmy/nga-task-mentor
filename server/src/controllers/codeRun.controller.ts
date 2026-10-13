@@ -5,6 +5,7 @@ import { JudgeUnavailableError, QuotaExceededError, RunnerRejectedError, Unsuppo
 import { isWebLanguage } from "../utils/codeLanguages";
 import { filesToSend, isIgnoredPath, languageOfPath, pickLanguage, rankEntries, runCandidates } from "../tmcode/practical/run";
 import { hasManifest } from "../services/coderunner/tmJudgeRunner";
+import { detectProject } from "../services/coderunner/projectKind";
 import { judgeHas, judgeRunsLanguage, judgeTestsLanguage } from "../services/coderunner/judgeInfo";
 import type { RunResult } from "../services/coderunner";
 import { catalogLanguages, catalogVersion, getStarter, listStarters, starterSummary } from "../services/runtimeCatalog";
@@ -104,6 +105,11 @@ export const practiceRun = async (req: Request, res: Response) => {
   const project = !!asked && judgeHas("projects") && judgeRunsLanguage(asked) && (!!body.kind || hasManifest(body.files) || !detected);
   if (project) {
     const files = body.files.filter((f) => !isIgnoredPath(f.path));
+    // A web app (React, Vue, Angular…) has no program to run: say so plainly.
+    const detected = body.kind ? null : await detectProject(files).catch(() => null);
+    if (detected && (detected.webApp || !detected.actions.includes("run"))) {
+      return fail(res, 422, "NOT_A_PROGRAM", `This is a ${detected.label}: it runs in a browser, not as a program with inputs.${detected.actions.includes("test") ? " Its unit tests can run." : ""}`, { kind: detected.kind });
+    }
     try {
       const result = await runner.run({ language: asked!, kind: body.kind ?? undefined, entry: body.entry ?? undefined, files, interactive: true, tests });
       return res.json({ success: true, data: resultData(result, asked!, body.entry ?? null, files) });
