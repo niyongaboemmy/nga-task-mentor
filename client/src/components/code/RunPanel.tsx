@@ -10,7 +10,7 @@ import type { IoTest } from "./tests";
  * Verdicts use icon + words, never colour alone.
  */
 
-export type BottomTab = "output" | "tests";
+export type BottomTab = "output" | "tests" | "preview";
 
 
 const TONE = {
@@ -80,7 +80,9 @@ const RunPanel: React.FC<{
   terminalBusy?: boolean;
   /** The project's unit tests, below its input/output tests. */
   unitTests?: React.ReactNode;
-}> = ({ tab, onTab, stdin, onStdin, tests, state, onRun, onRunTests, canRun, terminal, terminalBusy, unitTests }) => {
+  /** A web server's Preview tab. */
+  preview?: React.ReactNode;
+}> = ({ tab, onTab, stdin, onStdin, tests, state, onRun, onRunTests, canRun, terminal, terminalBusy, unitTests, preview }) => {
   const running = state.status === "running" || (tab === "output" && !!terminalBusy);
   const result = state.result;
   const compileFailed = !!result?.compile && !result.compile.ok;
@@ -95,6 +97,7 @@ const RunPanel: React.FC<{
           [
             ["output", "Output"],
             ["tests", `Tests${tests.length ? ` (${tests.length})` : ""}`],
+            ...(preview ? ([["preview", "Preview"]] as [BottomTab, string][]) : []),
           ] as [BottomTab, string][]
         ).map(([k, label]) => (
           <button
@@ -138,7 +141,9 @@ const RunPanel: React.FC<{
           </div>
         )}
 
-        {tab === "output" && terminal ? (
+        {tab === "preview" && preview ? (
+          <div className="h-full">{preview}</div>
+        ) : tab === "output" && terminal ? (
           <div className="h-full min-h-[12rem]">{terminal}</div>
         ) : tab === "output" ? (
           <div className="grid gap-3 lg:grid-cols-2">

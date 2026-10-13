@@ -10,6 +10,9 @@ import InteractiveTerminal from "./InteractiveTerminal";
 import { interactiveAvailable, useInteractiveRun } from "./useInteractiveRun";
 import { BrowserCantRun, browserRuntime, runInBrowser } from "./browser/browserRun";
 import UnitTestsPanel from "./UnitTestsPanel";
+import PreviewPanel from "./PreviewPanel";
+import { usePreview } from "./usePreview";
+import { looksLikeServer } from "./serverDetect";
 import { firstFileToOpen, guessLanguage, monacoLanguage } from "./languages";
 import { hasUnitTests, isHiddenFile, readIoTests } from "./tests";
 
@@ -37,6 +40,13 @@ export interface CodeWorkspaceProps {
   storageKey: string;
   /** Run unsaved files (default) — a caller can replace it. */
   run?: typeof codeApi.run;
+  /** Live terminal for Run (default: only with the standard runner). */
+  interactive?: boolean;
+  /** No adding, renaming or deleting files (e.g. a one-file quiz answer). */
+  fixedFiles?: boolean;
+  /** The Monaco editor, e.g. for the quiz's paste rules. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  onEditorMount?: (editor: any) => void;
 }
 
 interface Layout {
@@ -47,8 +57,9 @@ interface Layout {
   leftTab: "task" | "files";
 }
 
-const loadLayout = (key: string, hasTask: boolean): Layout => {
-  const fallback: Layout = { left: true, bottom: true, leftWidth: 260, bottomHeight: 260, leftTab: hasTask ? "task" : "files" };
+const loadLayout = (key: string, hasTask: boolean, oneFile = false): Layout => {
+  // A single file with no task needs no left panel at first.
+  const fallback: Layout = { left: hasTask || !oneFile, bottom: true, leftWidth: 260, bottomHeight: 260, leftTab: hasTask ? "task" : "files" };
   try {
     const raw = localStorage.getItem(`tm.code.layout.${key}`);
     return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
@@ -75,9 +86,12 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   onSave,
   storageKey,
   run = codeApi.run,
+  interactive: interactiveProp,
+  fixedFiles,
+  onEditorMount,
 }, ref) {
   const { theme } = useTheme();
-  const [layout, setLayout] = useState<Layout>(() => loadLayout(storageKey, !!task));
+  const [layout, setLayout] = useState<Layout>(() => loadLayout(storageKey, !!task, files.filter((f) => !isHiddenFile(f.path)).length <= 1));
   const visible = useMemo(() => files.filter((f) => !isHiddenFile(f.path)), [files]);
   const io = useMemo(() => readIoTests(files), [files]);
   const [openTabs, setOpenTabs] = useState<string[]>(() => {
@@ -92,6 +106,10 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   // Interactive runs only with the standard runner (a custom `run` means a special context, e.g. grading).
   const [interactive, setInteractive] = useState(false);
   const [unitLanguages, setUnitLanguages] = useState<string[]>([]);
+  const [previewsOn, setPreviewsOn] = useState(false);
+  const preview = usePreview();
+  // Set below once we know whether this project is a web server: Run starts it.
+  const startServer = useRef<(() => void) | null>(null);
   const [unitSignal, setUnitSignal] = useState(0);
   const unitHandled = useRef(0);
   const takeUnitRequest = useCallback(() => {
@@ -102,15 +120,20 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   const term = useInteractiveRun();
   const startTerm = term.start;
   const customRun = run !== codeApi.run;
+  const wantInteractive = interactiveProp ?? !customRun;
   useEffect(() => {
-    if (customRun) return;
+    if (!wantInteractive && customRun) return;
     let live = true;
-    void interactiveAvailable().then((ok) => live && setInteractive(ok));
-    void codeApi.capabilities().then((c) => live && setUnitLanguages(c.unit_test_languages));
+    if (wantInteractive) void interactiveAvailable().then((ok) => live && setInteractive(ok));
+    void codeApi.capabilities().then((c) => {
+      if (!live) return;
+      setUnitLanguages(c.unit_test_languages);
+      setPreviewsOn(c.previews);
+    });
     return () => {
       live = false;
     };
-  }, [customRun]);
+  }, [customRun, wantInteractive]);
   useEffect(() => {
     if (!term.unavailable) return;
     setInteractive(false);
@@ -160,6 +183,11 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
       setTab(kind);
       setMobile("output");
       setLayout((l) => ({ ...l, bottom: true }));
+      if (kind === "output" && startServer.current) {
+        setTab("preview");
+        startServer.current();
+        return;
+      }
       if (kind === "tests" && io.tests.length === 0) {
         setUnitSignal((n) => n + 1);
         return;
@@ -296,7 +324,7 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
             {task}
           </div>
         ) : (
-          <FileTree files={files} active={active} readOnly={readOnly} onOpen={open} {...fileOps} />
+          <FileTree files={files} active={active} readOnly={readOnly} onOpen={open} {...(fixedFiles ? {} : fileOps)} />
         )}
       </div>
     </div>
@@ -330,6 +358,7 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
             value={activeFile.content}
             theme={theme === "dark" ? "vs-dark" : "light"}
             onChange={(v) => setContent(v ?? "")}
+            onMount={(editor) => onEditorMount?.(editor)}
             options={{
               readOnly,
               minimap: { enabled: false },
@@ -350,6 +379,9 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
   const projectLanguage = language || guessLanguage(visible.map((f) => f.path));
   const filesRef = useRef(files);
   filesRef.current = files;
+  const showPreview = previewsOn && !customRun && looksLikeServer(visible);
+  const runServer = () => void preview.start({ files: filesRef.current.filter((f) => !isHiddenFile(f.path)), language: projectLanguage, entry: io.entry ?? null });
+  startServer.current = showPreview ? runServer : null;
   const showUnit = !customRun && !!projectLanguage && unitLanguages.includes(projectLanguage) && hasUnitTests(visible);
 
   const results = (
@@ -364,6 +396,19 @@ const CodeWorkspace = forwardRef<CodeWorkspaceHandle, CodeWorkspaceProps>(functi
       onRunTests={() => void doRun("tests")}
       canRun={visible.length > 0}
       terminalBusy={term.status === "starting" || term.status === "running"}
+      preview={
+        showPreview ? (
+          <PreviewPanel
+            status={preview.status}
+            logs={preview.logs}
+            url={preview.url}
+            error={preview.error}
+            onStart={runServer}
+            onStop={() => void preview.stop()}
+            onReload={() => void preview.refreshUrl()}
+          />
+        ) : undefined
+      }
       unitTests={showUnit ? <UnitTestsPanel language={projectLanguage} runSignal={unitSignal} takeRunRequest={takeUnitRequest} getFiles={() => filesRef.current.filter((f) => !isHiddenFile(f.path))} /> : undefined}
       terminal={
         interactive ? (
