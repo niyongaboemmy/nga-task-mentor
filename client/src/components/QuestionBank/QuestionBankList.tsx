@@ -24,7 +24,7 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { QuestionBankApiService, QuizApiService } from "../../services/quizApi";
-import QuestionBankModal from "./QuestionBankModal";
+import { useLocation, useNavigate } from "react-router-dom";
 import DocxUploadModal from "./DocxUploadModal";
 import AIGenerateModal from "./AIGenerateModal";
 import QuestionPreviewModal from "../Quizzes/QuestionPreviewModal";
@@ -173,11 +173,10 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
 
   // Modal State
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const navigate = useNavigate();
+  const location = useLocation();
   const [isDocxModalOpen, setIsDocxModalOpen] = useState(false);
   const [isAIGenerateOpen, setIsAIGenerateOpen] = useState(false);
-  const [selectedQuestion, setSelectedQuestion] =
-    useState<QuestionBankEntry | null>(null);
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewQuestion, setPreviewQuestion] =
     useState<QuestionBankEntry | null>(null);
@@ -409,15 +408,10 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
     setTagInput("");
   };
 
-  const handleEdit = (question: QuestionBankEntry) => {
-    setSelectedQuestion(question);
-    setIsModalOpen(true);
-  };
-
-  const handleAdd = () => {
-    setSelectedQuestion(null);
-    setIsModalOpen(true);
-  };
+  // Editing and creating happen on their own page; back returns here.
+  const editorBack = `?back=${encodeURIComponent(location.pathname + location.search)}`;
+  const handleEdit = (question: QuestionBankEntry) => navigate(`/courses/${courseId}/question-bank/${question.id}/edit${editorBack}`);
+  const handleAdd = () => navigate(`/courses/${courseId}/question-bank/new${editorBack}`);
   const handlePreview = (question: QuestionBankEntry) => {
     setPreviewQuestion(question);
     setIsPreviewOpen(true);
@@ -1039,15 +1033,6 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
           busy={loading}
         />
       </div>
-
-      {/* Question CRUD Modal */}
-      <QuestionBankModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        courseId={courseId}
-        question={selectedQuestion}
-        onSuccess={handleChanged}
-      />
 
       <DocxUploadModal
         isOpen={isDocxModalOpen}

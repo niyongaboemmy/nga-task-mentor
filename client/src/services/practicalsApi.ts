@@ -146,7 +146,7 @@ export const gradingWorkspaceHref = (
   if (opts.questionId) q.set("question", String(opts.questionId));
   if (opts.studentId) q.set("student", String(opts.studentId));
   const qs = q.toString();
-  return `/grading/practical/${type}/${id}${qs ? `?${qs}` : ""}`;
+  return `/grading/${type}/${id}${qs ? `?${qs}` : ""}`;
 };
 
 export const practicalsApi = {

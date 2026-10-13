@@ -17,7 +17,7 @@ const json = (route: Route, body: unknown, status = 200) =>
 const day = 86_400_000;
 const INBOX = {
   items: [
-    { id: 77, kind: "assignment", title: "Linked lists in C", subject: { id: 12, name: "Programming", code: "S4 SOD" }, to_grade: 12, late: 3, due_at: new Date(Date.now() - 2 * day).toISOString(), waiting_days: 8, oldest_at: new Date(Date.now() - 8 * day).toISOString(), code: true, grade_url: "/grading/practical/assignment/77" },
+    { id: 77, kind: "assignment", title: "Linked lists in C", subject: { id: 12, name: "Programming", code: "S4 SOD" }, to_grade: 12, late: 3, due_at: new Date(Date.now() - 2 * day).toISOString(), waiting_days: 8, oldest_at: new Date(Date.now() - 8 * day).toISOString(), code: true, grade_url: "/grading/assignment/77" },
     { id: 31, kind: "quiz", title: "Python basics", subject: { id: 12, name: "Programming", code: "S4 SOD" }, to_grade: 25, late: 0, due_at: null, waiting_days: 1, oldest_at: new Date(Date.now() - day).toISOString(), code: true, grade_url: "/quizzes/31/submissions" },
     { id: 40, kind: "assignment", title: "Essay: the history of computing", subject: { id: 15, name: "ICT", code: "S3 ICT" }, to_grade: 4, late: 1, due_at: new Date(Date.now() - day).toISOString(), waiting_days: 0, oldest_at: new Date().toISOString(), code: false, grade_url: "/assignments/40" },
   ],
@@ -59,7 +59,7 @@ test("a teacher finds everything to grade in one list, with one button per activ
 
   // Code work opens Grading directly.
   await page.getByTestId("to-grade-item").first().getByTestId("to-grade-open").click();
-  await expect(page).toHaveURL(/\/grading\/practical\/assignment\/77$/);
+  await expect(page).toHaveURL(/\/grading\/assignment\/77$/);
 });
 
 test("old project addresses lead to the Code area", async ({ page }, info) => {
