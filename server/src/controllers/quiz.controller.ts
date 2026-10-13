@@ -16,11 +16,14 @@ import { aiService } from "../services/ai/aiService";
 import {
   Judge0Service,
   JudgeUnavailableError,
+  QuotaExceededError,
+  RunnerRejectedError,
   UnsupportedLanguageError,
 } from "../services/Judge0Service";
 import { answerFiles, getCodeRunner } from "../services/coderunner";
 import { codeRunnerLanguages } from "../utils/codeLanguages";
 import { getQuestionBankInclude } from "../utils/quizUtils";
+import { checkReferenceSolutions } from "../services/referenceCheck";
 import {
   allowedAnswerLanguages,
   isWebLanguage,
@@ -771,6 +774,22 @@ export const updateQuiz = async (req: Request, res: Response) => {
           ],
         });
       }
+
+      // A coding question whose own reference solution fails its tests is broken.
+      const reference = await checkReferenceSolutions(quiz.id);
+      if (reference.failures.length) {
+        await transaction.rollback();
+        return res.status(422).json({
+          success: false,
+          code: "REFERENCE_SOLUTION_FAILS",
+          message: `Can't publish yet: the reference solution of ${reference.failures.length} coding question${reference.failures.length === 1 ? "" : "s"} fails its own tests. Fix the tests or the solution, then publish.`,
+          errors: reference.failures.map((f) => ({
+            field: "questions",
+            message: `Question ${f.order ?? f.question_id}${f.title ? ` (${f.title})` : ""}: ${f.error ?? `${f.failed_tests.length} test${f.failed_tests.length === 1 ? "" : "s"} fail (${f.failed_tests.map((t) => t.id).join(", ")})`}`,
+          })),
+          data: { failures: reference.failures },
+        });
+      }
     }
 
     // Cross-field check against the stored value when only one date is sent.
@@ -1475,10 +1494,8 @@ export const submitQuizAttempt = async (req: Request, res: Response) => {
         // manual review it is the instructor's starting point.
         // Use advanced grading for all question types for consistency and to trigger AI grading
         try {
-          gradingResult = await AdvancedQuizGrader.gradeWithConfig(
-            question,
-            answer.answer,
-          );
+          // Code answers are queued and graded in the background.
+          gradingResult = await AdvancedQuizGrader.gradeInRequest(question, answer.answer);
           isCorrect = gradingResult.is_correct;
           pointsEarned = gradingResult.points_earned;
           if (isPendingGrade(gradingResult)) anyPendingReview = true;
@@ -2198,6 +2215,22 @@ async function runWithStdin(res: Response, code: string, language: string, stdin
 }
 
 const runErrorResponse = (res: Response, error: any) => {
+  if (res.headersSent) return;
+  if (error instanceof QuotaExceededError) {
+    return res.status(503).json({
+      success: false,
+      code: "QUOTA_EXCEEDED",
+      message: "The code runner has reached its limit for now. Try again later, or tell your teacher.",
+    });
+  }
+  if (error instanceof RunnerRejectedError) {
+    console.error("Run code refused by the runner:", error.status, error.detail);
+    return res.status(502).json({
+      success: false,
+      code: "RUNNER_REJECTED",
+      message: error.message,
+    });
+  }
   if (error instanceof JudgeUnavailableError) {
     return res.status(503).json({
       success: false,
@@ -2215,7 +2248,8 @@ const runErrorResponse = (res: Response, error: any) => {
   console.error("Run code error:", error);
   return res.status(500).json({
     success: false,
-    message: error?.message || "Failed to execute code",
+    code: "RUN_FAILED",
+    message: "The code couldn't be run because of a problem on Task Mentor. Try again.",
   });
 };
 
@@ -2287,7 +2321,7 @@ export const runCode = async (req: Request, res: Response) => {
       }
     }
 
-    if (!wantsTests) return runWithStdin(res, code, language, stdin);
+    if (!wantsTests) return await runWithStdin(res, code, language, stdin);
 
     let qd: any = question.questionBank?.question_data || {};
     if (typeof qd === "string") {
@@ -2326,7 +2360,7 @@ export const previewRunCode = async (req: Request, res: Response) => {
     if (!checkRunInput(req, res)) return;
     const { code, language, stdin, test_cases } = req.body;
     if (!Array.isArray(test_cases) || test_cases.length === 0) {
-      return runWithStdin(res, code, language, stdin);
+      return await runWithStdin(res, code, language, stdin);
     }
     if (isWebLanguage(language)) {
       return res.json({ success: true, data: webPreviewResults(test_cases, true) });

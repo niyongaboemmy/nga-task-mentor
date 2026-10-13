@@ -202,6 +202,9 @@ export interface GradingQueueItem {
   subject_code: string | null;
   subject_name: string;
   pending: number;
+  /** Of all submissions, how many came in late. */
+  late: number;
+  due_at: string | null;
   oldest_at: string | null;
   waiting_days: number;
   url: string;
@@ -700,6 +703,8 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
         subject_code: a.summary.subject_code,
         subject_name: a.summary.subject_name,
         pending: a.summary.pending,
+        late: a.summary.late,
+        due_at: a.summary.due_at,
         oldest_at: iso(oldest),
         waiting_days: oldest ? Math.max(0, Math.floor((nowMs - oldest.getTime()) / DAY_MS)) : 0,
         url: a.summary.url,
@@ -795,7 +800,8 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
     subjects,
     trend: trend.map(({ scores, ...w }) => ({ ...w, avg_score: scores.length ? round1(mean(scores)!) : null })),
     distribution,
-    grading_queue: grading_queue.slice(0, 25),
+    // The To grade inbox lists them all; the dashboard shows the first few.
+    grading_queue: grading_queue.slice(0, 100),
     upcoming: upcoming.slice(0, 20),
     assessments: assessments.slice(0, 40),
     students: {

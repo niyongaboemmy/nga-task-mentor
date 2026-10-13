@@ -13,6 +13,9 @@ import type {
 } from "../types/quiz.types";
 
 // Quiz API Service
+
+/** Code runs wait for the code runner; the server answers within 150 s. */
+const RUN_TIMEOUT_MS = 150_000;
 export class QuizApiService {
   // Quiz Management
   static async getQuizzes(
@@ -230,6 +233,7 @@ export class QuizApiService {
     const response = await axios.post(
       `/quizzes/questions/${questionId}/run-code`,
       data,
+      { timeout: RUN_TIMEOUT_MS },
     );
     return response.data;
   }
@@ -264,6 +268,7 @@ export class QuizApiService {
     const response = await axios.post(
       `/quizzes/questions/${questionId}/run-code`,
       { ...data, run_tests: true },
+      { timeout: RUN_TIMEOUT_MS },
     );
     return response.data;
   }
@@ -342,7 +347,7 @@ export class QuizApiService {
       web_preview?: boolean;
     };
   }> {
-    const response = await axios.post("/quizzes/preview-run", data);
+    const response = await axios.post("/quizzes/preview-run", data, { timeout: RUN_TIMEOUT_MS });
     return response.data;
   }
 
@@ -541,6 +546,12 @@ export class QuestionBankApiService {
   }
 
   /** Update a question in the bank. */
+  /** One question of a course's bank (the edit page). */
+  static async getCourseQuestion(courseId: number, id: number): Promise<{ success: boolean; data: QuestionBankEntry }> {
+    const response = await axios.get(`/courses/${courseId}/question-bank/${id}`);
+    return response.data;
+  }
+
   static async updateCourseQuestion(
     courseId: number,
     id: number,

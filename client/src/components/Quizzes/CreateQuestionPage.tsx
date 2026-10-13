@@ -484,7 +484,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                   <option value="ordering">Ordering</option>
                   <option value="dropdown">Dropdown</option>
                   <option value="algorithmic">Algorithmic</option>
-                  <option value="coding">Coding Workflow Workspace</option>
+                  <option value="coding">Coding question</option>
                   <option value="tmcode_practical">TMCode practical</option>
                 </Select>
               </div>
@@ -583,7 +583,7 @@ export const CreateQuestionPage: React.FC<CreateQuestionPageProps> = ({
                   Configure specific details
                 </h3>
                 <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
-                  Set up the correct answers, choices, or workspace editors for
+                  Set up the correct answers, choices, or code setup for
                   your{" "}
                   {(formData.question_type || "single_choice").replace(
                     "_",

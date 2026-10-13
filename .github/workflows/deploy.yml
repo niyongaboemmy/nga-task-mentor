@@ -48,6 +48,24 @@ jobs:
             git fetch origin main
             git reset --hard origin/main
 
+            # Code runner: our own tm-judge when it's installed (its token lives
+            # in /opt/apps/tm-judge/.judge.env); else Judge0. The same file may
+            # point at a runner on another machine (JUDGE_URL, e.g. over the
+            # WireGuard tunnel) and hold the preview settings.
+            TMJUDGE_TOKEN=""
+            TMJUDGE_URL="http://127.0.0.1:5010"
+            JUDGE_PREVIEW_SECRET=""
+            JUDGE_PREVIEW_BASE=""
+            if [ -r /opt/apps/tm-judge/.judge.env ]; then
+              judge_env() { sed -n "s/^$1=//p" /opt/apps/tm-judge/.judge.env | head -n 1; }
+              TMJUDGE_TOKEN="$(judge_env JUDGE_TOKEN)"
+              TMJUDGE_URL="$(judge_env JUDGE_URL)"; TMJUDGE_URL="${TMJUDGE_URL:-http://127.0.0.1:5010}"
+              JUDGE_PREVIEW_SECRET="$(judge_env JUDGE_PREVIEW_SECRET)"
+              JUDGE_PREVIEW_BASE="$(judge_env JUDGE_PREVIEW_BASE)"
+            fi
+            if [ -n "$TMJUDGE_TOKEN" ]; then CODERUNNER_ENGINE=tmjudge; else CODERUNNER_ENGINE=judge0; fi
+            echo "Code runner engine: $CODERUNNER_ENGINE"
+
             # --- Generate .env files from GitHub Actions secrets ---
             # Values are quoted so characters like '#' are not treated as
             # comment delimiters by dotenv.
@@ -120,6 +138,11 @@ jobs:
             JUDGE0_URL=https://judge0-ce.p.rapidapi.com
             JUDGE0_API_KEY="${JUDGE0_API_KEY}"
             JUDGE0_RAPIDAPI_HOST=judge0-ce.p.rapidapi.com
+            CODERUNNER_ENGINE=${CODERUNNER_ENGINE}
+            TMJUDGE_URL=${TMJUDGE_URL}
+            TMJUDGE_TOKEN="${TMJUDGE_TOKEN}"
+            JUDGE_PREVIEW_SECRET="${JUDGE_PREVIEW_SECRET}"
+            JUDGE_PREVIEW_BASE=${JUDGE_PREVIEW_BASE}
 
             OPENAI_API_KEY="${OPENAI_API_KEY}"
             OPENAI_MODEL=gpt-4o

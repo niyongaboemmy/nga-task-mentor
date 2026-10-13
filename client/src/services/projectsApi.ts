@@ -679,7 +679,7 @@ export function normalizeLinkable(body: unknown): LinkableActivity[] {
       practical_questions: Array.isArray(raw.practical_questions)
         ? raw.practical_questions.filter(isObj).map((q) => ({
             question_id: num(q.question_id),
-            title: str(q.title) ?? "TMCode practical",
+            title: str(q.title) ?? "Coding question",
             points: num(q.points),
           }))
         : undefined,

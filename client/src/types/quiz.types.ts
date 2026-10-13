@@ -133,7 +133,9 @@ export interface CodingData {
     memory_limit?: number;
   }>;
   constraints?: string;
+  /** Seconds. */
   time_limit?: number;
+  /** MB (questions saved before 2026-10 hold KB, e.g. 256000; read with care). */
   memory_limit?: number;
   allowed_languages?: string[];
   project_mode?: boolean;
@@ -144,6 +146,14 @@ export interface CodingData {
     is_entry_point?: boolean;
   }>;
   template_id?: string;
+  /** Teacher's own solution: fills expected outputs and checks the tests. Never sent to students. */
+  reference_solution?: string;
+  /** The catalog starter the question was set up from. */
+  starter_id?: string;
+  /** How answers are checked: input/output tests (default) or the teacher's unit tests. */
+  check_with?: "io" | "unit";
+  /** The teacher's unit-test files (check_with "unit"). Never sent to students. */
+  unit_test_files?: Array<{ path: string; content: string }>;
 }
 
 export interface LogicalExpressionData {

@@ -221,6 +221,6 @@ export function freezeTarget(project: Pick<ProjectDetail, "kind" | "head" | "git
 /** Where "Open" goes: the project page at the frozen revision (TM) or its Git tab. */
 export const frozenProjectHref = (row: Pick<ActivityProject, "link" | "project">): string => {
   const rev = row.link.revision_id;
-  if (row.project.kind === "tm") return `/projects/${row.project.id}?tab=files${rev ? `&rev=${rev}` : ""}`;
-  return `/projects/${row.project.id}?tab=git`;
+  if (row.project.kind === "tm") return `/code/projects/${row.project.id}?tab=files${rev ? `&rev=${rev}` : ""}`;
+  return `/code/projects/${row.project.id}?tab=git`;
 };

@@ -19,6 +19,7 @@ import RichTextDisplay from "../components/Common/RichTextDisplay";
 import CodeTestResults from "../components/Quizzes/CodeTestResults";
 import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
 import PracticalGradeSummary from "../components/Quizzes/PracticalGradeSummary";
+import CodeAnswerView from "../components/code/CodeAnswerView";
 import { gradingWorkspaceHref } from "../services/practicalsApi";
 
 interface QuestionResult {
@@ -207,7 +208,7 @@ function renderAnswer(
       <span className="flex flex-wrap items-center gap-2">
         <span>Submitted project{a.revision_number ? ` · revision #${a.revision_number}` : ""}</span>
         <Link
-          to={`/projects/${a.project_id}${a.revision_id ? `?tab=files&rev=${a.revision_id}` : ""}`}
+          to={`/code/projects/${a.project_id}${a.revision_id ? `?tab=files&rev=${a.revision_id}` : ""}`}
           className="font-semibold text-blue-700 hover:underline dark:text-blue-300"
         >
           View the code
@@ -467,11 +468,8 @@ function renderAnswer(
       answer?.solution ??
       (typeof answer === "string" ? answer : null);
     if (code) {
-      return (
-        <pre className="text-xs font-mono bg-gray-900 text-green-300 rounded-lg p-3 overflow-x-auto max-h-48 whitespace-pre-wrap leading-relaxed">
-          {code}
-        </pre>
-      );
+      // The files, read-only, with Run and the question's tests (teacher view).
+      return <CodeAnswerView code={String(code)} language={answer?.language ?? qd?.language} tests={Array.isArray(qd?.test_cases) ? qd.test_cases : []} />;
     }
     if (questionType === "coding") {
       return (
@@ -918,7 +916,7 @@ const SubmissionDetailPage: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50 px-3 py-2 dark:border-violet-900/50 dark:bg-violet-950/20">
                       <span className="text-xs text-violet-800 dark:text-violet-200">
                         {isPendingReview(q)
-                          ? "This practical waits to be graded against its criteria."
+                          ? "This coding question waits to be graded against its criteria."
                           : `Graded: ${q.points_earned ?? 0}/${q.points} pts.`}
                       </span>
                       <Link
@@ -929,7 +927,7 @@ const SubmissionDetailPage: React.FC = () => {
                         data-testid="grade-practical"
                         className="rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
                       >
-                        {isPendingReview(q) ? "Grade in workspace" : "Open in workspace"}
+                        {isPendingReview(q) ? "Grade" : "Open in Grading"}
                       </Link>
                     </div>
                   )}

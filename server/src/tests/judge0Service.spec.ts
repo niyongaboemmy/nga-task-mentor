@@ -2,6 +2,8 @@ import axios from "axios";
 import {
   Judge0Service,
   JudgeUnavailableError,
+  QuotaExceededError,
+  RunnerRejectedError,
   compareVersions,
   pickNewestRuntimes,
 } from "../services/Judge0Service";
@@ -120,10 +122,8 @@ describe("retries and quota", () => {
   });
 
   it("network errors count as unavailable too", async () => {
-    jest.spyOn(axios, "post").mockRejectedValue(Object.assign(new Error("ECONNRESET"), { code: "ECONNRESET" }));
-    await expect(Judge0Service.submit({ source_code: "x", language_id: 71 })).rejects.toBeInstanceOf(
-      JudgeUnavailableError,
-    );
+    jest.spyOn(axios, "get").mockRejectedValue(Object.assign(new Error("ECONNRESET"), { code: "ECONNRESET" }));
+    await expect(Judge0Service.getResult("t")).rejects.toBeInstanceOf(JudgeUnavailableError);
   });
 
   it("doesn't retry other 4xx (a bad request won't get better)", async () => {
@@ -132,6 +132,50 @@ describe("retries and quota", () => {
       JudgeUnavailableError,
     );
     expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it("a refused request (401/403/422) is a RunnerRejectedError with the judge's reason", async () => {
+    jest.spyOn(axios, "post").mockRejectedValue(
+      Object.assign(new Error("HTTP 422"), {
+        response: { status: 422, headers: {}, data: { memory_limit: ["must be less than or equal to 512000"] } },
+      }),
+    );
+    const err = await Judge0Service.runSingle("x", "python").catch((e) => e);
+    expect(err).toBeInstanceOf(RunnerRejectedError);
+    expect(err.status).toBe(422);
+    expect(err.message).toMatch(/512000/);
+
+    jest.spyOn(axios, "post").mockRejectedValue(axiosError(403));
+    const denied = await Judge0Service.runSingle("x", "python").catch((e) => e);
+    expect(denied).toBeInstanceOf(RunnerRejectedError);
+    expect(denied.message).toMatch(/access key or subscription/);
+  });
+
+  it("429 after every retry means the quota is used up (retryable later)", async () => {
+    jest.spyOn(axios, "post").mockRejectedValue(axiosError(429));
+    const err = await Judge0Service.runSingle("x", "python").catch((e) => e);
+    expect(err).toBeInstanceOf(QuotaExceededError);
+    expect(err).toBeInstanceOf(JudgeUnavailableError); // grading re-tries it later
+  });
+
+  it("never re-sends a run that may already have been accepted (timeout, reset)", async () => {
+    const post = jest
+      .spyOn(axios, "post")
+      .mockRejectedValue(Object.assign(new Error("timeout of 30000ms exceeded"), { code: "ECONNABORTED" }));
+    await expect(Judge0Service.runSingle("x", "python")).rejects.toBeInstanceOf(JudgeUnavailableError);
+    expect(post).toHaveBeenCalledTimes(1);
+  });
+
+  it("every judge call has a client timeout", async () => {
+    const post = jest.spyOn(axios, "post").mockResolvedValue(ok(ACCEPTED));
+    const get = jest.spyOn(axios, "get").mockResolvedValue(ok(ACCEPTED));
+    await Judge0Service.runSingle("print(3)", "python");
+    await Judge0Service.submit({ source_code: "x", language_id: 71 }).catch(() => undefined);
+    await Judge0Service.getResult("t");
+    for (const call of [...post.mock.calls, ...get.mock.calls]) {
+      const config = call.length === 3 ? call[2] : call[1];
+      expect((config as any)?.timeout).toBeGreaterThan(0);
+    }
   });
 
   it("records RapidAPI quota headers and warns under 20 %", async () => {

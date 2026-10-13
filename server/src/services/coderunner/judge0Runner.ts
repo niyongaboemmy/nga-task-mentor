@@ -66,7 +66,8 @@ export class Judge0Runner implements CodeRunner {
     const entry =
       req.files.find((f) => f.path === req.entry) ?? req.files[0] ?? { path: "", content: "" };
     const cpu = req.limits?.time_s ?? 5;
-    const memoryKb = (req.limits?.memory_mb ?? 256) * 1024;
+    // Judge0 CE takes at most 512 MB (512000 KB).
+    const memoryKb = Math.min(512_000, Math.max(16 * 1024, Math.round((req.limits?.memory_mb ?? 256) * 1024)));
 
     const tests: TestOutcome[] = [];
     let compile: RunResult["compile"] = null;
@@ -83,7 +84,7 @@ export class Judge0Runner implements CodeRunner {
           language_id: languageId,
           stdin: t.input,
           ...(hasExpected ? { expected_output: t.expected_output as string } : {}),
-          cpu_limit: cpu,
+          cpu_time_limit: cpu,
           memory_limit: memoryKb,
         });
         r = await Judge0Service.waitAndGetResult(token);

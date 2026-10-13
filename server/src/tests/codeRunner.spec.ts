@@ -1,7 +1,8 @@
 import axios from "axios";
 import { aiService } from "../services/ai/aiService";
-import { Judge0Service, JudgeUnavailableError } from "../services/Judge0Service";
-import { answerFiles, getCodeRunner, TmJudgeRunner } from "../services/coderunner";
+import { Judge0Service, JudgeUnavailableError, RunnerRejectedError } from "../services/Judge0Service";
+import { answerFiles, getCodeRunner, RoutedRunner, TmJudgeRunner } from "../services/coderunner";
+import { resetRunStats, runStats } from "../services/coderunner/stats";
 import { AdvancedQuizGrader, isPendingGrade } from "../utils/quizGrader";
 
 /** CodeRunner (plan §8.3): engine switch, tm-judge wire format, grading through it. */
@@ -165,5 +166,52 @@ describe("grading on tm-judge", () => {
     await expect(
       new TmJudgeRunner().run({ language: "python", files: [{ path: "main.py", content: "" }], tests: [] }),
     ).rejects.toBeInstanceOf(JudgeUnavailableError);
+  });
+});
+
+describe("routing between tm-judge and Judge0", () => {
+  const ok = (engine: string) => ({ engine, compile: null, tests: [{ id: "1", verdict: "ok", passed: true, stdout: "hi", stderr: null, time_ms: 1, memory_kb: 1 }] }) as any;
+  const fake = (name: "tmjudge" | "judge0", langs: string[], run: jest.Mock) =>
+    ({ name, supportsLanguage: (l: unknown) => langs.includes(String(l)), languages: () => langs, run }) as any;
+  const req = (language: string) => ({ language, files: [{ path: "main", content: "x" }], tests: [{ id: "1", input: "" }] });
+
+  it("tm-judge runs its languages; Judge0 the ones tm-judge lacks", async () => {
+    const tm = jest.fn().mockResolvedValue(ok("tmjudge"));
+    const j0 = jest.fn().mockResolvedValue(ok("judge0"));
+    const r = new RoutedRunner(fake("tmjudge", ["python"], tm), fake("judge0", ["python", "go"], j0), () => true);
+    expect(r.engineFor("python")).toBe("tmjudge");
+    expect(r.engineFor("go")).toBe("judge0");
+    expect(r.engineFor("cobol")).toBeNull();
+    expect(r.languages()).toEqual(["python", "go"]);
+    expect((await r.run(req("python"))).engine).toBe("tmjudge");
+    expect((await r.run(req("go"))).engine).toBe("judge0");
+  });
+
+  it("falls back to Judge0 only when tm-judge can't be reached", async () => {
+    const j0 = jest.fn().mockResolvedValue(ok("judge0"));
+    const down = new RoutedRunner(fake("tmjudge", ["python"], jest.fn().mockRejectedValue(new JudgeUnavailableError("down"))), fake("judge0", ["python"], j0), () => true);
+    expect((await down.run(req("python"))).engine).toBe("judge0");
+
+    const refused = new RoutedRunner(
+      fake("tmjudge", ["python"], jest.fn().mockRejectedValue(new RunnerRejectedError("refused", 400))),
+      fake("judge0", ["python"], j0),
+      () => true,
+    );
+    await expect(refused.run(req("python"))).rejects.toBeInstanceOf(RunnerRejectedError);
+
+    const noFallback = new RoutedRunner(fake("tmjudge", ["python"], jest.fn().mockRejectedValue(new JudgeUnavailableError("down"))), fake("judge0", ["python", "go"], j0), () => false);
+    await expect(noFallback.run(req("python"))).rejects.toBeInstanceOf(JudgeUnavailableError);
+    expect(noFallback.engineFor("go")).toBeNull();
+  });
+
+  it("records each run's engine and outcome for the admin page (no code, no output)", async () => {
+    resetRunStats();
+    process.env.CODERUNNER_ENGINE = "judge0";
+    jest.spyOn(Judge0Service, "runSingle").mockRejectedValueOnce(new RunnerRejectedError("refused (403)", 403));
+    await getCodeRunner().run({ ...req("python"), interactive: true }).catch(() => undefined);
+    const stats = runStats();
+    expect(stats.by_outcome.RUNNER_REJECTED).toBe(1);
+    expect(stats.recent_errors[0]).toMatchObject({ engine: "judge0", language: "python", outcome: "RUNNER_REJECTED" });
+    expect(JSON.stringify(stats)).not.toContain('"x"');
   });
 });
