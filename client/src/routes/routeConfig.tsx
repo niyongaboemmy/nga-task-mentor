@@ -69,6 +69,7 @@ const SubjectAssessmentReportPage = lazyPage(() => import("../pages/SubjectAsses
 const GeneralAttributesPage = lazyPage(() => import("../pages/GeneralAttributesPage"));
 const BloomsTaxonomyManagementPage = lazyPage(() => import("../components/Quizzes/BloomsTaxonomyManagementPage"));
 const QuestionBankPage = lazyPage(() => import("../pages/QuestionBankPage"));
+const QuestionEditPage = lazyPage(() => import("../pages/questionBank/QuestionEditPage"));
 const QuestionBankHubPage = lazyPage(() => import("../pages/QuestionBankHubPage"));
 const SubmissionDetailPage = lazyPage(() => import("../pages/SubmissionDetailPage"));
 const GradesPage = lazyPage(() => import("../pages/GradesPage"));
@@ -209,6 +210,17 @@ export const appRoutes: AppRoute[] = [
   {
     path: "/courses/:courseId/question-bank",
     element: <QuestionBankPage />,
+    permissions: ["QUESTION_BANK_VIEW"],
+  },
+  {
+    // Creating or editing a question on a page, not a pop-up.
+    path: "/courses/:courseId/question-bank/new",
+    element: <QuestionEditPage />,
+    permissions: ["QUESTION_BANK_VIEW"],
+  },
+  {
+    path: "/courses/:courseId/question-bank/:questionId/edit",
+    element: <QuestionEditPage />,
     permissions: ["QUESTION_BANK_VIEW"],
   },
   {
