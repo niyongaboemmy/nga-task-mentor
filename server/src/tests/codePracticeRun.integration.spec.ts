@@ -91,7 +91,10 @@ describe("catalog and starters", () => {
     const lang = (k: string) => res.body.data.languages.find((l: any) => l.key === k);
     expect(lang("python")).toMatchObject({ enabled: true, runnable: true });
     expect(lang("python").kinds.map((k: any) => k.id)).toEqual(expect.arrayContaining(["python/single", "python/project"]));
-    expect(lang("csharp")).toMatchObject({ enabled: false, runnable: false });
+    // Offered since the runner installs it (catalog 2026.10.4); whether it runs here depends on the engine.
+    expect(lang("csharp")).toMatchObject({ enabled: true });
+    expect(lang("csharp").kinds.map((k: any) => k.id)).toContain("csharp/script");
+    expect(lang("julia")).toMatchObject({ enabled: false, runnable: false });
     expect(res.body.data.version).toMatch(/^\d{4}\./);
   });
 
