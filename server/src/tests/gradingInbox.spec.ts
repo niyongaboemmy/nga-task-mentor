@@ -24,7 +24,7 @@ describe("To grade inbox items", () => {
       new Set([1]),
       new Set([9]),
     );
-    expect(items[0]).toMatchObject({ code: true, grade_url: "/grading/practical/assignment/1", to_grade: 3, late: 1 });
+    expect(items[0]).toMatchObject({ code: true, grade_url: "/grading/assignment/1", to_grade: 3, late: 1 });
     expect(items[1]).toMatchObject({ code: false, grade_url: "/assignments/2" });
     expect(items[2]).toMatchObject({ code: true, grade_url: "/quizzes/9/submissions", subject: { id: 7, name: "Programming", code: "CS" } });
   });

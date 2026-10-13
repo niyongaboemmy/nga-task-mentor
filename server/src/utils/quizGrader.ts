@@ -27,6 +27,7 @@ import {
 import { CodeExecutor, TestCase } from "./codeExecutor";
 import { JudgeUnavailableError } from "../services/Judge0Service";
 import { answerFiles, getCodeRunner } from "../services/coderunner";
+import { judgeTestsLanguage } from "../services/coderunner/judgeInfo";
 import { isWebLanguage, resolveAnswerLanguage } from "./codeLanguages";
 import { aiService } from "../services/ai/aiService";
 
@@ -1936,6 +1937,8 @@ export class CodingGrader {
       };
     }
 
+    if (questionData.check_with === "unit") return gradeUnitTestAnswer(question, questionData, answer);
+
     const testCases = questionData.test_cases || [];
     if (!Array.isArray(testCases) || testCases.length === 0) {
       return {
@@ -2070,6 +2073,77 @@ export class CodingGrader {
           : "Automatic grading failed – needs manual review.",
       );
     }
+  }
+}
+
+/**
+ * A coding question checked by the teacher's unit tests (CODE_RUNNER_PLAN.md
+ * §9): the student's files plus the teacher's test files (which win on a
+ * name clash) run on tm-judge's unit-test step; the score is the share of
+ * tests that pass. Needs a runner with unit tests for the language; otherwise
+ * (and on runner trouble) the answer waits, as for any coding answer.
+ */
+export async function gradeUnitTestAnswer(question: QuizQuestion, questionData: any, answer: any): Promise<GradingResult> {
+  const runner = getCodeRunner();
+  const language = resolveAnswerLanguage(questionData, answer.language);
+  const testFiles: { path: string; content: string }[] = (Array.isArray(questionData.unit_test_files) ? questionData.unit_test_files : []).filter(
+    (f: any) => f && typeof f.path === "string" && typeof f.content === "string",
+  );
+  if (!testFiles.length) return pendingCodeResult("This question has no unit tests yet – needs manual review.");
+  if (!language || !judgeTestsLanguage(language)) {
+    return pendingCodeResult(`Unit tests for ${language ?? "this language"} can't run here yet – needs manual review.`);
+  }
+  const { files } = answerFiles(answer.code, language);
+  const byPath = new Map(files.map((f) => [f.path, f.content]));
+  for (const f of testFiles) byPath.set(f.path, f.content);
+  const maxPoints = parseFloat(String(question.points || 0));
+  try {
+    const run = await runner.run({ language, files: [...byPath].map(([path, content]) => ({ path, content })), tests: [], actions: ["test"], limits: questionRunLimits(questionData) });
+    const unit = run.unit;
+    if (!unit || unit.verdict === "internal-error" || unit.verdict === "package-not-available") {
+      return pendingCodeResult(
+        unit?.verdict === "package-not-available" ? `${run.error?.message ?? "A package isn't available on the runner."} – needs manual review.` : "Automatic grading failed – needs manual review.",
+      );
+    }
+    const testResults = unit.tests.map((t) => ({
+      testCaseId: t.id,
+      is_hidden: false,
+      points: 1,
+      passed: t.status === "passed",
+      input: t.group ? `${t.group} › ${t.name}` : t.name,
+      expected: null,
+      actual: null,
+      error: t.status === "passed" ? null : t.message || t.details || t.status,
+      executionTime: t.durationMs,
+      memoryUsed: null,
+      status: t.status,
+      verdict: t.status === "passed" ? "accepted" : t.status === "skipped" ? "ok" : "wrong-answer",
+    }));
+    const counted = unit.total - unit.skipped;
+    const passed = unit.passed;
+    // No results (the code or the tests don't compile, too slow…) score 0, with the reason.
+    const why: Record<string, string> = {
+      error: "The tests couldn't run with this code (it probably doesn't compile).",
+      "time-limit": "The tests took too long and were stopped.",
+      "memory-limit": "The tests ran out of memory.",
+    };
+    const score = counted > 0 ? (passed / counted) * maxPoints : 0;
+    const allPassed = unit.verdict === "passed" && counted > 0 && passed === counted;
+    return {
+      is_correct: allPassed,
+      points_earned: Math.max(0, Math.min(score, maxPoints)),
+      feedback: counted > 0 ? (allPassed ? "All unit tests passed." : `${passed}/${counted} unit tests passed.`) : why[unit.verdict] ?? "No unit test results.",
+      detailed_feedback: {
+        testResults,
+        passedTests: passed,
+        totalTests: counted,
+        unit: { framework: unit.framework, verdict: unit.verdict, output: unit.output.slice(0, 8000), time_ms: unit.time_ms },
+      },
+    };
+  } catch (error: any) {
+    if (error instanceof JudgeUnavailableError) return pendingCodeResult("Judge unavailable – will re-grade.", { judge_unavailable: true });
+    console.error("Unit-test grading failed:", error);
+    return pendingCodeResult("Automatic grading failed – needs manual review.");
   }
 }
 

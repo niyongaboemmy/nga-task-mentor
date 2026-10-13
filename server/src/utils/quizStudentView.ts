@@ -363,6 +363,8 @@ const ANSWER_KEYS = new Set([
   "solution",
   "solution_code",
   "reference_solution",
+  // The teacher's unit tests (unit-test coding questions) stay on the server.
+  "unit_test_files",
   // Algorithmic questions are now answered with code; an imported
   // algorithm's code is the reference solution.
   "algorithm_code",

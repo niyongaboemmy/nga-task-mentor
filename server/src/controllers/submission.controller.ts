@@ -245,7 +245,7 @@ export const getGroupedSubmissions = async (req: Request, res: Response) => {
       }
       const gradingUrl = (a: Assignment) =>
         canViewAll && (tmcodeIds.has(a.id) || String((a as any).submission_type ?? "").toLowerCase() === "project")
-          ? `/grading/practical/assignment/${a.id}`
+          ? `/grading/assignment/${a.id}`
           : `/assignments/${a.id}`;
 
       for (const a of rows) {
