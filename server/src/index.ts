@@ -17,6 +17,8 @@ import helmet from "helmet";
 import rateLimit from "express-rate-limit";
 import { startJudgeMaintenance } from "./services/codeRegrade.service";
 import tmcodeRoutes from "./routes/tmcode";
+import tmcodeCodeRoutes from "./routes/tmcodeCode";
+import tmcodeExamCodeRoutes from "./routes/tmcodeExamCode";
 import { startTmcodeWorker } from "./services/tmcodeGrading.service";
 import { Sequelize } from "sequelize-typescript";
 import http from "http";
@@ -160,6 +162,10 @@ app.use("/api/activity", activityRoutes);
 
 // TMCode desktop API: its own JSON parser (snapshots carry whole
 // workspaces, beyond the default 100 kB). Mounted before the global parser.
+// TMCode's code runner (user token, and inside an exam session): mounted
+// before the general /api/tmcode router so nothing there intercepts them.
+app.use("/api/tmcode/code", express.json({ limit: "2mb" }), tmcodeCodeRoutes);
+app.use("/api/tmcode/sessions/:sid/code", express.json({ limit: "2mb" }), tmcodeExamCodeRoutes);
 app.use("/api/tmcode", express.json({ limit: "8mb" }), tmcodeRoutes);
 
 // Body parser middleware

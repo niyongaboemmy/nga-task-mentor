@@ -132,6 +132,9 @@ export async function buildTask(q: any, submissionId: number, profile: TmcodePro
     title,
     brief_md: brief,
     profile_id: profile.id,
+    // How the answer is checked: input/output tests, or the teacher's unit
+    // tests (which never leave the server: no unit_test_files here).
+    check_with: (qd.check_with === "unit" ? "unit" : "io") as "io" | "unit",
     files: starterFiles(q, profile),
     visible_tests: tests
       .filter((tc) => !tc?.is_hidden)
