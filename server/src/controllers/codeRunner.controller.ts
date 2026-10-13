@@ -1,5 +1,5 @@
 import { Request, Response } from "express";
-import { getCodeRunner, TmJudgeRunner } from "../services/coderunner";
+import { getCodeRunner, judge0Configured, TmJudgeRunner } from "../services/coderunner";
 import { runStats } from "../services/coderunner/stats";
 import { Judge0Service } from "../services/Judge0Service";
 
@@ -18,7 +18,7 @@ const LABELS = new Map(Judge0Service.supportedLanguages().map((l) => [l.key, l.l
 export const codeRunnerStatus = async (_req: Request, res: Response) => {
   const runner = getCodeRunner();
   const engine = process.env.CODERUNNER_ENGINE === "tmjudge" ? "tmjudge" : "judge0";
-  const judge0Configured = !!process.env.JUDGE0_API_KEY || !!process.env.JUDGE0_URL;
+  const judge0 = judge0Configured();
   const tm = engine === "tmjudge" || process.env.TMJUDGE_TOKEN ? await tmJudge.health() : null;
 
   // Every language any engine can run, with the engine that runs it here.
@@ -53,8 +53,8 @@ export const codeRunnerStatus = async (_req: Request, res: Response) => {
           preview_secret_set: (process.env.JUDGE_PREVIEW_SECRET ?? "").length >= 32,
         },
         judge0: {
-          configured: judge0Configured,
-          role: engine === "judge0" ? "primary" : judge0Configured ? "fallback" : "off",
+          configured: judge0,
+          role: engine === "judge0" ? "primary" : judge0 ? "fallback" : "off",
           quota: Judge0Service.quotaStatus(),
         },
       },
