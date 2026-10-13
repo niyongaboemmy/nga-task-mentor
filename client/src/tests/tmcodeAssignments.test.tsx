@@ -418,13 +418,13 @@ describe("teacher Workspaces panel", () => {
     expect(within(bo).queryByRole("img", { name: /TMCode/ })).toBeNull();
     expect(within(bo).getByRole("link", { name: /Code at rev 3/ })).toHaveAttribute("href", "/code/projects/12?tab=files&rev=77");
     // A submitted project is graded against the criteria in the grading workspace.
-    expect(within(bo).getByRole("link", { name: "Grade" })).toHaveAttribute("href", "/grading/practical/assignment/77?student=2");
-    expect(screen.getByTestId("open-grading-workspace")).toHaveAttribute("href", "/grading/practical/assignment/77");
+    expect(within(bo).getByRole("link", { name: "Grade" })).toHaveAttribute("href", "/grading/assignment/77?student=2");
+    expect(screen.getByTestId("open-grading-workspace")).toHaveAttribute("href", "/grading/assignment/77");
     expect(onGrade).not.toHaveBeenCalled();
 
     const cy = rows.find((r) => r.textContent?.includes("Cy Graded"))!;
     expect(cy).toHaveTextContent("17 / 20");
-    expect(within(cy).getByRole("link", { name: "Regrade" })).toHaveAttribute("href", "/grading/practical/assignment/77?student=3");
+    expect(within(cy).getByRole("link", { name: "Regrade" })).toHaveAttribute("href", "/grading/assignment/77?student=3");
 
     const di = rows.find((r) => r.textContent?.includes("Di Absent"))!;
     expect(di).toHaveTextContent("hasn't signed in to Task Mentor yet");

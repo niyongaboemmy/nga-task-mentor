@@ -80,3 +80,41 @@ export function firstFileToOpen(paths: string[], entry?: string | null): string 
     paths[0]
   );
 }
+
+const LANGUAGE_EXT: Record<string, string> = {
+  python: "py",
+  javascript: "js",
+  typescript: "ts",
+  c: "c",
+  cpp: "cpp",
+  java: "java",
+  go: "go",
+  rust: "rs",
+  csharp: "cs",
+  kotlin: "kt",
+  php: "php",
+  ruby: "rb",
+  swift: "swift",
+};
+
+/** The file name a single-file answer gets (Java's is Main.java). */
+export const entryFileFor = (language: string | null | undefined) =>
+  language === "java" ? "Main.java" : `main.${LANGUAGE_EXT[language ?? ""] ?? "txt"}`;
+
+/** Source extension → catalog language key (for files without a declared language). */
+const SOURCE_LANGUAGE: Record<string, string> = {
+  py: "python", js: "javascript", cjs: "javascript", mjs: "javascript", jsx: "javascript", ts: "typescript", tsx: "typescript",
+  java: "java", kt: "kotlin", go: "go", rs: "rust", c: "c", cpp: "cpp", cc: "cpp", cxx: "cpp", cs: "csharp", rb: "ruby",
+  php: "php", swift: "swift", dart: "dart", scala: "scala", ex: "elixir", exs: "elixir", hs: "haskell", jl: "julia",
+  lua: "lua", r: "r", sh: "bash", sql: "sql",
+};
+
+/** The language most of the source files are in. */
+export function guessLanguage(paths: string[]): string | null {
+  const count = new Map<string, number>();
+  for (const p of paths) {
+    const lang = SOURCE_LANGUAGE[extOf(p)];
+    if (lang) count.set(lang, (count.get(lang) ?? 0) + 1);
+  }
+  return [...count].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+}

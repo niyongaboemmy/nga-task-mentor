@@ -347,7 +347,7 @@ test.describe("Teacher: Workspaces", () => {
     // Grading opens on the student's submitted work (one place to grade).
     await expect(rows.filter({ hasText: "Grace Uwase" }).getByRole("link", { name: /^(Grade|Regrade)$/ })).toHaveAttribute(
       "href",
-      /\/grading\/practical\/assignment\/\d+\?student=\d+/,
+      /\/grading\/assignment\/\d+\?student=\d+/,
     );
 
     await panel.getByRole("radio", { name: /To grade/ }).click();

@@ -47,6 +47,10 @@ export const codeRunnerStatus = async (_req: Request, res: Response) => {
           sandbox: tm?.data?.sandbox ?? null,
           queue: tm?.data?.queue ?? null,
           toolchains,
+          // What it can do: run, projects, sessions, pty, containers, previews, databases…
+          features: Array.isArray(tm?.data?.features) ? tm!.data.features : [],
+          preview_origin: process.env.JUDGE_PREVIEW_BASE || null,
+          preview_secret_set: (process.env.JUDGE_PREVIEW_SECRET ?? "").length >= 32,
         },
         judge0: {
           configured: judge0Configured,
