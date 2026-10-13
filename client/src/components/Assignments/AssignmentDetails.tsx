@@ -23,7 +23,7 @@ import LinkedProjectsPanel from "../Projects/LinkedProjectsPanel";
 import { assignmentAllowsProject } from "../../services/projectsApi";
 import { gradingWorkspaceHref } from "../../services/practicalsApi";
 import type { TmcodeSettings, WorkspaceRow } from "../../services/tmcodeAssignmentsApi";
-import TmcodeStudentPanel from "./tmcode/TmcodeStudentPanel";
+import YourWorkCard from "../code/YourWorkCard";
 import TmcodeWorkspacesPanel from "./tmcode/TmcodeWorkspacesPanel";
 import {
   formatDateTimeLocal,
@@ -618,7 +618,7 @@ const AssignmentDetails = () => {
         {/* TMCode practicals: students open it in TMCode; teachers follow
             every student's workspace and grade from it. */}
         {isTmcode && isStudent && !canViewAllSubmissions && (
-          <TmcodeStudentPanel assignmentId={Number(assignment.id)} />
+          <YourWorkCard assignmentId={Number(assignment.id)} />
         )}
         {isTmcode && canViewAllSubmissions && (
           <TmcodeWorkspacesPanel

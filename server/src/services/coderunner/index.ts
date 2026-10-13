@@ -49,7 +49,10 @@ export class RoutedRunner implements CodeRunner {
     try {
       return await this.primary.run(req);
     } catch (e) {
+      // Judge0 can't build projects or run unit tests: those wait for tm-judge.
       const fallbackOk =
+        !req.kind &&
+        !req.actions &&
         e instanceof JudgeUnavailableError &&
         !(e instanceof QuotaExceededError) &&
         this.fallbackEnabled() &&

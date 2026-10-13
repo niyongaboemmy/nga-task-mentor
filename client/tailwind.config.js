@@ -4,13 +4,15 @@ module.exports = {
   theme: {
     extend: {
       // Stacking order (CODE_RUNNER_PLAN.md §6.4): use these, not ad-hoc values.
+      // The app frame (top bar, sidebar) is at 50, so overlays sit above it.
       zIndex: {
         sticky: "10",
         dropdown: "30",
-        drawer: "40",
-        modal: "50",
-        toast: "60",
-        tooltip: "70",
+        shell: "50",
+        drawer: "60",
+        modal: "70",
+        toast: "80",
+        tooltip: "90",
       },
       colors: {
         // Brand colour for primary actions (was blue-600 written by hand).

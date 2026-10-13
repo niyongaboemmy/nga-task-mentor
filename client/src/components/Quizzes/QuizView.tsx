@@ -888,7 +888,9 @@ export const QuizView: React.FC<QuizViewProps> = ({ quizId }) => {
       const fieldMessages = Array.isArray(error?.errors)
         ? error.errors.map((e: any) => e.message).join("; ")
         : "";
-      toast.error(fieldMessages || error?.message || "Failed to update quiz");
+      // The headline says why (e.g. a broken reference solution), the details say where.
+      const headline = error?.message && error.message !== fieldMessages ? error.message : "";
+      toast.error([headline, fieldMessages].filter(Boolean).join(" ") || "Failed to update quiz", { autoClose: fieldMessages ? 12000 : undefined });
     }
   };
 

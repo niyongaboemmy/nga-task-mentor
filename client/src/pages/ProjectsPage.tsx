@@ -31,6 +31,7 @@ import { AssignmentBadge, KindBadge, LanguageBadge, LiveDot, Pill, ProjectStatus
 import { PROJECT_STATUSES, type ProjectStatus } from "../services/projectsApi";
 import NewProjectDialog from "../components/Projects/NewProjectDialog";
 import { formatBytes, languageMeta, summaryLine, timeAgo } from "../components/Projects/projectFormat";
+import CodeAreaTabs from "../components/code/CodeAreaTabs";
 import Select from "../components/ui/Select";
 
 /**
@@ -183,7 +184,7 @@ const ProjectsPage: React.FC = () => {
           <div className="min-w-0">
             <h1 className="text-xl font-bold text-text-primary-light dark:text-text-primary-dark md:text-2xl">Projects</h1>
             <p className="text-sm text-slate-600 dark:text-slate-300">
-              Your coding projects, kept in Task Mentor and opened in TMCode.
+              Your coding projects: write and run them here, or open them in TMCode.
             </p>
           </div>
         </div>
@@ -211,6 +212,8 @@ const ProjectsPage: React.FC = () => {
           </button>
         </div>
       </div>
+
+      <CodeAreaTabs />
 
       {/* Stats */}
       <StatsStrip data={data} loading={loading} />

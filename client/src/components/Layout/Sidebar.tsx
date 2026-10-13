@@ -49,11 +49,16 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onNavigate }
   const toGrade = useToGradeCount(hasToGrade);
   const badgeOf = (item: NavItemConfig) => (item.badge === "to_grade" && toGrade ? toGrade : 0);
   // A deeper item (e.g. /projects/monitor) wins over its parent (/projects).
-  const allPaths = groups.flatMap((g) => g.items.map((i) => i.path));
-  const matches = (path: string) =>
-    path === "/dashboard" ? location.pathname === path : location.pathname.startsWith(path.split(":")[0]);
-  const shadowedByDeeper = (path: string) =>
-    allPaths.some((other) => other !== path && other.startsWith(`${path}/`) && matches(other));
+  const allItems = groups.flatMap((g) => g.items);
+  const prefixOf = (i: { path: string; navItem: NavItemConfig }) => i.navItem.matchPrefix ?? i.path.split(":")[0];
+  const matchesPrefix = (prefix: string) =>
+    prefix === "/dashboard" ? location.pathname === prefix : location.pathname === prefix || location.pathname.startsWith(`${prefix}/`);
+  // A deeper item (e.g. /code/live) wins over a wider one (/code).
+  const isCurrentItem = (item: { path: string; navItem: NavItemConfig }) => {
+    const mine = prefixOf(item);
+    if (!matchesPrefix(mine)) return false;
+    return !allItems.some((o) => o !== item && prefixOf(o).length > mine.length && prefixOf(o).startsWith(mine) && matchesPrefix(prefixOf(o)));
+  };
 
   return (
     <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-6" aria-label="Sidebar navigation">
@@ -67,7 +72,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({ collapsed, onNavigate }
           <div className="space-y-1">
             {items.map(({ path, navItem }) => {
               const Icon = navItem.icon;
-              const isCurrent = matches(path) && !shadowedByDeeper(path);
+              const isCurrent = isCurrentItem({ path, navItem });
               const badge = badgeOf(navItem);
               return (
                 <Link

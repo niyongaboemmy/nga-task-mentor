@@ -135,11 +135,11 @@ const Where = () => {
   return <output data-testid="where">{l.pathname + l.search}</output>;
 };
 
-const workspace = (path = "/grading/practical/assignment/7") =>
+const workspace = (path = "/grading/assignment/7") =>
   render(
     <MemoryRouter initialEntries={[path]}>
       <Routes>
-        <Route path="/grading/practical/:type/:id" element={<><PracticalGradingPage /><Where /></>} />
+        <Route path="/grading/:type/:id" element={<><PracticalGradingPage /><Where /></>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -206,7 +206,7 @@ describe("PracticalGradingPage", () => {
   it("runs the submitted revision in a sandboxed preview", async () => {
     practicals.roster.mockResolvedValue(roster());
     practicals.preview.mockResolvedValue({ url: "http://api.test/api/tmcode/preview/tok/index.html", entry: "index.html" });
-    workspace("/grading/practical/assignment/7?student=2");
+    workspace("/grading/assignment/7?student=2");
     await userEvent.click(await screen.findByRole("tab", { name: /Preview/ }));
     const frame = await screen.findByTestId("practical-preview");
     expect(practicals.preview).toHaveBeenCalledWith(102, 302);
@@ -237,7 +237,7 @@ describe("PracticalGradingPage", () => {
       counts: { total: 1, to_grade: 0, graded: 1 },
     });
     practicals.saveGrade.mockResolvedValue({ score: 7, max_points: 10 });
-    workspace("/grading/practical/quiz/9?question=55");
+    workspace("/grading/quiz/9?question=55");
     expect(await screen.findByTestId("grade-total")).toHaveTextContent(/^7\s*\/\s*10$/);
     expect(screen.getByPlaceholderText(/What went well/)).toHaveValue("Good");
     expect(practicals.roster).toHaveBeenCalledWith("quiz", 9, 55);

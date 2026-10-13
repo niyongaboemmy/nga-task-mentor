@@ -14,7 +14,7 @@ import {
   QuizSubmission,
 } from "../models";
 import { Judge0Service, JudgeUnavailableError } from "../services/Judge0Service";
-import { regradePendingCodeAttempts } from "../services/codeRegrade.service";
+import { gradeQueuedCodeAttempts, regradePendingCodeAttempts } from "../services/codeRegrade.service";
 import { aiService } from "../services/ai/aiService";
 
 /**
@@ -439,6 +439,65 @@ describe("coding questions: per-test results (TM-FIX-1)", () => {
     const stored = await QuizSubmission.findByPk(sub.id);
     expect(stored?.status).toBe("completed");
     expect(Number(stored?.total_score)).toBe(1);
+  });
+
+  describe("a slow code runner never holds the request (CODE_RUNNER_PLAN.md phase 3)", () => {
+    const ENV_BUDGET = process.env.CODE_GRADE_INLINE_BUDGET_MS;
+    beforeEach(() => {
+      process.env.CODE_GRADE_INLINE_BUDGET_MS = "50";
+      const fast = (Judge0Service.waitAndGetResult as jest.Mock).getMockImplementation()!;
+      // The judge takes 400 ms per test: far over the 50 ms budget.
+      (Judge0Service.waitAndGetResult as jest.Mock).mockImplementation(async (t: string) => {
+        await new Promise((r) => setTimeout(r, 400));
+        return fast(t);
+      });
+    });
+    afterEach(() => {
+      if (ENV_BUDGET === undefined) delete process.env.CODE_GRADE_INLINE_BUDGET_MS;
+      else process.env.CODE_GRADE_INLINE_BUDGET_MS = ENV_BUDGET;
+    });
+
+    it("submit answers at once with the code answer queued; the background pass grades it", async () => {
+      const { quiz, question } = await makeCodingQuiz();
+      const sub = (await start(quiz.id)).body.data;
+      const t0 = Date.now();
+      const done = await submit(quiz.id, [{ question_id: question.id, answer: { code: "print(3)", language: "python" } }]);
+      expect(done.status).toBe(201);
+      expect(Date.now() - t0).toBeLessThan(1500);
+      let stored = await QuizSubmission.findByPk(sub.id);
+      expect(stored?.grade_status).toBe("pending");
+      const row = await QuizAttempt.findOne({ where: { submission_id: sub.id, question_id: question.id } });
+      expect(row?.grading_details).toMatchObject({ queued: true, grade_status: "pending" });
+
+      const report = await gradeQueuedCodeAttempts();
+      expect(report.regraded).toBe(1);
+      expect(report.submissions_updated).toContain(sub.id);
+      stored = await QuizSubmission.findByPk(sub.id);
+      expect(Number(stored?.total_score)).toBe(1);
+      expect(stored?.grade_status).toBe("auto_graded");
+      await row?.reload();
+      expect((row?.grading_details as any).queued).toBeUndefined();
+    });
+
+    it("a grade for an older answer never overwrites a newer one", async () => {
+      const { quiz, question } = await makeCodingQuiz();
+      const sub = (await start(quiz.id)).body.data;
+      const first = await save(sub.id, question.id, { code: "print(3)", language: "python" });
+      // The student is told it's being graded; the row is queued.
+      expect(first.body.data.grading_details).toMatchObject({ grade_status: "pending", pending_reason: "Being graded automatically…" });
+      const queuedRow = await QuizAttempt.findOne({ where: { submission_id: sub.id, question_id: question.id } });
+      expect(queuedRow?.grading_details).toMatchObject({ queued: true });
+      // The student saves again while the first answer is being graded.
+      const pass = gradeQueuedCodeAttempts();
+      await new Promise((r) => setTimeout(r, 100));
+      await save(sub.id, question.id, { code: "print(1 + 2)", language: "python" });
+      await pass;
+      const row = await QuizAttempt.findOne({ where: { submission_id: sub.id, question_id: question.id } });
+      expect((row?.submitted_answer as any).code).toBe("print(1 + 2)");
+      expect(row?.grading_details).toMatchObject({ queued: true });
+      // The next pass grades the newer answer.
+      expect((await gradeQueuedCodeAttempts()).regraded).toBe(1);
+    });
   });
 
   it("judge down: the answer stays pending (not 0), and the re-grade job grades it later (TM-FIX-6)", async () => {

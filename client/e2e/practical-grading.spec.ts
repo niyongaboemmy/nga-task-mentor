@@ -108,7 +108,7 @@ async function setup(page: Page) {
             kind: "practical",
             submission_type: "project",
             attachments: [{ name: "coffee-design.pdf", url: "https://files.test/coffee-design.pdf", size: 482_000 }],
-            starter: { project_id: 5, revision_id: 1 },
+            starter: { project_id: 500, revision_id: null },
             status: "published",
             created_at: new Date(Date.now() - 5 * 86400_000).toISOString(),
           },
@@ -134,6 +134,13 @@ async function setup(page: Page) {
       return json(r, { revision: null, files: [{ path: "main.c", sha256: "c", size: C_SOURCE.length }] });
     }
     if (/^\/projects\/103\/files\//.test(path)) return r.fulfill({ status: 200, contentType: "text/plain", headers: CORS_HEADERS, body: C_SOURCE });
+    // The starter the students began from: a page without the Order button.
+    if (/^\/projects\/500\/revisions\/\w+\/manifest$/.test(path)) {
+      return json(r, { revision: null, files: [{ path: "index.html", sha256: "s", size: 50 }, { path: "notes.txt", sha256: "n", size: 5 }] });
+    }
+    if (/^\/projects\/500\/files\//.test(path)) {
+      return r.fulfill({ status: 200, contentType: "text/plain", headers: CORS_HEADERS, body: path.endsWith("notes.txt") ? "todo" : "<!doctype html><h1>Kigali Coffee</h1>" });
+    }
     if (/\/revisions\/\w+\/manifest$/.test(path)) {
       return json(r, { revision: null, files: [{ path: "index.html", sha256: "a", size: SITE.length }, { path: "style.css", sha256: "b", size: CSS.length }] });
     }
@@ -170,7 +177,9 @@ test("grades a practical against its criteria with the code and a live preview",
   test.skip(info.project.name === "mobile", "the workspace is a desktop tool; checked separately below");
   await page.setViewportSize({ width: 1512, height: 945 });
   const { saves } = await setup(page);
+  // The old address (TMCode desktop opens it) leads to Grading.
   await page.goto("/taskmentor/grading/practical/assignment/77");
+  await expect(page).toHaveURL(/\/grading\/assignment\/77$/);
 
   // Full screen, the first student to grade selected, the code filling the pane.
   await expect(page.getByTestId("practical-grading")).toBeVisible();
@@ -239,7 +248,7 @@ test("runs a C program with the teacher's inputs", async ({ page }, info) => {
   test.skip(info.project.name === "mobile", "desktop tool");
   await page.setViewportSize({ width: 1512, height: 945 });
   const { runs } = await setup(page);
-  await page.goto("/taskmentor/grading/practical/assignment/77?student=3");
+  await page.goto("/taskmentor/grading/assignment/77?student=3");
   await expect(page.getByTestId("current-student")).toHaveText("Claire Ishimwe");
   // No web page: Run instead of Preview.
   await expect(page.getByTestId("pane-run")).toBeVisible();
@@ -271,10 +280,25 @@ test("runs a C program with the teacher's inputs", async ({ page }, info) => {
   await shot(page, "grading-run-dark");
 });
 
+test("changes since the starter: what the student added, changed and deleted", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "desktop tool");
+  await page.setViewportSize({ width: 1512, height: 945 });
+  await setup(page);
+  await page.goto("/taskmentor/grading/assignment/77?student=1");
+  await page.getByTestId("toggle-starter-diff").click();
+  const files = page.getByTestId("diff-file");
+  await expect(files).toHaveCount(3);
+  await expect(files.filter({ hasText: "index.html" })).toContainText("Changed");
+  await expect(files.filter({ hasText: "style.css" })).toContainText("Added");
+  await expect(files.filter({ hasText: "notes.txt" })).toContainText("Deleted");
+  await page.waitForTimeout(1500);
+  await shot(page, "grading-diff");
+});
+
 test("stacks the panes on a phone", async ({ page }, info) => {
   test.skip(info.project.name !== "mobile", "phone layout only");
   await setup(page);
-  await page.goto("/taskmentor/grading/practical/assignment/77?student=1");
+  await page.goto("/taskmentor/grading/assignment/77?student=1");
   await expect(page.getByTestId("file-viewer").or(page.getByTestId("files-tab"))).toBeVisible({ timeout: 15_000 }).catch(() => undefined);
   await shot(page, "grading-mobile");
   await page.getByRole("tab", { name: "Grade" }).click();
