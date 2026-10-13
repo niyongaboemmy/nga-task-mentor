@@ -616,10 +616,10 @@ const ProctoringSettings: React.FC<ProctoringSettingsProps> = ({
           {/* TMCode delivery (applies whether or not proctoring is on) */}
           <div className="border-t border-gray-200 dark:border-gray-700 pt-4" data-testid="tmcode-settings">
             <h3 className="text-base font-medium mb-3 text-text-primary-light dark:text-text-primary-dark">
-              Coding questions: delivery
+              Coding questions: where students answer them
             </h3>
             <label htmlFor="tmcode-delivery" className="block text-sm mb-1 text-text-secondary-light dark:text-text-secondary-dark">
-              Delivery
+              Students write their code in
             </label>
             <Select variant="outline"
               id="tmcode-delivery"

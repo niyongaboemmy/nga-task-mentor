@@ -19,6 +19,7 @@ import RichTextDisplay from "../components/Common/RichTextDisplay";
 import CodeTestResults from "../components/Quizzes/CodeTestResults";
 import GradeAdjustmentModal from "../components/Quizzes/GradeAdjustmentModal";
 import PracticalGradeSummary from "../components/Quizzes/PracticalGradeSummary";
+import CodeAnswerView from "../components/code/CodeAnswerView";
 import { gradingWorkspaceHref } from "../services/practicalsApi";
 
 interface QuestionResult {
@@ -467,11 +468,8 @@ function renderAnswer(
       answer?.solution ??
       (typeof answer === "string" ? answer : null);
     if (code) {
-      return (
-        <pre className="text-xs font-mono bg-gray-900 text-green-300 rounded-lg p-3 overflow-x-auto max-h-48 whitespace-pre-wrap leading-relaxed">
-          {code}
-        </pre>
-      );
+      // The files, read-only, with Run and the question's tests (teacher view).
+      return <CodeAnswerView code={String(code)} language={answer?.language ?? qd?.language} tests={Array.isArray(qd?.test_cases) ? qd.test_cases : []} />;
     }
     if (questionType === "coding") {
       return (

@@ -69,6 +69,7 @@ const SubjectAssessmentReportPage = lazyPage(() => import("../pages/SubjectAsses
 const GeneralAttributesPage = lazyPage(() => import("../pages/GeneralAttributesPage"));
 const BloomsTaxonomyManagementPage = lazyPage(() => import("../components/Quizzes/BloomsTaxonomyManagementPage"));
 const QuestionBankPage = lazyPage(() => import("../pages/QuestionBankPage"));
+const QuestionEditPage = lazyPage(() => import("../pages/questionBank/QuestionEditPage"));
 const QuestionBankHubPage = lazyPage(() => import("../pages/QuestionBankHubPage"));
 const SubmissionDetailPage = lazyPage(() => import("../pages/SubmissionDetailPage"));
 const GradesPage = lazyPage(() => import("../pages/GradesPage"));
@@ -79,6 +80,8 @@ const CodeRunnerPage = lazyPage(() => import("../pages/Admin/CodeRunnerPage"));
 const ToGradePage = lazyPage(() => import("../pages/grading/ToGradePage"));
 const PlaygroundPage = lazyPage(() => import("../pages/code/PlaygroundPage"));
 const ProjectEditorPage = lazyPage(() => import("../pages/code/ProjectEditorPage"));
+const StartersPage = lazyPage(() => import("../pages/code/StartersPage"));
+const AssignmentWorkPage = lazyPage(() => import("../pages/code/AssignmentWorkPage"));
 const RankingPage = lazyPage(() => import("../pages/RankingPage"));
 const AdminSubjectsPage = lazyPage(() => import("../pages/AdminSubjectsPage"));
 const ProjectsPage = lazyPage(() => import("../pages/ProjectsPage"));
@@ -142,6 +145,8 @@ export interface NavItemConfig {
   hideIfCan?: string[];
   /** A live count shown beside the label. */
   badge?: "to_grade";
+  /** Highlight the item for every page under this prefix (e.g. "/code"). */
+  matchPrefix?: string;
 }
 
 export interface AppRoute {
@@ -208,6 +213,17 @@ export const appRoutes: AppRoute[] = [
     permissions: ["QUESTION_BANK_VIEW"],
   },
   {
+    // Creating or editing a question on a page, not a pop-up.
+    path: "/courses/:courseId/question-bank/new",
+    element: <QuestionEditPage />,
+    permissions: ["QUESTION_BANK_VIEW"],
+  },
+  {
+    path: "/courses/:courseId/question-bank/:questionId/edit",
+    element: <QuestionEditPage />,
+    permissions: ["QUESTION_BANK_VIEW"],
+  },
+  {
     path: "/assignments",
     element: <AssignmentsPage />,
     permissions: ["ASSIGNMENTS_VIEW"],
@@ -242,7 +258,7 @@ export const appRoutes: AppRoute[] = [
     path: "/code/projects",
     element: <ProjectsPage />,
     permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL"],
-    navItem: { label: "Code", icon: Code2, group: "General" },
+    navItem: { label: "Code", icon: Code2, group: "General", matchPrefix: "/code" },
   },
   {
     // Full-screen pages (no app shell): practise, or edit a project.
@@ -256,6 +272,18 @@ export const appRoutes: AppRoute[] = [
     element: <ProjectEditorPage />,
     permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL", "PROJECTS_MONITOR"],
     noLayout: true,
+  },
+  {
+    // A student's work on a code assignment, full screen.
+    path: "/assignments/:assignmentId/work",
+    element: <AssignmentWorkPage />,
+    permissions: ["PROJECTS_USE"],
+    noLayout: true,
+  },
+  {
+    path: "/code/starters",
+    element: <StartersPage />,
+    permissions: ["PROJECTS_USE", "PROJECTS_VIEW_ALL"],
   },
   {
     path: "/code/projects/:id",
@@ -282,10 +310,14 @@ export const appRoutes: AppRoute[] = [
   { path: "/projects/:id", element: <Redirect to="/code/projects/:id" /> },
   {
     // Grading workspace for TMCode practicals (assignment or quiz question).
-    path: "/grading/practical/:type/:id",
+    path: "/grading/:type/:id",
     element: <PracticalGradingPage />,
     permissions: ["PROJECTS_MONITOR", "PROJECTS_VIEW_ALL"],
+    // A full-screen page of its own (no app shell underneath).
+    noLayout: true,
   },
+  // TMCode desktop and older links open the old address.
+  { path: "/grading/practical/:type/:id", element: <Redirect to="/grading/:type/:id" /> },
   {
     path: "/students",
     element: <Students />,

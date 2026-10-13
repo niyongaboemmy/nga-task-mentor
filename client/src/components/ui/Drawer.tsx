@@ -13,7 +13,9 @@ export const Drawer: React.FC<{
   children: React.ReactNode;
   footer?: React.ReactNode;
   width?: string;
-}> = ({ open, onClose, title, children, footer, width = "max-w-[480px]" }) => {
+  /** Above a legacy full-screen modal (ui/Modal is z-[99999]) until those become pages. */
+  elevated?: boolean;
+}> = ({ open, onClose, title, children, footer, width = "max-w-[480px]", elevated }) => {
   const panel = useRef<HTMLDivElement>(null);
   const opener = useRef<Element | null>(null);
 
@@ -36,7 +38,7 @@ export const Drawer: React.FC<{
 
   if (!open) return null;
   return createPortal(
-    <div className="fixed inset-0 z-drawer flex justify-end">
+    <div className={`fixed inset-0 flex justify-end ${elevated ? "z-[100000]" : "z-drawer"}`}>
       <div className="absolute inset-0 bg-black/30" onClick={onClose} aria-hidden="true" />
       <div
         ref={panel}

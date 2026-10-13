@@ -81,10 +81,8 @@ const computeAttemptGrading = async (params: {
   void enableAutoGrading;
   void requireManualGrading;
 
-  const gradingResult = await AdvancedQuizGrader.gradeWithConfig(
-    question,
-    answerData,
-  );
+  // Code answers are queued and graded in the background (not in this request).
+  const gradingResult = await AdvancedQuizGrader.gradeInRequest(question, answerData);
 
   return { gradingResult, status: "completed" };
 };

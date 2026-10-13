@@ -81,3 +81,36 @@ describe("practice runs", () => {
     expect(res.body.data.map((l: any) => l.key)).toEqual(expect.arrayContaining(["python", "java", "cpp"]));
   });
 });
+
+describe("catalog and starters", () => {
+  const get = (path: string) => request(app).get(path).set("Authorization", `Bearer ${token}`);
+
+  it("lists languages with their project types and whether they run here", async () => {
+    const res = await get("/api/code/catalog");
+    expect(res.status).toBe(200);
+    const lang = (k: string) => res.body.data.languages.find((l: any) => l.key === k);
+    expect(lang("python")).toMatchObject({ enabled: true, runnable: true });
+    expect(lang("python").kinds.map((k: any) => k.id)).toEqual(expect.arrayContaining(["python/single", "python/project"]));
+    expect(lang("csharp")).toMatchObject({ enabled: false, runnable: false });
+    expect(res.body.data.version).toMatch(/^\d{4}\./);
+  });
+
+  it("filters starters, and serves one with its files", async () => {
+    const all = (await get("/api/code/starters")).body.data;
+    expect(all.length).toBeGreaterThan(40);
+    expect(all[0].files).toBeUndefined(); // the list has no file contents
+    const java = (await get("/api/code/starters?language=java&purpose=project")).body.data;
+    expect(java.length).toBeGreaterThan(0);
+    expect(java.every((s: any) => s.language === "java" && s.purpose === "project")).toBe(true);
+    const one = (await get(`/api/code/starters/${java[0].id}`)).body.data;
+    expect(one.files.length).toBe(one.paths.length);
+    expect(one.files.find((f: any) => f.path === "pom.xml" || f.path.endsWith(".java"))).toBeTruthy();
+    expect((await get("/api/code/starters/nope")).status).toBe(404);
+  });
+
+  it("finds a migrated TMCode template by its old id", async () => {
+    const res = await get("/api/code/starters/node-express");
+    expect(res.status).toBe(200);
+    expect(res.body.data.paths).toContain("src/index.js");
+  });
+});
