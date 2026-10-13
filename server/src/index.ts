@@ -171,6 +171,7 @@ app.use("/api/tmcode", express.json({ limit: "8mb" }), tmcodeRoutes);
 // Body parser middleware
 // Practice runs carry whole projects (up to 1 MB of files).
 app.use("/api/code", express.json({ limit: "2mb" }));
+app.use("/api/integration/code", express.json({ limit: "2mb" }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 

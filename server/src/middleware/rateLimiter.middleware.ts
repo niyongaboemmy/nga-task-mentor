@@ -68,6 +68,21 @@ export const integrationLimiter = rateLimit({
   legacyHeaders: false,
 });
 
+// "Run" in the MIS lesson Code Playground (/api/integration/code/run): keyed
+// by the MIS user, who may have no Task Mentor account.
+export const lessonCodeRunLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: Number(process.env.LESSON_CODE_RUN_RATE_LIMIT_PER_MIN) || 12,
+  keyGenerator: (req) => `lesson-code-run:${(req as any).misUserId ?? req.ip}`,
+  message: {
+    success: false,
+    code: "RATE_LIMITED",
+    message: "Too many code runs — wait a minute and try again.",
+  },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
 // "Run" / "Run tests" on code questions: each call is one or more judge
 // submissions (a shared, metered resource on exam day), so 10 per minute per
 // signed-in user. Keyed by user id: a whole lab shares one IP. Must run after
