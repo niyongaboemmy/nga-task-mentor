@@ -744,7 +744,8 @@ const StudentWorkspace: React.FC<{
   }, [projectId, revisionId]);
 
   const showPreview = !targets || !!targets.html_entry || targets.languages.length === 0;
-  const showRun = !!targets && targets.languages.length > 0;
+  // With the runner's project view: Run when it runs or has unit tests (a React app's tests).
+  const showRun = !!targets && (targets.project ? targets.project.runs || targets.project.tests : targets.languages.length > 0);
   // A program without a web page opens in Run rather than an empty Preview.
   useEffect(() => {
     if (pane === "preview" && !showPreview) setPane("run");
@@ -937,6 +938,8 @@ const StudentWorkspace: React.FC<{
               casesKey={`tm.grading.runCases.${type}.${activityId}.${a.question?.id ?? 0}`}
               studentName={name}
               projectTests={projectTests}
+              onOpenPreview={() => setPane("preview")}
+              onOpenTmcode={() => onGuide("tmcode")}
             />
           )}
           </div>

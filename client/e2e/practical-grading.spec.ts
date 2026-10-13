@@ -327,3 +327,37 @@ test("stacks the panes on a phone", async ({ page }, info) => {
   await expect(page.getByTestId("criteria-scorer")).toBeVisible();
   await shot(page, "grading-mobile-grade");
 });
+
+test("a project the runner knows (C Make project): runs whole, shows differing lines; a React app explains itself", async ({ page }, info) => {
+  test.skip(info.project.name === "mobile", "desktop tool");
+  await page.setViewportSize({ width: 1512, height: 945 });
+  const { runs } = await setup(page);
+  // The runner's project view for the C student; a React app for the web students.
+  await page.route("**/api/tmcode/projects/*/run-targets*", (r) => {
+    const id = new URL(r.request().url()).pathname.match(/projects\/(\d+)\//)![1];
+    const project =
+      id === "103"
+        ? { kind: "c/make", label: "C – Make project", language: "c", entry: "src/main.c", actions: ["build", "run", "test"], runs: true, tests: true, web_app: false, chooses_entry: false }
+        : { kind: "js/vite", label: "JavaScript – Vite app (React, Vue, Svelte)", language: "javascript", entry: "src/main.tsx", actions: ["build", "test"], runs: false, tests: true, web_app: true, chooses_entry: false };
+    return json(r, { revision: { id: 9003, number: 3 }, engine: "tmjudge", single_file: false, language: "c", languages: [{ key: "c", label: "C", files: 3, runnable: true }], runnable: true, entries: ["src/main.c"], html_entry: id === "103" ? null : "index.html", has_package_json: id !== "103", project });
+  });
+  await page.goto("/taskmentor/grading/assignment/77?student=3");
+  await page.getByTestId("pane-run").click();
+  await expect(page.getByTestId("run-project")).toHaveText("C – Make project");
+  await expect(page.getByLabel("File to run")).toHaveCount(0);
+  await page.getByTestId("run-input").first().fill("2 3");
+  await page.getByRole("button", { name: /Compare with an expected output/ }).first().click();
+  await page.getByTestId("run-case").first().getByRole("textbox").nth(2).fill("Enter two numbers: Sum = 6");
+  await page.getByTestId("run-program").click();
+  await expect(page.getByTestId("run-diff")).toBeVisible();
+  await expect(page.getByTestId("run-summary")).toContainText("0 of 1 match");
+  expect(runs.at(-1)).toMatchObject({ kind: "c/make", entry: null });
+  await shot(page, "grading-run-project");
+
+  // A React app: no input box, the right places to check it.
+  await page.goto("/taskmentor/grading/assignment/77?student=1");
+  await page.getByTestId("pane-run").click();
+  await expect(page.getByTestId("run-web-app")).toContainText("runs in a browser");
+  await expect(page.getByTestId("run-input")).toHaveCount(0);
+  await shot(page, "grading-run-webapp");
+});

@@ -78,6 +78,22 @@ export interface RunTargets {
   entries: string[];
   html_entry: string | null;
   has_package_json: boolean;
+  /** The runner's own view of the whole project (tm-judge with detection); null on older runners. */
+  project?: {
+    kind: string;
+    label: string;
+    language: string;
+    entry: string | null;
+    actions: string[];
+    /** It runs as a program with inputs. */
+    runs: boolean;
+    /** It has unit tests the runner can run. */
+    tests: boolean;
+    /** A browser app (React, Vue, Angular…): no program to give inputs to. */
+    web_app: boolean;
+    /** One program file among several can be picked (single-file kinds). */
+    chooses_entry: boolean;
+  } | null;
 }
 
 export type RunVerdict =
@@ -89,6 +105,7 @@ export type RunVerdict =
   | "memory-limit"
   | "output-limit"
   | "compile-error"
+  | "package-not-available"
   | "internal-error";
 
 export interface RunCaseResult {
@@ -106,12 +123,17 @@ export interface RunCaseResult {
 export interface RunResponse {
   engine: string;
   language: string;
-  entry: string;
+  /** The project kind that ran (detected), and its name. */
+  kind?: string;
+  kind_label?: string;
+  entry: string | null;
   revision: { id: number; number: number };
   files_sent: string[];
   files_skipped: number;
   compile: { ok: boolean; output: string; time_ms?: number } | null;
   tests: RunCaseResult[];
+  /** A dependency the runner doesn't have. */
+  error?: { code: string; message: string } | null;
 }
 
 export interface GradingRoster {
@@ -192,6 +214,7 @@ export const practicalsApi = {
     projectId: number,
     body: {
       rev?: number | null;
+      kind?: string | null;
       language?: string | null;
       entry?: string | null;
       tests: { id: string; input: string; expected_output?: string | null }[];

@@ -40,6 +40,7 @@ import { canGradeAssignment, canGradeQuiz } from "../utils/gradingAccess";
 import { isPassed } from "../utils/quizStudentView";
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { TM_ATTRS, tmcodeColumns } from "../tmcode/assignments/load";
+import { choosesEntry, detectProject, IGNORED_PATH } from "../services/coderunner/projectKind";
 import { getCodeRunner } from "../services/coderunner";
 import { JudgeUnavailableError, Judge0Service, QuotaExceededError, RunnerRejectedError, UnsupportedLanguageError } from "../services/Judge0Service";
 import {
@@ -769,6 +770,21 @@ async function readText(sha: string): Promise<string | null> {
   return isProbablyText(buf) ? buf.toString("utf8") : null;
 }
 
+/** Every text file of a revision (dependencies and build output left out), within the runner's caps. */
+async function projectTexts(files: { path: string; sha256: string; size: number }[]) {
+  const wanted = files.filter((f) => !IGNORED_PATH.test(f.path) && f.size <= 512 * 1024).slice(0, 400);
+  const out: { path: string; content: string }[] = [];
+  let bytes = 0;
+  for (const f of wanted) {
+    if (bytes + f.size > 1.5 * 1024 * 1024) break;
+    const text = await readText(f.sha256).catch(() => null);
+    if (text == null) continue;
+    out.push({ path: f.path, content: text });
+    bytes += f.size;
+  }
+  return out;
+}
+
 /** Sources of one language's candidates (small ones), to spot the declared main. */
 async function candidateSources(files: { path: string; sha256: string; size: number }[], paths: string[]) {
   const out = new Map<string, string>();
@@ -813,11 +829,31 @@ export const runTargets = async (req: Request, res: Response) => {
     entries: language ? rankEntries(candidates, language, sources).slice(0, 30) : [],
     html_entry: previewEntry(r.files.map((f) => f.path)),
     has_package_json: r.files.some((f) => f.path === "package.json"),
+    // The runner's own answer for the whole project (tm-judge with "detect"):
+    // what kind it is, where it starts, and whether it runs or only builds/tests.
+    project: await describeProject(r.files),
   });
 };
 
+async function describeProject(files: { path: string; sha256: string; size: number }[]) {
+  const detected = await detectProject(await projectTexts(files)).catch(() => null);
+  if (!detected) return null;
+  return {
+    kind: detected.kind,
+    label: detected.label,
+    language: detected.language,
+    entry: detected.entry,
+    actions: detected.actions,
+    runs: detected.actions.includes("run") && detected.available,
+    tests: detected.actions.includes("test") && detected.available,
+    web_app: detected.webApp,
+    chooses_entry: choosesEntry(detected.kind),
+  };
+}
+
 const runSchema = z.object({
   rev: z.number().int().positive().optional().nullable(),
+  kind: z.string().max(60).optional().nullable(),
   language: z.string().max(40).optional().nullable(),
   entry: z.string().max(500).optional().nullable(),
   tests: z
@@ -846,6 +882,45 @@ export const runProject = async (req: Request, res: Response) => {
   const r = await runRevision(req, res, body.rev);
   if (!r) return;
   const runner = getCodeRunner();
+
+  // The whole project as its catalog kind, when the runner can tell what it is.
+  const texts = await projectTexts(r.files);
+  const detected = await detectProject(texts).catch(() => null);
+  if (detected) {
+    if (detected.webApp || !detected.actions.includes("run")) {
+      return tmcodeError(res, 422, "NOT_A_PROGRAM", `This is a ${detected.label}: it doesn't run as a program with inputs. Check it in the Preview or open it in TMCode${detected.actions.includes("test") ? ", and run its unit tests" : ""}.`, {
+        kind: detected.kind,
+      });
+    }
+    const kind = body.kind || detected.kind;
+    const entry = body.entry && texts.some((f) => f.path === body.entry) && choosesEntry(kind) ? body.entry : detected.entry;
+    try {
+      const result = await runner.run({
+        language: detected.language,
+        kind,
+        files: texts,
+        ...(entry ? { entry } : {}),
+        tests: body.tests.map((t) => ({ id: t.id, input: t.input, expected_output: t.expected_output ?? undefined })),
+        interactive: true,
+      });
+      return res.status(200).json({
+        engine: result.engine,
+        language: detected.language,
+        kind: result.kind ?? kind,
+        kind_label: detected.label,
+        entry: entry ?? null,
+        revision: { id: r.rev.id, number: r.rev.number },
+        files_sent: texts.map((f) => f.path),
+        files_skipped: Math.max(0, r.files.filter((f) => !IGNORED_PATH.test(f.path)).length - texts.length),
+        compile: result.compile,
+        tests: result.tests,
+        error: result.error ?? null,
+      });
+    } catch (e) {
+      return runFailed(res, e, detected.label);
+    }
+  }
+
   const candidates = runCandidates(r.files);
   const language = pickLanguage(candidates, r.project.language ?? null, body.language);
   if (!language) {
@@ -895,21 +970,25 @@ export const runProject = async (req: Request, res: Response) => {
       tests: result.tests,
     });
   } catch (e) {
-    if (e instanceof QuotaExceededError) {
-      return tmcodeError(res, 503, "QUOTA_EXCEEDED", "The code runner has reached its limit for now. Try again later.");
-    }
-    if (e instanceof RunnerRejectedError) {
-      return tmcodeError(res, 502, "RUNNER_REJECTED", e.message);
-    }
-    if (e instanceof JudgeUnavailableError) {
-      return tmcodeError(res, 503, "JUDGE_UNAVAILABLE", "The code runner isn't reachable right now. Try again in a minute, or open the project in TMCode.");
-    }
-    if (e instanceof UnsupportedLanguageError) {
-      return tmcodeError(res, 422, "UNSUPPORTED_LANGUAGE", `${language} can't be run here yet.`);
-    }
-    throw e;
+    return runFailed(res, e, language);
   }
 };
+
+function runFailed(res: Response, e: unknown, what: string) {
+  if (e instanceof QuotaExceededError) {
+    return tmcodeError(res, 503, "QUOTA_EXCEEDED", "The code runner has reached its limit for now. Try again later.");
+  }
+  if (e instanceof RunnerRejectedError) {
+    return tmcodeError(res, 502, "RUNNER_REJECTED", e.message);
+  }
+  if (e instanceof JudgeUnavailableError) {
+    return tmcodeError(res, 503, "JUDGE_UNAVAILABLE", "The code runner isn't reachable right now. Try again in a minute, or open the project in TMCode.");
+  }
+  if (e instanceof UnsupportedLanguageError) {
+    return tmcodeError(res, 422, "UNSUPPORTED_LANGUAGE", `${what} can't be run here yet.`);
+  }
+  throw e;
+}
 
 // ─── GET /grading: what the caller can grade ─────────────────────────────────
 
