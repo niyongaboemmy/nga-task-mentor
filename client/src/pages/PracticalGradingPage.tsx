@@ -25,6 +25,7 @@ import {
   Search,
   Undo2,
   X,
+  History,
 } from "lucide-react";
 import {
   practicalsApi,
@@ -46,6 +47,7 @@ import { formatDateTime, timeAgo } from "../components/Projects/projectFormat";
 import RunPane from "../components/Projects/grading/RunPane";
 import GradingDetailsPane from "../components/Projects/grading/GradingDetailsPane";
 import PreviewPane from "../components/Projects/grading/PreviewPane";
+import ActivityPane from "../components/Projects/grading/ActivityPane";
 import AssessGuide from "../components/Projects/grading/AssessGuide";
 import { profileProject, type CheckAction, type ProjectProfile } from "../components/Projects/grading/projectProfile";
 import { loadProjectFiles } from "../services/codeApi";
@@ -60,7 +62,7 @@ import { readIoTests, type IoTest } from "../components/code/tests";
  */
 
 type Filter = "to_grade" | "graded" | "all";
-type Pane = "code" | "preview" | "run" | "details";
+type Pane = "code" | "preview" | "run" | "activity" | "details";
 
 const STATE_META: Record<GradingRow["state"], { label: string; dot: string; pill: string }> = {
   submitted: {
@@ -821,6 +823,7 @@ const StudentWorkspace: React.FC<{
                 ["code", "Code", Code2],
                 ["preview", "Preview", Eye],
                 ["run", "Run", Play],
+                ["activity", "Activity", History],
                 ["details", "Details", FileText],
               ] as [Pane, string, React.ElementType][]
             )
@@ -901,6 +904,8 @@ const StudentWorkspace: React.FC<{
             </div>
           ) : !projectId ? (
             <EmptyState text={`${name} hasn't started a project for this practical yet.`} />
+          ) : pane === "activity" ? (
+            <ActivityPane projectId={projectId} />
           ) : pane === "code" ? (
             <div className="flex h-full min-h-0 flex-col gap-2">
               {starter && (

@@ -776,7 +776,40 @@ export function apiErrorCode(error: unknown): string | null {
 const BASE = "/tmcode";
 const enc = encodeURIComponent;
 
+/** One action recorded by TMCode (nga-tmcode activity/log.ts). */
+export interface ActivityEvent {
+  t: number;
+  kind: "file" | "clipboard" | "ai" | "run" | "terminal" | "git" | "extension" | "project" | "editor";
+  action: string;
+  path?: string;
+  to?: string;
+  text: string;
+  data?: Record<string, string | number | boolean | null>;
+  actor: { type: "you" | "extension" | "tmcode-ai" | "outside"; id?: string; name?: string; ai?: boolean; likely?: string };
+  ai?: { by: string; how: string; model?: string };
+  count?: number;
+  user_id: number | null;
+}
+
+export interface ActivitySummary {
+  total: number;
+  ai_events: number;
+  ai_tools: { by: string; count: number }[];
+  ai_chars: number;
+  pastes_outside: number;
+  pastes_from_ai: number;
+  by_kind: Record<string, number>;
+  first_at: number | null;
+  last_at: number | null;
+}
+
 export const projectsApi = {
+  /** TMCode's activity log of the project (everything but typing; AI use named). */
+  async activity(id: number, limit = 1000): Promise<{ events: ActivityEvent[]; summary: ActivitySummary }> {
+    const res = await api.get(`${BASE}/projects/${id}/activity`, { params: { limit } });
+    return res.data;
+  },
+
   /** Archived and removed projects are included; pages filter them. */
   async list(scope: ProjectScope = "mine"): Promise<ProjectList> {
     const res = await api.get(`${BASE}/projects`, { params: { scope, archived: "include", status: "all" } });

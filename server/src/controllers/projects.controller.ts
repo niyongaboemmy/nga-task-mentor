@@ -436,7 +436,8 @@ export async function projectDetails(req: Request, p: Project, myRole: string, a
   const [members, links, events, rawPresence, head, briefs] = await Promise.all([
     ProjectMember.findAll({ where: { project_id: p.id, status: { [Op.ne]: "removed" } }, order: [["id", "ASC"]] }),
     ProjectActivityLink.findAll({ where: { project_id: p.id }, order: [["id", "ASC"]] }),
-    ProjectEvent.findAll({ where: { project_id: p.id }, order: [["id", "DESC"]], limit: 20 }),
+    // TMCode's activity log batches have their own endpoint (tmcodeActivity.controller.ts).
+    ProjectEvent.findAll({ where: { project_id: p.id, type: { [Op.ne]: "activity" } }, order: [["id", "DESC"]], limit: 20 }),
     ProjectPresence.findAll({ where: { project_id: p.id }, order: [["last_seen_at", "DESC"]] }),
     p.head_revision_id
       ? ProjectRevision.findByPk(p.head_revision_id, { attributes: { exclude: ["manifest_gz"] } })
