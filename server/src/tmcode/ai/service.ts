@@ -18,7 +18,8 @@ import { isFreeModel, freeModels } from "../../services/aiProviders/openrouterPr
  * so one student can't spend the school's free requests.
  */
 
-export type Kind = "chat" | "complete";
+/** chat: a question; agent: one more step of an agent's work (tool results back); complete: ghost text. */
+export type Kind = "chat" | "agent" | "complete";
 export type ProviderId = "openrouter" | "gemini" | "groq" | "glm";
 
 interface ProviderDef {
@@ -77,6 +78,10 @@ export const PROVIDERS: Record<ProviderId, ProviderDef> = {
 
 /** Auto's order: OpenRouter's shared pool last for chat, never for inline completions. */
 const AUTO_CHAT: ProviderId[] = ["gemini", "groq", "openrouter", "glm"];
+/** Agents take many steps: the fastest reliable tool-caller first, OpenRouter's shared pool last. */
+const AUTO_AGENT: ProviderId[] = ["groq", "gemini", "openrouter", "glm"];
+/** The model an agent uses on a provider (better at tools than the chat default when they differ). */
+const agentModel = (p: ProviderId) => (p === "groq" ? process.env.TMCODE_AI_GROQ_AGENT_MODEL || "openai/gpt-oss-120b" : PROVIDERS[p].chat()[0]);
 const AUTO_COMPLETE: ProviderId[] = ["groq", "gemini"];
 
 // ── usage today (in memory: a restart forgives the day's counts, never over-spends a free tier) ──
@@ -96,7 +101,9 @@ function roll() {
 }
 
 export function userLimit(kind: Kind) {
-  return kind === "chat" ? num(process.env.TMCODE_AI_CHAT_PER_DAY, 40) : num(process.env.TMCODE_AI_COMPLETE_PER_DAY, 200);
+  if (kind === "chat") return num(process.env.TMCODE_AI_CHAT_PER_DAY, 40);
+  if (kind === "agent") return num(process.env.TMCODE_AI_AGENT_STEPS_PER_DAY, 300);
+  return num(process.env.TMCODE_AI_COMPLETE_PER_DAY, 200);
 }
 export function userUsed(userId: number, kind: Kind) {
   roll();
@@ -169,13 +176,13 @@ export async function plan(kind: Kind, mode: string): Promise<{ provider: Provid
     const models = freeModels();
     return [{ provider: "openrouter", model: models[0], fallbacks: models.slice(1) }];
   }
-  const order = kind === "chat" ? AUTO_CHAT : AUTO_COMPLETE;
+  const order = kind === "chat" ? AUTO_CHAT : kind === "agent" ? AUTO_AGENT : AUTO_COMPLETE;
   const out: { provider: ProviderId; model: string; fallbacks?: string[] }[] = [];
   for (const p of order) {
     if (!configured(p) || coolingDown(p)) continue;
     const r = await remaining(p);
     if (r.remaining <= RESERVE[p]) continue;
-    const model = kind === "chat" ? PROVIDERS[p].chat()[0] : PROVIDERS[p].complete();
+    const model = kind === "chat" ? PROVIDERS[p].chat()[0] : kind === "agent" ? agentModel(p) : PROVIDERS[p].complete();
     if (!model) continue;
     out.push({ provider: p, model, ...(p === "openrouter" ? { fallbacks: PROVIDERS.openrouter.chat().slice(1) } : {}) });
   }
@@ -225,7 +232,20 @@ function noteFailure(p: ProviderId, err: unknown) {
   }
 }
 
-export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
+export interface ToolCall {
+  id: string;
+  type: "function";
+  function: { name: string; arguments: string };
+}
+export type ChatMessage =
+  | { role: "system" | "user"; content: string }
+  | { role: "assistant"; content: string | null; tool_calls?: ToolCall[] }
+  | { role: "tool"; tool_call_id: string; content: string };
+
+export interface ToolDef {
+  type: "function";
+  function: { name: string; description?: string; parameters?: Record<string, unknown> };
+}
 
 export interface StreamResult {
   provider: ProviderId;
@@ -236,19 +256,37 @@ export interface StreamResult {
  * Streams one answer: tries the plan in order (a provider that fails before sending anything
  * passes to the next). `onDelta` gets the text as it arrives. Counts the use when it worked.
  */
-export async function streamChat(userId: number, mode: string, messages: ChatMessage[], onMeta: (m: StreamResult) => void, onDelta: (text: string) => void, signal: AbortSignal): Promise<StreamResult> {
-  if (userUsed(userId, "chat") >= userLimit("chat")) throw new AiError(429, "USER_QUOTA", `You've used today's ${userLimit("chat")} AI questions. They come back tomorrow.`);
-  const steps = await plan("chat", mode);
+export async function streamChat(
+  userId: number,
+  mode: string,
+  messages: ChatMessage[],
+  onMeta: (m: StreamResult) => void,
+  onDelta: (text: string) => void,
+  signal: AbortSignal,
+  agent?: { tools: ToolDef[]; step: number },
+): Promise<StreamResult & { tool_calls?: ToolCall[] }> {
+  // An agent's first step is the student's question; its next steps (tool results) have their own allowance.
+  const kind: Kind = agent && agent.step > 0 ? "agent" : "chat";
+  if (userUsed(userId, kind) >= userLimit(kind))
+    throw new AiError(429, "USER_QUOTA", kind === "chat" ? `You've used today's ${userLimit("chat")} AI questions. They come back tomorrow.` : `TMCode AI has done today's ${userLimit("agent")} agent steps for you. They come back tomorrow.`);
+  const steps = await plan(agent ? "agent" : "chat", mode);
   if (!steps.length) throw new AiError(429, "POOL_EXHAUSTED", "The school's free AI requests are used up for today. Try again tomorrow.");
   let lastErr: unknown = null;
   for (const step of steps) {
     let sent = false;
     try {
-      const body: Record<string, unknown> = { model: step.model, messages, stream: true, temperature: 0.3, max_tokens: num(process.env.TMCODE_AI_MAX_TOKENS, 1500), ...modelOptions(step.provider, step.model, "chat") };
+      const body: Record<string, unknown> = { model: step.model, messages, stream: true, temperature: agent ? 0.2 : 0.3, max_tokens: num(process.env.TMCODE_AI_MAX_TOKENS, agent ? 4000 : 1500), ...modelOptions(step.provider, step.model, "chat") };
+      if (agent?.tools.length) {
+        body.tools = agent.tools;
+        body.tool_choice = "auto";
+      }
       // OpenRouter falls back across free models itself (free ids only, see openrouterProvider).
       if (step.provider === "openrouter" && step.fallbacks?.length) body.models = [step.model, ...step.fallbacks].slice(0, 3);
-      const stream = (await client(step.provider).chat.completions.create(body as never, { signal })) as unknown as AsyncIterable<{ model?: string; choices?: { delta?: { content?: string | null } }[]; usage?: { cost?: number } }>;
+      type Delta = { content?: string | null; tool_calls?: { index: number; id?: string; function?: { name?: string; arguments?: string } }[] };
+      const stream = (await client(step.provider).chat.completions.create(body as never, { signal })) as unknown as AsyncIterable<{ model?: string; choices?: { delta?: Delta }[]; usage?: { cost?: number } }>;
       let served = step.model;
+      // Tool calls arrive in pieces (name, then the arguments a few characters at a time).
+      const calls: { id: string; name: string; args: string }[] = [];
       for await (const chunk of stream) {
         if (chunk.model) served = chunk.model;
         if (step.provider === "openrouter" && (!isFreeModel(served) || (chunk.usage?.cost ?? 0) > 0)) throw new AiError(502, "NOT_FREE", "OpenRouter answered with a paid model; the answer was stopped.");
@@ -256,12 +294,22 @@ export async function streamChat(userId: number, mode: string, messages: ChatMes
           sent = true;
           onMeta({ provider: step.provider, model: served });
         }
-        const text = chunk.choices?.[0]?.delta?.content;
+        const delta = chunk.choices?.[0]?.delta;
+        const text = delta?.content;
         if (text) onDelta(text);
+        for (const tc of delta?.tool_calls ?? []) {
+          const c = (calls[tc.index ?? 0] ??= { id: "", name: "", args: "" });
+          if (tc.id) c.id = tc.id;
+          if (tc.function?.name) c.name += tc.function.name;
+          if (tc.function?.arguments) c.args += tc.function.arguments;
+        }
       }
       if (!sent) throw new AiError(502, "EMPTY", "The AI sent an empty answer.");
-      countUse(userId, "chat", step.provider);
-      return { provider: step.provider, model: served };
+      countUse(userId, kind, step.provider);
+      const tool_calls = calls
+        .filter((c) => c && c.name)
+        .map((c, i) => ({ id: c.id || `call_${Date.now()}_${i}`, type: "function" as const, function: { name: c.name, arguments: c.args || "{}" } }));
+      return { provider: step.provider, model: served, ...(tool_calls.length ? { tool_calls } : {}) };
     } catch (e) {
       if (signal.aborted) throw e;
       lastErr = e;
