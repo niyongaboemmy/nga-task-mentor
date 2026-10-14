@@ -102,7 +102,10 @@ export const practiceRun = async (req: Request, res: Response) => {
   // A project with a build file, or a language only the catalog knows: tm-judge
   // detects the kind and entry, builds it, and runs the tests.
   const asked = body.language ?? detected;
-  const project = !!asked && judgeHas("projects") && judgeRunsLanguage(asked) && (!!body.kind || hasManifest(body.files) || !detected);
+  // The files may suggest another language than the one asked (an Arduino sketch with a helper
+  // .cpp looks like C++): a language the runner's catalog runs is taken at its word.
+  const project =
+    !!asked && judgeHas("projects") && judgeRunsLanguage(asked) && (!!body.kind || hasManifest(body.files) || !detected || (!!body.language && detected !== body.language));
   if (project) {
     const files = body.files.filter((f) => !isIgnoredPath(f.path));
     // A web app (React, Vue, Angular…) has no program to run: say so plainly.

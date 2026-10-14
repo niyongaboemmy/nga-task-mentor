@@ -29,6 +29,7 @@ const KINDS = [
   { id: "java/maven", language: "java", label: "Java – Maven project", actions: ["build", "run", "test"] },
   { id: "python/project", language: "python", label: "Python – project", actions: ["run", "test"] },
   { id: "ruby/single", language: "ruby", label: "Ruby – script", actions: ["run"] },
+  { id: "arduino/uno", language: "arduino", label: "Arduino – Uno sketch", actions: ["run"] },
 ];
 
 function fakeJudge() {
@@ -137,6 +138,25 @@ describe("catalog projects", () => {
     expect(res.status).toBe(200);
     expect(sent[0].language).toBe("java");
     expect(sent[0].files.map((f: any) => f.path)).toEqual(["pom.xml", "src/main/java/rw/App.java"]);
+  });
+
+  it("runs the language asked when the files look like another (an Arduino sketch with a helper .cpp)", async () => {
+    const files = [
+      { path: "sketch.ino", content: '#include "lights.h"\nvoid setup() { lightsBegin(); }\nvoid loop() {}\n' },
+      { path: "lights.h", content: "void lightsBegin();\n" },
+      { path: "lights.cpp", content: '#include <Arduino.h>\nvoid lightsBegin() { pinMode(10, OUTPUT); }\n' },
+    ];
+    const res = await post("/api/code/run", { language: "arduino", entry: "sketch.ino", files, tests: one });
+    expect(res.status).toBe(200);
+    expect(sent[0]).toMatchObject({ language: "arduino", entry: "sketch.ino" });
+    expect(sent[0].files.map((f: any) => f.path).sort()).toEqual(["lights.cpp", "lights.h", "sketch.ino"]);
+  });
+
+  it("still runs C and C++ with headers on their own profiles", async () => {
+    const res = await post("/api/code/run", { language: "cpp", files: [{ path: "main.cpp", content: '#include "a.h"\nint main(){}' }, { path: "a.h", content: "" }], tests: one });
+    expect(res.status).toBe(200);
+    expect(sent[0].language).toMatch(/^cpp/);
+    expect(sent[0].kind).toBeUndefined();
   });
 
   it("keeps a plain single-file program on its language profile", async () => {
