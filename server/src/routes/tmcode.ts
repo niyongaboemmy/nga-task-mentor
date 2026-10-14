@@ -1,4 +1,6 @@
 import express, { NextFunction, Request, Response } from "express";
+import * as activity from "../controllers/tmcodeActivity.controller";
+import * as ai from "../controllers/tmcodeAi.controller";
 import rateLimit from "express-rate-limit";
 import { protect, authorizePermission } from "../middleware/auth";
 import { tmcodeAuth, tmcodeError } from "../middleware/tmcodeAuth";
@@ -98,6 +100,8 @@ router.get(`${p}/files/*`, read, wrap(projects.getFile));
 router.put(`${p}/presence`, use, wrap(projects.putPresence));
 router.get(`${p}/live`, read, wrap(projects.projectLive));
 router.post(`${p}/git`, use, wrap(projects.reportGit));
+router.post(`${p}/activity`, read, wrap(activity.uploadActivity));
+router.get(`${p}/activity`, read, wrap(activity.listActivity));
 router.post(`${p}/members`, use, wrap(projects.addMember));
 router.delete(`${p}/members/:userId(\\d+)`, read, wrap(projects.removeMember));
 router.get(`${p}/open-link`, read, wrap(projects.openLink));
@@ -164,5 +168,19 @@ router.post(`${p}/run`, read, projectRunLimiter, wrap(practicals.runProject));
 // No auth: the signed, short-lived token in the path is the key (iframes send
 // no Authorization header) and responses are sandboxed.
 router.get("/preview/:token/*", wrap(practicals.servePreview));
+
+// ─── TMCode AI: free AI only (OpenRouter by default, Auto across free tiers) ──
+const aiLimiter = rateLimit({
+  windowMs: 60_000,
+  max: Number(process.env.TMCODE_AI_RATE_LIMIT_PER_MIN) || 30,
+  keyGenerator: (req) => `tmcode-ai:${(req as any).user?.id ?? req.ip}`,
+  handler: (_req, res) => tmcodeError(res, 429, "RATE_LIMITED", "Too many AI requests — wait a minute."),
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+router.get("/ai/status", read, wrap(ai.aiStatus));
+router.post("/ai/chat", read, aiLimiter, wrap(ai.aiChat));
+router.get("/ai/chat/:id/stream", read, wrap(ai.aiChatStream));
+router.post("/ai/complete", read, aiLimiter, wrap(ai.aiComplete));
 
 export default router;
