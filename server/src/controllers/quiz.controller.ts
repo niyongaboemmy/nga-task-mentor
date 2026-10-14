@@ -58,7 +58,7 @@ import {
   studentAttemptSummary,
 } from "../utils/quizStudentView";
 import { studentMayTakeQuiz } from "../utils/studentEnrollment";
-import { enforceLockdown } from "../utils/lockdown";
+import { enforceLockdown, lockdownStatus } from "../utils/lockdown";
 import { startOrResumeAttempt } from "../utils/quizAttemptStart";
 import { tmcodeSettingsFor } from "../tmcode/policy";
 import { cancelQuiz, syncQuiz } from "../services/reminderSync";
@@ -516,9 +516,10 @@ async function buildStudentQuizView(req: Request, quiz: Quiz) {
     throw err;
   }
 
-  const [attempts, enrolled] = await Promise.all([
+  const [attempts, enrolled, lockdown] = await Promise.all([
     studentAttemptSummary(quiz, req.user.id),
     studentMayTakeQuiz(req, quiz),
+    lockdownStatus(req, quiz.id),
   ]);
   const availability = quizAvailability(quiz);
 
@@ -537,12 +538,21 @@ async function buildStudentQuizView(req: Request, quiz: Quiz) {
           ? `You have used all ${attempts.max_attempts} attempt${attempts.max_attempts === 1 ? "" : "s"} for this quiz.`
           : null;
 
+  // A quiz that must be taken in Safe Exam Browser: outside it, the student
+  // sees what the quiz is and why it can't start, but never its questions.
+  const lockedOut = canStart && !lockdown.satisfied;
+
   const student_state = {
     availability,
     attempts,
     enrolled,
-    can_start: canStart,
-    blocked_reason,
+    can_start: canStart && !lockedOut,
+    blocked_reason: lockedOut ? lockdown.message : blocked_reason,
+    lockdown: {
+      required: lockdown.required,
+      satisfied: lockdown.satisfied,
+      config_key_set: lockdown.config_key_set,
+    },
   };
 
   // Nothing left to take: show the latest results instead.
@@ -589,7 +599,7 @@ async function buildStudentQuizView(req: Request, quiz: Quiz) {
 
   const json: any = quiz.toJSON();
   const seed = attemptSeed(quiz.id, req.user.id, attempts.current_attempt_number);
-  let questions: any[] = canStart
+  let questions: any[] = canStart && !lockedOut
     ? (json.questions || []).map((q: any) => sanitizeQuestionForStudent(q, seed))
     : [];
   if (quiz.randomize_questions) questions = seededShuffle(questions, seed);

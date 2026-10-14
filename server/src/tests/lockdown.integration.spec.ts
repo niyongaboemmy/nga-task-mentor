@@ -158,6 +158,39 @@ describe("lockdown_browser requires Safe Exam Browser", () => {
     expect(seb.status).toBe(201);
   });
 
+  it("outside SEB the student quiz view has no questions and explains why", async () => {
+    const { quiz } = await makeLockdownQuiz();
+    const path = `/api/quizzes/${quiz.id}`;
+
+    const plain = await asStudent(request(app).get(path));
+    expect(plain.status).toBe(200);
+    expect(plain.body.data.questions).toEqual([]);
+    expect(plain.body.data.question_count).toBe(1);
+    const state = plain.body.data.student_state;
+    expect(state.can_start).toBe(false);
+    expect(state.blocked_reason).toMatch(/Safe Exam Browser/);
+    expect(state.lockdown).toEqual({ required: true, satisfied: false, config_key_set: true });
+
+    const seb = await viaSeb(request(app).get(path), path);
+    expect(seb.status).toBe(200);
+    expect(seb.body.data.questions).toHaveLength(1);
+    expect(seb.body.data.questions[0].correct_answer).toBeUndefined();
+    expect(seb.body.data.student_state.can_start).toBe(true);
+    expect(seb.body.data.student_state.lockdown.satisfied).toBe(true);
+  });
+
+  it("the student quiz view is unchanged when lockdown is off", async () => {
+    const { quiz } = await makeLockdownQuiz({ lockdown_browser: false });
+    const res = await asStudent(request(app).get(`/api/quizzes/${quiz.id}`));
+    expect(res.body.data.questions).toHaveLength(1);
+    expect(res.body.data.student_state.can_start).toBe(true);
+    expect(res.body.data.student_state.lockdown).toEqual({
+      required: false,
+      satisfied: true,
+      config_key_set: true,
+    });
+  });
+
   it("with no Config Key set, the quiz can't be started (misconfigured, not open)", async () => {
     const { quiz } = await makeLockdownQuiz({ seb_config_key: null });
     const res = await viaSeb(
