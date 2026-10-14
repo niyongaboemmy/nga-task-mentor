@@ -5,6 +5,9 @@ import { practiceRun } from "../controllers/codeRun.controller";
 import { getCodeRunner } from "../services/coderunner";
 import { Judge0Service } from "../services/Judge0Service";
 import { catalogLanguages } from "../services/runtimeCatalog";
+import { z } from "zod";
+import { relaySse } from "../controllers/sse";
+import { getSession, openEvents, sendInput, SessionError, sessionsReady, startSession, stopSession } from "../services/coderunner/sessions";
 import { buildHomeSummary, emptySummary } from "../integration/homeSummary";
 import { computeOverview } from "../controllers/instructorOverview.controller";
 import { PASS_MARK } from "../services/instructorOverview.service";
@@ -98,18 +101,103 @@ const studentStanding = async (req: Request, res: Response) => {
  * signed in to Task Mentor or not (students read notes in the MIS), so the
  * limit is per MIS user, not per local user.
  */
-const codeLanguages = (_req: Request, res: Response) => {
+const codeLanguages = async (_req: Request, res: Response) => {
   const runner = getCodeRunner();
   const labels = new Map<string, string>(Judge0Service.supportedLanguages().map((l) => [l.key, l.label]));
   for (const l of catalogLanguages()) labels.set(l.key, l.label);
   res.status(200).json({
     success: true,
-    data: { languages: runner.languages().map((key) => ({ key, label: labels.get(key) ?? key, engine: runner.engineFor(key) })) },
+    data: {
+      languages: runner.languages().map((key) => ({ key, label: labels.get(key) ?? key, engine: runner.engineFor(key) })),
+      // Live runs (output as it comes, input while the program waits): see /code/sessions.
+      interactive: await sessionsReady(),
+    },
   });
+};
+
+/**
+ * Interactive runs for the MIS Code Playground — the program runs live, its output
+ * streams as Server-Sent Events, the student types input while it waits:
+ *   POST   /code/sessions              {language?, entry?, files} → 201 {id}
+ *   GET    /code/sessions/:id/events   text/event-stream (stage, stdout, stderr, exit, error)
+ *   POST   /code/sessions/:id/input    {data?, eof?, signal?} → 204
+ *   DELETE /code/sessions/:id          → 204
+ * Owned by the MIS user (as a negative number, so it never matches a Task Mentor user id);
+ * one live session per person, like /api/code/sessions.
+ */
+const ownerOf = (req: Request) => -Number((req as any).misUserId);
+const sessionFail = (res: Response, e: unknown) => {
+  if (e instanceof SessionError) return res.status(e.status).json({ success: false, code: e.code, message: e.message });
+  console.error("Lesson code session error:", e);
+  return res.status(500).json({ success: false, code: "SESSION_FAILED", message: "The live run failed because of a problem on Task Mentor." });
+};
+const sessionSchema = z.object({
+  language: z.string().max(40).optional().nullable(),
+  entry: z.string().max(500).optional().nullable(),
+  files: z.array(z.object({ path: z.string().min(1).max(500), content: z.string() })).min(1).max(100),
+});
+const sessionInputSchema = z.object({
+  data: z.string().max(64 * 1024).optional(),
+  eof: z.boolean().optional(),
+  signal: z.enum(["SIGINT", "SIGTERM"]).optional(),
+});
+
+const startLessonSession = async (req: Request, res: Response) => {
+  const parsed = sessionSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ success: false, code: "VALIDATION_ERROR", message: "Invalid run request." });
+  const bytes = parsed.data.files.reduce((n, f) => n + Buffer.byteLength(f.content, "utf8"), 0);
+  if (bytes > 1024 * 1024) return res.status(413).json({ success: false, code: "TOO_LARGE", message: "The files are too large to run (1 MB at most)." });
+  if (parsed.data.files.some((f) => f.path.startsWith("/") || f.path.split("/").some((p) => p === ".." || p === ""))) {
+    return res.status(400).json({ success: false, code: "VALIDATION_ERROR", message: "Invalid file path." });
+  }
+  try {
+    const s = await startSession(ownerOf(req), parsed.data);
+    return res.status(201).json({ success: true, data: { id: s.id } });
+  } catch (e) {
+    return sessionFail(res, e);
+  }
+};
+
+const lessonSessionEvents = async (req: Request, res: Response) => {
+  let s: ReturnType<typeof getSession>;
+  try {
+    s = getSession(String(req.params.id), ownerOf(req));
+  } catch (e) {
+    return sessionFail(res, e);
+  }
+  try {
+    await relaySse(req, res, (signal) => openEvents(s, signal), () => void stopSession(s), () => (s.closed = true));
+  } catch (e) {
+    if (!res.headersSent) return sessionFail(res, e);
+  }
+};
+
+const lessonSessionInput = async (req: Request, res: Response) => {
+  const parsed = sessionInputSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return res.status(400).json({ success: false, code: "VALIDATION_ERROR", message: "Invalid input." });
+  try {
+    await sendInput(getSession(String(req.params.id), ownerOf(req)), parsed.data);
+    return res.status(204).end();
+  } catch (e) {
+    return sessionFail(res, e);
+  }
+};
+
+const stopLessonSession = async (req: Request, res: Response) => {
+  try {
+    await stopSession(getSession(String(req.params.id), ownerOf(req)));
+    return res.status(204).end();
+  } catch (e) {
+    return sessionFail(res, e);
+  }
 };
 
 router.get("/code/languages", misBearerAuth, integrationLimiter, codeLanguages);
 router.post("/code/run", misBearerAuth, lessonCodeRunLimiter, practiceRun);
+router.post("/code/sessions", misBearerAuth, lessonCodeRunLimiter, startLessonSession);
+router.get("/code/sessions/:id/events", misBearerAuth, lessonSessionEvents);
+router.post("/code/sessions/:id/input", misBearerAuth, lessonSessionInput);
+router.delete("/code/sessions/:id", misBearerAuth, stopLessonSession);
 
 router.post("/home-summary", misBearerAuth, integrationLimiter, homeSummary);
 router.get("/student-standing", misBearerAuth, integrationLimiter, studentStanding);
