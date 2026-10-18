@@ -67,6 +67,32 @@ export async function lockdownRequirement(quizId: number): Promise<LockdownRequi
   };
 }
 
+/** What a student is told when the request doesn't come from Safe Exam Browser. */
+export const lockdownMessage = (configKeySet: boolean): string =>
+  configKeySet
+    ? "This quiz must be taken in Safe Exam Browser. Open it from the exam configuration your teacher gave you."
+    : "This quiz requires Safe Exam Browser, but its configuration key hasn't been set yet. Ask your teacher.";
+
+export interface LockdownStatus {
+  required: boolean;
+  /** The request comes from Safe Exam Browser with the quiz's configuration. */
+  satisfied: boolean;
+  config_key_set: boolean;
+  message: string | null;
+}
+
+/** The lockdown state of this request for a quiz (for the student quiz view). */
+export async function lockdownStatus(req: Request, quizId: number): Promise<LockdownStatus> {
+  const { required, configKey } = await lockdownRequirement(quizId);
+  const satisfied = !required || hasValidSebConfigKey(req, configKey);
+  return {
+    required,
+    satisfied,
+    config_key_set: !!configKey,
+    message: satisfied ? null : lockdownMessage(!!configKey),
+  };
+}
+
 /**
  * Refuses (409 LOCKDOWN_REQUIRED) when the quiz needs Safe Exam Browser and
  * the request doesn't come from it with the quiz's configuration. Returns
@@ -77,14 +103,12 @@ export async function enforceLockdown(
   res: Response,
   quizId: number,
 ): Promise<boolean> {
-  const { required, configKey } = await lockdownRequirement(quizId);
-  if (!required || hasValidSebConfigKey(req, configKey)) return true;
+  const status = await lockdownStatus(req, quizId);
+  if (status.satisfied) return true;
   res.status(409).json({
     success: false,
     code: "LOCKDOWN_REQUIRED",
-    message: configKey
-      ? "This quiz must be taken in Safe Exam Browser. Open it from the exam configuration your teacher gave you."
-      : "This quiz requires Safe Exam Browser, but its configuration key hasn't been set yet. Ask your teacher.",
+    message: status.message,
   });
   return false;
 }

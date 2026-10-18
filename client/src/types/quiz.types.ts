@@ -436,6 +436,12 @@ export interface StudentQuizState {
   enrolled: boolean;
   can_start: boolean;
   blocked_reason: string | null;
+  /** The quiz must be taken in Safe Exam Browser (questions are withheld until it is). */
+  lockdown?: {
+    required: boolean;
+    satisfied: boolean;
+    config_key_set: boolean;
+  };
 }
 
 export interface QuizAttempt {
