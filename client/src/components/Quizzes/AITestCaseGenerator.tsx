@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useAiAuthoring } from "../../hooks/useAiAccess";
 import { Sparkles, Loader2, CheckCircle, XCircle } from "lucide-react";
 import { QuizApiService } from "../../services/quizApi";
 
@@ -28,6 +29,8 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
   const [generatedCases, setGeneratedCases] = useState<TestCase[]>([]);
   const [error, setError] = useState<string>("");
   const [showPreview, setShowPreview] = useState(false);
+  // AI usage control: AI_USE + the school policy (the server refuses otherwise).
+  const aiAuthoring = useAiAuthoring();
 
   const generateTestCases = async () => {
     if (!problemDescription.trim()) {
@@ -89,7 +92,8 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
             <button
               type="button"
               onClick={generateTestCases}
-              disabled={isGenerating || !problemDescription.trim()}
+              disabled={isGenerating || !problemDescription.trim() || !aiAuthoring.allowed}
+              title={aiAuthoring.reason ?? undefined}
               className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-md hover:shadow-lg transform hover:scale-105"
             >
               {isGenerating ? (
@@ -104,6 +108,11 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
                 </>
               )}
             </button>
+            {!aiAuthoring.allowed && aiAuthoring.reason && (
+              <p className="mt-2 text-xs text-purple-700/80 dark:text-purple-300/80" data-testid="ai-testcases-locked">
+                {aiAuthoring.reason}
+              </p>
+            )}
           </div>
         </div>
       </div>

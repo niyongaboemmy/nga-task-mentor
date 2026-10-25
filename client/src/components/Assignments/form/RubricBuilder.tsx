@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from "react";
+import { useAiAuthoring } from "../../../hooks/useAiAccess";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Sparkles,
@@ -55,6 +56,8 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
   error,
 }) => {
   const [aiOpen, setAiOpen] = useState(false);
+  // AI usage control: AI_USE + the school policy (the server refuses otherwise).
+  const aiAuthoring = useAiAuthoring();
   const [aiMarks, setAiMarks] = useState<number>(maxScore || 10);
   const [aiCount, setAiCount] = useState<string>("auto");
   const [aiGuidance, setAiGuidance] = useState("");
@@ -129,7 +132,9 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
         <button
           type="button"
           onClick={aiOpen ? () => setAiOpen(false) : openAi}
-          className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-md shadow-indigo-500/20 transition"
+          disabled={!aiAuthoring.allowed}
+          title={aiAuthoring.reason ?? undefined}
+          className="inline-flex items-center gap-2 rounded-xl px-3.5 py-2 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 shadow-md shadow-indigo-500/20 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Sparkles className="w-4 h-4" />
           {rubric.length ? "Regenerate with AI" : "Generate with AI"}
@@ -497,14 +502,17 @@ const RubricBuilder: React.FC<RubricBuilderProps> = ({
             <button
               type="button"
               onClick={openAi}
-              className="text-left rounded-2xl border-2 border-dashed border-violet-200 dark:border-violet-800 hover:border-violet-400 hover:bg-violet-50/50 dark:hover:bg-violet-900/10 p-4 transition"
+              disabled={!aiAuthoring.allowed}
+              className="text-left rounded-2xl border-2 border-dashed border-violet-200 dark:border-violet-800 hover:border-violet-400 hover:bg-violet-50/50 dark:hover:bg-violet-900/10 p-4 transition disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:border-violet-200 disabled:hover:bg-transparent"
             >
               <Sparkles className="w-5 h-5 text-violet-500 mb-2" />
               <p className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark">
                 Generate from the description
               </p>
               <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark mt-0.5">
-                AI finds the rubric you wrote, or drafts one, and splits your marks.
+                {aiAuthoring.allowed
+                  ? "AI finds the rubric you wrote, or drafts one, and splits your marks."
+                  : aiAuthoring.reason}
               </p>
             </button>
             <button

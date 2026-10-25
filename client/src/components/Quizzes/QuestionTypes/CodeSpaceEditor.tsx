@@ -5,6 +5,8 @@ import React, {
   useRef,
   useMemo,
 } from "react";
+import { useAiAccess } from "../../../hooks/useAiAccess";
+import { aiReasonShort } from "../../../services/aiApi";
 import Editor, { useMonaco } from "@monaco-editor/react";
 import {
   Play,
@@ -36,6 +38,7 @@ import {
   FileCode2,
   Maximize,
   Minimize,
+  Lock,
 } from "lucide-react";
 import type {
   QuestionComponentProps,
@@ -378,6 +381,10 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
 
   const codingData: CodingData = question.question_data as CodingData;
   const isProjectMode = Boolean(codingData.project_mode);
+  // AI usage control: the AI tutor (Socratic hints) only when the quiz's AI setting
+  // and the school's policy allow it; the server refuses it otherwise anyway.
+  const { access: aiAccess } = useAiAccess({ quiz: question.quiz_id });
+  const aiHintAllowed = !!aiAccess?.features.hint;
   // The student may switch between the question's allowed languages; the
   // answer records the one used ({code, language}).
   const answerLanguages = useMemo(() => answerLanguagesOf(codingData), [codingData]);
@@ -846,12 +853,23 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
               setBottomPanel((p) => (p === "results" ? null : "results"));
             }}
           />
-          <ActivityBtn
-            icon={<Sparkles size={24} />}
-            label="AI Assistant"
-            active={sidePanel === "ai"}
-            onClick={() => toggleSide("ai")}
-          />
+          {aiHintAllowed ? (
+            <ActivityBtn
+              icon={<Sparkles size={24} />}
+              label="AI Assistant"
+              active={sidePanel === "ai"}
+              onClick={() => toggleSide("ai")}
+            />
+          ) : aiAccess ? (
+            <span
+              className="w-12 h-12 flex items-center justify-center text-slate-600 cursor-not-allowed"
+              title={`AI Assistant: ${aiReasonShort(aiAccess.reason, "quiz")}`}
+              aria-label={`AI Assistant unavailable: ${aiReasonShort(aiAccess.reason, "quiz")}`}
+              data-testid="ai-assistant-locked"
+            >
+              <Lock size={20} aria-hidden />
+            </span>
+          ) : null}
           <div className="flex-1" />
           <ActivityBtn
             icon={<Bug size={24} />}
@@ -966,7 +984,7 @@ export const CodeSpaceEditor: React.FC<QuestionComponentProps> = (props) => {
                     )}
                   </div>
                 )}
-                {sidePanel === "ai" && (
+                {sidePanel === "ai" && aiHintAllowed && (
                   <AiSocraticChat
                     questionId={question.id}
                     currentCode={aiContext}

@@ -1,4 +1,7 @@
 import React, { useCallback, useMemo, useRef, useState } from "react";
+import { useAiAccess } from "../../../hooks/useAiAccess";
+import { aiReasonShort } from "../../../services/aiApi";
+import { AiReasonChip } from "../../ai/AiControls";
 import { ArrowRight, Maximize2, Minimize2, Play, RotateCcw, Sparkles } from "lucide-react";
 import CodeWorkspace, { type CodeWorkspaceHandle } from "../../code/CodeWorkspace";
 import type { CodeFile, PracticeRunResult, RunVerdict } from "../../../services/codeApi";
@@ -48,6 +51,9 @@ const QuizCodeAnswer: React.FC<QuestionComponentProps> = (props) => {
   });
   const [projectFiles, setProjectFiles] = useState<ProjectFile[]>(() => buildInitialFiles(codingData, answer, language));
   const [showAi, setShowAi] = useState(false);
+  // AI usage control: the AI tutor only when the quiz's AI setting and the school's policy allow it.
+  const { access: aiAccess } = useAiAccess({ quiz: question.quiz_id });
+  const aiHintAllowed = !!aiAccess?.features.hint;
   const workspace = useRef<CodeWorkspaceHandle>(null);
   const files = useMemo(() => toCodeFiles(projectFiles), [projectFiles]);
 
@@ -158,7 +164,7 @@ const QuizCodeAnswer: React.FC<QuestionComponentProps> = (props) => {
     onNext?.();
   };
 
-  const aiPanel = showAi ? (
+  const aiPanel = showAi && aiHintAllowed ? (
     <AiSocraticChat questionId={question.id} currentCode={projectFiles.map((f) => (project ? `// ${f.name}\n${f.content}` : f.content)).join("\n\n")} language={language} />
   ) : undefined;
 
@@ -194,9 +200,13 @@ const QuizCodeAnswer: React.FC<QuestionComponentProps> = (props) => {
         </span>
       )}
       <div className="ml-auto flex flex-wrap items-center gap-1.5">
-        <button type="button" onClick={() => setShowAi((v) => !v)} aria-pressed={showAi} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${showAi ? "bg-primary-soft text-primary dark:bg-blue-500/15 dark:text-blue-300" : "hover:bg-gray-100 dark:hover:bg-white/10"}`}>
-          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> AI tutor
-        </button>
+        {aiHintAllowed ? (
+          <button type="button" onClick={() => setShowAi((v) => !v)} aria-pressed={showAi} className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold ${showAi ? "bg-primary-soft text-primary dark:bg-blue-500/15 dark:text-blue-300" : "hover:bg-gray-100 dark:hover:bg-white/10"}`}>
+            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> AI tutor
+          </button>
+        ) : aiAccess ? (
+          <AiReasonChip message={aiReasonShort(aiAccess.reason, "quiz")} />
+        ) : null}
         {!disabled && (
           <button type="button" onClick={reset} className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-semibold hover:bg-gray-100 dark:hover:bg-white/10" title="Start again from the starter code">
             <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" /> Reset

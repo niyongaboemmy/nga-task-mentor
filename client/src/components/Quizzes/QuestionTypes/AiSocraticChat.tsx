@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Send, Bot, User, Loader2 } from "lucide-react";
 import { QuizApiService } from "../../../services/quizApi";
+import { aiDisabledMessage } from "../../../services/aiApi";
 
 interface Message {
   role: "user" | "assistant";
@@ -65,7 +66,9 @@ export const AiSocraticChat: React.FC<AiSocraticChatProps> = ({
         ...prev,
         {
           role: "assistant",
+          // A refusal by the AI policy (403 AI_DISABLED) says why, e.g. AI is off for this quiz.
           content:
+            aiDisabledMessage(error) ??
             "Sorry, I'm having trouble connecting right now. Try again in a bit!",
         },
       ]);
