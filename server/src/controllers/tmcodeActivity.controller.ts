@@ -28,7 +28,7 @@ const Event = z.object({
   text: z.string().max(400),
   data: z.record(z.string().max(40), z.union([z.string().max(600), z.number(), z.boolean(), z.null()])).optional(),
   actor: Actor,
-  ai: z.object({ by: z.string().max(200), how: z.string().max(200), model: z.string().max(200).optional() }).optional(),
+  ai: z.object({ by: z.string().max(200), how: z.string().max(200), model: z.string().max(200).optional(), tier: z.enum(["free", "premium", "byok"]).optional() }).optional(),
   count: z.number().int().positive().optional(),
 });
 const Upload = z.object({ batch: z.string().min(8).max(64), events: z.array(Event).min(1).max(500) });

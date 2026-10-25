@@ -17,6 +17,14 @@ import { assertAiApp } from "../../services/aiPolicy";
  *
  * Every student also has a daily allowance (TMCODE_AI_CHAT_PER_DAY, TMCODE_AI_COMPLETE_PER_DAY),
  * so one student can't spend the school's free requests.
+ *
+ * Paid tiers (GRADING_PREMIUM_CONTRACTS.md), never the default:
+ * - "premium:<provider>/<model>": the school's paid keys (TMCODE_AI_PREMIUM_MODELS, with
+ *   TMCODE_AI_PREMIUM_<PROVIDER>_KEY), for entitled users only (the caller checks, see
+ *   services/aiEntitlements.ts), counted against a per-user premium allowance.
+ * - "byok:<provider>/<model>": the user's own API key, sent with the request, used for that
+ *   request only: never stored, never logged, scrubbed from every error.
+ * The free-only guard applies to the free modes only.
  */
 
 /** chat: a question; agent: one more step of an agent's work (tool results back); complete: ghost text. */
@@ -85,12 +93,119 @@ const AUTO_AGENT: ProviderId[] = ["groq", "gemini", "openrouter", "glm"];
 const agentModel = (p: ProviderId) => (p === "groq" ? process.env.TMCODE_AI_GROQ_AGENT_MODEL || "openai/gpt-oss-120b" : PROVIDERS[p].chat()[0]);
 const AUTO_COMPLETE: ProviderId[] = ["groq", "gemini"];
 
+// ── paid tiers: premium (school keys) and BYOK (the user's own key) ──
+
+export type Tier = "free" | "premium" | "byok";
+export type PaidProviderId = "openai" | "anthropic" | "gemini" | "openrouter" | "groq" | "deepseek";
+
+interface PaidProviderDef {
+  id: PaidProviderId;
+  label: string;
+  /** OpenAI-compatible endpoint. */
+  baseURL: string;
+  /** The school's key for premium: TMCODE_AI_PREMIUM_<PROVIDER>_KEY, else the provider's usual key. */
+  premiumKey: () => string | undefined;
+  /** Shown to BYOK users as a starting point (any model id the provider knows works). */
+  suggested: string[];
+}
+
+const envKey = (...names: string[]) => {
+  for (const n of names) {
+    const v = process.env[n]?.trim();
+    if (v && !/^your_/i.test(v)) return v;
+  }
+  return undefined;
+};
+
+export const PAID_PROVIDERS: Record<PaidProviderId, PaidProviderDef> = {
+  openai: { id: "openai", label: "OpenAI", baseURL: "https://api.openai.com/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_OPENAI_KEY", "OPENAI_API_KEY"), suggested: ["gpt-4.1", "gpt-4.1-mini", "gpt-4o", "o4-mini"] },
+  anthropic: { id: "anthropic", label: "Anthropic (Claude)", baseURL: "https://api.anthropic.com/v1/", premiumKey: () => envKey("TMCODE_AI_PREMIUM_ANTHROPIC_KEY", "ANTHROPIC_API_KEY"), suggested: ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-1"] },
+  gemini: { id: "gemini", label: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", premiumKey: () => envKey("TMCODE_AI_PREMIUM_GEMINI_KEY", "GEMINI_API_KEY"), suggested: ["gemini-2.5-pro", "gemini-2.5-flash"] },
+  openrouter: { id: "openrouter", label: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_OPENROUTER_KEY", "OPENROUTER_API_KEY"), suggested: ["anthropic/claude-sonnet-4.5", "openai/gpt-4.1", "google/gemini-2.5-pro"] },
+  groq: { id: "groq", label: "Groq", baseURL: "https://api.groq.com/openai/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_GROQ_KEY", "GROQ_API_KEY"), suggested: ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"] },
+  deepseek: { id: "deepseek", label: "DeepSeek", baseURL: "https://api.deepseek.com/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_DEEPSEEK_KEY", "DEEPSEEK_API_KEY"), suggested: ["deepseek-chat", "deepseek-reasoner"] },
+};
+
+export const isPaidProvider = (p: unknown): p is PaidProviderId => typeof p === "string" && Object.prototype.hasOwnProperty.call(PAID_PROVIDERS, p);
+
+export type ParsedMode = { tier: "free"; mode: string } | { tier: "premium" | "byok"; provider: string; model: string };
+
+/** "free" | "auto" | "<provider>/<model>" (free), "premium:<provider>/<model>", "byok:<provider>/<model>". Pure. */
+export function parseMode(mode: string): ParsedMode {
+  const m = /^(premium|byok):([^/\s]+)\/(.+)$/.exec(mode.trim());
+  if (m) return { tier: m[1] as "premium" | "byok", provider: m[2], model: m[3].trim() };
+  if (/^(premium|byok):/.test(mode.trim())) return { tier: mode.trim().startsWith("premium") ? "premium" : "byok", provider: "", model: "" };
+  return { tier: "free", mode };
+}
+
+export const tierOf = (mode: string): Tier => parseMode(mode).tier;
+
+export interface PremiumModel {
+  id: string;
+  label: string;
+  provider: PaidProviderId;
+  providerLabel: string;
+}
+
+/** TMCODE_AI_PREMIUM_MODELS entries ("provider/model", comma separated), parsed. Pure on the env. */
+export function premiumModelsConfigured(): { provider: string; model: string; configured: boolean }[] {
+  return String(process.env.TMCODE_AI_PREMIUM_MODELS ?? "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean)
+    .map((entry) => {
+      const i = entry.indexOf("/");
+      const provider = i > 0 ? entry.slice(0, i) : entry;
+      const model = i > 0 ? entry.slice(i + 1).trim() : "";
+      return { provider, model, configured: !!model && isPaidProvider(provider) && !!PAID_PROVIDERS[provider].premiumKey() };
+    });
+}
+
+/** The premium models on offer: listed in the env AND their provider has a key. */
+export function premiumModels(): PremiumModel[] {
+  const seen = new Set<string>();
+  const out: PremiumModel[] = [];
+  for (const e of premiumModelsConfigured()) {
+    if (!e.configured || !isPaidProvider(e.provider)) continue;
+    const id = `premium:${e.provider}/${e.model}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({ id, label: e.model, provider: e.provider, providerLabel: PAID_PROVIDERS[e.provider].label });
+  }
+  return out;
+}
+
+export function byokProviders() {
+  return (Object.values(PAID_PROVIDERS) as PaidProviderDef[]).map((p) => ({ id: p.id, label: p.label, suggested_models: p.suggested }));
+}
+
+export const premiumDefaultLimit = () => num(process.env.TMCODE_AI_PREMIUM_PER_DAY, 50);
+
+/**
+ * How a paid request may go, decided by the caller (entitlement, school setting) and passed in:
+ * premium with the user's daily premium allowance, or BYOK with the key from the request body.
+ */
+export type PaidAccess = { tier: "premium"; limit: number } | { tier: "byok"; provider: PaidProviderId; key: string };
+
+/** Hides a key (and anything that looks like an API key) in text that may reach a log or the user. */
+export function scrubSecrets(text: string, key?: string | null): string {
+  let t = String(text ?? "");
+  if (key && key.length >= 4) t = t.split(key).join("***");
+  return t
+    .replace(/\b(sk-(?:ant-|or-|proj-)?[A-Za-z0-9_\-]{8,})/g, "***")
+    .replace(/\bAIza[0-9A-Za-z_\-]{20,}/g, "***")
+    .replace(/\bgsk_[A-Za-z0-9]{10,}/g, "***")
+    .replace(/(Bearer\s+)[A-Za-z0-9._\-]{8,}/gi, "$1***");
+}
+
 // ── usage today (in memory: a restart forgives the day's counts, never over-spends a free tier) ──
 
 const day = () => new Date().toISOString().slice(0, 10);
 let today = day();
 const providerUse = new Map<ProviderId, number>();
 const userUse = new Map<string, number>();
+/** Premium questions per user today (agent steps after the first don't count; see streamChat). */
+const premiumUse = new Map<number, number>();
 const cooldown = new Map<ProviderId, number>();
 
 function roll() {
@@ -99,6 +214,16 @@ function roll() {
   today = d;
   providerUse.clear();
   userUse.clear();
+  premiumUse.clear();
+}
+
+export function premiumUsed(userId: number) {
+  roll();
+  return premiumUse.get(userId) ?? 0;
+}
+function countPremium(userId: number) {
+  roll();
+  premiumUse.set(userId, premiumUsed(userId) + 1);
 }
 
 export function userLimit(kind: Kind) {
@@ -249,13 +374,182 @@ export interface ToolDef {
 }
 
 export interface StreamResult {
-  provider: ProviderId;
+  /** A free provider, or a paid one (premium / BYOK). */
+  provider: ProviderId | PaidProviderId;
   model: string;
+  tier: Tier;
+}
+
+export interface StreamOptions {
+  /** Paid modes only: what the caller allowed (premium allowance, or the request's own key). */
+  access?: PaidAccess;
+  /** Answer length cap (default TMCODE_AI_MAX_TOKENS, else 1500 for chat, 4000 for agents). */
+  maxTokens?: number;
+  temperature?: number;
+}
+
+type Delta = { content?: string | null; tool_calls?: { index: number; id?: string; function?: { name?: string; arguments?: string } }[] };
+type Chunk = { model?: string; choices?: { delta?: Delta }[]; usage?: { cost?: number } };
+
+/** Reads a streamed answer: text to onDelta, tool calls assembled. `check` may refuse a chunk. */
+async function readStream(
+  stream: AsyncIterable<Chunk>,
+  model: string,
+  onFirst: (served: string) => void,
+  onDelta: (text: string) => void,
+  check?: (served: string, chunk: Chunk) => void,
+): Promise<{ sent: boolean; served: string; tool_calls?: ToolCall[] }> {
+  let served = model;
+  let sent = false;
+  // Tool calls arrive in pieces (name, then the arguments a few characters at a time).
+  const calls: { id: string; name: string; args: string }[] = [];
+  for await (const chunk of stream) {
+    if (chunk.model) served = chunk.model;
+    check?.(served, chunk);
+    if (!sent) {
+      sent = true;
+      onFirst(served);
+    }
+    const delta = chunk.choices?.[0]?.delta;
+    const text = delta?.content;
+    if (text) onDelta(text);
+    for (const tc of delta?.tool_calls ?? []) {
+      const c = (calls[tc.index ?? 0] ??= { id: "", name: "", args: "" });
+      if (tc.id) c.id = tc.id;
+      if (tc.function?.name) c.name += tc.function.name;
+      if (tc.function?.arguments) c.args += tc.function.arguments;
+    }
+  }
+  const tool_calls = calls
+    .filter((c) => c && c.name)
+    .map((c, i) => ({ id: c.id || `call_${Date.now()}_${i}`, type: "function" as const, function: { name: c.name, arguments: c.args || "{}" } }));
+  return { sent, served, ...(tool_calls.length ? { tool_calls } : {}) };
+}
+
+// ── paid requests ──
+
+interface PaidStep {
+  tier: "premium" | "byok";
+  provider: PaidProviderId;
+  model: string;
+  key: string;
+}
+
+/** The one step of a paid request, checked against what the caller allowed. */
+export function paidStep(mode: string, access: PaidAccess | undefined): PaidStep {
+  const m = parseMode(mode);
+  if (m.tier === "free") throw new AiError(400, "MODEL_UNKNOWN", "That model isn't available.");
+  if (m.tier === "premium") {
+    if (access?.tier !== "premium") throw new AiError(403, "PREMIUM_REQUIRED", "Premium AI isn't switched on for your account. Use the free AI, or ask the school.");
+    const pm = premiumModels().find((x) => x.id === `premium:${m.provider}/${m.model}`);
+    const key = pm ? PAID_PROVIDERS[pm.provider].premiumKey() : undefined;
+    if (!pm || !key) throw new AiError(400, "MODEL_UNKNOWN", "That premium model isn't available. Pick another one.");
+    return { tier: "premium", provider: pm.provider, model: m.model, key };
+  }
+  if (!isPaidProvider(m.provider) || !m.model) throw new AiError(400, "MODEL_UNKNOWN", "Pick a provider and a model for your own key.");
+  if (access?.tier !== "byok" || !access.key || access.provider !== m.provider) {
+    throw new AiError(400, "BYOK_KEY_REQUIRED", `Add your ${PAID_PROVIDERS[m.provider].label} API key in TMCode's settings to use this model.`);
+  }
+  return { tier: "byok", provider: m.provider, model: m.model, key: access.key };
+}
+
+const premiumClients = new Map<string, OpenAI>();
+/** Premium clients are kept (school keys); a BYOK client is made for the request and dropped with it. */
+function paidClient(step: PaidStep): OpenAI {
+  const make = () =>
+    new OpenAI({
+      apiKey: step.key,
+      baseURL: PAID_PROVIDERS[step.provider].baseURL,
+      timeout: 90_000,
+      maxRetries: 0,
+      ...(step.provider === "openrouter" ? { defaultHeaders: { "X-Title": "NGA TMCode" } } : {}),
+    });
+  if (step.tier === "byok") return make();
+  const id = `${step.provider}|${step.key}`;
+  let c = premiumClients.get(id);
+  if (!c) {
+    c = make();
+    premiumClients.set(id, c);
+  }
+  return c;
+}
+
+/** A provider's refusal as the app sees it: keys scrubbed, BYOK refusals as BYOK_REJECTED. */
+export function paidFailure(e: unknown, step: Pick<PaidStep, "tier" | "provider" | "key">): AiError {
+  if (e instanceof AiError) return new AiError(e.status, e.code, scrubSecrets(e.message, step.key));
+  const err = e as { status?: number; message?: string; error?: { message?: string } };
+  const status = Number(err?.status) || 0;
+  const said = scrubSecrets(String(err?.error?.message ?? err?.message ?? ""), step.key).replace(/\s+/g, " ").trim().slice(0, 300);
+  const label = PAID_PROVIDERS[step.provider].label;
+  if (step.tier === "byok" && status >= 400 && status < 500) {
+    const why =
+      status === 401 || status === 403
+        ? `${label} refused your API key`
+        : status === 402 || status === 429
+          ? `${label} says your key is out of credit or over its rate limit`
+          : status === 404
+            ? `${label} doesn't know that model with your key`
+            : `${label} refused the request`;
+    return new AiError(400, "BYOK_REJECTED", said ? `${why}: ${said}` : `${why}.`);
+  }
+  if (step.tier === "premium" && status === 429) return new AiError(429, "PROVIDER_QUOTA", `${label} is busy or over its limit. Try again in a minute, or use the free AI.`);
+  if (step.tier === "premium" && status) console.error(`[tmcode-ai] premium ${step.provider} failed (${status}): ${said}`);
+  return new AiError(502, "PROVIDER_FAILED", "The AI didn't answer. Try again, or switch model.");
+}
+
+async function streamPaid(
+  userId: number,
+  mode: string,
+  messages: ChatMessage[],
+  onMeta: (m: StreamResult) => void,
+  onDelta: (text: string) => void,
+  signal: AbortSignal,
+  agent: { tools: ToolDef[]; step: number } | undefined,
+  opts: StreamOptions,
+): Promise<StreamResult & { tool_calls?: ToolCall[] }> {
+  const step = paidStep(mode, opts.access);
+  const kind: Kind = agent && agent.step > 0 ? "agent" : "chat";
+  if (step.tier === "premium" && opts.access?.tier === "premium") {
+    // A question counts against the premium allowance; an agent's next steps against the agent allowance.
+    if (kind === "chat" && premiumUsed(userId) >= opts.access.limit)
+      throw new AiError(429, "PREMIUM_QUOTA", `You've used today's ${opts.access.limit} premium AI requests. Switch to the free AI; they come back tomorrow.`);
+    if (kind === "agent" && userUsed(userId, "agent") >= userLimit("agent"))
+      throw new AiError(429, "USER_QUOTA", `TMCode AI has done today's ${userLimit("agent")} agent steps for you. They come back tomorrow.`);
+  }
+  const body: Record<string, unknown> = {
+    model: step.model,
+    messages,
+    stream: true,
+    temperature: opts.temperature ?? (agent ? 0.2 : 0.3),
+    max_tokens: opts.maxTokens ?? num(process.env.TMCODE_AI_MAX_TOKENS, agent ? 4000 : 1500),
+  };
+  if (agent?.tools.length) {
+    body.tools = agent.tools;
+    body.tool_choice = "auto";
+  }
+  let r: Awaited<ReturnType<typeof readStream>>;
+  try {
+    const stream = (await paidClient(step).chat.completions.create(body as never, { signal })) as unknown as AsyncIterable<Chunk>;
+    r = await readStream(stream, step.model, (served) => onMeta({ provider: step.provider, model: served, tier: step.tier }), onDelta);
+  } catch (e) {
+    if (signal.aborted) throw e;
+    throw paidFailure(e, step);
+  }
+  if (!r.sent) throw new AiError(502, "EMPTY", "The AI sent an empty answer.");
+  if (step.tier === "premium") {
+    if (kind === "chat") countPremium(userId);
+    else {
+      roll();
+      userUse.set(`${userId}|agent`, userUsed(userId, "agent") + 1);
+    }
+  }
+  return { provider: step.provider, model: r.served, tier: step.tier, ...(r.tool_calls ? { tool_calls: r.tool_calls } : {}) };
 }
 
 /**
  * Streams one answer: tries the plan in order (a provider that fails before sending anything
  * passes to the next). `onDelta` gets the text as it arrives. Counts the use when it worked.
+ * Paid modes (premium:/byok:) go to their one model, with `opts.access` from the caller.
  */
 export async function streamChat(
   userId: number,
@@ -265,10 +559,12 @@ export async function streamChat(
   onDelta: (text: string) => void,
   signal: AbortSignal,
   agent?: { tools: ToolDef[]; step: number },
+  opts: StreamOptions = {},
 ): Promise<StreamResult & { tool_calls?: ToolCall[] }> {
   // Chokepoint (AI_USAGE_CONTROL_PLAN.md §5.5): nothing reaches a provider while the
   // school's AI policy has TMCode AI off (throws AiDisabledError).
   await assertAiApp("tmcode");
+  if (parseMode(mode).tier !== "free") return streamPaid(userId, mode, messages, onMeta, onDelta, signal, agent, opts);
   // An agent's first step is the student's question; its next steps (tool results) have their own allowance.
   const kind: Kind = agent && agent.step > 0 ? "agent" : "chat";
   if (userUsed(userId, kind) >= userLimit(kind))
@@ -279,41 +575,36 @@ export async function streamChat(
   for (const step of steps) {
     let sent = false;
     try {
-      const body: Record<string, unknown> = { model: step.model, messages, stream: true, temperature: agent ? 0.2 : 0.3, max_tokens: num(process.env.TMCODE_AI_MAX_TOKENS, agent ? 4000 : 1500), ...modelOptions(step.provider, step.model, "chat") };
+      const body: Record<string, unknown> = {
+        model: step.model,
+        messages,
+        stream: true,
+        temperature: opts.temperature ?? (agent ? 0.2 : 0.3),
+        max_tokens: opts.maxTokens ?? num(process.env.TMCODE_AI_MAX_TOKENS, agent ? 4000 : 1500),
+        ...modelOptions(step.provider, step.model, "chat"),
+      };
       if (agent?.tools.length) {
         body.tools = agent.tools;
         body.tool_choice = "auto";
       }
       // OpenRouter falls back across free models itself (free ids only, see openrouterProvider).
       if (step.provider === "openrouter" && step.fallbacks?.length) body.models = [step.model, ...step.fallbacks].slice(0, 3);
-      type Delta = { content?: string | null; tool_calls?: { index: number; id?: string; function?: { name?: string; arguments?: string } }[] };
-      const stream = (await client(step.provider).chat.completions.create(body as never, { signal })) as unknown as AsyncIterable<{ model?: string; choices?: { delta?: Delta }[]; usage?: { cost?: number } }>;
-      let served = step.model;
-      // Tool calls arrive in pieces (name, then the arguments a few characters at a time).
-      const calls: { id: string; name: string; args: string }[] = [];
-      for await (const chunk of stream) {
-        if (chunk.model) served = chunk.model;
-        if (step.provider === "openrouter" && (!isFreeModel(served) || (chunk.usage?.cost ?? 0) > 0)) throw new AiError(502, "NOT_FREE", "OpenRouter answered with a paid model; the answer was stopped.");
-        if (!sent) {
+      const stream = (await client(step.provider).chat.completions.create(body as never, { signal })) as unknown as AsyncIterable<Chunk>;
+      const r = await readStream(
+        stream,
+        step.model,
+        (served) => {
           sent = true;
-          onMeta({ provider: step.provider, model: served });
-        }
-        const delta = chunk.choices?.[0]?.delta;
-        const text = delta?.content;
-        if (text) onDelta(text);
-        for (const tc of delta?.tool_calls ?? []) {
-          const c = (calls[tc.index ?? 0] ??= { id: "", name: "", args: "" });
-          if (tc.id) c.id = tc.id;
-          if (tc.function?.name) c.name += tc.function.name;
-          if (tc.function?.arguments) c.args += tc.function.arguments;
-        }
-      }
-      if (!sent) throw new AiError(502, "EMPTY", "The AI sent an empty answer.");
+          onMeta({ provider: step.provider, model: served, tier: "free" });
+        },
+        onDelta,
+        (served, chunk) => {
+          if (step.provider === "openrouter" && (!isFreeModel(served) || (chunk.usage?.cost ?? 0) > 0)) throw new AiError(502, "NOT_FREE", "OpenRouter answered with a paid model; the answer was stopped.");
+        },
+      );
+      if (!r.sent) throw new AiError(502, "EMPTY", "The AI sent an empty answer.");
       countUse(userId, kind, step.provider);
-      const tool_calls = calls
-        .filter((c) => c && c.name)
-        .map((c, i) => ({ id: c.id || `call_${Date.now()}_${i}`, type: "function" as const, function: { name: c.name, arguments: c.args || "{}" } }));
-      return { provider: step.provider, model: served, ...(tool_calls.length ? { tool_calls } : {}) };
+      return { provider: step.provider, model: r.served, tier: "free", ...(r.tool_calls ? { tool_calls: r.tool_calls } : {}) };
     } catch (e) {
       if (signal.aborted) throw e;
       lastErr = e;
@@ -334,26 +625,48 @@ export async function streamChat(
   throw new AiError(502, "PROVIDER_FAILED", "The AI didn't answer. Try again, or switch model.");
 }
 
-/** One inline completion (ghost text): short, fast, cheap. Null when nothing fits. */
-export async function complete(userId: number, mode: string, input: { prefix: string; suffix: string; language: string; path: string }, signal: AbortSignal): Promise<{ text: string; provider: ProviderId; model: string } | null> {
+const COMPLETE_SYSTEM =
+  "You complete code. Reply with ONLY the text to insert at <CURSOR>: no explanation, no code fences, no repetition of the code before or after the cursor. Keep it short (a line or a small block). If nothing sensible fits, reply with nothing.";
+
+/**
+ * One inline completion (ghost text): short, fast, cheap. Null when nothing fits.
+ * Premium mode completes with the free Auto models (ghost text would spend the premium allowance
+ * in minutes); BYOK completes with the user's own model and key.
+ */
+export async function complete(
+  userId: number,
+  mode: string,
+  input: { prefix: string; suffix: string; language: string; path: string },
+  signal: AbortSignal,
+  opts: Pick<StreamOptions, "access"> = {},
+): Promise<{ text: string; provider: ProviderId | PaidProviderId; model: string; tier: Tier } | null> {
   await assertAiApp("tmcode");
-  if (userUsed(userId, "complete") >= userLimit("complete")) throw new AiError(429, "USER_QUOTA", "You've used today's AI suggestions. They come back tomorrow.");
-  const steps = await plan("complete", mode);
-  if (!steps.length) throw new AiError(429, "POOL_EXHAUSTED", "No free AI is left for suggestions today.");
   const messages: ChatMessage[] = [
-    {
-      role: "system",
-      content:
-        "You complete code. Reply with ONLY the text to insert at <CURSOR>: no explanation, no code fences, no repetition of the code before or after the cursor. Keep it short (a line or a small block). If nothing sensible fits, reply with nothing.",
-    },
+    { role: "system", content: COMPLETE_SYSTEM },
     { role: "user", content: `File: ${input.path} (${input.language})\n\n${input.prefix.slice(-3000)}<CURSOR>${input.suffix.slice(0, 1500)}` },
   ];
+  const parsed = parseMode(mode);
+  if (parsed.tier === "byok") {
+    const step = paidStep(mode, opts.access);
+    try {
+      const res = await paidClient(step).chat.completions.create({ model: step.model, messages, temperature: 0.1, max_tokens: 200 } as never, { signal, timeout: 10_000 });
+      const text = cleanCompletion(String((res as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content ?? ""), input.prefix, input.suffix);
+      return text ? { text, provider: step.provider, model: step.model, tier: "byok" } : null;
+    } catch (e) {
+      if (signal.aborted) return null;
+      throw paidFailure(e, step);
+    }
+  }
+  if (parsed.tier === "premium") paidStep(mode, opts.access); // still only for the entitled
+  if (userUsed(userId, "complete") >= userLimit("complete")) throw new AiError(429, "USER_QUOTA", "You've used today's AI suggestions. They come back tomorrow.");
+  const steps = await plan("complete", parsed.tier === "premium" ? "auto" : mode);
+  if (!steps.length) throw new AiError(429, "POOL_EXHAUSTED", "No free AI is left for suggestions today.");
   for (const step of steps) {
     try {
       const res = await client(step.provider).chat.completions.create({ model: step.model, messages, temperature: 0.1, max_tokens: 200, ...modelOptions(step.provider, step.model, "complete") } as never, { signal, timeout: 8000 });
       countUse(userId, "complete", step.provider);
       const text = cleanCompletion(String((res as { choices?: { message?: { content?: string } }[] }).choices?.[0]?.message?.content ?? ""), input.prefix, input.suffix);
-      return text ? { text, provider: step.provider, model: step.model } : null;
+      return text ? { text, provider: step.provider, model: step.model, tier: "free" } : null;
     } catch (e) {
       if (signal.aborted) return null;
       noteFailure(step.provider, e);
@@ -386,6 +699,8 @@ export function catalog() {
 export function resetAiUsage() {
   providerUse.clear();
   userUse.clear();
+  premiumUse.clear();
   cooldown.clear();
+  premiumClients.clear();
   orRemaining = null;
 }
