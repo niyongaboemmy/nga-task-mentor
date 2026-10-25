@@ -236,8 +236,27 @@ describe("StudentDashboard", () => {
     expect(within(results).getByText("HTML basics")).toBeInTheDocument();
     expect(within(results).getByLabelText("Has feedback")).toBeInTheDocument();
     // the ranking's per-subject score wins over the online-only one
-    fireEvent.click(screen.getByRole("button", { name: "bar WEB 78 vs 66" }));
+    fireEvent.click(screen.getByRole("button", { name: "bar Web UI 78 vs 66" }));
     expect(await screen.findByText("course page")).toBeInTheDocument();
+  });
+
+  it("only charts subjects with work, and links to the rest", async () => {
+    const quiet = { subject_id: 3, subject_name: "Biology", subject_code: "BIO", total: 0, todo: 0, due_soon: 0, missed: 0, awaiting: 0, graded: 0, completion: null, recent_average: null, next_task: null };
+    getOverview.mockResolvedValue(overview({ subjects: [...overview().subjects, quiet] }));
+    renderDash();
+    expect(await screen.findByRole("button", { name: "bar Web UI 78 vs 66" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /bar Biology/ })).toBeNull();
+    expect(screen.getByRole("link", { name: /1 more subject with no work yet/ })).toHaveAttribute("href", "/courses");
+  });
+
+  it("opens the task board on a group that has something in it", async () => {
+    const waitingOnly = TASKS.filter((t) => t.state === "submitted" || t.state === "graded");
+    getOverview.mockResolvedValue(overview({ tasks: waitingOnly }));
+    renderDash();
+    await screen.findByRole("heading", { name: "My tasks" });
+    const board = section("My tasks");
+    expect(within(board).getByRole("tab", { name: /Awaiting marks/ })).toHaveAttribute("aria-selected", "true");
+    expect(within(board).getByText("Wireframe")).toBeInTheDocument();
   });
 
   it("works without the ranking endpoint", async () => {
@@ -245,7 +264,7 @@ describe("StudentDashboard", () => {
     renderDash();
     expect(await screen.findByRole("img", { name: "Recent average: 60%" })).toBeInTheDocument();
     expect(screen.getByText("after your first marks")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "bar JS - vs -" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "bar JavaScript - vs -" })).toBeInTheDocument();
     expect(screen.queryByText("Tips for you")).toBeNull();
   });
 

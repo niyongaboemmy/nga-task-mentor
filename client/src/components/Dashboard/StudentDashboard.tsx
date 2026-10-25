@@ -83,6 +83,9 @@ interface StandingResponse {
 const periodName = (p: unknown): string | undefined =>
   p && typeof p === "object" && "name" in p ? String((p as { name: unknown }).name) : undefined;
 
+// Bars are labelled by name (codes like "DEMO-BIO" mean little); long names are cut.
+const shortName = (name: string) => (name.length > 22 ? `${name.slice(0, 21).trimEnd()}…` : name);
+
 function greeting(d = new Date()) {
   const h = d.getHours();
   return h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
@@ -103,7 +106,12 @@ const StudentDashboard: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [staleError, setStaleError] = useState<string | null>(null);
   const [day, setDay] = useState<string | null>(null);
-  const [tab, setTab] = useState<BoardTab>("todo");
+  const [tab, setTabState] = useState<BoardTab>("todo");
+  const tabChosen = useRef(false);
+  const setTab = (t: BoardTab) => {
+    tabChosen.current = true;
+    setTabState(t);
+  };
   const hasData = useRef(false);
   const seq = useRef(0);
   useSyncExternalStore(subscribeAlerts, getAlertsVersion);
@@ -170,6 +178,23 @@ const StudentDashboard: React.FC = () => {
     return () => window.clearTimeout(t);
   }, [overview]);
 
+  // Until the student picks a group, open on the first one with anything in
+  // it rather than an empty "To do".
+  useEffect(() => {
+    if (!overview || tabChosen.current) return;
+    const has = (match: (t: StudentOverview["tasks"][number]) => boolean) => overview.tasks.some(match);
+    const first: BoardTab = has((t) => TODO_STATES.includes(t.state))
+      ? "todo"
+      : has((t) => t.state === "not_open")
+        ? "coming"
+        : has((t) => t.state === "submitted")
+          ? "waiting"
+          : has((t) => t.state === "missed")
+            ? "missed"
+            : "todo";
+    setTabState(first);
+  }, [overview]);
+
   useEffect(() => {
     if (!overview || !location.hash) return;
     document.getElementById(location.hash.slice(1))?.scrollIntoView?.({ behavior: "smooth", block: "start" });
@@ -223,17 +248,22 @@ const StudentDashboard: React.FC = () => {
     awaiting: s.awaiting_grade,
   };
   const subjectStanding = new Map((standing?.subjects ?? []).map((x) => [String(x.course_id), x]));
-  const subjectRows = overview.subjects.map((sub) => {
-    const st = subjectStanding.get(String(sub.subject_id));
-    return {
-      id: sub.subject_id,
-      label: subjectLabel(sub),
-      name: sub.subject_name,
-      me: st?.score ?? sub.recent_average,
-      classAvg: st?.class_average ?? null,
-      todo: sub.todo,
-    };
-  });
+  // Only subjects with work or marks get a bar; the rest would be empty rows.
+  const subjectRows = overview.subjects
+    .map((sub) => {
+      const st = subjectStanding.get(String(sub.subject_id));
+      return {
+        id: sub.subject_id,
+        label: shortName(sub.subject_name),
+        name: sub.subject_name,
+        me: st?.score ?? sub.recent_average,
+        classAvg: st?.class_average ?? null,
+        todo: sub.todo,
+        total: sub.total,
+      };
+    })
+    .filter((r) => r.total > 0 || r.me != null);
+  const quietSubjects = overview.subjects.length - subjectRows.length;
   const trend = tasks
     .filter((t) => t.state === "graded" && t.score_pct != null && t.graded_at)
     .sort((a, b) => a.graded_at!.localeCompare(b.graded_at!))
@@ -427,7 +457,7 @@ const StudentDashboard: React.FC = () => {
           </div>
 
           {/* Subjects + tips + report card */}
-          <div className="grid gap-5 lg:grid-cols-3">
+          <div className="grid gap-5 lg:grid-cols-3 lg:items-start">
             <Panel
               title="My subjects"
               subtitle="You (bar) vs class average (tick) · tap to open"
@@ -435,7 +465,16 @@ const StudentDashboard: React.FC = () => {
               iconColor="indigo"
               className="lg:col-span-2"
             >
-              <SubjectBars rows={subjectRows} onSelect={(id) => navigate(`/courses/${id}`)} />
+              {subjectRows.length > 0 ? (
+                <SubjectBars rows={subjectRows} onSelect={(id) => navigate(`/courses/${id}`)} />
+              ) : (
+                <p className="text-sm text-center py-6 text-text-secondary-light dark:text-text-secondary-dark">No work set in your subjects yet this term.</p>
+              )}
+              {quietSubjects > 0 && (
+                <Link to="/courses" className="mt-3 inline-flex text-xs font-medium text-blue-600 dark:text-blue-400 hover:underline">
+                  {quietSubjects} more subject{quietSubjects === 1 ? "" : "s"} with no work yet · see all
+                </Link>
+              )}
             </Panel>
             <div className="space-y-5">
               {suggestions.length > 0 && (
@@ -452,7 +491,9 @@ const StudentDashboard: React.FC = () => {
                           ) : (
                             <p className="text-sm font-medium text-text-primary-light dark:text-text-primary-dark">{sg.title}</p>
                           )}
-                          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark">{sg.detail}</p>
+                          <p className="text-xs text-text-secondary-light dark:text-text-secondary-dark line-clamp-2" title={sg.detail}>
+                            {sg.detail}
+                          </p>
                         </div>
                       </li>
                     ))}
