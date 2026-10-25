@@ -12,6 +12,8 @@ export interface GroupedQuiz {
   course_id: number;
   created_by: number;
   is_public: boolean;
+  /** AI for students inside the quiz (AI usage control). */
+  ai_mode?: "off" | "hints" | "full";
   start_date: string | null;
   end_date: string | null;
   created_at: string | null;

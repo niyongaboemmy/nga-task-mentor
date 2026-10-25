@@ -203,3 +203,22 @@ describe("AI rubric", () => {
     expect(screen.getByTestId("rubric-total")).toHaveTextContent("10 / 10");
   });
 });
+
+describe("AI assistance for students", () => {
+  it("sends ai_mode in the form data: off by default, the teacher's choice otherwise", async () => {
+    const submit = vi.fn().mockResolvedValue(undefined);
+    const { unmount } = render(<AssignmentEditorForm mode="create" initial={initial()} courses={[]} submit={submit} />);
+    fireEvent.click(screen.getByRole("button", { name: /create assignment/i }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    expect((submit.mock.calls[0][0] as FormData).get("ai_mode")).toBe("off");
+    unmount();
+
+    submit.mockClear();
+    render(<AssignmentEditorForm mode="edit" initial={initial({ ai_mode: "hints" })} courses={[]} submit={submit} />);
+    expect(screen.getByRole("radio", { name: /Hints only/i })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("radio", { name: /Full assistant/i }));
+    fireEvent.click(screen.getByRole("button", { name: /save/i }));
+    await waitFor(() => expect(submit).toHaveBeenCalled());
+    expect((submit.mock.calls[0][0] as FormData).get("ai_mode")).toBe("full");
+  });
+});

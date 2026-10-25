@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { AiModeBadge } from "../components/ai/AiControls";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { toast } from "react-toastify";
@@ -108,6 +109,7 @@ function QuizRow({
           >
             {q.type}
           </span>
+          <AiModeBadge mode={q.ai_mode} className="shrink-0" />
           {q.is_public && (
             <span title="Public quiz">
               <Globe className="h-3 w-3 text-text-secondary-light dark:text-text-secondary-dark/60" />

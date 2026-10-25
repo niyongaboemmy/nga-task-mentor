@@ -356,6 +356,8 @@ export interface Quiz {
   is_available?: boolean;
   is_active?: boolean;
   is_public?: boolean;
+  /** AI for students inside the quiz, as the teacher set it. */
+  ai_mode?: "off" | "hints" | "full";
   /** Student view only (GET /quizzes/:id without edit rights). */
   student_state?: StudentQuizState;
   question_count?: number;
@@ -522,6 +524,8 @@ export interface CreateQuizRequest {
   start_date?: string | null;
   end_date?: string | null;
   is_public?: boolean;
+  /** AI for students inside the quiz: off (default), hints only, or the full assistant. */
+  ai_mode?: "off" | "hints" | "full";
 }
 
 export interface UpdateQuizRequest extends Partial<CreateQuizRequest> {

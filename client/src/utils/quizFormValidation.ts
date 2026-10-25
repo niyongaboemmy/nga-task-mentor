@@ -5,6 +5,7 @@ import type {
   QuizType,
 } from "../types/quiz.types";
 import { formatUTCToLocalDateTime, parseLocalDateTimeToUTC } from "./dateUtils";
+import type { AiMode } from "../services/aiApi";
 
 /**
  * Client-side mirror of server/src/validations/quiz.validation.ts so the user
@@ -58,6 +59,8 @@ export interface QuizFormValues {
   enable_automatic_grading: boolean;
   require_manual_grading: boolean;
   is_public: boolean;
+  /** AI assistance for students inside the quiz (off by default). */
+  ai_mode: AiMode;
   /** `datetime-local` value ("YYYY-MM-DDTHH:mm") in the browser's zone. */
   start_date: string;
   end_date: string;
@@ -85,6 +88,7 @@ export const EMPTY_QUIZ_FORM: QuizFormValues = {
   enable_automatic_grading: true,
   require_manual_grading: false,
   is_public: false,
+  ai_mode: "off",
   start_date: "",
   end_date: "",
 };
@@ -124,6 +128,7 @@ export function quizToFormValues(quiz: Quiz): QuizFormValues {
     enable_automatic_grading: quiz.enable_automatic_grading !== false,
     require_manual_grading: quiz.require_manual_grading ?? false,
     is_public: quiz.is_public ?? false,
+    ai_mode: quiz.ai_mode === "hints" || quiz.ai_mode === "full" ? quiz.ai_mode : "off",
     start_date: toLocalInput(quiz.start_date),
     end_date: toLocalInput(quiz.end_date),
   };
@@ -280,6 +285,7 @@ export function toQuizPayload(
     enable_automatic_grading: values.enable_automatic_grading,
     require_manual_grading: values.require_manual_grading,
     is_public: values.is_public,
+    ai_mode: values.ai_mode,
     start_date: isBlank(values.start_date)
       ? null
       : parseLocalDateTimeToUTC(values.start_date).toISOString(),

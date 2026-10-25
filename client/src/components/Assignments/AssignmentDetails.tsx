@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { AiModeBadge } from "../ai/AiControls";
 import { LearningOutcomesPanel } from "../competency/LearningOutcomesPanel";
 import { motion, AnimatePresence } from "framer-motion";
 import { useParams, useNavigate, Link } from "react-router-dom";
@@ -66,6 +67,8 @@ interface Assignment {
   can_manage?: boolean;
   /** server-computed: any teacher of the subject, the creator or a super admin (server utils/gradingAccess.ts) */
   can_grade?: boolean;
+  /** AI for students working on it (AI usage control). */
+  ai_mode?: "off" | "hints" | "full";
   attachments?: Attachment[];
   createdAt: string;
   updatedAt: string;
@@ -556,6 +559,12 @@ const AssignmentDetails = () => {
             canManageAssignment={canManageAssignment}
             onStatusChange={handleStatusChange}
           />
+
+          {(canManageAssignment || canGradeSubmissions) && (
+            <div className="px-6 pt-1">
+              <AiModeBadge mode={assignment.ai_mode} />
+            </div>
+          )}
 
           {canGradeSubmissions && assignment?.id ? (
             <div className="px-6 pb-2 pt-2">
