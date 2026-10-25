@@ -1,11 +1,18 @@
 import {
   AdvancedQuizGrader,
+  TextInputGrader,
   isPendingGrade,
   looksLikeSourceCode,
 } from "../utils/quizGrader";
 import { Judge0Service } from "../services/Judge0Service";
 import { aiService } from "../services/ai/aiService";
 import { studentGradingDetails } from "../utils/quizStudentView";
+import { resetAiPolicyCache, setAiPolicyForTests } from "../services/aiPolicy";
+import { AI_POLICY_DEFAULT } from "../vendor/nga-access";
+
+// AI usage control: these tests exercise AI with the school's AI policy switched on.
+beforeAll(() => setAiPolicyForTests({ ...AI_POLICY_DEFAULT, v: 1, enabled: true, features: { grading: true } }));
+afterAll(() => resetAiPolicyCache());
 
 /**
  * Coding/algorithmic grading without a judge: Judge0Service and the AI
@@ -222,5 +229,44 @@ describe("tests decide the auto score (TM-FIX-10)", () => {
     ai.mockResolvedValueOnce({ is_correct: false, points_earned: 0, feedback: "b" });
     const b = await AdvancedQuizGrader.gradeWithConfig(question("coding"), { code: "x=1", language: "python" });
     expect(a.points_earned).toBe(b.points_earned);
+  });
+});
+
+describe("AI grading follows the school's AI policy (features.grading)", () => {
+  const shortAnswer = {
+    id: 2,
+    points: 4,
+    questionBank: {
+      question_type: "short_answer",
+      question_text: "What do plants make in sunlight?",
+      question_data: { correct_answer: "glucose and oxygen", keywords: ["glucose", "oxygen"] },
+    },
+  } as any;
+
+  afterEach(() => setAiPolicyForTests({ ...AI_POLICY_DEFAULT, v: 1, enabled: true, features: { grading: true } }));
+
+  it("grading off: short answers are graded by keywords and the AI is never asked", async () => {
+    setAiPolicyForTests({ ...AI_POLICY_DEFAULT, v: 2, enabled: true, features: { grading: false } });
+    const ai = jest.spyOn(aiService, "gradeShortAnswer").mockResolvedValue({ is_correct: true, points_earned: 4, feedback: "AI" } as any);
+    const r = await TextInputGrader.gradeShortAnswer(shortAnswer, { answer: "It makes glucose" } as any);
+    expect(ai).not.toHaveBeenCalled();
+    expect(r.points_earned).toBe(2);
+    expect(r.feedback).toBe("Found 1/2 key concepts");
+  });
+
+  it("grading on: the AI grades the short answer", async () => {
+    const ai = jest.spyOn(aiService, "gradeShortAnswer").mockResolvedValue({ is_correct: true, points_earned: 4, feedback: "AI" } as any);
+    const r = await TextInputGrader.gradeShortAnswer(shortAnswer, { answer: "It makes glucose" } as any);
+    expect(ai).toHaveBeenCalledTimes(1);
+    expect(r.points_earned).toBe(4);
+  });
+
+  it("master switch off: the coding AI suggestion is skipped, the tests still grade", async () => {
+    setAiPolicyForTests(null);
+    stubJudge(["secret-in"]);
+    const r = await AdvancedQuizGrader.gradeWithConfig(question("coding"), { code: "print(1)", language: "python" });
+    expect(aiService.gradeCoding).not.toHaveBeenCalled();
+    expect((r.detailed_feedback as any).ai_suggestion).toBeUndefined();
+    expect(r.feedback).toBe("2/3 test cases passed.");
   });
 });

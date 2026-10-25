@@ -30,6 +30,7 @@ import { answerFiles, getCodeRunner } from "../services/coderunner";
 import { judgeTestsLanguage } from "../services/coderunner/judgeInfo";
 import { isWebLanguage, resolveAnswerLanguage } from "./codeLanguages";
 import { aiService } from "../services/ai/aiService";
+import { aiGradingAllowed } from "../services/aiPolicy";
 
 // Category-based grading functions
 /**
@@ -1001,18 +1002,22 @@ export class TextInputGrader {
     const maxPoints = parseFloat(String(question.points || 0));
     console.debug("[DEBUG] maxPoints being passed to AI:", maxPoints);
 
-    try {
-      const aiResult = await aiService.gradeShortAnswer(
-        question.questionBank?.question_text || "",
-        answer.answer,
-        questionData.correct_answer || "",
-        maxPoints,
-        questionData.rubric,
-      );
-      console.debug("[DEBUG] AI result:", JSON.stringify(aiResult, null, 2));
-      return aiResult;
-    } catch (error) {
-      console.error("[Grader] short_answer: AI grading failed, falling back to keyword-based:", error instanceof Error ? error.message : error);
+    // AI grading only while the school's AI policy allows it (features.grading);
+    // otherwise -- or when the AI fails -- the keywords decide.
+    if (await aiGradingAllowed()) {
+      try {
+        const aiResult = await aiService.gradeShortAnswer(
+          question.questionBank?.question_text || "",
+          answer.answer,
+          questionData.correct_answer || "",
+          maxPoints,
+          questionData.rubric,
+        );
+        console.debug("[DEBUG] AI result:", JSON.stringify(aiResult, null, 2));
+        return aiResult;
+      } catch (error) {
+        console.error("[Grader] short_answer: AI grading failed, falling back to keyword-based:", error instanceof Error ? error.message : error);
+      }
     }
 
     // Fallback: keyword-based grading
@@ -2018,8 +2023,9 @@ export class CodingGrader {
       // The tests decide the auto score (TM-FIX-10): re-grading the same code
       // always gives the same score. The AI rubric is only a suggestion for
       // the teacher (applied by a manual grade, if at all).
+      // Skipped while the school's AI policy has AI grading off.
       let aiSuggestion: Record<string, any> | undefined;
-      try {
+      if (await aiGradingAllowed()) try {
         const ai = await aiService.gradeCoding(
           question.questionBank?.question_text || "",
           finalCode,
