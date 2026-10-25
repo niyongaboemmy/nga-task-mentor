@@ -7,6 +7,7 @@ import { loadMarkSources } from "../utils/markSources";
 import { fetchEnrolledStudents, getMisToken, resolveAcademicTermId } from "../utils/misUtils";
 import { getScopedSubjects, type ScopedSubject } from "../utils/scopedSubjects";
 import { loadStaffPlacements, loadStudentClassCohort } from "../utils/rankingCohorts";
+import { dropInactiveKeyed } from "../utils/activeUsers";
 import {
   buildStaffView,
   buildStudentSummary,
@@ -97,6 +98,15 @@ async function loadRoster(token: string, courseIds: number[], termId: number | n
   return entries;
 }
 
+/**
+ * Active students only (ACTIVE_USERS_CONTRACTS.md): marks of people whose
+ * MIS account is no longer active (users.mis_status) leave the ranking
+ * before anyone is ranked, so they neither hold a place nor shift others'.
+ * Their marks stay in grades and reports. `keep` (the caller) is never dropped.
+ */
+const dropInactiveMarks = <T extends { key: string }>(marks: T[], keep?: string) =>
+  dropInactiveKeyed(marks, (m) => m.key, keep);
+
 export const getRanking = async (req: Request, res: Response) => {
   try {
     const parsed = rankingQuerySchema.safeParse(req.query);
@@ -146,7 +156,9 @@ export const getRanking = async (req: Request, res: Response) => {
           : Promise.resolve(null),
         loadStudentClassCohort(req, me.mis_user_id),
       ]);
-      const marks = sources ? collectMarks(sources) : [];
+      const marks = sources
+        ? await dropInactiveMarks(collectMarks(sources), studentKey(me.mis_user_id, me.user_id))
+        : [];
       const pending = sources
         ? collectPending(sources, me, courseIds.map(String), new Date())
         : [];
@@ -184,6 +196,7 @@ export const getRanking = async (req: Request, res: Response) => {
     if (sources && roster.length) {
       marks = collectMarks({ ...sources, knownMisIds: roster.map((r) => r.mis_user_id!).filter(Boolean) });
     }
+    marks = await dropInactiveMarks(marks);
 
     const rosterKeys = new Set(roster.map((r) => r.key));
     const offRoster = Array.from(new Set(marks.map((m) => m.key))).filter((k) => !rosterKeys.has(k));

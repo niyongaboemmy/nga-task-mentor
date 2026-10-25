@@ -33,6 +33,7 @@ import AcademicPeriodPicker, {
 } from "../components/Common/AcademicPeriodPicker";
 import {
   BandPill,
+  InactiveBadge,
   KpiCard,
   Panel,
   Progress,
@@ -672,6 +673,7 @@ export default function CourseReportsPage() {
                         <div className="flex items-center justify-between gap-2">
                           <span className="text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
                             {s.name}
+                            <InactiveBadge inactive={s.inactive} />
                           </span>
                           <span className="text-sm font-bold tabular-nums text-text-primary-light dark:text-text-primary-dark">
                             {s.markedCount > 0 ? `${s.overallPct}%` : "—"}
@@ -754,6 +756,7 @@ export default function CourseReportsPage() {
                               <span className="min-w-0">
                                 <span className="block text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate max-w-[150px]">
                                   {s.name}
+                                  <InactiveBadge inactive={s.inactive} />
                                 </span>
                                 <span className="block text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
                                   {s.markedCount}/{report.assessments.length} marked

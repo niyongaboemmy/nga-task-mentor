@@ -39,6 +39,8 @@ export interface IUserAttributes {
   role: UserRole;
   role_id?: number | null;
   mis_user_id?: number | null;
+  /** MIS account status (ACTIVE / INACTIVE / SUSPENDED / REMOVED); null = not synced yet, counts as active. */
+  mis_status?: string | null;
   profile_image?: string | null;
   reset_password_token?: string | null;
   reset_password_expire?: Date | null;
@@ -140,6 +142,16 @@ export class User extends Model<IUserAttributes, UserCreationAttributes> {
     field: "mis_user_id",
   })
   mis_user_id?: number | null;
+
+  // Active users only (ACTIVE_USERS_CONTRACTS.md): the MIS account status,
+  // see utils/activeUsers.ts. Indexed by migration
+  // 20261025140000-add-mis-status-to-users (no model index: startup sync).
+  @Column({
+    type: DataType.STRING(16),
+    allowNull: true,
+    field: "mis_status",
+  })
+  mis_status?: string | null;
 
   @Column({
     type: DataType.STRING,

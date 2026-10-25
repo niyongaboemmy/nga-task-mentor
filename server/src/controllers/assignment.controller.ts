@@ -1,3 +1,4 @@
+import { filterActiveMisRows } from "../utils/activeUsers";
 import { syncProjectsForSubmission } from "../tmcode/projects/status";
 import { Request, Response } from "express";
 import { Assignment, Submission, User } from "../models";
@@ -996,6 +997,8 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
             "email",
             "profile_image",
             "mis_user_id",
+            // History stays; the status lets the UI badge inactive students.
+            "mis_status",
           ],
         },
         {
@@ -1036,7 +1039,7 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
     }
 
     // Get all students enrolled in the course (subject) from NGA MIS
-    let enrolledStudents = [];
+    let enrolledStudents: any[] = [];
     try {
       const termId = await getCurrentTermId(req);
       const studentsResponse = await axios.get(
@@ -1050,7 +1053,9 @@ export const getAssignmentSubmissions = async (req: Request, res: Response) => {
       );
 
       if (studentsResponse.data.success) {
-        enrolledStudents = studentsResponse.data.data || [];
+        // Active students only: no "pending" placeholder for someone whose
+        // MIS account is inactive. Their real submissions stay listed.
+        enrolledStudents = await filterActiveMisRows(studentsResponse.data.data || []);
       }
     } catch (enrollmentError: any) {
       if (enrollmentError.response?.status === 401) {

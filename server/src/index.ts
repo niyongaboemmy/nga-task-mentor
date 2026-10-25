@@ -75,6 +75,7 @@ import { startCompetencyPush } from "./services/competencyEvidence";
 import competencyRoutes from "./routes/competency";
 import aiRoutes from "./routes/ai";
 import { startEarlyWarningSchedule } from "./services/earlyWarningPush";
+import { startMisStatusSweepSchedule } from "./services/misStatusSweep";
 import { verifyReportCard } from "./controllers/reportCard.controller";
 
 import cookieParser from "cookie-parser";
@@ -395,6 +396,8 @@ const startServer = async (): Promise<void> => {
       startReminderSweep();
       // Daily early-warning signals (work due/missed, mark trends) to the MIS.
       startEarlyWarningSchedule();
+      // Daily MIS account status (users.mis_status) so inactive people leave rosters.
+      startMisStatusSweepSchedule();
       // Graded results of quizzes/assignments tagged with learning outcomes, to the MIS competency map.
       startCompetencyPush();
       // Everyone's NGA profile photo from the MIS, every 15 minutes.

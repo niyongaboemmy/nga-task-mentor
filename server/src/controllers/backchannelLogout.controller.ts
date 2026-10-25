@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { LogoutTokenError, verifyLogoutToken } from "../utils/ssoLogout";
 import { revokeSessionsForMisUser } from "../services/sessionRevocation";
+import { recheckMisStatus } from "../services/misStatusSweep";
 
 /**
  * POST /api/auth/backchannel-logout -- OpenID Connect Back-Channel Logout.
@@ -16,6 +17,10 @@ export const backchannelLogout = async (req: Request, res: Response) => {
     });
     const ended = await revokeSessionsForMisUser(misUserId);
     console.log(`🔒 Single sign-out: ended sessions of MIS user ${misUserId} (${ended.length} local account(s))`);
+    // MIS also sends this when an account is disabled: re-read its status
+    // in the background (ACTIVE_USERS_CONTRACTS.md) so rosters drop it now
+    // rather than at the next daily sweep. Never delays MIS's call.
+    if (ended.length) void recheckMisStatus(misUserId);
     return res.status(200).json({ success: true });
   } catch (error: any) {
     if (error instanceof LogoutTokenError) {

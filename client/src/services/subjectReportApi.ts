@@ -48,6 +48,8 @@ interface RawStudentGrade {
     name: string;
     email: string;
     profile_image?: string;
+    /** No longer active in NGA MIS; kept on the sheet because they have marks. */
+    inactive?: boolean;
   };
   assignments: Array<{
     assignment_id: number;
@@ -112,6 +114,8 @@ export interface StudentStat {
   name: string;
   email: string;
   profileImage?: string;
+  /** No longer active in NGA MIS (history row). */
+  inactive?: boolean;
   overallPct: number;
   pointsEarned: number;
   pointsMax: number;
@@ -274,6 +278,7 @@ export const buildSubjectReport = (
       name: s.student.name,
       email: s.student.email,
       profileImage: s.student.profile_image,
+      inactive: !!s.student.inactive,
       overallPct,
       pointsEarned: Number(s.summary?.total_points_earned ?? 0),
       pointsMax: Number(s.summary?.total_max_points ?? 0),

@@ -13,7 +13,7 @@ import {
   Search,
   Users,
 } from "lucide-react";
-import { BandPill, Progress } from "../Grades/reportUi";
+import { BandPill, InactiveBadge, Progress } from "../Grades/reportUi";
 import {
   bandMeta,
   bandOf,
@@ -218,6 +218,7 @@ function AssessmentRow({
                         </span>
                         <span className="text-sm text-text-primary-light dark:text-text-primary-dark truncate">
                           {student.name}
+                          <InactiveBadge inactive={student.inactive} />
                         </span>
                       </span>
                       {mark === null ? (

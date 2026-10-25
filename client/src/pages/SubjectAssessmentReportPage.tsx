@@ -28,6 +28,7 @@ import TermYearSelect from "../components/ReportCard/TermYearSelect";
 import StudentGradeModal from "../components/Courses/StudentGradeModal";
 import {
   BandPill,
+  InactiveBadge,
   KpiCard,
   Panel,
   Progress,
@@ -661,6 +662,7 @@ export default function SubjectAssessmentReportPage() {
                       <span className="flex-1 min-w-0">
                         <span className="block text-sm font-semibold text-text-primary-light dark:text-text-primary-dark truncate">
                           {s.name}
+                          <InactiveBadge inactive={s.inactive} />
                         </span>
                         <span className="block text-[11px] text-text-secondary-light dark:text-text-secondary-dark/60">
                           {s.markedCount}/{report.assessments.length} marked · {s.pointsEarned}/{s.pointsMax} pts

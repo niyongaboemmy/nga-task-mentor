@@ -1,3 +1,4 @@
+import { isActiveUser } from "../utils/activeUsers";
 import zlib from "zlib";
 import { Request, Response } from "express";
 import { z } from "zod";
@@ -1150,6 +1151,10 @@ export const addMember = async (req: Request, res: Response) => {
   const user = b.user_id ? await User.findByPk(b.user_id) : await User.findOne({ where: { email: b.email! } });
   if (!user) return tmcodeError(res, 404, "USER_NOT_FOUND", "No Task Mentor user with that id or email.");
   if (user.id === p.owner_id) return tmcodeError(res, 422, "ALREADY_OWNER", "The owner is already on the project.");
+  // Active users only (ACTIVE_USERS_CONTRACTS.md); existing members stay as history.
+  if (!isActiveUser(user)) {
+    return tmcodeError(res, 422, "USER_INACTIVE", "That account is no longer active in NGA MIS.");
+  }
 
   const existing = await ProjectMember.findOne({ where: { project_id: p.id, user_id: user.id } });
   let member: ProjectMember;

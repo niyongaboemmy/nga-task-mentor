@@ -1,3 +1,4 @@
+import { filterActiveMisRows } from "../utils/activeUsers";
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import axios from "axios";
@@ -82,7 +83,8 @@ async function fetchClassGroupRoster(
       { headers: { Authorization: `Bearer ${token}` }, params: yearId ? { academic_year_id: yearId } : {} },
     );
     const students: RosterStudent[] = [];
-    for (const s of res.data?.data ?? []) {
+    // Active students only: MIS row status and the local users.mis_status.
+    for (const s of await filterActiveMisRows((res.data?.data ?? []) as any[])) {
       const id = Number(s.user_id);
       if (!Number.isFinite(id)) continue;
       students.push({
@@ -275,7 +277,7 @@ export async function computeOverview(
   const users = studentIds.length
     ? await User.findAll({
         where: { id: { [Op.in]: studentIds } },
-        attributes: ["id", "first_name", "last_name", "mis_user_id"],
+        attributes: ["id", "first_name", "last_name", "mis_user_id", "mis_status"],
         raw: true,
       })
     : [];

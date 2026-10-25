@@ -358,6 +358,33 @@ describe("GET /api/rankings — admin", () => {
   });
 });
 
+describe("GET /api/rankings — inactive students (ACTIVE_USERS_CONTRACTS.md)", () => {
+  // S4 B's 100% belongs to a student whose MIS account is now inactive.
+  beforeEach(async () => {
+    await otherClass.update({ mis_status: "INACTIVE" } as any);
+  });
+  afterEach(async () => {
+    await otherClass.update({ mis_status: null } as any);
+  });
+
+  it("leaves them out of the staff leaderboard before ranking", async () => {
+    const res = await get(`?subjectId=${SUBJ_A}`, instructorToken);
+    expect(res.status).toBe(200);
+    expect(res.body.data.rows.map((r: any) => [r.rank, r.name, r.grade_rank])).toEqual([
+      [1, `Classmate ${RUN}`, 1],
+      [2, "Jane Student", 2],
+    ]);
+  });
+
+  it("does not count them in a student's subject-cohort fallback", async () => {
+    placementDown = true;
+    const res = await get();
+    expect(res.status).toBe(200);
+    expect(res.body.data.cohort).toEqual({ type: "subjects" });
+    expect(res.body.data.overall).toMatchObject({ rank: 2, ranked_count: 2 });
+  });
+});
+
 describe("GET /api/rankings — switched off in Roles & Permissions", () => {
   let studentOff: string;
   let teacherOff: string;

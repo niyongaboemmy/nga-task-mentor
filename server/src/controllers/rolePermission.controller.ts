@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Op } from "sequelize";
 import { Role, Permission, RolePermission, User } from "../models";
 import { sequelize } from "../config/database";
+import { activeUserWhere } from "../utils/activeUsers";
 import type {
   CreateRolePayload,
   UpdateRolePayload,
@@ -21,11 +22,12 @@ async function unknownPermissionKeys(keys: string[], transaction?: any): Promise
 /**
  * Users, other than on `excludeRoleId`'s role, who could still manage roles.
  * Counts people, not roles: another role holding the key with nobody assigned
- * to it doesn't keep anyone out of a lockout.
+ * to it doesn't keep anyone out of a lockout. Active MIS accounts only
+ * (ACTIVE_USERS_CONTRACTS.md): a disabled admin can't sign in to fix roles.
  */
 async function otherUsersWhoCanManage(excludeRoleId: number, transaction?: any): Promise<number> {
   return User.count({
-    where: { role_id: { [Op.ne]: excludeRoleId } },
+    where: { role_id: { [Op.ne]: excludeRoleId }, [Op.and]: [activeUserWhere()] } as any,
     include: [
       {
         model: Role,
@@ -76,7 +78,8 @@ export const listRoles = async (_req: Request, res: Response) => {
 
     const data = await Promise.all(
       roles.map(async (role) => {
-        const userCount = await User.count({ where: { role_id: role.id } });
+        // Active MIS accounts only; disabled ones keep their role row (history).
+        const userCount = await User.count({ where: { role_id: role.id, [Op.and]: [activeUserWhere()] } as any });
         return {
           id: role.id,
           name: role.name,
@@ -350,8 +353,9 @@ export const assignUserRole = async (req: Request, res: Response) => {
     );
 
     if (userCurrentlyHasManage && !willHaveManage) {
+      // Active accounts only: a disabled admin can't sign in to undo this.
       const otherUsersWithManage = await User.count({
-        where: { id: { [Op.ne]: user.id } },
+        where: { id: { [Op.ne]: user.id }, [Op.and]: [activeUserWhere()] } as any,
         include: [
           {
             model: Role,

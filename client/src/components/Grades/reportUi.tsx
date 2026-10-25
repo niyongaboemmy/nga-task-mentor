@@ -180,6 +180,19 @@ export function BandPill({ band }: { band: BandKey }) {
   );
 }
 
+/** A student no longer active in NGA MIS, kept on a grade sheet for their marks. */
+export function InactiveBadge({ inactive }: { inactive?: boolean }) {
+  if (!inactive) return null;
+  return (
+    <span
+      className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-semibold align-middle bg-gray-100 text-gray-600 dark:bg-white/10 dark:text-gray-300"
+      title="This account is no longer active in NGA MIS"
+    >
+      Inactive
+    </span>
+  );
+}
+
 /** Loading placeholder that keeps the page's shape instead of a bare spinner. */
 export function ReportSkeleton() {
   return (

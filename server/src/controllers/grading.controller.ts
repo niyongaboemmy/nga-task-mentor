@@ -1,3 +1,4 @@
+import { activeUserWhere, filterActiveMisRows } from "../utils/activeUsers";
 import { Request, Response } from "express";
 import {
   QuizSubmission,
@@ -851,9 +852,12 @@ export const getQuizStudents = async (req: Request, res: Response) => {
           },
         );
 
-        const enrolled: any[] = misResponse.data?.success
-          ? misResponse.data.data || []
-          : [];
+        // Active students only (ACTIVE_USERS_CONTRACTS.md): an inactive
+        // student (MIS status on the row, or the local users.mis_status) is
+        // neither listed nor given a local account by the findOrCreate below.
+        const enrolled: any[] = await filterActiveMisRows(
+          misResponse.data?.success ? misResponse.data.data || [] : [],
+        );
 
         const normalized = enrolled
           .map((s: any) => ({
@@ -901,7 +905,7 @@ export const getQuizStudents = async (req: Request, res: Response) => {
     }
 
     // --- Fallback: local student accounts only (pre-MIS behaviour) ---
-    const where: any = { role: "student" };
+    const where: any = { role: "student", [Op.and]: [activeUserWhere()] };
     if (search) {
       const term = `%${search}%`;
       where[Op.or] = [

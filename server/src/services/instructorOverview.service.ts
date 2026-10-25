@@ -108,7 +108,13 @@ export interface LocalUserRow {
   first_name?: string | null;
   last_name?: string | null;
   mis_user_id?: number | null;
+  /** MIS account status (users.mis_status); null = not synced, active. */
+  mis_status?: string | null;
 }
+
+/** Same rule as utils/activeUsers isActiveStatus, kept local so this module stays pure. */
+const inactiveLocal = (u: LocalUserRow | undefined) =>
+  !!u?.mis_status && String(u.mis_status).trim().toUpperCase() !== "ACTIVE";
 
 export interface OverviewInput {
   now: Date;
@@ -527,6 +533,10 @@ export function buildInstructorOverview(input: OverviewInput): InstructorOvervie
     const localId = localOfKey.get(key) ?? (key.startsWith("local:") ? Number(key.slice(6)) : null);
     const roster = misId != null ? rosterStudent.get(misId) : undefined;
     const local = localId != null ? userById.get(localId) : undefined;
+    // Active students only (ACTIVE_USERS_CONTRACTS.md): someone off the
+    // roster whose MIS account is inactive is not listed. Their work still
+    // counts in each assessment's numbers above (history).
+    if (!roster && inactiveLocal(local)) continue;
     const name =
       roster?.name ||
       [local?.first_name, local?.last_name].filter(Boolean).join(" ") ||
