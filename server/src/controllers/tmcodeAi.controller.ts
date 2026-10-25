@@ -5,7 +5,8 @@ import { tmcodeError } from "../middleware/tmcodeAuth";
 import { decideAiFor, type AiVerdict } from "../middleware/requireAi";
 import { examContext, forProject, type ItemContext } from "../utils/aiContext";
 import { trackAiDenied } from "../utils/aiEvents";
-import { isAiDisabledError } from "../services/aiPolicy";
+import { getAiPolicy, isAiDisabledError } from "../services/aiPolicy";
+import { subscribeAiChanges } from "../services/aiLive";
 import type { AiFeature } from "../vendor/nga-access";
 import { AiError, catalog, complete, configured, openRouterRemaining, PROVIDERS, remaining, streamChat, userLimit, userUsed, type ChatMessage, type ProviderId, type ToolDef } from "../tmcode/ai/service";
 
@@ -20,6 +21,9 @@ const READ_ONLY = new Set(["list_files", "read_file", "search", "get_problems"])
  *   POST /ai/chat             { messages, context?, mode, project_id? } → { id }
  *   GET  /ai/chat/:id/stream  text/event-stream: meta, delta, done | error (the chat's project)
  *   POST /ai/complete         { prefix, suffix, language, path, mode, project_id? } → { text | null }
+ *   GET  /ai/events           text/event-stream: hello { v }, then changed { cause, … } whenever
+ *                             the school's policy, an item's AI mode or the roles change (the app
+ *                             asks for its status again); a ping comment every 20 s
  *
  * Who may use it (AI_USAGE_CONTROL_PLAN.md §5-6, decideAi): the school's AI policy first
  * (TMCode switched on), then -- for a student in an activity -- the teacher's ai_mode of the
@@ -47,6 +51,44 @@ async function verdictFor(req: Request, feature: AiFeature, projectId: number | 
 function refuse(req: Request, res: Response, feature: AiFeature, v: Pick<AiVerdict, "reason" | "message" | "item">) {
   trackAiDenied(req, feature, v.reason, v.item);
   return tmcodeError(res, 403, "AI_DISABLED", v.message, { code: "AI_DISABLED", reason: v.reason });
+}
+
+/** Open /ai/events lines per user (an app reconnecting quickly may briefly hold two). */
+const EVENT_LINES_PER_USER = 4;
+const HEARTBEAT_MS = 20_000;
+const eventLines = new Map<number, number>();
+
+/**
+ * Live "AI settings changed" for TMCode (services/aiLive.ts). It decides nothing: on `changed`
+ * the app asks /ai/status again, which applies every rule for that user and project.
+ */
+export async function aiEvents(req: Request, res: Response) {
+  const id = userId(req);
+  const open = eventLines.get(id) ?? 0;
+  if (open >= EVENT_LINES_PER_USER) return tmcodeError(res, 429, "TOO_MANY_STREAMS", "TMCode is already listening for AI changes.");
+  eventLines.set(id, open + 1);
+  res.status(200);
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders?.();
+  const send = (event: string, data: unknown) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+  const policy = await getAiPolicy();
+  send("hello", { v: policy?.v ?? null });
+  const unsubscribe = subscribeAiChanges((change) => send("changed", change));
+  const heartbeat = setInterval(() => res.write(": ping\n\n"), HEARTBEAT_MS);
+  heartbeat.unref?.();
+  let closed = false;
+  req.on("close", () => {
+    if (closed) return;
+    closed = true;
+    clearInterval(heartbeat);
+    unsubscribe();
+    const left = (eventLines.get(id) ?? 1) - 1;
+    if (left > 0) eventLines.set(id, left);
+    else eventLines.delete(id);
+  });
 }
 
 export async function aiStatus(req: Request, res: Response) {

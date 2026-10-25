@@ -95,6 +95,16 @@ export async function getAiPolicy(): Promise<AiPolicy | null> {
 }
 
 /**
+ * Asks MIS now, whatever the cache says (services/aiLive.ts watches the policy with it while
+ * TMCode apps are listening). Shares a fetch already on its way; never throws.
+ */
+export async function refreshAiPolicyNow(): Promise<AiPolicy | null> {
+  if (override !== undefined) return override;
+  if (!inflight) inflight = refresh().finally(() => (inflight = null));
+  return inflight;
+}
+
+/**
  * Called with MIS /auth/verify's `data.ai_policy_v`: a version other than the
  * cached one means the super admin changed the policy -- refetch on next use.
  */

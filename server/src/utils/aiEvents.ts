@@ -1,5 +1,6 @@
 import { Request } from "express";
 import { trackKeyEvent } from "../activity/keyEvents";
+import { publishAiChange } from "../services/aiLive";
 import type { AiAssessmentContext, AiFeature, AiMode, AiReason } from "../vendor/nga-access";
 
 /**
@@ -19,6 +20,8 @@ export function trackAiModeChange(
   to: AiMode,
 ) {
   if (from === to) return;
+  // Open TMCode apps ask for their AI status again (GET /api/tmcode/ai/events).
+  publishAiChange({ cause: "item", kind, id: Number(item.id) });
   const actor = Number((req as any).user?.id);
   const override = item.created_by != null && Number(item.created_by) !== actor;
   trackKeyEvent(req, override ? "tm.ai.mode_override" : "tm.ai.mode_set", {

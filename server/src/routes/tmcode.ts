@@ -179,6 +179,7 @@ const aiLimiter = rateLimit({
   legacyHeaders: false,
 });
 router.get("/ai/status", read, wrap(ai.aiStatus));
+router.get("/ai/events", read, wrap(ai.aiEvents));
 router.post("/ai/chat", read, aiLimiter, wrap(ai.aiChat));
 router.get("/ai/chat/:id/stream", read, wrap(ai.aiChatStream));
 router.post("/ai/complete", read, aiLimiter, wrap(ai.aiComplete));
