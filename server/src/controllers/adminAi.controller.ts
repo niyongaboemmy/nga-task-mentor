@@ -3,6 +3,7 @@ import { Op, QueryTypes } from "sequelize";
 import { z } from "zod";
 import { sequelize } from "../config/database";
 import { AiEntitlement, User } from "../models";
+import { activeUserWhere, isActiveUser } from "../utils/activeUsers";
 import { publishAiChange } from "../services/aiLive";
 import { BYOK_SETTING, byokAllowed, effectiveEntitlement, setSetting } from "../services/aiEntitlements";
 import { byokProviders, PAID_PROVIDERS, premiumDefaultLimit, premiumModels, premiumModelsConfigured, premiumUsed, isPaidProvider } from "../tmcode/ai/service";
@@ -79,7 +80,7 @@ const nameOf = (u: User | undefined) => (u ? [u.first_name, u.last_name].filter(
 async function entitlementRows(rows: AiEntitlement[]) {
   const ids = [...new Set(rows.flatMap((r) => [r.user_id, r.granted_by].filter((x): x is number => !!x)))];
   const [users, roles] = await Promise.all([
-    ids.length ? User.findAll({ where: { id: { [Op.in]: ids } }, attributes: ["id", "first_name", "last_name", "email"] }) : [],
+    ids.length ? User.findAll({ where: { id: { [Op.in]: ids } }, attributes: ["id", "first_name", "last_name", "email", "mis_status"] }) : [],
     rolesOf(rows.map((r) => r.user_id)),
   ]);
   const byId = new Map(users.map((u) => [u.id, u]));
@@ -91,6 +92,8 @@ async function entitlementRows(rows: AiEntitlement[]) {
       user_id: r.user_id,
       name: nameOf(u) ?? `User #${r.user_id}`,
       email: u?.email ?? null,
+      // History stays: a grant to someone MIS has since disabled is listed, badged.
+      inactive: u ? !isActiveUser(u) : false,
       role: role?.role ?? null,
       premium: !!r.premium,
       entitled: e.entitled,
@@ -124,10 +127,13 @@ export const putEntitlement = async (req: Request, res: Response) => {
   if (!parsed.success) {
     return res.status(400).json({ success: false, message: "Invalid entitlement.", issues: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`) });
   }
-  const user = await User.findByPk(userId, { attributes: ["id"] });
+  const user = await User.findByPk(userId, { attributes: ["id", "mis_status"] });
   if (!user) return res.status(404).json({ success: false, message: "That user has no Task Mentor account yet." });
   const existing = await AiEntitlement.findByPk(userId);
   const b = parsed.data;
+  if (b.premium && !isActiveUser(user)) {
+    return res.status(409).json({ success: false, code: "USER_INACTIVE", message: "That account is no longer active in NGA MIS." });
+  }
   await AiEntitlement.upsert({
     user_id: userId,
     premium: b.premium,
@@ -154,7 +160,9 @@ export const searchUsers = async (req: Request, res: Response) => {
   if (q.length < 2) return res.json({ success: true, data: { users: [] } });
   const like = `%${q.replace(/[%_\\]/g, (c) => `\\${c}`)}%`;
   const parts = q.split(/\s+/).filter(Boolean);
+  // Active users only (ACTIVE_USERS_CONTRACTS.md): no grants to disabled accounts.
   const where: any = {
+    [Op.and]: [activeUserWhere()],
     [Op.or]: [
       { email: { [Op.like]: like } },
       { first_name: { [Op.like]: like } },

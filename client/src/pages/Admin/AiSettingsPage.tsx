@@ -37,6 +37,8 @@ interface EntitledUser {
   name: string;
   email: string | null;
   role: string | null;
+  /** The account is no longer active in NGA MIS (kept for history). */
+  inactive?: boolean;
   premium: boolean;
   entitled: boolean;
   via: "role" | "grant" | null;
@@ -389,7 +391,14 @@ const AiSettingsPage: React.FC = () => {
                     {users.map((u) => (
                       <tr key={u.user_id} data-testid={`entitled-${u.user_id}`}>
                         <td className="py-2.5 pr-3">
-                          <span className="block text-text-primary-light dark:text-text-primary-dark">{u.name}</span>
+                          <span className="block text-text-primary-light dark:text-text-primary-dark">
+                            {u.name}
+                            {u.inactive ? (
+                              <span className="ml-2 align-middle">
+                                <Badge tone="neutral">Inactive</Badge>
+                              </span>
+                            ) : null}
+                          </span>
                           <span className="block text-xs text-text-secondary-light dark:text-text-secondary-dark">
                             {u.email}
                             {u.role ? ` · ${u.role}` : ""}
