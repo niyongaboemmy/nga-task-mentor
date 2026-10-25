@@ -82,6 +82,7 @@ describe("@nga/access decideAi table (AI_USAGE_CONTROL_PLAN.md §2)", () => {
         assessments: p.assessments,
         grading: p.features.grading,
         thirdPartyExtensions: p.thirdPartyExtensions,
+        thirdPartyExtensionsStaff: p.thirdPartyExtensionsStaff,
       }).toEqual(c.expect);
     });
   }
