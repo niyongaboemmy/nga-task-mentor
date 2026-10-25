@@ -791,13 +791,35 @@ export interface ActivityEvent {
   user_id: number | null;
 }
 
+/** Over the project's whole log (not just the events page). Merged entries count as many times as they happened. */
 export interface ActivitySummary {
   total: number;
   ai_events: number;
   ai_tools: { by: string; count: number }[];
   ai_chars: number;
+  /** AI the student tried while it was off (blocked AI extensions or terminal tools). */
+  ai_blocked?: number;
+  copies?: number;
+  cuts?: number;
+  pastes?: number;
+  /** Text dragged in from another app. */
+  drops?: number;
+  pastes_inside?: number;
+  /** Pastes and drops of text not copied inside TMCode. */
   pastes_outside: number;
   pastes_from_ai: number;
+  chars_pasted_outside?: number;
+  files_copied?: number;
+  files_cut?: number;
+  /** Files brought in from outside the project (Finder / File Explorer). */
+  files_imported?: number;
+  terminal_commands?: number;
+  runs?: number;
+  /** Files changed on disk by something other than TMCode. */
+  outside_changes?: number;
+  /** Times (and seconds) the student spent in other apps. */
+  away_count?: number;
+  away_seconds?: number;
   by_kind: Record<string, number>;
   first_at: number | null;
   last_at: number | null;
@@ -805,9 +827,9 @@ export interface ActivitySummary {
 
 export const projectsApi = {
   /** TMCode's activity log of the project (everything but typing; AI use named). */
-  async activity(id: number, limit = 1000): Promise<{ events: ActivityEvent[]; summary: ActivitySummary }> {
-    const res = await api.get(`${BASE}/projects/${id}/activity`, { params: { limit } });
-    return res.data;
+  async activity(id: number, limit = 1000, before?: number | null): Promise<{ events: ActivityEvent[]; summary: ActivitySummary; next_before: number | null }> {
+    const res = await api.get(`${BASE}/projects/${id}/activity`, { params: { limit, ...(before ? { before } : {}) } });
+    return { next_before: null, ...res.data };
   },
 
   /** Archived and removed projects are included; pages filter them. */
