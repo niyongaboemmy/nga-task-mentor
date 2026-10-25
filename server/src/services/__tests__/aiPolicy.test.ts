@@ -95,13 +95,13 @@ describe("aiPolicy client", () => {
   it("assertAiApp throws AiDisabledError (GLOBAL_OFF / APP_OFF); grading needs features.grading", async () => {
     setAiPolicyForTests(null);
     await expect(assertAiApp("tm")).rejects.toMatchObject({ code: "AI_DISABLED", reason: "GLOBAL_OFF", statusCode: 403 });
-    setAiPolicyForTests({ v: 1, enabled: true, apps: { tm: false }, features: { grading: true }, assessments: "teacher", thirdPartyExtensions: false });
+    setAiPolicyForTests({ v: 1, enabled: true, apps: { tm: false }, features: { grading: true }, assessments: "teacher", thirdPartyExtensions: false, thirdPartyExtensionsStaff: true });
     await expect(assertAiApp("tm")).rejects.toBeInstanceOf(AiDisabledError);
     await expect(assertAiApp("tmcode")).resolves.toMatchObject({ enabled: true });
     expect(await aiGradingAllowed()).toBe(false);
-    setAiPolicyForTests({ v: 1, enabled: true, apps: {}, features: { grading: true }, assessments: "teacher", thirdPartyExtensions: false });
+    setAiPolicyForTests({ v: 1, enabled: true, apps: {}, features: { grading: true }, assessments: "teacher", thirdPartyExtensions: false, thirdPartyExtensionsStaff: true });
     expect(await aiGradingAllowed()).toBe(true);
-    setAiPolicyForTests({ v: 1, enabled: true, apps: {}, features: { grading: false }, assessments: "teacher", thirdPartyExtensions: false });
+    setAiPolicyForTests({ v: 1, enabled: true, apps: {}, features: { grading: false }, assessments: "teacher", thirdPartyExtensions: false, thirdPartyExtensionsStaff: true });
     expect(await aiGradingAllowed()).toBe(false);
     expect(get).not.toHaveBeenCalled();
   });
