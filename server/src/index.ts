@@ -72,6 +72,7 @@ import aiService from "./services/ai/aiService";
 import { startReminderSweep } from "./services/reminderSync";
 import { startCompetencyPush } from "./services/competencyEvidence";
 import competencyRoutes from "./routes/competency";
+import aiRoutes from "./routes/ai";
 import { startEarlyWarningSchedule } from "./services/earlyWarningPush";
 import { verifyReportCard } from "./controllers/reportCard.controller";
 
@@ -342,6 +343,7 @@ const startServer = async (): Promise<void> => {
     app.use("/api/integration", integrationRoutes);
     app.use("/api/media", mediaRoutes);
     app.use("/api/competency", competencyRoutes);
+    app.use("/api/ai", aiRoutes);
     // Public (no auth) — QR code verification
     app.get("/api/public/verify/report-card/:uuid", verifyReportCard);
 

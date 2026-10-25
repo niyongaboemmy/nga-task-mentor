@@ -13,6 +13,12 @@ jest.mock("../registry", () => {
 
 import { generateFreeformJSON } from "../generate";
 import { isCoolingDown } from "../registry";
+import { resetAiPolicyCache, setAiPolicyForTests } from "../../aiPolicy";
+import { AI_POLICY_DEFAULT } from "../../../vendor/nga-access";
+
+// AI usage control: these tests exercise AI with the school's AI policy switched on.
+beforeAll(() => setAiPolicyForTests({ ...AI_POLICY_DEFAULT, v: 1, enabled: true }));
+afterAll(() => resetAiPolicyCache());
 
 const fake = (name: string, reply: () => Promise<string>): AIProvider => ({
   name,

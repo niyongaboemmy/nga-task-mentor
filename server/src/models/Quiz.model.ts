@@ -16,6 +16,9 @@ import ProctoringSession from "./ProctoringSession.model";
 
 export type QuizStatus = "draft" | "published" | "completed";
 export type QuizType = "Assessment" | "Homework" | "Quiz" | "Exam";
+/** AI for students inside the quiz (AI_USAGE_CONTROL_PLAN.md §5.6). */
+export type AiMode = "off" | "hints" | "full";
+export const AI_MODE_VALUES: readonly AiMode[] = ["off", "hints", "full"];
 
 export interface IQuizAttributes {
   id?: number;
@@ -35,6 +38,7 @@ export interface IQuizAttributes {
   start_date?: Date;
   end_date?: Date;
   is_public?: boolean;
+  ai_mode?: AiMode;
   attachments?: Array<{
     name: string;
     url: string;
@@ -209,6 +213,17 @@ export class Quiz extends Model<IQuizAttributes, QuizCreationAttributes> {
     field: "is_public",
   })
   is_public!: boolean;
+
+  // What AI students may use while taking the quiz, as set by the teacher who
+  // prepared it (the school-wide AI policy still comes first; see
+  // middleware/requireAi.ts).
+  @Column({
+    type: DataType.ENUM("off", "hints", "full"),
+    allowNull: false,
+    defaultValue: "off",
+    field: "ai_mode",
+  })
+  ai_mode!: AiMode;
 
   @Column({
     type: DataType.DATE,

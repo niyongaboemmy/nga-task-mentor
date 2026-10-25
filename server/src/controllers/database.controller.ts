@@ -3,6 +3,7 @@ import { QueryTypes } from "sequelize";
 import { sequelize } from "../config/database";
 import { DatabaseQueryLog, User } from "../models";
 import aiService from "../services/ai/aiService";
+import { aiDisabledBody, isAiDisabledError } from "../services/aiPolicy";
 
 const READ_STATEMENTS = ["SELECT", "SHOW", "DESCRIBE", "DESC", "EXPLAIN"];
 const WRITE_STATEMENTS = [
@@ -706,6 +707,7 @@ export const generateSqlWithAI = async (req: Request, res: Response) => {
       data: { sql: cleanSql, explanation: explanation || null, providerUsed },
     });
   } catch (error: any) {
+    if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
     console.error("Generate SQL with AI error:", error);
     res.status(500).json({ success: false, message: error.message || "Server error" });
   }

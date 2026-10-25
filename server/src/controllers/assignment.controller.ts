@@ -22,6 +22,8 @@ import {
 import { getScopedSubjects } from "../utils/scopedSubjects";
 import { assignmentTmcodeSettings } from "./tmcodeAssignments.controller";
 import { canManageAssignment } from "../utils/ownership";
+import { trackAiModeChange } from "../utils/aiEvents";
+import { AI_MODE_VALUES, type AiMode } from "../models/Quiz.model";
 import { canGradeAssignment, GRADE_DENIED_MESSAGE } from "../utils/gradingAccess";
 import { cancelAssignment, syncAssignment } from "../services/reminderSync";
 import {
@@ -32,6 +34,8 @@ import {
 import type { IFileSubmission } from "../models/Submission.model";
 import { clearInstructorOverviewCache } from "./instructorOverview.controller";
 import { assignmentStatusScope, isAssignmentStudentView, termScope } from "../utils/courseItemScope";
+
+const isAiModeValue = (v: unknown): v is AiMode => AI_MODE_VALUES.includes(v as AiMode);
 
 // This controller manages all assignment-related operations, including creation, retrieval, updating, deletion, and submission handling. It also integrates with the NGA MIS to fetch enrolled students and manage assignment visibility based on course enrollment. The controller ensures that only authorized users can perform certain actions (e.g., only instructors can create assignments) and that students can only see and submit assignments for courses they are enrolled in. It also handles file uploads for assignments and submissions, storing metadata in the database and files on disk.
 // @desc    Get assignments for a specific course
@@ -82,6 +86,7 @@ export const getCourseAssignments = async (req: Request, res: Response) => {
         "submission_type",
         "status",
         "created_by",
+        "ai_mode",
       ],
       order: [["due_date", "ASC"]],
     });
@@ -295,6 +300,7 @@ export const getGroupedAssignments = async (req: Request, res: Response) => {
           "status",
           "course_id",
           "created_by",
+          "ai_mode",
         ],
         order: [["due_date", "ASC"]],
       });
@@ -309,6 +315,7 @@ export const getGroupedAssignments = async (req: Request, res: Response) => {
           max_score: a.max_score,
           submission_type: a.submission_type,
           status: a.status,
+          ai_mode: a.ai_mode,
           course_id: a.course_id,
           creator: (a as any).creator ?? null,
           created_by: a.created_by,
@@ -420,6 +427,7 @@ export const createAssignment = async (req: Request, res: Response) => {
       course_id, // Allow course_id from body for flexibility
       rubric,
       allowed_file_types,
+      ai_mode,
     } = req.body;
 
     console.log("Create Assignment Payload debug:", {
@@ -541,6 +549,15 @@ export const createAssignment = async (req: Request, res: Response) => {
       });
     }
 
+    // AI for students working on it (multipart: validated here, not by zod)
+    if (ai_mode !== undefined && ai_mode !== "" && !isAiModeValue(ai_mode)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid AI mode. Must be one of: ${AI_MODE_VALUES.join(", ")}`,
+        errors: [{ field: "ai_mode", message: `Must be one of: ${AI_MODE_VALUES.join(", ")}` }],
+      });
+    }
+
     // Parse and validate rubric
     let parsedRubric = [];
     if (rubric) {
@@ -590,6 +607,7 @@ export const createAssignment = async (req: Request, res: Response) => {
       course_id: parseInt(finalCourseId),
       academic_term_id: academicTermId ?? null,
       submission_type,
+      ai_mode: isAiModeValue(ai_mode) ? ai_mode : "off",
       created_by: req.user.id,
       attachments,
       rubric: parsedRubric,
@@ -614,6 +632,7 @@ export const createAssignment = async (req: Request, res: Response) => {
 
     // Fire-and-forget: push the due-date reminder to the MIS Reminder Hub.
     void syncAssignment(assignment.id);
+    if (assignment.ai_mode !== "off") trackAiModeChange(req, "assignment", assignment, null, assignment.ai_mode);
 
     res.status(201).json({
       success: true,
@@ -663,6 +682,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
       allowed_file_types,
       rubric,
       status,
+      ai_mode,
       existing_attachments, // JSON string of existing attachments to keep
     } = req.body;
 
@@ -857,6 +877,19 @@ export const updateAssignment = async (req: Request, res: Response) => {
       }
     }
 
+    // isCourseInstructor (route): only the creator or ASSIGNMENTS_MANAGE_ANY gets here.
+    const previousAiMode = assignment.ai_mode;
+    if (ai_mode !== undefined && ai_mode !== "") {
+      if (!isAiModeValue(ai_mode)) {
+        return res.status(400).json({
+          success: false,
+          message: `Invalid AI mode. Must be one of: ${AI_MODE_VALUES.join(", ")}`,
+          errors: [{ field: "ai_mode", message: `Must be one of: ${AI_MODE_VALUES.join(", ")}` }],
+        });
+      }
+      assignment.ai_mode = ai_mode;
+    }
+
     if (status !== undefined) {
       const validStatuses = ["draft", "published", "completed", "removed"];
       if (!validStatuses.includes(status)) {
@@ -872,6 +905,7 @@ export const updateAssignment = async (req: Request, res: Response) => {
 
     await assignment.save();
     void syncAssignment(assignment.id);
+    trackAiModeChange(req, "assignment", assignment, previousAiMode, assignment.ai_mode);
 
     // Fetch updated assignment with course info
     const updatedAssignment = await Assignment.findByPk(req.params.id);

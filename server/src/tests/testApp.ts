@@ -23,6 +23,7 @@ import competencyRoutes from "../routes/competency";
 import tmcodeRoutes from "../routes/tmcode";
 import codeRunnerRoutes from "../routes/codeRunner";
 import codeRoutes from "../routes/code";
+import aiRoutes from "../routes/ai";
 
 /**
  * Minimal test harness app — mounts only the routers under test against the
@@ -57,6 +58,7 @@ export function buildTestApp() {
   app.use("/api/dashboard", dashboardRoutes);
   app.use("/api/media", mediaRoutes);
   app.use("/api/competency", competencyRoutes);
+  app.use("/api/ai", aiRoutes);
   return app;
 }
 

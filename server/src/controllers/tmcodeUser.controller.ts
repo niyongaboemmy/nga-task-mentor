@@ -6,6 +6,7 @@ import { Permission } from "../models/Permission.model";
 import { tmcodeError } from "../middleware/tmcodeAuth";
 import { applyEnforcedPermissions } from "../access/policy";
 import { noteAccessVersion } from "../access/snapshot";
+import { noteAiPolicyVersion } from "../services/aiPolicy";
 import { upsertMisUser } from "../services/misUserSync";
 import { signTmcodeUserToken } from "../tmcode/userToken";
 
@@ -68,6 +69,7 @@ export const exchange = async (req: Request, res: Response) => {
       return tmcodeError(res, 401, "MIS_TOKEN_INVALID", "Your NGA session is invalid. Sign in again.");
     }
     noteAccessVersion(misUserId, data.access_version);
+    noteAiPolicyVersion(data.ai_policy_v);
   } catch (e: any) {
     const status = e?.response?.status;
     if (status === 401 || status === 403) {

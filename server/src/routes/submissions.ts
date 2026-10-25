@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAi } from "../middleware/requireAi";
 import {
   getSubmissions,
   getGroupedSubmissions,
@@ -87,6 +88,7 @@ router.patch(
 router.post(
   "/:id/ai-feedback",
   authorizePermission("SUBMISSIONS_GRADE"),
+  requireAi("author"),
   validateBody(draftFeedbackSchema),
   trackOnSuccess("tm.grade.ai_draft", (req) => ({
     kind: "assignment",

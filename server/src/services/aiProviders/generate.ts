@@ -1,6 +1,7 @@
 import { GenerateJSONParams } from "./types";
 import { orderedProviders, isCoolingDown, markCoolingDown } from "./registry";
 import { isQuotaError, isDeadProviderError, friendlyAIErrorMessage } from "./errors";
+import { assertAiApp } from "../aiPolicy";
 
 /** A bad key or an empty billing account won't recover in minutes. */
 const DEAD_PROVIDER_COOLDOWN_MS = 60 * 60 * 1000;
@@ -33,6 +34,9 @@ export async function generateStructuredContent<T = any>(
   params: GenerateJSONParams,
   options?: GenerateStructuredContentOptions,
 ): Promise<GenerateStructuredContentResult<T>> {
+  // Chokepoint (AI_USAGE_CONTROL_PLAN.md §5.5): no provider is called while the
+  // school's AI policy has AI off for Task Mentor -- throws AiDisabledError (403).
+  await assertAiApp("tm");
   const providers = orderedProviders(options?.providerOrder);
   let lastErr: any = null;
   let attempted = 0;
@@ -139,6 +143,9 @@ export async function generateFreeformJSON<T = any>(
   maxOutputTokens?: number,
   options?: GenerateStructuredContentOptions,
 ): Promise<GenerateStructuredContentResult<T>> {
+  // Chokepoint (AI_USAGE_CONTROL_PLAN.md §5.5): no provider is called while the
+  // school's AI policy has AI off for Task Mentor -- throws AiDisabledError (403).
+  await assertAiApp("tm");
   const providers = orderedProviders(options?.providerOrder);
   let lastErr: any = null;
   let attempted = 0;
