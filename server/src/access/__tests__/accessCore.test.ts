@@ -3,7 +3,11 @@ import fs from "fs";
 import path from "path";
 import {
   AccessSnapshot,
+  AiContext,
+  AiPolicy,
   decide,
+  decideAi,
+  normalizeAiPolicy,
   scopeFor,
   validateManifest,
 } from "../../vendor/nga-access";
@@ -62,6 +66,27 @@ describe("@nga/access decision table", () => {
   });
 });
 
+describe("@nga/access decideAi table (AI_USAGE_CONTROL_PLAN.md §2)", () => {
+  for (const c of table.ai.cases) {
+    it(c.name, () => {
+      const d = decideAi(c.policy as AiPolicy | null, c.ctx as AiContext);
+      expect(d).toEqual({ allowed: c.allowed, reason: c.reason });
+    });
+  }
+
+  for (const c of table.ai.normalize) {
+    it(`normalizeAiPolicy: ${c.name}`, () => {
+      const p = normalizeAiPolicy(c.input);
+      expect({
+        enabled: p.enabled,
+        assessments: p.assessments,
+        grading: p.features.grading,
+        thirdPartyExtensions: p.thirdPartyExtensions,
+      }).toEqual(c.expect);
+    });
+  }
+});
+
 describe("Task Mentor manifest", () => {
   it("is valid", () => {
     expect(validateManifest(TM_MANIFEST)).toEqual([]);
@@ -70,7 +95,7 @@ describe("Task Mentor manifest", () => {
   it("is the local permission catalog (the new keys included)", () => {
     const keys = Object.keys(TM_MANIFEST.capabilities).sort();
     expect(keys).toEqual([...ALL_PERMISSION_KEYS].sort());
-    expect(keys).toEqual(expect.arrayContaining(["REPORT_CARDS_COMMENT", "REPORT_CARDS_PUBLISH"]));
+    expect(keys).toEqual(expect.arrayContaining(["REPORT_CARDS_COMMENT", "REPORT_CARDS_PUBLISH", "AI_USE"]));
   });
 
   it("had exactly the known keys added to the pre-v2 catalog", () => {
