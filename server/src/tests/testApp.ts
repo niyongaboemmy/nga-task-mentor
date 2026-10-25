@@ -24,6 +24,7 @@ import tmcodeRoutes from "../routes/tmcode";
 import codeRunnerRoutes from "../routes/codeRunner";
 import codeRoutes from "../routes/code";
 import aiRoutes from "../routes/ai";
+import adminAiRoutes from "../routes/adminAi";
 
 /**
  * Minimal test harness app — mounts only the routers under test against the
@@ -59,6 +60,7 @@ export function buildTestApp() {
   app.use("/api/media", mediaRoutes);
   app.use("/api/competency", competencyRoutes);
   app.use("/api/ai", aiRoutes);
+  app.use("/api/admin/ai", adminAiRoutes);
   return app;
 }
 

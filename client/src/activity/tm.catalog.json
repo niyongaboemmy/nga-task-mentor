@@ -69,6 +69,7 @@
     { "key": "tm.admin.roles", "label": "Roles & permissions", "module": "Administration", "patterns": ["/admin/roles-permissions"] },
     { "key": "tm.grading.inbox", "label": "To grade", "module": "Grading", "patterns": ["/grading"] },
     { "key": "tm.admin.code_runner", "label": "Code runner", "module": "Administration", "patterns": ["/admin/code-runner"] },
+    { "key": "tm.admin.ai", "label": "AI: premium & own keys", "module": "Administration", "patterns": ["/admin/ai"] },
 
     { "key": "tm.quiz.submit", "label": "Quiz submitted", "module": "Quizzes", "event": true, "key_event": true },
     { "key": "tm.assignment.submit", "label": "Assignment submitted", "module": "Assignments", "event": true, "key_event": true },

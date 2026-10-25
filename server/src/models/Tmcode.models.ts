@@ -1,4 +1,5 @@
 import { Table, Column, Model, DataType } from "sequelize-typescript";
+import { AI_SETTINGS_MODELS } from "./AiSettings.model";
 
 /**
  * TMCode tables (plan §14, migration 20261006080000-create-tmcode-tables).
@@ -146,4 +147,6 @@ export const TMCODE_MODELS = [
   TmcodeTelemetry,
   TmcodeFlag,
   TmcodeRun,
+  // TMCode AI's premium entitlements and the school's AI settings (registered with TMCode's tables).
+  ...AI_SETTINGS_MODELS,
 ];

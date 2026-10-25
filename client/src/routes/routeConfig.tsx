@@ -22,6 +22,7 @@ import {
   Code2,
   ClipboardCheck,
   Cpu,
+  Sparkles,
 } from "lucide-react";
 
 import { usePermissions } from "../hooks/usePermissions";
@@ -77,6 +78,7 @@ const AssessmentMarksPage = lazyPage(() => import("../pages/AssessmentMarksPage"
 const DatabaseManagementPage = lazyPage(() => import("../pages/DatabaseManagementPage"));
 const RolesPermissionsPage = lazyPage(() => import("../pages/Admin/RolesPermissionsPage"));
 const CodeRunnerPage = lazyPage(() => import("../pages/Admin/CodeRunnerPage"));
+const AiSettingsPage = lazyPage(() => import("../pages/Admin/AiSettingsPage"));
 const ToGradePage = lazyPage(() => import("../pages/grading/ToGradePage"));
 const PlaygroundPage = lazyPage(() => import("../pages/code/PlaygroundPage"));
 const ProjectEditorPage = lazyPage(() => import("../pages/code/ProjectEditorPage"));
@@ -487,6 +489,12 @@ export const appRoutes: AppRoute[] = [
     element: <CodeRunnerPage />,
     permissions: ["CODE_RUNNER_ADMIN"],
     navItem: { label: "Code runner", icon: Cpu, group: "Admin" },
+  },
+  {
+    path: "/admin/ai",
+    element: <AiSettingsPage />,
+    permissions: ["AI_SETTINGS_MANAGE"],
+    navItem: { label: "AI: premium & own keys", icon: Sparkles, group: "Admin" },
   },
   {
     path: "/admin/roles-permissions",

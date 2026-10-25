@@ -25,7 +25,7 @@ const SCHOOL_ONLY = { scopeable: false };
 export const TM_MANIFEST = defineManifest({
   app: "tm",
   name: "Task Mentor",
-  version: "2026.10.25.1",
+  version: "2026.10.25.2",
   capabilities: {
     USERS_VIEW_SELF: R("View own profile", "PEOPLE"),
     USERS_VIEW_ALL: R("View students and staff", "PEOPLE"),
@@ -127,6 +127,9 @@ export const TM_MANIFEST = defineManifest({
 
     // AI outside a quiz/assignment (AI_USAGE_CONTROL_PLAN.md §3.1); the MIS AI policy comes first.
     AI_USE: W("Use AI tools (outside quizzes and assignments)", "SYSTEM", SCHOOL_ONLY),
+    // Premium AI (GRADING_PREMIUM_CONTRACTS.md): granted to no role by default.
+    AI_PREMIUM: W("Use premium (paid) AI models", "SYSTEM", SCHOOL_ONLY),
+    AI_SETTINGS_MANAGE: W("Manage premium AI and own API keys", "SYSTEM", SCHOOL_ONLY),
   },
   insights: {
     "results.average": { label: "Average result", capability: "COURSES_VIEW_GRADES", minDepth: "summary", levels: ["SCHOOL", "PROGRAM", "GRADE", "CLASS_GROUP", "DEPARTMENT"] },

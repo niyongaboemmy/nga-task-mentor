@@ -248,7 +248,7 @@ export const startQuizPractical = async (req: Request, res: Response) => {
 
 type ActivityKind = "assignment" | "quiz";
 
-interface GradingContext {
+export interface GradingContext {
   type: ActivityKind;
   id: number;
   title: string;
@@ -264,7 +264,7 @@ interface GradingContext {
   assignment?: Assignment;
 }
 
-interface GradingBrief {
+export interface GradingBrief {
   /** The assignment description / quiz question text (rich HTML). */
   description: string | null;
   /** TMCode instructions shown beside the code (plain text or Markdown). */
@@ -310,7 +310,7 @@ function parseAssignmentRubric(raw: unknown): PracticalCriterion[] {
     : [];
 }
 
-async function gradingContext(type: string, id: number, questionId: number | null): Promise<GradingContext | null> {
+export async function gradingContext(type: string, id: number, questionId: number | null): Promise<GradingContext | null> {
   if (type === "assignment") {
     const [a, tm] = await Promise.all([Assignment.findByPk(id), AssignmentTmcode.findByPk(id, { attributes: TM_ATTRS }).catch(() => null)]);
     if (!a) return null;

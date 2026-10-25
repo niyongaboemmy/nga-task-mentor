@@ -60,6 +60,7 @@ import manualAssessmentRoutes from "./routes/manualAssessments";
 import databaseRoutes from "./routes/database.routes";
 import rolesPermissionsRoutes from "./routes/rolesPermissions";
 import codeRunnerRoutes from "./routes/codeRunner";
+import adminAiRoutes from "./routes/adminAi";
 import { startJudgeInfo } from "./services/coderunner/judgeInfo";
 import codeRoutes from "./routes/code";
 import accessRoutes from "./routes/access";
@@ -337,6 +338,7 @@ const startServer = async (): Promise<void> => {
     app.use("/api/database", databaseRoutes);
     app.use("/api/roles-permissions", rolesPermissionsRoutes);
     app.use("/api/code-runner", codeRunnerRoutes);
+    app.use("/api/admin/ai", adminAiRoutes);
     app.use("/api/code", codeRoutes);
     app.use("/api/access", accessRoutes);
     // MIS -> Task Mentor server-to-server reads (MIS bearer token, read-only)
