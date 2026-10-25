@@ -1,5 +1,7 @@
-import { ProctoringSettings } from "../models";
+import { ProctoringSettings, Quiz } from "../models";
 import type { TmcodeDelivery } from "../models/ProctoringSettings.model";
+import { aiAppEnabled, normalizeAiMode, type AiMode } from "../vendor/nga-access";
+import { getAiPolicy } from "../services/aiPolicy";
 
 /**
  * TMCode delivery and policy for a quiz (plan §10.1): stored on
@@ -18,6 +20,12 @@ export interface Policy {
   require_seb: boolean;
   allow_offline_grace_minutes: number;
   locked_settings: string[];
+  /**
+   * AI in the exam (AI_USAGE_CONTROL_PLAN.md §6): the quiz's ai_mode as the teacher set it,
+   * or "off" while the school's AI policy refuses (master off, Task Mentor/TMCode off, or
+   * every assessment locked). Never taken from the stored tmcode_policy.
+   */
+  ai: AiMode;
 }
 
 export const EXAM_POLICY_DEFAULTS: Policy = {
@@ -29,6 +37,7 @@ export const EXAM_POLICY_DEFAULTS: Policy = {
   require_seb: false,
   allow_offline_grace_minutes: 10,
   locked_settings: [],
+  ai: "off",
 };
 
 const pick = <T extends string>(v: unknown, allowed: readonly T[], dflt: T): T =>
@@ -57,7 +66,18 @@ export function normalizePolicy(raw: unknown, lockdownBrowser = false): Policy {
     locked_settings: Array.isArray(p.locked_settings)
       ? p.locked_settings.filter((s): s is string => typeof s === "string")
       : [],
+    ai: "off",
   };
+}
+
+/** The exam's `ai`: the quiz's ai_mode unless the school policy refuses AI in assessments. */
+export async function examAiMode(quizId: number): Promise<AiMode> {
+  const policy = await getAiPolicy();
+  if (!aiAppEnabled(policy, "tm") || !aiAppEnabled(policy, "tmcode") || policy!.assessments === "always_off") {
+    return "off";
+  }
+  const quiz = await Quiz.findByPk(quizId, { attributes: ["id", "ai_mode"] });
+  return normalizeAiMode(quiz?.ai_mode);
 }
 
 export interface QuizTmcodeSettings {
@@ -71,8 +91,7 @@ export async function tmcodeSettingsFor(quizId: number): Promise<QuizTmcodeSetti
     attributes: ["enabled", "lockdown_browser", "tmcode_delivery", "tmcode_policy"],
   });
   const delivery = (s?.tmcode_delivery as TmcodeDelivery) || "web";
-  return {
-    delivery,
-    policy: normalizePolicy(s?.tmcode_policy, !!s?.enabled && !!s?.lockdown_browser),
-  };
+  const policy = normalizePolicy(s?.tmcode_policy, !!s?.enabled && !!s?.lockdown_browser);
+  if (delivery !== "web") policy.ai = await examAiMode(quizId);
+  return { delivery, policy };
 }
