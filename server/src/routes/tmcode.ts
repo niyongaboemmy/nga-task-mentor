@@ -20,6 +20,8 @@ import { exchange, me } from "../controllers/tmcodeUser.controller";
 import * as projects from "../controllers/projects.controller";
 import * as tmAssignments from "../controllers/tmcodeAssignments.controller";
 import * as practicals from "../controllers/tmcodePracticals.controller";
+import { aiDraftGrade } from "../controllers/tmcodeGradingAi.controller";
+import { requireAi } from "../middleware/requireAi";
 import { requireTmPermission, tmcodeUserAuth } from "../middleware/tmcodeUserAuth";
 import { projectLimits } from "../tmcode/projects/limits";
 
@@ -183,5 +185,13 @@ router.get("/ai/events", read, wrap(ai.aiEvents));
 router.post("/ai/chat", read, aiLimiter, wrap(ai.aiChat));
 router.get("/ai/chat/:id/stream", read, wrap(ai.aiChatStream));
 router.post("/ai/complete", read, aiLimiter, wrap(ai.aiComplete));
+// AI-assisted grading: a draft for one student (saves nothing; GRADING_PREMIUM_CONTRACTS.md).
+router.post(
+  "/grading/:type(assignment|quiz)/:id(\\d+)/students/:studentId(\\d+)/ai-draft",
+  grader,
+  requireAi("author", undefined, "tmcode"),
+  aiLimiter,
+  wrap(aiDraftGrade),
+);
 
 export default router;
