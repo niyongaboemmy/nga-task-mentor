@@ -174,6 +174,10 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
   // AI -- the role default for AI outside a quiz/assignment (AI_USAGE_CONTROL_PLAN.md §3).
   // The school-wide AI policy (MIS) comes first; inside an item the teacher's ai_mode decides.
   { key: "AI_USE", category: "AI", description: "Use AI tools outside a quiz or assignment (generators, rubrics, marking drafts, TMCode AI)" },
+  // Premium AI (GRADING_PREMIUM_CONTRACTS.md): paid models from the school's keys. Seeded to no
+  // role; the school grants it to a role or to single users (Admin → AI: premium & own keys).
+  { key: "AI_PREMIUM", category: "AI", description: "Use premium (paid) AI models from the school's keys in TMCode" },
+  { key: "AI_SETTINGS_MANAGE", category: "AI", description: "Manage premium AI access and own API keys (Admin → AI: premium & own keys)" },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]["key"];
@@ -198,11 +202,17 @@ export const PERMISSIONS_BY_CATEGORY: Record<PermissionCategory, PermissionDefin
 export const TEACHER_ONLY_PERMISSIONS: readonly string[] = ["QUESTION_BANK_HUB_VIEW"];
 
 /**
+ * Permissions no system role gets by default, admin included: the school grants them on purpose.
+ * AI_PREMIUM spends the school's paid AI keys.
+ */
+export const UNSEEDED_PERMISSIONS: readonly string[] = ["AI_PREMIUM"];
+
+/**
  * Default permission set granted to each of the 3 seeded system roles.
  * Mirrored (as a literal array) in the seed migration.
  */
 export const DEFAULT_ROLE_PERMISSIONS: Record<"admin" | "instructor" | "student", string[]> = {
-  admin: ALL_PERMISSION_KEYS.filter((k) => !TEACHER_ONLY_PERMISSIONS.includes(k)),
+  admin: ALL_PERMISSION_KEYS.filter((k) => !TEACHER_ONLY_PERMISSIONS.includes(k) && !UNSEEDED_PERMISSIONS.includes(k)),
 
   instructor: [
     "COURSES_VIEW",

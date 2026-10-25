@@ -255,6 +255,7 @@ export {
 };
 
 export * from "./Tmcode.models";
+export * from "./AiSettings.model";
 export * from "./Project.model";
 
 export default {
