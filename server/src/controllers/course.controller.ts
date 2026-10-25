@@ -7,7 +7,9 @@ import {
   resolveAcademicYearId,
   handleMisError,
   fetchEnrolledStudents,
+  fetchEnrolledStudentsRaw,
 } from "../utils/misUtils";
+import { isActiveStatus, misRowStatus } from "../utils/activeUsers";
 import {
   Assignment,
   Submission,
@@ -712,10 +714,12 @@ export const getCourseGrades = async (req: Request, res: Response) => {
     // their own row built locally instead of going through the roster.
     const isSelfView = !req.user?.permissions?.has("COURSES_VIEW_GRADES");
 
-    // 1. Get enrolled students from MIS
+    // 1. Get enrolled students from MIS. The grade sheet is history: the raw
+    // roster keeps inactive students (when MIS still lists them) so their
+    // marks stay visible; inactive students without marks are dropped below.
     const enrolledStudents = isSelfView
       ? []
-      : await fetchEnrolledStudents(token, courseId, termId);
+      : await fetchEnrolledStudentsRaw(token, courseId, termId);
 
     // 2. Get all Assignments
     const assignments = await Assignment.findAll({
@@ -861,6 +865,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
           email: student.email || "",
           profile_image: student.profile_image || null,
           mis_user_id: student.id || student.user_id,
+          inactive: !isActiveStatus(misRowStatus(student)),
         }));
       }
 
@@ -878,6 +883,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
             "email",
             "profile_image",
             "mis_user_id",
+            "mis_status",
           ],
         });
 
@@ -897,6 +903,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
               profile_image: localUser.profile_image,
               is_local_only: !localUser.mis_user_id,
               mis_user_id: localUser.mis_user_id,
+              inactive: !isActiveStatus(localUser.mis_status),
             });
           }
         });
@@ -937,6 +944,28 @@ export const getCourseGrades = async (req: Request, res: Response) => {
         }
       });
       finalStudents = Array.from(studentMap.values());
+
+      // Active users only (ACTIVE_USERS_CONTRACTS.md), history kept: tag
+      // roster rows whose local account MIS has since made inactive.
+      const rosterMisIds = finalStudents
+        .filter((st) => !st.inactive && st.mis_user_id)
+        .map((st) => Number(st.mis_user_id))
+        .filter((n) => Number.isInteger(n) && n > 0);
+      if (rosterMisIds.length) {
+        try {
+          const locals = (await User.findAll({
+            where: { mis_user_id: { [Op.in]: rosterMisIds } },
+            attributes: ["mis_user_id", "mis_status"],
+            raw: true,
+          })) as any[];
+          const off = new Set(
+            (locals ?? []).filter((u) => !isActiveStatus(u?.mis_status)).map((u) => Number(u.mis_user_id)),
+          );
+          for (const st of finalStudents) if (off.has(Number(st.mis_user_id))) st.inactive = true;
+        } catch (e: any) {
+          console.warn("getCourseGrades: local status lookup failed:", e?.message);
+        }
+      }
     }
 
     // 6b. Teacher-recorded (manual) assessments for this subject/term, plus
@@ -1084,6 +1113,7 @@ export const getCourseGrades = async (req: Request, res: Response) => {
           name: `${student.first_name} ${student.last_name}`,
           email: student.email,
           profile_image: student.profile_image,
+          inactive: !!student.inactive,
         },
         assignments: studentAssignments,
         quizzes: studentQuizzes,
@@ -1099,8 +1129,17 @@ export const getCourseGrades = async (req: Request, res: Response) => {
       };
     });
 
+    // An inactive student stays on the sheet only with something to show
+    // (a submission, a quiz attempt or a recorded mark), after the active ones.
+    const hasMarks = (row: (typeof studentsWithGrades)[number]) =>
+      row.assignments.some((a) => a.submitted) ||
+      row.quizzes.some((q) => q.submitted) ||
+      row.assessments.some((a: any) => a.recorded);
+    const sheet = studentsWithGrades.filter((row) => !row.student.inactive || hasMarks(row));
+    sheet.sort((a, b) => Number(a.student.inactive) - Number(b.student.inactive));
+
     // Scope to own grades only if the caller lacks the broader view-all permission
-    let responseData = studentsWithGrades;
+    let responseData = sheet;
     if (!req.user?.permissions?.has("COURSES_VIEW_GRADES")) {
       // Find the student in the list (using MIS ID or User ID logic)
       // The enrolledStudents list comes from MIS and uses MIS IDs usually,

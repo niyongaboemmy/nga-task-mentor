@@ -18,6 +18,7 @@ jest.mock("../../utils/misUtils", () => ({
   resolveAcademicYearId: async () => 1,
   handleMisError: jest.fn(),
   fetchEnrolledStudents: jest.fn(),
+  fetchEnrolledStudentsRaw: jest.fn(),
 }));
 
 jest.mock("../../utils/manualAssessments", () => ({
@@ -61,7 +62,7 @@ const run = async () => {
 };
 
 beforeEach(() => {
-  (mis.fetchEnrolledStudents as jest.Mock).mockResolvedValue(roster);
+  (mis.fetchEnrolledStudentsRaw as jest.Mock).mockResolvedValue(roster);
   m.Assignment.findAll.mockResolvedValue([]);
   m.Submission.findAll.mockResolvedValue([]);
   m.Quiz.findAll.mockResolvedValue([
@@ -96,4 +97,18 @@ it("gives each student their own quiz score, not the class's best", async () => 
   expect(byId[501].summary.total_percentage).toBe(90);
   expect(byId[502].summary.total_percentage).toBe(100);
   expect(byId[503].summary.total_percentage).toBe(30);
+});
+
+it("keeps an inactive student with marks (tagged, last) and drops one without", async () => {
+  (mis.fetchEnrolledStudentsRaw as jest.Mock).mockResolvedValue([
+    { ...roster[0], status: "INACTIVE" }, // has a quiz mark
+    roster[1],
+    { ...roster[3], status: "INACTIVE" }, // no marks
+  ]);
+  const data = await run();
+  expect(data.students.map((s: any) => [s.student.id, s.student.inactive])).toEqual([
+    [502, false],
+    [503, false], // off the roster, but has a quiz attempt
+    [501, true],
+  ]);
 });

@@ -4,7 +4,7 @@ import crypto from "crypto";
 import { Op } from "sequelize";
 import { buildTestApp, ensureModelsRegistered, findSeededUserByRole, signTokenFor } from "./testApp";
 import { sequelize } from "../config/database";
-import { Permission, Quiz, Role, RolePermission, User } from "../models";
+import { Assignment, Permission, Quiz, Role, RolePermission, Submission, User } from "../models";
 import { fetchEnrolledStudents } from "../utils/misUtils";
 import { filterActiveMisRows, inactiveLocalIds } from "../utils/activeUsers";
 import { ReminderRequest, setReminderTransport } from "../services/reminderSync";
@@ -183,6 +183,54 @@ describe("GET /api/quizzes/:quizId/students", () => {
     const ids = res.body.data.map((r: any) => r.id);
     expect(ids).toContain(active.id);
     expect(ids).not.toContain(localInactive.id);
+  });
+});
+
+describe("GET /api/courses/:id/grades (history)", () => {
+  it("keeps an inactive student who has marks, tagged and last; drops inactive ones without", async () => {
+    const assignment = await Assignment.create({
+      title: `AU essay ${RUN}`,
+      description: "activeUsers spec",
+      due_date: new Date(Date.now() - 86_400_000),
+      max_score: 10,
+      submission_type: "text",
+      course_id: SUBJ,
+      created_by: instructor.id,
+      status: "published",
+    } as any);
+    const subs = await Promise.all(
+      [
+        [active, "6/10"],
+        [localInactive, "8/10"],
+      ].map(([u, grade]) =>
+        Submission.create({
+          assignment_id: assignment.id,
+          student_id: (u as User).id,
+          status: "graded",
+          grade,
+          is_late: false,
+          text_submission: "x",
+        } as any),
+      ),
+    );
+    try {
+      const res = await request(app)
+        .get(`/api/courses/${SUBJ}/grades`)
+        .set("Authorization", `Bearer ${signTokenFor(admin.id)}`)
+        .set(MIS_HEADER);
+      expect(res.status).toBe(200);
+      const rows = res.body.data.students.map((r: any) => [r.student.id, r.student.inactive]);
+      // Active roster students first (with or without marks), then the
+      // inactive student who has a mark; RowInactive (no marks) is gone.
+      expect(rows).toEqual([
+        [MIS_ACTIVE, false],
+        [MIS_NEW, false],
+        [MIS_LOCAL_INACTIVE, true],
+      ]);
+    } finally {
+      await Submission.destroy({ where: { id: subs.map((x) => x.id) } });
+      await Assignment.destroy({ where: { id: assignment.id } });
+    }
   });
 });
 
