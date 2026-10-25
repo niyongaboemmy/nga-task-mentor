@@ -1,26 +1,53 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { Bot, ClipboardPaste, Copy, FileText, FolderGit2, History, Loader2, Play, Puzzle, Sparkles, Terminal } from "lucide-react";
+import { Bot, ClipboardPaste, Clock, Copy, FileText, FolderGit2, History, Loader2, Play, Puzzle, Sparkles, Terminal } from "lucide-react";
 import { apiErrorMessage, projectsApi, type ActivityEvent, type ActivitySummary } from "../../../services/projectsApi";
 
 /**
  * The grading workspace's Activity tab: what the student did in TMCode while working on this
- * project (TMCode records everything but typing) — files, copy and paste (and where pasted text
- * came from), runs, terminal commands — and every use of AI, named: TMCode AI's answers and
- * accepted suggestions, and AI extensions such as Claude Code or Gemini.
+ * project (TMCode records everything but typing) — files, every copy, cut and paste (and where
+ * pasted text came from), files brought in, runs, terminal commands, time spent in other apps —
+ * and every use of AI, named: TMCode AI's answers and accepted suggestions, AI extensions such as
+ * Claude Code or Gemini, and AI tools run (or stopped) in the terminal. The cards count the whole
+ * log; the list loads older entries on demand.
  */
 
-type Filter = "all" | "ai" | "file" | "clipboard" | "work";
+type Filter = "all" | "ai" | "file" | "clipboard" | "work" | "other";
+const isOther = (e: ActivityEvent) => !e.ai && !["file", "clipboard", "run", "terminal"].includes(e.kind);
 const FILTERS: { id: Filter; label: string; match: (e: ActivityEvent) => boolean }[] = [
   { id: "all", label: "All", match: () => true },
   { id: "ai", label: "AI", match: (e) => !!e.ai },
-  { id: "file", label: "Files", match: (e) => e.kind === "file" },
   { id: "clipboard", label: "Copy & paste", match: (e) => e.kind === "clipboard" },
+  { id: "file", label: "Files", match: (e) => e.kind === "file" },
   { id: "work", label: "Runs & terminal", match: (e) => e.kind === "run" || e.kind === "terminal" },
+  { id: "other", label: "Away, outside changes & more", match: isOther },
 ];
+
+/** "4 min", "1 h 20 min". */
+const minutes = (seconds: number) => {
+  const m = Math.round(seconds / 60);
+  return m < 60 ? `${m} min` : `${Math.floor(m / 60)} h ${m % 60} min`;
+};
+
+/** Readable names for an entry's details. */
+const DETAIL_LABELS: Record<string, string> = {
+  chars: "Characters",
+  lines: "Lines",
+  where: "Where",
+  origin: "Came from",
+  from_ai: "From AI",
+  count: "How many",
+  files: "Files",
+  seconds: "Seconds",
+  from: "Since",
+  command: "Command",
+  tool: "Tool",
+};
+const ORIGIN_LABELS: Record<string, string> = { inside: "copied inside TMCode", outside: "outside TMCode (another app)", ai: "an AI's answer" };
 
 const iconOf = (e: ActivityEvent): React.ElementType => {
   if (e.ai) return Sparkles;
-  if (e.action === "paste") return ClipboardPaste;
+  if (e.action === "paste" || e.action === "drop") return ClipboardPaste;
+  if (e.action === "away") return Clock;
   if (e.kind === "clipboard") return Copy;
   if (e.kind === "run") return Play;
   if (e.kind === "terminal") return Terminal;
@@ -50,8 +77,9 @@ const Card: React.FC<{ label: string; value: React.ReactNode; tone?: "ai" | "war
 );
 
 const ActivityPane: React.FC<{ projectId: number }> = ({ projectId }) => {
-  const [data, setData] = useState<{ events: ActivityEvent[]; summary: ActivitySummary } | null>(null);
+  const [data, setData] = useState<{ events: ActivityEvent[]; summary: ActivitySummary; next_before: number | null } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [filter, setFilter] = useState<Filter>("all");
   const [open, setOpen] = useState<number | null>(null);
 
@@ -67,6 +95,19 @@ const ActivityPane: React.FC<{ projectId: number }> = ({ projectId }) => {
       cancelled = true;
     };
   }, [projectId]);
+
+  const loadOlder = async () => {
+    if (!data?.next_before || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const more = await projectsApi.activity(projectId, 1000, data.next_before);
+      setData((d) => (d ? { ...d, events: [...d.events, ...more.events], next_before: more.next_before } : d));
+    } catch (e) {
+      setError(apiErrorMessage(e, "Couldn't load older activity."));
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   const shown = useMemo(() => (data ? data.events.filter(FILTERS.find((f) => f.id === filter)!.match) : []), [data, filter]);
 
@@ -91,17 +132,57 @@ const ActivityPane: React.FC<{ projectId: number }> = ({ projectId }) => {
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 dark:border-white/10 dark:bg-slate-950" data-testid="activity-pane">
-      <div className="grid shrink-0 grid-cols-2 gap-2 border-b border-slate-200 p-3 sm:grid-cols-5 dark:border-white/10">
-        <Card label="AI use" value={s.ai_events} tone={s.ai_events ? "ai" : "plain"} hint="Questions, answers, suggestions and edits by AI" testid="activity-ai-events" />
+      <div className="grid shrink-0 grid-cols-2 gap-2 border-b border-slate-200 p-3 sm:grid-cols-4 dark:border-white/10" data-testid="activity-summary">
+        <Card
+          label="AI use"
+          value={s.ai_events}
+          tone={s.ai_events ? "ai" : "plain"}
+          hint={`Questions, answers, suggestions and edits by AI${s.ai_blocked ? `; ${s.ai_blocked} blocked attempt${s.ai_blocked === 1 ? "" : "s"} while AI was off` : ""}`}
+          testid="activity-ai-events"
+        />
         <Card
           label="AI tools"
           value={s.ai_tools.length ? <span className="text-sm">{s.ai_tools.map((t) => `${t.by} (${t.count})`).join(", ")}</span> : "None"}
           tone={s.ai_tools.length ? "ai" : "plain"}
           testid="activity-ai-tools"
         />
-        <Card label="Pasted from outside" value={s.pastes_outside} tone={s.pastes_outside ? "warn" : "plain"} hint="Text pasted that wasn't copied inside TMCode" />
-        <Card label="Pasted AI code" value={s.pastes_from_ai} tone={s.pastes_from_ai ? "ai" : "plain"} />
-        <Card label="File changes" value={s.by_kind.file ?? 0} />
+        <Card
+          label="Copied · cut · pasted"
+          value={
+            <span className="text-sm">
+              {s.copies ?? 0} · {s.cuts ?? 0} · {(s.pastes ?? 0) + (s.drops ?? 0)}
+            </span>
+          }
+          hint={`Text copied ${s.copies ?? 0}×, cut ${s.cuts ?? 0}×, pasted ${s.pastes ?? 0}× and dragged in ${s.drops ?? 0}×. Files copied ${s.files_copied ?? 0}, cut ${s.files_cut ?? 0} in the Explorer.`}
+          testid="activity-clipboard"
+        />
+        <Card
+          label="Pasted from outside"
+          value={
+            <span>
+              {s.pastes_outside}
+              {s.chars_pasted_outside ? <span className="ml-1 text-xs font-normal opacity-70">({s.chars_pasted_outside.toLocaleString()} chars)</span> : null}
+            </span>
+          }
+          tone={s.pastes_outside ? "warn" : "plain"}
+          hint="Text pasted or dragged in that wasn't copied inside TMCode (another app, a website, a document)"
+          testid="activity-pastes-outside"
+        />
+        <Card label="Pasted AI code" value={s.pastes_from_ai} tone={s.pastes_from_ai ? "ai" : "plain"} testid="activity-pastes-ai" />
+        <Card
+          label="Files from outside"
+          value={s.files_imported ?? 0}
+          tone={s.files_imported ? "warn" : "plain"}
+          hint={`Files brought into the project from Finder / File Explorer. ${s.outside_changes ?? 0} change${s.outside_changes === 1 ? "" : "s"} made on disk by something other than TMCode.`}
+          testid="activity-files-imported"
+        />
+        <Card
+          label="Time in other apps"
+          value={s.away_count ? <span className="text-sm">{s.away_count}× · {minutes(s.away_seconds ?? 0)}</span> : "None"}
+          hint="Times the student left TMCode for another app for 30 seconds or more, and how long in all"
+          testid="activity-away"
+        />
+        <Card label="File changes" value={s.by_kind.file ?? 0} hint={`${s.runs ?? 0} runs, ${s.terminal_commands ?? 0} terminal commands`} />
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 px-3 py-2">
         {FILTERS.map((f) => (
@@ -162,8 +243,8 @@ const ActivityPane: React.FC<{ projectId: number }> = ({ projectId }) => {
                       )}
                       {Object.entries(e.data ?? {}).map(([k, v]) => (
                         <React.Fragment key={k}>
-                          <dt className="text-slate-400">{k.replace(/_/g, " ")}</dt>
-                          <dd className="break-words">{String(v)}</dd>
+                          <dt className="text-slate-400">{DETAIL_LABELS[k] ?? k.replace(/_/g, " ")}</dt>
+                          <dd className="break-words">{k === "origin" ? (ORIGIN_LABELS[String(v)] ?? String(v)) : String(v)}</dd>
                         </React.Fragment>
                       ))}
                     </dl>
@@ -173,6 +254,18 @@ const ActivityPane: React.FC<{ projectId: number }> = ({ projectId }) => {
             })}
           </section>
         ))}
+        {data.next_before && (
+          <button
+            type="button"
+            onClick={() => void loadOlder()}
+            disabled={loadingMore}
+            className="mx-auto mt-2 flex items-center gap-1.5 rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-white disabled:opacity-60 dark:border-white/10 dark:text-slate-300"
+            data-testid="activity-load-older"
+          >
+            {loadingMore && <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />}
+            Load older activity
+          </button>
+        )}
       </div>
     </div>
   );

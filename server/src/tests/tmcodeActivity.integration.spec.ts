@@ -80,3 +80,25 @@ it("the owner uploads activity once per batch; others can't; the log reads back 
   expect(detail.status).toBe(200);
   expect(JSON.stringify(detail.body)).not.toContain('"type":"activity"');
 });
+
+it("the summary covers the whole log, not just the page of events shown", async () => {
+  const create = await request(app).post("/api/tmcode/projects").set("Authorization", tok(student)).send({ name: `Act ${crypto.randomBytes(4).toString("hex")}`, language: "javascript" });
+  const id = create.body.project.id;
+  projectIds.push(id);
+  // 205 batches of one copy each: more than the 200 batches one page reads.
+  for (let i = 0; i < 205; i++) {
+    const r = await request(app)
+      .post(`/api/tmcode/projects/${id}/activity`)
+      .set("Authorization", tok(student))
+      .send({ batch: crypto.randomUUID(), events: [{ t: t0 + i, kind: "clipboard", action: "copy", text: "Copied 1 line in app.js", data: { chars: 5 }, actor: { type: "you" } }] });
+    expect(r.status).toBe(201);
+  }
+  const res = await request(app).get(`/api/tmcode/projects/${id}/activity`).set("Authorization", tok(admin));
+  expect(res.status).toBe(200);
+  expect(res.body.events).toHaveLength(200);
+  expect(res.body.next_before).not.toBeNull();
+  expect(res.body.summary).toMatchObject({ total: 205, copies: 205 });
+  const older = await request(app).get(`/api/tmcode/projects/${id}/activity`).query({ before: res.body.next_before }).set("Authorization", tok(admin));
+  expect(older.body.events).toHaveLength(5);
+  expect(older.body.summary.copies).toBe(205);
+}, 60_000);
