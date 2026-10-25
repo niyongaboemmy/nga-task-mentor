@@ -116,12 +116,13 @@ export function rosterFromPeople(users: any[], years: Set<number> | null): MisRo
   return out;
 }
 
-/** Every active, enrolled student. Throws when any page fails (no partial pushes). */
-export async function loadMisRoster(now: Date): Promise<MisRosterStudent[]> {
-  const ref = await misServiceCall("GET", "/integrations/sync/reference");
-  if (ref.status < 200 || ref.status >= 300) throw new Error(`MIS reference refused (HTTP ${ref.status})`);
-  const years = relevantYearIds(ref.body?.data?.academicYears ?? [], now);
-
+/**
+ * Every MIS user from GET /integrations/sync/people (all statuses), paged
+ * with the app's client credentials. Throws when any page fails, so callers
+ * never act on a partial list. Shared with the MIS status sweep
+ * (services/misStatusSweep.ts).
+ */
+export async function loadMisPeople(): Promise<any[]> {
   const users: any[] = [];
   let cursor: number | null = 0;
   for (let page = 0; cursor !== null; page++) {
@@ -134,7 +135,15 @@ export async function loadMisRoster(now: Date): Promise<MisRosterStudent[]> {
     cursor = next == null ? null : Number(next);
     if (cursor !== null && !Number.isFinite(cursor)) cursor = null;
   }
-  return rosterFromPeople(users, years);
+  return users;
+}
+
+/** Every active, enrolled student. Throws when any page fails (no partial pushes). */
+export async function loadMisRoster(now: Date): Promise<MisRosterStudent[]> {
+  const ref = await misServiceCall("GET", "/integrations/sync/reference");
+  if (ref.status < 200 || ref.status >= 300) throw new Error(`MIS reference refused (HTTP ${ref.status})`);
+  const years = relevantYearIds(ref.body?.data?.academicYears ?? [], now);
+  return rosterFromPeople(await loadMisPeople(), years);
 }
 
 // ── Task Mentor rows ─────────────────────────────────────────────────────
@@ -293,7 +302,7 @@ export async function getLastSuccess(job = JOB_NAME): Promise<number | null> {
   }
 }
 
-async function recordRun(ok: boolean, at: number, summary: string, job = JOB_NAME): Promise<void> {
+export async function recordRun(ok: boolean, at: number, summary: string, job = JOB_NAME): Promise<void> {
   try {
     await ensureJobTable();
     await sequelize.query(

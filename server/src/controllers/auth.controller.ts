@@ -564,6 +564,8 @@ export const ssoCallback = async (req: Request, res: Response) => {
     let preferred_theme: string | null = null;
     let misAvatar = misAvatarFrom(misResponse.data.data);
     let misCover = misCoverFrom(misResponse.data.data);
+    // MIS account status (ACTIVE_USERS_CONTRACTS.md) when /users/me carries it.
+    let misUserStatus: string | null = null;
 
     try {
       const profileResponse = await axios.get(
@@ -581,6 +583,7 @@ export const ssoCallback = async (req: Request, res: Response) => {
       currentAcademicYear = profileData.currentAcademicYear;
       currentAcademicTerms = profileData.currentAcademicTerms || [];
       preferred_theme = profileData.user?.preferred_theme || null;
+      misUserStatus = profileData.user?.status ?? null;
       misAvatar = misAvatarFrom(profileData) ?? misAvatar;
       misCover = misCoverFrom(profileData) ?? misCover;
       if (profileData.systems) {
@@ -595,7 +598,11 @@ export const ssoCallback = async (req: Request, res: Response) => {
     console.log("🔍 Syncing local user for MIS user_id:", misUser.user_id);
     let localUser: User;
     try {
-      ({ user: localUser } = await upsertMisUser(misUser, misProfile, roles));
+      ({ user: localUser } = await upsertMisUser(
+        { ...misUser, status: misUserStatus ?? misUser?.status ?? null },
+        misProfile,
+        roles,
+      ));
     } catch (createError: any) {
       console.error("❌ Error creating user:", createError);
       return res.status(500).json({

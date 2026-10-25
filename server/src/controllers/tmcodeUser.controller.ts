@@ -86,7 +86,7 @@ export const exchange = async (req: Request, res: Response) => {
     const misUser = d.user ?? {};
     if (!misUser.email) throw new Error("MIS profile without an email");
     ({ user } = await upsertMisUser(
-      { user_id: misUserId, email: misUser.email, username: misUser.username },
+      { user_id: misUserId, email: misUser.email, username: misUser.username, status: misUser.status ?? null },
       d.profile ?? null,
       d.roles ?? [],
     ));

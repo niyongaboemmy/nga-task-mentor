@@ -1,6 +1,7 @@
 import crypto from "crypto";
 import { User } from "../models/User.model";
 import { Role } from "../models/Role.model";
+import { ACTIVE, normalizeStatus } from "../utils/activeUsers";
 
 /**
  * The local Task Mentor user for an MIS user, created or refreshed from MIS
@@ -12,7 +13,11 @@ import { Role } from "../models/Role.model";
  *    on the row found by email);
  *  - name, email and the flat legacy role follow MIS every sign-in;
  *  - role_id follows the MIS role remap only while the user is on one of the
- *    system roles -- a manually assigned custom role is left alone.
+ *    system roles -- a manually assigned custom role is left alone;
+ *  - mis_status (ACTIVE_USERS_CONTRACTS.md) follows the MIS account status
+ *    when the payload carries one; otherwise ACTIVE, since MIS only lets an
+ *    active account sign in (this also re-activates a row the sweep marked
+ *    inactive once MIS re-enables the account).
  */
 
 export type LocalRole = "student" | "instructor" | "admin";
@@ -21,6 +26,8 @@ export interface MisUserInfo {
   user_id: number;
   email: string;
   username?: string | null;
+  /** MIS User.status when the payload carries it. */
+  status?: string | null;
 }
 
 export interface MisProfileInfo {
@@ -72,6 +79,7 @@ export async function upsertMisUser(
   roles: { role_id: number; name: string }[] | null | undefined,
 ): Promise<{ user: User; created: boolean; mappedRole: LocalRole }> {
   const mappedRole = mapMisRoleToLocal(roles);
+  const misStatus = normalizeStatus(misUser.status) ?? ACTIVE;
   const mappedRoleRecord = await Role.findOne({ where: { name: mappedRole } });
 
   let localUser = await User.findOne({ where: { mis_user_id: misUser.user_id } });
@@ -94,6 +102,7 @@ export async function upsertMisUser(
       role: mappedRole,
       role_id: mappedRoleRecord?.id ?? null,
       mis_user_id: misUser.user_id,
+      mis_status: misStatus,
     } as any);
     return { user: created, created: true, mappedRole };
   }
@@ -102,6 +111,7 @@ export async function upsertMisUser(
   localUser.last_name = misProfile?.last_name || localUser.last_name;
   if (misUser.email) localUser.email = misUser.email;
   localUser.role = mappedRole;
+  localUser.mis_status = misStatus;
   if (!localUser.role_id || (await isSystemRoleId(localUser.role_id))) {
     localUser.role_id = mappedRoleRecord?.id ?? localUser.role_id;
   }
