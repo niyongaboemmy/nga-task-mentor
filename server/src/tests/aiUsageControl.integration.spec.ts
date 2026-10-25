@@ -1,4 +1,6 @@
 import crypto from "crypto";
+import http from "http";
+import type { AddressInfo } from "net";
 import request from "supertest";
 import { buildTestApp, ensureModelsRegistered, findSeededUserByRole, signTokenFor } from "./testApp";
 import { sequelize } from "../config/database";
@@ -19,6 +21,7 @@ import { resetAiPolicyCache, setAiPolicyForTests } from "../services/aiPolicy";
 import { AI_POLICY_DEFAULT, type AiPolicy } from "../vendor/nga-access";
 import { forAssignment, forProject, forQuestion, forQuiz } from "../utils/aiContext";
 import { examAiMode } from "../tmcode/policy";
+import { aiLiveListenerCount, publishAiChange } from "../services/aiLive";
 import * as reminders from "../services/reminderSync";
 
 /**
@@ -330,5 +333,78 @@ describe("saving the teacher's ai_mode", () => {
     const byAdmin = await request(app).put(`/api/assignments/${a.id}`).set("Authorization", tok(admin)).send({ ai_mode: "off" });
     expect(byAdmin.status).toBe(200);
     expect((await Assignment.findByPk(a.id))!.ai_mode).toBe("off");
+  });
+});
+
+/** Opens GET /api/tmcode/ai/events on a real socket and collects its SSE events. */
+function openEvents(server: http.Server, token: string) {
+  const { port } = server.address() as AddressInfo;
+  const events: { name: string; data: any }[] = [];
+  let buf = "";
+  let status = 0;
+  const req = http.get({ host: "127.0.0.1", port, path: "/api/tmcode/ai/events", headers: { Authorization: token, Accept: "text/event-stream" } }, (res) => {
+    status = res.statusCode ?? 0;
+    res.setEncoding("utf8");
+    res.on("data", (chunk: string) => {
+      buf += chunk;
+      for (let cut = buf.indexOf("\n\n"); cut >= 0; cut = buf.indexOf("\n\n")) {
+        const block = buf.slice(0, cut);
+        buf = buf.slice(cut + 2);
+        const name = /^event: (.*)$/m.exec(block)?.[1];
+        const data = /^data: (.*)$/m.exec(block)?.[1];
+        if (name && data) events.push({ name, data: JSON.parse(data) });
+      }
+    });
+  });
+  req.on("error", () => undefined);
+  const waitFor = async (pred: () => boolean, ms = 3000) => {
+    const until = Date.now() + ms;
+    while (!pred()) {
+      if (Date.now() > until) throw new Error(`timed out; events: ${JSON.stringify(events)}`);
+      await new Promise((r) => setTimeout(r, 20));
+    }
+  };
+  return { events, status: () => status, waitFor, close: () => req.destroy() };
+}
+
+describe("GET /api/tmcode/ai/events (live AI changes for TMCode)", () => {
+  let server: http.Server;
+  beforeAll(async () => {
+    setAiPolicyForTests(ON);
+    server = http.createServer(app);
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  });
+  afterAll(async () => {
+    await new Promise<void>((r) => server.close(() => r()));
+  });
+
+  it("says hello with the policy version, then 'changed' when a teacher changes a quiz's AI mode", async () => {
+    const { quiz } = await makeQuiz("off");
+    const line = openEvents(server, tok(student));
+    await line.waitFor(() => line.events.some((e) => e.name === "hello"));
+    expect(line.status()).toBe(200);
+    expect(line.events[0]).toEqual({ name: "hello", data: { v: ON.v } });
+    const res = await request(app).put(`/api/quizzes/${quiz.id}`).set("Authorization", tok(teacher)).send({ ai_mode: "full" });
+    expect(res.status).toBe(200);
+    await line.waitFor(() => line.events.some((e) => e.name === "changed"));
+    expect(line.events.find((e) => e.name === "changed")!.data).toMatchObject({ cause: "item", kind: "quiz", id: quiz.id });
+    line.close();
+  });
+
+  it("passes access changes on, and lets go of its listener when the app disconnects", async () => {
+    const line = openEvents(server, tok(student));
+    await line.waitFor(() => line.events.some((e) => e.name === "hello"));
+    const before = aiLiveListenerCount();
+    publishAiChange({ cause: "access" });
+    await line.waitFor(() => line.events.some((e) => e.name === "changed" && e.data.cause === "access"));
+    line.close();
+    const until = Date.now() + 3000;
+    while (aiLiveListenerCount() >= before && Date.now() < until) await new Promise((r) => setTimeout(r, 20));
+    expect(aiLiveListenerCount()).toBe(before - 1);
+  });
+
+  it("needs a sign-in", async () => {
+    const res = await request(app).get("/api/tmcode/ai/events");
+    expect(res.status).toBe(401);
   });
 });
