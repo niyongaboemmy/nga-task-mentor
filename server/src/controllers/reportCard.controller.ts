@@ -1,3 +1,4 @@
+import { inactiveMisIds, isActiveStatus, misRowStatus } from "../utils/activeUsers";
 import { Request, Response } from "express";
 import { Op } from "sequelize";
 import axios from "axios";
@@ -42,7 +43,7 @@ import {
   resolveAcademicTermId,
   resolveAcademicYearId,
   getMisToken,
-  fetchEnrolledStudents,
+  fetchEnrolledStudentsRaw,
 } from "../utils/misUtils";
 import type { Target } from "../vendor/nga-access";
 import { denyResponse, once, scopedAllow, scopedFilter } from "../access/policy";
@@ -319,24 +320,36 @@ export const saveSubjectMapping = async (req: Request, res: Response) => {
         termId = await resolveAcademicTermId(req);
       }
 
-      const enrolled = await fetchEnrolledStudents(token, subject_id, termId);
+      // Every roster row, inactive included: an inactive student's existing
+      // report card for this period is history and still gets the mapping,
+      // but no new draft is created for them (ACTIVE_USERS_CONTRACTS.md).
+      const enrolled = await fetchEnrolledStudentsRaw(token, subject_id, termId);
       const studentIds: number[] = enrolled
         .map((s: any) => s.id ?? s.user_id)
         .filter((id: any) => typeof id === "number" && !isNaN(id));
+      const inactiveIds = new Set<number>(
+        enrolled.filter((s: any) => !isActiveStatus(misRowStatus(s))).map((s: any) => Number(s.id ?? s.user_id)),
+      );
+      for (const id of await inactiveMisIds(studentIds)) inactiveIds.add(id);
 
       for (const studentId of studentIds) {
-        const [reportCard] = await ReportCard.findOrCreate({
-          where: { student_id: studentId, term, academic_year },
-          defaults: {
-            student_id: studentId,
-            term,
-            academic_year,
-            status: "draft",
-            attendance_present: 0,
-            attendance_absent: 0,
-            attendance_late: 0,
-          },
-        });
+        const reportCard = inactiveIds.has(studentId)
+          ? await ReportCard.findOne({ where: { student_id: studentId, term, academic_year } })
+          : (
+              await ReportCard.findOrCreate({
+                where: { student_id: studentId, term, academic_year },
+                defaults: {
+                  student_id: studentId,
+                  term,
+                  academic_year,
+                  status: "draft",
+                  attendance_present: 0,
+                  attendance_absent: 0,
+                  attendance_late: 0,
+                },
+              })
+            )[0];
+        if (!reportCard) continue;
 
         await ReportCardAssessment.destroy({
           where: { report_card_id: reportCard.id, subject_id },

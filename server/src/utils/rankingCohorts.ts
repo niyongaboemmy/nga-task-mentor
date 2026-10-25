@@ -3,6 +3,7 @@ import axios from "axios";
 import { getMisToken, resolveAcademicYearId } from "./misUtils";
 import { loadSchoolDirectory, mapLimited } from "../services/schoolDirectory";
 import type { ClassPlacement } from "./overallRanking";
+import { filterActiveMisRows } from "./activeUsers";
 
 // ─── Who is in which class, for the overall ranking ──────────────────────────
 // utils/overallRanking is pure; this is where the class groups come from.
@@ -56,7 +57,10 @@ async function classRoster(token: string, classGroupId: number, yearId: number |
   const hit = classRosters.get(key);
   if (hit && Date.now() - hit.at < TTL_MS) return hit.ids;
   const res = await misGet(token, `/academics/class-groups/${classGroupId}/students`, yearId ? { academic_year_id: yearId } : {});
-  const ids = ((res.data?.data ?? []) as any[])
+  // Active students only (ACTIVE_USERS_CONTRACTS.md): MIS row status and
+  // the local users.mis_status both count.
+  const rows = await filterActiveMisRows((res.data?.data ?? []) as any[]);
+  const ids = rows
     .map((r) => positive(r?.user_id ?? r?.id))
     .filter((n): n is number => n !== null);
   classRosters.set(key, { at: Date.now(), ids });

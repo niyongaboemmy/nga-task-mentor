@@ -1,3 +1,4 @@
+import { isActiveUser } from "../utils/activeUsers";
 import { syncProjectStatus } from "../tmcode/projects/status";
 import { Request, Response } from "express";
 import { z } from "zod";
@@ -698,7 +699,17 @@ export const assignmentWorkspaces = async (req: Request, res: Response) => {
   );
   const workers = await usersById([...projects.map((p) => p.owner_id), ...submissions.map((s) => s.student_id)]);
 
-  type Row = { user: { id: number | null; mis_user_id: number | null; name: string; email: string | null; avatar_url: string | null } };
+  type Row = {
+    user: {
+      id: number | null;
+      mis_user_id: number | null;
+      name: string;
+      email: string | null;
+      avatar_url: string | null;
+      /** Off the (active-only) roster with work here, and inactive in MIS: kept as history, badged. */
+      inactive?: boolean;
+    };
+  };
   const rows = new Map<string, Row>();
   for (const s of students) {
     const u = s.mis_user_id ? byMis.get(s.mis_user_id) : undefined;
@@ -722,6 +733,7 @@ export const assignmentWorkspaces = async (req: Request, res: Response) => {
         name: userName(u) as string,
         email: u.email ?? null,
         avatar_url: u.profile_image ?? null,
+        inactive: !isActiveUser(u),
       },
     });
   }

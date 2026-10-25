@@ -17,6 +17,7 @@ import {
   fetchManualAssessments,
 } from "../utils/manualAssessments";
 import { buildStandingPayload } from "../utils/studentStanding";
+import { filterActiveMisRows, isActiveStatus, misRowStatus, tagInactiveMisRows } from "../utils/activeUsers";
 
 // MIS role IDs (see nga_central_mis Role table) — used to filter the generic
 // /users/ endpoint via its `userRole` query param.
@@ -47,6 +48,9 @@ function flattenMisUser(entry: any) {
     grade_name: profile.grade_name ?? "",
     program_name: profile.program_name ?? "",
     enrolled_at: user.created_at ?? "",
+    // MIS account status (ACTIVE / INACTIVE / SUSPENDED), kept so admin
+    // lists that include inactive users can badge them.
+    status: user.status ?? null,
   };
 }
 
@@ -79,6 +83,10 @@ export const getUsers = async (req: Request, res: Response) => {
     // `req.user.role` string) means custom roles behave correctly too.
     let endpoint = "/users/";
     const canListAllUsers = !!req.user.permissions?.has("USERS_EDIT");
+    // Active users only (ACTIVE_USERS_CONTRACTS.md). Admins (USERS_EDIT) may
+    // ask for everyone with ?includeInactive=1; each entry then keeps status.
+    const includeInactive =
+      canListAllUsers && ["1", "true"].includes(String(req.query.includeInactive ?? "").toLowerCase());
 
     if (!canListAllUsers && role === "student") {
       // Fall back to the requester's current term when the client didn't send
@@ -93,6 +101,7 @@ export const getUsers = async (req: Request, res: Response) => {
         endpoint = "/users/search";
         params.roleId = 6; // MIS Student Role ID
         params.q = search;
+        params.status = "ACTIVE";
       } else {
         // Without a course (subjectId+termId) or a search term a non-admin
         // has no usable MIS endpoint — /users/ is forbidden for them and
@@ -110,6 +119,7 @@ export const getUsers = async (req: Request, res: Response) => {
       // Admins using the regular users endpoint
       params.search = search;
     }
+    if (endpoint === "/users/") params.status = includeInactive ? "all" : "ACTIVE";
 
     // Every remaining path calls the MIS API — a token is required from here on.
     const token = getMisToken(req);
@@ -174,8 +184,14 @@ export const getUsers = async (req: Request, res: Response) => {
 
     // /users/ returns nested { user, profile }; other endpoints are already
     // flat. flattenMisUser is a no-op for records that are already flat.
-    const users =
+    const flat =
       endpoint === "/users/" ? rawUsers.map(flattenMisUser) : rawUsers;
+    // Defence in depth for MIS versions that ignore status=ACTIVE: drop rows
+    // whose own or local (users.mis_status) status is inactive. With
+    // includeInactive they stay, tagged.
+    const users = includeInactive
+      ? await tagInactiveMisRows(flat)
+      : await filterActiveMisRows(flat);
 
     res.status(200).json({
       success: true,
@@ -327,6 +343,7 @@ export const getMyStudents = async (req: Request, res: Response) => {
           for (const s of rosterRes.data?.data ?? []) {
             const uid = Number(s.user_id);
             if (isNaN(uid)) continue;
+            if (!isActiveStatus(misRowStatus(s))) continue;
             const enrolledSubjects = [
               ...(subjectsByStudent.get(uid)?.values() ?? []),
             ];
@@ -363,7 +380,9 @@ export const getMyStudents = async (req: Request, res: Response) => {
       }),
     );
 
-    let students = [...byStudent.values()];
+    // Active students only: also drop anyone the local MIS status sweep (or
+    // sign-in) recorded as inactive -- today's MIS still lists them.
+    let students = await filterActiveMisRows([...byStudent.values()]);
     if (subjectIdParam != null) {
       students = students.filter((s) =>
         s.subjects.some((sub: any) => sub.subject_id === subjectIdParam),

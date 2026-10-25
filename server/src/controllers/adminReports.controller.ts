@@ -1,3 +1,4 @@
+import { dropInactiveKeyed } from "../utils/activeUsers";
 import { Request, Response } from "express";
 import { Op, fn, col } from "sequelize";
 import { z } from "zod";
@@ -112,7 +113,9 @@ async function loadAdminData(req: Request, fresh: boolean): Promise<AdminData> {
   // Student averages: the Overall Ranking's scoring over every subject.
   const knownMisIds = (directory?.students ?? []).map((s) => s.mis_user_id);
   const sources = ids.length ? await loadMarkSources(req, ids, term_id, knownMisIds) : null;
-  const marks = sources ? collectMarks(sources) : [];
+  // Active students only: an inactive student's marks stay in their own
+  // records but they are not ranked or listed (ACTIVE_USERS_CONTRACTS.md).
+  const marks = sources ? await dropInactiveKeyed(collectMarks(sources), (m) => m.key) : [];
   const ranked = rankStudents(marks, ids.map(String), "all");
 
   const rosterKeys = new Set(knownMisIds.map((id) => `m${id}`));

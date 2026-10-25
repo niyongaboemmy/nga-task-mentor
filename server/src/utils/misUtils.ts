@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { filterActiveMisRows } from "./activeUsers";
 import axios from "axios";
 import jwt from "jsonwebtoken";
 
@@ -392,8 +393,23 @@ export const resolveAcademicTermIdByName = async (
  * rendered empty instead of surfacing the permission error. Shared by
  * course.controller.ts (roster display) and reportCard.controller.ts (the
  * per-subject assessment-mapping fan-out).
+ *
+ * Active students only (ACTIVE_USERS_CONTRACTS.md): rows whose MIS status
+ * or local users.mis_status says inactive are dropped here, so every roster
+ * built on this call leaves them out.
  */
 export const fetchEnrolledStudents = async (
+  token: string,
+  subjectId: string | number,
+  termId: number | null,
+): Promise<any[]> => filterActiveMisRows(await fetchEnrolledStudentsRaw(token, subjectId, termId));
+
+/**
+ * The roster exactly as MIS returns it, inactive students included. Only for
+ * history-preserving callers (e.g. refreshing a past term's report cards);
+ * lists of people use fetchEnrolledStudents.
+ */
+export const fetchEnrolledStudentsRaw = async (
   token: string,
   subjectId: string | number,
   termId: number | null,

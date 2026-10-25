@@ -141,3 +141,23 @@ export async function tagInactiveMisRows<T extends Record<string, any>>(
   }
   return rows.map((r) => ({ ...r, inactive: !isActiveStatus(misRowStatus(r)) || off.has(Number(idOf(r))) }));
 }
+
+/**
+ * Rows keyed by a ranking/student key ("m<mis id>" or "l<local id>", see
+ * utils/overallRanking studentKey) without the ones whose local user is
+ * inactive. `keep` is never dropped (the signed-in caller).
+ */
+export async function dropInactiveKeyed<T>(rows: T[], keyOf: (row: T) => string, keep?: string): Promise<T[]> {
+  const keys = Array.from(new Set(rows.map(keyOf))).filter((k) => k && k !== keep);
+  const mis = keys.filter((k) => k.startsWith("m")).map((k) => Number(k.slice(1)));
+  const local = keys.filter((k) => k.startsWith("l")).map((k) => Number(k.slice(1)));
+  if (!mis.length && !local.length) return rows;
+  const [offMis, offLocal] = await Promise.all([inactiveMisIds(mis), inactiveLocalIds(local)]);
+  if (!offMis.size && !offLocal.size) return rows;
+  return rows.filter((r) => {
+    const k = keyOf(r);
+    if (k === keep) return true;
+    const id = Number(k.slice(1));
+    return !((k.startsWith("m") && offMis.has(id)) || (k.startsWith("l") && offLocal.has(id)));
+  });
+}

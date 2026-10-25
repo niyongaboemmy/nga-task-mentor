@@ -34,7 +34,7 @@ export async function usersById(ids: Array<number | null | undefined>): Promise<
   if (unique.length === 0) return new Map();
   const rows = await User.findAll({
     where: { id: { [Op.in]: unique } },
-    attributes: ["id", "first_name", "last_name", "email", "profile_image"],
+    attributes: ["id", "first_name", "last_name", "email", "profile_image", "mis_status"],
   });
   return new Map(rows.map((u) => [u.id, u]));
 }

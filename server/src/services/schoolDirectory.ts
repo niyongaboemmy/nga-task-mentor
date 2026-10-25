@@ -1,6 +1,7 @@
 import { Request } from "express";
 import axios from "axios";
 import { getMisToken } from "../utils/misUtils";
+import { inactiveMisIds, isActiveStatus, misRowStatus } from "../utils/activeUsers";
 
 /**
  * The school as the MIS describes it for one academic year: class groups,
@@ -16,6 +17,10 @@ import { getMisToken } from "../utils/misUtils";
  *
  * Cached per (caller, year) for a few minutes: the MIS scopes class groups
  * to a programme lead's programmes, so two callers can see different schools.
+ *
+ * Active people only (ACTIVE_USERS_CONTRACTS.md): students and subject
+ * teachers whose MIS row status or local users.mis_status says inactive are
+ * left out of rosters, the student list and subject_teachers.
  */
 
 export interface DirectoryClassGroup {
@@ -139,10 +144,12 @@ export async function loadSchoolDirectory(
     });
   }
 
+  const assignmentRows: any[] = assignmentsRes?.data?.data ?? [];
   const subjectGroups = new Map<number, Set<number>>();
   const subjectTeachers = new Map<number, Map<number, DirectoryTeacher>>();
+  const teachers: Array<[number, DirectoryTeacher]> = [];
   const groupSubjects = new Map<number, Set<number>>();
-  for (const a of assignmentsRes?.data?.data ?? []) {
+  for (const a of assignmentRows) {
     // Without a year filter the list spans every year; keep the requested one.
     if (yearId != null && a.academic_year_id != null && Number(a.academic_year_id) !== yearId) continue;
     const sid = Number(a.subject_id);
@@ -166,12 +173,11 @@ export async function loadSchoolDirectory(
       }
     }
     const tid = Number(a.user_id);
-    if (Number.isFinite(tid)) {
-      if (!subjectTeachers.has(sid)) subjectTeachers.set(sid, new Map());
-      subjectTeachers.get(sid)!.set(tid, {
+    if (Number.isFinite(tid) && isActiveStatus(a.teacher_status ?? a.user_status ?? null)) {
+      teachers.push([sid, {
         mis_user_id: tid,
         name: String(a.teacher_name ?? "").trim() || a.teacher_username || `Teacher #${tid}`,
-      });
+      }]);
     }
   }
 
@@ -189,6 +195,22 @@ export async function loadSchoolDirectory(
     }
   });
 
+  // One local lookup for everyone named above; a failed lookup keeps them.
+  let inactive = new Set<number>();
+  try {
+    inactive = await inactiveMisIds([
+      ...teachers.map(([, t]) => t.mis_user_id),
+      ...rosterRows.flat().map((r: any) => Number(r?.user_id)),
+    ]);
+  } catch (e: any) {
+    console.warn("schoolDirectory: local status lookup failed:", e.message);
+  }
+  for (const [sid, t] of teachers) {
+    if (inactive.has(t.mis_user_id)) continue;
+    if (!subjectTeachers.has(sid)) subjectTeachers.set(sid, new Map());
+    subjectTeachers.get(sid)!.set(t.mis_user_id, t);
+  }
+
   const students = new Map<number, DirectoryStudent>();
   const rosters = new Map<number, number[]>();
   groupIds.forEach((cg, i) => {
@@ -196,6 +218,7 @@ export async function loadSchoolDirectory(
     for (const s of rosterRows[i]) {
       const id = Number(s.user_id);
       if (!Number.isFinite(id)) continue;
+      if (inactive.has(id) || !isActiveStatus(misRowStatus(s))) continue;
       ids.push(id);
       if (students.has(id)) continue;
       students.set(id, {
