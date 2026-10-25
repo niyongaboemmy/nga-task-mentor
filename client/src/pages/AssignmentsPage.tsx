@@ -5,6 +5,7 @@ import React, {
   useCallback,
   useRef,
 } from "react";
+import { AiModeBadge } from "../components/ai/AiControls";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -133,6 +134,7 @@ function AssignmentRow({
             <FileText className="h-3 w-3" />
             {a.submission_type}
           </span>
+          {canManage && <AiModeBadge mode={a.ai_mode} />}
           {a.creator && (
             <span className="hidden sm:inline">
               by {a.creator.first_name} {a.creator.last_name}

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { AiModeBadge } from "../ai/AiControls";
 import { LearningOutcomesPanel } from "../competency/LearningOutcomesPanel";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
@@ -168,6 +169,7 @@ const QuizHeader: React.FC<{
                         {quiz.type.charAt(0).toUpperCase() + quiz.type.slice(1)}
                       </div>
                     </span>
+                    <AiModeBadge mode={quiz.ai_mode} className="!rounded-xl !px-3 !py-1 !text-xs" />
                     {quiz.is_available && (
                       <span className="px-3 py-1 text-xs font-semibold rounded-xl border bg-emerald-100 text-emerald-700 border-emerald-200 transition-all duration-200">
                         <div className="flex items-center gap-1">

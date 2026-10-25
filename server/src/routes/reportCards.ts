@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAi } from "../middleware/requireAi";
 import {
   saveBuilder,
   getSubjectMapping,
@@ -74,6 +75,7 @@ router.post(
 router.post(
   "/ai-comment",
   authorizeCapability({ legacy: ["REPORT_CARDS_EDIT"], v2: ["REPORT_CARDS_COMMENT"] }),
+  requireAi("author"),
   validate(aiCommentSchema),
   draftReportComment,
 );

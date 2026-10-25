@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import { aiDisabledBody, isAiDisabledError } from "../services/aiPolicy";
 import { QuestionBank, QuizQuestion } from "../models";
 import { sequelize } from "../config/database";
 import { Op } from "sequelize";
@@ -842,6 +843,7 @@ export const generateQuestionsFromDocument = async (
       data: valid,
     });
   } catch (error: any) {
+    if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
     console.error("[AI Generate] Error:", error.message);
     res.status(500).json({
       success: false,

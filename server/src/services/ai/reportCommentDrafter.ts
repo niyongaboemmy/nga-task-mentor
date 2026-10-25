@@ -1,5 +1,6 @@
 import { generateStructuredContent, JSONSchema } from "../aiProviders";
 import { preferredOrder } from "../aiProviders/registry";
+import { isAiDisabledError } from "../aiPolicy";
 
 /**
  * AI draft of a class teacher's report-card comment for one student, from the
@@ -106,6 +107,7 @@ export async function draftComment(input: CommentInput): Promise<CommentDraft> {
       { providerOrder: preferredOrder(input.provider) },
     ));
   } catch (err: any) {
+    if (isAiDisabledError(err)) throw err;
     throw Object.assign(new Error(err?.message || "The AI service is unavailable."), { statusCode: 503 });
   }
   const comment = cleanComment(data?.comment || "");

@@ -24,6 +24,8 @@ import {
   getCodeLanguages,
 } from "../controllers/quiz.controller";
 
+import { requireAi } from "../middleware/requireAi";
+import { forQuestion } from "../utils/aiContext";
 import {
   getQuizQuestions,
   getQuestion,
@@ -149,7 +151,11 @@ router.get("/:quizId/questions", authorizePermission("QUIZZES_VIEW"), getQuizQue
 router.get("/questions/:id", authorizePermission("QUIZZES_VIEW"), getQuestion);
 router.post(
   "/questions/:questionId/ai-hint",
-  authorizePermission("QUIZ_QUESTIONS_USE_AI_HINT"),
+  // AI usage control: no permission of its own any more (QUIZ_QUESTIONS_USE_AI_HINT
+  // is deprecated) -- the school policy, then the quiz's ai_mode for a learner
+  // in it, then AI_USE decide.
+  authorizePermission("QUIZZES_VIEW"),
+  requireAi("hint", (req) => forQuestion(req, req.params.questionId)),
   getAIHint,
 );
 router.post(
@@ -183,6 +189,7 @@ router.post(
 router.post(
   "/generate-test-cases",
   authorizePermission("QUIZZES_CREATE", "QUIZZES_EDIT"),
+  requireAi("author"),
   generateTestCases,
 );
 // Authors only: run code against draft test cases while preparing a

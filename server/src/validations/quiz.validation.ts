@@ -16,6 +16,8 @@ import { z } from "zod";
  */
 export const QUIZ_TYPES = ["Assessment", "Homework", "Quiz", "Exam"] as const;
 export const QUIZ_STATUSES = ["draft", "published", "completed"] as const;
+/** AI for students inside the quiz: off (default), Socratic hints only, or the full assistant. */
+export const QUIZ_AI_MODES = ["off", "hints", "full"] as const;
 
 export const QUIZ_TITLE_MAX = 200;
 export const QUIZ_DESCRIPTION_MAX = 5000;
@@ -123,6 +125,9 @@ const baseQuizFields = {
   is_public: z.boolean({ message: "is_public must be true or false" }),
   start_date: optionalDate,
   end_date: optionalDate,
+  ai_mode: z
+    .enum(QUIZ_AI_MODES, { message: `AI mode must be one of: ${QUIZ_AI_MODES.join(", ")}` })
+    .optional(),
 };
 
 /** end_date must be after start_date when both are set. */
@@ -177,6 +182,7 @@ export const updateQuizSchema = z
     is_public: baseQuizFields.is_public.optional(),
     start_date: baseQuizFields.start_date,
     end_date: baseQuizFields.end_date,
+    ai_mode: baseQuizFields.ai_mode,
   })
   .superRefine(dateOrderCheck);
 

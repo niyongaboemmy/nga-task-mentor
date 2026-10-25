@@ -1,6 +1,7 @@
 import { generateStructuredContent, JSONSchema } from "../aiProviders";
 import { preferredOrder } from "../aiProviders/registry";
 import { htmlToText } from "./misCourseResources";
+import { isAiDisabledError } from "../aiPolicy";
 
 /**
  * AI marking assistant: drafts rubric scores and feedback for ONE submission.
@@ -190,6 +191,7 @@ export async function draftFeedback(input: FeedbackInput): Promise<FeedbackDraft
       { providerOrder: preferredOrder(input.provider) },
     ));
   } catch (err: any) {
+    if (isAiDisabledError(err)) throw err;
     throw Object.assign(new Error(err?.message || "The AI service is unavailable."), { statusCode: 503 });
   }
 

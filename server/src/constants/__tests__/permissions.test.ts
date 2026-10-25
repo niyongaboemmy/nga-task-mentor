@@ -49,6 +49,12 @@ describe("default role -> permission mapping", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.student).not.toContain("QUESTION_BANK_HUB_VIEW");
   });
 
+  it("grants AI_USE (AI outside quizzes/assignments) to staff, never to students", () => {
+    expect(DEFAULT_ROLE_PERMISSIONS.admin).toContain("AI_USE");
+    expect(DEFAULT_ROLE_PERMISSIONS.instructor).toContain("AI_USE");
+    expect(DEFAULT_ROLE_PERMISSIONS.student).not.toContain("AI_USE");
+  });
+
   it("splits the Overall Ranking into own position and the staff leaderboard", () => {
     expect(DEFAULT_ROLE_PERMISSIONS.student).toContain("RANKINGS_VIEW_OWN");
     expect(DEFAULT_ROLE_PERMISSIONS.student).not.toContain("RANKINGS_VIEW_ALL");

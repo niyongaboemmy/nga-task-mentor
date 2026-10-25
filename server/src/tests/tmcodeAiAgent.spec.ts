@@ -6,6 +6,12 @@ const create = jest.fn();
 jest.mock("openai", () => jest.fn().mockImplementation(() => ({ chat: { completions: { create } } })));
 
 import { plan, resetAiUsage, streamChat, userLimit, userUsed } from "../tmcode/ai/service";
+import { resetAiPolicyCache, setAiPolicyForTests } from "../services/aiPolicy";
+import { AI_POLICY_DEFAULT } from "../vendor/nga-access";
+
+// AI usage control: these tests exercise AI with the school's AI policy switched on.
+beforeAll(() => setAiPolicyForTests({ ...AI_POLICY_DEFAULT, v: 1, enabled: true }));
+afterAll(() => resetAiPolicyCache());
 
 const env = { ...process.env };
 beforeEach(() => {

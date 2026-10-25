@@ -25,7 +25,7 @@ const SCHOOL_ONLY = { scopeable: false };
 export const TM_MANIFEST = defineManifest({
   app: "tm",
   name: "Task Mentor",
-  version: "2026.10.06.2",
+  version: "2026.10.25.1",
   capabilities: {
     USERS_VIEW_SELF: R("View own profile", "PEOPLE"),
     USERS_VIEW_ALL: R("View students and staff", "PEOPLE"),
@@ -124,6 +124,9 @@ export const TM_MANIFEST = defineManifest({
     DATABASE_ADMIN_ACCESS: W("Database admin tool", "SYSTEM", SCHOOL_ONLY),
     ROLES_PERMISSIONS_VIEW: R("View roles & permissions", "ACCESS", ["detail"], SCHOOL_ONLY),
     ROLES_PERMISSIONS_MANAGE: W("Manage roles & permissions", "ACCESS", SCHOOL_ONLY),
+
+    // AI outside a quiz/assignment (AI_USAGE_CONTROL_PLAN.md §3.1); the MIS AI policy comes first.
+    AI_USE: W("Use AI tools (outside quizzes and assignments)", "SYSTEM", SCHOOL_ONLY),
   },
   insights: {
     "results.average": { label: "Average result", capability: "COURSES_VIEW_GRADES", minDepth: "summary", levels: ["SCHOOL", "PROGRAM", "GRADE", "CLASS_GROUP", "DEPARTMENT"] },

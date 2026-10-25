@@ -240,3 +240,21 @@ describe("updateQuizSchema", () => {
     expect(updateQuizSchema.safeParse({ time_limit: 0 }).success).toBe(false);
   });
 });
+
+describe("ai_mode (AI assistance for students)", () => {
+  it("is kept by both schemas (they strip unknown keys) and left out when not sent", () => {
+    for (const mode of ["off", "hints", "full"]) {
+      const created = createQuizSchema.safeParse({ ...valid, ai_mode: mode });
+      expect(created.success && created.data.ai_mode).toBe(mode);
+      const updated = updateQuizSchema.safeParse({ ai_mode: mode });
+      expect(updated.success && updated.data.ai_mode).toBe(mode);
+    }
+    const plain = createQuizSchema.safeParse(valid);
+    expect(plain.success && plain.data.ai_mode).toBeUndefined();
+  });
+
+  it("refuses anything else", () => {
+    expect(fieldsOf(createQuizSchema.safeParse({ ...valid, ai_mode: "all" }))).toContain("ai_mode");
+    expect(fieldsOf(updateQuizSchema.safeParse({ ai_mode: true }))).toContain("ai_mode");
+  });
+});

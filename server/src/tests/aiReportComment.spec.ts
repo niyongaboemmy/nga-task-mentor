@@ -10,6 +10,12 @@ jest.mock("../services/aiProviders", () => {
   return { ...actual, generateStructuredContent: jest.fn() };
 });
 import { generateStructuredContent } from "../services/aiProviders";
+import { resetAiPolicyCache, setAiPolicyForTests } from "../services/aiPolicy";
+import { AI_POLICY_DEFAULT } from "../vendor/nga-access";
+
+// AI usage control: these tests exercise AI with the school's AI policy switched on.
+beforeAll(() => setAiPolicyForTests({ ...AI_POLICY_DEFAULT, v: 1, enabled: true }));
+afterAll(() => resetAiPolicyCache());
 const ai = generateStructuredContent as jest.Mock;
 
 let app: ReturnType<typeof buildTestApp>;

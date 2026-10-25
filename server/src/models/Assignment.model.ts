@@ -34,6 +34,8 @@ export interface IAssignmentAttributes {
   academic_term_id?: number | null;
   created_by: number | null;
   status: "draft" | "published" | "completed" | "removed";
+  /** AI for students working on it (AI_USAGE_CONTROL_PLAN.md §5.6). */
+  ai_mode?: "off" | "hints" | "full";
   created_at?: Date;
   updated_at?: Date;
 }
@@ -261,6 +263,16 @@ export class Assignment extends Model<
     defaultValue: "draft",
   })
   public status!: "draft" | "published" | "completed" | "removed";
+
+  // What AI students may use while working on it, as set by the teacher who
+  // prepared it (the school-wide AI policy still comes first).
+  @Column({
+    type: DataType.ENUM("off", "hints", "full"),
+    allowNull: false,
+    defaultValue: "off",
+    field: "ai_mode",
+  })
+  public ai_mode!: "off" | "hints" | "full";
 
   @BelongsTo(() => User, "created_by")
   public creator!: User;

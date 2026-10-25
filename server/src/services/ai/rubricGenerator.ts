@@ -1,6 +1,7 @@
 import { generateStructuredContent, JSONSchema } from "../aiProviders";
 import { preferredOrder } from "../aiProviders/registry";
 import { htmlToText } from "./misCourseResources";
+import { isAiDisabledError } from "../aiPolicy";
 
 /**
  * AI rubric builder for the assignment form. The teacher gives the maximum
@@ -208,6 +209,7 @@ export async function generateRubric(
       { providerOrder: preferredOrder(params.provider) },
     ));
   } catch (err: any) {
+    if (isAiDisabledError(err)) throw err;
     // Already a teacher-friendly message (quota, not configured, …).
     throw Object.assign(
       new Error(err?.message || "The AI service is unavailable."),

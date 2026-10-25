@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAi } from "../middleware/requireAi";
 import {
   listTables,
   getTableStructure,
@@ -60,6 +61,7 @@ router.post(
   "/query/ai-generate",
   authorizePermission("DATABASE_ADMIN_ACCESS"),
   requireDbStepUp,
+  requireAi("author"),
   generateSqlWithAI,
 );
 router.get(

@@ -1,6 +1,6 @@
 {
   "app": "tm",
-  "version": "2026.10.06",
+  "version": "2026.10.25",
   "features": [
     { "key": "tm.landing", "label": "Start page", "module": "Public", "patterns": ["/"], "public": true },
     { "key": "tm.login", "label": "Sign-in page", "module": "Public", "patterns": ["/login"], "public": true },
@@ -77,6 +77,9 @@
     { "key": "tm.quiz.paper_results", "label": "Paper answer sheets saved", "module": "Grades", "event": true, "key_event": true },
     { "key": "tm.competency.tag", "label": "Learning outcomes tagged", "module": "Grades", "event": true, "key_event": true },
     { "key": "tm.question.generate", "label": "AI questions generated", "module": "Question bank", "event": true, "key_event": true },
+    { "key": "tm.ai.mode_set", "label": "AI mode set on a quiz or assignment", "module": "AI", "event": true, "key_event": true },
+    { "key": "tm.ai.mode_override", "label": "AI mode changed on someone else's quiz or assignment", "module": "AI", "event": true, "key_event": true },
+    { "key": "tm.ai.denied", "label": "AI refused inside a quiz or assignment", "module": "AI", "event": true, "key_event": true },
 
     { "key": "tm.quiz.submit_click", "label": "Clicked \"Submit quiz\"", "module": "Quizzes", "event": true },
     { "key": "tm.assignment.submit_click", "label": "Clicked \"Submit assignment\"", "module": "Assignments", "event": true },

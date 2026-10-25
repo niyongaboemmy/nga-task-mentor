@@ -8,6 +8,8 @@ export interface GroupedAssignment {
   due_date: string;
   max_score: number | string;
   submission_type: string;
+  /** AI for students working on it (AI usage control). */
+  ai_mode?: "off" | "hints" | "full";
   status: AssignmentStatus;
   course_id: number;
   creator: { id: number; first_name: string; last_name: string } | null;

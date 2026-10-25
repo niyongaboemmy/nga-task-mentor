@@ -33,6 +33,8 @@ import { parseLocalDateTimeToUTC } from "../../../utils/dateUtils";
 import Select from "../../ui/Select";
 import TmcodePracticalSection from "./TmcodePracticalSection";
 import { EMPTY_TMCODE, sameTmcode, type TmcodeSettings } from "../../../services/tmcodeAssignmentsApi";
+import { AiModeControl } from "../../ai/AiControls";
+import type { AiMode } from "../../../services/aiApi";
 
 /** What the server accepts as an assignment attachment (middleware/assignmentUpload.ts). */
 export const ATTACHMENT_EXTENSIONS =
@@ -58,6 +60,8 @@ export interface AssignmentFormValues {
   rubric: RubricCriterion[];
   course_id: string;
   status: string;
+  /** AI assistance for students working on it; off when absent. */
+  ai_mode?: AiMode;
 }
 
 interface Props {
@@ -355,6 +359,7 @@ const AssignmentEditorForm: React.FC<Props> = ({
     fd.append("submission_type", values.submission_type);
     fd.append("allowed_file_types", JSON.stringify(NO_FILE_TYPES.includes(values.submission_type) ? [] : values.allowed_file_types));
     fd.append("rubric", JSON.stringify(values.rubric));
+    fd.append("ai_mode", values.ai_mode ?? "off");
     if (mode === "create") {
       fd.append("course_id", values.course_id);
     } else {
@@ -527,6 +532,15 @@ const AssignmentEditorForm: React.FC<Props> = ({
                 </div>
               </div>
             )}
+          </div>
+          {/* AI for students (AI_USAGE_CONTROL_PLAN.md §5.6) */}
+          <div className="mt-5">
+            <AiModeControl
+              idPrefix="assignment"
+              itemLabel="this assignment"
+              value={values.ai_mode ?? "off"}
+              onChange={(m) => set("ai_mode", m)}
+            />
           </div>
         </Section>
 

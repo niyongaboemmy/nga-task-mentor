@@ -21,6 +21,7 @@ import {
 import type { CreateQuizRequest, QuizStatus } from "../../types/quiz.types";
 import { Timer, X } from "lucide-react";
 import Select from "../ui/Select";
+import { AiModeControl } from "../ai/AiControls";
 
 export interface QuizFormProps {
   mode: "create" | "edit";
@@ -623,6 +624,16 @@ export const QuizForm: React.FC<QuizFormProps> = ({
                 ? "Grades are calculated automatically and shown immediately."
                 : "Grades are hidden from students until released."}
           </p>
+        </div>
+
+        {/* AI for students (AI_USAGE_CONTROL_PLAN.md §5.6) */}
+        <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
+          <AiModeControl
+            idPrefix="quiz"
+            itemLabel="this quiz"
+            value={values.ai_mode}
+            onChange={(m) => setField("ai_mode", m)}
+          />
         </div>
 
         {/* Visibility */}

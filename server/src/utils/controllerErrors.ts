@@ -5,6 +5,7 @@ import {
   ForeignKeyConstraintError,
   DatabaseError,
 } from "sequelize";
+import { aiDisabledBody, isAiDisabledError } from "../services/aiPolicy";
 
 export interface FieldError {
   field: string;
@@ -32,6 +33,11 @@ export const sendControllerError = (
   const errorId = `${Date.now().toString(36)}-${Math.random()
     .toString(36)
     .slice(2, 8)}`;
+
+  // The school's AI policy turned AI off (provider chokepoint) → 403 AI_DISABLED.
+  if (isAiDisabledError(error)) {
+    return res.status(403).json(aiDisabledBody(error.reason));
+  }
 
   // UniqueConstraintError extends ValidationError — check it first.
   if (error instanceof UniqueConstraintError) {

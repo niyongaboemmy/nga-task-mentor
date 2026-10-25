@@ -79,6 +79,9 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/** The auth context, or undefined outside an AuthProvider (for optional UI hints). */
+export const useOptionalAuth = () => useContext(AuthContext);
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (context === undefined) {

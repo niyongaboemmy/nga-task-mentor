@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
+import { useAiAuthoring } from "../../hooks/useAiAccess";
 import {
   Search,
   Filter,
@@ -177,6 +178,8 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
   const location = useLocation();
   const [isDocxModalOpen, setIsDocxModalOpen] = useState(false);
   const [isAIGenerateOpen, setIsAIGenerateOpen] = useState(false);
+  // AI usage control: the generator needs AI on for this teacher (AI_USE + the school policy).
+  const aiAuthoring = useAiAuthoring();
   const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [previewQuestion, setPreviewQuestion] =
     useState<QuestionBankEntry | null>(null);
@@ -534,8 +537,10 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
             </button>
 
             <button
-              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-xl transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-violet-600 hover:bg-violet-700 text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-violet-600"
               onClick={() => setIsAIGenerateOpen(true)}
+              disabled={!aiAuthoring.allowed}
+              title={aiAuthoring.reason ?? undefined}
               data-track="tm.ai_generator.open"
             >
               <Sparkles className="w-4 h-4" /> AI Generate
@@ -832,8 +837,10 @@ const QuestionBankList: React.FC<QuestionBankListProps> = ({
                   </button>
                   <button
                     onClick={() => setIsAIGenerateOpen(true)}
+                    disabled={!aiAuthoring.allowed}
+                    title={aiAuthoring.reason ?? undefined}
                     data-track="tm.ai_generator.open"
-                    className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700"
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Sparkles className="h-4 w-4" /> AI Generate
                   </button>

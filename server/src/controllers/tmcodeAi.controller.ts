@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { Request, Response } from "express";
-import { Op } from "sequelize";
 import { z } from "zod";
-import { TmcodeSession } from "../models";
 import { tmcodeError } from "../middleware/tmcodeAuth";
+import { decideAiFor, type AiVerdict } from "../middleware/requireAi";
+import { examContext, forProject, type ItemContext } from "../utils/aiContext";
+import { trackAiDenied } from "../utils/aiEvents";
+import { isAiDisabledError } from "../services/aiPolicy";
+import type { AiFeature } from "../vendor/nga-access";
 import { AiError, catalog, complete, configured, openRouterRemaining, PROVIDERS, remaining, streamChat, userLimit, userUsed, type ChatMessage, type ProviderId, type ToolDef } from "../tmcode/ai/service";
 
 /** Plan mode only ever gets these (the server enforces it, whatever the app sends). */
@@ -11,26 +14,49 @@ const READ_ONLY = new Set(["list_files", "read_file", "search", "get_problems"])
 
 /**
  * /api/tmcode/ai — TMCode AI (free AI only; nga-tmcode docs/AI_AND_ACTIVITY_PLAN.md B).
- *   GET  /ai/status           modes, free models, today's allowance and pools
- *   POST /ai/chat             { messages, context?, mode } → { id }
- *   GET  /ai/chat/:id/stream  text/event-stream: meta, delta, done | error
- *   POST /ai/complete         { prefix, suffix, language, path, mode } → { text | null }
- * Never during an exam: a student with an active TMCode exam session is refused.
+ *   GET  /ai/status?project_id  modes, free models, today's allowance and pools, and the
+ *                               AI decision (allowed, reason, message, mode, features,
+ *                               thirdPartyExtensions)
+ *   POST /ai/chat             { messages, context?, mode, project_id? } → { id }
+ *   GET  /ai/chat/:id/stream  text/event-stream: meta, delta, done | error (the chat's project)
+ *   POST /ai/complete         { prefix, suffix, language, path, mode, project_id? } → { text | null }
+ *
+ * Who may use it (AI_USAGE_CONTROL_PLAN.md §5-6, decideAi): the school's AI policy first
+ * (TMCode switched on), then -- for a student in an activity -- the teacher's ai_mode of the
+ * activity the project belongs to (an open TMCode exam is always the activity, examActive),
+ * else the role permission AI_USE. Refused: 403 { error_code: "AI_DISABLED", code: "AI_DISABLED",
+ * reason, message }.
  */
 
 const userId = (req: Request) => (req.user as { id: number }).id;
 
-async function inExam(id: number) {
-  const s = await TmcodeSession.findOne({ where: { user_id: id, status: "active", ended_at: { [Op.is]: null } } as never, attributes: ["id"] });
-  return !!s;
+const projectIdOf = (v: unknown): number | null => {
+  const n = Number(v);
+  return Number.isInteger(n) && n > 0 ? n : null;
+};
+
+/** The activity a request works in: an open exam first, else the project's activity. */
+async function itemFor(req: Request, projectId: number | null): Promise<ItemContext | null> {
+  return (await examContext(req)) ?? (projectId ? await forProject(req, projectId) : null);
 }
 
-function refuseInExam(res: Response) {
-  return tmcodeError(res, 403, "EXAM_ACTIVE", "TMCode AI is off while you're taking an exam.");
+async function verdictFor(req: Request, feature: AiFeature, projectId: number | null): Promise<AiVerdict> {
+  return decideAiFor(req, feature, await itemFor(req, projectId), "tmcode");
+}
+
+function refuse(req: Request, res: Response, feature: AiFeature, v: Pick<AiVerdict, "reason" | "message" | "item">) {
+  trackAiDenied(req, feature, v.reason, v.item);
+  return tmcodeError(res, 403, "AI_DISABLED", v.message, { code: "AI_DISABLED", reason: v.reason });
 }
 
 export async function aiStatus(req: Request, res: Response) {
   const id = userId(req);
+  const projectId = projectIdOf(req.query.project_id);
+  const item = await itemFor(req, projectId);
+  const [assist, completeV] = await Promise.all([
+    decideAiFor(req, "assist", item, "tmcode"),
+    decideAiFor(req, "complete", item, "tmcode"),
+  ]);
   const pools: Record<string, { label: string; used: number; limit: number; remaining: number }> = {};
   for (const p of Object.keys(PROVIDERS) as ProviderId[]) {
     if (!configured(p)) continue;
@@ -38,8 +64,9 @@ export async function aiStatus(req: Request, res: Response) {
   }
   const or = await openRouterRemaining();
   res.json({
-    enabled: Object.keys(pools).length > 0,
-    exam: await inExam(id),
+    // false also when the AI policy refuses: older TMCode builds only read this flag.
+    enabled: Object.keys(pools).length > 0 && (assist.allowed || completeV.allowed),
+    exam: !!item?.examActive,
     default_mode: "free",
     modes: [
       { id: "free", label: "Free (OpenRouter)", detail: "OpenRouter's free models. The school shares 50 of these requests a day." },
@@ -53,11 +80,20 @@ export async function aiStatus(req: Request, res: Response) {
     },
     pools,
     openrouter: or,
+    // AI usage control (additive): what this user may use here.
+    allowed: assist.allowed,
+    reason: assist.reason,
+    message: assist.message,
+    mode: item?.aiMode ?? null,
+    features: { assist: assist.allowed, complete: completeV.allowed },
+    thirdPartyExtensions: !!assist.policy?.thirdPartyExtensions && assist.allowed,
   });
 }
 
 const ChatSchema = z.object({
   mode: z.string().max(200).default("free"),
+  /** The open project (its activity's AI setting applies to a student). */
+  project_id: z.number().int().positive().nullable().optional(),
   messages: z
     .array(
       z.union([
@@ -129,17 +165,19 @@ function buildMessages(input: z.infer<typeof ChatSchema>): ChatMessage[] {
   return [{ role: "system", content: system }, ...(input.messages as ChatMessage[])];
 }
 
-const jobs = new Map<string, { user: number; mode: string; messages: ChatMessage[]; at: number; agent?: { tools: ToolDef[]; step: number } }>();
+const jobs = new Map<string, { user: number; mode: string; messages: ChatMessage[]; at: number; project: number | null; agent?: { tools: ToolDef[]; step: number } }>();
 
 export async function aiChat(req: Request, res: Response) {
   const parsed = ChatSchema.safeParse(req.body);
   if (!parsed.success) return tmcodeError(res, 400, "VALIDATION", "That request isn't valid.");
   const id = userId(req);
-  if (await inExam(id)) return refuseInExam(res);
+  const project = parsed.data.project_id ?? null;
+  const v = await verdictFor(req, "assist", project);
+  if (!v.allowed) return refuse(req, res, "assist", v);
   for (const [k, j] of jobs) if (Date.now() - j.at > 120_000) jobs.delete(k);
   const job = randomUUID();
   const a = parsed.data.agent;
-  jobs.set(job, { user: id, mode: parsed.data.mode, messages: buildMessages(parsed.data), at: Date.now(), ...(a ? { agent: { tools: (a.mode === "plan" ? a.tools.filter((t) => READ_ONLY.has(t.function.name)) : a.tools) as ToolDef[], step: a.step } } : {}) });
+  jobs.set(job, { user: id, mode: parsed.data.mode, messages: buildMessages(parsed.data), at: Date.now(), project, ...(a ? { agent: { tools: (a.mode === "plan" ? a.tools.filter((t) => READ_ONLY.has(t.function.name)) : a.tools) as ToolDef[], step: a.step } } : {}) });
   res.status(201).json({ id: job });
 }
 
@@ -147,6 +185,9 @@ export async function aiChatStream(req: Request, res: Response) {
   const job = jobs.get(String(req.params.id));
   if (!job || job.user !== userId(req)) return tmcodeError(res, 404, "NOT_FOUND", "That answer isn't available any more. Ask again.");
   jobs.delete(String(req.params.id));
+  // Checked again: the policy (or the exam) may have changed since the chat was asked.
+  const v = await verdictFor(req, "assist", job.project);
+  if (!v.allowed) return refuse(req, res, "assist", v);
   res.status(200);
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
   res.setHeader("Cache-Control", "no-cache, no-transform");
@@ -160,7 +201,9 @@ export async function aiChatStream(req: Request, res: Response) {
     const r = await streamChat(job.user, job.mode, job.messages, (m) => send("meta", m), (text) => send("delta", { text }), abort.signal, job.agent);
     send("done", { ...r, you: { used: userUsed(job.user, "chat"), limit: userLimit("chat") }, steps: { used: userUsed(job.user, "agent"), limit: userLimit("agent") } });
   } catch (e) {
-    if (!abort.signal.aborted) {
+    if (!abort.signal.aborted && isAiDisabledError(e)) {
+      send("error", { code: "AI_DISABLED", reason: e.reason, message: e.message });
+    } else if (!abort.signal.aborted) {
       const err = e instanceof AiError ? e : new AiError(502, "PROVIDER_FAILED", "The AI didn't answer. Try again.");
       if (!(e instanceof AiError)) console.error("[tmcode-ai]", e);
       send("error", { code: err.code, message: err.message });
@@ -176,13 +219,15 @@ const CompleteSchema = z.object({
   suffix: z.string().max(10_000).default(""),
   language: z.string().max(60).default("plaintext"),
   path: z.string().max(500).default(""),
+  project_id: z.number().int().positive().nullable().optional(),
 });
 
 export async function aiComplete(req: Request, res: Response) {
   const parsed = CompleteSchema.safeParse(req.body);
   if (!parsed.success) return tmcodeError(res, 400, "VALIDATION", "That request isn't valid.");
   const id = userId(req);
-  if (await inExam(id)) return refuseInExam(res);
+  const v = await verdictFor(req, "complete", parsed.data.project_id ?? null);
+  if (!v.allowed) return refuse(req, res, "complete", v);
   const abort = new AbortController();
   req.on("close", () => abort.abort());
   try {
@@ -190,6 +235,7 @@ export async function aiComplete(req: Request, res: Response) {
     res.json(r ? { text: r.text, provider: r.provider, model: r.model } : { text: null });
   } catch (e) {
     if (e instanceof AiError) return tmcodeError(res, e.status, e.code, e.message);
+    if (isAiDisabledError(e)) return tmcodeError(res, 403, "AI_DISABLED", e.message, { code: "AI_DISABLED", reason: e.reason });
     throw e;
   }
 }

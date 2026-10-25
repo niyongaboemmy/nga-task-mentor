@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { namesFromMis } from "../utils/names";
 import { noteAccessVersion } from "../access/snapshot";
+import { noteAiPolicyVersion } from "../services/aiPolicy";
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -851,6 +852,8 @@ export const verifyMisSession = async (req: Request, res: Response) => {
     // Access control v2: a changed access_version invalidates the cached
     // access snapshot, so the next request re-fetches GET /access/me.
     noteAccessVersion(req.user?.mis_user_id, response.data?.data?.access_version);
+    // A changed ai_policy_v (the school AI policy) expires the cached policy.
+    noteAiPolicyVersion(response.data?.data?.ai_policy_v);
     // MIS reports the current picture on every poll: a picture changed in MIS (or
     // another NGA app) reaches this app's top bar within a minute.
     let profileImage: string | null | undefined;

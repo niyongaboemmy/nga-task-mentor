@@ -36,6 +36,7 @@ export const PERMISSION_CATEGORIES = [
   "ACADEMICS",
   "DATABASE_ADMIN",
   "ROLES_PERMISSIONS",
+  "AI",
 ] as const;
 
 export type PermissionCategory = (typeof PERMISSION_CATEGORIES)[number];
@@ -92,6 +93,8 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
 
   // QUIZ_QUESTIONS
   { key: "QUIZ_QUESTIONS_VIEW_WITH_ANSWERS", category: "QUIZ_QUESTIONS", description: "View correct answers for quiz questions" },
+  // Deprecated (AI_USAGE_CONTROL_PLAN.md §3.1): kept so existing role rows stay valid, but no
+  // route checks it -- the hint route goes through the AI policy (feature "hint") instead.
   { key: "QUIZ_QUESTIONS_USE_AI_HINT", category: "QUIZ_QUESTIONS", description: "Request AI hints for a question" },
   { key: "QUIZ_QUESTIONS_RUN_CODE", category: "QUIZ_QUESTIONS", description: "Run/execute code for a coding question" },
 
@@ -167,6 +170,10 @@ export const PERMISSIONS: readonly PermissionDefinition[] = [
   // ROLES_PERMISSIONS
   { key: "ROLES_PERMISSIONS_VIEW", category: "ROLES_PERMISSIONS", description: "View roles and the permission catalog" },
   { key: "ROLES_PERMISSIONS_MANAGE", category: "ROLES_PERMISSIONS", description: "Create/edit/delete roles and assign permissions" },
+
+  // AI -- the role default for AI outside a quiz/assignment (AI_USAGE_CONTROL_PLAN.md §3).
+  // The school-wide AI policy (MIS) comes first; inside an item the teacher's ai_mode decides.
+  { key: "AI_USE", category: "AI", description: "Use AI tools outside a quiz or assignment (generators, rubrics, marking drafts, TMCode AI)" },
 ] as const;
 
 export type PermissionKey = (typeof PERMISSIONS)[number]["key"];
@@ -249,6 +256,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<"admin" | "instructor" | "student"
     "USERS_VIEW_ALL",
     "USERS_VIEW_OTHERS_ACTIVITY",
     "USERS_MANAGE_ENROLLMENT",
+    "AI_USE",
   ],
 
   student: [

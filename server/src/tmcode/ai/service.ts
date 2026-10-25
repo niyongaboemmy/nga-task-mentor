@@ -1,5 +1,6 @@
 import OpenAI from "openai";
 import { isFreeModel, freeModels } from "../../services/aiProviders/openrouterProvider";
+import { assertAiApp } from "../../services/aiPolicy";
 
 /**
  * TMCode AI (nga-tmcode docs/AI_AND_ACTIVITY_PLAN.md, B): chat and inline completions for the
@@ -265,6 +266,9 @@ export async function streamChat(
   signal: AbortSignal,
   agent?: { tools: ToolDef[]; step: number },
 ): Promise<StreamResult & { tool_calls?: ToolCall[] }> {
+  // Chokepoint (AI_USAGE_CONTROL_PLAN.md §5.5): nothing reaches a provider while the
+  // school's AI policy has TMCode AI off (throws AiDisabledError).
+  await assertAiApp("tmcode");
   // An agent's first step is the student's question; its next steps (tool results) have their own allowance.
   const kind: Kind = agent && agent.step > 0 ? "agent" : "chat";
   if (userUsed(userId, kind) >= userLimit(kind))
@@ -332,6 +336,7 @@ export async function streamChat(
 
 /** One inline completion (ghost text): short, fast, cheap. Null when nothing fits. */
 export async function complete(userId: number, mode: string, input: { prefix: string; suffix: string; language: string; path: string }, signal: AbortSignal): Promise<{ text: string; provider: ProviderId; model: string } | null> {
+  await assertAiApp("tmcode");
   if (userUsed(userId, "complete") >= userLimit("complete")) throw new AiError(429, "USER_QUOTA", "You've used today's AI suggestions. They come back tomorrow.");
   const steps = await plan("complete", mode);
   if (!steps.length) throw new AiError(429, "POOL_EXHAUSTED", "No free AI is left for suggestions today.");

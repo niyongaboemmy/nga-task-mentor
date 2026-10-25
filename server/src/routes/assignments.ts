@@ -21,6 +21,7 @@ import { submissionFile } from "../middleware/submissionUpload";
 import { validateBody } from "../middleware/validation.middleware";
 import { generateRubricSchema } from "../validations/assignmentAi.validation";
 import { generateAssignmentRubric } from "../controllers/assignmentAi.controller";
+import { requireAi } from "../middleware/requireAi";
 
 const router = Router();
 
@@ -38,6 +39,7 @@ router.get("/:id", authorizePermission("ASSIGNMENTS_VIEW"), getAssignment);
 router.post(
   "/ai/rubric",
   authorizePermission("ASSIGNMENTS_CREATE", "ASSIGNMENTS_EDIT"),
+  requireAi("author"),
   validateBody(generateRubricSchema),
   generateAssignmentRubric,
 );

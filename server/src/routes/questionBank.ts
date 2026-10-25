@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { requireAi } from "../middleware/requireAi";
 import {
   getCourseQuestions,
   getQuestionBankQuestion,
@@ -92,29 +93,35 @@ router.get(
 router.post(
   "/ai-generate",
   authorizePermission("QUESTION_BANK_CREATE"),
+  requireAi("author"),
   aiGenerateUpload.single("file"),
   generateQuestionsFromDocument,
 );
 
 // AI Question Generator (two-step: prepare a source, then generate batches).
 // Nothing is saved until the teacher confirms through POST /bulk.
-router.get("/ai/providers", authorizePermission("QUESTION_BANK_CREATE"), getAIProviders);
-router.get("/ai/sources", authorizePermission("QUESTION_BANK_CREATE"), getAISources);
+// AI usage control: the generator's steps need AI on for this teacher (policy + AI_USE);
+// a job already running can still be polled.
+router.get("/ai/providers", authorizePermission("QUESTION_BANK_CREATE"), requireAi("author"), getAIProviders);
+router.get("/ai/sources", authorizePermission("QUESTION_BANK_CREATE"), requireAi("author"), getAISources);
 router.post(
   "/ai/prepare/document",
   authorizePermission("QUESTION_BANK_CREATE"),
+  requireAi("author"),
   aiGenerateUpload.single("file"),
   prepareDocumentContext,
 );
 router.post(
   "/ai/prepare/resources",
   authorizePermission("QUESTION_BANK_CREATE"),
+  requireAi("author"),
   validateBody(aiResolveSourcesSchema),
   prepareResourcesContext,
 );
 router.post(
   "/ai/generate",
   authorizePermission("QUESTION_BANK_CREATE"),
+  requireAi("author"),
   validateBody(aiGenerateBatchSchema),
   generateQuestionBatch,
 );

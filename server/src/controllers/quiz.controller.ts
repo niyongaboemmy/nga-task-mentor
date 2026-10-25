@@ -70,6 +70,8 @@ import {
   isPastDeadline,
   secondsRemaining,
 } from "../utils/quizTiming";
+import { aiDisabledBody, isAiDisabledError } from "../services/aiPolicy";
+import { trackAiModeChange } from "../utils/aiEvents";
 
 // Deep equality comparison for objects
 
@@ -362,6 +364,7 @@ export const getGroupedQuizzes = async (req: Request, res: Response) => {
           course_id: q.course_id,
           created_by: q.created_by,
           is_public: q.is_public,
+          ai_mode: q.ai_mode,
           start_date: q.start_date,
           end_date: q.end_date,
           created_at: q.createdAt,
@@ -690,12 +693,15 @@ export const createQuiz = async (req: Request, res: Response) => {
           : undefined,
         end_date: quizData.end_date ? new Date(quizData.end_date) : undefined,
         is_public: quizData.is_public,
+        // AI for students inside the quiz: off unless the teacher chooses otherwise.
+        ai_mode: quizData.ai_mode ?? "off",
         academic_term_id: academicTermId ?? null,
       },
       { transaction },
     );
 
     await transaction.commit();
+    if (quiz.ai_mode !== "off") trackAiModeChange(req, "quiz", quiz, null, quiz.ai_mode);
     // Fire-and-forget: push open/close reminders to the MIS Reminder Hub.
     void syncQuiz(quiz.id);
 
@@ -847,6 +853,9 @@ export const updateQuiz = async (req: Request, res: Response) => {
     if (updateData.require_manual_grading !== undefined)
       changes.require_manual_grading = updateData.require_manual_grading;
     if (updateData.is_public !== undefined) changes.is_public = updateData.is_public;
+    // canManageQuiz above: only the creator or QUIZZES_MANAGE_ANY gets here.
+    const previousAiMode = quiz.ai_mode;
+    if (updateData.ai_mode !== undefined) changes.ai_mode = updateData.ai_mode;
     if (updateData.start_date !== undefined)
       changes.start_date = effectiveStart ?? (null as any);
     if (updateData.end_date !== undefined)
@@ -854,6 +863,7 @@ export const updateQuiz = async (req: Request, res: Response) => {
 
     await quiz.update(changes, { transaction });
     await transaction.commit();
+    if (changes.ai_mode !== undefined) trackAiModeChange(req, "quiz", quiz, previousAiMode, changes.ai_mode);
     // Re-send (or cancel, e.g. back to draft) the MIS reminders.
     void syncQuiz(quiz.id);
 
@@ -2060,6 +2070,7 @@ export const getAIHint = async (req: Request, res: Response) => {
       data: { hint },
     });
   } catch (error: any) {
+    if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
     console.error("AI hint error:", error);
     res.status(500).json({
       success: false,
@@ -2412,6 +2423,7 @@ export const generateTestCases = async (req: Request, res: Response) => {
       data: testCases,
     });
   } catch (error: any) {
+    if (isAiDisabledError(error)) return res.status(403).json(aiDisabledBody(error.reason));
     console.error("Generate test cases error:", error);
     res.status(500).json({
       success: false,

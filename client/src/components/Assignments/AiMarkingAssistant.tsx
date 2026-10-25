@@ -1,4 +1,5 @@
 import React from "react";
+import { useAiAuthoring } from "../../hooks/useAiAccess";
 import { AlertTriangle, Check, Sparkles } from "lucide-react";
 import SubmissionsApiService, { type AiMarkingDraft } from "../../services/submissionsApi";
 
@@ -28,6 +29,8 @@ const AiMarkingAssistant: React.FC<Props> = ({ submissionId, onApplyMarks, onUse
   const [tone, setTone] = React.useState<Tone>("encouraging");
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  // AI usage control: AI_USE + the school policy (the server refuses otherwise).
+  const aiAuthoring = useAiAuthoring();
   const [draft, setDraft] = React.useState<AiMarkingDraft | null>(null);
   const [applied, setApplied] = React.useState<{ marks: boolean; feedback: boolean }>({ marks: false, feedback: false });
 
@@ -83,7 +86,8 @@ const AiMarkingAssistant: React.FC<Props> = ({ submissionId, onApplyMarks, onUse
           <button
             type="button"
             onClick={() => void run()}
-            disabled={busy}
+            disabled={busy || !aiAuthoring.allowed}
+            title={aiAuthoring.reason ?? undefined}
             className="inline-flex items-center gap-2 rounded-full bg-violet-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-violet-700 focus:outline-none focus-visible:ring-4 focus-visible:ring-violet-500/30 disabled:opacity-60"
           >
             {busy ? <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-white/40 border-t-white" aria-hidden /> : <Sparkles className="h-3.5 w-3.5" aria-hidden />}
@@ -94,6 +98,12 @@ const AiMarkingAssistant: React.FC<Props> = ({ submissionId, onApplyMarks, onUse
       <p className="mt-1 text-xs text-violet-900/80 dark:text-violet-100/80">
         The AI reads the work and your rubric and suggests marks and feedback. You decide: nothing is saved, and the student sees nothing until you save the grade.
       </p>
+
+      {!aiAuthoring.allowed && aiAuthoring.reason && !error && (
+        <p className="mt-3 text-sm font-medium text-violet-900 dark:text-violet-100" data-testid="ai-marking-locked">
+          {aiAuthoring.reason}
+        </p>
+      )}
 
       {error && (
         <p role="alert" className="mt-3 text-sm font-medium text-red-700 dark:text-red-300">
