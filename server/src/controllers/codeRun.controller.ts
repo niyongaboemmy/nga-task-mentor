@@ -2,11 +2,9 @@ import { Request, Response } from "express";
 import { z } from "zod";
 import { getCodeRunner } from "../services/coderunner";
 import { JudgeUnavailableError, QuotaExceededError, RunnerRejectedError, UnsupportedLanguageError, Judge0Service } from "../services/Judge0Service";
-import { isWebLanguage } from "../utils/codeLanguages";
-import { filesToSend, isIgnoredPath, languageOfPath, pickLanguage, rankEntries, runCandidates } from "../tmcode/practical/run";
-import { hasManifest } from "../services/coderunner/tmJudgeRunner";
-import { detectProject } from "../services/coderunner/projectKind";
-import { judgeHas, judgeRunsLanguage, judgeTestsLanguage } from "../services/coderunner/judgeInfo";
+import { isIgnoredPath, pickLanguage, runCandidates } from "../tmcode/practical/run";
+import { planRun } from "../services/coderunner/runPlan";
+import { judgeHas, judgeTestsLanguage } from "../services/coderunner/judgeInfo";
 import type { RunResult } from "../services/coderunner";
 import { catalogLanguages, catalogVersion, getStarter, listStarters, starterSummary } from "../services/runtimeCatalog";
 
@@ -90,56 +88,23 @@ export const practiceRun = async (req: Request, res: Response) => {
   }
   const body = parsed.data;
   if (!checkFiles(res, body.files)) return;
-  if (body.language && isWebLanguage(body.language)) {
-    return fail(res, 422, "USE_PREVIEW", "Web pages run in the Preview, not here.");
-  }
 
   const runner = getCodeRunner();
   const tests = body.tests.map((t) => ({ id: t.id, input: t.input, expected_output: t.expected_output ?? undefined }));
-  const meta = body.files.map((f) => ({ path: f.path, size: Buffer.byteLength(f.content, "utf8") }));
-  const candidates = runCandidates(meta);
-  const detected = pickLanguage(candidates, body.language ?? null, body.language ?? null);
-  // A project with a build file, or a language only the catalog knows: tm-judge
-  // detects the kind and entry, builds it, and runs the tests.
-  const asked = body.language ?? detected;
-  // The files may suggest another language than the one asked (an Arduino sketch with a helper
-  // .cpp looks like C++): a language the runner's catalog runs is taken at its word.
-  const project =
-    !!asked && judgeHas("projects") && judgeRunsLanguage(asked) && (!!body.kind || hasManifest(body.files) || !detected || (!!body.language && detected !== body.language));
-  if (project) {
-    const files = body.files.filter((f) => !isIgnoredPath(f.path));
-    // A web app (React, Vue, Angular…) has no program to run: say so plainly.
-    const detected = body.kind ? null : await detectProject(files).catch(() => null);
-    if (detected && (detected.webApp || !detected.actions.includes("run"))) {
-      return fail(res, 422, "NOT_A_PROGRAM", `This is a ${detected.label}: it runs in a browser, not as a program with inputs.${detected.actions.includes("test") ? " Its unit tests can run." : ""}`, { kind: detected.kind });
-    }
-    try {
-      const result = await runner.run({ language: asked!, kind: body.kind ?? undefined, entry: body.entry ?? undefined, files, interactive: true, tests });
-      return res.json({ success: true, data: resultData(result, asked!, body.entry ?? null, files) });
-    } catch (e) {
-      return runFailure(res, e, asked!);
-    }
-  }
-
-  const language = detected;
-  if (!language) return fail(res, 422, "NOTHING_TO_RUN", "There's no program to run here (no source files found).");
-  if (!runner.supportsLanguage(language)) {
-    return fail(res, 422, "UNSUPPORTED_LANGUAGE", `${LABEL.get(language) ?? language} can't be run here yet.`, { supported: runner.languages() });
-  }
-  const sources = new Map(body.files.map((f) => [f.path, f.content]));
-  const entry =
-    body.entry && languageOfPath(body.entry) === language && sources.has(body.entry)
-      ? body.entry
-      : rankEntries(candidates, language, sources)[0];
-  if (!entry) return fail(res, 422, "NOTHING_TO_RUN", "Pick the file to run.");
-
-  const { paths } = filesToSend(meta, language, entry);
-  const files = paths.map((p) => ({ path: p, content: sources.get(p) ?? "" }));
+  const plan = await planRun({ files: body.files, language: body.language, kind: body.kind, entry: body.entry }, runner);
+  if (!plan.ok) return fail(res, plan.status, plan.code, plan.message, plan.extra);
   try {
-    const result = await runner.run({ language, entry, files, interactive: true, tests });
-    return res.json({ success: true, data: resultData(result, language, entry, files) });
+    const result = await runner.run({
+      language: plan.language,
+      ...(plan.kind ? { kind: plan.kind } : {}),
+      ...(plan.entry ? { entry: plan.entry } : {}),
+      files: plan.files,
+      interactive: true,
+      tests,
+    });
+    return res.json({ success: true, data: resultData(result, plan.language, plan.entry, plan.files) });
   } catch (e) {
-    return runFailure(res, e, language);
+    return runFailure(res, e, plan.language);
   }
 };
 

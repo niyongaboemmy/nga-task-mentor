@@ -1,4 +1,5 @@
 import express, { NextFunction, Request, Response } from "express";
+import { codeSessionEvents, codeSessionInput, stopCodeSession } from "../controllers/codeSession.controller";
 import * as activity from "../controllers/tmcodeActivity.controller";
 import * as ai from "../controllers/tmcodeAi.controller";
 import rateLimit from "express-rate-limit";
@@ -167,6 +168,13 @@ const projectRunLimiter = rateLimit({
 });
 router.get(`${p}/run-targets`, read, wrap(practicals.runTargets));
 router.post(`${p}/run`, read, projectRunLimiter, wrap(practicals.runProject));
+// The Run tab's live Console: the revision's program started on the code runner (planned like
+// /run), then its output, input and stop on the person's own session (/api/code/sessions's handlers).
+router.post(`${p}/sessions`, read, projectRunLimiter, wrap(practicals.startProjectSession));
+const ps = "/projects/:projectId(\\d+)/sessions/:id([a-f0-9]{8,64})";
+router.get(`${ps}/events`, read, codeSessionEvents);
+router.post(`${ps}/input`, read, codeSessionInput);
+router.delete(ps, read, stopCodeSession);
 // A page of a PHP website (the Preview tab): one request on the code runner.
 router.post(`${p}/page`, read, projectRunLimiter, wrap(practicals.runPage));
 // No auth: the signed, short-lived token in the path is the key (iframes send

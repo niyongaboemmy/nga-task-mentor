@@ -204,7 +204,7 @@ export function profileProject(all: FileLike[]): ProjectProfile {
       id: "program",
       label: `${lang} program`,
       primary: "run",
-      steps: ["Run it with inputs (the project's tests are filled in when it has some)", "Read the code in Code"],
+      steps: ["Run it: answer its questions in the Console, or run the saved tests (the project's own tests are filled in)", "Read the code in Code"],
       actions: ["run", "code", "changes"],
     };
   }

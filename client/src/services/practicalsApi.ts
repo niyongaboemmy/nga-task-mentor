@@ -1,4 +1,4 @@
-import api from "../utils/axiosConfig";
+import api, { API_BASE_URL } from "../utils/axiosConfig";
 import { normalizeProjectDetail, unwrap, type ProjectDetail, type ProjectStatus } from "./projectsApi";
 
 /**
@@ -136,6 +136,18 @@ export interface RunResponse {
   error?: { code: string; message: string } | null;
 }
 
+/** POST /projects/:id/sessions: the revision's program started live (grading's Console). */
+export interface LiveSessionInfo {
+  id: string;
+  language: string;
+  kind: string | null;
+  kind_label: string | null;
+  /** The file it starts from, as the student named it. */
+  entry: string | null;
+  revision: { id: number; number: number };
+  files_sent: string[];
+}
+
 /** POST /projects/:id/preview. */
 export interface PreviewInfo {
   url: string;
@@ -256,5 +268,42 @@ export const practicalsApi = {
   ): Promise<RunResponse> {
     const res = await api.post(`${BASE}/projects/${projectId}/run`, body, { timeout: 150_000 });
     return unwrap<RunResponse>(res.data);
+  },
+
+  /**
+   * Starts a revision's program live: its output streams from sessionEvents(), input goes
+   * through sessionInput(), stopSession() ends it. Planned like run() (and the playground).
+   */
+  async startSession(projectId: number, body: { rev?: number | null; language?: string | null; entry?: string | null; kind?: string | null }): Promise<LiveSessionInfo> {
+    const res = await api.post(`${BASE}/projects/${projectId}/sessions`, body, { timeout: 60_000 });
+    return unwrap<LiveSessionInfo>(res.data);
+  },
+
+  /** The live run's events (fetch, not EventSource, so the sign-in token stays in a header). */
+  async sessionEvents(projectId: number, id: string, signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
+    let token: string | null = null;
+    try {
+      token = localStorage.getItem("tm_auth_token");
+    } catch {
+      token = null;
+    }
+    const res = await fetch(`${API_BASE_URL}${BASE}/projects/${projectId}/sessions/${id}/events`, {
+      headers: { Accept: "text/event-stream", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      credentials: "include",
+      signal,
+    });
+    if (!res.ok || !res.body) {
+      const data = await res.json().catch(() => null);
+      throw Object.assign(new Error(data?.message ?? "The program's output couldn't be read."), { code: data?.error_code ?? data?.code ?? "RUN_FAILED" });
+    }
+    return res.body;
+  },
+
+  async sessionInput(projectId: number, id: string, body: { data?: string; eof?: boolean; signal?: "SIGINT" }): Promise<void> {
+    await api.post(`${BASE}/projects/${projectId}/sessions/${id}/input`, body, { timeout: 15_000 });
+  },
+
+  async stopSession(projectId: number, id: string): Promise<void> {
+    await api.delete(`${BASE}/projects/${projectId}/sessions/${id}`, { timeout: 10_000 }).catch(() => undefined);
   },
 };
