@@ -55,6 +55,19 @@ const UNIT_TEST_FILE =
 const has = (files: FileLike[], re: RegExp) => files.some((f) => re.test(f.path));
 const anyContent = (files: FileLike[], pathRe: RegExp, contentRe: RegExp) => files.some((f) => pathRe.test(f.path) && !!f.content && contentRe.test(f.content));
 
+/** PHP that prints a page, and an HTML page that links or posts to a .php file. */
+const PHP_HTML = /<(!doctype\s+html|html|head|body|form|div|h[1-6]|p|table|ul|ol|section|main|nav|header|footer)\b[^>]*>/i;
+const LINKS_PHP = /\b(action|href)\s*=\s*["']?[^"'\s>]*\.php\b/i;
+
+/**
+ * A PHP website (the server's phpSiteEntry): index.php, or .php files that
+ * print HTML, or pages whose forms post to .php files; not Composer or Laravel.
+ */
+function phpSite(files: FileLike[]): boolean {
+  if (has(files, /(^|\/)(composer\.json|artisan)$/) || !has(files, /\.php$/i)) return false;
+  return has(files, /(^|\/)index\.php$/i) || anyContent(files, /\.php$/i, PHP_HTML) || anyContent(files, /\.html?$/i, LINKS_PHP);
+}
+
 /** The main language by number of source files. */
 function mainLanguage(files: FileLike[]): string | null {
   const count = new Map<string, number>();
@@ -114,6 +127,21 @@ export function profileProject(all: FileLike[]): ProjectProfile {
       steps: ["Read the components in Code (Changes since starter shows the student's own work)", "Open it in TMCode to build and run it"],
       actions: ["code", "changes", "preview", "tmcode"],
       note: `A ${framework} app needs a build before it shows: the Preview may be blank.`,
+    };
+  }
+
+  // PHP websites: each page runs on the code runner in the Preview, links and forms working.
+  if (phpSite(files)) {
+    return {
+      id: "web-page",
+      label: "PHP website",
+      primary: "preview",
+      steps: [
+        "Open the Preview: each page runs on the code runner, and its links and forms work",
+        "Fill in the forms to check what the PHP code does with them",
+        "Read the PHP, HTML and CSS in Code",
+      ],
+      actions: ["preview", "code", "changes"],
     };
   }
 
