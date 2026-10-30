@@ -21,7 +21,9 @@ import { practicalsApi, type RunCaseResult, type RunResponse, type RunTargets, t
 import { apiErrorCode, apiErrorMessage } from "../../../services/projectsApi";
 import Select from "../../ui/Select";
 import GradingUnitTests from "./GradingUnitTests";
+import OutputPage from "./OutputPage";
 import { outputDiff } from "./outputDiff";
+import { looksLikeHtml } from "../../../vendor/nga-webrun";
 
 /**
  * The grading workspace's Run tab. The code runner looks at the whole
@@ -31,6 +33,7 @@ import { outputDiff } from "./outputDiff";
  * lines marked when an expected output is given. A browser app (React,
  * Angular…) gets the right place to check it instead of an input box.
  * Inputs are kept per activity, so the same checks run for every student.
+ * A PHP program that prints a web page can be viewed as that page.
  */
 
 export interface RunCase {
@@ -275,6 +278,8 @@ const RunPane: React.FC<{
   const compared = ran.filter((c) => c.expected.trim()).length;
   const crashed = ran.filter((c) => VERDICT[byId.get(c.id)!.verdict]?.tone === "bad").length;
   const showEntryPicker = project ? project.chooses_entry && (entries?.length ?? 0) > 1 : true;
+  // PHP printing HTML: the page it printed (its path, for its links and forms).
+  const phpPage = result?.language === "php" ? result.entry ?? project?.entry ?? "index.php" : null;
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900" data-testid="run-pane">
@@ -397,6 +402,7 @@ const RunPane: React.FC<{
               index={i}
               result={byId.get(c.id) ?? null}
               hideOutput={compileFailed}
+              page={phpPage ? { projectId, revisionId, path: phpPage } : null}
               canRemove={cases.length > 1}
               onChange={(patch) => update(c.id, patch)}
               onRemove={() => setCases((cs) => cs.filter((x) => x.id !== c.id))}
@@ -446,12 +452,16 @@ const CaseCard: React.FC<{
   index: number;
   result: RunCaseResult | null;
   hideOutput: boolean;
+  /** A PHP program: its output can be viewed as a page. */
+  page: { projectId: number; revisionId: number | null; path: string } | null;
   canRemove: boolean;
   onChange: (patch: Partial<RunCase>) => void;
   onRemove: () => void;
   onKeyDown: (e: React.KeyboardEvent) => void;
-}> = ({ c, index, result, hideOutput, canRemove, onChange, onRemove, onKeyDown }) => {
+}> = ({ c, index, result, hideOutput, page, canRemove, onChange, onRemove, onKeyDown }) => {
   const [showExpected, setShowExpected] = useState(!!c.expected);
+  const [asPage, setAsPage] = useState(false);
+  const html = !!page && !hideOutput && !!result?.stdout && looksLikeHtml(result.stdout);
   const v = result && !hideOutput ? VERDICT[result.verdict] ?? VERDICT["internal-error"] : null;
   const different = result?.verdict === "wrong-answer" && !!c.expected;
   const diff = different ? outputDiff(c.expected, result?.stdout ?? "") : null;
@@ -545,6 +555,18 @@ const CaseCard: React.FC<{
               {result.stdout || <span className="text-slate-500">(no output)</span>}
             </pre>
           )}
+          {html && (
+            <button
+              type="button"
+              onClick={() => setAsPage((v) => !v)}
+              aria-pressed={asPage}
+              className="mt-2 inline-flex items-center gap-1 text-[11px] font-semibold text-blue-600 hover:underline dark:text-blue-400"
+              data-testid="run-view-page"
+            >
+              <Eye className="h-3 w-3" aria-hidden="true" /> {asPage ? "Hide the page" : "It printed a web page: view it as a page"}
+            </button>
+          )}
+          {html && asPage && <OutputPage projectId={page!.projectId} revisionId={page!.revisionId} html={result!.stdout!} page={page!.path} />}
           {result && !hideOutput && result.stderr && (
             <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-lg border border-rose-200 bg-rose-50 p-2.5 font-mono text-xs text-rose-800 dark:border-rose-500/30 dark:bg-rose-500/10 dark:text-rose-200">
               {result.stderr}

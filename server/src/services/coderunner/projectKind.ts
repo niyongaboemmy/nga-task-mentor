@@ -15,7 +15,7 @@ export interface DetectedProject {
   entry: string | null;
   actions: string[];
   available: boolean;
-  /** No "run" step: a web app (React, Vue, Angular…) that runs in a browser. */
+  /** No "run" step: a web app (React, Vue, Angular…, a PHP website) that runs in a browser. */
   webApp: boolean;
 }
 
@@ -53,7 +53,7 @@ export async function detectProject(files: ProjectFile[]): Promise<DetectedProje
       entry: (best.entry ?? data.entry ?? null) || null,
       actions,
       available: best.available !== false,
-      webApp: !actions.includes("run") && /^(js|ts|web)\//.test(String(best.kind)),
+      webApp: !actions.includes("run") && /^((js|ts|web)\/|php\/web$)/.test(String(best.kind)),
     };
   } catch {
     return null;

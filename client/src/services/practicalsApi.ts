@@ -136,6 +136,27 @@ export interface RunResponse {
   error?: { code: string; message: string } | null;
 }
 
+/** POST /projects/:id/preview. */
+export interface PreviewInfo {
+  url: string;
+  entry: string;
+  /** A PHP website: pages run on the code runner (page()). Missing from older servers. */
+  php?: boolean;
+  /** The preview's address for the project's files (images of a PHP page). */
+  base?: string;
+}
+
+/** POST /projects/:id/page: what one PHP page printed. */
+export interface PageRunResponse {
+  revision: { id: number; number: number };
+  script: string;
+  verdict: RunVerdict;
+  stdout: string;
+  stderr: string | null;
+  exit_code: number | null;
+  time_ms: number | null;
+}
+
 export interface GradingRoster {
   activity: {
     type: PracticalActivity;
@@ -194,10 +215,23 @@ export const practicalsApi = {
     return unwrap(res.data);
   },
 
-  /** A short-lived sandboxed URL that serves the project at a revision as a site. */
-  async preview(projectId: number, rev?: number | null): Promise<{ url: string; entry: string }> {
+  /**
+   * A short-lived sandboxed URL that serves the project at a revision as a site.
+   * A PHP website comes back with `php: true`: its pages run through page(),
+   * and `base` serves its images and other files.
+   */
+  async preview(projectId: number, rev?: number | null): Promise<PreviewInfo> {
     const res = await api.post(`${BASE}/projects/${projectId}/preview`, rev ? { rev } : {});
     return unwrap(res.data);
+  },
+
+  /** Runs one page of a PHP website at a revision (a request, as a web server would get it). */
+  async page(
+    projectId: number,
+    body: { rev?: number | null; script: string; method: "GET" | "POST"; query: string; fields: [string, string][] },
+  ): Promise<PageRunResponse> {
+    const res = await api.post(`${BASE}/projects/${projectId}/page`, body, { timeout: 150_000 });
+    return unwrap<PageRunResponse>(res.data);
   },
 
   /** Languages and likely entry files the Run tab can run in a revision. */

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, within, fireEvent } from "@testing-library/react";
+import { act, render, screen, waitFor, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { pickOption } from "./helpers/select";
@@ -13,6 +13,7 @@ const practicals = {
   startQuizPractical: vi.fn(),
   runTargets: vi.fn(),
   run: vi.fn(),
+  page: vi.fn(),
 };
 const projects = {
   list: vi.fn(),
@@ -22,6 +23,7 @@ const projects = {
   linkable: vi.fn(),
   create: vi.fn(),
   manifest: vi.fn(),
+  fileContent: vi.fn(),
   openLink: vi.fn(),
 };
 vi.mock("../services/practicalsApi", async (orig) => ({
@@ -212,6 +214,76 @@ describe("PracticalGradingPage", () => {
     expect(practicals.preview).toHaveBeenCalledWith(102, 302);
     expect(frame).toHaveAttribute("src", "http://api.test/api/tmcode/preview/tok/index.html");
     expect(frame.getAttribute("sandbox")).toBe("allow-scripts allow-forms allow-modals allow-popups");
+    expect(frame.getAttribute("sandbox")).not.toContain("allow-same-origin");
+  });
+
+  it("runs a PHP website's pages on the code runner, and a form post opens the next page", async () => {
+    const site: Record<string, string> = {
+      "index.php": "<html><head><link rel='stylesheet' href='site.css'></head><body><h1>Hello</h1><form action='save.php' method='post'><input name='name'></form></body></html>",
+      "save.php": "<?php echo 'Saved ' . $_POST['name'];",
+      "site.css": "h1{color:red}",
+    };
+    practicals.roster.mockResolvedValue(roster());
+    practicals.runTargets.mockResolvedValue({ ...webTargets, html_entry: "index.php" });
+    practicals.preview.mockResolvedValue({ url: "http://api.test/api/tmcode/preview/tok/index.php", entry: "index.php", php: true, base: "http://api.test/api/tmcode/preview/tok/" });
+    projects.manifest.mockResolvedValue({ revision: { id: 302, number: 4 }, files: Object.keys(site).map((p) => ({ path: p, sha256: p, size: 1 })) });
+    projects.fileContent.mockImplementation(async (_id: number, p: string) => ({ text: site[p], binary: false }));
+    practicals.page.mockImplementation(async (_id: number, b: { script: string }) =>
+      b.script === "index.php"
+        ? { verdict: "ok", stdout: site["index.php"], stderr: null }
+        : { verdict: "ok", stdout: "<p>Saved Ama</p>", stderr: "PHP Warning:  Undefined variable $x in save.php on line 3" },
+    );
+    workspace("/grading/assignment/7?student=2");
+    await userEvent.click(await screen.findByRole("tab", { name: /Preview/ }));
+
+    // The page PHP printed, its stylesheet inlined, in a sandboxed frame of its own.
+    await waitFor(() => expect(screen.getByTestId("practical-preview").getAttribute("srcdoc")).toContain("<h1>Hello</h1>"));
+    expect(practicals.page).toHaveBeenCalledWith(102, { rev: 302, script: "index.php", method: "GET", query: "", fields: [] });
+    const frame = screen.getByTestId("practical-preview");
+    expect(frame.getAttribute("srcdoc")).toContain('<style data-file="site.css">h1{color:red}</style>');
+    expect(frame).not.toHaveAttribute("src");
+    expect(frame.getAttribute("sandbox")).not.toContain("allow-same-origin");
+    expect(screen.getByTestId("preview-address")).toHaveTextContent("index.php");
+    expect(screen.getByTestId("preview-back")).toBeDisabled();
+
+    // The form, sent inside the frame, comes back as a request for save.php.
+    const runId = /var RUN="([^"]+)"/.exec(frame.getAttribute("srcdoc")!)![1];
+    act(() => {
+      window.dispatchEvent(new MessageEvent("message", { data: { __ngaPlayground: runId, nav: { href: "save.php", method: "POST", fields: [["name", "Ama"]] } } }));
+    });
+    await waitFor(() => expect(screen.getByTestId("practical-preview").getAttribute("srcdoc")).toContain("Saved Ama"));
+    expect(practicals.page).toHaveBeenLastCalledWith(102, { rev: 302, script: "save.php", method: "POST", query: "", fields: [["name", "Ama"]] });
+    expect(screen.getByTestId("preview-address")).toHaveTextContent("save.php");
+    expect(screen.getByTestId("preview-messages")).toHaveTextContent("Undefined variable $x");
+
+    await userEvent.click(screen.getByTestId("preview-back"));
+    await waitFor(() => expect(screen.getByTestId("preview-address")).toHaveTextContent("index.php"));
+    expect(practicals.page).toHaveBeenCalledTimes(3);
+  });
+
+  it("offers a PHP program's HTML output as a page in the Run tab", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    practicals.runTargets.mockResolvedValue({ ...cTargets, language: "php", languages: [{ key: "php", label: "PHP", files: 1, runnable: true }], entries: ["main.php"] });
+    const page = "<html><body><h1>Report</h1></body></html>";
+    practicals.run.mockImplementation(async (_id: number, body: { tests: { id: string }[] }) => ({
+      engine: "tmjudge",
+      language: "php",
+      entry: "main.php",
+      revision: { id: 302, number: 4 },
+      files_sent: ["main.php"],
+      files_skipped: 0,
+      compile: null,
+      tests: [{ id: body.tests[0].id, verdict: "ok", passed: true, stdout: page, stderr: null, exit_code: 0, time_ms: 5, memory_kb: 900 }],
+    }));
+    projects.manifest.mockResolvedValue({ revision: { id: 302, number: 4 }, files: [{ path: "main.php", sha256: "a", size: 1 }] });
+    projects.fileContent.mockResolvedValue({ text: "<?php readfile('report.tpl');", binary: false });
+    // Another student than the C tests below: the Run tab keeps each revision's last run.
+    workspace("/grading/assignment/7?student=2");
+    await userEvent.click(await screen.findByTestId("pane-run"));
+    await userEvent.click(await screen.findByTestId("run-program"));
+    await userEvent.click(await screen.findByTestId("run-view-page"));
+    const frame = await screen.findByTestId("run-output-frame");
+    expect(frame.getAttribute("srcdoc")).toContain("<h1>Report</h1>");
     expect(frame.getAttribute("sandbox")).not.toContain("allow-same-origin");
   });
 

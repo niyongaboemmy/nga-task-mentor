@@ -167,6 +167,8 @@ const projectRunLimiter = rateLimit({
 });
 router.get(`${p}/run-targets`, read, wrap(practicals.runTargets));
 router.post(`${p}/run`, read, projectRunLimiter, wrap(practicals.runProject));
+// A page of a PHP website (the Preview tab): one request on the code runner.
+router.post(`${p}/page`, read, projectRunLimiter, wrap(practicals.runPage));
 // No auth: the signed, short-lived token in the path is the key (iframes send
 // no Authorization header) and responses are sandboxed.
 router.get("/preview/:token/*", wrap(practicals.servePreview));

@@ -51,13 +51,15 @@ import {
   rankEntries,
   runCandidates,
 } from "../tmcode/practical/run";
+import { PHP_ROUTER, PHP_ROUTER_PATH, phpRequestInput } from "../vendor/nga-webrun";
 
 /**
  * TMCode practicals beyond assignments, and the grading of every practical:
  *  - quiz practical questions: start (seeded from the starter files);
  *  - the grading workspace: roster with frozen revisions and grades, and saving
  *    a criteria grade into the assignment submission or the quiz answer;
- *  - a sandboxed preview of a web project at a revision (signed, short-lived).
+ *  - a sandboxed preview of a web project at a revision (signed, short-lived),
+ *    and of a PHP website, one page at a time on the code runner.
  */
 
 const iso = (d: Date | string | null | undefined) => (d ? new Date(d).toISOString() : null);
@@ -690,9 +692,38 @@ export function previewEntry(paths: string[]): string | null {
   return html[0] ?? null;
 }
 
+/** PHP that prints a page: HTML around or inside the PHP code. */
+const PHP_HTML = /<(!doctype\s+html|html|head|body|form|div|h[1-6]|p|table|ul|ol|section|main|nav|header|footer)\b[^>]*>/i;
+/** An HTML page that links to or posts to a .php file. */
+const LINKS_PHP = /\b(action|href)\s*=\s*["']?[^"'\s>]*\.php\b/i;
+
+/**
+ * A PHP website (index.php, or .php files that print HTML, or pages whose
+ * forms post to .php files; not a Composer or Laravel project): the page the
+ * preview opens on, or null. Its pages run on the code runner one request at
+ * a time (POST /projects/:id/page), the way the MIS Code Playground runs them.
+ */
+export function phpSiteEntry(all: { path: string; content?: string | null }[]): string | null {
+  const files = all.filter((f) => !IGNORED_PATH.test(f.path) && f.path !== PHP_ROUTER_PATH);
+  if (files.some((f) => /(^|\/)(composer\.json|artisan)$/.test(f.path))) return null;
+  const php = files.filter((f) => /\.php$/i.test(f.path));
+  if (!php.length) return null;
+  const pages = php.filter((f) => /(^|\/)index\.php$/i.test(f.path) || (f.content != null && PHP_HTML.test(f.content)));
+  const forms = files.some((f) => /\.html?$/i.test(f.path) && f.content != null && LINKS_PHP.test(f.content));
+  if (!pages.length && !forms) return null;
+  const paths = files.map((f) => f.path);
+  if (paths.includes("index.php")) return "index.php";
+  if (paths.includes("index.html")) return "index.html";
+  const depth = (p: string) => p.split("/").length;
+  const page = [...pages].sort((a, b) => depth(a.path) - depth(b.path) || a.path.localeCompare(b.path))[0];
+  return page?.path ?? previewEntry(paths);
+}
+
 // @desc    A short-lived URL that serves the project at a revision as a static
 //          site, for the grading workspace's Preview tab. Readable revisions
 //          only (a teacher sees frozen ones). 422 NO_HTML when there's no page.
+//          A PHP website comes back with `php: true`: its pages run through
+//          POST /projects/:id/page, and `base` serves its images and files.
 // @route   POST /api/tmcode/projects/:id/preview  { rev? }
 export const createPreview = async (req: Request, res: Response) => {
   const access = await resolveProjectAccess(req, Number(req.params.id));
@@ -703,11 +734,20 @@ export const createPreview = async (req: Request, res: Response) => {
   if (!rev || rev.project_id !== access.project.id || !canReadRevision(access, rev.id)) {
     return tmcodeError(res, 404, "REVISION_NOT_FOUND", "Revision not found.");
   }
-  const entry = previewEntry(readManifest(rev).map((f) => f.path));
-  if (!entry) return tmcodeError(res, 422, "NO_HTML", "There's no HTML page to preview in this revision.");
+  const files = readManifest(rev);
+  // Only a revision with .php files needs its contents read.
+  const php = files.some((f) => /\.php$/i.test(f.path)) ? phpSiteEntry(await projectTexts(files)) : null;
+  const entry = php ?? previewEntry(files.map((f) => f.path));
+  if (!entry) return tmcodeError(res, 422, "NO_HTML", "There's no HTML or PHP page to preview in this revision.");
   const token = previewToken(access.project.id, rev.id);
   const base = `${req.protocol}://${req.get("host")}/api/tmcode/preview/${token}/`;
-  return res.status(200).json({ url: `${base}${entry.split("/").map(encodeURIComponent).join("/")}`, entry, expires_in: PREVIEW_TTL_MS / 1000 });
+  return res.status(200).json({
+    url: `${base}${entry.split("/").map(encodeURIComponent).join("/")}`,
+    entry,
+    php: !!php,
+    base,
+    expires_in: PREVIEW_TTL_MS / 1000,
+  });
 };
 
 // @desc    Serve one file of a previewed revision. The token is the only key
@@ -806,6 +846,7 @@ export const runTargets = async (req: Request, res: Response) => {
   const r = await runRevision(req, res, req.query.rev);
   if (!r) return;
   const runner = getCodeRunner();
+  const texts = await projectTexts(r.files);
   const candidates = runCandidates(r.files);
   const language = pickLanguage(candidates, r.project.language ?? null, req.query.language ? String(req.query.language) : null);
   const sources = language
@@ -827,16 +868,17 @@ export const runTargets = async (req: Request, res: Response) => {
     })),
     runnable: !!language && runner.supportsLanguage(language),
     entries: language ? rankEntries(candidates, language, sources).slice(0, 30) : [],
-    html_entry: previewEntry(r.files.map((f) => f.path)),
+    // The page the Preview opens: a PHP website's first page, else an HTML file.
+    html_entry: phpSiteEntry(texts) ?? previewEntry(r.files.map((f) => f.path)),
     has_package_json: r.files.some((f) => f.path === "package.json"),
     // The runner's own answer for the whole project (tm-judge with "detect"):
     // what kind it is, where it starts, and whether it runs or only builds/tests.
-    project: await describeProject(r.files),
+    project: await describeProject(texts),
   });
 };
 
-async function describeProject(files: { path: string; sha256: string; size: number }[]) {
-  const detected = await detectProject(await projectTexts(files)).catch(() => null);
+async function describeProject(texts: { path: string; content: string }[]) {
+  const detected = await detectProject(texts).catch(() => null);
   if (!detected) return null;
   return {
     kind: detected.kind,
@@ -971,6 +1013,64 @@ export const runProject = async (req: Request, res: Response) => {
     });
   } catch (e) {
     return runFailed(res, e, language);
+  }
+};
+
+// ─── A page of a PHP website ─────────────────────────────────────────────────
+
+const pageSchema = z.object({
+  rev: z.number().int().positive().optional().nullable(),
+  script: z.string().min(1).max(500),
+  method: z.enum(["GET", "POST"]).default("GET"),
+  query: z.string().max(4000).default(""),
+  fields: z.array(z.tuple([z.string().max(200), z.string().max(10_000)])).max(200).default([]),
+});
+
+// @desc    Runs one page of a PHP website at a revision, as a web server would
+//          answer one request (the MIS Code Playground's runner, nga-webrun):
+//          the revision's files plus PHP_ROUTER as the entry, the request on
+//          stdin. What the page printed comes back for the Preview to show;
+//          its links and forms ask for the next page the same way.
+// @route   POST /api/tmcode/projects/:id/page  { rev?, script, method?, query?, fields? }
+export const runPage = async (req: Request, res: Response) => {
+  const parsed = pageSchema.safeParse(req.body ?? {});
+  if (!parsed.success) {
+    return tmcodeError(res, 400, "VALIDATION_ERROR", "Invalid page request.", { issues: parsed.error.issues.map((i) => i.message) });
+  }
+  const body = parsed.data;
+  const r = await runRevision(req, res, body.rev);
+  if (!r) return;
+  const files = (await projectTexts(r.files)).filter((f) => f.path !== PHP_ROUTER_PATH);
+  if (!/\.php$/i.test(body.script) || !files.some((f) => f.path === body.script)) {
+    return tmcodeError(res, 404, "PAGE_NOT_FOUND", `${body.script} isn't a PHP page of this revision.`);
+  }
+  // Judge0 runs one file: the router needs the project's files beside it.
+  const runner = getCodeRunner();
+  if (runner.engineFor("php") !== "tmjudge") {
+    return tmcodeError(res, 422, "UNSUPPORTED_LANGUAGE", "PHP pages can't run on the school's code runner yet. Read the code, or open the project in TMCode.");
+  }
+  try {
+    const result = await runner.run({
+      language: "php",
+      // A script, run as is: never re-detected as a PHP website (which only serves).
+      kind: "php/single",
+      entry: PHP_ROUTER_PATH,
+      files: [...files, { path: PHP_ROUTER_PATH, content: PHP_ROUTER }],
+      tests: [{ id: "page", input: phpRequestInput(body.script, body.method, body.query, body.fields) }],
+      interactive: true,
+    });
+    const t = result.tests[0];
+    return res.status(200).json({
+      revision: { id: r.rev.id, number: r.rev.number },
+      script: body.script,
+      verdict: t?.verdict ?? "internal-error",
+      stdout: t?.stdout ?? "",
+      stderr: t?.stderr || result.error?.message || null,
+      exit_code: t?.exit_code ?? null,
+      time_ms: t?.time_ms ?? null,
+    });
+  } catch (e) {
+    return runFailed(res, e, "PHP");
   }
 };
 

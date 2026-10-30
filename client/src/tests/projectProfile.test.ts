@@ -11,6 +11,22 @@ describe("how to check a project, by its technology", () => {
     expect(p.actions[0]).toBe("preview");
   });
 
+  it("a PHP website (index.php, or .php printing HTML, forms posting to .php) → Preview, like a web page", () => {
+    for (const files of [
+      [f("index.php", "<?php echo 'Hi';"), f("style.css")],
+      [f("home.php", "<html><h1>Hello</h1></html>"), f("save.php", "<?php echo $_POST['a'];")],
+      [f("index.html", '<form action="save.php" method="post"></form>'), f("save.php", "<?php echo 1;")],
+    ]) {
+      const p = profileProject(files);
+      expect(p).toMatchObject({ id: "web-page", label: "PHP website", primary: "preview", actions: ["preview", "code", "changes"] });
+    }
+  });
+
+  it("a PHP script without HTML stays a program, run with inputs", () => {
+    expect(profileProject([f("main.php", "<?php $n = (int) fgets(STDIN); echo $n * 2;")])).toMatchObject({ id: "program", label: "PHP program", primary: "run" });
+    expect(profileProject([f("composer.json", "{}"), f("public/index.php", "<html></html>")]).label).not.toBe("PHP website");
+  });
+
   it("React/Vue/Svelte/Angular apps need a build: Code first, with the reason", () => {
     for (const [dep, label] of [["react", "React"], ["vue", "Vue"], ["svelte", "Svelte"], ["@angular/core", "Angular"], ["next", "Next.js"]] as const) {
       const p = profileProject([f("package.json", `{"dependencies":{"${dep}":"1"}}`), f("index.html"), f("src/App.jsx")]);

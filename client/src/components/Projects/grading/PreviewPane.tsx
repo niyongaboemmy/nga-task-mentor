@@ -1,8 +1,11 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { AlertTriangle, ExternalLink, Laptop, Loader2, Maximize2, Monitor, RefreshCw, RotateCw, Smartphone, Tablet, X } from "lucide-react";
-import { practicalsApi } from "../../../services/practicalsApi";
+import { AlertTriangle, ArrowLeft, ExternalLink, Laptop, Loader2, Maximize2, Monitor, RefreshCw, RotateCw, Smartphone, Tablet, X } from "lucide-react";
+import { practicalsApi, type PreviewInfo } from "../../../services/practicalsApi";
 import { apiErrorCode, apiErrorMessage, projectsApi } from "../../../services/projectsApi";
+import { loadProjectFiles, type CodeFile } from "../../../services/codeApi";
+import { usePagePreview, type RunPhpPage } from "../../code/usePagePreview";
+import PageMessages from "../../code/PageMessages";
 import { fitScale } from "./previewFit";
 
 /**
@@ -10,6 +13,8 @@ import { fitScale } from "./previewFit";
  * frame, shown at a real screen size (desktop 1440×900, phone 390×844…) and
  * scaled to fit, so the page looks the way students and users see it, never
  * squeezed into the panel. Full screen gives it the whole window.
+ * A PHP website runs one page at a time on the code runner, the way the MIS
+ * Code Playground runs it: its links and forms open the next page, with Back.
  */
 
 const DEVICES = [
@@ -20,8 +25,8 @@ const DEVICES = [
 ] as const;
 type DeviceKey = (typeof DEVICES)[number]["key"];
 
-/** An iframe at a fixed page size, scaled down to fit its container, centred. */
-const ScaledFrame: React.FC<{ src: string; page: { w: number; h: number }; frameKey: string; onScale?: (s: number) => void }> = ({ src, page, frameKey, onScale }) => {
+/** An iframe (a URL, or a page's document) at a fixed page size, scaled down to fit its container, centred. */
+const ScaledFrame: React.FC<{ src?: string; srcDoc?: string; page: { w: number; h: number }; frameKey: string; onScale?: (s: number) => void }> = ({ src, srcDoc, page, frameKey, onScale }) => {
   const box = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
 
@@ -52,6 +57,7 @@ const ScaledFrame: React.FC<{ src: string; page: { w: number; h: number }; frame
           key={frameKey}
           title="Project preview"
           src={src}
+          srcDoc={srcDoc}
           sandbox="allow-scripts allow-forms allow-modals allow-popups"
           style={{ width: page.w, height: page.h, transform: `scale(${scale})`, transformOrigin: "0 0" }}
           className="absolute left-0 top-0 border-0 bg-white"
@@ -63,7 +69,8 @@ const ScaledFrame: React.FC<{ src: string; page: { w: number; h: number }; frame
 };
 
 const PreviewPane: React.FC<{ projectId: number; revisionId: number | null }> = ({ projectId, revisionId }) => {
-  const [state, setState] = useState<{ url: string; entry: string } | null>(null);
+  const [state, setState] = useState<PreviewInfo | null>(null);
+  const [files, setFiles] = useState<CodeFile[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [device, setDevice] = useState<DeviceKey>("desktop");
   const [landscape, setLandscape] = useState(false);
@@ -73,19 +80,41 @@ const PreviewPane: React.FC<{ projectId: number; revisionId: number | null }> = 
   const [scale, setScale] = useState(1);
   const overlay = useRef<HTMLDivElement>(null);
 
+  // A PHP website: each page is a request to the code runner.
+  const runPhp = useCallback<RunPhpPage>(
+    (script, method, query, fields) =>
+      practicalsApi.page(projectId, { rev: revisionId, script, method, query, fields }).catch((e) => {
+        throw new Error(apiErrorMessage(e, "The page couldn't be run."));
+      }),
+    [projectId, revisionId],
+  );
+  const pages = usePagePreview({ files, runPhp, assetBase: state?.base ?? null });
+  const { reset: resetPages, open: openPage } = pages;
+
   useEffect(() => {
     let cancelled = false;
     setState(null);
+    setFiles(null);
+    resetPages();
     setError(null);
     practicalsApi
       .preview(projectId, revisionId)
-      .then((r) => !cancelled && setState(r))
+      .then((r) => {
+        if (cancelled) return;
+        setState(r);
+        // Its pages are built here from the project's files (styles and scripts inlined).
+        if (r.php) {
+          loadProjectFiles(projectId, revisionId ?? "head")
+            .then(({ files }) => !cancelled && setFiles(files))
+            .catch((e) => !cancelled && setError(apiErrorMessage(e, "Couldn't read this revision's files.")));
+        }
+      })
       .catch(
         (e) =>
           !cancelled &&
           setError(
             apiErrorCode(e) === "NO_HTML"
-              ? "This project has no HTML page to preview. Read the code, or open it in TMCode to run it."
+              ? "This project has no HTML or PHP page to preview. Read the code, or open it in TMCode to run it."
               : apiErrorMessage(e, "Couldn't start the preview."),
           ),
       );
@@ -97,7 +126,12 @@ const PreviewPane: React.FC<{ projectId: number; revisionId: number | null }> = 
     return () => {
       cancelled = true;
     };
-  }, [projectId, revisionId, nonce]);
+  }, [projectId, revisionId, nonce, resetPages]);
+
+  // The first page, once the files are here.
+  useEffect(() => {
+    if (state?.php && files) void openPage(state.entry);
+  }, [state, files, openPage]);
 
   const d = DEVICES.find((x) => x.key === device)!;
   const page = landscape && d.rotates ? { w: d.h, h: d.w } : { w: d.w, h: d.h };
@@ -133,8 +167,25 @@ const PreviewPane: React.FC<{ projectId: number; revisionId: number | null }> = 
 
   const toolbar = (inFull: boolean) => (
     <div className={`flex shrink-0 flex-wrap items-center gap-2 px-3 py-2 ${inFull ? "border-b border-white/10 bg-slate-900 text-slate-200" : "border-b border-slate-200 dark:border-white/10"}`}>
-      <span className={`min-w-0 flex-1 truncate rounded-lg px-2.5 py-1 font-mono text-xs ${inFull ? "bg-white/10 text-slate-300" : "bg-slate-100 text-slate-500 dark:bg-white/5"}`}>
-        {state ? state.entry : "Starting preview…"}
+      {state?.php && (
+        <button
+          type="button"
+          onClick={pages.back}
+          disabled={!pages.history.length || pages.loading}
+          aria-label="Back"
+          title="Back"
+          className={`rounded-md p-1.5 disabled:opacity-40 ${inFull ? "text-slate-300 hover:bg-white/10" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"}`}
+          data-testid="preview-back"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+        </button>
+      )}
+      <span
+        className={`inline-flex min-w-0 flex-1 items-center gap-1.5 truncate rounded-lg px-2.5 py-1 font-mono text-xs ${inFull ? "bg-white/10 text-slate-300" : "bg-slate-100 text-slate-500 dark:bg-white/5"}`}
+        data-testid="preview-address"
+      >
+        {state ? (state.php ? pages.page ?? state.entry : state.entry) : "Starting preview…"}
+        {pages.loading && <Loader2 className="h-3 w-3 shrink-0 animate-spin" aria-label="Running the page" />}
       </span>
       <div className={`flex rounded-lg p-0.5 ${inFull ? "bg-white/10" : "bg-slate-100 dark:bg-white/5"}`} role="group" aria-label="Screen size">
         {DEVICES.map(({ key, label, Icon, w, h }) => (
@@ -160,10 +211,10 @@ const PreviewPane: React.FC<{ projectId: number; revisionId: number | null }> = 
       <span className={`whitespace-nowrap text-right font-mono text-[11px] tabular-nums ${inFull ? "text-slate-400" : "text-slate-500"}`} data-testid="preview-size">
         {page.w}×{page.h} · {Math.round(scale * 100)}%
       </span>
-      <button type="button" onClick={() => setNonce((n) => n + 1)} aria-label="Reload preview" title="Reload" className={`rounded-md p-1.5 ${inFull ? "text-slate-300 hover:bg-white/10" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"}`}>
+      <button type="button" onClick={() => (state?.php && pages.page ? pages.reload() : setNonce((n) => n + 1))} aria-label="Reload preview" title="Reload" className={`rounded-md p-1.5 ${inFull ? "text-slate-300 hover:bg-white/10" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"}`}>
         <RefreshCw className="h-3.5 w-3.5" />
       </button>
-      {state && (
+      {state && !state.php && (
         <a href={state.url} target="_blank" rel="noopener noreferrer" aria-label="Open in a new tab" title="Open in a new tab" className={`rounded-md p-1.5 ${inFull ? "text-slate-300 hover:bg-white/10" : "text-slate-500 hover:bg-slate-100 dark:hover:bg-white/10"}`}>
           <ExternalLink className="h-3.5 w-3.5" />
         </a>
@@ -187,7 +238,15 @@ const PreviewPane: React.FC<{ projectId: number; revisionId: number | null }> = 
   );
 
   const frame = (inFull: boolean) =>
-    state ? (
+    state?.php ? (
+      pages.doc !== null ? (
+        <ScaledFrame srcDoc={pages.doc} page={page} frameKey={`${pages.runId}-${inFull ? "full" : "pane"}`} onScale={setScale} />
+      ) : pages.loading || !files ? (
+        <Loader2 className="m-auto h-5 w-5 animate-spin text-blue-600" />
+      ) : (
+        <p className="m-auto p-6 text-center text-xs text-slate-500">The page couldn't be shown: see the messages above.</p>
+      )
+    ) : state ? (
       <ScaledFrame src={state.url} page={page} frameKey={`${state.url}-${nonce}-${inFull ? "full" : "pane"}`} onScale={setScale} />
     ) : (
       <Loader2 className="m-auto h-5 w-5 animate-spin text-blue-600" />
@@ -196,6 +255,7 @@ const PreviewPane: React.FC<{ projectId: number; revisionId: number | null }> = 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-slate-200 bg-white dark:border-white/10 dark:bg-slate-900" data-testid="preview-pane">
       {toolbar(false)}
+      <PageMessages messages={pages.messages} />
       {needsBuild && (
         <p className="flex shrink-0 items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-200" data-testid="preview-needs-build">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
@@ -209,6 +269,7 @@ const PreviewPane: React.FC<{ projectId: number; revisionId: number | null }> = 
         createPortal(
           <div ref={overlay} className="fixed inset-0 z-[100001] flex flex-col bg-slate-950" role="dialog" aria-modal="true" aria-label="Project preview, full screen" data-testid="preview-full">
             {toolbar(true)}
+            <PageMessages messages={pages.messages} dark />
             <div className="flex min-h-0 flex-1">{frame(true)}</div>
           </div>,
           document.body,
