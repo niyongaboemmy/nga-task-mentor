@@ -14,6 +14,10 @@ const practicals = {
   runTargets: vi.fn(),
   run: vi.fn(),
   page: vi.fn(),
+  startSession: vi.fn(),
+  sessionEvents: vi.fn(),
+  sessionInput: vi.fn(),
+  stopSession: vi.fn(),
 };
 const projects = {
   list: vi.fn(),
@@ -100,6 +104,28 @@ const cTargets = {
   entries: ["main.c", "util.c"],
   html_entry: null,
 };
+
+/** A live run's event stream the test writes to (Server-Sent Events, as the server relays them). */
+function eventStream() {
+  let ctrl!: ReadableStreamDefaultController<Uint8Array>;
+  const body = new ReadableStream<Uint8Array>({ start: (c) => void (ctrl = c) });
+  const enc = new TextEncoder();
+  return {
+    body,
+    send: (event: string, data: unknown) => ctrl.enqueue(enc.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)),
+    close: () => ctrl.close(),
+  };
+}
+const sessionInfo = (over: Record<string, unknown> = {}) => ({
+  id: "abc123def456",
+  language: "c",
+  kind: null,
+  kind_label: null,
+  entry: "main.c",
+  revision: { id: 301, number: 4 },
+  files_sent: ["main.c"],
+  ...over,
+});
 
 const row = (id: number, name: string, over: Record<string, unknown> = {}) => ({
   student: { id, name },
@@ -265,22 +291,20 @@ describe("PracticalGradingPage", () => {
     practicals.roster.mockResolvedValue(roster());
     practicals.runTargets.mockResolvedValue({ ...cTargets, language: "php", languages: [{ key: "php", label: "PHP", files: 1, runnable: true }], entries: ["main.php"] });
     const page = "<html><body><h1>Report</h1></body></html>";
-    practicals.run.mockImplementation(async (_id: number, body: { tests: { id: string }[] }) => ({
-      engine: "tmjudge",
-      language: "php",
-      entry: "main.php",
-      revision: { id: 302, number: 4 },
-      files_sent: ["main.php"],
-      files_skipped: 0,
-      compile: null,
-      tests: [{ id: body.tests[0].id, verdict: "ok", passed: true, stdout: page, stderr: null, exit_code: 0, time_ms: 5, memory_kb: 900 }],
-    }));
+    const events = eventStream();
+    practicals.startSession.mockResolvedValue(sessionInfo({ language: "php", entry: "main.php" }));
+    practicals.sessionEvents.mockResolvedValue(events.body);
     projects.manifest.mockResolvedValue({ revision: { id: 302, number: 4 }, files: [{ path: "main.php", sha256: "a", size: 1 }] });
     projects.fileContent.mockResolvedValue({ text: "<?php readfile('report.tpl');", binary: false });
-    // Another student than the C tests below: the Run tab keeps each revision's last run.
     workspace("/grading/assignment/7?student=2");
     await userEvent.click(await screen.findByTestId("pane-run"));
     await userEvent.click(await screen.findByTestId("run-program"));
+    await waitFor(() => expect(practicals.sessionEvents).toHaveBeenCalled());
+    act(() => {
+      events.send("stdout", { data: page });
+      events.send("exit", { code: 0, signal: null, verdict: "ok", time_ms: 5, memory_kb: 900 });
+      events.close();
+    });
     await userEvent.click(await screen.findByTestId("run-view-page"));
     const frame = await screen.findByTestId("run-output-frame");
     expect(frame.getAttribute("srcdoc")).toContain("<h1>Report</h1>");
@@ -373,6 +397,91 @@ describe("PracticalGradingPage", () => {
     expect(await screen.findByTestId("preview-needs-build")).toHaveTextContent("Open in TMCode");
   });
 
+  it("runs the program live: output streams in, the teacher answers its prompt, then stops it or sees how it ended", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    practicals.runTargets.mockResolvedValue(cTargets);
+    const events = eventStream();
+    practicals.startSession.mockResolvedValue(sessionInfo());
+    practicals.sessionEvents.mockResolvedValue(events.body);
+    practicals.sessionInput.mockResolvedValue(undefined);
+    workspace();
+    await userEvent.click(await screen.findByTestId("pane-run"));
+    // The Console is the main surface; the saved tests are a tab beside it.
+    expect(await screen.findByTestId("run-console-hint")).toHaveTextContent("Press Run to start Ama's program");
+    await userEvent.click(screen.getByTestId("run-program"));
+    expect(practicals.startSession).toHaveBeenCalledWith(101, { rev: 301, language: "c", entry: "main.c" });
+    await waitFor(() => expect(practicals.sessionEvents).toHaveBeenCalledWith(101, "abc123def456", expect.anything()));
+    act(() => {
+      events.send("stage", { name: "run" });
+      events.send("stdout", { data: "Two numbers: " });
+    });
+    const stdin = await screen.findByTestId("run-stdin");
+    await userEvent.type(stdin, "2 3{enter}");
+    expect(practicals.sessionInput).toHaveBeenCalledWith(101, "abc123def456", { data: "2 3\n" });
+    expect(screen.getByTestId("run-terminal")).toHaveTextContent("Two numbers: 2 3");
+    // Ctrl+C reaches the program; Stop ends it.
+    await userEvent.click(screen.getByTestId("run-interrupt"));
+    expect(practicals.sessionInput).toHaveBeenCalledWith(101, "abc123def456", { signal: "SIGINT" });
+    act(() => {
+      events.send("stdout", { data: "Sum: 5\n" });
+      events.send("exit", { code: 0, signal: null, verdict: "ok", time_ms: 12, memory_kb: 2048 });
+      events.close();
+    });
+    expect(await screen.findByTestId("live-exit")).toHaveTextContent("Ran");
+    expect(screen.getByTestId("live-exit")).toHaveTextContent("12 ms");
+    expect(screen.getByTestId("run-terminal")).toHaveTextContent("Sum: 5");
+    expect(screen.getByTestId("run-program")).toHaveTextContent("Run again");
+
+    // Run again, then Stop while it waits.
+    const again = eventStream();
+    practicals.sessionEvents.mockResolvedValue(again.body);
+    await userEvent.click(screen.getByTestId("run-program"));
+    await waitFor(() => expect(practicals.sessionEvents).toHaveBeenCalledTimes(2));
+    await userEvent.click(await screen.findByTestId("run-stop"));
+    expect(practicals.stopSession).toHaveBeenCalledWith(101, "abc123def456");
+    expect(screen.getByTestId("run-terminal")).toHaveTextContent("Stopped.");
+  });
+
+  it("runs only the Task folder the teacher picks (independent programs), and shows a compile error plainly", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    practicals.runTargets.mockResolvedValue({
+      ...cTargets,
+      language: "java",
+      languages: [{ key: "java", label: "Java", files: 7, runnable: true }],
+      entries: ["Task1/Task1.java", "Task2/Task2.java", "Task3/Task3.java"],
+      project: { kind: "java/single", label: "Java – source files (no build tool)", language: "java", entry: "Task1/Task1.java", actions: ["build", "run", "test"], runs: true, tests: true, web_app: false, chooses_entry: true },
+    });
+    const events = eventStream();
+    practicals.startSession.mockResolvedValue(sessionInfo({ language: "java", entry: "Task3/Task3.java" }));
+    practicals.sessionEvents.mockResolvedValue(events.body);
+    workspace();
+    await userEvent.click(await screen.findByTestId("pane-run"));
+    await pickOption(await screen.findByLabelText("File to run"), "Task3/Task3.java");
+    await userEvent.click(screen.getByTestId("run-program"));
+    expect(practicals.startSession).toHaveBeenCalledWith(101, { rev: 301, language: "java", entry: "Task3/Task3.java" });
+    await waitFor(() => expect(practicals.sessionEvents).toHaveBeenCalled());
+    act(() => {
+      events.send("stage", { name: "build" });
+      events.send("stderr", { data: "Task3.java:4: error: ';' expected\n" });
+      events.send("exit", { code: 1, signal: null, verdict: "compile-error", time_ms: 300, memory_kb: null });
+      events.close();
+    });
+    expect(await screen.findByTestId("run-compile-error")).toHaveTextContent("Ama's code doesn't compile");
+    expect(screen.getByTestId("run-terminal")).toHaveTextContent("';' expected");
+    expect(screen.getByTestId("live-exit")).toHaveTextContent("Doesn't compile");
+  });
+
+  it("falls back to the saved tests when the runner has no live runs", async () => {
+    practicals.roster.mockResolvedValue(roster());
+    practicals.runTargets.mockResolvedValue(cTargets);
+    practicals.startSession.mockRejectedValue({ response: { status: 409, data: { error_code: "INTERACTIVE_UNAVAILABLE", message: "Interactive runs aren't available here yet." } } });
+    workspace();
+    await userEvent.click(await screen.findByTestId("pane-run"));
+    await userEvent.click(await screen.findByTestId("run-program"));
+    expect(await screen.findByTestId("run-tests-pane")).toBeVisible();
+    expect(screen.getByTestId("run-tab-tests")).toHaveAttribute("aria-selected", "true");
+  });
+
   it("runs a C program with the teacher's inputs and shows each output", async () => {
     practicals.roster.mockResolvedValue(roster());
     practicals.runTargets.mockResolvedValue(cTargets);
@@ -393,8 +502,9 @@ describe("PracticalGradingPage", () => {
     expect(screen.queryByTestId("pane-preview")).not.toBeInTheDocument();
     // Judge0 compiles one file: say so when the program has several.
     expect(await screen.findByText(/only main.c is compiled/)).toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("run-tab-tests"));
     await userEvent.type(screen.getByTestId("run-input"), "2 3");
-    await userEvent.click(screen.getByTestId("run-program"));
+    await userEvent.click(screen.getByTestId("run-tests"));
     expect(await screen.findByTestId("run-stdout")).toHaveTextContent("Sum: 5");
     expect(screen.getByTestId("run-verdict")).toHaveTextContent("Ran");
     expect(practicals.run).toHaveBeenCalledWith(101, expect.objectContaining({ rev: 301, language: "c", entry: "main.c", tests: [expect.objectContaining({ input: "2 3", expected_output: null })] }));
@@ -425,11 +535,14 @@ describe("PracticalGradingPage", () => {
     // What runs, in words; no file picker for a Make project.
     expect(await screen.findByTestId("run-project")).toHaveTextContent("C – Make project");
     expect(screen.queryByLabelText("File to run")).not.toBeInTheDocument();
+    await userEvent.click(screen.getByTestId("run-tab-tests"));
     await userEvent.type(screen.getByTestId("run-input"), "2 3");
     await userEvent.click(screen.getByRole("button", { name: /Compare with an expected output/ }));
     await userEvent.type(screen.getAllByRole("textbox").find((t) => t.getAttribute("data-testid") !== "run-input" && t.tagName === "TEXTAREA")!, "Sum: 5{enter}Done");
-    await userEvent.click(screen.getByTestId("run-program"));
-    expect(practicals.run).toHaveBeenCalledWith(101, expect.objectContaining({ kind: "c/make", entry: null }));
+    await userEvent.click(screen.getByTestId("run-tests"));
+    // Planned on the server like the playground: the language, no forced kind; Make starts from its build.
+    expect(practicals.run).toHaveBeenCalledWith(101, expect.objectContaining({ language: "c", entry: null }));
+    expect(practicals.run.mock.calls[0][1]).not.toHaveProperty("kind");
     const diff = await screen.findByTestId("run-diff");
     const rows = diff.querySelectorAll("[data-same]");
     expect([...rows].map((r) => r.getAttribute("data-same"))).toEqual(["true", "false"]);
@@ -448,6 +561,7 @@ describe("PracticalGradingPage", () => {
     expect(await screen.findByTestId("run-web-app")).toHaveTextContent("runs in a browser");
     expect(screen.queryByTestId("run-input")).not.toBeInTheDocument();
     expect(screen.queryByTestId("run-program")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("run-tests")).not.toBeInTheDocument();
   });
 
   it("shows a compile error instead of outputs", async () => {
@@ -465,7 +579,8 @@ describe("PracticalGradingPage", () => {
     }));
     workspace();
     await userEvent.click(await screen.findByTestId("pane-run"));
-    await userEvent.click(await screen.findByTestId("run-program"));
+    await userEvent.click(await screen.findByTestId("run-tab-tests"));
+    await userEvent.click(screen.getByTestId("run-tests"));
     expect(await screen.findByTestId("run-compile-error")).toHaveTextContent("expected ';'");
     expect(screen.getByText(/Not run: the code doesn't compile/)).toBeInTheDocument();
   });
@@ -476,7 +591,8 @@ describe("PracticalGradingPage", () => {
     practicals.run.mockRejectedValue({ response: { status: 429, data: { error_code: "RATE_LIMITED", message: "x" } } });
     workspace();
     await userEvent.click(await screen.findByTestId("pane-run"));
-    await userEvent.click(await screen.findByTestId("run-program"));
+    await userEvent.click(await screen.findByTestId("run-tab-tests"));
+    await userEvent.click(screen.getByTestId("run-tests"));
     expect(await screen.findByRole("alert")).toHaveTextContent(/Too many runs/);
   });
 

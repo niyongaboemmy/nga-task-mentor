@@ -146,3 +146,61 @@ export function filesToSend(
 
 /** Looks like text (not a binary file) — runners take UTF-8 sources only. */
 export const isProbablyText = (buf: Buffer) => !buf.subarray(0, 8000).includes(0);
+
+/** Languages whose sources are compiled together: another program's files break the build. */
+const COMPILED_TOGETHER = new Set(["java", "c", "cpp", "csharp", "go", "kotlin", "swift", "rust"]);
+
+const dirOf = (p: string) => (p.includes("/") ? p.slice(0, p.lastIndexOf("/")) : "");
+const within = (p: string, dir: string) => dir === "" || p.startsWith(`${dir}/`);
+
+/** Whether a source file is a program of its own (declares main; Swift: a main.swift). */
+function declaresMain(p: string, language: string, src: string | undefined): boolean {
+  if (language === "swift") return path.basename(p).toLowerCase() === "main.swift";
+  const main = MAIN_PATTERNS[language];
+  return !!main && !!src && main.test(src);
+}
+
+/** A Java file's `package a.b;` ("" for none), comments ignored. */
+export function javaPackage(src: string | undefined): string {
+  const code = (src ?? "").replace(/\/\*[\s\S]*?\*\//g, " ").replace(/\/\/[^\n]*/g, " ");
+  return /^\s*package\s+([\w$]+(?:\s*\.\s*[\w$]+)*)\s*;/m.exec(code)?.[1].replace(/\s+/g, "") ?? "";
+}
+
+/**
+ * Java without a build tool: the entry's source root (its folder, or the
+ * folder its `package` line points back to) and the classes there whose
+ * package matches their folder. Classes in the default package share one
+ * namespace, so Task3/Task3.java's `class Pet` never meets Task7's.
+ */
+function javaProgramFiles<T extends { path: string }>(files: T[], entry: string, sources: Map<string, string>): T[] {
+  const pkg = javaPackage(sources.get(entry));
+  const entryDir = dirOf(entry);
+  const pkgPath = pkg.replace(/\./g, "/");
+  const root = !pkg ? entryDir : entryDir === pkgPath || entryDir.endsWith(`/${pkgPath}`) ? entryDir.slice(0, entryDir.length - pkgPath.length).replace(/\/$/, "") : null;
+  return files.filter((f) => {
+    if (f.path === entry || languageOfPath(f.path) !== "java") return true;
+    const own = javaPackage(sources.get(f.path));
+    if (root === null) return dirOf(f.path) === entryDir && own === pkg;
+    if (!within(f.path, root)) return false;
+    const rel = root === "" ? dirOf(f.path) : dirOf(f.path).slice(root.length + 1);
+    return own === rel.replace(/\//g, ".");
+  });
+}
+
+/**
+ * Only the program the entry starts: a project of independent exercises
+ * (Task1/Task1.java … Task7/Task7.java, ex1/main.c, ex2/main.c) runs one of
+ * them, the way the playground runs the file on screen, instead of compiling
+ * every exercise together (duplicate classes, two mains). For the compiled
+ * languages other than Java, left out are other files that declare their own
+ * main, and every file in a folder holding another program unless that
+ * folder contains the entry (a program at the root keeps the helpers beside
+ * it). Interpreted languages only load what they import: they keep every file.
+ */
+export function programFiles<T extends { path: string }>(files: T[], language: string, entry: string, sources: Map<string, string>): T[] {
+  if (!COMPILED_TOGETHER.has(language)) return files;
+  if (language === "java") return javaProgramFiles(files, entry, sources);
+  const isMain = (p: string) => p !== entry && languageOfPath(p) === language && declaresMain(p, language, sources.get(p));
+  const otherPrograms = new Set(files.filter((f) => isMain(f.path)).map((f) => dirOf(f.path)).filter((dir) => !within(entry, dir)));
+  return files.filter((f) => f.path === entry || (!isMain(f.path) && ![...otherPrograms].some((dir) => within(f.path, dir))));
+}

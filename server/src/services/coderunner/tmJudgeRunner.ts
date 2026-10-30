@@ -221,7 +221,9 @@ export class TmJudgeRunner implements CodeRunner {
         return res.data;
       } catch (error: any) {
         const status = error?.response?.status;
-        const retryable = !status || status === 429 || status >= 500;
+        // A kind whose tools this runner lacks (503 RUNTIME_UNAVAILABLE): retrying won't help.
+        const lacking = error?.response?.data?.code === "RUNTIME_UNAVAILABLE";
+        const retryable = !lacking && (!status || status === 429 || status >= 500);
         if (!retryable) {
           const detail = typeof error?.response?.data?.error === "string" ? error.response.data.error : "";
           throw new RunnerRejectedError(`The code runner refused the request (${status})${detail ? `: ${detail}` : ""}.`, status, detail);

@@ -43,14 +43,9 @@ import { TM_ATTRS, tmcodeColumns } from "../tmcode/assignments/load";
 import { choosesEntry, detectProject, IGNORED_PATH } from "../services/coderunner/projectKind";
 import { getCodeRunner } from "../services/coderunner";
 import { JudgeUnavailableError, Judge0Service, QuotaExceededError, RunnerRejectedError, UnsupportedLanguageError } from "../services/Judge0Service";
-import {
-  filesToSend,
-  isProbablyText,
-  MAX_STDIN_BYTES,
-  pickLanguage,
-  rankEntries,
-  runCandidates,
-} from "../tmcode/practical/run";
+import { isProbablyText, MAX_STDIN_BYTES, pickLanguage, rankEntries, runCandidates } from "../tmcode/practical/run";
+import { planRun } from "../services/coderunner/runPlan";
+import { SessionError, startSession } from "../services/coderunner/sessions";
 import { PHP_ROUTER, PHP_ROUTER_PATH, phpRequestInput } from "../vendor/nga-webrun";
 
 /**
@@ -893,11 +888,13 @@ async function describeProject(texts: { path: string; content: string }[]) {
   };
 }
 
-const runSchema = z.object({
+const revisionRunSchema = z.object({
   rev: z.number().int().positive().optional().nullable(),
   kind: z.string().max(60).optional().nullable(),
   language: z.string().max(40).optional().nullable(),
   entry: z.string().max(500).optional().nullable(),
+});
+const runSchema = revisionRunSchema.extend({
   tests: z
     .array(
       z.object({
@@ -910,109 +907,104 @@ const runSchema = z.object({
     .max(10),
 });
 
+/**
+ * A revision's program, planned the way the MIS Code Playground runs files
+ * (planRun): the same language, entry, files and engine path. The runner's
+ * detection is asked once, for a browser app and for a project it can't build.
+ * Sends the error itself and returns null when there's nothing to run.
+ */
+async function planRevisionRun(req: Request, res: Response, body: z.infer<typeof revisionRunSchema>) {
+  const r = await runRevision(req, res, body.rev);
+  if (!r) return null;
+  const texts = await projectTexts(r.files);
+  const detected = body.kind ? null : await detectProject(texts).catch(() => null);
+  if (detected && (detected.webApp || !detected.actions.includes("run"))) {
+    tmcodeError(res, 422, "NOT_A_PROGRAM", `This is a ${detected.label}: it doesn't run as a program with inputs. Check it in the Preview or open it in TMCode${detected.actions.includes("test") ? ", and run its unit tests" : ""}.`, {
+      kind: detected.kind,
+    });
+    return null;
+  }
+  const runner = getCodeRunner();
+  // An explicit kind (or a build file) goes as a project; a language picked by the teacher wins.
+  const plan = await planRun(
+    { files: texts, language: body.language ?? null, projectLanguage: r.project.language ?? detected?.language ?? null, kind: body.kind ?? null, entry: body.entry ?? null, detected },
+    runner,
+  );
+  if (!plan.ok) {
+    const message = plan.code === "UNSUPPORTED_LANGUAGE" ? `${plan.message} Open it in TMCode to run it.` : plan.message;
+    tmcodeError(res, plan.status, plan.code, message, plan.extra);
+    return null;
+  }
+  return { r, plan, detected, runner, skipped: Math.max(0, r.files.filter((f) => !IGNORED_PATH.test(f.path)).length - texts.length) + plan.skipped };
+}
+
 // @desc    Runs a revision of a project on the code runner (Judge0 / tm-judge)
-//          with the teacher's inputs, for the grading workspace's Run tab:
+//          with the teacher's saved inputs, for the grading workspace's Tests:
 //          stdout, stderr, exit code, time and memory per input, plus a
 //          verdict when an expected output was given. Nothing is saved.
-// @route   POST /api/tmcode/projects/:id/run  { rev?, language?, entry?, tests: [{id, input, expected_output?}] }
+// @route   POST /api/tmcode/projects/:id/run  { rev?, kind?, language?, entry?, tests: [{id, input, expected_output?}] }
 export const runProject = async (req: Request, res: Response) => {
   const parsed = runSchema.safeParse(req.body ?? {});
   if (!parsed.success) {
     return tmcodeError(res, 400, "VALIDATION_ERROR", "Invalid run request.", { issues: parsed.error.issues.map((i) => i.message) });
   }
   const body = parsed.data;
-  const r = await runRevision(req, res, body.rev);
-  if (!r) return;
-  const runner = getCodeRunner();
-
-  // The whole project as its catalog kind, when the runner can tell what it is.
-  const texts = await projectTexts(r.files);
-  const detected = await detectProject(texts).catch(() => null);
-  if (detected) {
-    if (detected.webApp || !detected.actions.includes("run")) {
-      return tmcodeError(res, 422, "NOT_A_PROGRAM", `This is a ${detected.label}: it doesn't run as a program with inputs. Check it in the Preview or open it in TMCode${detected.actions.includes("test") ? ", and run its unit tests" : ""}.`, {
-        kind: detected.kind,
-      });
-    }
-    const kind = body.kind || detected.kind;
-    const entry = body.entry && texts.some((f) => f.path === body.entry) && choosesEntry(kind) ? body.entry : detected.entry;
-    try {
-      const result = await runner.run({
-        language: detected.language,
-        kind,
-        files: texts,
-        ...(entry ? { entry } : {}),
-        tests: body.tests.map((t) => ({ id: t.id, input: t.input, expected_output: t.expected_output ?? undefined })),
-        interactive: true,
-      });
-      return res.status(200).json({
-        engine: result.engine,
-        language: detected.language,
-        kind: result.kind ?? kind,
-        kind_label: detected.label,
-        entry: entry ?? null,
-        revision: { id: r.rev.id, number: r.rev.number },
-        files_sent: texts.map((f) => f.path),
-        files_skipped: Math.max(0, r.files.filter((f) => !IGNORED_PATH.test(f.path)).length - texts.length),
-        compile: result.compile,
-        tests: result.tests,
-        error: result.error ?? null,
-      });
-    } catch (e) {
-      return runFailed(res, e, detected.label);
-    }
-  }
-
-  const candidates = runCandidates(r.files);
-  const language = pickLanguage(candidates, r.project.language ?? null, body.language);
-  if (!language) {
-    return tmcodeError(res, 422, "NOTHING_TO_RUN", "There's no program in this revision to run (no source files found).");
-  }
-  if (!runner.supportsLanguage(language)) {
-    return tmcodeError(res, 422, "UNSUPPORTED_LANGUAGE", `${LANGUAGE_LABEL.get(language) ?? language} can't be run here yet. Open it in TMCode to run it.`, {
-      supported: runner.languages(),
-    });
-  }
-  let entry = body.entry && candidates.some((c) => c.path === body.entry && c.language === language) ? body.entry : null;
-  if (!entry) {
-    const paths = candidates.filter((c) => c.language === language).map((c) => c.path);
-    entry = rankEntries(candidates, language, await candidateSources(r.files, paths))[0] ?? null;
-  }
-  if (!entry) return tmcodeError(res, 422, "NOTHING_TO_RUN", "Pick the file to run.");
-
-  const { paths, skipped } = filesToSend(r.files, language, entry);
-  const engine = runner.engineFor(language) ?? runner.name;
-  const sendable = engine === "judge0" ? [entry] : paths;
-  const files: { path: string; content: string }[] = [];
-  for (const p of sendable) {
-    const f = r.files.find((x) => x.path === p);
-    const text = f ? await readText(f.sha256) : null;
-    if (text != null) files.push({ path: p, content: text });
-  }
-  if (!files.some((f) => f.path === entry)) {
-    return tmcodeError(res, 422, "ENTRY_UNREADABLE", `${entry} couldn't be read as text.`);
-  }
-
+  const planned = await planRevisionRun(req, res, body);
+  if (!planned) return;
+  const { r, plan, detected, runner } = planned;
   try {
     const result = await runner.run({
-      language,
-      files,
-      entry,
+      language: plan.language,
+      ...(plan.kind ? { kind: plan.kind } : {}),
+      ...(plan.entry ? { entry: plan.entry } : {}),
+      files: plan.files,
       tests: body.tests.map((t) => ({ id: t.id, input: t.input, expected_output: t.expected_output ?? undefined })),
       interactive: true,
     });
     return res.status(200).json({
       engine: result.engine,
-      language,
-      entry,
+      language: plan.language,
+      kind: result.kind ?? plan.kind ?? null,
+      kind_label: plan.mode === "project" ? detected?.label ?? null : null,
+      entry: plan.original_entry ?? plan.entry,
       revision: { id: r.rev.id, number: r.rev.number },
-      files_sent: files.map((f) => f.path),
-      files_skipped: result.engine === "judge0" ? Math.max(0, paths.length - 1) : skipped,
+      files_sent: plan.files.map((f) => f.path),
+      files_skipped: planned.skipped,
       compile: result.compile,
       tests: result.tests,
+      error: result.error ?? null,
     });
   } catch (e) {
-    return runFailed(res, e, language);
+    return runFailed(res, e, LANGUAGE_LABEL.get(plan.language) ?? plan.language);
+  }
+};
+
+// @desc    Starts the revision's program live for the grading workspace's
+//          Console (CODE_RUNNER_PLAN.md §16), planned like /run and the
+//          playground: its output streams from GET .../sessions/:sid/events,
+//          the teacher types its input (POST .../input), stops it (DELETE).
+//          One live run per person, like /api/code/sessions. Nothing is saved.
+// @route   POST /api/tmcode/projects/:id/sessions  { rev?, kind?, language?, entry? }
+export const startProjectSession = async (req: Request, res: Response) => {
+  const parsed = revisionRunSchema.safeParse(req.body ?? {});
+  if (!parsed.success) return tmcodeError(res, 400, "VALIDATION_ERROR", "Invalid run request.");
+  const planned = await planRevisionRun(req, res, parsed.data);
+  if (!planned) return;
+  const { r, plan, detected } = planned;
+  try {
+    const s = await startSession(Number(req.user.id), { language: plan.language, kind: plan.kind, entry: plan.entry, files: plan.files });
+    return res.status(201).json({
+      id: s.id,
+      language: plan.language,
+      kind: plan.kind ?? (plan.mode === "project" ? detected?.kind ?? null : null),
+      kind_label: plan.mode === "project" ? detected?.label ?? null : null,
+      entry: plan.original_entry ?? plan.entry,
+      revision: { id: r.rev.id, number: r.rev.number },
+      files_sent: plan.files.map((f) => f.path),
+    });
+  } catch (e) {
+    if (e instanceof SessionError) return tmcodeError(res, e.status, e.code, e.message);
+    throw e;
   }
 };
 

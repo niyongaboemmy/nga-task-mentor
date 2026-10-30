@@ -96,7 +96,9 @@ export async function startSession(
   sweep();
   for (const s of byId.values()) if (s.userId === userId && !s.closed) void stopSession(s);
   // A real terminal only where the runner has one (containers).
-  const { pty, ...rest } = body;
+  const { pty, ...given } = body;
+  // Absent, not null: the runner takes a missing language/kind/entry as "detect it".
+  const rest = Object.fromEntries(Object.entries(given).filter(([, v]) => v !== null && v !== undefined)) as typeof given;
   const post = (payload: object) => runner("/v1/sessions", { method: "POST", headers: headers(), body: JSON.stringify(payload) });
   let res = await post(pty && judgeHas("pty") ? { ...rest, pty: true } : rest);
   // No terminal for this language (no container image, e.g. C): plain pipes then.
