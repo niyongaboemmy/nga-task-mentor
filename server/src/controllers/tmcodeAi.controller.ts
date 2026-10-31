@@ -194,7 +194,23 @@ const GradingSchema = z.object({
   question_text: z.string().max(12_000).optional(),
 });
 
-const ChatSchema = z.object({
+/** An image in a question: a data: URL of a png, jpeg, gif or webp (about 5 MB at most). */
+const IMAGE_URL = /^data:image\/(png|jpeg|gif|webp);base64,[A-Za-z0-9+/=]+$/;
+export const MAX_CHAT_IMAGES = 4;
+const UserContentSchema = z.union([
+  z.string().max(60_000),
+  z
+    .array(
+      z.union([
+        z.object({ type: z.literal("text"), text: z.string().max(60_000) }),
+        z.object({ type: z.literal("image_url"), image_url: z.object({ url: z.string().max(7_000_000).regex(IMAGE_URL) }) }),
+      ]),
+    )
+    .min(1)
+    .max(MAX_CHAT_IMAGES + 4),
+]);
+
+export const ChatSchema = z.object({
   mode: z.string().max(200).default("free"),
   byok: ByokSchema.optional(),
   /** The open project (its activity's AI setting applies to a student). */
@@ -202,7 +218,7 @@ const ChatSchema = z.object({
   messages: z
     .array(
       z.union([
-        z.object({ role: z.literal("user"), content: z.string().max(60_000) }),
+        z.object({ role: z.literal("user"), content: UserContentSchema }),
         z.object({
           role: z.literal("assistant"),
           content: z.string().max(60_000).nullable(),
@@ -215,7 +231,10 @@ const ChatSchema = z.object({
       ]),
     )
     .min(1)
-    .max(160),
+    .max(160)
+    .refine((messages) => messages.reduce((n, m) => n + (m.role === "user" && Array.isArray(m.content) ? m.content.filter((p) => p.type === "image_url").length : 0), 0) <= MAX_CHAT_IMAGES, {
+      message: `At most ${MAX_CHAT_IMAGES} images per question.`,
+    }),
   /** An agent (TMCode AI's modes that work on the project): its tools, its mode, which step this is. */
   agent: z
     .object({
