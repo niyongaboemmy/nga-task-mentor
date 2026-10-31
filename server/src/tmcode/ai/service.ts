@@ -107,6 +107,8 @@ interface PaidProviderDef {
   premiumKey: () => string | undefined;
   /** Shown to BYOK users as a starting point (any model id the provider knows works). */
   suggested: string[];
+  /** A cheap model for "Test key" (a one-line answer) when the user names none. */
+  check: string;
 }
 
 const envKey = (...names: string[]) => {
@@ -118,12 +120,12 @@ const envKey = (...names: string[]) => {
 };
 
 export const PAID_PROVIDERS: Record<PaidProviderId, PaidProviderDef> = {
-  openai: { id: "openai", label: "OpenAI", baseURL: "https://api.openai.com/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_OPENAI_KEY", "OPENAI_API_KEY"), suggested: ["gpt-4.1", "gpt-4.1-mini", "gpt-4o", "o4-mini"] },
-  anthropic: { id: "anthropic", label: "Anthropic (Claude)", baseURL: "https://api.anthropic.com/v1/", premiumKey: () => envKey("TMCODE_AI_PREMIUM_ANTHROPIC_KEY", "ANTHROPIC_API_KEY"), suggested: ["claude-sonnet-4-5", "claude-haiku-4-5", "claude-opus-4-1"] },
-  gemini: { id: "gemini", label: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", premiumKey: () => envKey("TMCODE_AI_PREMIUM_GEMINI_KEY", "GEMINI_API_KEY"), suggested: ["gemini-2.5-pro", "gemini-2.5-flash"] },
-  openrouter: { id: "openrouter", label: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_OPENROUTER_KEY", "OPENROUTER_API_KEY"), suggested: ["anthropic/claude-sonnet-4.5", "openai/gpt-4.1", "google/gemini-2.5-pro"] },
-  groq: { id: "groq", label: "Groq", baseURL: "https://api.groq.com/openai/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_GROQ_KEY", "GROQ_API_KEY"), suggested: ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"] },
-  deepseek: { id: "deepseek", label: "DeepSeek", baseURL: "https://api.deepseek.com/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_DEEPSEEK_KEY", "DEEPSEEK_API_KEY"), suggested: ["deepseek-chat", "deepseek-reasoner"] },
+  openai: { id: "openai", label: "OpenAI", baseURL: "https://api.openai.com/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_OPENAI_KEY", "OPENAI_API_KEY"), suggested: ["gpt-4.1", "gpt-4.1-mini", "gpt-4o", "o4-mini"], check: "gpt-4.1-mini" },
+  anthropic: { id: "anthropic", label: "Anthropic (Claude)", baseURL: "https://api.anthropic.com/v1/", premiumKey: () => envKey("TMCODE_AI_PREMIUM_ANTHROPIC_KEY", "ANTHROPIC_API_KEY"), suggested: ["claude-sonnet-5-5", "claude-haiku-5-5", "claude-opus-5-5"], check: "claude-haiku-5-5" },
+  gemini: { id: "gemini", label: "Google Gemini", baseURL: "https://generativelanguage.googleapis.com/v1beta/openai/", premiumKey: () => envKey("TMCODE_AI_PREMIUM_GEMINI_KEY", "GEMINI_API_KEY"), suggested: ["gemini-2.5-pro", "gemini-2.5-flash"], check: "gemini-2.5-flash" },
+  openrouter: { id: "openrouter", label: "OpenRouter", baseURL: "https://openrouter.ai/api/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_OPENROUTER_KEY", "OPENROUTER_API_KEY"), suggested: ["anthropic/claude-sonnet-4.5", "openai/gpt-4.1", "google/gemini-2.5-pro"], check: "openai/gpt-4.1-mini" },
+  groq: { id: "groq", label: "Groq", baseURL: "https://api.groq.com/openai/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_GROQ_KEY", "GROQ_API_KEY"), suggested: ["openai/gpt-oss-120b", "llama-3.3-70b-versatile"], check: "llama-3.1-8b-instant" },
+  deepseek: { id: "deepseek", label: "DeepSeek", baseURL: "https://api.deepseek.com/v1", premiumKey: () => envKey("TMCODE_AI_PREMIUM_DEEPSEEK_KEY", "DEEPSEEK_API_KEY"), suggested: ["deepseek-chat", "deepseek-reasoner"], check: "deepseek-chat" },
 };
 
 export const isPaidProvider = (p: unknown): p is PaidProviderId => typeof p === "string" && Object.prototype.hasOwnProperty.call(PAID_PROVIDERS, p);
@@ -536,6 +538,21 @@ export function paidFailure(e: unknown, step: Pick<PaidStep, "tier" | "provider"
   if (step.tier === "premium" && status === 429) return new AiError(429, "PROVIDER_QUOTA", `${label} is busy or over its limit. Try again in a minute, or use the free AI.`);
   if (step.tier === "premium" && status) console.error(`[tmcode-ai] premium ${step.provider} failed (${status}): ${said}`);
   return new AiError(502, "PROVIDER_FAILED", "The AI didn't answer. Try again, or switch model.");
+}
+
+/**
+ * "Test key" in TMCode's settings: one tiny answer from `model` (else the provider's cheap check
+ * model) with the user's own key, so a wrong key, no credit or an unknown model shows when the key
+ * is added, not at the first question. The key is used for this request only (as every BYOK one).
+ */
+export async function verifyOwnKey(provider: PaidProviderId, key: string, model: string | undefined, signal?: AbortSignal): Promise<{ provider: PaidProviderId; model: string }> {
+  const step: PaidStep = { tier: "byok", provider, model: model?.trim() || PAID_PROVIDERS[provider].check, key };
+  try {
+    const r = (await paidClient(step).chat.completions.create({ model: step.model, messages: [{ role: "user", content: "Reply with: OK" }], max_tokens: 16 } as never, { signal })) as { model?: string };
+    return { provider, model: r?.model || step.model };
+  } catch (e) {
+    throw paidFailure(e, step);
+  }
 }
 
 async function streamPaid(
