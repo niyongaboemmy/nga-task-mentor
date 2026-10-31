@@ -150,7 +150,7 @@ describe("premium", () => {
 
     const status = await request(app).get("/api/tmcode/ai/status").set("Authorization", tok(teacher));
     expect(status.body).toMatchObject({ tiers: { premium: true }, premium_you: { used: 0, limit: 2 } });
-    expect(status.body.premium_models).toEqual([{ id: "premium:openai/gpt-4.1", label: "gpt-4.1", provider: "openai", providerLabel: "OpenAI" }]);
+    expect(status.body.premium_models).toEqual([{ id: "premium:openai/gpt-4.1", label: "gpt-4.1", provider: "openai", providerLabel: "OpenAI", vision: true }]);
 
     create.mockResolvedValueOnce(answer("gpt-4.1", "Premium answer"));
     const after = await chatAndStream(teacher, { mode: "premium:openai/gpt-4.1" });
@@ -192,6 +192,19 @@ describe("BYOK", () => {
     const noKey = await chatAndStream(teacher, { mode: "byok:anthropic/claude-sonnet-4-5" });
     expect(noKey.res.status).toBe(400);
     expect(noKey.res.body.code).toBe("BYOK_KEY_REQUIRED");
+  });
+
+  it("Test key: one tiny request with the key, refusals as BYOK_REJECTED, never echoing the key", async () => {
+    create.mockResolvedValueOnce({ model: "claude-haiku-5-5" });
+    const ok = await request(app).post("/api/tmcode/ai/byok/verify").set("Authorization", tok(teacher)).send({ provider: "anthropic", key: KEY });
+    expect(ok.status).toBe(200);
+    expect(ok.body).toEqual({ ok: true, provider: "anthropic", model: "claude-haiku-5-5" });
+    create.mockRejectedValueOnce(Object.assign(new Error(`401 invalid x-api-key: ${KEY}`), { status: 401 }));
+    const bad = await request(app).post("/api/tmcode/ai/byok/verify").set("Authorization", tok(teacher)).send({ provider: "anthropic", key: KEY, model: "claude-sonnet-5-5" });
+    expect(bad.status).toBe(400);
+    expect(bad.body.code).toBe("BYOK_REJECTED");
+    expect(JSON.stringify(bad.body)).not.toContain(KEY);
+    expect((await request(app).post("/api/tmcode/ai/byok/verify").set("Authorization", tok(teacher)).send({ provider: "nope", key: KEY })).status).toBe(400);
   });
 
   it("the school can switch own keys off (admin setting)", async () => {

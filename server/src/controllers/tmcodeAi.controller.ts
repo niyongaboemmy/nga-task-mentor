@@ -25,8 +25,11 @@ import {
   userUsed,
   type ChatMessage,
   type PaidAccess,
+  type PaidProviderId,
   type ProviderId,
   type ToolDef,
+  verifyOwnKey,
+  isPaidProvider,
 } from "../tmcode/ai/service";
 import { accessFor, byokAllowed, isStaff, premiumEntitlement } from "../services/aiEntitlements";
 import { GRADING_AGENT_RULES, GRADING_SYSTEM, gradingContextText } from "../tmcode/ai/grading";
@@ -43,6 +46,7 @@ const READ_ONLY = new Set(["list_files", "read_file", "search", "get_problems"])
  *   POST /ai/chat             { messages, context?, mode, project_id?, byok? } → { id }
  *   GET  /ai/chat/:id/stream  text/event-stream: meta, delta, done | error (the chat's project)
  *   POST /ai/complete         { prefix, suffix, language, path, mode, project_id? } → { text | null }
+ *   POST /ai/byok/verify      { provider, key, model? } → { ok, provider, model } | BYOK_REJECTED
  *   GET  /ai/events           text/event-stream: hello { v }, then changed { cause, … } whenever
  *                             the school's policy, an item's AI mode or the roles change (the app
  *                             asks for its status again); a ping comment every 20 s
@@ -254,7 +258,10 @@ export const ChatSchema = z.object({
       problems: z.array(z.string().max(500)).max(30).optional(),
       // The task brief (with @-mentioned files it can be long).
       task: z.string().max(120_000).optional(),
-      /** "grading": a teacher grading a submission (staff only; ignored for anyone else). */
+      /**
+       * "grading": a teacher grading a submission (staff only; ignored for anyone else);
+       * "terminal": the integrated terminal asking for shell commands (TERMINAL_SYSTEM).
+       */
       purpose: z.string().max(40).optional(),
       grading: GradingSchema.optional(),
     })
@@ -265,6 +272,25 @@ const SYSTEM = `You are TMCode AI, the coding assistant inside TMCode, the code 
 Help the student learn while they code: explain clearly and briefly, show small correct code, and say why it works.
 Use Markdown. Put code in fenced blocks with the language, and when a block replaces code in the student's file, write the file name on the line before it.
 If the student asks you to do a graded assignment for them entirely, guide them step by step instead of writing all of it.`;
+
+/**
+ * The terminal's AI (TMCode ≥ 1.2): plain words in, shell commands out, as one JSON object the app
+ * renders as Run / Insert / Copy cards. Nothing runs without the user's click; `risk` makes the app
+ * ask twice before a destructive command. The app repeats the format in its question, so an older
+ * server (no "terminal" purpose) still answers in it.
+ */
+export const TERMINAL_SYSTEM = `You are TMCode AI inside the integrated terminal of TMCode, the code editor of New Generation Academy (a school).
+The user says in plain words what they want to do in their shell, asks how a command works, or asks why a command failed.
+Answer with ONE JSON object and nothing else (no Markdown fence, no text before or after it):
+{"commands":[{"command":"<one shell command line>","explanation":"<what it does, one short sentence>"}],"explanation":"<one or two short sentences>","risk":"safe"|"caution"|"danger","question":"<only when you must ask something before you can answer>"}
+Rules:
+- Write commands for the shell, operating system and folder you are given. Prefer one command; give at most 3 alternatives or steps, in order.
+- Use real commands and flags only; prefer tools that come with the system or that the project already uses (package.json scripts, Makefile, git).
+- For a failed command, explain the cause in "explanation" and put the corrected command first.
+- "risk": "danger" for anything that deletes or overwrites data, force-pushes or rewrites git history, uses sudo or admin rights, formats disks, changes permissions recursively, or pipes a download into a shell; "caution" for installing or removing packages, changing configuration, or network and process changes; else "safe".
+- Never include secrets or keys in a command. Use placeholders like <file> when you need a value you don't know, and say so.
+- If it isn't a terminal task, answer it briefly in "explanation" with an empty "commands" list.
+- Help the student learn: each explanation names the important flags.`;
 
 const AGENT: Record<"manual" | "edit" | "plan" | "auto", string> = {
   plan: "PLAN MODE: explore with the read-only tools (list_files, read_file, search, get_problems), then answer with a clear, numbered plan of the changes you would make (files, what changes, why). Do not try to change anything.",
@@ -291,7 +317,7 @@ export function buildMessages(input: z.infer<typeof ChatSchema>, staff = false):
   else if (c?.fileText) parts.push(`The file:\n\`\`\`${c.language ?? ""}\n${c.fileText}\n\`\`\``);
   if (c?.problems?.length) parts.push(`Problems the editor reports:\n${c.problems.map((p) => `- ${p}`).join("\n")}`);
   const agent = input.agent ? `\n\n${grading ? GRADING_AGENT_RULES : AGENT_RULES}\n${grading && input.agent.mode !== "plan" ? "" : AGENT[input.agent.mode]}`.trimEnd() : "";
-  const base = grading ? GRADING_SYSTEM : SYSTEM;
+  const base = grading ? GRADING_SYSTEM : c?.purpose === "terminal" && !input.agent ? TERMINAL_SYSTEM : SYSTEM;
   const system = (parts.length ? `${base}\n\n${parts.join("\n\n")}` : base) + agent;
   return [{ role: "system", content: system }, ...(input.messages as ChatMessage[])];
 }
@@ -404,5 +430,29 @@ export async function aiComplete(req: Request, res: Response) {
     if (e instanceof AiError) return tmcodeError(res, e.status, e.code, e.message);
     if (isAiDisabledError(e)) return tmcodeError(res, 403, "AI_DISABLED", e.message, { code: "AI_DISABLED", reason: e.reason });
     throw e;
+  }
+}
+
+const VerifyKeySchema = ByokSchema.extend({ model: z.string().max(200).regex(/^\S*$/).optional() });
+
+/**
+ * POST /ai/byok/verify: "Test key" in TMCode's settings. Same rules as an own-key question (AI
+ * allowed for this user, own keys allowed by the school); the key is used once and never kept.
+ */
+export async function aiVerifyKey(req: Request, res: Response) {
+  const parsed = VerifyKeySchema.safeParse(req.body);
+  if (!parsed.success || !isPaidProvider(parsed.data.provider)) return tmcodeError(res, 400, "VALIDATION", "That request isn't valid.");
+  const v = await verdictFor(req, "assist", null);
+  if (!v.allowed) return refuse(req, res, "assist", v);
+  if (!(await byokAllowed())) return tmcodeError(res, 403, "BYOK_DISABLED", "The school has switched off using your own API keys. Use the free AI.", { code: "BYOK_DISABLED" });
+  const abort = new AbortController();
+  req.on("close", () => abort.abort());
+  const { provider, key, model } = parsed.data;
+  try {
+    const r = await verifyOwnKey(provider as PaidProviderId, key, model, abort.signal);
+    res.json({ ok: true, provider: r.provider, model: r.model });
+  } catch (e) {
+    const err = e instanceof AiError ? e : new AiError(502, "PROVIDER_FAILED", "The provider didn't answer. Try again.");
+    return tmcodeError(res, err.status, err.code, scrubSecrets(err.message, key), { code: err.code });
   }
 }
