@@ -145,6 +145,8 @@ export interface PremiumModel {
   label: string;
   provider: PaidProviderId;
   providerLabel: string;
+  /** Reads images (canSeeImages). */
+  vision: boolean;
 }
 
 /** TMCODE_AI_PREMIUM_MODELS entries ("provider/model", comma separated), parsed. Pure on the env. */
@@ -170,7 +172,7 @@ export function premiumModels(): PremiumModel[] {
     const id = `premium:${e.provider}/${e.model}`;
     if (seen.has(id)) continue;
     seen.add(id);
-    out.push({ id, label: e.model, provider: e.provider, providerLabel: PAID_PROVIDERS[e.provider].label });
+    out.push({ id, label: e.model, provider: e.provider, providerLabel: PAID_PROVIDERS[e.provider].label, vision: canSeeImages(e.provider, e.model) });
   }
   return out;
 }
@@ -315,6 +317,41 @@ export async function plan(kind: Kind, mode: string): Promise<{ provider: Provid
   return out;
 }
 
+/**
+ * Can this model read images? Known multimodal families, plus TMCODE_AI_VISION_MODELS
+ * ("provider/model" or "model", comma-separated) for any other. Questions with images go
+ * only to these.
+ */
+export function canSeeImages(provider: string, model: string): boolean {
+  const listed = String(process.env.TMCODE_AI_VISION_MODELS ?? "")
+    .split(",")
+    .map((x) => x.trim())
+    .filter(Boolean);
+  if (listed.includes(model) || listed.includes(`${provider}/${model}`)) return true;
+  const m = model.toLowerCase();
+  if (/(^|[/-])(vision|vl)([-:.]|$)|-vl-|llava|pixtral|glm-4(\.\d)?v/.test(m)) return true;
+  if (/gemini|gemma-3|llama-4|gpt-4o|gpt-4\.1|gpt-5|(^|\/)o3|(^|\/)o4-mini|claude|mistral-(small|medium)-3|qwen2\.5-vl|qwen3-vl|kimi-vl|grok-4/.test(m)) return true;
+  return false;
+}
+
+/** Does any message carry an image? */
+export function hasImages(messages: ChatMessage[]): boolean {
+  return messages.some((m) => m.role === "user" && Array.isArray(m.content) && m.content.some((p) => p.type === "image_url"));
+}
+
+/** A plan's steps that can read images: other models (and OpenRouter fallbacks) are dropped. */
+export function visionSteps<T extends { provider: string; model: string; fallbacks?: string[] }>(steps: T[]): T[] {
+  const out: T[] = [];
+  for (const s of steps) {
+    const fallbacks = s.fallbacks?.filter((m) => canSeeImages(s.provider, m));
+    if (canSeeImages(s.provider, s.model)) out.push({ ...s, ...(fallbacks ? { fallbacks } : {}) });
+    else if (fallbacks?.length) out.push({ ...s, model: fallbacks[0], fallbacks: fallbacks.slice(1) });
+  }
+  return out;
+}
+
+const NO_VISION = "The AI available now can't read images. Remove the image, or pick a model that reads images (Auto finds one when there is one).";
+
 /** Per-model request options: reasoning models answer directly (fast suggestions, no hidden thinking). */
 function modelOptions(provider: ProviderId, model: string, kind: Kind): Record<string, unknown> {
   if (provider !== "groq") return {};
@@ -363,8 +400,12 @@ export interface ToolCall {
   type: "function";
   function: { name: string; arguments: string };
 }
+/** A user message with images (OpenAI's content parts): text and data: URLs. */
+export type ContentPart = { type: "text"; text: string } | { type: "image_url"; image_url: { url: string } };
+
 export type ChatMessage =
-  | { role: "system" | "user"; content: string }
+  | { role: "system"; content: string }
+  | { role: "user"; content: string | ContentPart[] }
   | { role: "assistant"; content: string | null; tool_calls?: ToolCall[] }
   | { role: "tool"; tool_call_id: string; content: string };
 
@@ -508,6 +549,7 @@ async function streamPaid(
   opts: StreamOptions,
 ): Promise<StreamResult & { tool_calls?: ToolCall[] }> {
   const step = paidStep(mode, opts.access);
+  if (hasImages(messages) && !canSeeImages(step.provider, step.model)) throw new AiError(400, "NO_VISION", NO_VISION);
   const kind: Kind = agent && agent.step > 0 ? "agent" : "chat";
   if (step.tier === "premium" && opts.access?.tier === "premium") {
     // A question counts against the premium allowance; an agent's next steps against the agent allowance.
@@ -569,8 +611,12 @@ export async function streamChat(
   const kind: Kind = agent && agent.step > 0 ? "agent" : "chat";
   if (userUsed(userId, kind) >= userLimit(kind))
     throw new AiError(429, "USER_QUOTA", kind === "chat" ? `You've used today's ${userLimit("chat")} AI questions. They come back tomorrow.` : `TMCode AI has done today's ${userLimit("agent")} agent steps for you. They come back tomorrow.`);
-  const steps = await plan(agent ? "agent" : "chat", mode);
+  let steps = await plan(agent ? "agent" : "chat", mode);
   if (!steps.length) throw new AiError(429, "POOL_EXHAUSTED", "The school's free AI requests are used up for today. Try again tomorrow.");
+  if (hasImages(messages)) {
+    steps = visionSteps(steps);
+    if (!steps.length) throw new AiError(400, "NO_VISION", NO_VISION);
+  }
   let lastErr: unknown = null;
   for (const step of steps) {
     let sent = false;
@@ -687,10 +733,10 @@ export function cleanCompletion(text: string, prefix: string, suffix: string): s
 
 /** The models a student can choose (free only), for the picker. */
 export function catalog() {
-  const out: { id: string; label: string; provider: ProviderId; providerLabel: string }[] = [];
+  const out: { id: string; label: string; provider: ProviderId; providerLabel: string; vision: boolean }[] = [];
   for (const p of Object.values(PROVIDERS)) {
     if (!configured(p.id)) continue;
-    for (const m of p.chat()) out.push({ id: `${p.id}/${m}`, label: m.replace(/:free$/, ""), provider: p.id, providerLabel: p.label });
+    for (const m of p.chat()) out.push({ id: `${p.id}/${m}`, label: m.replace(/:free$/, ""), provider: p.id, providerLabel: p.label, vision: canSeeImages(p.id, m) });
   }
   return out;
 }
