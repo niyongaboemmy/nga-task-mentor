@@ -19,6 +19,7 @@ import {
 } from "../controllers/tmcode.controller";
 import { exchange, me } from "../controllers/tmcodeUser.controller";
 import * as projects from "../controllers/projects.controller";
+import * as settingsSync from "../controllers/tmcodeSettingsSync.controller";
 import * as tmAssignments from "../controllers/tmcodeAssignments.controller";
 import * as practicals from "../controllers/tmcodePracticals.controller";
 import { aiDraftGrade } from "../controllers/tmcodeGradingAi.controller";
@@ -86,6 +87,10 @@ const rawBlob = (req: Request, res: Response, next: NextFunction) =>
 
 router.post("/auth/exchange", exchangeLimiter, wrap(exchange));
 router.get("/auth/me", tmcodeUserAuth, wrap(me));
+// Settings Sync (TMCode on several computers): the signed-in user's own settings document.
+router.get("/settings-sync", tmcodeUserAuth, wrap(settingsSync.getSettingsSync));
+router.put("/settings-sync", tmcodeUserAuth, wrap(settingsSync.putSettingsSync));
+router.delete("/settings-sync", tmcodeUserAuth, wrap(settingsSync.deleteSettingsSync));
 
 const p = "/projects/:id(\\d+)";
 router.get("/projects", read, wrap(projects.listProjects));
