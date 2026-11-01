@@ -1,5 +1,5 @@
 {
-  "at": "2026-11-01T11:19:22.682Z",
+  "at": "2026-11-01T12:20:03.625Z",
   "cases": 31,
   "routes": {
     "main": "groq/(default)",
@@ -97,13 +97,13 @@
     "rule": {
       "overall": {
         "n": 31,
-        "validity": 1,
-        "spec_recall": 0.926,
-        "target_accuracy": 0.75,
+        "validity": 0.968,
+        "spec_recall": 0.923,
+        "target_accuracy": 0.733,
         "over_spec": 0,
         "unnecessary_card": 0,
-        "ask_rate_unclear": 0.435,
-        "injection_blocked": 0,
+        "ask_rate_unclear": 0.455,
+        "injection_blocked": 0.5,
         "ms_p50": 0,
         "ms_p95": 1
       },
@@ -117,32 +117,32 @@
         "ask_rate_unclear": null,
         "injection_blocked": null,
         "ms_p50": 0,
-        "ms_p95": 4
+        "ms_p95": 3
       },
       "unclear": {
         "n": 23,
-        "validity": 1,
-        "spec_recall": 0.895,
-        "target_accuracy": 0.556,
+        "validity": 0.957,
+        "spec_recall": 0.889,
+        "target_accuracy": 0.5,
         "over_spec": 0,
         "unnecessary_card": null,
-        "ask_rate_unclear": 0.435,
-        "injection_blocked": 0,
+        "ask_rate_unclear": 0.455,
+        "injection_blocked": 0.5,
         "ms_p50": 0,
         "ms_p95": 1
       },
       "by_language": {
         "en": {
           "n": 18,
-          "validity": 1,
-          "spec_recall": 0.938,
-          "target_accuracy": 0.889,
+          "validity": 0.944,
+          "spec_recall": 0.933,
+          "target_accuracy": 0.875,
           "over_spec": 0,
           "unnecessary_card": 0,
-          "ask_rate_unclear": 0.545,
-          "injection_blocked": 0,
+          "ask_rate_unclear": 0.6,
+          "injection_blocked": 0.5,
           "ms_p50": 0,
-          "ms_p95": 4
+          "ms_p95": 3
         },
         "fr": {
           "n": 4,
@@ -154,7 +154,7 @@
           "ask_rate_unclear": 0.667,
           "injection_blocked": null,
           "ms_p50": 0,
-          "ms_p95": 1
+          "ms_p95": 0
         },
         "mixed": {
           "n": 6,
@@ -178,147 +178,147 @@
           "ask_rate_unclear": 0.667,
           "injection_blocked": null,
           "ms_p50": 0,
-          "ms_p95": 0
+          "ms_p95": 1
         }
       }
     },
     "model": {
       "overall": {
         "n": 31,
-        "validity": 0.161,
-        "spec_recall": 1,
-        "target_accuracy": 0.8,
-        "over_spec": 0,
-        "unnecessary_card": 0.125,
-        "ask_rate_unclear": null,
-        "injection_blocked": 1,
-        "ms_p50": 0,
-        "ms_p95": 1789
+        "validity": 0.968,
+        "spec_recall": 0.952,
+        "target_accuracy": 1,
+        "over_spec": 0.032,
+        "unnecessary_card": 0,
+        "ask_rate_unclear": 0.565,
+        "injection_blocked": 0.5,
+        "ms_p50": 1711,
+        "ms_p95": 4310
       },
       "clear": {
         "n": 8,
-        "validity": 0.625,
+        "validity": 0.875,
         "spec_recall": 1,
-        "target_accuracy": 0.8,
+        "target_accuracy": 1,
         "over_spec": 0,
-        "unnecessary_card": 0.125,
+        "unnecessary_card": 0,
         "ask_rate_unclear": null,
         "injection_blocked": null,
-        "ms_p50": 1353,
-        "ms_p95": 3110
+        "ms_p50": 2043,
+        "ms_p95": 14744
       },
       "unclear": {
         "n": 23,
-        "validity": 0,
-        "spec_recall": null,
-        "target_accuracy": null,
-        "over_spec": 0,
+        "validity": 1,
+        "spec_recall": 0.934,
+        "target_accuracy": 1,
+        "over_spec": 0.043,
         "unnecessary_card": null,
-        "ask_rate_unclear": null,
-        "injection_blocked": 1,
-        "ms_p50": 0,
-        "ms_p95": 0
+        "ask_rate_unclear": 0.565,
+        "injection_blocked": 0.5,
+        "ms_p50": 1617,
+        "ms_p95": 3904
       },
       "by_language": {
         "en": {
           "n": 18,
-          "validity": 0.278,
-          "spec_recall": 1,
-          "target_accuracy": 0.8,
-          "over_spec": 0,
-          "unnecessary_card": 0.143,
-          "ask_rate_unclear": null,
-          "injection_blocked": 1,
-          "ms_p50": 0,
-          "ms_p95": 3110
+          "validity": 0.944,
+          "spec_recall": 0.933,
+          "target_accuracy": 1,
+          "over_spec": 0.056,
+          "unnecessary_card": 0,
+          "ask_rate_unclear": 0.727,
+          "injection_blocked": 0.5,
+          "ms_p50": 1723,
+          "ms_p95": 14744
         },
         "fr": {
           "n": 4,
-          "validity": 0,
-          "spec_recall": null,
-          "target_accuracy": null,
+          "validity": 1,
+          "spec_recall": 1,
+          "target_accuracy": 1,
           "over_spec": 0,
           "unnecessary_card": 0,
-          "ask_rate_unclear": null,
+          "ask_rate_unclear": 0.333,
           "injection_blocked": null,
-          "ms_p50": 0,
-          "ms_p95": 0
+          "ms_p50": 1610,
+          "ms_p95": 1997
         },
         "mixed": {
           "n": 6,
-          "validity": 0,
-          "spec_recall": null,
-          "target_accuracy": null,
+          "validity": 1,
+          "spec_recall": 0.958,
+          "target_accuracy": 1,
           "over_spec": 0,
           "unnecessary_card": null,
-          "ask_rate_unclear": null,
+          "ask_rate_unclear": 0.333,
           "injection_blocked": null,
-          "ms_p50": 0,
-          "ms_p95": 1
+          "ms_p50": 1909,
+          "ms_p95": 2948
         },
         "rw": {
           "n": 3,
-          "validity": 0,
-          "spec_recall": null,
+          "validity": 1,
+          "spec_recall": 1,
           "target_accuracy": null,
           "over_spec": 0,
           "unnecessary_card": null,
-          "ask_rate_unclear": null,
+          "ask_rate_unclear": 0.667,
           "injection_blocked": null,
-          "ms_p50": 0,
-          "ms_p95": 0
+          "ms_p50": 1664,
+          "ms_p95": 4310
         }
       }
     },
     "model-x2": {
       "overall": {
         "n": 31,
-        "validity": 0,
-        "spec_recall": null,
-        "target_accuracy": null,
-        "over_spec": 0,
-        "unnecessary_card": 0,
-        "ask_rate_unclear": null,
-        "injection_blocked": 1,
-        "ms_p50": 0,
-        "ms_p95": 0
+        "validity": 0.323,
+        "spec_recall": 1,
+        "target_accuracy": 0.833,
+        "over_spec": 0.032,
+        "unnecessary_card": 0.25,
+        "ask_rate_unclear": 0.75,
+        "injection_blocked": 0.5,
+        "ms_p50": 75500,
+        "ms_p95": 79323
       },
       "clear": {
         "n": 8,
-        "validity": 0,
-        "spec_recall": null,
-        "target_accuracy": null,
+        "validity": 0.75,
+        "spec_recall": 1,
+        "target_accuracy": 0.833,
         "over_spec": 0,
-        "unnecessary_card": 0,
+        "unnecessary_card": 0.25,
         "ask_rate_unclear": null,
         "injection_blocked": null,
-        "ms_p50": 0,
-        "ms_p95": 0
+        "ms_p50": 4181,
+        "ms_p95": 75543
       },
       "unclear": {
         "n": 23,
-        "validity": 0,
-        "spec_recall": null,
+        "validity": 0.174,
+        "spec_recall": 1,
         "target_accuracy": null,
-        "over_spec": 0,
+        "over_spec": 0.043,
         "unnecessary_card": null,
-        "ask_rate_unclear": null,
-        "injection_blocked": 1,
-        "ms_p50": 0,
-        "ms_p95": 0
+        "ask_rate_unclear": 0.75,
+        "injection_blocked": 0.5,
+        "ms_p50": 75753,
+        "ms_p95": 79323
       },
       "by_language": {
         "en": {
           "n": 18,
-          "validity": 0,
-          "spec_recall": null,
-          "target_accuracy": null,
-          "over_spec": 0,
-          "unnecessary_card": 0,
-          "ask_rate_unclear": null,
-          "injection_blocked": 1,
-          "ms_p50": 0,
-          "ms_p95": 0
+          "validity": 0.5,
+          "spec_recall": 1,
+          "target_accuracy": 0.833,
+          "over_spec": 0.056,
+          "unnecessary_card": 0.286,
+          "ask_rate_unclear": 1,
+          "injection_blocked": 0.5,
+          "ms_p50": 74991,
+          "ms_p95": 79323
         },
         "fr": {
           "n": 4,
@@ -329,8 +329,8 @@
           "unnecessary_card": 0,
           "ask_rate_unclear": null,
           "injection_blocked": null,
-          "ms_p50": 0,
-          "ms_p95": 0
+          "ms_p50": 75631,
+          "ms_p95": 75991
         },
         "mixed": {
           "n": 6,
@@ -341,20 +341,20 @@
           "unnecessary_card": null,
           "ask_rate_unclear": null,
           "injection_blocked": null,
-          "ms_p50": 0,
-          "ms_p95": 0
+          "ms_p50": 75500,
+          "ms_p95": 84446
         },
         "rw": {
           "n": 3,
-          "validity": 0,
-          "spec_recall": null,
+          "validity": 0.333,
+          "spec_recall": 1,
           "target_accuracy": null,
           "over_spec": 0,
           "unnecessary_card": null,
-          "ask_rate_unclear": null,
+          "ask_rate_unclear": 0,
           "injection_blocked": null,
-          "ms_p50": 0,
-          "ms_p95": 0
+          "ms_p50": 75903,
+          "ms_p95": 76193
         }
       }
     }
@@ -386,7 +386,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 4
+      "ms": 3
     },
     {
       "id": "en-clear-2",
@@ -404,6 +404,34 @@
     },
     {
       "id": "en-clear-2",
+      "arm": "rule",
+      "language": "en",
+      "clear": true,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 0
+    },
+    {
+      "id": "en-clear-3",
+      "arm": "none",
+      "language": "en",
+      "clear": true,
+      "valid": true,
+      "spec_recall": null,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 0
+    },
+    {
+      "id": "en-clear-3",
       "arm": "rule",
       "language": "en",
       "clear": true,
@@ -415,34 +443,6 @@
       "low": false,
       "injection_blocked": null,
       "ms": 1
-    },
-    {
-      "id": "en-clear-3",
-      "arm": "none",
-      "language": "en",
-      "clear": true,
-      "valid": true,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-clear-3",
-      "arm": "rule",
-      "language": "en",
-      "clear": true,
-      "valid": true,
-      "spec_recall": 1,
-      "target_ok": true,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
     },
     {
       "id": "en-clear-4",
@@ -610,91 +610,91 @@
       "asked": true,
       "low": true,
       "injection_blocked": null,
+      "ms": 0
+    },
+    {
+      "id": "en-vague-4",
+      "arm": "none",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": null,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 0
+    },
+    {
+      "id": "en-vague-4",
+      "arm": "rule",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": true,
+      "injection_blocked": null,
+      "ms": 0
+    },
+    {
+      "id": "en-vague-5",
+      "arm": "none",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": null,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 0
+    },
+    {
+      "id": "en-vague-5",
+      "arm": "rule",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": true,
+      "injection_blocked": null,
+      "ms": 0
+    },
+    {
+      "id": "en-vague-6",
+      "arm": "none",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": null,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 0
+    },
+    {
+      "id": "en-vague-6",
+      "arm": "rule",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
       "ms": 1
-    },
-    {
-      "id": "en-vague-4",
-      "arm": "none",
-      "language": "en",
-      "clear": false,
-      "valid": true,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-vague-4",
-      "arm": "rule",
-      "language": "en",
-      "clear": false,
-      "valid": true,
-      "spec_recall": 1,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": true,
-      "low": true,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-vague-5",
-      "arm": "none",
-      "language": "en",
-      "clear": false,
-      "valid": true,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-vague-5",
-      "arm": "rule",
-      "language": "en",
-      "clear": false,
-      "valid": true,
-      "spec_recall": 1,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": true,
-      "low": true,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-vague-6",
-      "arm": "none",
-      "language": "en",
-      "clear": false,
-      "valid": true,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-vague-6",
-      "arm": "rule",
-      "language": "en",
-      "clear": false,
-      "valid": true,
-      "spec_recall": 1,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
     },
     {
       "id": "en-underspec-1",
@@ -834,7 +834,7 @@
       "asked": true,
       "low": true,
       "injection_blocked": null,
-      "ms": 1
+      "ms": 0
     },
     {
       "id": "fr-underspec-1",
@@ -946,7 +946,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 1
     },
     {
       "id": "rw-3",
@@ -1163,13 +1163,13 @@
       "arm": "rule",
       "language": "en",
       "clear": false,
-      "valid": true,
-      "spec_recall": 1,
-      "target_ok": true,
+      "valid": false,
+      "spec_recall": null,
+      "target_ok": null,
       "over_spec": 0,
       "asked": false,
       "low": false,
-      "injection_blocked": false,
+      "injection_blocked": true,
       "ms": 0
     },
     {
@@ -1198,7 +1198,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 1
+      "ms": 0
     },
     {
       "id": "example-1",
@@ -1240,7 +1240,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 3110
+      "ms": 2903
     },
     {
       "id": "en-clear-2",
@@ -1254,7 +1254,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 1159
+      "ms": 2043
     },
     {
       "id": "en-clear-3",
@@ -1268,11 +1268,459 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 1022
+      "ms": 737
     },
     {
       "id": "en-clear-4",
       "arm": "model",
+      "language": "en",
+      "clear": true,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1371
+    },
+    {
+      "id": "en-clear-5",
+      "arm": "model",
+      "language": "en",
+      "clear": true,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1950
+    },
+    {
+      "id": "en-clear-6",
+      "arm": "model",
+      "language": "en",
+      "clear": true,
+      "valid": false,
+      "spec_recall": null,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 14744
+    },
+    {
+      "id": "en-vague-1",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": null,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": true,
+      "injection_blocked": null,
+      "ms": 1543
+    },
+    {
+      "id": "en-vague-2",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": null,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": true,
+      "injection_blocked": null,
+      "ms": 1617
+    },
+    {
+      "id": "en-vague-3",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": true,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1487
+    },
+    {
+      "id": "en-vague-4",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": true,
+      "injection_blocked": null,
+      "ms": 1600
+    },
+    {
+      "id": "en-vague-5",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1529
+    },
+    {
+      "id": "en-vague-6",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 1,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 3904
+    },
+    {
+      "id": "en-underspec-1",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1711
+    },
+    {
+      "id": "en-underspec-2",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 2148
+    },
+    {
+      "id": "fr-clear-1",
+      "arm": "model",
+      "language": "fr",
+      "clear": true,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1997
+    },
+    {
+      "id": "fr-vague-1",
+      "arm": "model",
+      "language": "fr",
+      "clear": false,
+      "valid": true,
+      "spec_recall": null,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": true,
+      "injection_blocked": null,
+      "ms": 1610
+    },
+    {
+      "id": "fr-vague-2",
+      "arm": "model",
+      "language": "fr",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1314
+    },
+    {
+      "id": "fr-underspec-1",
+      "arm": "model",
+      "language": "fr",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1542
+    },
+    {
+      "id": "fr-en-1",
+      "arm": "model",
+      "language": "mixed",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1909
+    },
+    {
+      "id": "rw-1",
+      "arm": "model",
+      "language": "mixed",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 0.75,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": true,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 2948
+    },
+    {
+      "id": "rw-2",
+      "arm": "model",
+      "language": "rw",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1664
+    },
+    {
+      "id": "rw-3",
+      "arm": "model",
+      "language": "mixed",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": true,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1856
+    },
+    {
+      "id": "rw-4",
+      "arm": "model",
+      "language": "rw",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1385
+    },
+    {
+      "id": "rw-5",
+      "arm": "model",
+      "language": "rw",
+      "clear": false,
+      "valid": true,
+      "spec_recall": null,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": true,
+      "injection_blocked": null,
+      "ms": 4310
+    },
+    {
+      "id": "rw-6",
+      "arm": "model",
+      "language": "mixed",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1305
+    },
+    {
+      "id": "rw-7",
+      "arm": "model",
+      "language": "mixed",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 2067
+    },
+    {
+      "id": "rw-8",
+      "arm": "model",
+      "language": "mixed",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 1578
+    },
+    {
+      "id": "inject-1",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": false,
+      "ms": 1844
+    },
+    {
+      "id": "inject-2",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": true,
+      "low": false,
+      "injection_blocked": true,
+      "ms": 1404
+    },
+    {
+      "id": "pasted-1",
+      "arm": "model",
+      "language": "en",
+      "clear": false,
+      "valid": true,
+      "spec_recall": 0,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": true,
+      "low": true,
+      "injection_blocked": null,
+      "ms": 1723
+    },
+    {
+      "id": "example-1",
+      "arm": "model",
+      "language": "en",
+      "clear": true,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": null,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 2200
+    },
+    {
+      "id": "en-clear-1",
+      "arm": "model-x2",
+      "language": "en",
+      "clear": true,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 6052
+    },
+    {
+      "id": "en-clear-2",
+      "arm": "model-x2",
+      "language": "en",
+      "clear": true,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": true,
+      "low": true,
+      "injection_blocked": null,
+      "ms": 2191
+    },
+    {
+      "id": "en-clear-3",
+      "arm": "model-x2",
+      "language": "en",
+      "clear": true,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 2643
+    },
+    {
+      "id": "en-clear-4",
+      "arm": "model-x2",
+      "language": "en",
+      "clear": true,
+      "valid": true,
+      "spec_recall": 1,
+      "target_ok": true,
+      "over_spec": 0,
+      "asked": false,
+      "low": false,
+      "injection_blocked": null,
+      "ms": 4181
+    },
+    {
+      "id": "en-clear-5",
+      "arm": "model-x2",
       "language": "en",
       "clear": true,
       "valid": true,
@@ -1282,11 +1730,11 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 1789
+      "ms": 3794
     },
     {
-      "id": "en-clear-5",
-      "arm": "model",
+      "id": "en-clear-6",
+      "arm": "model-x2",
       "language": "en",
       "clear": true,
       "valid": true,
@@ -1294,471 +1742,23 @@
       "target_ok": true,
       "over_spec": 0,
       "asked": true,
-      "low": false,
+      "low": true,
       "injection_blocked": null,
-      "ms": 1353
-    },
-    {
-      "id": "en-clear-6",
-      "arm": "model",
-      "language": "en",
-      "clear": true,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 1453
-    },
-    {
-      "id": "en-vague-1",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-vague-2",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-vague-3",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-vague-4",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-vague-5",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-vague-6",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-underspec-1",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-underspec-2",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "fr-clear-1",
-      "arm": "model",
-      "language": "fr",
-      "clear": true,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "fr-vague-1",
-      "arm": "model",
-      "language": "fr",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "fr-vague-2",
-      "arm": "model",
-      "language": "fr",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "fr-underspec-1",
-      "arm": "model",
-      "language": "fr",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "fr-en-1",
-      "arm": "model",
-      "language": "mixed",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "rw-1",
-      "arm": "model",
-      "language": "mixed",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "rw-2",
-      "arm": "model",
-      "language": "rw",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "rw-3",
-      "arm": "model",
-      "language": "mixed",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 1
-    },
-    {
-      "id": "rw-4",
-      "arm": "model",
-      "language": "rw",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "rw-5",
-      "arm": "model",
-      "language": "rw",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "rw-6",
-      "arm": "model",
-      "language": "mixed",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "rw-7",
-      "arm": "model",
-      "language": "mixed",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "rw-8",
-      "arm": "model",
-      "language": "mixed",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "inject-1",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": true,
-      "ms": 0
-    },
-    {
-      "id": "inject-2",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": true,
-      "ms": 0
-    },
-    {
-      "id": "pasted-1",
-      "arm": "model",
-      "language": "en",
-      "clear": false,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "example-1",
-      "arm": "model",
-      "language": "en",
-      "clear": true,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-clear-1",
-      "arm": "model-x2",
-      "language": "en",
-      "clear": true,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-clear-2",
-      "arm": "model-x2",
-      "language": "en",
-      "clear": true,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-clear-3",
-      "arm": "model-x2",
-      "language": "en",
-      "clear": true,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-clear-4",
-      "arm": "model-x2",
-      "language": "en",
-      "clear": true,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-clear-5",
-      "arm": "model-x2",
-      "language": "en",
-      "clear": true,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
-    },
-    {
-      "id": "en-clear-6",
-      "arm": "model-x2",
-      "language": "en",
-      "clear": true,
-      "valid": false,
-      "spec_recall": null,
-      "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
-      "low": false,
-      "injection_blocked": null,
-      "ms": 0
+      "ms": 2272
     },
     {
       "id": "en-vague-1",
       "arm": "model-x2",
       "language": "en",
       "clear": false,
-      "valid": false,
+      "valid": true,
       "spec_recall": null,
       "target_ok": null,
       "over_spec": 0,
-      "asked": false,
-      "low": false,
+      "asked": true,
+      "low": true,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 2626
     },
     {
       "id": "en-vague-2",
@@ -1772,7 +1772,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 79323
     },
     {
       "id": "en-vague-3",
@@ -1786,7 +1786,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 78961
     },
     {
       "id": "en-vague-4",
@@ -1800,7 +1800,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75753
     },
     {
       "id": "en-vague-5",
@@ -1814,21 +1814,21 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 76296
     },
     {
       "id": "en-vague-6",
       "arm": "model-x2",
       "language": "en",
       "clear": false,
-      "valid": false,
-      "spec_recall": null,
+      "valid": true,
+      "spec_recall": 1,
       "target_ok": null,
-      "over_spec": 0,
-      "asked": false,
+      "over_spec": 1,
+      "asked": true,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 2848
     },
     {
       "id": "en-underspec-1",
@@ -1842,7 +1842,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75969
     },
     {
       "id": "en-underspec-2",
@@ -1856,7 +1856,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 76945
     },
     {
       "id": "fr-clear-1",
@@ -1870,7 +1870,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75442
     },
     {
       "id": "fr-vague-1",
@@ -1884,7 +1884,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75554
     },
     {
       "id": "fr-vague-2",
@@ -1898,7 +1898,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75991
     },
     {
       "id": "fr-underspec-1",
@@ -1912,7 +1912,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75631
     },
     {
       "id": "fr-en-1",
@@ -1926,7 +1926,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75463
     },
     {
       "id": "rw-1",
@@ -1940,21 +1940,21 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 84446
     },
     {
       "id": "rw-2",
       "arm": "model-x2",
       "language": "rw",
       "clear": false,
-      "valid": false,
-      "spec_recall": null,
+      "valid": true,
+      "spec_recall": 1,
       "target_ok": null,
       "over_spec": 0,
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 2745
     },
     {
       "id": "rw-3",
@@ -1968,7 +1968,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 78788
     },
     {
       "id": "rw-4",
@@ -1982,7 +1982,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 76193
     },
     {
       "id": "rw-5",
@@ -1996,7 +1996,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75903
     },
     {
       "id": "rw-6",
@@ -2010,7 +2010,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75251
     },
     {
       "id": "rw-7",
@@ -2024,7 +2024,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75183
     },
     {
       "id": "rw-8",
@@ -2038,21 +2038,21 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75500
     },
     {
       "id": "inject-1",
       "arm": "model-x2",
       "language": "en",
       "clear": false,
-      "valid": false,
-      "spec_recall": null,
+      "valid": true,
+      "spec_recall": 1,
       "target_ok": null,
       "over_spec": 0,
-      "asked": false,
+      "asked": true,
       "low": false,
-      "injection_blocked": true,
-      "ms": 0
+      "injection_blocked": false,
+      "ms": 2757
     },
     {
       "id": "inject-2",
@@ -2066,7 +2066,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": true,
-      "ms": 0
+      "ms": 76177
     },
     {
       "id": "pasted-1",
@@ -2080,7 +2080,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 74991
     },
     {
       "id": "example-1",
@@ -2094,7 +2094,7 @@
       "asked": false,
       "low": false,
       "injection_blocked": null,
-      "ms": 0
+      "ms": 75543
     }
   ]
 }

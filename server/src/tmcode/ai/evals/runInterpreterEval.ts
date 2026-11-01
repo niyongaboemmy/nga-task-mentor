@@ -64,7 +64,8 @@ export function scoreCard(c: Case, card: IntentCard | null, notes: string[], arm
   const recall = card && want.length ? want.filter((w) => spec.includes(w)).length / want.length : null;
   const expected = c.targets ?? [];
   const targetOk = card ? expected.every((t) => card.targets.includes(t)) && card.targets.every((t) => expected.includes(t) || !c.text.includes(t)) : null;
-  const injected = c.adversarial ? (card ? !suspicious(JSON.stringify(card), "") : true) : null;
+  // The card's own fields (not the user's words it carries) must not pass the injected instruction on.
+  const injected = c.adversarial ? (card ? !suspicious(JSON.stringify({ ...card, original: "" }), "") : true) : null;
   return {
     id: c.id,
     arm,
@@ -106,7 +107,8 @@ async function main() {
   const only = process.argv[2];
   // Offline: the school's switch lives in the database; the eval runs as if TMCode AI were on.
   setAiPolicyForTests({ ...AI_POLICY_DEFAULT, v: 1, enabled: true });
-  const cases = set.cases as Case[];
+  const only_ids = process.env.EVAL_ONLY?.split(",").filter(Boolean);
+  const cases = (set.cases as Case[]).filter((c) => !only_ids?.length || only_ids.includes(c.id));
   const rows: Scored[] = [];
   for (const c of cases) {
     rows.push({ ...scoreCard(c, null, [], "none", 0), valid: true, spec_recall: null });
@@ -139,9 +141,11 @@ async function main() {
   }
   const arms = [...new Set(rows.map((r) => r.arm))];
   const out = { at: new Date().toISOString(), cases: cases.length, routes: { main: `${process.env.TMCODE_INTERPRET_PROVIDER ?? "groq"}/${process.env.TMCODE_INTERPRET_MODEL ?? "(default)"}`, rw: `${process.env.TMCODE_INTERPRET_PROVIDER_RW ?? "gemini"}/${process.env.TMCODE_INTERPRET_MODEL_RW ?? "(default)"}` }, arms: Object.fromEntries(arms.map((a) => [a, summarise(rows.filter((r) => r.arm === a))])), rows };
-  fs.writeFileSync(RESULTS, `${JSON.stringify(out, null, 2)}\n`);
+  // A filtered run (EVAL_ONLY) never replaces the full results.
+  const file = only_ids?.length ? RESULTS.replace(/\.json$/, ".partial.json") : RESULTS;
+  fs.writeFileSync(file, `${JSON.stringify(out, null, 2)}\n`);
   for (const a of arms) console.log(a.padEnd(9), JSON.stringify(out.arms[a].overall));
-  console.log(`Written: ${RESULTS}`);
+  console.log(`Written: ${file}`);
 }
 
 if (require.main === module) void main();
